@@ -25,6 +25,7 @@ requests = "^2.19"
 ipdb = "^0.11.0"
 black = "^18.3-alpha.0"
 isort = "^4.3"
+pytest-mypy = "^0.3.2"
 
 [tool.black]
 line-length = 120
