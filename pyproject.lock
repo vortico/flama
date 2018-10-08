@@ -451,7 +451,7 @@ name = "starlette"
 optional = false
 platform = "*"
 python-versions = "*"
-version = "0.3.2"
+version = "0.3.4"
 
 [[package]]
 category = "dev"
@@ -564,7 +564,7 @@ pytest-xdist = ["0875deac20f6d96597036bdf63970887a6f36d28289c2f6682faf652dfea687
 requests = ["63b52e3c866428a224f97cab011de738c36aec0185aa91cfacd418b5d58911d1", "ec22d826a36ed72a7358ff3fe56cbd4ba69dd7a6718ffd450ff0e9df7a47ce6a"]
 simplegeneric = ["dc972e06094b9af5b855b3df4a646395e43d1c9d0d39ed345b7393560d0b9173"]
 six = ["70e8a77beed4562e7f14fe23a786b54f6296e34344c23bc42f07b15018ff98e9", "832dc0e10feb1aa2c68dcc57dbb658f1c7e65b9b61af69048abc87a2db00a0eb"]
-starlette = ["0a87ac4706f7a40068433fa0407132057ebb7dac48c774b2a204a11269274c5f"]
+starlette = ["bc2b1e877390d30b34907c435b1bbd1e578d15f2b93777fc91f7a175af46ad61"]
 toml = ["380178cde50a6a79f9d2cf6f42a62a5174febe5eea4126fe4038785f1d888d42", "a7901919d3e4f92ffba7ff40a9d697e35bbbc8a8049fe8da742f34c83606d957"]
 tox = ["7f802b37fffd3b5ef2aab104943fa5dad24bf9564bb7e732e54b8d0cfec2fca0", "cc97859bd7f38aa5b3b8ba55ffe7ee9952e7050faad1aedc0829cd3db2fb61d6"]
 traitlets = ["9c4bd2d267b7153df9152698efb1050a5d84982d3384a37b2c1f7723ba3e7835", "c6cb5e6f57c5a9bdaa40fa71ce7b4af30298fbab9ece9815b5d995ab6217c7d9"]
