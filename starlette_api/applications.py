@@ -6,14 +6,14 @@ from starlette.applications import Starlette as App
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Path
-from starlette.types import ASGIInstance, Receive, Scope, Send
+from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 from starlette.websockets import WebSocket
 
 from starlette_api.components import Component
 from starlette_api.injector import Injector
 
 
-def asgi_from_http(func, injector: Injector):
+def asgi_from_http(func: typing.Callable, injector: Injector) -> ASGIApp:
     """
     Wraps a http function into ASGI application.
     """
@@ -39,7 +39,7 @@ def asgi_from_http(func, injector: Injector):
     return app
 
 
-def asgi_from_websocket(func, injector: Injector):
+def asgi_from_websocket(func: typing.Callable, injector: Injector) -> ASGIApp:
     """
     Wraps websocket function into ASGI application.
     """
@@ -59,7 +59,7 @@ def asgi_from_websocket(func, injector: Injector):
 
 
 class Starlette(App):
-    def __init__(self, components: typing.Optional[typing.List[Component]] = None, debug=False) -> None:
+    def __init__(self, components: typing.Optional[typing.List[Component]] = None, debug: bool = False) -> None:
         if components is None:
             components = []
 
@@ -67,18 +67,18 @@ class Starlette(App):
 
         super().__init__(debug=debug)
 
-    def add_route(self, path: str, route, methods=None) -> None:
+    def add_route(self, path: str, route: typing.Callable, methods: typing.Sequence[str]=()) -> None:
         if not inspect.isclass(route):
             route = asgi_from_http(route, self.injector)
-            if methods is None:
-                methods = ["GET"]
+            if not methods:
+                methods = ("GET",)
         else:
             route.injector = self.injector
 
         instance = Path(path, route, protocol="http", methods=methods)
         self.router.routes.append(instance)
 
-    def add_websocket_route(self, path: str, route) -> None:
+    def add_websocket_route(self, path: str, route: typing.Callable) -> None:
         if not inspect.isclass(route):
             route = asgi_from_websocket(route, self.injector)
         else:
