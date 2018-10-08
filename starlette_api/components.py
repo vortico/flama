@@ -5,7 +5,7 @@ from starlette_api import exceptions
 
 
 class Component:
-    def identity(self, parameter: inspect.Parameter):
+    def identity(self, parameter: inspect.Parameter) -> str:
         """
         Each component needs a unique identifier string that we use for lookups
         from the `state` dictionary when we run the dependency injection.
@@ -17,12 +17,12 @@ class Component:
         # that is additionally parameterized by the parameter name.
         args = inspect.signature(self.resolve).parameters.values()
         if inspect.Parameter in [arg.annotation for arg in args]:
-            return annotation_name + ":" + parameter_name
+            return ":".join([annotation_name, parameter_name])
 
         # Standard case is to use the class name, lowercased.
         return annotation_name
 
-    def can_handle_parameter(self, parameter: inspect.Parameter):
+    def can_handle_parameter(self, parameter: inspect.Parameter) -> bool:
         # Return `True` if this component can handle the given parameter.
         #
         # The default behavior is for components to handle whatever class
