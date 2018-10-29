@@ -8,7 +8,6 @@ from starlette_api import http
 from starlette_api.applications import Starlette
 from starlette_api.endpoints import HTTPEndpoint
 
-
 app = Starlette()
 
 

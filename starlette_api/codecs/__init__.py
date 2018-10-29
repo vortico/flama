@@ -4,10 +4,4 @@ from starlette_api.codecs.multipart import MultiPartCodec
 from starlette_api.codecs.text import TextCodec
 from starlette_api.codecs.urlencoded import URLEncodedCodec
 
-__all__ = [
-    "BaseCodec",
-    "JSONCodec",
-    "TextCodec",
-    "MultiPartCodec",
-    "URLEncodedCodec",
-]
+__all__ = ["BaseCodec", "JSONCodec", "TextCodec", "MultiPartCodec", "URLEncodedCodec"]

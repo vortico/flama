@@ -2,10 +2,10 @@ import inspect
 import typing
 
 from starlette_api import codecs, exceptions, http
+from starlette_api.codecs.negotiation import negotiate_content_type
 from starlette_api.components import Component
 from starlette_api.router import APIPath
 from starlette_api.schema import types, validators
-from starlette_api.utils.conneg import negotiate_content_type
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)

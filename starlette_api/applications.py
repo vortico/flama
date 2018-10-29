@@ -21,19 +21,20 @@ def asgi_from_http(func: typing.Callable, app: "Starlette") -> ASGIApp:
     """
     Wraps a http function into ASGI application.
     """
+
     @wraps(func)
     def _app(scope: Scope) -> ASGIInstance:
         async def awaitable(receive: Receive, send: Send) -> None:
             path, path_params = get_route_from_scope(app.router, scope)
 
             state = {
-                'scope': scope,
-                'receive': receive,
-                'send': send,
-                'exc': None,
-                'app': None,
-                'path_params': path_params,
-                'api_path': path,
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "exc": None,
+                "app": None,
+                "path_params": path_params,
+                "api_path": path,
             }
 
             injected_func = await app.injector.inject(func, state)
@@ -57,17 +58,18 @@ def asgi_from_websocket(func: typing.Callable, app: "Starlette") -> ASGIApp:
     """
     Wraps websocket function into ASGI application.
     """
+
     @wraps(func)
     def _app(scope: Scope) -> ASGIInstance:
         async def awaitable(receive: Receive, send: Send) -> None:
             state = {
-                'scope': scope,
-                'receive': receive,
-                'send': send,
-                'exc': None,
-                'app': app,
-                'path_params': None,
-                'route': get_route_from_scope(app.router, scope)
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "exc": None,
+                "app": app,
+                "path_params": None,
+                "route": get_route_from_scope(app.router, scope),
             }
 
             injected_func = await app.injector.inject(func, state)
@@ -100,7 +102,7 @@ class Starlette(App):
 
         return decorator
 
-    def add_route(self, path: str, route: typing.Callable, method: str="GET") -> None:
+    def add_route(self, path: str, route: typing.Callable, method: str = "GET") -> None:
         if not inspect.isclass(route):
             route = asgi_from_http(route, self)
         else:

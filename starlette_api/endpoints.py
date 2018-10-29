@@ -45,13 +45,13 @@ class HTTPEndpoint(BaseHTTPEndpoint):
         api_path, path_params = get_route_from_scope(self.app.router, self.scope)
 
         state = {
-            'scope': self.scope,
-            'receive': receive,
-            'send': send,
-            'exc': None,
-            'app': self.app,
-            'path_params': path_params,
-            'api_path': api_path
+            "scope": self.scope,
+            "receive": receive,
+            "send": send,
+            "exc": None,
+            "app": self.app,
+            "path_params": path_params,
+            "api_path": api_path,
         }
         response = await self.dispatch(request, state, **kwargs)
         await response(receive, send)

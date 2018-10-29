@@ -313,7 +313,7 @@ name = "pluggy"
 optional = false
 platform = "unix"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-version = "0.7.1"
+version = "0.8.0"
 
 [[package]]
 category = "dev"
@@ -365,7 +365,7 @@ name = "pytest"
 optional = false
 platform = "unix"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-version = "3.8.2"
+version = "3.9.3"
 
 [package.dependencies]
 atomicwrites = ">=1.0"
@@ -435,14 +435,14 @@ description = "Python HTTP for Humans."
 name = "requests"
 optional = false
 platform = "*"
-python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-version = "2.19.1"
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+version = "2.20.0"
 
 [package.dependencies]
 certifi = ">=2017.4.17"
 chardet = ">=3.0.2,<3.1.0"
 idna = ">=2.5,<2.8"
-urllib3 = ">=1.21.1,<1.24"
+urllib3 = ">=1.21.1,<1.25"
 
 [[package]]
 category = "dev"
@@ -487,7 +487,7 @@ name = "tox"
 optional = false
 platform = "unix"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-version = "3.5.2"
+version = "3.5.3"
 
 [package.dependencies]
 filelock = ">=3.0.0,<4"
@@ -518,8 +518,8 @@ description = "HTTP library with thread-safe connection pooling, file post, and 
 name = "urllib3"
 optional = false
 platform = "*"
-python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, <4"
-version = "1.23"
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, <4"
+version = "1.24"
 
 [[package]]
 category = "dev"
@@ -572,23 +572,23 @@ more-itertools = ["c187a73da93e7a8acc0001572aebc7e3c69daf7bf6881a2cea10650bd4420
 parso = ["35704a43a3c113cce4de228ddb39aab374b8004f4f2407d070b6a2ca784ce8a2", "895c63e93b94ac1e1690f5fdd40b65f07c8171e3e53cbd7793b5b96c0e0a7f24"]
 pexpect = ["2a8e88259839571d1251d278476f3eec5db26deb73a70be5ed5dc5435e418aba", "3fbd41d4caf27fa4a377bfd16fef87271099463e6fa73e92a52f92dfee5d425b"]
 pickleshare = ["87683d47965c1da65cdacaf31c8441d12b8044cdec9aca500cd78fc2c683afca", "9649af414d74d4df115d5d718f82acb59c9d418196b7b4290ed47a12ce62df56"]
-pluggy = ["6e3836e39f4d36ae72840833db137f7b7d35105079aee6ec4a62d9f80d594dd1", "95eb8364a4708392bae89035f45341871286a333f749c3141c20573d2b3876e1"]
+pluggy = ["447ba94990e8014ee25ec853339faf7b0fc8050cdc3289d4d71f7f410fb90095", "bde19360a8ec4dfd8a20dcb811780a30998101f078fc7ded6162f0076f50508f"]
 prompt-toolkit = ["1df952620eccb399c53ebb359cc7d9a8d3a9538cb34c5a1344bdbeb29fbcc381", "3f473ae040ddaa52b52f97f6b4a493cfa9f5920c255a12dc56a7d34397a398a4", "858588f1983ca497f1cf4ffde01d978a3ea02b01c8a26a8bbc5cd2e66d816917"]
 ptyprocess = ["923f299cc5ad920c68f2bc0bc98b75b9f838b93b599941a6b63ddbc2476394c0", "d7cc528d76e76342423ca640335bd3633420dc1366f258cb31d05e865ef5ca1f"]
 py = ["bf92637198836372b520efcba9e020c330123be8ce527e535d185ed4b6f45694", "e76826342cefe3c3d5f7e8ee4316b80d1dd8a300781612ddbc765c17ba25a6c6"]
 pygments = ["78f3f434bcc5d6ee09020f92ba487f95ba50f1e3ef83ae96b9d5ffa1bab25c5d", "dbae1046def0efb574852fab9e90209b23f556367b5a320c0bcb871c77c3e8cc"]
-pytest = ["7e258ee50338f4e46957f9e09a0f10fb1c2d05493fa901d113a8dafd0790de4e", "9332147e9af2dcf46cd7ceb14d5acadb6564744ddff1fe8c17f0ce60ece7d9a2"]
+pytest = ["a9e5e8d7ab9d5b0747f37740276eb362e6a76275d76cebbb52c6049d93b475db", "bf47e8ed20d03764f963f0070ff1c8fda6e2671fc5dd562a4d3b7148ad60f5ca"]
 pytest-cov = ["513c425e931a0344944f84ea47f3956be0e416d95acbd897a44970c8d926d5d7", "e360f048b7dae3f2f2a9a4d067b2dd6b6a015d384d1577c994a43f3f7cbad762"]
 pytest-forked = ["e4500cd0509ec4a26535f7d4112a8cc0f17d3a41c29ffd4eab479d2a55b30805", "f275cb48a73fc61a6710726348e1da6d68a978f0ec0c54ece5a5fae5977e5a08"]
 pytest-xdist = ["06aa39361694c9365baaa03bec71159b59ad06c9826c6279ebba368cb3571561", "1ef0d05c905cfa0c5442c90e9e350e65c6ada120e33a00a066ca51c89f5f869a"]
 pyyaml = ["3d7da3009c0f3e783b2c873687652d83b1bbfd5c88e9813fb7e5b03c0dd3108b", "3ef3092145e9b70e3ddd2c7ad59bdd0252a94dfe3949721633e41344de00a6bf", "40c71b8e076d0550b2e6380bada1f1cd1017b882f7e16f09a65be98e017f211a", "558dd60b890ba8fd982e05941927a3911dc409a63dcb8b634feaa0cda69330d3", "a7c28b45d9f99102fa092bb213aa12e0aaf9a6a1f5e395d36166639c1f96c3a1", "aa7dd4a6a427aed7df6fb7f08a580d68d9b118d90310374716ae90b710280af1", "bc558586e6045763782014934bfaf39d48b8ae85a2713117d16c39864085c613", "d46d7982b62e0729ad0175a9bc7e10a566fc07b224d2c79fafb5e032727eaa04", "d5eef459e30b09f5a098b9cea68bebfeb268697f78d647bd255a085371ac7f3f", "e01d3203230e1786cd91ccfdc8f8454c8069c91bee3962ad93b87a4b2860f537", "e170a9e6fcfd19021dd29845af83bb79236068bf5fd4df3327c1be18182b2531"]
-requests = ["63b52e3c866428a224f97cab011de738c36aec0185aa91cfacd418b5d58911d1", "ec22d826a36ed72a7358ff3fe56cbd4ba69dd7a6718ffd450ff0e9df7a47ce6a"]
+requests = ["99dcfdaaeb17caf6e526f32b6a7b780461512ab3f1d992187801694cba42770c", "a84b8c9ab6239b578f22d1c21d51b696dcfe004032bb80ea832398d6909d7279"]
 simplegeneric = ["dc972e06094b9af5b855b3df4a646395e43d1c9d0d39ed345b7393560d0b9173"]
 six = ["70e8a77beed4562e7f14fe23a786b54f6296e34344c23bc42f07b15018ff98e9", "832dc0e10feb1aa2c68dcc57dbb658f1c7e65b9b61af69048abc87a2db00a0eb"]
 starlette = ["6fad4bf0ef97c66897af1f2c76eef3099c1cb93c3fc3d2a5763a8024324ca91d"]
 toml = ["229f81c57791a41d65e399fc06bf0848bab550a9dfd5ed66df18ce5f05e73d5c", "235682dd292d5899d361a811df37e04a8828a5b1da3115886b73cf81ebc9100e", "f1db651f9657708513243e61e6cc67d101a39bad662eaa9b5546f789338e07a3"]
-tox = ["217fb84aecf9792a98f93f07cfcaf014205a76c64e52bd7c2b4135458e6ad2a1", "4baeb3d8ebdcd9f43afce38aa67d06f1165a87d221d5bb21e8b39a0d4880c134"]
+tox = ["513e32fdf2f9e2d583c2f248f47ba9886428c949f068ac54a0469cac55df5862", "75fa30e8329b41b664585f5fb837e23ce1d7e6fa1f7811f2be571c990f9d911b"]
 traitlets = ["9c4bd2d267b7153df9152698efb1050a5d84982d3384a37b2c1f7723ba3e7835", "c6cb5e6f57c5a9bdaa40fa71ce7b4af30298fbab9ece9815b5d995ab6217c7d9"]
-urllib3 = ["a68ac5e15e76e7e5dd2b8f94007233e01effe3e50e8daddf69acfd81cb686baf", "b5725a0bd4ba422ab0e66e89e030c806576753ea3ee08554382c14e685d117b5"]
+urllib3 = ["41c3db2fc01e5b907288010dec72f9d0a74e37d6994e6eb56849f59fea2265ae", "8819bba37a02d143296a4d032373c4dd4aca11f6d4c9973335ca75f9c8475f59"]
 virtualenv = ["2ce32cd126117ce2c539f0134eb89de91a8413a29baac49cbab3eb50e2026669", "ca07b4c0b54e14a91af9f34d0919790b016923d157afda5efdde55c96718f752"]
 wcwidth = ["3df37372226d6e63e1b1e1eda15c594bca98a22d33a23832a90998faa96bc65e", "f4ebe71925af7b40a864553f761ed559b43544f8f71746c2d756c7fe788ade7c"]

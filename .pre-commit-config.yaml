@@ -35,7 +35,6 @@
         entry: isort
         args:
         - -e
-        - -m 5
         - -w 120
         language: system
         types: [python]
