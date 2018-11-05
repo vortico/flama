@@ -12,7 +12,7 @@ exclude = []
 
 [tool.poetry.dependencies]
 python = "^3.6"
-starlette = "^0.3.5"
+starlette = "^0.6.0"
 pyyaml = "^3.13"
 
 [tool.poetry.dev-dependencies]
@@ -26,6 +26,7 @@ requests = "^2.19"
 ipdb = "^0.11.0"
 black = "^18.3-alpha.0"
 isort = "^4.3"
+python-multipart = "^0.0.5"
 
 [tool.black]
 line-length = 120

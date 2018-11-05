@@ -7,7 +7,6 @@ from starlette.types import Receive, Send
 
 from starlette_api.applications import Starlette
 from starlette_api.injector import Injector
-from starlette_api.router import get_route_from_scope
 
 
 class HTTPEndpoint(BaseHTTPEndpoint):
@@ -42,7 +41,7 @@ class HTTPEndpoint(BaseHTTPEndpoint):
         request = Request(self.scope, receive=receive)
         kwargs = self.scope.get("kwargs", {})
 
-        api_path, path_params = get_route_from_scope(self.app.router, self.scope)
+        route, path_params = self.app.router.get_route_from_scope(self.scope)
 
         state = {
             "scope": self.scope,
@@ -51,12 +50,12 @@ class HTTPEndpoint(BaseHTTPEndpoint):
             "exc": None,
             "app": self.app,
             "path_params": path_params,
-            "api_path": api_path,
+            "route": route,
         }
         response = await self.dispatch(request, state, **kwargs)
         await response(receive, send)
 
-    async def dispatch(self, request: Request, state: typing.Mapping, **kwargs):
+    async def dispatch(self, request: Request, state: typing.Dict, **kwargs):
         handler_name = "get" if request.method == "HEAD" else request.method.lower()
         handler = getattr(self, handler_name, self.method_not_allowed)
 

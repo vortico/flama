@@ -35,7 +35,6 @@ def client():
 
 
 class TestCaseHttpInjection:
-    @pytest.mark.wip
     def test_injection_http_view(self, client):
         response = client.get("/http-view")
         assert response.status_code == 200

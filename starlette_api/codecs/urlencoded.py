@@ -6,4 +6,4 @@ class URLEncodedCodec(BaseCodec):
     media_type = "application/x-www-form-urlencoded"
 
     async def decode(self, request: http.Request, **options):
-        return await request.form()
+        return await request.form() or None

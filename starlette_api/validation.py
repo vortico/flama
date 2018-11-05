@@ -4,12 +4,21 @@ import typing
 from starlette_api import codecs, exceptions, http
 from starlette_api.codecs.negotiation import negotiate_content_type
 from starlette_api.components import Component
-from starlette_api.router import APIPath
+from starlette_api.exceptions import WrongRouteError
+from starlette_api.routing import APIRoute, Route
 from starlette_api.schema import types, validators
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
 ValidatedRequestData = typing.TypeVar("ValidatedRequestData")
+
+
+class APIRouteComponent(Component):
+    def resolve(self, route: Route) -> APIRoute:
+        if not getattr(route, "link"):
+            raise WrongRouteError(f"Route '{route.name}' is not defined as an API route")
+
+        return route
 
 
 class RequestDataComponent(Component):
@@ -34,8 +43,8 @@ class RequestDataComponent(Component):
 
 
 class ValidatePathParamsComponent(Component):
-    async def resolve(self, api_path: APIPath, path_params: http.PathParams) -> ValidatedPathParams:
-        path_fields = api_path.link.get_path_fields()
+    async def resolve(self, route: APIRoute, path_params: http.PathParams) -> ValidatedPathParams:
+        path_fields = route.link.get_path_fields()
 
         validator = validators.Object(
             properties=[(field.name, field.schema if field.schema else validators.Any()) for field in path_fields],
@@ -50,8 +59,8 @@ class ValidatePathParamsComponent(Component):
 
 
 class ValidateQueryParamsComponent(Component):
-    def resolve(self, api_path: APIPath, query_params: http.QueryParams) -> ValidatedQueryParams:
-        query_fields = api_path.link.get_query_fields()
+    def resolve(self, route: APIRoute, query_params: http.QueryParams) -> ValidatedQueryParams:
+        query_fields = route.link.get_query_fields()
 
         validator = validators.Object(
             properties=[(field.name, field.schema if field.schema else validators.Any()) for field in query_fields],
@@ -69,8 +78,8 @@ class ValidateRequestDataComponent(Component):
     def can_handle_parameter(self, parameter: inspect.Parameter):
         return parameter.annotation is ValidatedRequestData
 
-    def resolve(self, api_path: APIPath, data: http.RequestData):
-        body_field = api_path.link.get_body_field()
+    def resolve(self, route: APIRoute, data: http.RequestData):
+        body_field = route.link.get_body_field()
 
         if not body_field or not body_field.schema:
             return data
@@ -125,6 +134,7 @@ class CompositeParamComponent(Component):
 
 
 VALIDATION_COMPONENTS = (
+    APIRouteComponent(),
     RequestDataComponent(),
     ValidatePathParamsComponent(),
     ValidateQueryParamsComponent(),

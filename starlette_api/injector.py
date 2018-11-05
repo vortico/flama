@@ -7,7 +7,7 @@ from starlette_api.asgi import ASGI_COMPONENTS, ASGIReceive, ASGIScope, ASGISend
 from starlette_api.components import ReturnValue
 from starlette_api.exceptions import ComponentNotFound
 from starlette_api.http import PathParams, Response
-from starlette_api.router import APIPath
+from starlette_api.routing import Route
 from starlette_api.validation import VALIDATION_COMPONENTS
 
 
@@ -23,7 +23,7 @@ class Injector:
             "exc": Exception,
             "app": Starlette,
             "path_params": PathParams,
-            "api_path": APIPath,
+            "route": Route,
             "response": Response,
         }
         self.reverse_initial = {val: key for key, val in self.initial.items()}
