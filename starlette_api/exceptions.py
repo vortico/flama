@@ -118,10 +118,6 @@ class ConfigurationError(Exception):
     pass
 
 
-class WrongRouteError(Exception):
-    pass
-
-
 class ComponentNotFound(ConfigurationError):
     def __init__(self, parameter: str, resolver: typing.Optional[str] = None, *args, **kwargs):
         self.parameter = parameter

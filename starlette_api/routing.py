@@ -1,174 +1,55 @@
 import asyncio
+import enum
 import inspect
 import re
 import typing
+from dataclasses import dataclass
 from functools import wraps
 
 import starlette.routing
 from starlette.responses import JSONResponse, Response
+from starlette.routing import Match
 from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 
 from starlette_api import http
-from starlette_api.schema import document, types, validators
+from starlette_api.schema import types, validators
 
 MYPY = False
 if MYPY:
     from starlette_api.applications import Starlette
 
-__all__ = ["Route", "WebSocketRoute", "APIRoute", "Router"]
+__all__ = ["Route", "WebSocketRoute", "Router"]
 
 
-def asgi_from_http(func: typing.Callable, app: "Starlette") -> ASGIApp:
-    """
-    Wraps a http function into ASGI application.
-    """
-
-    @wraps(func)
-    def _app(scope: Scope) -> ASGIInstance:
-        async def awaitable(receive: Receive, send: Send) -> None:
-            path, path_params = app.router.get_route_from_scope(scope)
-
-            state = {
-                "scope": scope,
-                "receive": receive,
-                "send": send,
-                "exc": None,
-                "app": None,
-                "path_params": path_params,
-                "route": path,
-            }
-
-            injected_func = await app.injector.inject(func, state)
-
-            if asyncio.iscoroutinefunction(func):
-                response = await injected_func()
-            else:
-                response = injected_func()
-
-            if isinstance(response, (dict, list, types.Type)):
-                response = JSONResponse(response)
-            elif isinstance(response, str):
-                response = Response(response)
-
-            await response(receive, send)
-
-        return awaitable
-
-    return _app
+class Location(enum.Enum):
+    query = enum.auto()
+    path = enum.auto()
+    body = enum.auto()
 
 
-def asgi_from_websocket(func: typing.Callable, app: "Starlette") -> ASGIApp:
-    """
-    Wraps websocket function into ASGI application.
-    """
-
-    @wraps(func)
-    def _app(scope: Scope) -> ASGIInstance:
-        async def awaitable(receive: Receive, send: Send) -> None:
-            state = {
-                "scope": scope,
-                "receive": receive,
-                "send": send,
-                "exc": None,
-                "app": app,
-                "path_params": None,
-                "route": app.router.get_route_from_scope(scope),
-            }
-
-            injected_func = await app.injector.inject(func, state)
-
-            kwargs = scope.get("kwargs", {})
-            await injected_func(**kwargs)
-
-        return awaitable
-
-    return _app
+@dataclass
+class Field:
+    name: str
+    location: Location
+    schema: typing.Union[validators.Validator, types.Type]
+    required: bool = False
 
 
-class Route(starlette.routing.Route):
-    def __init__(self, path: str, *, endpoint: typing.Callable, app: "Starlette", methods: typing.List[str] = None):
-        super().__init__(path, endpoint=endpoint, methods=methods)
+class FieldsMixin:
+    def _get_fields(
+        self, path: str, handler: typing.Callable
+    ) -> typing.Tuple[typing.Dict[str, Field], typing.Dict[str, Field], Field]:
+        query_fields: typing.Dict[str, Field] = {}
+        path_fields: typing.Dict[str, Field] = {}
+        body_field: Field = None
 
-        # Replace function with another wrapper that uses the injector
-        if inspect.isfunction(endpoint):
-            self.app = asgi_from_http(endpoint, app)
-        else:
-            self.app.injector = app.injector
-            self.app.app = app
+        # Get path param names
+        path_names = [item.strip("{}").lstrip("+") for item in re.findall("{[^}]*}", path)]
 
-
-class WebSocketRoute(starlette.routing.WebSocketRoute):
-    def __init__(self, path: str, *, endpoint: typing.Callable, app: "Starlette"):
-        super().__init__(path, endpoint=endpoint)
-
-        # Replace function with another wrapper that uses the injector
-        if inspect.isfunction(endpoint):
-            self.app = asgi_from_websocket(endpoint, app)
-        else:
-            self.app.injector = app.injector
-            self.app.app = app
-
-
-class APIRoute(Route):
-    def __init__(
-        self,
-        path: str,
-        endpoint: typing.Callable,
-        app: "Starlette",
-        methods: typing.List[str] = None,
-        name=None,
-        documented=True,
-        standalone=False,
-    ):
-        super().__init__(path, endpoint=endpoint, methods=methods, app=app)
-        self.name = name or self.name
-        self.documented = documented
-        self.standalone = standalone
-
-        if len(self.methods) == 1:
-            self.link = self.generate_link(path, self.methods[0], app, self.name)
-            self.section = None
-        else:
-            self.link = None
-            self.section = self.generate_section(path, self.methods, app, self.name)
-
-    def generate_section(self, path, methods, app, name):
-        content = self.generate_content(path, methods, app)
-        return document.Section(name=name, content=content)
-
-    def generate_content(self, path, methods, app):
-        content = []
-        for method in methods:
-            if inspect.isclass(app):
-                link = self.generate_link(path, method, getattr(app, method), method)
-            else:
-                link = self.generate_link(path, method, app, method)
-
-            content.append(link)
-
-        return content
-
-    def generate_link(self, url, method, handler, name):
-        fields = self.generate_fields(url, method, handler)
-        response = self.generate_response(handler)
-        encoding = None
-        if any([f.location == "body" for f in fields]):
-            encoding = "application/json"
-        return document.Link(
-            url=url,
-            method=method,
-            name=name,
-            encoding=encoding,
-            fields=fields,
-            response=response,
-            description=handler.__doc__,
-        )
-
-    def generate_fields(self, url, method, handler):
-        fields = []
-        path_names = [item.strip("{}").lstrip("+") for item in re.findall("{[^}]*}", url)]
+        # Iterate over all params
         parameters = inspect.signature(handler).parameters
         for name, param in parameters.items():
+            # Matches as path param
             if name in path_names:
                 schema = {
                     param.empty: None,
@@ -176,9 +57,9 @@ class APIRoute(Route):
                     float: validators.Number(),
                     str: validators.String(),
                 }[param.annotation]
-                field = document.Field(name=name, location="path", schema=schema)
-                fields.append(field)
+                path_fields[name] = Field(name=name, location=Location.path, schema=schema)
 
+            # Matches as query param
             elif param.annotation in (param.empty, int, float, bool, str, http.QueryParam):
                 if param.default is param.empty:
                     kwargs = {}
@@ -194,38 +75,106 @@ class APIRoute(Route):
                     str: validators.String(**kwargs),
                     http.QueryParam: validators.String(**kwargs),
                 }[param.annotation]
-                field = document.Field(name=name, location="query", schema=schema)
-                fields.append(field)
+                query_fields[name] = Field(name=name, location=Location.query, schema=schema)
 
+            # Body params
             elif issubclass(param.annotation, types.Type):
-                if method in ("GET", "DELETE"):
-                    for name, validator in param.annotation.validator.properties.items():
-                        field = document.Field(name=name, location="query", schema=validator)
-                        fields.append(field)
+                body_field = Field(name=name, location=Location.body, schema=param.annotation.validator)
+
+        return query_fields, path_fields, body_field
+
+
+class Route(starlette.routing.Route, FieldsMixin):
+    def __init__(self, path: str, *, endpoint: typing.Callable, app: "Starlette", methods: typing.List[str] = None):
+        super().__init__(path, endpoint=endpoint, methods=methods)
+
+        # Replace function with another wrapper that uses the injector
+        if inspect.isfunction(endpoint):
+            self.app = self.endpoint_wrapper(endpoint, app)
+        else:
+            self.app.injector = app.injector
+            self.app.app = app
+
+        self.query_fields, self.path_fields, self.body_field = self._get_fields(path, endpoint)
+
+    def endpoint_wrapper(self, endpoint: typing.Callable, app: "Starlette") -> ASGIApp:
+        """
+        Wraps a http function into ASGI application.
+        """
+
+        @wraps(endpoint)
+        def _app(scope: Scope) -> ASGIInstance:
+            async def awaitable(receive: Receive, send: Send) -> None:
+                route, route_scope = app.router.get_route_from_scope(scope)
+
+                state = {
+                    "scope": scope,
+                    "receive": receive,
+                    "send": send,
+                    "exc": None,
+                    "app": None,
+                    "path_params": route_scope["path_params"],
+                    "route": route,
+                }
+
+                injected_func = await app.injector.inject(endpoint, state)
+
+                if asyncio.iscoroutinefunction(endpoint):
+                    response = await injected_func()
                 else:
-                    field = document.Field(name=name, location="body", schema=param.annotation.validator)
-                    fields.append(field)
+                    response = injected_func()
 
-        return fields
+                if isinstance(response, (dict, list, types.Type)):
+                    response = JSONResponse(response)
+                elif isinstance(response, str):
+                    response = Response(response)
 
-    def generate_response(self, handler):
-        annotation = inspect.signature(handler).return_annotation
-        annotation = self.coerce_generics(annotation)
+                await response(receive, send)
 
-        if not (issubclass(annotation, types.Type) or isinstance(annotation, validators.Validator)):
-            return None
+            return awaitable
 
-        return document.Response(encoding="application/json", status_code=200, schema=annotation)
+        return _app
 
-    def coerce_generics(self, annotation):
-        if (
-            isinstance(annotation, type)
-            and issubclass(annotation, typing.List)
-            and getattr(annotation, "__args__", None)
-            and issubclass(annotation.__args__[0], types.Type)
-        ):
-            return validators.Array(items=annotation.__args__[0])
-        return annotation
+
+class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
+    def __init__(self, path: str, *, endpoint: typing.Callable, app: "Starlette"):
+        super().__init__(path, endpoint=endpoint)
+
+        # Replace function with another wrapper that uses the injector
+        if inspect.isfunction(endpoint):
+            self.app = self.endpoint_wrapper(endpoint, app)
+        else:
+            self.app.injector = app.injector
+            self.app.app = app
+
+        self.query_fields, self.path_fields, self.body_field = self._get_fields(path, endpoint)
+
+    def endpoint_wrapper(self, endpoint: typing.Callable, app: "Starlette") -> ASGIApp:
+        """
+        Wraps websocket function into ASGI application.
+        """
+
+        @wraps(endpoint)
+        def _app(scope: Scope) -> ASGIInstance:
+            async def awaitable(receive: Receive, send: Send) -> None:
+                state = {
+                    "scope": scope,
+                    "receive": receive,
+                    "send": send,
+                    "exc": None,
+                    "app": app,
+                    "path_params": None,
+                    "route": app.router.get_route_from_scope(scope),
+                }
+
+                injected_func = await app.injector.inject(endpoint, state)
+
+                kwargs = scope.get("kwargs", {})
+                await injected_func(**kwargs)
+
+            return awaitable
+
+        return _app
 
 
 class Router(starlette.routing.Router):
@@ -249,20 +198,10 @@ class Router(starlette.routing.Router):
 
         return decorator
 
-    def add_api_route(self, path: str, endpoint: typing.Callable, app: "Starlette", methods: typing.List[str] = None):
-        self.routes.append(APIRoute(path, endpoint=endpoint, methods=methods, app=app))
-
-    def api_route(self, path: str, app: "Starlette", methods: typing.List[str] = None) -> typing.Callable:
-        def decorator(func: typing.Callable) -> typing.Callable:
-            self.add_api_route(path, func, methods=methods, app=app)
-            return func
-
-        return decorator
-
     def get_route_from_scope(self, scope) -> typing.Tuple[Route, typing.Optional[typing.Dict]]:
         for route in self.routes:
-            matched, child_scope = route.matches(scope)
-            if matched:
-                return route, child_scope["path_params"]
+            match, child_scope = route.matches(scope)
+            if match != Match.NONE:
+                return route, child_scope
 
         return self.not_found, None

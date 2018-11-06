@@ -10,7 +10,7 @@ from starlette_api.applications import Starlette
 app = Starlette()
 
 
-@app.api_route("/request/")
+@app.route("/request/")
 async def get_request(request: http.Request):
     return {
         "method": str(request.method),
@@ -20,77 +20,77 @@ async def get_request(request: http.Request):
     }
 
 
-@app.api_route("/method/", methods=["GET", "POST"])
+@app.route("/method/", methods=["GET", "POST"])
 def get_method(method: http.Method):
     return {"method": str(method)}
 
 
-@app.api_route("/scheme/")
+@app.route("/scheme/")
 def get_scheme(scheme: http.Scheme):
     return {"scheme": scheme}
 
 
-@app.api_route("/host/")
+@app.route("/host/")
 def get_host(host: http.Host):
     return {"host": host}
 
 
-@app.api_route("/port/")
+@app.route("/port/")
 def get_port(port: http.Port):
     return {"port": port}
 
 
-@app.api_route("/path/")
+@app.route("/path/")
 def get_path(path: http.Path):
     return {"path": path}
 
 
-@app.api_route("/query_string/")
+@app.route("/query_string/")
 def get_query_string(query_string: http.QueryString):
     return {"query_string": query_string}
 
 
-@app.api_route("/query_params/")
+@app.route("/query_params/")
 def get_query_params(query_string: http.QueryString, query_params: http.QueryParams):
     return {"query_params": dict(query_params)}
 
 
-@app.api_route("/page_query_param/")
+@app.route("/page_query_param/")
 def get_page_query_param(page: http.QueryParam):
     return {"page": page}
 
 
-@app.api_route("/url/")
+@app.route("/url/")
 def get_url(url: http.URL):
     return {"url": url, "url.components": url.components}
 
 
-@app.api_route("/body/", methods=["GET", "POST"])
+@app.route("/body/", methods=["GET", "POST"])
 def get_body(body: http.Body):
     return {"body": body.decode("utf-8")}
 
 
-@app.api_route("/headers/", methods=["GET", "POST"])
+@app.route("/headers/", methods=["GET", "POST"])
 def get_headers(headers: http.Headers):
     return {"headers": dict(headers)}
 
 
-@app.api_route("/accept_header/")
+@app.route("/accept_header/")
 def get_accept_header(accept: http.Header):
     return {"accept": accept}
 
 
-@app.api_route("/missing_header/")
+@app.route("/missing_header/")
 def get_missing_header(missing: http.Header):
     return {"missing": missing}
 
 
-@app.api_route("/path_params/{example}/", methods=["GET", "POST"])
+@app.route("/path_params/{example}/", methods=["GET", "POST"])
 def get_path_params(params: http.PathParams):
     return {"params": params}
 
 
-@app.api_route("/request_data/", methods=["POST"])
+@app.route("/request_data/", methods=["POST"])
 async def get_request_data(data: http.RequestData):
     if isinstance(data, dict):
         data = {
@@ -102,22 +102,22 @@ async def get_request_data(data: http.RequestData):
     return {"data": data}
 
 
-@app.api_route("/return_string/")
+@app.route("/return_string/")
 def return_string(data: http.RequestData) -> str:
     return "<html><body>example content</body></html>"
 
 
-@app.api_route("/return_data/")
+@app.route("/return_data/")
 def return_data(data: http.RequestData) -> dict:
     return {"example": "content"}
 
 
-@app.api_route("/return_response/")
+@app.route("/return_response/")
 def return_response(data: http.RequestData) -> http.Response:
     return http.JSONResponse({"example": "content"})
 
 
-@app.api_route("/return_unserializable_json/")
+@app.route("/return_unserializable_json/")
 def return_unserializable_json() -> dict:
     class Dummy:
         pass
@@ -138,7 +138,6 @@ def client():
     return TestClient(app)
 
 
-@pytest.mark.wip
 class TestCaseHttp:
     def test_request(self, client):
         expected_response = {
@@ -283,6 +282,7 @@ class TestCaseHttp:
         response = client.get("/missing_header/")
         assert response.json() == {"missing": None}
 
+    @pytest.mark.wip
     def test_path_params(self, client):
         response = client.get("/path_params/abc/")
         assert response.json() == {"params": {"example": "abc"}}

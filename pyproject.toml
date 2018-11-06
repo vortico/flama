@@ -12,7 +12,7 @@ exclude = []
 
 [tool.poetry.dependencies]
 python = "^3.6"
-starlette = "^0.6.0"
+starlette = "^0.7.0"
 pyyaml = "^3.13"
 
 [tool.poetry.dev-dependencies]

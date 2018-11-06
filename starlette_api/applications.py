@@ -43,16 +43,6 @@ class Starlette(App):
 
         return decorator
 
-    def api_route(self, path: str, methods=None):
-        def decorator(func):
-            self.router.add_api_route(path, func, methods=methods, app=self)
-            return func
-
-        return decorator
-
-    def add_api_route(self, path: str, endpoint: typing.Callable, methods: typing.Sequence[str] = None) -> None:
-        self.router.add_api_route(path, endpoint=endpoint, methods=methods, app=self)
-
     def add_route(self, path: str, endpoint: typing.Callable, methods: typing.Sequence[str] = None) -> None:
         self.router.add_route(path, endpoint=endpoint, methods=methods, app=self)
 

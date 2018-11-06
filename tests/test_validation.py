@@ -13,47 +13,47 @@ class User(types.Type):
 app = Starlette()
 
 
-@app.api_route("/str_path_param/{param}/")
+@app.route("/str_path_param/{param}/")
 def str_path_param(param: str):
     return {"param": param}
 
 
-@app.api_route("/int_path_param/{param}/")
+@app.route("/int_path_param/{param}/")
 def int_path_param(param: int):
     return {"param": param}
 
 
-@app.api_route("/str_query_param/")
+@app.route("/str_query_param/")
 def str_query_param(param: str):
     return {"param": param}
 
 
-@app.api_route("/int_query_param/")
+@app.route("/int_query_param/")
 def int_query_param(param: int):
     return {"param": param}
 
 
-@app.api_route("/bool_query_param/")
+@app.route("/bool_query_param/")
 def bool_query_param(param: bool):
     return {"param": param}
 
 
-@app.api_route("/str_query_param_with_default/")
+@app.route("/str_query_param_with_default/")
 def str_query_param_with_default(param: str = ""):
     return {"param": param}
 
 
-@app.api_route("/int_query_param_with_default/")
+@app.route("/int_query_param_with_default/")
 def int_query_param_with_default(param: int = None):
     return {"param": param}
 
 
-@app.api_route("/bool_query_param_with_default/")
+@app.route("/bool_query_param_with_default/")
 def bool_query_param_with_default(param: bool = False):
     return {"param": param}
 
 
-@app.api_route("/type_body_param/", methods=["POST"])
+@app.route("/type_body_param/", methods=["POST"])
 def type_body_param(user: User):
     return {"user": dict(user)}
 
