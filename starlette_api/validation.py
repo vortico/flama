@@ -1,11 +1,11 @@
 import inspect
 import typing
 
+import marshmallow
 from starlette_api import codecs, exceptions, http
 from starlette_api.codecs.negotiation import negotiate_content_type
 from starlette_api.components import Component
 from starlette_api.routing import Route
-from starlette_api.schema import types, validators
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
@@ -35,29 +35,23 @@ class RequestDataComponent(Component):
 
 class ValidatePathParamsComponent(Component):
     async def resolve(self, route: Route, path_params: http.PathParams) -> ValidatedPathParams:
-        validator = validators.Object(
-            properties=[(f.name, f.schema if f.schema else validators.Any()) for f in route.path_fields.values()],
-            required=[name for name in route.path_fields.keys()],
-        )
+        validator = type("Validator", (marshmallow.Schema,), {f.name: f.schema for f in route.path_fields.values()})
 
         try:
-            path_params = validator.validate(path_params, allow_coerce=True)
-        except validators.ValidationError as exc:
-            raise exceptions.HTTPException(400, detail=exc.detail)
+            path_params = validator().load(path_params)
+        except marshmallow.ValidationError as exc:
+            raise exceptions.ValidationError(detail=exc.normalized_messages())
         return ValidatedPathParams(path_params)
 
 
 class ValidateQueryParamsComponent(Component):
     def resolve(self, route: Route, query_params: http.QueryParams) -> ValidatedQueryParams:
-        validator = validators.Object(
-            properties=[(f.name, f.schema if f.schema else validators.Any()) for f in route.query_fields.values()],
-            required=[f.name for f in route.query_fields.values() if f.required],
-        )
+        validator = type("Validator", (marshmallow.Schema,), {f.name: f.schema for f in route.query_fields.values()})
 
         try:
-            query_params = validator.validate(query_params, allow_coerce=True)
-        except validators.ValidationError as exc:
-            raise exceptions.HTTPException(400, detail=exc.detail)
+            query_params = validator().load(dict(query_params))
+        except marshmallow.ValidationError as exc:
+            raise exceptions.ValidationError(detail=exc.normalized_messages())
         return ValidatedQueryParams(query_params)
 
 
@@ -72,9 +66,9 @@ class ValidateRequestDataComponent(Component):
         validator = route.body_field.schema
 
         try:
-            return validator.validate(data, allow_coerce=True)
-        except validators.ValidationError as exc:
-            raise exceptions.HTTPException(400, detail=exc.detail)
+            return validator.load(data)
+        except marshmallow.ValidationError as exc:
+            raise exceptions.ValidationError(detail=exc.normalized_messages())
 
 
 class PrimitiveParamComponent(Component):
@@ -85,37 +79,35 @@ class PrimitiveParamComponent(Component):
         self, parameter: inspect.Parameter, path_params: ValidatedPathParams, query_params: ValidatedQueryParams
     ):
         params = path_params if (parameter.name in path_params) else query_params
-        has_default = parameter.default is not parameter.empty
-        allow_null = parameter.default is None
+
+        if parameter.default is parameter.empty:
+            kwargs = {"required": True}
+        else:
+            kwargs = {"missing": parameter.default}
 
         param_validator = {
-            parameter.empty: validators.Any(),
-            str: validators.String(allow_null=allow_null),
-            int: validators.Integer(allow_null=allow_null),
-            float: validators.Number(allow_null=allow_null),
-            bool: validators.Boolean(allow_null=allow_null),
+            parameter.empty: marshmallow.fields.Field(**kwargs),
+            str: marshmallow.fields.String(**kwargs),
+            int: marshmallow.fields.Integer(**kwargs),
+            float: marshmallow.fields.Number(**kwargs),
+            bool: marshmallow.fields.Boolean(**kwargs),
         }[parameter.annotation]
 
-        validator = validators.Object(
-            properties=[(parameter.name, param_validator)], required=[] if has_default else [parameter.name]
-        )
+        validator = type("Validator", (marshmallow.Schema,), {parameter.name: param_validator})
 
         try:
-            params = validator.validate(params, allow_coerce=True)
-        except validators.ValidationError as exc:
-            raise exceptions.HTTPException(400, detail=exc.detail)
+            params = validator().load(params)
+        except marshmallow.ValidationError as exc:
+            raise exceptions.ValidationError(detail=exc.normalized_messages())
         return params.get(parameter.name, parameter.default)
 
 
 class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: inspect.Parameter):
-        return issubclass(parameter.annotation, types.Type)
+        return issubclass(parameter.annotation, marshmallow.Schema)
 
     def resolve(self, parameter: inspect.Parameter, data: ValidatedRequestData):
-        try:
-            return parameter.annotation(data)
-        except validators.ValidationError as exc:
-            raise exceptions.HTTPException(400, detail=exc.detail)
+        return data
 
 
 VALIDATION_COMPONENTS = (

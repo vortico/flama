@@ -1,13 +1,13 @@
 import pytest
 from starlette.testclient import TestClient
 
+from marshmallow import Schema, fields, validate
 from starlette_api.applications import Starlette
-from starlette_api.schema import types, validators
 
 
-class User(types.Type):
-    name = validators.String(max_length=10)
-    age = validators.Integer(minimum=0, allow_null=True, default=None)
+class User(Schema):
+    name = fields.String(validate=validate.Length(max=10), required=True)
+    age = fields.Integer(minimum=0, missing=None)
 
 
 app = Starlette()
@@ -77,7 +77,7 @@ class TestCaseValidation:
         assert response.json() == {"param": "123"}
 
         response = client.get("/str_query_param/")
-        assert response.json() == {"param": 'The "param" field is required.'}
+        assert response.json() == {"param": ["Missing data for required field."]}
 
     def test_str_query_param_with_default(self, client):
         response = client.get("/str_query_param_with_default/?param=123")
@@ -91,7 +91,7 @@ class TestCaseValidation:
         assert response.json() == {"param": 123}
 
         response = client.get("/int_query_param/")
-        assert response.json() == {"param": 'The "param" field is required.'}
+        assert response.json() == {"param": ["Missing data for required field."]}
 
     def test_int_query_param_with_default(self, client):
         response = client.get("/int_query_param_with_default/?param=123")
@@ -108,7 +108,7 @@ class TestCaseValidation:
         assert response.json() == {"param": False}
 
         response = client.get("/bool_query_param/")
-        assert response.json() == {"param": 'The "param" field is required.'}
+        assert response.json() == {"param": ["Missing data for required field."]}
 
     def test_bool_query_param_with_default(self, client):
         response = client.get("/bool_query_param_with_default/?param=true")
@@ -121,13 +121,13 @@ class TestCaseValidation:
         assert response.json() == {"param": False}
 
     def test_type_body_param(self, client):
-        response = client.post("/type_body_param/", json={"name": "tom"})
-        assert response.json() == {"user": {"name": "tom", "age": None}}
+        response = client.post("/type_body_param/", json={"name": "perdy"})
+        assert response.json() == {"user": {"name": "perdy", "age": None}}
 
         response = client.post("/type_body_param/", json={"name": "x" * 100})
         assert response.status_code == 400
-        assert response.json() == {"name": "Must have no more than 10 characters."}
+        assert response.json() == {"name": ["Longer than maximum length 10."]}
 
         response = client.post("/type_body_param/", json={})
         assert response.status_code == 400
-        assert response.json() == {"name": 'The "name" field is required.'}
+        assert response.json() == {"name": ["Missing data for required field."]}

@@ -125,14 +125,6 @@ def return_unserializable_json() -> dict:
     return {"dummy": Dummy()}
 
 
-# routes = [
-#     Route('/method/', 'POST', get_method, name='post_method'),
-#     Route('/headers/', 'POST', get_headers, name='post_headers'),
-#     Route('/path_params/{example}/', 'GET', get_path_params),
-#     Route('/full_path_params/{+example}', 'GET', get_path_params, name='full_path_params'),
-# ]
-
-
 @pytest.fixture(scope="module")
 def client():
     return TestClient(app)
@@ -282,7 +274,6 @@ class TestCaseHttp:
         response = client.get("/missing_header/")
         assert response.json() == {"missing": None}
 
-    @pytest.mark.wip
     def test_path_params(self, client):
         response = client.get("/path_params/abc/")
         assert response.json() == {"params": {"example": "abc"}}

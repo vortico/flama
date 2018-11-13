@@ -27,6 +27,7 @@ ipdb = "^0.11.0"
 black = "^18.3-alpha.0"
 isort = "^4.3"
 python-multipart = "^0.0.5"
+marshmallow = {version = "^2.16",allows-prereleases = true}
 
 [tool.black]
 line-length = 120

@@ -1,7 +1,6 @@
 import asyncio
 import enum
 import inspect
-import re
 import typing
 from dataclasses import dataclass
 from functools import wraps
@@ -11,8 +10,8 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Match
 from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 
+import marshmallow
 from starlette_api import http
-from starlette_api.schema import types, validators
 
 MYPY = False
 if MYPY:
@@ -31,55 +30,50 @@ class Location(enum.Enum):
 class Field:
     name: str
     location: Location
-    schema: typing.Union[validators.Validator, types.Type]
+    schema: typing.Union[marshmallow.fields.Field, marshmallow.Schema]
     required: bool = False
 
 
 class FieldsMixin:
     def _get_fields(
-        self, path: str, handler: typing.Callable
+        self, handler: typing.Callable
     ) -> typing.Tuple[typing.Dict[str, Field], typing.Dict[str, Field], Field]:
         query_fields: typing.Dict[str, Field] = {}
         path_fields: typing.Dict[str, Field] = {}
         body_field: Field = None
 
-        # Get path param names
-        path_names = [item.strip("{}").lstrip("+") for item in re.findall("{[^}]*}", path)]
-
         # Iterate over all params
         parameters = inspect.signature(handler).parameters
         for name, param in parameters.items():
             # Matches as path param
-            if name in path_names:
+            if name in self.param_names:
                 schema = {
                     param.empty: None,
-                    int: validators.Integer(),
-                    float: validators.Number(),
-                    str: validators.String(),
+                    int: marshmallow.fields.Integer(required=True),
+                    float: marshmallow.fields.Number(required=True),
+                    str: marshmallow.fields.String(required=True),
                 }[param.annotation]
                 path_fields[name] = Field(name=name, location=Location.path, schema=schema)
 
             # Matches as query param
             elif param.annotation in (param.empty, int, float, bool, str, http.QueryParam):
                 if param.default is param.empty:
-                    kwargs = {}
-                elif param.default is None:
-                    kwargs = {"default": None, "allow_null": True}
+                    kwargs = {"required": True}
                 else:
-                    kwargs = {"default": param.default}
+                    kwargs = {"missing": param.default}
                 schema = {
                     param.empty: None,
-                    int: validators.Integer(**kwargs),
-                    float: validators.Number(**kwargs),
-                    bool: validators.Boolean(**kwargs),
-                    str: validators.String(**kwargs),
-                    http.QueryParam: validators.String(**kwargs),
+                    int: marshmallow.fields.Integer(**kwargs),
+                    float: marshmallow.fields.Number(**kwargs),
+                    bool: marshmallow.fields.Boolean(**kwargs),
+                    str: marshmallow.fields.String(**kwargs),
+                    http.QueryParam: marshmallow.fields.String(**kwargs),
                 }[param.annotation]
                 query_fields[name] = Field(name=name, location=Location.query, schema=schema)
 
             # Body params
-            elif issubclass(param.annotation, types.Type):
-                body_field = Field(name=name, location=Location.body, schema=param.annotation.validator)
+            elif inspect.isclass(param.annotation) and issubclass(param.annotation, marshmallow.Schema):
+                body_field = Field(name=name, location=Location.body, schema=param.annotation())
 
         return query_fields, path_fields, body_field
 
@@ -95,7 +89,7 @@ class Route(starlette.routing.Route, FieldsMixin):
             self.app.injector = app.injector
             self.app.app = app
 
-        self.query_fields, self.path_fields, self.body_field = self._get_fields(path, endpoint)
+        self.query_fields, self.path_fields, self.body_field = self._get_fields(endpoint)
 
     def endpoint_wrapper(self, endpoint: typing.Callable, app: "Starlette") -> ASGIApp:
         """
@@ -124,7 +118,11 @@ class Route(starlette.routing.Route, FieldsMixin):
                 else:
                     response = injected_func()
 
-                if isinstance(response, (dict, list, types.Type)):
+                return_annotation = inspect.signature(endpoint).return_annotation
+                if issubclass(return_annotation, marshmallow.Schema):
+                    response = return_annotation().dump(response)
+
+                if isinstance(response, (dict, list)):
                     response = JSONResponse(response)
                 elif isinstance(response, str):
                     response = Response(response)
@@ -147,7 +145,7 @@ class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
             self.app.injector = app.injector
             self.app.app = app
 
-        self.query_fields, self.path_fields, self.body_field = self._get_fields(path, endpoint)
+        self.query_fields, self.path_fields, self.body_field = self._get_fields(endpoint)
 
     def endpoint_wrapper(self, endpoint: typing.Callable, app: "Starlette") -> ASGIApp:
         """
@@ -157,14 +155,16 @@ class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
         @wraps(endpoint)
         def _app(scope: Scope) -> ASGIInstance:
             async def awaitable(receive: Receive, send: Send) -> None:
+                route, route_scope = app.router.get_route_from_scope(scope)
+
                 state = {
                     "scope": scope,
                     "receive": receive,
                     "send": send,
                     "exc": None,
                     "app": app,
-                    "path_params": None,
-                    "route": app.router.get_route_from_scope(scope),
+                    "path_params": route_scope["path_params"],
+                    "route": route,
                 }
 
                 injected_func = await app.injector.inject(endpoint, state)
