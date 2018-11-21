@@ -58,6 +58,11 @@ def type_body_param(user: User):
     return {"user": dict(user)}
 
 
+@app.route("/empty/", methods=["POST"])
+def empty(foo):
+    return {}
+
+
 @pytest.fixture
 def client():
     return TestClient(app)
@@ -71,6 +76,10 @@ class TestCaseValidation:
     def test_int_path_param(self, client):
         response = client.get("/int_path_param/123/")
         assert response.json() == {"param": 123}
+
+    def test_wrong_path_param(self, client):
+        response = client.get("/int_path_param/foo/")
+        assert response.status_code == 400
 
     def test_str_query_param(self, client):
         response = client.get("/str_query_param/?param=123")
@@ -120,6 +129,10 @@ class TestCaseValidation:
         response = client.get("/bool_query_param_with_default/")
         assert response.json() == {"param": False}
 
+    def test_wrong_query_param(self, client):
+        response = client.get("/int_query_param/?param=foo")
+        assert response.status_code == 400
+
     def test_type_body_param(self, client):
         response = client.post("/type_body_param/", json={"name": "perdy"})
         assert response.json() == {"user": {"name": "perdy", "age": None}}
@@ -131,3 +144,7 @@ class TestCaseValidation:
         response = client.post("/type_body_param/", json={})
         assert response.status_code == 400
         assert response.json() == {"name": ["Missing data for required field."]}
+
+    def test_no_type_param(self, client):
+        response = client.post("/empty/", json={"name": "perdy"})
+        assert response.status_code == 400

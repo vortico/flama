@@ -3,12 +3,11 @@ import functools
 import inspect
 import typing
 
-from starlette_api.asgi import ASGI_COMPONENTS, ASGIReceive, ASGIScope, ASGISend
-from starlette_api.components import ReturnValue
+from starlette_api.components.asgi import ASGI_COMPONENTS, ASGIReceive, ASGIScope, ASGISend
+from starlette_api.components.validation import VALIDATION_COMPONENTS
 from starlette_api.exceptions import ComponentNotFound
-from starlette_api.http import PathParams, Response
+from starlette_api.http import PathParams, Response, ReturnValue
 from starlette_api.routing import Route
-from starlette_api.validation import VALIDATION_COMPONENTS
 
 
 class Injector:

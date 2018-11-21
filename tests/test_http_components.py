@@ -5,8 +5,6 @@ from starlette.testclient import TestClient
 from starlette_api import http
 from starlette_api.applications import Starlette
 
-# HTTP Components as parameters
-
 app = Starlette()
 
 

@@ -34,8 +34,10 @@ class RequestDataComponent(Component):
 
 
 class ValidatePathParamsComponent(Component):
-    async def resolve(self, route: Route, path_params: http.PathParams) -> ValidatedPathParams:
-        validator = type("Validator", (marshmallow.Schema,), {f.name: f.schema for f in route.path_fields.values()})
+    async def resolve(self, request: http.Request, route: Route, path_params: http.PathParams) -> ValidatedPathParams:
+        validator = type(
+            "Validator", (marshmallow.Schema,), {f.name: f.schema for f in route.path_fields[request.method].values()}
+        )
 
         try:
             path_params = validator().load(path_params)
@@ -45,8 +47,10 @@ class ValidatePathParamsComponent(Component):
 
 
 class ValidateQueryParamsComponent(Component):
-    def resolve(self, route: Route, query_params: http.QueryParams) -> ValidatedQueryParams:
-        validator = type("Validator", (marshmallow.Schema,), {f.name: f.schema for f in route.query_fields.values()})
+    def resolve(self, request: http.Request, route: Route, query_params: http.QueryParams) -> ValidatedQueryParams:
+        validator = type(
+            "Validator", (marshmallow.Schema,), {f.name: f.schema for f in route.query_fields[request.method].values()}
+        )
 
         try:
             query_params = validator().load(dict(query_params))
@@ -59,11 +63,11 @@ class ValidateRequestDataComponent(Component):
     def can_handle_parameter(self, parameter: inspect.Parameter):
         return parameter.annotation is ValidatedRequestData
 
-    def resolve(self, route: Route, data: http.RequestData):
-        if not route.body_field or not route.body_field.schema:
+    def resolve(self, request: http.Request, route: Route, data: http.RequestData):
+        if not route.body_field[request.method] or not route.body_field[request.method].schema:
             return data
 
-        validator = route.body_field.schema
+        validator = route.body_field[request.method].schema
 
         try:
             return validator.load(data)

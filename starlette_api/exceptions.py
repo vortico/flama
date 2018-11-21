@@ -45,9 +45,6 @@ class ComponentNotFound(ConfigurationError):
         return msg
 
 
-# HTTP exceptions
-
-
 class HTTPException(starlette.exceptions.HTTPException):
     pass
 

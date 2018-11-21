@@ -37,6 +37,7 @@ __all__ = [
     "FileResponse",
     "RedirectResponse",
     "StreamingResponse",
+    "ReturnValue",
 ]
 
 
@@ -52,6 +53,7 @@ Body = typing.NewType("Body", bytes)
 PathParams = typing.NewType("PathParams", dict)
 PathParam = typing.NewType("PathParam", str)
 RequestData = typing.TypeVar("RequestData")
+ReturnValue = typing.TypeVar("ReturnValue")
 
 
 class URL(str):
