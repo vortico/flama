@@ -1,5 +1,8 @@
 # Changes
 
+v0.1.3 - 2018-10-27
+ * Update requirements.
+
 v0.1.2 - 2018-10-27
  * Update Router __init__ to match v0.8
 
