@@ -11,9 +11,9 @@ include = []
 exclude = []
 
 [tool.poetry.dependencies]
-python = "^3.6"
-starlette = "^0.7.0"
-pyyaml = "^3.13"
+python = ">3.6"
+starlette = ">0.7.0"
+pyyaml = ">3.13"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.6"
