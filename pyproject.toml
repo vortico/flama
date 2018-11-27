@@ -13,6 +13,7 @@ exclude = []
 [tool.poetry.dependencies]
 python = "^3.6"
 starlette = ">=0.7.0"
+marshmallow = {version = "^2.16",allows-prereleases = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.6"
@@ -26,7 +27,6 @@ ipdb = "^0.11.0"
 black = "^18.3-alpha.0"
 isort = "^4.3"
 python-multipart = "^0.0.5"
-marshmallow = {version = "^2.16",allows-prereleases = true}
 
 [tool.black]
 line-length = 120
