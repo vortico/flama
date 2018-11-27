@@ -98,8 +98,8 @@ class FieldsMixin:
 
 
 class Route(starlette.routing.Route, FieldsMixin):
-    def __init__(self, path: str, *, endpoint: typing.Callable, methods: typing.List[str] = None):
-        super().__init__(path, endpoint=endpoint, methods=methods)
+    def __init__(self, path: str, endpoint: typing.Callable, *args, **kwargs):
+        super().__init__(path, endpoint=endpoint, **kwargs)
 
         # Replace function with another wrapper that uses the injector
         if inspect.isfunction(endpoint):
@@ -153,8 +153,8 @@ class Route(starlette.routing.Route, FieldsMixin):
 
 
 class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
-    def __init__(self, path: str, *, endpoint: typing.Callable):
-        super().__init__(path, endpoint=endpoint)
+    def __init__(self, path: str, endpoint: typing.Callable, *args, **kwargs):
+        super().__init__(path, endpoint=endpoint, **kwargs)
 
         # Replace function with another wrapper that uses the injector
         if inspect.isfunction(endpoint):
