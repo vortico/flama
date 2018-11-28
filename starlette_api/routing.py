@@ -227,9 +227,22 @@ class Router(starlette.routing.Router):
         return decorator
 
     def get_route_from_scope(self, scope) -> typing.Tuple[Route, typing.Optional[typing.Dict]]:
+        if "root_path" in scope:
+            scope["path"] = scope["root_path"] + scope["path"]
+
+        partial = None
+
         for route in self.routes:
             match, child_scope = route.matches(scope)
-            if match != Match.NONE:
-                return route, child_scope
+            if match == Match.FULL:
+                scope.update(child_scope)
+                return route, scope
+            elif match == Match.PARTIAL and partial is None:
+                partial = route
+                partial_scope = child_scope
+
+        if partial is not None:
+            scope.update(partial_scope)
+            return partial, scope
 
         return self.not_found, None

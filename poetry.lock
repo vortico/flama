@@ -417,7 +417,7 @@ description = "The little ASGI library that shines."
 name = "starlette"
 optional = false
 python-versions = "*"
-version = "0.9.0"
+version = "0.9.1"
 
 [[package]]
 category = "dev"
@@ -482,7 +482,7 @@ python-versions = "*"
 version = "0.1.7"
 
 [metadata]
-content-hash = "3450f45242306b8f80e21f5833983694d77918872d7dd867b8ad31f3b1e6f1e9"
+content-hash = "fd9ecff80a452f4d6cd854b68f5fdbfa74ce959c7176c0981473a512c089e2c3"
 python-versions = "^3.6"
 
 [metadata.hashes]
@@ -527,7 +527,7 @@ python-multipart = ["f7bb5f611fc600d15fa47b3974c8aa16e93724513b49b5f95c81e6624c8
 requests = ["65b3a120e4329e33c9889db89c80976c5272f56ea92d3e74da8a463992e3ff54", "ea881206e59f41dbd0bd445437d792e43906703fff75ca8ff43ccdb11f33f263"]
 simplegeneric = ["dc972e06094b9af5b855b3df4a646395e43d1c9d0d39ed345b7393560d0b9173"]
 six = ["70e8a77beed4562e7f14fe23a786b54f6296e34344c23bc42f07b15018ff98e9", "832dc0e10feb1aa2c68dcc57dbb658f1c7e65b9b61af69048abc87a2db00a0eb"]
-starlette = ["6cc4f97f2ee9bac48c858c33ce77f02d078d3080c39d1ba98a3d54ed01cf68d3"]
+starlette = ["6d11fb103210f90e0a08433fb7b19bcb2b5ce841845b152bfddafdac110906c9"]
 toml = ["229f81c57791a41d65e399fc06bf0848bab550a9dfd5ed66df18ce5f05e73d5c", "235682dd292d5899d361a811df37e04a8828a5b1da3115886b73cf81ebc9100e", "f1db651f9657708513243e61e6cc67d101a39bad662eaa9b5546f789338e07a3"]
 tox = ["513e32fdf2f9e2d583c2f248f47ba9886428c949f068ac54a0469cac55df5862", "75fa30e8329b41b664585f5fb837e23ce1d7e6fa1f7811f2be571c990f9d911b"]
 traitlets = ["9c4bd2d267b7153df9152698efb1050a5d84982d3384a37b2c1f7723ba3e7835", "c6cb5e6f57c5a9bdaa40fa71ce7b4af30298fbab9ece9815b5d995ab6217c7d9"]
