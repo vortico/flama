@@ -3,7 +3,7 @@
 [![codecov](https://codecov.io/gh/PeRDy/starlette-api/branch/master/graph/badge.svg)](https://codecov.io/gh/PeRDy/starlette-api)
 [![PyPI version](https://badge.fury.io/py/starlette-api.svg)](https://badge.fury.io/py/starlette-api)
 
-* **Version:** 0.1.4
+* **Version:** 0.1.5
 * **Status:** Production/Stable
 * **Author:** José Antonio Perdiguero López
 
