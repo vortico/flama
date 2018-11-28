@@ -65,7 +65,7 @@ class FieldsMixin:
                 continue
 
             # Matches as path param
-            if name in self.param_names:
+            if name in self.param_convertors.keys():
                 schema = {
                     param.empty: None,
                     int: marshmallow.fields.Integer(required=True),
@@ -195,22 +195,33 @@ class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
 
 
 class Router(starlette.routing.Router):
-    def add_route(self, path: str, endpoint: typing.Callable, methods: typing.List[str] = None):
-        self.routes.append(Route(path, endpoint=endpoint, methods=methods))
+    def add_route(
+        self,
+        path: str,
+        endpoint: typing.Callable,
+        methods: typing.List[str] = None,
+        name: str = None,
+        include_in_schema: bool = True,
+    ):
+        self.routes.append(
+            Route(path, endpoint=endpoint, methods=methods, name=name, include_in_schema=include_in_schema)
+        )
 
-    def route(self, path: str, methods: typing.List[str] = None) -> typing.Callable:
+    def route(
+        self, path: str, methods: typing.List[str] = None, name: str = None, include_in_schema: bool = True
+    ) -> typing.Callable:
         def decorator(func: typing.Callable) -> typing.Callable:
-            self.add_route(path, func, methods=methods)
+            self.add_route(path, func, methods=methods, name=name, include_in_schema=include_in_schema)
             return func
 
         return decorator
 
-    def add_websocket_route(self, path: str, endpoint: typing.Callable):
-        self.routes.append(WebSocketRoute(path, endpoint=endpoint))
+    def add_websocket_route(self, path: str, endpoint: typing.Callable, name: str = None):
+        self.routes.append(WebSocketRoute(path, endpoint=endpoint, name=name))
 
-    def websocket_route(self, path: str) -> typing.Callable:
+    def websocket_route(self, path: str, name: str = None) -> typing.Callable:
         def decorator(func: typing.Callable) -> typing.Callable:
-            self.add_websocket_route(path, func)
+            self.add_websocket_route(path, func, name=name)
             return func
 
         return decorator
