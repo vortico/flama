@@ -136,10 +136,14 @@ class Route(starlette.routing.Route, FieldsMixin):
                 else:
                     response = injected_func()
 
+                # Use output schema to validate and format data
                 return_annotation = inspect.signature(endpoint).return_annotation
-                if issubclass(return_annotation, marshmallow.Schema):
+                if inspect.isclass(return_annotation) and issubclass(return_annotation, marshmallow.Schema):
                     response = return_annotation().dump(response)
+                elif isinstance(return_annotation, marshmallow.Schema):
+                    response = return_annotation.dump(response)
 
+                # Wrap response data with a proper response class
                 if isinstance(response, (dict, list)):
                     response = JSONResponse(response)
                 elif isinstance(response, str):

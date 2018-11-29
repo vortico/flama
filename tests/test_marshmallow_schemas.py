@@ -3,6 +3,7 @@ import datetime
 import pytest
 from starlette.testclient import TestClient
 
+import marshmallow
 from marshmallow import Schema, fields, validate
 from starlette_api.applications import Starlette
 
@@ -33,18 +34,31 @@ app = Starlette()
 
 
 @app.route("/product", methods=["POST"])
-async def product_identity(product: Product) -> Product:
+def product_identity(product: Product) -> Product:
     return product
 
 
 @app.route("/reviewed-product", methods=["POST"])
-async def reviewed_product_identity(reviewed_product: ReviewedProduct) -> ReviewedProduct:
+def reviewed_product_identity(reviewed_product: ReviewedProduct) -> ReviewedProduct:
     return reviewed_product
 
 
 @app.route("/place", methods=["POST"])
-async def place_identity(place: Place) -> Place:
+def place_identity(place: Place) -> Place:
     return place
+
+
+@app.route("/many-products", methods=["GET"])
+def many_products() -> Product(many=True):
+    return [
+        {"name": "foo", "rating": 0, "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)},
+        {"name": "bar", "rating": 1, "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)},
+    ]
+
+
+@app.route("/serialization-error")
+def serialization_error() -> Product:
+    return {"rating": "foo", "created": "bar"}
 
 
 @pytest.fixture
@@ -82,3 +96,25 @@ class TestCaseMarshmallowSchema:
         assert response.status_code == 200, response.json()
         body = response.json()
         assert body == place
+
+    def test_schema_instance(self, client):
+        products = [
+            {
+                "name": "foo",
+                "rating": 0,
+                "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc).isoformat(),
+            },
+            {
+                "name": "bar",
+                "rating": 1,
+                "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc).isoformat(),
+            },
+        ]
+        response = client.get("/many-products")
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert body == products
+
+    def test_serialization_error(self, client):
+        with pytest.raises(marshmallow.exceptions.ValidationError):
+            client.get("/serialization-error")
