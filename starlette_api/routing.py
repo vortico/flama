@@ -7,7 +7,7 @@ from functools import wraps
 
 import starlette.routing
 from starlette.responses import JSONResponse, Response
-from starlette.routing import Match
+from starlette.routing import Match, Mount
 from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 
 import marshmallow
@@ -233,6 +233,7 @@ class Router(starlette.routing.Router):
     def get_route_from_scope(self, scope) -> typing.Tuple[Route, typing.Optional[typing.Dict]]:
         if "root_path" in scope:
             scope["path"] = scope["root_path"] + scope["path"]
+            del scope["root_path"]
 
         partial = None
 
@@ -240,6 +241,11 @@ class Router(starlette.routing.Router):
             match, child_scope = route.matches(scope)
             if match == Match.FULL:
                 scope.update(child_scope)
+
+                if isinstance(route, Mount):
+                    del scope["root_path"]
+                    return route.app.get_route_from_scope(scope)
+
                 return route, scope
             elif match == Match.PARTIAL and partial is None:
                 partial = route

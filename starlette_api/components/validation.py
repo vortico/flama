@@ -100,7 +100,7 @@ class PrimitiveParamComponent(Component):
         validator = type("Validator", (marshmallow.Schema,), {parameter.name: param_validator})
 
         try:
-            params = validator().load(params)
+            params = validator().load(params, unknown=marshmallow.EXCLUDE)
         except marshmallow.ValidationError as exc:
             raise exceptions.ValidationError(detail=exc.normalized_messages())
         return params.get(parameter.name, parameter.default)
