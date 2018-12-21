@@ -6,6 +6,7 @@ from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.lifespan import LifespanMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.types import ASGIApp
 
 from starlette_api import exceptions
 from starlette_api.components import Component
@@ -24,9 +25,9 @@ class Starlette(App):
             components = []
 
         # Initialize injector
-        self.injector = Injector(components)
+        self.components = components
 
-        self.router = Router()
+        self.router = Router(components=components)
         self.app = self.router
         self.exception_middleware = ExceptionMiddleware(self.router, debug=debug)
         self.error_middleware = ServerErrorMiddleware(self.exception_middleware, debug=debug)
@@ -34,6 +35,14 @@ class Starlette(App):
 
         # Add exception handler for API exceptions
         self.add_exception_handler(exceptions.HTTPException, self.api_http_exception_handler)
+
+    @property
+    def injector(self):
+        return Injector(components=self.components)
+
+    def mount(self, path: str, app: ASGIApp, name: str = None) -> None:
+        self.components += getattr(app, "components", [])
+        self.router.mount(path, app=app, name=name)
 
     def api_http_exception_handler(self, request: Request, exc: HTTPException) -> Response:
         return JSONResponse(exc.detail, exc.status_code)

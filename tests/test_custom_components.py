@@ -80,17 +80,17 @@ class TestCaseComponentsInjection:
             client.get("/unknown")
 
     def test_unhandled_component(self):
-        app_ = Starlette(components=[UnhandledComponent()])
-
-        @app_.route("/")
-        def foo(unknown: Unknown):
-            return JSONResponse({"foo": "bar"})
-
-        client = TestClient(app_)
-
         with pytest.raises(
             ConfigurationError,
             match=r'Component "UnhandledComponent" must include a return annotation on the `resolve\(\)` method, '
             "or override `can_handle_parameter`",
         ):
+            app_ = Starlette(components=[UnhandledComponent()])
+
+            @app_.route("/")
+            def foo(unknown: Unknown):
+                return JSONResponse({"foo": "bar"})
+
+            client = TestClient(app_)
+
             client.get("/")

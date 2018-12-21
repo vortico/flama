@@ -53,7 +53,7 @@ class ValidateQueryParamsComponent(Component):
         )
 
         try:
-            query_params = validator().load(dict(query_params))
+            query_params = validator().load(dict(query_params), unknown=marshmallow.EXCLUDE)
         except marshmallow.ValidationError as exc:
             raise exceptions.ValidationError(detail=exc.normalized_messages())
         return ValidatedQueryParams(query_params)

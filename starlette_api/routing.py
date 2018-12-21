@@ -12,6 +12,7 @@ from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 
 import marshmallow
 from starlette_api import http
+from starlette_api.components import Component
 
 __all__ = ["Route", "WebSocketRoute", "Router"]
 
@@ -35,7 +36,7 @@ MethodsMap = typing.Dict[str, FieldsMap]
 
 
 class FieldsMixin:
-    def _get_fields(self) -> typing.Tuple[MethodsMap, MethodsMap, typing.Dict[str, Field]]:
+    def _get_fields(self, router: "Router") -> typing.Tuple[MethodsMap, MethodsMap, typing.Dict[str, Field]]:
         query_fields: MethodsMap = {}
         path_fields: MethodsMap = {}
         body_field: typing.Dict[str, Field] = {}
@@ -49,18 +50,36 @@ class FieldsMixin:
             methods = [("GET", self.endpoint)]
 
         for method, handler in methods:
-            query_fields[method], path_fields[method], body_field[method] = self._get_fields_from_handler(handler)
+            query_fields[method], path_fields[method], body_field[method] = self._get_fields_from_handler(
+                handler, router
+            )
 
         return query_fields, path_fields, body_field
 
-    def _get_fields_from_handler(self, handler: typing.Callable) -> typing.Tuple[FieldsMap, FieldsMap, Field]:
+    def _get_parameters_from_handler(
+        self, handler: typing.Callable, router: "Router"
+    ) -> typing.Dict[str, inspect.Parameter]:
+        parameters = {}
+
+        for name, parameter in inspect.signature(handler).parameters.items():
+            for component in router.components:
+                if component.can_handle_parameter(parameter):
+                    parameters.update(self._get_parameters_from_handler(component.resolve, router))
+                    break
+            else:
+                parameters[name] = parameter
+
+        return parameters
+
+    def _get_fields_from_handler(
+        self, handler: typing.Callable, router: "Router"
+    ) -> typing.Tuple[FieldsMap, FieldsMap, Field]:
         query_fields: FieldsMap = {}
         path_fields: FieldsMap = {}
         body_field: Field = None
 
         # Iterate over all params
-        parameters = inspect.signature(handler).parameters
-        for name, param in parameters.items():
+        for name, param in self._get_parameters_from_handler(handler, router).items():
             if name in ("self", "cls"):
                 continue
 
@@ -98,14 +117,14 @@ class FieldsMixin:
 
 
 class Route(starlette.routing.Route, FieldsMixin):
-    def __init__(self, path: str, endpoint: typing.Callable, *args, **kwargs):
+    def __init__(self, path: str, endpoint: typing.Callable, router: "Router", *args, **kwargs):
         super().__init__(path, endpoint=endpoint, **kwargs)
 
         # Replace function with another wrapper that uses the injector
         if inspect.isfunction(endpoint):
             self.app = self.endpoint_wrapper(endpoint)
 
-        self.query_fields, self.path_fields, self.body_field = self._get_fields()
+        self.query_fields, self.path_fields, self.body_field = self._get_fields(router)
 
     def endpoint_wrapper(self, endpoint: typing.Callable) -> ASGIApp:
         """
@@ -157,14 +176,14 @@ class Route(starlette.routing.Route, FieldsMixin):
 
 
 class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
-    def __init__(self, path: str, endpoint: typing.Callable, *args, **kwargs):
+    def __init__(self, path: str, endpoint: typing.Callable, router: "Router", *args, **kwargs):
         super().__init__(path, endpoint=endpoint, **kwargs)
 
         # Replace function with another wrapper that uses the injector
         if inspect.isfunction(endpoint):
             self.app = self.endpoint_wrapper(endpoint)
 
-        self.query_fields, self.path_fields, self.body_field = self._get_fields()
+        self.query_fields, self.path_fields, self.body_field = self._get_fields(router)
 
     def endpoint_wrapper(self, endpoint: typing.Callable) -> ASGIApp:
         """
@@ -199,6 +218,10 @@ class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
 
 
 class Router(starlette.routing.Router):
+    def __init__(self, components: typing.Optional[typing.List[Component]] = None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.components = components
+
     def add_route(
         self,
         path: str,
@@ -208,8 +231,18 @@ class Router(starlette.routing.Router):
         include_in_schema: bool = True,
     ):
         self.routes.append(
-            Route(path, endpoint=endpoint, methods=methods, name=name, include_in_schema=include_in_schema)
+            Route(path, endpoint=endpoint, methods=methods, name=name, include_in_schema=include_in_schema, router=self)
         )
+
+    def add_websocket_route(self, path: str, endpoint: typing.Callable, name: str = None):
+        self.routes.append(WebSocketRoute(path, endpoint=endpoint, name=name, router=self))
+
+    def mount(self, path: str, app: ASGIApp, name: str = None) -> None:
+        if isinstance(app, Router):
+            app.components = self.components
+
+        route = Mount(path, app=app, name=name)
+        self.routes.append(route)
 
     def route(
         self, path: str, methods: typing.List[str] = None, name: str = None, include_in_schema: bool = True
@@ -219,9 +252,6 @@ class Router(starlette.routing.Router):
             return func
 
         return decorator
-
-    def add_websocket_route(self, path: str, endpoint: typing.Callable, name: str = None):
-        self.routes.append(WebSocketRoute(path, endpoint=endpoint, name=name))
 
     def websocket_route(self, path: str, name: str = None) -> typing.Callable:
         def decorator(func: typing.Callable) -> typing.Callable:
