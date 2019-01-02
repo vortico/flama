@@ -3,8 +3,7 @@ import datetime
 import pytest
 from starlette.testclient import TestClient
 
-import marshmallow
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, exceptions, fields, validate
 from starlette_api.applications import Starlette
 
 utc = datetime.timezone.utc
@@ -116,5 +115,5 @@ class TestCaseMarshmallowSchema:
         assert body == products
 
     def test_serialization_error(self, client):
-        with pytest.raises(marshmallow.exceptions.ValidationError):
+        with pytest.raises(exceptions.ValidationError):
             client.get("/serialization-error")
