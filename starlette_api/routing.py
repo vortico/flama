@@ -43,9 +43,13 @@ class FieldsMixin:
 
         if hasattr(self, "methods"):
             if inspect.isclass(self.endpoint):  # HTTP endpoint
-                methods = [(m, getattr(self.endpoint, m.lower())) for m in self.methods] if self.methods else []
+                methods = (
+                    [(m, getattr(self.endpoint, m.lower() if m != "HEAD" else "get")) for m in self.methods]
+                    if self.methods
+                    else []
+                )
             else:  # HTTP function
-                methods = [(self.methods[0], self.endpoint)]
+                methods = [(m, self.endpoint) for m in self.methods] if self.methods else []
         else:  # Websocket
             methods = [("GET", self.endpoint)]
 

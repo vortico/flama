@@ -40,14 +40,15 @@ from starlette_api.applications import Starlette
 
 # Data Schema
 class Puppy(Schema):
+    id = fields.Integer()
     name = fields.String()
     age = fields.Integer(validate=validate.Range(min=0))
 
 
 # Database
 puppies = [
-    {"name": "Canna", "age": 6},
-    {"name": "Sandy", "age": 12},
+    {"id": 1, "name": "Canna", "age": 6},
+    {"id": 2, "name": "Sandy", "age": 12},
 ]
 
 
@@ -68,7 +69,7 @@ def list_puppies(name: str = None) -> Puppy(many=True):
     Response example:
     200
     [
-        {"name": "Sandy", "age": 12}
+        {"id": 2, "name": "Sandy", "age": 12}
     ]
     """
     return [puppy for puppy in puppies if puppy["name"] == name]
@@ -83,6 +84,7 @@ def create_puppy(puppy: Puppy) -> Puppy:
     Request example:
     POST http://example.com/
     {
+        "id": 1,
         "name": "Canna",
         "age": 6
     }
@@ -90,6 +92,7 @@ def create_puppy(puppy: Puppy) -> Puppy:
     Response example:
     200
     {
+        "id": 1,
         "name": "Canna",
         "age": 6
     }

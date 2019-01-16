@@ -80,8 +80,6 @@ class QueryParams(typing.Mapping[str, str]):
     """
 
     def __init__(self, value: typing.Union[StrMapping, StrPairs] = None) -> None:
-        if value is None:
-            value = []
         if hasattr(value, "items"):
             items = list(value.items())
         else:
