@@ -50,5 +50,5 @@ class HTTPException(starlette.exceptions.HTTPException):
 
 
 class ValidationError(HTTPException):
-    def __init__(self, detail: typing.Union[str, typing.Dict[str, typing.List[str]]]):
-        super().__init__(status_code=400, detail=detail)
+    def __init__(self, detail: typing.Union[str, typing.Dict[str, typing.List[str]]], status_code: int = 400):
+        super().__init__(status_code=status_code, detail=detail)

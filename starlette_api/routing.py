@@ -13,6 +13,7 @@ from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 import marshmallow
 from starlette_api import http
 from starlette_api.components import Component
+from starlette_api.validation import get_output_schema
 
 __all__ = ["Route", "WebSocketRoute", "Router"]
 
@@ -160,11 +161,9 @@ class Route(starlette.routing.Route, FieldsMixin):
                     response = injected_func()
 
                 # Use output schema to validate and format data
-                return_annotation = inspect.signature(endpoint).return_annotation
-                if inspect.isclass(return_annotation) and issubclass(return_annotation, marshmallow.Schema):
-                    response = return_annotation().dump(response)
-                elif isinstance(return_annotation, marshmallow.Schema):
-                    response = return_annotation.dump(response)
+                output_schema = get_output_schema(endpoint)
+                if output_schema:
+                    response = output_schema.dump(response)
 
                 # Wrap response data with a proper response class
                 if isinstance(response, (dict, list)):
