@@ -41,7 +41,7 @@ def output_validation(func, error_status_code=500):
             # Use output schema to validate and format data
             schema.dump(response)
         except marshmallow.ValidationError as e:
-            raise exceptions.ValidationError(detail=e.messages, status_code=error_status_code)
+            raise exceptions.OutputValidationError(detail=e.messages, status_code=error_status_code)
 
         return response
 

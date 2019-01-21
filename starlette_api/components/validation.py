@@ -42,7 +42,7 @@ class ValidatePathParamsComponent(Component):
         try:
             path_params = validator().load(path_params)
         except marshmallow.ValidationError as exc:
-            raise exceptions.ValidationError(detail=exc.normalized_messages())
+            raise exceptions.InputValidationError(detail=exc.normalized_messages())
         return ValidatedPathParams(path_params)
 
 
@@ -55,7 +55,7 @@ class ValidateQueryParamsComponent(Component):
         try:
             query_params = validator().load(dict(query_params), unknown=marshmallow.EXCLUDE)
         except marshmallow.ValidationError as exc:
-            raise exceptions.ValidationError(detail=exc.normalized_messages())
+            raise exceptions.InputValidationError(detail=exc.normalized_messages())
         return ValidatedQueryParams(query_params)
 
 
@@ -72,7 +72,7 @@ class ValidateRequestDataComponent(Component):
         try:
             return validator.load(data)
         except marshmallow.ValidationError as exc:
-            raise exceptions.ValidationError(detail=exc.normalized_messages())
+            raise exceptions.InputValidationError(detail=exc.normalized_messages())
 
 
 class PrimitiveParamComponent(Component):
@@ -102,7 +102,7 @@ class PrimitiveParamComponent(Component):
         try:
             params = validator().load(params, unknown=marshmallow.EXCLUDE)
         except marshmallow.ValidationError as exc:
-            raise exceptions.ValidationError(detail=exc.normalized_messages())
+            raise exceptions.InputValidationError(detail=exc.normalized_messages())
         return params.get(parameter.name, parameter.default)
 
 

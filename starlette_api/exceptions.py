@@ -20,15 +20,15 @@ class NoReverseMatch(Exception):
     Raised by a Router when `reverse_url` is passed an invalid handler name.
     """
 
-    pass
+    ...
 
 
 class NoCodecAvailable(Exception):
-    pass
+    ...
 
 
 class ConfigurationError(Exception):
-    pass
+    ...
 
 
 class ComponentNotFound(ConfigurationError):
@@ -46,9 +46,17 @@ class ComponentNotFound(ConfigurationError):
 
 
 class HTTPException(starlette.exceptions.HTTPException):
-    pass
+    ...
 
 
 class ValidationError(HTTPException):
     def __init__(self, detail: typing.Union[str, typing.Dict[str, typing.List[str]]], status_code: int = 400):
         super().__init__(status_code=status_code, detail=detail)
+
+
+class InputValidationError(ValidationError):
+    ...
+
+
+class OutputValidationError(ValidationError):
+    ...
