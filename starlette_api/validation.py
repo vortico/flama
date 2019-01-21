@@ -22,27 +22,31 @@ def get_output_schema(func):
     return None
 
 
-def output_validation(func, error_status_code=500):
+def output_validation(error_cls=exceptions.OutputValidationError, error_status_code=500):
     """
     Validate view output using schema annotated as function's return.
 
-    :param func: Function to be decorated.
+    :param error_cls: Error class to be raised when validation fails. Errors dict will be passed through 'detail' param.
     :param error_status_code: HTTP status code assigned to response when it fails to validate output, default 500.
     :raises exceptions.ValidationError: if output validation fails.
     """
-    schema = get_output_schema(func)
-    assert schema is not None, "Return annotation must be a valid marshmallow schema"
 
-    @wraps(func)
-    async def inner(*args, **kwargs):
-        response = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
+    def outer_decorator(func):
+        schema = get_output_schema(func)
+        assert schema is not None, "Return annotation must be a valid marshmallow schema"
 
-        try:
-            # Use output schema to validate and format data
-            schema.dump(response)
-        except marshmallow.ValidationError as e:
-            raise exceptions.OutputValidationError(detail=e.messages, status_code=error_status_code)
+        @wraps(func)
+        async def inner_decorator(*args, **kwargs):
+            response = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
 
-        return response
+            try:
+                # Use output schema to validate and format data
+                schema.dump(response)
+            except marshmallow.ValidationError as e:
+                raise error_cls(detail=e.messages, status_code=error_status_code)
 
-    return inner
+            return response
+
+        return inner_decorator
+
+    return outer_decorator
