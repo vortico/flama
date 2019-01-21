@@ -12,7 +12,7 @@ utc = datetime.timezone.utc
 
 
 class Product(Schema):
-    name = fields.String(validate=validate.Length(max=10))
+    name = fields.String(validate=validate.Length(max=10), required=True)
     rating = fields.Integer(missing=None, validate=validate.Range(min=0, max=100))
     created = fields.DateTime()
 
@@ -35,10 +35,16 @@ def validate_many_products() -> Product(many=True):
     ]
 
 
-@app.route("/serialization-error")
+@app.route("/deserialization-error")
 @output_validation()
-def validate_serialization_error() -> Product:
+def validate_deserialization_error() -> Product:
     return {"rating": "foo", "created": "bar"}
+
+
+@app.route("/validation-error")
+@output_validation()
+def output_validation_error() -> Product:
+    return {"foo": "bar"}
 
 
 @app.route("/custom-error")
@@ -80,14 +86,20 @@ class TestCaseMarshmallowSchemaValidateOutput:
         body = response.json()
         assert body == products
 
-    def test_serialization_error(self, client):
-        response = client.get("/serialization-error")
+    def test_deserialization_error(self, client):
+        response = client.get("/deserialization-error")
 
         assert response.status_code == 500
         assert response.json() == {
             "created": ['"bar" cannot be formatted as a datetime.'],
             "rating": ["Not a valid integer."],
         }
+
+    def test_validation_error(self, client):
+        response = client.get("/validation-error")
+
+        assert response.status_code == 500
+        assert response.json() == {"name": ["Missing data for required field."]}
 
     def test_custom_error(self, client):
         response = client.get("/custom-error")

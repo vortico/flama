@@ -40,8 +40,10 @@ def output_validation(error_cls=exceptions.OutputValidationError, error_status_c
             response = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
 
             try:
-                # Use output schema to validate and format data
-                schema.dump(response)
+                # Use output schema to first deserialize the date and later validate it
+                errors = schema.validate(schema.dump(response))
+                if errors:
+                    raise error_cls(detail=errors, status_code=error_status_code)
             except marshmallow.ValidationError as e:
                 raise error_cls(detail=e.messages, status_code=error_status_code)
 
