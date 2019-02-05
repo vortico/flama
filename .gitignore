@@ -24,6 +24,7 @@ var/
 .installed.cfg
 *.egg
 *dist/
+pip-wheel-metadata/
 
 # Installer logs
 pip-log.txt

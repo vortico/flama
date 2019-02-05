@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link type="text/css" rel="stylesheet" href="//unpkg.com/swagger-ui-dist@3/swagger-ui.css">
+<title>$title</title>
+</head>
+<body>
+<div id="swagger-ui">
+</div>
+<script src="//unpkg.com/swagger-ui-dist@3/swagger-ui-bundle.js"></script>
+<!-- `SwaggerUIBundle` is now available on the page -->
+<script>
+
+const ui = SwaggerUIBundle({
+    url: '$schema_url',
+    dom_id: '#swagger-ui',
+    presets: [
+    SwaggerUIBundle.presets.apis,
+    SwaggerUIBundle.SwaggerUIStandalonePreset
+    ],
+    layout: "BaseLayout"
+})
+</script>
+</body>
+</html>

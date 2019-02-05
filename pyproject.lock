@@ -3,6 +3,7 @@ category = "dev"
 description = "apipkg: namespace control and lazy-import mechanism"
 name = "apipkg"
 optional = false
+platform = "unix"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "1.5"
 
@@ -11,6 +12,7 @@ category = "main"
 description = "A pluggable API specification generator. Currently supports the OpenAPI specification (f.k.a. the Swagger specification)."
 name = "apispec"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "0.39.0"
 
@@ -22,23 +24,28 @@ category = "dev"
 description = "A small Python module for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
 name = "appdirs"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "1.4.3"
 
 [[package]]
 category = "dev"
 description = "Disable App Nap on OS X 10.9"
-marker = "python_version >= \"3.3\" and sys_platform == \"darwin\" or sys_platform == \"darwin\""
 name = "appnope"
 optional = false
+platform = "UNKNOWN"
 python-versions = "*"
 version = "0.1.0"
+
+[package.requirements]
+platform = "darwin"
 
 [[package]]
 category = "dev"
 description = "Atomic file writes."
 name = "atomicwrites"
 optional = false
+platform = "*"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "1.3.0"
 
@@ -47,6 +54,7 @@ category = "dev"
 description = "Classes Without Boilerplate"
 name = "attrs"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "18.2.0"
 
@@ -55,6 +63,7 @@ category = "dev"
 description = "Specifications for callback functions passed in to an API"
 name = "backcall"
 optional = false
+platform = "UNKNOWN"
 python-versions = "*"
 version = "0.1.0"
 
@@ -63,6 +72,7 @@ category = "dev"
 description = "The uncompromising code formatter."
 name = "black"
 optional = false
+platform = "*"
 python-versions = ">=3.6"
 version = "18.9b0"
 
@@ -77,6 +87,7 @@ category = "dev"
 description = "Python package for providing Mozilla's CA Bundle."
 name = "certifi"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "2018.11.29"
 
@@ -85,6 +96,7 @@ category = "dev"
 description = "Universal encoding detector for Python 2 and 3"
 name = "chardet"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "3.0.4"
 
@@ -93,6 +105,7 @@ category = "dev"
 description = "Composable command line interface toolkit"
 name = "click"
 optional = false
+platform = "*"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "7.0"
 
@@ -101,6 +114,7 @@ category = "dev"
 description = "Command Line Interface builder that helps creating an entry point for your application."
 name = "clinner"
 optional = false
+platform = "*"
 python-versions = ">=3.5,<4.0"
 version = "1.12.3"
 
@@ -110,28 +124,35 @@ colorlog = ">=3.1,<4.0"
 [[package]]
 category = "dev"
 description = "Cross-platform colored terminal text."
-marker = "python_version >= \"3.3\" and sys_platform == \"win32\" or sys_platform == \"win32\""
 name = "colorama"
 optional = false
+platform = "*"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "0.4.1"
+
+[package.requirements]
+platform = "win32"
 
 [[package]]
 category = "dev"
 description = "Log formatting with colors!"
 name = "colorlog"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "3.2.0"
 
 [package.dependencies]
-colorama = "*"
+[package.dependencies.colorama]
+platform = "win32"
+version = "*"
 
 [[package]]
 category = "dev"
 description = "Code coverage measurement for Python"
 name = "coverage"
 optional = false
+platform = "*"
 python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*, <4"
 version = "4.5.2"
 
@@ -140,6 +161,7 @@ category = "dev"
 description = "Better living through Python with decorators"
 name = "decorator"
 optional = false
+platform = "All"
 python-versions = ">=2.6, !=3.0.*, !=3.1.*"
 version = "4.3.2"
 
@@ -148,6 +170,7 @@ category = "dev"
 description = "execnet: rapid multi-Python deployment"
 name = "execnet"
 optional = false
+platform = "unix"
 python-versions = "*"
 version = "1.5.0"
 
@@ -159,6 +182,7 @@ category = "dev"
 description = "A platform independent file lock."
 name = "filelock"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "3.0.10"
 
@@ -167,6 +191,7 @@ category = "dev"
 description = "Internationalized Domain Names in Applications (IDNA)"
 name = "idna"
 optional = false
+platform = "*"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "2.8"
 
@@ -175,6 +200,7 @@ category = "dev"
 description = "IPython-enabled pdb"
 name = "ipdb"
 optional = false
+platform = "*"
 python-versions = ">=2.7"
 version = "0.11"
 
@@ -190,16 +216,14 @@ category = "dev"
 description = "IPython: Productive Interactive Computing"
 name = "ipython"
 optional = false
+platform = "Linux"
 python-versions = ">=3.3"
 version = "6.5.0"
 
 [package.dependencies]
-appnope = "*"
 backcall = "*"
-colorama = "*"
 decorator = "*"
 jedi = ">=0.10"
-pexpect = "*"
 pickleshare = "*"
 prompt-toolkit = ">=1.0.15,<2.0.0"
 pygments = "*"
@@ -207,11 +231,24 @@ setuptools = ">=18.5"
 simplegeneric = ">0.8"
 traitlets = ">=4.2"
 
+[package.dependencies.appnope]
+platform = "darwin"
+version = "*"
+
+[package.dependencies.colorama]
+platform = "win32"
+version = "*"
+
+[package.dependencies.pexpect]
+platform = "!=win32"
+version = "*"
+
 [[package]]
 category = "dev"
 description = "Vestigial utilities from IPython"
 name = "ipython-genutils"
 optional = false
+platform = "Linux"
 python-versions = "*"
 version = "0.2.0"
 
@@ -220,6 +257,7 @@ category = "dev"
 description = "A Python utility / library to sort Python imports."
 name = "isort"
 optional = false
+platform = "*"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "4.3.4"
 
@@ -228,6 +266,7 @@ category = "dev"
 description = "An autocompletion tool for Python that can be used for text editors."
 name = "jedi"
 optional = false
+platform = "any"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "0.13.2"
 
@@ -239,6 +278,7 @@ category = "main"
 description = "A lightweight library for converting complex datatypes to and from native Python datatypes."
 name = "marshmallow"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "3.0.0rc3"
 
@@ -247,6 +287,7 @@ category = "dev"
 description = "More routines for operating on iterables, beyond itertools"
 name = "more-itertools"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "5.0.0"
 
@@ -258,26 +299,31 @@ category = "dev"
 description = "A Python Parser"
 name = "parso"
 optional = false
+platform = "any"
 python-versions = "*"
 version = "0.3.2"
 
 [[package]]
 category = "dev"
 description = "Pexpect allows easy control of interactive console applications."
-marker = "python_version >= \"3.3\" and sys_platform != \"win32\" or sys_platform != \"win32\""
 name = "pexpect"
 optional = false
+platform = "UNIX"
 python-versions = "*"
 version = "4.6.0"
 
 [package.dependencies]
 ptyprocess = ">=0.5"
 
+[package.requirements]
+platform = "!=win32"
+
 [[package]]
 category = "dev"
 description = "Tiny 'shelve'-like database with concurrency support"
 name = "pickleshare"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "0.7.5"
 
@@ -286,6 +332,7 @@ category = "dev"
 description = "plugin and hook calling mechanisms for python"
 name = "pluggy"
 optional = false
+platform = "unix"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "0.8.1"
 
@@ -294,6 +341,7 @@ category = "dev"
 description = "Library for building powerful interactive command lines in Python"
 name = "prompt-toolkit"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "1.0.15"
 
@@ -304,17 +352,21 @@ wcwidth = "*"
 [[package]]
 category = "dev"
 description = "Run a subprocess in a pseudo terminal"
-marker = "python_version >= \"3.3\" and sys_platform != \"win32\" or sys_platform != \"win32\""
 name = "ptyprocess"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "0.6.0"
+
+[package.requirements]
+platform = "!=win32"
 
 [[package]]
 category = "dev"
 description = "library with cross-python path, ini-parsing, io, code, log facilities"
 name = "py"
 optional = false
+platform = "unix"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "1.7.0"
 
@@ -323,6 +375,7 @@ category = "dev"
 description = "Pygments is a syntax highlighting package written in Python."
 name = "pygments"
 optional = false
+platform = "any"
 python-versions = "*"
 version = "2.3.1"
 
@@ -331,24 +384,29 @@ category = "dev"
 description = "pytest: simple powerful testing with Python"
 name = "pytest"
 optional = false
+platform = "unix"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "3.10.1"
 
 [package.dependencies]
 atomicwrites = ">=1.0"
 attrs = ">=17.4.0"
-colorama = "*"
 more-itertools = ">=4.0.0"
 pluggy = ">=0.7"
 py = ">=1.5.0"
 setuptools = "*"
 six = ">=1.10.0"
 
+[package.dependencies.colorama]
+platform = "win32"
+version = "*"
+
 [[package]]
 category = "dev"
 description = "Pytest plugin for measuring coverage."
 name = "pytest-cov"
 optional = false
+platform = "*"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "2.6.1"
 
@@ -361,6 +419,7 @@ category = "dev"
 description = "run tests in isolated forked subprocesses"
 name = "pytest-forked"
 optional = false
+platform = "linux"
 python-versions = "*"
 version = "1.0.1"
 
@@ -372,6 +431,7 @@ category = "dev"
 description = "pytest xdist plugin for distributed testing and loop-on-failing modes"
 name = "pytest-xdist"
 optional = false
+platform = "linux"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "1.26.1"
 
@@ -386,6 +446,7 @@ category = "dev"
 description = "A streaming multipart parser for Python"
 name = "python-multipart"
 optional = false
+platform = "any"
 python-versions = "*"
 version = "0.0.5"
 
@@ -397,6 +458,7 @@ category = "main"
 description = "YAML parser and emitter for Python"
 name = "pyyaml"
 optional = false
+platform = "Any"
 python-versions = "*"
 version = "3.13"
 
@@ -405,6 +467,7 @@ category = "dev"
 description = "Python HTTP for Humans."
 name = "requests"
 optional = false
+platform = "*"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "2.21.0"
 
@@ -419,6 +482,7 @@ category = "dev"
 description = "Simple generic functions (similar to Python's own len(), pickle.dump(), etc.)"
 name = "simplegeneric"
 optional = false
+platform = "UNKNOWN"
 python-versions = "*"
 version = "0.8.1"
 
@@ -427,6 +491,7 @@ category = "dev"
 description = "Python 2 and 3 compatibility utilities"
 name = "six"
 optional = false
+platform = "*"
 python-versions = ">=2.6, !=3.0.*, !=3.1.*"
 version = "1.12.0"
 
@@ -435,6 +500,7 @@ category = "main"
 description = "The little ASGI library that shines."
 name = "starlette"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "0.10.1"
 
@@ -443,6 +509,7 @@ category = "dev"
 description = "Python Library for Tom's Obvious, Minimal Language"
 name = "toml"
 optional = false
+platform = "*"
 python-versions = "*"
 version = "0.10.0"
 
@@ -451,6 +518,7 @@ category = "dev"
 description = "virtualenv-based automation of test activities"
 name = "tox"
 optional = false
+platform = "unix"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "3.7.0"
 
@@ -468,6 +536,7 @@ category = "dev"
 description = "Traitlets Python config system"
 name = "traitlets"
 optional = false
+platform = "Linux,Mac OS X,Windows"
 python-versions = "*"
 version = "4.3.2"
 
@@ -481,6 +550,7 @@ category = "dev"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 name = "urllib3"
 optional = false
+platform = "*"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, <4"
 version = "1.24.1"
 
@@ -489,6 +559,7 @@ category = "dev"
 description = "Virtual Python Environment builder"
 name = "virtualenv"
 optional = false
+platform = "any"
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "16.3.0"
 
@@ -500,6 +571,7 @@ category = "dev"
 description = "Measures number of Terminal column cells of wide-character codes"
 name = "wcwidth"
 optional = false
+platform = "UNKNOWN"
 python-versions = "*"
 version = "0.1.7"
 
@@ -508,6 +580,7 @@ full = ["apispec", "pyyaml"]
 
 [metadata]
 content-hash = "a2c8b1c98b5bc2a13105e6d5dd1a4f48b8d65a1e61c7962d597f1b6a6f542836"
+platform = "*"
 python-versions = "^3.6"
 
 [metadata.hashes]

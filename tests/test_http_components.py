@@ -90,13 +90,16 @@ def get_path_params(params: http.PathParams):
 
 @app.route("/request_data/", methods=["POST"])
 async def get_request_data(data: http.RequestData):
-    if isinstance(data, dict):
+    try:
         data = {
             key: value
             if not hasattr(value, "filename")
             else {"filename": value.filename, "content": (await value.read()).decode("utf-8")}
             for key, value in data.items()
         }
+    except Exception:
+        pass
+
     return {"data": data}
 
 
@@ -325,9 +328,8 @@ class TestCaseHttp:
         assert response.json() == {"example": "content"}
 
     def test_return_unserializable_json(self, client):
-        with pytest.raises(TypeError) as excinfo:
+        with pytest.raises(TypeError, match=r".*Object of type .?Dummy.? is not JSON serializable"):
             client.get("/return_unserializable_json/")
-        assert str(excinfo).endswith("Object of type Dummy is not JSON serializable"), str(excinfo)
 
     def test_headers_type(self, client):
         h = http.Headers([("a", "123"), ("A", "456"), ("b", "789")])

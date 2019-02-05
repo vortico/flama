@@ -1,46 +1,33 @@
 import asyncio
-import enum
 import inspect
 import typing
-from dataclasses import dataclass
 from functools import wraps
 
+import marshmallow
 import starlette.routing
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Match, Mount
 from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 
-import marshmallow
 from starlette_api import http
 from starlette_api.components import Component
+from starlette_api.types import Field, FieldLocation
 from starlette_api.validation import get_output_schema
 
 __all__ = ["Route", "WebSocketRoute", "Router"]
-
-
-class Location(enum.Enum):
-    query = enum.auto()
-    path = enum.auto()
-    body = enum.auto()
-
-
-@dataclass
-class Field:
-    name: str
-    location: Location
-    schema: typing.Union[marshmallow.fields.Field, marshmallow.Schema]
-    required: bool = False
-
 
 FieldsMap = typing.Dict[str, Field]
 MethodsMap = typing.Dict[str, FieldsMap]
 
 
 class FieldsMixin:
-    def _get_fields(self, router: "Router") -> typing.Tuple[MethodsMap, MethodsMap, typing.Dict[str, Field]]:
+    def _get_fields(
+        self, router: "Router"
+    ) -> typing.Tuple[MethodsMap, MethodsMap, typing.Dict[str, Field], typing.Dict[str, typing.Any]]:
         query_fields: MethodsMap = {}
         path_fields: MethodsMap = {}
         body_field: typing.Dict[str, Field] = {}
+        output_field: typing.Dict[str, typing.Any] = {}
 
         if hasattr(self, "methods"):
             if inspect.isclass(self.endpoint):  # HTTP endpoint
@@ -54,12 +41,10 @@ class FieldsMixin:
         else:  # Websocket
             methods = [("GET", self.endpoint)]
 
-        for method, handler in methods:
-            query_fields[method], path_fields[method], body_field[method] = self._get_fields_from_handler(
-                handler, router
-            )
+        for m, h in methods:
+            query_fields[m], path_fields[m], body_field[m], output_field[m] = self._get_fields_from_handler(h, router)
 
-        return query_fields, path_fields, body_field
+        return query_fields, path_fields, body_field, output_field
 
     def _get_parameters_from_handler(
         self, handler: typing.Callable, router: "Router"
@@ -78,7 +63,7 @@ class FieldsMixin:
 
     def _get_fields_from_handler(
         self, handler: typing.Callable, router: "Router"
-    ) -> typing.Tuple[FieldsMap, FieldsMap, Field]:
+    ) -> typing.Tuple[FieldsMap, FieldsMap, Field, typing.Any]:
         query_fields: FieldsMap = {}
         path_fields: FieldsMap = {}
         body_field: Field = None
@@ -96,13 +81,15 @@ class FieldsMixin:
                     float: marshmallow.fields.Number(required=True),
                     str: marshmallow.fields.String(required=True),
                 }[param.annotation]
-                path_fields[name] = Field(name=name, location=Location.path, schema=schema)
+                path_fields[name] = Field(name=name, location=FieldLocation.path, schema=schema, required=True)
 
             # Matches as query param
             elif param.annotation in (param.empty, int, float, bool, str, http.QueryParam):
                 if param.default is param.empty:
+                    required = True
                     kwargs = {"required": True}
                 else:
+                    required = False
                     kwargs = {"missing": param.default}
                 schema = {
                     param.empty: None,
@@ -112,13 +99,15 @@ class FieldsMixin:
                     str: marshmallow.fields.String(**kwargs),
                     http.QueryParam: marshmallow.fields.String(**kwargs),
                 }[param.annotation]
-                query_fields[name] = Field(name=name, location=Location.query, schema=schema)
+                query_fields[name] = Field(name=name, location=FieldLocation.query, schema=schema, required=required)
 
             # Body params
             elif inspect.isclass(param.annotation) and issubclass(param.annotation, marshmallow.Schema):
-                body_field = Field(name=name, location=Location.body, schema=param.annotation())
+                body_field = Field(name=name, location=FieldLocation.body, schema=param.annotation())
 
-        return query_fields, path_fields, body_field
+        output_field = inspect.signature(handler).return_annotation
+
+        return query_fields, path_fields, body_field, output_field
 
 
 class Route(starlette.routing.Route, FieldsMixin):
@@ -129,7 +118,7 @@ class Route(starlette.routing.Route, FieldsMixin):
         if inspect.isfunction(endpoint):
             self.app = self.endpoint_wrapper(endpoint)
 
-        self.query_fields, self.path_fields, self.body_field = self._get_fields(router)
+        self.query_fields, self.path_fields, self.body_field, self.output_field = self._get_fields(router)
 
     def endpoint_wrapper(self, endpoint: typing.Callable) -> ASGIApp:
         """
@@ -186,7 +175,7 @@ class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
         if inspect.isfunction(endpoint):
             self.app = self.endpoint_wrapper(endpoint)
 
-        self.query_fields, self.path_fields, self.body_field = self._get_fields(router)
+        self.query_fields, self.path_fields, self.body_field, self.output_field = self._get_fields(router)
 
     def endpoint_wrapper(self, endpoint: typing.Callable) -> ASGIApp:
         """
@@ -223,6 +212,9 @@ class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
 class Router(starlette.routing.Router):
     def __init__(self, components: typing.Optional[typing.List[Component]] = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if components is None:
+            components = []
+
         self.components = components
 
     def add_route(

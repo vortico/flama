@@ -14,6 +14,8 @@ exclude = []
 python = "^3.6"
 starlette = ">=0.9.10"
 marshmallow = {version = ">2",allows-prereleases = true}
+apispec = {version = "^0.39.0",optional = true}
+pyyaml = {version = "^3.13",optional = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.6"
@@ -27,6 +29,11 @@ ipdb = "^0.11.0"
 black = "^18.3-alpha.0"
 isort = "^4.3"
 python-multipart = "^0.0.5"
+pyyaml = "^3.13"
+apispec = "^0.39.0"
+
+[tool.poetry.extras]
+full = ["apispec","pyyaml"]
 
 [tool.black]
 line-length = 120

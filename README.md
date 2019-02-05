@@ -19,11 +19,15 @@ the inputs and outputs of endpoints and provides a reliable way of **validate** 
 your endpoints, injected as parameters.
 * **Starlette ASGI** objects like `Request`, `Response`, `Session` and so on are defined as components and ready to be 
 injected in your endpoints.
+* **Auto generated API schema** using OpenAPI standard. It uses the schema system of your endpoints to extract all the 
+necessary information to generate your API Schema.
+* **Auto generated docs** providing a [Swagger UI](https://swagger.io/tools/swagger-ui/) or 
+[ReDocs](https://rebilly.github.io/ReDoc/) endpoint.
 
 ## Requirements
 
 * Python 3.6+
-* Starlette 0.9+
+* Starlette 0.10+
 
 ## Installation
 
@@ -53,7 +57,15 @@ puppies = [
 
 
 # Application
-app = Starlette()
+app = Starlette(
+    components=[],      # Without custom components
+    title="Foo",        # API title
+    version="0.1",      # API version
+    description="Bar",  # API description
+    schema="/schema/",  # Path to expose OpenAPI schema
+    docs="/docs/",      # Path to expose Swagger UI docs
+    redoc="/redoc/",    # Path to expose ReDoc docs
+)
 
 
 # Views
