@@ -6,7 +6,7 @@ from collections import defaultdict
 from string import Template
 
 import marshmallow
-from apispec.ext.marshmallow import MarshmallowPlugin
+from apispec.core import YAMLDumper
 from starlette import routing, schemas
 from starlette.responses import HTMLResponse
 
@@ -18,9 +18,26 @@ try:
 except Exception:  # pragma: no cover
     apispec = None  # type: ignore
 
+try:
+    import yaml
+except Exception:  # pragma: no cover
+    yaml = None  # type: ignore
+
+
+class OpenAPIResponse(schemas.OpenAPIResponse):
+    def render(self, content: typing.Any) -> bytes:
+        assert yaml is not None, "`pyyaml` must be installed to use OpenAPIResponse."
+        assert isinstance(content, dict), "The schema passed to OpenAPIResponse should be a dictionary."
+
+        return yaml.dump(content, default_flow_style=False, Dumper=YAMLDumper).encode("utf-8")
+
 
 class SchemaGenerator(schemas.BaseSchemaGenerator):
-    def __init__(self, title: str, version: str, description: str, openapi_version="3.0"):
+    def __init__(self, title: str, version: str, description: str, openapi_version="3.0.0"):
+        assert apispec is not None, "`apispec` must be installed to use SchemaGenerator."
+
+        from apispec.ext.marshmallow import MarshmallowPlugin
+
         self.spec = apispec.APISpec(
             title=title,
             version=version,
@@ -161,7 +178,7 @@ class SchemaMixin:
         self.schema_generator = SchemaGenerator(title=self.title, version=self.version, description=self.description)
 
         def schema():
-            return schemas.OpenAPIResponse(self.schema)
+            return OpenAPIResponse(self.schema)
 
         self.add_route(path=self.schema_url, route=schema, methods=["GET"], include_in_schema=False)
 
