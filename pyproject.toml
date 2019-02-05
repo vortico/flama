@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "starlette-api"
-version = "0.4.0"
+version = "0.4.1"
 description = "Starlette API layer inherited from APIStar"
 authors = ["José Antonio Perdiguero López <perdy@perdy.io>"]
 license = "GPL-3.0+"
