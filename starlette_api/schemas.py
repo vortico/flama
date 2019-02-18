@@ -64,12 +64,13 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
 
         for route in routes:
             if isinstance(route, routing.Route) and route.include_in_schema:
+                _, path, _ = routing.compile_path(base_path + route.path)
+
                 if inspect.isfunction(route.endpoint) or inspect.ismethod(route.endpoint):
                     for method in route.methods or ["GET"]:
                         if method == "HEAD":
                             continue
 
-                        path = base_path + route.path
                         endpoints_info[path].append(
                             EndpointInfo(
                                 path=path,
@@ -86,7 +87,6 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
                         if not hasattr(route.endpoint, method):
                             continue
 
-                        path = base_path + route.path
                         func = getattr(route.endpoint, method)
                         endpoints_info[path].append(
                             EndpointInfo(
