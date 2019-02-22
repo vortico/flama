@@ -5,6 +5,7 @@ from functools import wraps
 
 import marshmallow
 import starlette.routing
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Match, Mount
 from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
@@ -147,7 +148,7 @@ class Route(starlette.routing.Route, FieldsMixin):
                 if asyncio.iscoroutinefunction(endpoint):
                     response = await injected_func()
                 else:
-                    response = injected_func()
+                    response = await run_in_threadpool(injected_func)
 
                 # Use output schema to validate and format data
                 output_schema = get_output_schema(endpoint)

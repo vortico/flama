@@ -3,7 +3,6 @@ import typing
 from starlette.applications import Starlette as App
 from starlette.exceptions import ExceptionMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
-from starlette.middleware.lifespan import LifespanMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
@@ -42,7 +41,6 @@ class Starlette(App, SchemaMixin):
         self.app = self.router
         self.exception_middleware = ExceptionMiddleware(self.router, debug=debug)
         self.error_middleware = ServerErrorMiddleware(self.exception_middleware, debug=debug)
-        self.lifespan_middleware = LifespanMiddleware(self.error_middleware)
 
         # Add exception handler for API exceptions
         self.add_exception_handler(exceptions.HTTPException, self.api_http_exception_handler)

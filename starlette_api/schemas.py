@@ -174,9 +174,20 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
 
 
 class SchemaMixin:
-    def add_schema_route(self):
-        self.schema_generator = SchemaGenerator(title=self.title, version=self.version, description=self.description)
+    @property
+    def schema_generator(self):
+        if not hasattr(self, "_schema_generator"):
+            self._schema_generator = SchemaGenerator(
+                title=self.title, version=self.version, description=self.description
+            )
 
+        return self._schema_generator
+
+    @property
+    def schema(self):
+        return self.schema_generator.get_schema(self.routes)
+
+    def add_schema_route(self):
         def schema():
             return OpenAPIResponse(self.schema)
 
