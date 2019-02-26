@@ -2,7 +2,6 @@ import typing
 
 import marshmallow
 
-from starlette_api.pagination.base import BasePaginationSchema
 from starlette_api.responses import APIResponse
 
 __all__ = ["PageNumberSchema", "PageNumberResponse"]
@@ -14,8 +13,9 @@ class PageNumberMeta(marshmallow.Schema):
     count = marshmallow.fields.Integer(title="count", description="Total number of items", allow_none=True)
 
 
-class PageNumberSchema(BasePaginationSchema):
+class PageNumberSchema(marshmallow.Schema):
     meta = marshmallow.fields.Nested(PageNumberMeta)
+    data = marshmallow.fields.List(marshmallow.fields.Dict())
 
 
 class PageNumberResponse(APIResponse):
@@ -42,7 +42,7 @@ class PageNumberResponse(APIResponse):
         self.page_number = int(page) if page is not None else 1
         self.page_size = int(page_size) if page_size is not None else self.default_page_size
         self.count = count
-        super().__init__(schema=PageNumberSchema(data_schema=schema), **kwargs)
+        super().__init__(schema=schema, **kwargs)
 
     def render(self, content: typing.Sequence):
         init = (self.page_number - 1) * self.page_size

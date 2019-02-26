@@ -2,7 +2,6 @@ import typing
 
 import marshmallow
 
-from starlette_api.pagination.base import BasePaginationSchema
 from starlette_api.responses import APIResponse
 
 __all__ = ["LimitOffsetSchema", "LimitOffsetResponse"]
@@ -14,8 +13,9 @@ class LimitOffsetMeta(marshmallow.Schema):
     count = marshmallow.fields.Integer(title="count", description="Total number of items", allow_none=True)
 
 
-class LimitOffsetSchema(BasePaginationSchema):
+class LimitOffsetSchema(marshmallow.Schema):
     meta = marshmallow.fields.Nested(LimitOffsetMeta)
+    data = marshmallow.fields.List(marshmallow.fields.Dict())
 
 
 class LimitOffsetResponse(APIResponse):
@@ -40,7 +40,7 @@ class LimitOffsetResponse(APIResponse):
         self.offset = int(offset) if offset is not None else 0
         self.limit = int(limit) if limit is not None else self.default_limit
         self.count = count
-        super().__init__(schema=LimitOffsetSchema(data_schema=schema), **kwargs)
+        super().__init__(schema=schema, **kwargs)
 
     def render(self, content: typing.Sequence):
         init = self.offset
