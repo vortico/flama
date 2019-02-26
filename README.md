@@ -23,6 +23,7 @@ injected in your endpoints.
 necessary information to generate your API Schema.
 * **Auto generated docs** providing a [Swagger UI](https://swagger.io/tools/swagger-ui/) or 
 [ReDocs](https://rebilly.github.io/ReDoc/) endpoint.
+* **Pagination** automatically handled using multiple methods such as limit and offset, page numbers...
 
 ## Requirements
 

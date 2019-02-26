@@ -6,12 +6,13 @@ from functools import wraps
 import marshmallow
 import starlette.routing
 from starlette.concurrency import run_in_threadpool
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 from starlette.routing import Match, Mount
 from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 
 from starlette_api import http
 from starlette_api.components import Component
+from starlette_api.responses import APIResponse
 from starlette_api.types import Field, FieldLocation
 from starlette_api.validation import get_output_schema
 
@@ -150,16 +151,11 @@ class Route(starlette.routing.Route, FieldsMixin):
                 else:
                     response = await run_in_threadpool(injected_func)
 
-                # Use output schema to validate and format data
-                output_schema = get_output_schema(endpoint)
-                if output_schema:
-                    response = output_schema.dump(response)
-
                 # Wrap response data with a proper response class
                 if isinstance(response, (dict, list)):
-                    response = JSONResponse(response)
+                    response = APIResponse(content=response, schema=get_output_schema(endpoint))
                 elif isinstance(response, str):
-                    response = Response(response)
+                    response = Response(content=response)
 
                 await response(receive, send)
 

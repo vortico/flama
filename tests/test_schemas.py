@@ -119,7 +119,6 @@ class TestCaseSchema:
             {"name": "param", "in": "query", "required": False, "schema": {"type": "string", "default": "Foo"}}
         ]
 
-    @pytest.mark.wip
     def test_schema_path_params(self, app):
         schema = app.schema["paths"]["/path-param/{param}/"]["get"]
         parameters = schema.get("parameters", {})
