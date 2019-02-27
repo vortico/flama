@@ -21,6 +21,7 @@ class LimitOffsetSchema(marshmallow.Schema):
 class LimitOffsetResponse(APIResponse):
     """
     Response paginated based on a limit of elements and an offset.
+
     First 10 elements:
         /resource?offset=0&limit=10
     Elements 20-30:

@@ -13,6 +13,19 @@ __all__ = ["Paginator"]
 class Paginator:
     @classmethod
     def page_number(cls, func):
+        """
+        Decorator for adding pagination behavior to a view. That decorator produces a view based on page numbering and
+        it adds three query parameters to control the pagination: page, page_size and count. Page has a default value of
+        first page, page_size default value is defined in
+        :class:`PageNumberResponse` and count defines if the response will define
+        the total number of elements.
+
+        The output schema is also modified by :class:`PageNumberSchema`, creating
+        a new schema based on it but using the old output schema as the content of its data field.
+
+        :param func: View to be decorated.
+        :return: Decorated view.
+        """
         resource_schema = get_output_schema(func)
 
         schema = type(
@@ -44,6 +57,19 @@ class Paginator:
 
     @classmethod
     def limit_offset(cls, func):
+        """
+        Decorator for adding pagination behavior to a view. That decorator produces a view based on limit-offset and
+        it adds three query parameters to control the pagination: limit, offset and count. Offset has a default value of
+        zero to start with the first element of the collection, limit default value is defined in
+        :class:`LimitOffsetResponse` and count defines if the response will
+        define the total number of elements.
+
+        The output schema is also modified by :class:`LimitOffsetSchema`,
+        creating a new schema based on it but using the old output schema as the content of its data field.
+
+        :param func: View to be decorated.
+        :return: Decorated view.
+        """
         resource_schema = get_output_schema(func)
 
         schema = type(

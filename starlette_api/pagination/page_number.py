@@ -21,6 +21,7 @@ class PageNumberSchema(marshmallow.Schema):
 class PageNumberResponse(APIResponse):
     """
     Response paginated based on a page number and a page size.
+
     First 10 elements:
         /resource?page=1
     Third 10 elements:
