@@ -1,7 +1,9 @@
+import typing
+
 import pytest
+from marshmallow import Schema, fields, validate
 from starlette.testclient import TestClient
 
-from marshmallow import Schema, fields, validate
 from starlette_api.applications import Starlette
 
 
@@ -53,6 +55,21 @@ def bool_query_param_with_default(param: bool = False):
     return {"param": param}
 
 
+@app.route("/str_query_param_optional/")
+def str_query_param_optional(param: typing.Optional[str] = None):
+    return {"param": param}
+
+
+@app.route("/int_query_param_optional/")
+def int_query_param_optional(param: typing.Optional[int] = None):
+    return {"param": param}
+
+
+@app.route("/bool_query_param_optional/")
+def bool_query_param_optional(param: typing.Optional[bool] = None):
+    return {"param": param}
+
+
 @app.route("/type_body_param/", methods=["POST"])
 def type_body_param(user: User):
     return {"user": dict(user)}
@@ -95,6 +112,13 @@ class TestCaseValidation:
         response = client.get("/str_query_param_with_default/")
         assert response.json() == {"param": ""}
 
+    def test_str_query_param_optional(self, client):
+        response = client.get("/str_query_param_optional/?param=123")
+        assert response.json() == {"param": "123"}
+
+        response = client.get("/str_query_param_optional/")
+        assert response.json() == {"param": None}
+
     def test_int_query_param(self, client):
         response = client.get("/int_query_param/?param=123")
         assert response.json() == {"param": 123}
@@ -107,6 +131,13 @@ class TestCaseValidation:
         assert response.json() == {"param": 123}
 
         response = client.get("/int_query_param_with_default/")
+        assert response.json() == {"param": None}
+
+    def test_int_query_param_optional(self, client):
+        response = client.get("/int_query_param_optional/?param=123")
+        assert response.json() == {"param": 123}
+
+        response = client.get("/int_query_param_optional/")
         assert response.json() == {"param": None}
 
     def test_bool_query_param(self, client):
@@ -128,6 +159,16 @@ class TestCaseValidation:
 
         response = client.get("/bool_query_param_with_default/")
         assert response.json() == {"param": False}
+
+    def test_bool_query_param_optional(self, client):
+        response = client.get("/bool_query_param_optional/?param=true")
+        assert response.json() == {"param": True}
+
+        response = client.get("/bool_query_param_optional/?param=false")
+        assert response.json() == {"param": False}
+
+        response = client.get("/bool_query_param_optional/")
+        assert response.json() == {"param": None}
 
     def test_wrong_query_param(self, client):
         response = client.get("/int_query_param/?param=foo")

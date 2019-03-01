@@ -25,3 +25,9 @@ class EndpointInfo(typing.NamedTuple):
     path_fields: typing.Dict[str, Field]
     body_field: Field
     output_field: typing.Any
+
+
+OptInt = typing.Optional[int]
+OptStr = typing.Optional[str]
+OptBool = typing.Optional[bool]
+OptFloat = typing.Optional[float]

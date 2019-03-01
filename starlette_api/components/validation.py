@@ -2,10 +2,12 @@ import inspect
 import typing
 
 import marshmallow
+
 from starlette_api import codecs, exceptions, http
 from starlette_api.codecs.negotiation import negotiate_content_type
 from starlette_api.components import Component
 from starlette_api.routing import Route
+from starlette_api.types import OptBool, OptFloat, OptInt, OptStr
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
@@ -77,25 +79,41 @@ class ValidateRequestDataComponent(Component):
 
 class PrimitiveParamComponent(Component):
     def can_handle_parameter(self, parameter: inspect.Parameter):
-        return parameter.annotation in (str, int, float, bool, parameter.empty)
+        return parameter.annotation in (
+            str,
+            int,
+            float,
+            bool,
+            OptStr,
+            OptInt,
+            OptFloat,
+            OptBool,
+            parameter.empty,
+            http.QueryParam,
+        )
 
     def resolve(
         self, parameter: inspect.Parameter, path_params: ValidatedPathParams, query_params: ValidatedQueryParams
     ):
         params = path_params if (parameter.name in path_params) else query_params
 
-        if parameter.default is parameter.empty:
-            kwargs = {"required": True}
+        if parameter.annotation in (OptInt, OptFloat, OptBool, OptStr) or parameter.default is not parameter.empty:
+            kwargs = {"missing": parameter.default if parameter.default is not parameter.empty else None}
         else:
-            kwargs = {"missing": parameter.default}
+            kwargs = {"required": True}
 
         param_validator = {
-            parameter.empty: marshmallow.fields.Field(**kwargs),
-            str: marshmallow.fields.String(**kwargs),
-            int: marshmallow.fields.Integer(**kwargs),
-            float: marshmallow.fields.Number(**kwargs),
-            bool: marshmallow.fields.Boolean(**kwargs),
-        }[parameter.annotation]
+            inspect.Signature.empty: marshmallow.fields.Field,
+            int: marshmallow.fields.Integer,
+            float: marshmallow.fields.Number,
+            bool: marshmallow.fields.Boolean,
+            str: marshmallow.fields.String,
+            OptInt: marshmallow.fields.Integer,
+            OptFloat: marshmallow.fields.Number,
+            OptBool: marshmallow.fields.Boolean,
+            OptStr: marshmallow.fields.String,
+            http.QueryParam: marshmallow.fields.String,
+        }[parameter.annotation](**kwargs)
 
         validator = type("Validator", (marshmallow.Schema,), {parameter.name: param_validator})
 
@@ -108,7 +126,7 @@ class PrimitiveParamComponent(Component):
 
 class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: inspect.Parameter):
-        return issubclass(parameter.annotation, marshmallow.Schema)
+        return inspect.isclass(parameter.annotation) and issubclass(parameter.annotation, marshmallow.Schema)
 
     def resolve(self, parameter: inspect.Parameter, data: ValidatedRequestData):
         return data

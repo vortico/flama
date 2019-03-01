@@ -3,7 +3,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from starlette_api.applications import Starlette
-from starlette_api.pagination import paginator
+from starlette_api.pagination import Paginator
 
 
 class OutputSchema(marshmallow.Schema):
@@ -16,7 +16,7 @@ class TestPageNumberResponse:
         app_ = Starlette(title="Foo", version="0.1", description="Bar", schema="/schema/")
 
         @app_.route("/page-number/", methods=["GET"])
-        @paginator.page_number
+        @Paginator.page_number
         def page_number(**kwargs) -> OutputSchema(many=True):
             return [{"value": i} for i in range(25)]
 
@@ -29,7 +29,7 @@ class TestPageNumberResponse:
     def test_invalid_view(self, app):
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
-            @paginator.page_number
+            @Paginator.page_number
             def invalid():
                 ...
 
@@ -39,18 +39,18 @@ class TestPageNumberResponse:
 
         assert parameters == [
             {
+                "name": "page",
+                "in": "query",
+                "required": False,
+                "schema": {"default": None, "type": "integer", "format": "int32", "nullable": True},
+            },
+            {
                 "name": "page_size",
                 "in": "query",
                 "required": False,
                 "schema": {"default": None, "type": "integer", "format": "int32", "nullable": True},
             },
             {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
-            {
-                "name": "page",
-                "in": "query",
-                "required": False,
-                "schema": {"default": None, "type": "integer", "format": "int32", "nullable": True},
-            },
         ]
 
     def test_pagination_schema_return(self, app):
@@ -95,6 +95,19 @@ class TestPageNumberResponse:
             "content": {
                 "application/json": {"schema": {"$ref": "#/components/schemas/PageNumberPaginatedOutputSchema"}}
             }
+        }
+
+    def test_async_function(self, app, client):
+        @app.route("/page-number-async/", methods=["GET"])
+        @Paginator.page_number
+        async def page_number_async(**kwargs) -> OutputSchema(many=True):
+            return [{"value": i} for i in range(25)]
+
+        response = client.get("/page-number-async/")
+        assert response.status_code == 200, response.json()
+        assert response.json() == {
+            "meta": {"page": 1, "page_size": 10, "count": 25},
+            "data": [{"value": i} for i in range(10)],
         }
 
     def test_default_params(self, client):
@@ -144,8 +157,8 @@ class TestLimitOffsetResponse:
         app_ = Starlette(title="Foo", version="0.1", description="Bar", schema="/schema/")
 
         @app_.route("/limit-offset/", methods=["GET"])
-        @paginator.limit_offset
-        def page_number(**kwargs) -> OutputSchema(many=True):
+        @Paginator.limit_offset
+        def limit_offset(**kwargs) -> OutputSchema(many=True):
             return [{"value": i} for i in range(25)]
 
         return app_
@@ -157,7 +170,7 @@ class TestLimitOffsetResponse:
     def test_invalid_view(self, app):
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
-            @paginator.limit_offset
+            @Paginator.limit_offset
             def invalid():
                 ...
 
@@ -167,18 +180,18 @@ class TestLimitOffsetResponse:
 
         assert parameters == [
             {
+                "name": "limit",
+                "in": "query",
+                "required": False,
+                "schema": {"default": None, "type": "integer", "format": "int32", "nullable": True},
+            },
+            {
                 "name": "offset",
                 "in": "query",
                 "required": False,
                 "schema": {"default": None, "type": "integer", "format": "int32", "nullable": True},
             },
             {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
-            {
-                "name": "limit",
-                "in": "query",
-                "required": False,
-                "schema": {"default": None, "type": "integer", "format": "int32", "nullable": True},
-            },
         ]
 
     def test_pagination_schema_return(self, app):
@@ -223,6 +236,19 @@ class TestLimitOffsetResponse:
             "content": {
                 "application/json": {"schema": {"$ref": "#/components/schemas/LimitOffsetPaginatedOutputSchema"}}
             }
+        }
+
+    def test_async_function(self, app, client):
+        @app.route("/limit-offset-async/", methods=["GET"])
+        @Paginator.limit_offset
+        async def limit_offset_async(**kwargs) -> OutputSchema(many=True):
+            return [{"value": i} for i in range(25)]
+
+        response = client.get("/limit-offset-async/")
+        assert response.status_code == 200, response.json()
+        assert response.json() == {
+            "meta": {"limit": 10, "offset": 0, "count": 25},
+            "data": [{"value": i} for i in range(10)],
         }
 
     def test_default_params(self, client):

@@ -49,5 +49,6 @@ docs/_build/
 node_modules
 *.vscode
 
-## Demo
+## Demo & Tests
 demo.db
+test.db

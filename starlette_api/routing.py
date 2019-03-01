@@ -6,20 +6,40 @@ from functools import wraps
 import marshmallow
 import starlette.routing
 from starlette.concurrency import run_in_threadpool
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 from starlette.routing import Match, Mount
 from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 
 from starlette_api import http
 from starlette_api.components import Component
 from starlette_api.responses import APIResponse
-from starlette_api.types import Field, FieldLocation
+from starlette_api.types import Field, FieldLocation, OptBool, OptFloat, OptInt, OptStr
 from starlette_api.validation import get_output_schema
 
 __all__ = ["Route", "WebSocketRoute", "Router"]
 
 FieldsMap = typing.Dict[str, Field]
 MethodsMap = typing.Dict[str, FieldsMap]
+
+PATH_SCHEMA_MAPPING = {
+    inspect.Signature.empty: lambda *args, **kwargs: None,
+    int: marshmallow.fields.Integer,
+    float: marshmallow.fields.Number,
+    str: marshmallow.fields.String,
+}
+
+QUERY_SCHEMA_MAPPING = {
+    inspect.Signature.empty: lambda *args, **kwargs: None,
+    int: marshmallow.fields.Integer,
+    float: marshmallow.fields.Number,
+    bool: marshmallow.fields.Boolean,
+    str: marshmallow.fields.String,
+    OptInt: marshmallow.fields.Integer,
+    OptFloat: marshmallow.fields.Number,
+    OptBool: marshmallow.fields.Boolean,
+    OptStr: marshmallow.fields.String,
+    http.QueryParam: marshmallow.fields.String,
+}
 
 
 class FieldsMixin:
@@ -77,31 +97,28 @@ class FieldsMixin:
 
             # Matches as path param
             if name in self.param_convertors.keys():
-                schema = {
-                    param.empty: None,
-                    int: marshmallow.fields.Integer(required=True),
-                    float: marshmallow.fields.Number(required=True),
-                    str: marshmallow.fields.String(required=True),
-                }[param.annotation]
-                path_fields[name] = Field(name=name, location=FieldLocation.path, schema=schema, required=True)
+                path_fields[name] = Field(
+                    name=name,
+                    location=FieldLocation.path,
+                    schema=PATH_SCHEMA_MAPPING[param.annotation](required=True),
+                    required=True,
+                )
 
             # Matches as query param
-            elif param.annotation in (param.empty, int, float, bool, str, http.QueryParam):
-                if param.default is param.empty:
+            elif param.annotation in QUERY_SCHEMA_MAPPING:
+                if param.annotation in (OptInt, OptFloat, OptBool, OptStr) or param.default is not param.empty:
+                    required = False
+                    kwargs = {"missing": param.default if param.default is not param.empty else None}
+                else:
                     required = True
                     kwargs = {"required": True}
-                else:
-                    required = False
-                    kwargs = {"missing": param.default}
-                schema = {
-                    param.empty: None,
-                    int: marshmallow.fields.Integer(**kwargs),
-                    float: marshmallow.fields.Number(**kwargs),
-                    bool: marshmallow.fields.Boolean(**kwargs),
-                    str: marshmallow.fields.String(**kwargs),
-                    http.QueryParam: marshmallow.fields.String(**kwargs),
-                }[param.annotation]
-                query_fields[name] = Field(name=name, location=FieldLocation.query, schema=schema, required=required)
+
+                query_fields[name] = Field(
+                    name=name,
+                    location=FieldLocation.query,
+                    schema=QUERY_SCHEMA_MAPPING[param.annotation](**kwargs),
+                    required=required,
+                )
 
             # Body params
             elif inspect.isclass(param.annotation) and issubclass(param.annotation, marshmallow.Schema):
@@ -117,7 +134,7 @@ class Route(starlette.routing.Route, FieldsMixin):
         super().__init__(path, endpoint=endpoint, **kwargs)
 
         # Replace function with another wrapper that uses the injector
-        if inspect.isfunction(endpoint):
+        if inspect.isfunction(endpoint) or inspect.ismethod(endpoint):
             self.app = self.endpoint_wrapper(endpoint)
 
         self.query_fields, self.path_fields, self.body_field, self.output_field = self._get_fields(router)
@@ -156,6 +173,8 @@ class Route(starlette.routing.Route, FieldsMixin):
                     response = APIResponse(content=response, schema=get_output_schema(endpoint))
                 elif isinstance(response, str):
                     response = Response(content=response)
+                elif response is None:
+                    response = JSONResponse()
 
                 await response(receive, send)
 

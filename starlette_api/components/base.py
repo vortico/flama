@@ -14,7 +14,10 @@ class Component(metaclass=ABCMeta):
         :return: Unique identifier.
         """
         parameter_name = parameter.name.lower()
-        annotation_name = parameter.annotation.__name__.lower()
+        try:
+            annotation_name = parameter.annotation.__name__.lower()
+        except AttributeError:
+            annotation_name = parameter.annotation.__args__[0].__name__.lower()
 
         # If `resolve_parameter` includes `Parameter` then we use an identifier that is additionally parameterized by
         # the parameter name.

@@ -1,3 +1,4 @@
+import asyncio
 import functools
 
 import forge
@@ -34,21 +35,33 @@ class Paginator:
             {"data": marshmallow.fields.Nested(resource_schema, many=True)},  # Replace generic with resource schema
         )()
 
-        try:
+        forge_revision_list = (
+            forge.copy(func),
+            forge.insert(forge.arg("page", default=None, type=int), index=-1),
+            forge.insert(forge.arg("page_size", default=None, type=int), index=-1),
+            forge.insert(forge.arg("count", default=True, type=bool), index=-1),
+            forge.delete("kwargs"),
+            forge.returns(schema),
+        )
 
-            @forge.compose(
-                forge.copy(func),
-                forge.delete("kwargs"),
-                forge.insert(forge.arg("page", default=None, type=int), index=-1),
-                forge.insert(forge.arg("page_size", default=None, type=int), index=-1),
-                forge.insert(forge.arg("count", default=True, type=bool), index=-1),
-                forge.returns(schema),
-            )
-            @functools.wraps(func)
-            def decorator(*args, page: int = None, page_size: int = None, count: bool = True, **kwargs):
-                return PageNumberResponse(
-                    schema=schema, page=page, page_size=page_size, count=count, content=func(*args, **kwargs)
-                )
+        try:
+            if asyncio.iscoroutinefunction(func):
+
+                @forge.compose(*forge_revision_list)
+                @functools.wraps(func)
+                async def decorator(*args, page: int = None, page_size: int = None, count: bool = True, **kwargs):
+                    return PageNumberResponse(
+                        schema=schema, page=page, page_size=page_size, count=count, content=await func(*args, **kwargs)
+                    )
+
+            else:
+
+                @forge.compose(*forge_revision_list)
+                @functools.wraps(func)
+                def decorator(*args, page: int = None, page_size: int = None, count: bool = True, **kwargs):
+                    return PageNumberResponse(
+                        schema=schema, page=page, page_size=page_size, count=count, content=func(*args, **kwargs)
+                    )
 
         except ValueError as e:
             raise TypeError("Paginated views must define **kwargs param") from e
@@ -77,21 +90,34 @@ class Paginator:
             (LimitOffsetSchema,),
             {"data": marshmallow.fields.Nested(resource_schema, many=True)},  # Replace generic with resource schema
         )()
-        try:
 
-            @forge.compose(
-                forge.copy(func),
-                forge.delete("kwargs"),
-                forge.insert(forge.arg("limit", default=None, type=int), index=-1),
-                forge.insert(forge.arg("offset", default=None, type=int), index=-1),
-                forge.insert(forge.arg("count", default=True, type=bool), index=-1),
-                forge.returns(schema),
-            )
-            @functools.wraps(func)
-            def decorator(*args, limit: int = None, offset: int = None, count: bool = True, **kwargs):
-                return LimitOffsetResponse(
-                    schema=schema, limit=limit, offset=offset, count=count, content=func(*args, **kwargs)
-                )
+        forge_revision_list = (
+            forge.copy(func),
+            forge.insert(forge.arg("limit", default=None, type=int), index=-1),
+            forge.insert(forge.arg("offset", default=None, type=int), index=-1),
+            forge.insert(forge.arg("count", default=True, type=bool), index=-1),
+            forge.delete("kwargs"),
+            forge.returns(schema),
+        )
+
+        try:
+            if asyncio.iscoroutinefunction(func):
+
+                @forge.compose(*forge_revision_list)
+                @functools.wraps(func)
+                async def decorator(*args, limit: int = None, offset: int = None, count: bool = True, **kwargs):
+                    return LimitOffsetResponse(
+                        schema=schema, limit=limit, offset=offset, count=count, content=await func(*args, **kwargs)
+                    )
+
+            else:
+
+                @forge.compose(*forge_revision_list)
+                @functools.wraps(func)
+                def decorator(*args, limit: int = None, offset: int = None, count: bool = True, **kwargs):
+                    return LimitOffsetResponse(
+                        schema=schema, limit=limit, offset=offset, count=count, content=func(*args, **kwargs)
+                    )
 
         except ValueError as e:
             raise TypeError("Paginated views must define **kwargs param") from e

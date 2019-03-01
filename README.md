@@ -12,6 +12,7 @@
 That library aims to bring a layer on top of Starlette framework to provide useful mechanism for building APIs. It's 
 based on API Star, inheriting some nice ideas like:
 
+* **Generic classes** for API resources that provides standard CRUD methods over SQLAlchemy tables.
 * **Schema system** based on [Marshmallow](https://github.com/marshmallow-code/marshmallow/) that allows to **declare**
 the inputs and outputs of endpoints and provides a reliable way of **validate** data against those schemas.
 * **Dependency Injection** that ease the process of managing parameters needed in endpoints.
