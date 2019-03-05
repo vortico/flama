@@ -14,18 +14,20 @@ from starlette_api.injector import Injector
 from starlette_api.routing import Router
 from starlette_api.schemas import SchemaMixin
 
+__all__ = ["Starlette"]
+
 
 class Starlette(App, SchemaMixin):
     def __init__(
         self,
         components: typing.Optional[typing.List[Component]] = None,
         debug: bool = False,
-        title: str = "",
-        version: str = "",
-        description: str = "",
-        schema: str = "/schema/",
-        docs: str = "/docs/",
-        redoc: str = None,
+        title: typing.Optional[str] = "",
+        version: typing.Optional[str] = "",
+        description: typing.Optional[str] = "",
+        schema: typing.Optional[str] = "/schema/",
+        docs: typing.Optional[str] = "/docs/",
+        redoc: typing.Optional[str] = None,
         *args,
         **kwargs
     ) -> None:
@@ -45,23 +47,10 @@ class Starlette(App, SchemaMixin):
         # Add exception handler for API exceptions
         self.add_exception_handler(exceptions.HTTPException, self.api_http_exception_handler)
 
-        # Schema
-        self.title = title
-        self.version = version
-        self.description = description
-        self.schema_url = schema
-        if self.schema_url:
-            self.add_schema_route()
-
-        # Docs (Swagger UI)
-        self.docs_url = docs
-        if self.docs_url:
-            self.add_docs_route()
-
-        # Redoc
-        self.redoc_url = redoc
-        if self.redoc_url:
-            self.add_redoc_route()
+        # Add schema and docs routes
+        self.add_schema_docs_routes(
+            title=title, version=version, description=description, schema=schema, docs=docs, redoc=redoc
+        )
 
     @property
     def injector(self):

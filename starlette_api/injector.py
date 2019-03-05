@@ -3,11 +3,13 @@ import functools
 import inspect
 import typing
 
+from starlette_api import http, websockets
 from starlette_api.components.asgi import ASGI_COMPONENTS, ASGIReceive, ASGIScope, ASGISend
 from starlette_api.components.validation import VALIDATION_COMPONENTS
 from starlette_api.exceptions import ComponentNotFound
-from starlette_api.http import PathParams, Response, ReturnValue
 from starlette_api.routing import Route
+
+__all__ = ["Injector"]
 
 
 class Injector:
@@ -21,9 +23,14 @@ class Injector:
             "send": ASGISend,
             "exc": Exception,
             "app": Starlette,
-            "path_params": PathParams,
+            "path_params": http.PathParams,
             "route": Route,
-            "response": Response,
+            "request": http.Request,
+            "response": http.Response,
+            "websocket": websockets.WebSocket,
+            "websocket_message": websockets.Message,
+            "websocket_encoding": websockets.Encoding,
+            "websocket_code": websockets.Code,
         }
         self.reverse_initial = {val: key for key, val in self.initial.items()}
         self.resolver_cache = {}
@@ -44,7 +51,7 @@ class Injector:
         :param parent_parameter: parent parameter.
         :return: list of steps to resolve the component.
         """
-        if parameter.annotation is ReturnValue:
+        if parameter.annotation is http.ReturnValue:
             kwargs[parameter.name] = "return_value"
             return []
 

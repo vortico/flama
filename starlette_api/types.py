@@ -3,6 +3,8 @@ import typing
 
 import marshmallow
 
+__all__ = ["FieldLocation", "Field", "EndpointInfo", "OptInt", "OptStr", "OptBool", "OptFloat"]
+
 
 class FieldLocation(enum.Enum):
     query = enum.auto()

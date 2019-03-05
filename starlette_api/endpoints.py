@@ -2,12 +2,18 @@ import asyncio
 import inspect
 import typing
 
+import marshmallow
+from starlette import status
 from starlette.endpoints import HTTPEndpoint as BaseHTTPEndpoint
+from starlette.endpoints import WebSocketEndpoint as BaseWebSocketEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import Receive, Send
+from starlette.websockets import WebSocket, WebSocketState
 
-import marshmallow
+from starlette_api import exceptions, websockets
+
+__all__ = ["HTTPEndpoint", "WebSocketEndpoint"]
 
 
 class HTTPEndpoint(BaseHTTPEndpoint):
@@ -26,6 +32,7 @@ class HTTPEndpoint(BaseHTTPEndpoint):
             "app": app,
             "path_params": route_scope["path_params"],
             "route": route,
+            "request": request,
         }
         response = await self.dispatch(request, state, **kwargs)
 
@@ -53,3 +60,59 @@ class HTTPEndpoint(BaseHTTPEndpoint):
             response = Response(response)
 
         return response
+
+
+class WebSocketEndpoint(BaseWebSocketEndpoint):
+    async def __call__(self, receive: Receive, send: Send) -> None:
+        app = self.scope["app"]
+        websocket = WebSocket(self.scope, receive, send)
+
+        route, route_scope = app.router.get_route_from_scope(self.scope)
+
+        state = {
+            "scope": self.scope,
+            "receive": receive,
+            "send": send,
+            "exc": None,
+            "app": app,
+            "path_params": route_scope["path_params"],
+            "route": route,
+            "websocket": websocket,
+            "websocket_encoding": self.encoding,
+            "websocket_code": status.WS_1000_NORMAL_CLOSURE,
+        }
+
+        try:
+            on_connect = await app.injector.inject(self.on_connect, state)
+            await on_connect()
+        except Exception as e:
+            raise exceptions.WebSocketConnectionException("Error connecting socket") from e
+
+        try:
+            state["websocket_message"] = await websocket.receive()
+
+            while websocket.client_state == WebSocketState.CONNECTED:
+                on_receive = await app.injector.inject(self.on_receive, state)
+                await on_receive()
+                state["websocket_message"] = await websocket.receive()
+
+            state["websocket_code"] = int(state["websocket_message"].get("code", status.WS_1000_NORMAL_CLOSURE))
+        except exceptions.WebSocketException as e:
+            state["websocket_code"] = e.close_code
+        except Exception as e:
+            state["websocket_code"] = status.WS_1011_INTERNAL_ERROR
+            raise e from None
+        finally:
+            on_disconnect = await app.injector.inject(self.on_disconnect, state)
+            await on_disconnect()
+
+    async def on_connect(self, websocket: websockets.WebSocket) -> None:
+        """Override to handle an incoming websocket connection"""
+        await websocket.accept()
+
+    async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data) -> None:
+        """Override to handle an incoming websocket message"""
+
+    async def on_disconnect(self, websocket: websockets.WebSocket, websocket_code: websockets.Code) -> None:
+        """Override to handle a disconnecting websocket"""
+        await websocket.close(websocket_code)

@@ -1,8 +1,10 @@
 from starlette_api import exceptions, http
-from starlette_api.codecs.base import BaseCodec
+from starlette_api.http.codecs.base import Codec
+
+__all__ = ["JSONCodec"]
 
 
-class JSONCodec(BaseCodec):
+class JSONCodec(Codec):
     media_type = "application/json"
     format = "json"
 
@@ -13,4 +15,4 @@ class JSONCodec(BaseCodec):
 
             return await request.json()
         except ValueError as exc:
-            raise exceptions.ParseError("Malformed JSON. %s" % exc) from None
+            raise exceptions.DecodeError(f"Malformed JSON. {exc}") from None

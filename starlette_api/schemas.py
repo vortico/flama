@@ -23,6 +23,8 @@ try:
 except Exception:  # pragma: no cover
     yaml = None  # type: ignore
 
+__all__ = ["OpenAPIResponse", "SchemaGenerator", "SchemaMixin"]
+
 
 class OpenAPIResponse(schemas.OpenAPIResponse):
     def render(self, content: typing.Any) -> bytes:
@@ -174,6 +176,33 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
 
 
 class SchemaMixin:
+    def add_schema_docs_routes(
+        self,
+        title: str = "",
+        version: str = "",
+        description: str = "",
+        schema: typing.Optional[str] = "/schema/",
+        docs: typing.Optional[str] = "/docs/",
+        redoc: typing.Optional[str] = None,
+    ):
+        # Schema
+        self.title = title
+        self.version = version
+        self.description = description
+        self.schema_url = schema
+        if self.schema_url:
+            self.add_schema_route()
+
+        # Docs (Swagger UI)
+        self.docs_url = docs
+        if self.docs_url:
+            self.add_docs_route()
+
+        # Redoc
+        self.redoc_url = redoc
+        if self.redoc_url:
+            self.add_redoc_route()
+
     @property
     def schema_generator(self):
         if not hasattr(self, "_schema_generator"):

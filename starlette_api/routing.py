@@ -10,13 +10,14 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Match, Mount
 from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 
-from starlette_api import http
+from starlette_api import http, websockets
 from starlette_api.components import Component
 from starlette_api.responses import APIResponse
 from starlette_api.types import Field, FieldLocation, OptBool, OptFloat, OptInt, OptStr
 from starlette_api.validation import get_output_schema
 
 __all__ = ["Route", "WebSocketRoute", "Router"]
+
 
 FieldsMap = typing.Dict[str, Field]
 MethodsMap = typing.Dict[str, FieldsMap]
@@ -159,6 +160,7 @@ class Route(starlette.routing.Route, FieldsMixin):
                     "app": app,
                     "path_params": route_scope["path_params"],
                     "route": route,
+                    "request": http.Request(scope, receive),
                 }
 
                 injected_func = await app.injector.inject(endpoint, state)
@@ -213,6 +215,7 @@ class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
                     "app": app,
                     "path_params": route_scope["path_params"],
                     "route": route,
+                    "websocket": websockets.WebSocket(scope, receive, send),
                 }
 
                 injected_func = await app.injector.inject(endpoint, state)
@@ -252,6 +255,7 @@ class Router(starlette.routing.Router):
         if isinstance(app, Router):
             app.components = self.components
 
+        path = path.rstrip("/")
         route = Mount(path, app=app, name=name)
         self.routes.append(route)
 
@@ -272,10 +276,6 @@ class Router(starlette.routing.Router):
         return decorator
 
     def get_route_from_scope(self, scope) -> typing.Tuple[Route, typing.Optional[typing.Dict]]:
-        if "root_path" in scope:
-            scope["path"] = scope["root_path"] + scope["path"]
-            del scope["root_path"]
-
         partial = None
 
         for route in self.routes:
@@ -284,8 +284,10 @@ class Router(starlette.routing.Router):
                 scope.update(child_scope)
 
                 if isinstance(route, Mount):
-                    del scope["root_path"]
-                    return route.app.get_route_from_scope(scope)
+                    root_path = scope.pop("root_path")
+                    route, mount_scope = route.app.get_route_from_scope(scope)
+                    mount_scope["root_path"] = root_path
+                    return route, mount_scope
 
                 return route, scope
             elif match == Match.PARTIAL and partial is None:

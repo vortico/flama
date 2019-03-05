@@ -1,5 +1,7 @@
 import typing
 
+__all__ = ["dict_safe_add"]
+
 
 def dict_safe_add(d: typing.Dict, v: typing.Any, *keys):
     _d = d

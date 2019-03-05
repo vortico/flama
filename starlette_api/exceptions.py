@@ -3,7 +3,7 @@ import typing
 import starlette.exceptions
 
 
-class ParseError(Exception):
+class DecodeError(Exception):
     """
     Raised by a Codec when `decode` fails due to malformed syntax.
     """
@@ -43,6 +43,15 @@ class ComponentNotFound(ConfigurationError):
             msg += f' in function "{self.resolver}"'
 
         return msg
+
+
+class WebSocketException(Exception):
+    def __init__(self, close_code: int):
+        self.close_code = close_code
+
+
+class WebSocketConnectionException(Exception):
+    ...
 
 
 class HTTPException(starlette.exceptions.HTTPException):

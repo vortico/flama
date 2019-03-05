@@ -2,10 +2,7 @@ import typing
 from inspect import Parameter
 from urllib.parse import parse_qsl
 
-from starlette.requests import Request
-from starlette.websockets import WebSocket
-
-from starlette_api import http
+from starlette_api import http, websockets
 from starlette_api.components import Component
 
 ASGIScope = typing.NewType("ASGIScope", dict)
@@ -103,13 +100,18 @@ class BodyComponent(Component):
 
 
 class RequestComponent(Component):
-    def resolve(self, scope: ASGIScope, receive: ASGIReceive) -> Request:
-        return Request(scope, receive)
+    def resolve(self, scope: ASGIScope, receive: ASGIReceive) -> http.Request:
+        return http.Request(scope, receive)
 
 
-class SessionComponent(Component):
-    def resolve(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> WebSocket:
-        return WebSocket(scope, receive, send)
+class WebSocketComponent(Component):
+    def resolve(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> websockets.WebSocket:
+        return websockets.WebSocket(scope, receive, send)
+
+
+class WebSocketMessageComponent(Component):
+    async def resolve(self, websocket: websockets.WebSocket) -> websockets.Message:
+        return await websocket.receive()
 
 
 ASGI_COMPONENTS = (
@@ -126,5 +128,6 @@ ASGI_COMPONENTS = (
     HeaderComponent(),
     BodyComponent(),
     RequestComponent(),
-    SessionComponent(),
+    WebSocketComponent(),
+    WebSocketMessageComponent(),
 )

@@ -3,6 +3,8 @@ import typing
 import marshmallow
 from starlette.responses import JSONResponse
 
+__all__ = ["APIResponse"]
+
 
 class APIResponse(JSONResponse):
     media_type = "application/json"

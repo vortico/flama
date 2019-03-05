@@ -15,6 +15,9 @@ from starlette_api.responses import APIResponse
 logger = logging.getLogger(__name__)
 
 
+__all__ = ["Resource"]
+
+
 class StringIDSchema(marshmallow.Schema):
     id = marshmallow.fields.String(title="id", description="Element ID", required=True)
 

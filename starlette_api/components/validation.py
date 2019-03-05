@@ -2,12 +2,17 @@ import inspect
 import typing
 
 import marshmallow
+from starlette import status
 
-from starlette_api import codecs, exceptions, http
-from starlette_api.codecs.negotiation import negotiate_content_type
+from starlette_api import exceptions, http, websockets
 from starlette_api.components import Component
+from starlette_api.exceptions import WebSocketException
+from starlette_api.http import codecs as http_codecs
+from starlette_api.http.negotiation import ContentTypeNegotiator
 from starlette_api.routing import Route
 from starlette_api.types import OptBool, OptFloat, OptInt, OptStr
+from starlette_api.websockets import codecs as websockets_codecs
+from starlette_api.websockets.negotiation import WebSocketEncodingNegotiator
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
@@ -16,7 +21,9 @@ ValidatedRequestData = typing.TypeVar("ValidatedRequestData")
 
 class RequestDataComponent(Component):
     def __init__(self):
-        self.codecs = [codecs.JSONCodec(), codecs.URLEncodedCodec(), codecs.MultiPartCodec()]
+        self.negotiator = ContentTypeNegotiator(
+            [http_codecs.JSONCodec(), http_codecs.URLEncodedCodec(), http_codecs.MultiPartCodec()]
+        )
 
     def can_handle_parameter(self, parameter: inspect.Parameter):
         return parameter.annotation is http.RequestData
@@ -25,14 +32,31 @@ class RequestDataComponent(Component):
         content_type = request.headers.get("Content-Type")
 
         try:
-            codec = negotiate_content_type(self.codecs, content_type)
+            codec = self.negotiator.negotiate(content_type)
         except exceptions.NoCodecAvailable:
             raise exceptions.HTTPException(415)
 
         try:
             return await codec.decode(request)
-        except exceptions.ParseError as exc:
+        except exceptions.DecodeError as exc:
             raise exceptions.HTTPException(400, detail=str(exc))
+
+
+class WebSocketMessageDataComponent(Component):
+    def __init__(self):
+        self.negotiator = WebSocketEncodingNegotiator(
+            [websockets_codecs.BytesCodec(), websockets_codecs.TextCodec(), websockets_codecs.JSONCodec()]
+        )
+
+    def can_handle_parameter(self, parameter: inspect.Parameter):
+        return parameter.annotation is websockets.Data
+
+    async def resolve(self, message: websockets.Message, websocket_encoding: websockets.Encoding):
+        try:
+            codec = self.negotiator.negotiate(websocket_encoding)
+            return await codec.decode(message)
+        except (exceptions.NoCodecAvailable, exceptions.DecodeError):
+            raise WebSocketException(close_code=status.WS_1003_UNSUPPORTED_DATA)
 
 
 class ValidatePathParamsComponent(Component):
@@ -134,6 +158,7 @@ class CompositeParamComponent(Component):
 
 VALIDATION_COMPONENTS = (
     RequestDataComponent(),
+    WebSocketMessageDataComponent(),
     ValidatePathParamsComponent(),
     ValidateQueryParamsComponent(),
     ValidateRequestDataComponent(),
