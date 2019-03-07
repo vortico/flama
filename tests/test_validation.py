@@ -1,9 +1,9 @@
 import datetime
 
 import pytest
+from marshmallow import Schema, fields, validate
 from starlette.testclient import TestClient
 
-from marshmallow import Schema, fields, validate
 from starlette_api import exceptions
 from starlette_api.applications import Starlette
 from starlette_api.validation import output_validation

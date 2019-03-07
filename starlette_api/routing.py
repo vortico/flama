@@ -27,6 +27,8 @@ PATH_SCHEMA_MAPPING = {
     int: marshmallow.fields.Integer,
     float: marshmallow.fields.Number,
     str: marshmallow.fields.String,
+    bool: marshmallow.fields.Boolean,
+    http.PathParam: marshmallow.fields.String,
 }
 
 QUERY_SCHEMA_MAPPING = {

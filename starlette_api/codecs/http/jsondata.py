@@ -1,10 +1,10 @@
 from starlette_api import exceptions, http
-from starlette_api.http.codecs.base import Codec
+from starlette_api.codecs.base import HTTPCodec
 
-__all__ = ["JSONCodec"]
+__all__ = ["JSONDataCodec"]
 
 
-class JSONCodec(Codec):
+class JSONDataCodec(HTTPCodec):
     media_type = "application/json"
     format = "json"
 

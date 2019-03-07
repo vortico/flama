@@ -71,8 +71,7 @@ class TestCaseBaseResource:
             verbose_name = "Puppy"
 
             model = model_
-            input_schema = schema_
-            output_schema = schema_
+            schema = schema_
 
         return PuppyResource
 
@@ -111,8 +110,7 @@ class TestCaseBaseResource:
             verbose_name = "Puppy"
 
             model = model_
-            input_schema = schema_
-            output_schema = schema_
+            schema = schema_
             methods = ("create", "retrieve", "update", "delete", "list", "drop")
 
         expected_calls = [
@@ -249,8 +247,7 @@ class TestCaseBaseResource:
                 database = database_
 
                 model = model_
-                input_schema = schema_
-                output_schema = schema_
+                schema = schema_
                 methods = ("foo",)
 
     def test_resource_model_no_pk(self, database_metadata, schema, database):
@@ -264,8 +261,7 @@ class TestCaseBaseResource:
                 database = database_
 
                 model = model_
-                input_schema = schema_
-                output_schema = schema_
+                schema = schema_
 
     def test_resource_model_multicolumn_pk(self, database_metadata, schema, database):
         model_ = sqlalchemy.Table(
@@ -284,8 +280,7 @@ class TestCaseBaseResource:
                 database = database_
 
                 model = model_
-                input_schema = schema_
-                output_schema = schema_
+                schema = schema_
 
     def test_resource_model_invalid_type_pk(self, database_metadata, schema, database):
         model_ = sqlalchemy.Table(
@@ -302,8 +297,7 @@ class TestCaseBaseResource:
                 database = database_
 
                 model = model_
-                input_schema = schema_
-                output_schema = schema_
+                schema = schema_
 
 
 class TestCaseResource:

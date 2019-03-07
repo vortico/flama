@@ -1,16 +1,15 @@
 import json
 
-from starlette_api import exceptions
-from starlette_api.websockets.codecs.base import Codec
-from starlette_api.websockets.types import Message
+from starlette_api import exceptions, websockets
+from starlette_api.codecs.base import WebsocketsCodec
 
 __all__ = ["JSONCodec"]
 
 
-class JSONCodec(Codec):
+class JSONCodec(WebsocketsCodec):
     encoding = "json"
 
-    async def decode(self, message: Message, **options):
+    async def decode(self, message: websockets.Message, **options):
         if message.get("text") is not None:
             text = message["text"]
         else:

@@ -80,6 +80,7 @@ class WebSocketEndpoint(BaseWebSocketEndpoint):
             "websocket": websocket,
             "websocket_encoding": self.encoding,
             "websocket_code": status.WS_1000_NORMAL_CLOSURE,
+            "websocket_message": None,
         }
 
         try:

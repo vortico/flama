@@ -10,7 +10,7 @@ from starlette.types import ASGIApp
 from starlette_api import exceptions
 from starlette_api.components import Component
 from starlette_api.exceptions import HTTPException
-from starlette_api.injector import Injector
+from starlette_api.injection import Injector
 from starlette_api.routing import Router
 from starlette_api.schemas import SchemaMixin
 

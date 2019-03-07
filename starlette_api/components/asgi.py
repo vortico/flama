@@ -2,7 +2,7 @@ import typing
 from inspect import Parameter
 from urllib.parse import parse_qsl
 
-from starlette_api import http, websockets
+from starlette_api import http
 from starlette_api.components import Component
 
 ASGIScope = typing.NewType("ASGIScope", dict)
@@ -17,20 +17,7 @@ class MethodComponent(Component):
 
 class URLComponent(Component):
     def resolve(self, scope: ASGIScope) -> http.URL:
-        scheme = scope["scheme"]
-        host, port = scope["server"]
-        path = scope["path"]
-
-        if (scheme == "http" and port != 80) or (scheme == "https" and port != 443):
-            url = "%s://%s:%s%s" % (scheme, host, port, path)
-        else:
-            url = "%s://%s%s" % (scheme, host, path)
-
-        query_string = scope["query_string"]
-        if query_string:
-            url += "?" + query_string.decode()
-
-        return http.URL(url)
+        return http.URL(scope=scope)
 
 
 class SchemeComponent(Component):
@@ -74,7 +61,7 @@ class QueryParamComponent(Component):
 
 class HeadersComponent(Component):
     def resolve(self, scope: ASGIScope) -> http.Headers:
-        return http.Headers([(key.decode(), value.decode()) for key, value in scope["headers"]])
+        return http.Headers(scope=scope)
 
 
 class HeaderComponent(Component):
@@ -99,21 +86,6 @@ class BodyComponent(Component):
         return http.Body(body)
 
 
-class RequestComponent(Component):
-    def resolve(self, scope: ASGIScope, receive: ASGIReceive) -> http.Request:
-        return http.Request(scope, receive)
-
-
-class WebSocketComponent(Component):
-    def resolve(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> websockets.WebSocket:
-        return websockets.WebSocket(scope, receive, send)
-
-
-class WebSocketMessageComponent(Component):
-    async def resolve(self, websocket: websockets.WebSocket) -> websockets.Message:
-        return await websocket.receive()
-
-
 ASGI_COMPONENTS = (
     MethodComponent(),
     URLComponent(),
@@ -127,7 +99,4 @@ ASGI_COMPONENTS = (
     HeadersComponent(),
     HeaderComponent(),
     BodyComponent(),
-    RequestComponent(),
-    WebSocketComponent(),
-    WebSocketMessageComponent(),
 )
