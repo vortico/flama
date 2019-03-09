@@ -12,7 +12,7 @@ from starlette.testclient import TestClient
 
 from starlette_api.applications import Starlette
 from starlette_api.pagination import Paginator
-from starlette_api.resources import Resource
+from starlette_api.resources import CRUDListDropResource, CRUDListResource, CRUDResource, resource_method
 
 DATABASE_URL = "sqlite:///test.db"
 
@@ -64,7 +64,7 @@ class TestCaseBaseResource:
         schema_ = schema
         database_ = database
 
-        class PuppyResource(metaclass=Resource):
+        class PuppyResource(metaclass=CRUDListResource):
             database = database_
 
             name = "puppy"
@@ -79,13 +79,60 @@ class TestCaseBaseResource:
     def app_mock(self):
         return Mock(spec=Starlette)
 
-    def test_new_default_methods(self, resource, app_mock):
+    def test_crud_resource(self, model, schema, database, app_mock):
+        model_ = model
+        schema_ = schema
+        database_ = database
+
+        class PuppyResource(metaclass=CRUDResource):
+            database = database_
+
+            name = "puppy"
+            verbose_name = "Puppy"
+
+            model = model_
+            schema = schema_
+
+        resource = PuppyResource()
+
         expected_calls = [
-            call(methods=["POST"], name="create", path="/puppy/", route=resource.create),
-            call(methods=["GET"], name="retrieve", path="/puppy/{element_id}/", route=resource.retrieve),
-            call(methods=["PUT"], name="update", path="/puppy/{element_id}/", route=resource.update),
-            call(methods=["DELETE"], name="delete", path="/puppy/{element_id}/", route=resource.delete),
-            call(methods=["GET"], name="list", path="/puppy/", route=resource.list),
+            call(methods=["POST"], name="puppy-create", path="/puppy/", route=resource.create),
+            call(methods=["GET"], name="puppy-retrieve", path="/puppy/{element_id}/", route=resource.retrieve),
+            call(methods=["PUT"], name="puppy-update", path="/puppy/{element_id}/", route=resource.update),
+            call(methods=["DELETE"], name="puppy-delete", path="/puppy/{element_id}/", route=resource.delete),
+        ]
+
+        resource.add_routes(app_mock)
+
+        assert hasattr(resource, "create")
+        assert hasattr(resource, "retrieve")
+        assert hasattr(resource, "update")
+        assert hasattr(resource, "delete")
+        assert len(resource.routes) == 4
+        assert app_mock.add_route.call_args_list == expected_calls
+
+    def test_crud_list_resource(self, model, schema, database, app_mock):
+        model_ = model
+        schema_ = schema
+        database_ = database
+
+        class PuppyResource(metaclass=CRUDListResource):
+            database = database_
+
+            name = "puppy"
+            verbose_name = "Puppy"
+
+            model = model_
+            schema = schema_
+
+        resource = PuppyResource()
+
+        expected_calls = [
+            call(methods=["POST"], name="puppy-create", path="/puppy/", route=resource.create),
+            call(methods=["GET"], name="puppy-retrieve", path="/puppy/{element_id}/", route=resource.retrieve),
+            call(methods=["PUT"], name="puppy-update", path="/puppy/{element_id}/", route=resource.update),
+            call(methods=["DELETE"], name="puppy-delete", path="/puppy/{element_id}/", route=resource.delete),
+            call(methods=["GET"], name="puppy-list", path="/puppy/", route=resource.list),
         ]
 
         resource.add_routes(app_mock)
@@ -98,12 +145,12 @@ class TestCaseBaseResource:
         assert len(resource.routes) == 5
         assert app_mock.add_route.call_args_list == expected_calls
 
-    def test_new_explicit_methods(self, model, schema, database, app_mock):
+    def test_crud_list_drop_resource(self, model, schema, database, app_mock):
         model_ = model
         schema_ = schema
         database_ = database
 
-        class PuppyResource(metaclass=Resource):
+        class PuppyResource(metaclass=CRUDListDropResource):
             database = database_
 
             name = "puppy"
@@ -111,32 +158,33 @@ class TestCaseBaseResource:
 
             model = model_
             schema = schema_
-            methods = ("create", "retrieve", "update", "delete", "list", "drop")
+
+        resource = PuppyResource()
 
         expected_calls = [
-            call(methods=["POST"], name="create", path="/puppy/", route=PuppyResource.create),
-            call(methods=["GET"], name="retrieve", path="/puppy/{element_id}/", route=PuppyResource.retrieve),
-            call(methods=["PUT"], name="update", path="/puppy/{element_id}/", route=PuppyResource.update),
-            call(methods=["DELETE"], name="delete", path="/puppy/{element_id}/", route=PuppyResource.delete),
-            call(methods=["GET"], name="list", path="/puppy/", route=PuppyResource.list),
-            call(methods=["DELETE"], name="drop", path="/puppy/", route=PuppyResource.drop),
+            call(methods=["POST"], name="puppy-create", path="/puppy/", route=resource.create),
+            call(methods=["GET"], name="puppy-retrieve", path="/puppy/{element_id}/", route=resource.retrieve),
+            call(methods=["PUT"], name="puppy-update", path="/puppy/{element_id}/", route=resource.update),
+            call(methods=["DELETE"], name="puppy-delete", path="/puppy/{element_id}/", route=resource.delete),
+            call(methods=["GET"], name="puppy-list", path="/puppy/", route=resource.list),
+            call(methods=["DELETE"], name="puppy-drop", path="/puppy/", route=resource.drop),
         ]
 
-        PuppyResource.add_routes(app_mock)
+        resource.add_routes(app_mock)
 
-        assert hasattr(PuppyResource, "create")
-        assert hasattr(PuppyResource, "retrieve")
-        assert hasattr(PuppyResource, "update")
-        assert hasattr(PuppyResource, "delete")
-        assert hasattr(PuppyResource, "list")
-        assert hasattr(PuppyResource, "drop")
-        assert len(PuppyResource.routes) == 6
+        assert hasattr(resource, "create")
+        assert hasattr(resource, "retrieve")
+        assert hasattr(resource, "update")
+        assert hasattr(resource, "delete")
+        assert hasattr(resource, "list")
+        assert hasattr(resource, "drop")
+        assert len(resource.routes) == 6
         assert app_mock.add_route.call_args_list == expected_calls
 
     def test_override_method(self, resource):
         class SpecializedPuppyResource(resource):
-            @classmethod
-            def list(cls):
+            @resource_method("/")
+            def list(self):
                 raise ValueError
 
         assert hasattr(SpecializedPuppyResource, "create")
@@ -146,7 +194,7 @@ class TestCaseBaseResource:
         assert hasattr(SpecializedPuppyResource, "list")
         assert len(SpecializedPuppyResource.routes) == 5
         with pytest.raises(ValueError):
-            SpecializedPuppyResource.list()
+            SpecializedPuppyResource().list()
 
     def test_new_no_database(self, model, schema):
         model_ = model
@@ -154,7 +202,7 @@ class TestCaseBaseResource:
 
         with pytest.raises(AttributeError, match=r"PuppyResource needs to define attribute 'database'"):
 
-            class PuppyResource(metaclass=Resource):
+            class PuppyResource(metaclass=CRUDListResource):
                 model = model_
                 schema = schema_
 
@@ -164,7 +212,7 @@ class TestCaseBaseResource:
 
         with pytest.raises(AttributeError, match=r"PuppyResource needs to define attribute 'model'"):
 
-            class PuppyResource(metaclass=Resource):
+            class PuppyResource(metaclass=CRUDListResource):
                 database = database_
                 schema = schema_
 
@@ -173,7 +221,7 @@ class TestCaseBaseResource:
         schema_ = schema
         database_ = database
 
-        class PuppyResource(metaclass=Resource):
+        class PuppyResource(metaclass=CRUDListResource):
             database = database_
             model = model_
             schema = schema_
@@ -187,7 +235,7 @@ class TestCaseBaseResource:
 
         with pytest.raises(AttributeError, match=r"Invalid resource name '123foo'"):
 
-            class PuppyResource(metaclass=Resource):
+            class PuppyResource(metaclass=CRUDListResource):
                 database = database_
                 model = model_
                 schema = schema_
@@ -202,7 +250,7 @@ class TestCaseBaseResource:
             match=r"PuppyResource needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'",
         ):
 
-            class PuppyResource(metaclass=Resource):
+            class PuppyResource(metaclass=CRUDListResource):
                 database = database_
                 model = model_
 
@@ -216,7 +264,7 @@ class TestCaseBaseResource:
             match=r"PuppyResource needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'",
         ):
 
-            class PuppyResource(metaclass=Resource):
+            class PuppyResource(metaclass=CRUDListResource):
                 database = database_
                 model = model_
                 output_schema = schema_
@@ -231,24 +279,10 @@ class TestCaseBaseResource:
             match=r"PuppyResource needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'",
         ):
 
-            class PuppyResource(metaclass=Resource):
+            class PuppyResource(metaclass=CRUDListResource):
                 database = database_
                 model = model_
                 input_schema = schema_
-
-    def test_new_wrong_methods(self, model, schema, database):
-        model_ = model
-        schema_ = schema
-        database_ = database
-
-        with pytest.raises(AttributeError, match=r'PuppyResource custom methods not found: "foo"'):
-
-            class PuppyResource(metaclass=Resource):
-                database = database_
-
-                model = model_
-                schema = schema_
-                methods = ("foo",)
 
     def test_resource_model_no_pk(self, database_metadata, schema, database):
         model_ = sqlalchemy.Table("no_pk", database_metadata, sqlalchemy.Column("integer", sqlalchemy.Integer))
@@ -257,7 +291,7 @@ class TestCaseBaseResource:
 
         with pytest.raises(AttributeError, match=r"PuppyResource model must define a single-column primary key"):
 
-            class PuppyResource(metaclass=Resource):
+            class PuppyResource(metaclass=CRUDListResource):
                 database = database_
 
                 model = model_
@@ -276,7 +310,7 @@ class TestCaseBaseResource:
 
         with pytest.raises(AttributeError, match=r"PuppyResource model must define a single-column primary key"):
 
-            class PuppyResource(metaclass=Resource):
+            class PuppyResource(metaclass=CRUDListResource):
                 database = database_
 
                 model = model_
@@ -293,7 +327,7 @@ class TestCaseBaseResource:
             AttributeError, match=r"PuppyResource model primary key must be Integer or String column type"
         ):
 
-            class PuppyResource(metaclass=Resource):
+            class PuppyResource(metaclass=CRUDListResource):
                 database = database_
 
                 model = model_
@@ -307,7 +341,7 @@ class TestCaseResource:
         schema_ = schema
         database_ = database
 
-        class PuppyResource(metaclass=Resource):
+        class PuppyResource(metaclass=CRUDListDropResource):
             database = database_
 
             name = "puppy"
@@ -318,10 +352,10 @@ class TestCaseResource:
             output_schema = schema_
             methods = ("create", "retrieve", "update", "delete", "list", "drop")
 
-            @classmethod
+            @resource_method("/", methods=["GET"], name="puppy-list")
             @Paginator.page_number
             async def list(
-                cls, name: typing.Optional[str] = None, custom_id__le: typing.Optional[int] = None, **kwargs
+                self, name: typing.Optional[str] = None, custom_id__le: typing.Optional[int] = None, **kwargs
             ) -> schema_(many=True):
                 """
                 description: Custom list method with filtering by name.
@@ -329,16 +363,16 @@ class TestCaseResource:
                 clauses = []
 
                 if custom_id__le is not None:
-                    clauses.append(cls.model.c.custom_id <= custom_id__le)
+                    clauses.append(self.model.c.custom_id <= custom_id__le)
 
                 filters = {}
 
                 if name is not None:
                     filters["name"] = name
 
-                return await cls._filter(*clauses, **filters)
+                return await self._filter(*clauses, **filters)
 
-        return PuppyResource
+        return PuppyResource()
 
     @pytest.fixture(scope="class")
     def app(self, resource):
