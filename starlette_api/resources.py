@@ -65,10 +65,10 @@ class BaseResource(type):
         database = mcs.get_attribute("database", name, namespace, bases)
 
         # Get model and model primary key
-        model, model_pk_name, model_pk_type = mcs.get_model(name, namespace, bases)
+        model, model_pk_name, model_pk_type = mcs._get_model(name, namespace, bases)
 
         # Define resource names
-        resource_name, verbose_name = mcs.get_resource_name(name, namespace)
+        resource_name, verbose_name = mcs._get_resource_name(name, namespace)
         namespace["name"] = resource_name
         namespace["verbose_name"] = verbose_name
 
@@ -77,11 +77,11 @@ class BaseResource(type):
         namespace["order"] = namespace.get("order", model_pk_name)
 
         # Get input and output schemas
-        input_schema, output_schema = mcs.get_schemas(name, namespace, bases)
+        input_schema, output_schema = mcs._get_schemas(name, namespace, bases)
 
         # Create CRUD methods and routes
-        mcs.add_methods(resource_name, namespace, database, input_schema, output_schema, model_pk_name, model_pk_type)
-        mcs.add_routes(namespace)
+        mcs._add_methods(resource_name, namespace, database, input_schema, output_schema, model_pk_name, model_pk_type)
+        mcs._add_routes(namespace)
 
         return super().__new__(mcs, name, bases, namespace)
 
@@ -99,7 +99,7 @@ class BaseResource(type):
         raise AttributeError(f"{name} needs to define attribute '{attribute}'")
 
     @classmethod
-    def get_resource_name(mcs, name: str, namespace: typing.Dict[str, typing.Any]) -> typing.Tuple[str, str]:
+    def _get_resource_name(mcs, name: str, namespace: typing.Dict[str, typing.Any]) -> typing.Tuple[str, str]:
         resource_name = namespace.get("name", name.lower())
 
         # Check resource name validity
@@ -109,7 +109,7 @@ class BaseResource(type):
         return resource_name, namespace.get("verbose_name", resource_name)
 
     @classmethod
-    def get_model(
+    def _get_model(
         mcs, name: str, namespace: typing.Dict[str, typing.Any], bases: typing.Sequence[typing.Any]
     ) -> typing.Tuple[sqlalchemy.Table, str, type]:
         model = mcs.get_attribute("model", name, namespace, bases)
@@ -131,7 +131,7 @@ class BaseResource(type):
         return model, model_pk_name, model_pk_type
 
     @classmethod
-    def get_schemas(
+    def _get_schemas(
         mcs, name: str, namespace: typing.Dict[str, typing.Any], bases: typing.Sequence[typing.Any]
     ) -> typing.Tuple[marshmallow.Schema, marshmallow.Schema]:
         try:
@@ -150,12 +150,12 @@ class BaseResource(type):
         return input_schema, output_schema
 
     @classmethod
-    def add_routes(mcs, namespace: typing.Dict[str, typing.Any]):
+    def _add_routes(mcs, namespace: typing.Dict[str, typing.Any]):
         def _add_routes(self, app: "Starlette", root_path: str = "/"):
             for route in self.routes:
                 path = root_path + self.name + route.pop("path")
                 method = getattr(self, route.pop("route"))
-                app.add_route(path=path, route=method, **route)
+                app.add_route(path, method, **route)
 
         routes = ResourceRoutes()
         methods = [
@@ -171,7 +171,7 @@ class BaseResource(type):
         namespace["add_routes"] = _add_routes
 
     @classmethod
-    def add_methods(
+    def _add_methods(
         mcs,
         name: str,
         namespace: typing.Dict[str, typing.Any],
@@ -182,7 +182,7 @@ class BaseResource(type):
         model_pk_type,
     ):
         # Get available methods
-        methods = [getattr(mcs, f"add_{method}") for method in mcs.METHODS if hasattr(mcs, f"add_{method}")]
+        methods = [getattr(mcs, f"_add_{method}") for method in mcs.METHODS if hasattr(mcs, f"_add_{method}")]
 
         # Generate CRUD methods
         crud_namespace = {
@@ -208,7 +208,7 @@ class BaseResource(type):
 
 class CreateMixin:
     @classmethod
-    def add_create(
+    def _add_create(
         mcs,
         name: str,
         database: databases.Database,
@@ -238,7 +238,7 @@ class CreateMixin:
 
 class RetrieveMixin:
     @classmethod
-    def add_retrieve(
+    def _add_retrieve(
         mcs,
         name: str,
         output_schema: marshmallow.Schema,
@@ -272,7 +272,7 @@ class RetrieveMixin:
 
 class UpdateMixin:
     @classmethod
-    def add_update(
+    def _add_update(
         mcs,
         name: str,
         database: databases.Database,
@@ -308,7 +308,7 @@ class UpdateMixin:
 
 class DeleteMixin:
     @classmethod
-    def add_delete(
+    def _add_delete(
         mcs,
         name: str,
         database: databases.Database,
@@ -345,7 +345,7 @@ class DeleteMixin:
 
 class ListMixin:
     @classmethod
-    def add_list(mcs, name: str, output_schema: marshmallow.Schema, **kwargs) -> typing.Dict[str, typing.Any]:
+    def _add_list(mcs, name: str, output_schema: marshmallow.Schema, **kwargs) -> typing.Dict[str, typing.Any]:
         async def filter(self, *clauses, **filters) -> typing.List[typing.Dict]:
             query = self.model.select()
 
@@ -374,7 +374,7 @@ class ListMixin:
 
 class DropMixin:
     @classmethod
-    def add_drop(mcs, name: str, database: databases.Database, **kwargs) -> typing.Dict[str, typing.Any]:
+    def _add_drop(mcs, name: str, database: databases.Database, **kwargs) -> typing.Dict[str, typing.Any]:
         @resource_method("/", methods=["DELETE"], name=f"{name}-drop")
         @database.transaction()
         async def drop(self) -> DropSchema:

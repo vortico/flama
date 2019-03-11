@@ -96,10 +96,10 @@ class TestCaseBaseResource:
         resource = PuppyResource()
 
         expected_calls = [
-            call(methods=["POST"], name="puppy-create", path="/puppy/", route=resource.create),
-            call(methods=["GET"], name="puppy-retrieve", path="/puppy/{element_id}/", route=resource.retrieve),
-            call(methods=["PUT"], name="puppy-update", path="/puppy/{element_id}/", route=resource.update),
-            call(methods=["DELETE"], name="puppy-delete", path="/puppy/{element_id}/", route=resource.delete),
+            call("/puppy/", resource.create, methods=["POST"], name="puppy-create"),
+            call("/puppy/{element_id}/", resource.retrieve, methods=["GET"], name="puppy-retrieve"),
+            call("/puppy/{element_id}/", resource.update, methods=["PUT"], name="puppy-update"),
+            call("/puppy/{element_id}/", resource.delete, methods=["DELETE"], name="puppy-delete"),
         ]
 
         resource.add_routes(app_mock)
@@ -128,11 +128,11 @@ class TestCaseBaseResource:
         resource = PuppyResource()
 
         expected_calls = [
-            call(methods=["POST"], name="puppy-create", path="/puppy/", route=resource.create),
-            call(methods=["GET"], name="puppy-retrieve", path="/puppy/{element_id}/", route=resource.retrieve),
-            call(methods=["PUT"], name="puppy-update", path="/puppy/{element_id}/", route=resource.update),
-            call(methods=["DELETE"], name="puppy-delete", path="/puppy/{element_id}/", route=resource.delete),
-            call(methods=["GET"], name="puppy-list", path="/puppy/", route=resource.list),
+            call("/puppy/", resource.create, methods=["POST"], name="puppy-create"),
+            call("/puppy/{element_id}/", resource.retrieve, methods=["GET"], name="puppy-retrieve"),
+            call("/puppy/{element_id}/", resource.update, methods=["PUT"], name="puppy-update"),
+            call("/puppy/{element_id}/", resource.delete, methods=["DELETE"], name="puppy-delete"),
+            call("/puppy/", resource.list, methods=["GET"], name="puppy-list"),
         ]
 
         resource.add_routes(app_mock)
@@ -162,12 +162,12 @@ class TestCaseBaseResource:
         resource = PuppyResource()
 
         expected_calls = [
-            call(methods=["POST"], name="puppy-create", path="/puppy/", route=resource.create),
-            call(methods=["GET"], name="puppy-retrieve", path="/puppy/{element_id}/", route=resource.retrieve),
-            call(methods=["PUT"], name="puppy-update", path="/puppy/{element_id}/", route=resource.update),
-            call(methods=["DELETE"], name="puppy-delete", path="/puppy/{element_id}/", route=resource.delete),
-            call(methods=["GET"], name="puppy-list", path="/puppy/", route=resource.list),
-            call(methods=["DELETE"], name="puppy-drop", path="/puppy/", route=resource.drop),
+            call("/puppy/", resource.create, methods=["POST"], name="puppy-create"),
+            call("/puppy/{element_id}/", resource.retrieve, methods=["GET"], name="puppy-retrieve"),
+            call("/puppy/{element_id}/", resource.update, methods=["PUT"], name="puppy-update"),
+            call("/puppy/{element_id}/", resource.delete, methods=["DELETE"], name="puppy-delete"),
+            call("/puppy/", resource.list, methods=["GET"], name="puppy-list"),
+            call("/puppy/", resource.drop, methods=["DELETE"], name="puppy-drop"),
         ]
 
         resource.add_routes(app_mock)
