@@ -1,5 +1,7 @@
+import datetime
 import inspect
 import typing
+import uuid
 
 import marshmallow
 from starlette import status
@@ -9,7 +11,7 @@ from starlette_api.components import Component
 from starlette_api.exceptions import WebSocketException
 from starlette_api.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from starlette_api.routing import Route
-from starlette_api.types import OptBool, OptFloat, OptInt, OptStr
+from starlette_api.types import OptBool, OptDate, OptDateTime, OptFloat, OptInt, OptStr, OptUUID
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
@@ -109,6 +111,10 @@ class PrimitiveParamComponent(Component):
             OptBool,
             parameter.empty,
             http.QueryParam,
+            http.PathParam,
+            uuid.UUID,
+            datetime.date,
+            datetime.datetime,
         )
 
     def resolve(
@@ -127,11 +133,18 @@ class PrimitiveParamComponent(Component):
             float: marshmallow.fields.Number,
             bool: marshmallow.fields.Boolean,
             str: marshmallow.fields.String,
+            uuid.UUID: marshmallow.fields.UUID,
+            datetime.date: marshmallow.fields.Date,
+            datetime.datetime: marshmallow.fields.DateTime,
             OptInt: marshmallow.fields.Integer,
             OptFloat: marshmallow.fields.Number,
             OptBool: marshmallow.fields.Boolean,
             OptStr: marshmallow.fields.String,
             http.QueryParam: marshmallow.fields.String,
+            http.PathParam: marshmallow.fields.String,
+            OptUUID: marshmallow.fields.UUID,
+            OptDate: marshmallow.fields.Date,
+            OptDateTime: marshmallow.fields.DateTime,
         }[parameter.annotation](**kwargs)
 
         validator = type("Validator", (marshmallow.Schema,), {parameter.name: param_validator})

@@ -1,10 +1,13 @@
+import datetime
 import logging
 import re
 import typing
+import uuid
 
 import databases
 import marshmallow
 import sqlalchemy
+from sqlalchemy.dialects import postgresql
 
 from starlette_api.applications import Starlette
 from starlette_api.exceptions import HTTPException
@@ -17,19 +20,17 @@ logger = logging.getLogger(__name__)
 __all__ = ["resource_method", "CRUDResource", "CRUDListResource", "CRUDListDropResource"]
 
 
-class StringIDSchema(marshmallow.Schema):
-    id = marshmallow.fields.String(title="id", description="Element ID", required=True)
-
-
-class IntegerIDSchema(marshmallow.Schema):
-    id = marshmallow.fields.Integer(title="id", description="Element ID", required=True)
+MODEL_PK_MAPPING = {
+    sqlalchemy.Integer: int,
+    sqlalchemy.String: str,
+    sqlalchemy.Date: datetime.date,
+    sqlalchemy.DateTime: datetime.datetime,
+    postgresql.UUID: uuid.UUID,
+}
 
 
 class DropSchema(marshmallow.Schema):
     deleted = marshmallow.fields.Integer(title="deleted", description="Number of deleted elements", required=True)
-
-
-OUTPUT_SCHEMAS = {str: StringIDSchema, int: IntegerIDSchema}
 
 
 def resource_method(path: str, methods: typing.List[str] = None, name: str = None, **kwargs) -> typing.Callable:
@@ -121,12 +122,16 @@ class BaseResource(type):
         if len(model_pk) != 1:
             raise AttributeError(f"{name} model must define a single-column primary key")
 
-        model_pk_name = model_pk[0].name
-        model_pk_type = model_pk[0].type.python_type
+        model_pk = model_pk[0]
+        model_pk_name = model_pk.name
 
         # Check primary key is a valid type
-        if model_pk_type not in (str, int):
-            raise AttributeError(f"{name} model primary key must be Integer or String column type")
+        try:
+            model_pk_type = MODEL_PK_MAPPING[model_pk.type.__class__]
+        except KeyError:
+            raise AttributeError(
+                f"{name} model primary key must be any of {', '.join((i.__name__ for i in MODEL_PK_MAPPING.keys()))}"
+            )
 
         return model, model_pk_name, model_pk_type
 
@@ -213,11 +218,9 @@ class CreateMixin:
         name: str,
         database: databases.Database,
         input_schema: marshmallow.Schema,
-        model_pk_type: typing.Union[int, str],
+        output_schema: marshmallow.Schema,
         **kwargs,
     ) -> typing.Dict[str, typing.Any]:
-        output_schema = OUTPUT_SCHEMAS[model_pk_type]
-
         @resource_method("/", methods=["POST"], name=f"{name}-create")
         @database.transaction()
         async def create(self, element: input_schema) -> output_schema:
@@ -230,8 +233,8 @@ class CreateMixin:
                         Document created successfully.
             """
             query = self.model.insert().values(**element)
-            result = await self.database.execute(query)
-            return APIResponse(schema=output_schema(), content={"id": result}, status_code=201)
+            await self.database.execute(query)
+            return APIResponse(schema=output_schema(), content=element, status_code=201)
 
         return {"_create": create}
 

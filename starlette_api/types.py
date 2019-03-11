@@ -1,5 +1,7 @@
+import datetime
 import enum
 import typing
+import uuid
 
 import marshmallow
 
@@ -33,3 +35,6 @@ OptInt = typing.Optional[int]
 OptStr = typing.Optional[str]
 OptBool = typing.Optional[bool]
 OptFloat = typing.Optional[float]
+OptUUID = typing.Optional[uuid.UUID]
+OptDate = typing.Optional[datetime.date]
+OptDateTime = typing.Optional[datetime.datetime]

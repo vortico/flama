@@ -1,5 +1,7 @@
 import asyncio
+import datetime
 import typing
+import uuid
 from unittest.mock import Mock, call
 
 import databases
@@ -7,6 +9,7 @@ import marshmallow
 import pytest
 import sqlalchemy
 from sqlalchemy import create_engine
+from sqlalchemy.dialects import postgresql
 from sqlalchemy_utils import create_database, database_exists, drop_database
 from starlette.testclient import TestClient
 
@@ -318,13 +321,14 @@ class TestCaseBaseResource:
 
     def test_resource_model_invalid_type_pk(self, database_metadata, schema, database):
         model_ = sqlalchemy.Table(
-            "invalid_pk", database_metadata, sqlalchemy.Column("id", sqlalchemy.DateTime, primary_key=True)
+            "invalid_pk", database_metadata, sqlalchemy.Column("id", sqlalchemy.PickleType, primary_key=True)
         )
         schema_ = schema
         database_ = database
 
         with pytest.raises(
-            AttributeError, match=r"PuppyResource model primary key must be Integer or String column type"
+            AttributeError,
+            match=r"PuppyResource model primary key must be any of Integer, String, Date, DateTime, UUID",
         ):
 
             class PuppyResource(metaclass=CRUDListResource):
@@ -386,7 +390,9 @@ class TestCaseResource:
         assert not database_exists(DATABASE_URL), f"Database '{DATABASE_URL}' exists. Abort tests"
         create_database(DATABASE_URL)  # Create the test database.
         database_metadata.create_all(engine)  # Create the tables.
+
         yield TestClient(app)
+
         drop_database(DATABASE_URL)  # Drop the test database.
 
     @pytest.fixture
@@ -406,7 +412,7 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy["id"] == expected_puppy_id
+        assert created_puppy == puppy
 
         # List all the existing records
         response = client.get("/puppy/")
@@ -422,10 +428,10 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy["id"] == expected_puppy_id
+        assert created_puppy == puppy
 
         # Retrieve same record
-        response = client.get(f"/puppy/{created_puppy['id']}/")
+        response = client.get(f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 200, response.json()
         assert response.json() == expected_result
 
@@ -448,10 +454,10 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy["id"] == expected_puppy_id
+        assert created_puppy == puppy
 
         # Update record
-        response = client.put(f"/puppy/{created_puppy['id']}/", json=another_puppy)
+        response = client.put(f"/puppy/{expected_puppy_id}/", json=another_puppy)
         assert response.status_code == 200, response.json()
 
         # List all the existing records
@@ -478,19 +484,19 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy["id"] == expected_puppy_id
+        assert created_puppy == puppy
 
         # Retrieve same record
-        response = client.get(f"/puppy/{created_puppy['id']}/")
+        response = client.get(f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 200, response.json()
         assert response.json() == expected_puppy
 
         # Delete record
-        response = client.delete(f"/puppy/{created_puppy['id']}/")
+        response = client.delete(f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 204, response.json()
 
         # Retrieve deleted record
-        response = client.get(f"/puppy/{created_puppy['id']}/")
+        response = client.get(f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 404, response.json()
 
     def test_delete_wrong_id_type(self, client):
@@ -514,13 +520,13 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy["id"] == expected_puppy_id
+        assert created_puppy == puppy
 
         # Successfully create another new record
         response = client.post("/puppy/", json=another_puppy)
         assert response.status_code == 201, response.json()
         created_second_puppy = response.json()
-        assert created_second_puppy["id"] == expected_another_puppy_id
+        assert created_second_puppy == another_puppy
 
         # List all the existing records
         response = client.get("/puppy/")
@@ -529,7 +535,6 @@ class TestCaseResource:
 
     def test_list_filter(self, client, puppy, another_puppy):
         expected_puppy_id = 1
-        expected_another_puppy_id = 2
         expected_result = [puppy.copy()]
         expected_result[0]["custom_id"] = expected_puppy_id
 
@@ -537,13 +542,13 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy["id"] == expected_puppy_id
+        assert created_puppy == puppy
 
         # Successfully create another new record
         response = client.post("/puppy/", json=another_puppy)
         assert response.status_code == 201, response.json()
         created_second_puppy = response.json()
-        assert created_second_puppy["id"] == expected_another_puppy_id
+        assert created_second_puppy == another_puppy
 
         # Filter and found something
         response = client.get("/puppy/", params={"name": "canna", "custom_id__le": 1})
@@ -566,13 +571,13 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy["id"] == expected_puppy_id
+        assert created_puppy == puppy
 
         # Successfully create a new record
         response = client.post("/puppy/", json=another_puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy["id"] == expected_another_puppy_id
+        assert created_puppy == another_puppy
 
         # List all the existing records
         response = client.get("/puppy/")
@@ -588,3 +593,77 @@ class TestCaseResource:
         response = client.get("/puppy/")
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == []
+
+    @pytest.mark.skipif(not DATABASE_URL.startswith("postgresql"), reason="Only valid for PostgreSQL backend")
+    def test_id_uuid(self, database, database_metadata, client, app):
+        database_ = database
+        model_ = sqlalchemy.Table(
+            "custom_id_uuid",
+            database_metadata,
+            sqlalchemy.Column("custom_id", postgresql.UUID, primary_key=True),
+            sqlalchemy.Column("name", sqlalchemy.String),
+        )
+        database_metadata.create_all(create_engine(DATABASE_URL))
+
+        class Schema(marshmallow.Schema):
+            custom_id = marshmallow.fields.UUID()
+            name = marshmallow.fields.String()
+
+        class CustomUUIDResource(metaclass=CRUDListResource):
+            database = database_
+            model = model_
+            schema = Schema
+
+            name = "custom_id_uuid"
+
+        CustomUUIDResource().add_routes(app)
+
+        data = {"custom_id": str(uuid.uuid4()), "name": "foo"}
+        expected_result = data.copy()
+
+        # Successfully create a new record
+        response = client.post("/custom_id_uuid/", json=data)
+        assert response.status_code == 201, response.content
+        assert response.json() == expected_result, response.json()
+
+        # Retrieve same record
+        response = client.get(f"/custom_id_uuid/{data['custom_id']}/")
+        assert response.status_code == 200, response.json()
+        assert response.json() == expected_result
+
+    def test_id_datetime(self, database, database_metadata, client, app):
+        database_ = database
+        model_ = sqlalchemy.Table(
+            "custom_id_datetime",
+            database_metadata,
+            sqlalchemy.Column("custom_id", sqlalchemy.DateTime, primary_key=True),
+            sqlalchemy.Column("name", sqlalchemy.String),
+        )
+        database_metadata.create_all(create_engine(DATABASE_URL))
+
+        class Schema(marshmallow.Schema):
+            custom_id = marshmallow.fields.DateTime()
+            name = marshmallow.fields.String()
+
+        class CustomDatetimeResource(metaclass=CRUDListResource):
+            database = database_
+            model = model_
+            schema = Schema
+
+            name = "custom_id_datetime"
+
+        CustomDatetimeResource().add_routes(app)
+
+        now = datetime.datetime.utcnow().replace(microsecond=0, tzinfo=datetime.timezone.utc)
+        data = {"custom_id": now.isoformat(), "name": "foo"}
+        expected_result = data.copy()
+
+        # Successfully create a new record
+        response = client.post("/custom_id_datetime/", json=data)
+        assert response.status_code == 201, response.content
+        assert response.json() == expected_result, response.json()
+
+        # Retrieve same record
+        response = client.get(f"/custom_id_datetime/{data['custom_id']}/")
+        assert response.status_code == 200, response.json()
+        assert response.json() == expected_result

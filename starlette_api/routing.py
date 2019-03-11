@@ -100,11 +100,13 @@ class FieldsMixin:
 
             # Matches as path param
             if name in self.param_convertors.keys():
+                try:
+                    schema = PATH_SCHEMA_MAPPING[param.annotation]
+                except KeyError:
+                    schema = marshmallow.fields.String
+
                 path_fields[name] = Field(
-                    name=name,
-                    location=FieldLocation.path,
-                    schema=PATH_SCHEMA_MAPPING[param.annotation](required=True),
-                    required=True,
+                    name=name, location=FieldLocation.path, schema=schema(required=True), required=True
                 )
 
             # Matches as query param
