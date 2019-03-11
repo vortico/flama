@@ -153,14 +153,15 @@ class TestCaseRouter:
         assert route_scope["root_path"] == ""
         assert route_scope["endpoint"] == foo
 
-    def test_get_route_from_scope_mount(self, app, router, scope):
+    def test_get_route_from_scope_mount_view(self, app, router, scope):
         @router.route("/foo/")
         async def foo():
             return "foo"
 
         app.mount("/router", app=router)
 
-        scope["path"] = "/router/foo/"
+        scope["path"] = "/foo/"
+        scope["root_path"] = "/router"
         scope["method"] = "GET"
 
         route, route_scope = app.router.get_route_from_scope(scope=scope)

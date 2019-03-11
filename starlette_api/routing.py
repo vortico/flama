@@ -281,14 +281,17 @@ class Router(starlette.routing.Router):
         partial = None
 
         for route in self.routes:
+            if isinstance(route, Mount):
+                path = scope.get("path", "")
+                root_path = scope.pop("root_path", "")
+                scope["path"] = root_path + path
+
             match, child_scope = route.matches(scope)
             if match == Match.FULL:
                 scope.update(child_scope)
 
                 if isinstance(route, Mount):
-                    root_path = scope.pop("root_path")
                     route, mount_scope = route.app.get_route_from_scope(scope)
-                    mount_scope["root_path"] = root_path
                     return route, mount_scope
 
                 return route, scope
