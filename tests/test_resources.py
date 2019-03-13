@@ -16,6 +16,7 @@ from starlette.testclient import TestClient
 from starlette_api.applications import Starlette
 from starlette_api.pagination import Paginator
 from starlette_api.resources import CRUDListDropResource, CRUDListResource, CRUDResource, resource_method
+from starlette_api.types import Model, PrimaryKey
 
 DATABASE_URL = "sqlite:///test.db"
 
@@ -81,6 +82,24 @@ class TestCaseBaseResource:
     @pytest.fixture(scope="function")
     def app_mock(self):
         return Mock(spec=Starlette)
+
+    def test_meta_attributes(self, resource, model, database, schema):
+        assert not hasattr(resource, "name")
+        assert not hasattr(resource, "verbose_name")
+        assert not hasattr(resource, "schema")
+        assert hasattr(resource, "database")
+        assert isinstance(getattr(resource, "database"), property)
+        assert hasattr(resource, "model")
+        assert isinstance(getattr(resource, "model"), property)
+        assert hasattr(resource, "_meta")
+        assert resource._meta.database == database
+        assert resource._meta.name == "puppy"
+        assert resource._meta.verbose_name == "Puppy"
+        assert resource._meta.model == Model(table=model, primary_key=PrimaryKey(name="custom_id", type=int))
+        assert resource._meta.input_schema == schema
+        assert resource._meta.output_schema == schema
+        assert resource._meta.columns == ["custom_id"]
+        assert resource._meta.order == "custom_id"
 
     def test_crud_resource(self, model, schema, database, app_mock):
         model_ = model
@@ -229,7 +248,7 @@ class TestCaseBaseResource:
             model = model_
             schema = schema_
 
-        assert PuppyResource.name == "puppyresource"
+        assert PuppyResource._meta.name == "puppyresource"
 
     def test_new_wrong_name(self, model, schema, database):
         model_ = model

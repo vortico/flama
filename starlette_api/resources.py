@@ -13,6 +13,7 @@ from starlette_api.applications import Starlette
 from starlette_api.exceptions import HTTPException
 from starlette_api.pagination import Paginator
 from starlette_api.responses import APIResponse
+from starlette_api.types import Model, PrimaryKey, ResourceMeta
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["resource_method", "CRUDResource", "CRUDListResource", "CRUDListDropResource"]
 
 
-MODEL_PK_MAPPING = {
+PK_MAPPING = {
     sqlalchemy.Integer: int,
     sqlalchemy.String: str,
     sqlalchemy.Date: datetime.date,
@@ -63,90 +64,112 @@ class BaseResource(type):
     METHODS = ()  # type: typing.Sequence[str]
 
     def __new__(mcs, name, bases, namespace):
-        database = mcs.get_attribute("database", name, namespace, bases)
+        # Get database and replace it with a read-only descriptor
+        database = mcs._get_attribute("database", name, namespace, bases)
+        namespace["database"] = property(lambda self: self._meta.database)
 
-        # Get model and model primary key
-        model, model_pk_name, model_pk_type = mcs._get_model(name, namespace, bases)
+        # Get model and replace it with a read-only descriptor
+        model = mcs._get_model(name, namespace, bases)
+        namespace["model"] = property(lambda self: self._meta.model.table)
 
         # Define resource names
         resource_name, verbose_name = mcs._get_resource_name(name, namespace)
-        namespace["name"] = resource_name
-        namespace["verbose_name"] = verbose_name
 
         # Default columns and order for admin interface
-        namespace["columns"] = namespace.get("columns", [model_pk_name])
-        namespace["order"] = namespace.get("order", model_pk_name)
+        columns = namespace.pop("columns", [model.primary_key.name])
+        order = namespace.pop("order", model.primary_key.name)
 
         # Get input and output schemas
         input_schema, output_schema = mcs._get_schemas(name, namespace, bases)
 
+        namespace["_meta"] = ResourceMeta(
+            database=database,
+            model=model,
+            name=resource_name,
+            verbose_name=verbose_name,
+            input_schema=input_schema,
+            output_schema=output_schema,
+            columns=columns,
+            order=order,
+        )
+
         # Create CRUD methods and routes
-        mcs._add_methods(resource_name, namespace, database, input_schema, output_schema, model_pk_name, model_pk_type)
+        mcs._add_methods(resource_name, namespace, database, input_schema, output_schema, model)
         mcs._add_routes(namespace)
 
         return super().__new__(mcs, name, bases, namespace)
 
     @classmethod
-    def get_attribute(
+    def _get_attribute(
         mcs, attribute: str, name: str, namespace: typing.Dict[str, typing.Any], bases: typing.Sequence[typing.Any]
     ) -> typing.Any:
         try:
-            return namespace[attribute]
+            return namespace.pop(attribute)
         except KeyError:
             for base in bases:
-                if hasattr(base, attribute):
+                if hasattr(base, "_meta") and hasattr(base._meta, attribute):
+                    return getattr(base._meta, attribute)
+                elif hasattr(base, attribute):
                     return getattr(base, attribute)
 
         raise AttributeError(f"{name} needs to define attribute '{attribute}'")
 
     @classmethod
     def _get_resource_name(mcs, name: str, namespace: typing.Dict[str, typing.Any]) -> typing.Tuple[str, str]:
-        resource_name = namespace.get("name", name.lower())
+        resource_name = namespace.pop("name", name.lower())
 
         # Check resource name validity
         if re.match("[a-zA-Z][-_a-zA-Z]", resource_name) is None:
             raise AttributeError(f"Invalid resource name '{resource_name}'")
 
-        return resource_name, namespace.get("verbose_name", resource_name)
+        return resource_name, namespace.pop("verbose_name", resource_name)
 
     @classmethod
     def _get_model(
         mcs, name: str, namespace: typing.Dict[str, typing.Any], bases: typing.Sequence[typing.Any]
-    ) -> typing.Tuple[sqlalchemy.Table, str, type]:
-        model = mcs.get_attribute("model", name, namespace, bases)
+    ) -> Model:
+        model = mcs._get_attribute("model", name, namespace, bases)
 
-        # Get model primary key
-        model_pk = list(sqlalchemy.inspect(model).primary_key.columns.values())
+        # Already defined model probably because resource inheritance, so no need to create it
+        if isinstance(model, Model):
+            return model
 
-        # Check primary key exists and is a single column
-        if len(model_pk) != 1:
-            raise AttributeError(f"{name} model must define a single-column primary key")
+        # Resource define model as a sqlalchemy Table, so extract necessary info from it
+        elif isinstance(model, sqlalchemy.Table):
+            # Get model primary key
+            model_pk = list(sqlalchemy.inspect(model).primary_key.columns.values())
 
-        model_pk = model_pk[0]
-        model_pk_name = model_pk.name
+            # Check primary key exists and is a single column
+            if len(model_pk) != 1:
+                raise AttributeError(f"{name} model must define a single-column primary key")
 
-        # Check primary key is a valid type
-        try:
-            model_pk_type = MODEL_PK_MAPPING[model_pk.type.__class__]
-        except KeyError:
-            raise AttributeError(
-                f"{name} model primary key must be any of {', '.join((i.__name__ for i in MODEL_PK_MAPPING.keys()))}"
-            )
+            model_pk = model_pk[0]
+            model_pk_name = model_pk.name
 
-        return model, model_pk_name, model_pk_type
+            # Check primary key is a valid type
+            try:
+                model_pk_type = PK_MAPPING[model_pk.type.__class__]
+            except KeyError:
+                raise AttributeError(
+                    f"{name} model primary key must be any of {', '.join((i.__name__ for i in PK_MAPPING.keys()))}"
+                )
+
+            return Model(table=model, primary_key=PrimaryKey(model_pk_name, model_pk_type))
+
+        raise AttributeError(f"{name} model must be a valid SQLAlchemy Table instance or a Model instance")
 
     @classmethod
     def _get_schemas(
         mcs, name: str, namespace: typing.Dict[str, typing.Any], bases: typing.Sequence[typing.Any]
     ) -> typing.Tuple[marshmallow.Schema, marshmallow.Schema]:
         try:
-            schema = mcs.get_attribute("schema", name, namespace, bases)
+            schema = mcs._get_attribute("schema", name, namespace, bases)
             input_schema = schema
             output_schema = schema
         except AttributeError:
             try:
-                input_schema = mcs.get_attribute("input_schema", name, namespace, bases)
-                output_schema = mcs.get_attribute("output_schema", name, namespace, bases)
+                input_schema = mcs._get_attribute("input_schema", name, namespace, bases)
+                output_schema = mcs._get_attribute("output_schema", name, namespace, bases)
             except AttributeError:
                 raise AttributeError(
                     f"{name} needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'"
@@ -158,7 +181,7 @@ class BaseResource(type):
     def _add_routes(mcs, namespace: typing.Dict[str, typing.Any]):
         def _add_routes(self, app: "Starlette", root_path: str = "/"):
             for route in self.routes:
-                path = root_path + self.name + route.pop("path")
+                path = root_path + self._meta.name + route.pop("path")
                 method = getattr(self, route.pop("route"))
                 app.add_route(path, method, **route)
 
@@ -183,8 +206,7 @@ class BaseResource(type):
         database: "databases.Database",
         input_schema: marshmallow.Schema,
         output_schema: marshmallow.Schema,
-        model_pk_name: str,
-        model_pk_type,
+        model: Model,
     ):
         # Get available methods
         methods = [getattr(mcs, f"_add_{method}") for method in mcs.METHODS if hasattr(mcs, f"_add_{method}")]
@@ -194,12 +216,7 @@ class BaseResource(type):
             func_name: func
             for method in methods
             for func_name, func in method(
-                name=name,
-                database=database,
-                input_schema=input_schema,
-                output_schema=output_schema,
-                model_pk_name=model_pk_name,
-                model_pk_type=model_pk_type,
+                name=name, database=database, input_schema=input_schema, output_schema=output_schema, model=model
             ).items()
         }
 
@@ -242,15 +259,10 @@ class CreateMixin:
 class RetrieveMixin:
     @classmethod
     def _add_retrieve(
-        mcs,
-        name: str,
-        output_schema: marshmallow.Schema,
-        model_pk_name: str,
-        model_pk_type: typing.Union[int, str],
-        **kwargs,
+        mcs, name: str, output_schema: marshmallow.Schema, model: Model, **kwargs
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["GET"], name=f"{name}-retrieve")
-        async def retrieve(self, element_id: model_pk_type) -> output_schema:
+        async def retrieve(self, element_id: model.primary_key.type) -> output_schema:
             """
             description:
                 Retrieve a document from this resource.
@@ -262,7 +274,7 @@ class RetrieveMixin:
                     description:
                         Document not found.
             """
-            query = self.model.select().where(self.model.c[model_pk_name] == element_id)
+            query = self.model.select().where(self.model.c[model.primary_key.name] == element_id)
             element = await self.database.fetch_one(query)
 
             if element is None:
@@ -276,17 +288,11 @@ class RetrieveMixin:
 class UpdateMixin:
     @classmethod
     def _add_update(
-        mcs,
-        name: str,
-        database: databases.Database,
-        input_schema: marshmallow.Schema,
-        model_pk_name: str,
-        model_pk_type: typing.Union[int, str],
-        **kwargs,
+        mcs, name: str, database: databases.Database, input_schema: marshmallow.Schema, model: Model, **kwargs
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["PUT"], name=f"{name}-update")
         @database.transaction()
-        async def update(self, element_id: model_pk_type, element: input_schema):
+        async def update(self, element_id: model.primary_key.type, element: input_schema):
             """
             description:
                 Update a document in this resource.
@@ -298,12 +304,14 @@ class UpdateMixin:
                     description:
                         Document not found.
             """
-            query = sqlalchemy.exists(self.model.select().where(self.model.c[model_pk_name] == element_id)).select()
+            query = sqlalchemy.exists(
+                self.model.select().where(self.model.c[model.primary_key.name] == element_id)
+            ).select()
             exists = (await self.database.fetch_one(query))[0]
             if not exists:
                 raise HTTPException(status_code=404)
 
-            query = self.model.update().where(self.model.c[model_pk_name] == element_id).values(**element)
+            query = self.model.update().where(self.model.c[model.primary_key.name] == element_id).values(**element)
             await self.database.execute(query)
 
         return {"_update": update}
@@ -312,16 +320,11 @@ class UpdateMixin:
 class DeleteMixin:
     @classmethod
     def _add_delete(
-        mcs,
-        name: str,
-        database: databases.Database,
-        model_pk_name: str,
-        model_pk_type: typing.Union[int, str],
-        **kwargs,
+        mcs, name: str, database: databases.Database, model: Model, **kwargs
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["DELETE"], name=f"{name}-delete")
         @database.transaction()
-        async def delete(self, element_id: model_pk_type):
+        async def delete(self, element_id: model.primary_key.type):
             """
             description:
                 Delete a document in this resource.
@@ -333,12 +336,14 @@ class DeleteMixin:
                     description:
                         Document not found.
             """
-            query = sqlalchemy.exists(self.model.select().where(self.model.c[model_pk_name] == element_id)).select()
+            query = sqlalchemy.exists(
+                self.model.select().where(self.model.c[model.primary_key.name] == element_id)
+            ).select()
             exists = (await self.database.fetch_one(query))[0]
             if not exists:
                 raise HTTPException(status_code=404)
 
-            query = self.model.delete().where(self.model.c[model_pk_name] == element_id)
+            query = self.model.delete().where(self.model.c[model.primary_key.name] == element_id)
             await self.database.execute(query)
 
             return APIResponse(status_code=204)
