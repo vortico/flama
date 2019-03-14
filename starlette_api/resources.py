@@ -13,7 +13,7 @@ from starlette_api.applications import Starlette
 from starlette_api.exceptions import HTTPException
 from starlette_api.pagination import Paginator
 from starlette_api.responses import APIResponse
-from starlette_api.types import Model, PrimaryKey, ResourceMeta
+from starlette_api.types import Model, PrimaryKey, ResourceMeta, ResourceMethodMeta
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +36,9 @@ class DropSchema(marshmallow.Schema):
 
 def resource_method(path: str, methods: typing.List[str] = None, name: str = None, **kwargs) -> typing.Callable:
     def wrapper(func: typing.Callable) -> typing.Callable:
-        func.is_resource_method = True
-        func.path = path
-        func.methods = methods if methods is not None else ["GET"]
-        func.name = name if name is not None else f"{func.__class__.__name__}-{func.__name__}"
-        func.route_kwargs = kwargs
+        func._meta = ResourceMethodMeta(
+            path=path, methods=methods if methods is not None else ["GET"], name=name, kwargs=kwargs
+        )
 
         return func
 
@@ -50,13 +48,10 @@ def resource_method(path: str, methods: typing.List[str] = None, name: str = Non
 class ResourceRoutes:
     """Routes descriptor"""
 
-    def __init__(self):
-        self.methods = []
+    def __init__(self, methods: typing.Dict[str, typing.Callable]):
+        self.methods = methods
 
-    def add_route(self, path, route, methods, name, **kwargs):
-        self.methods.append({"path": path, "route": route, "methods": methods, "name": name, **kwargs})
-
-    def __get__(self, instance, owner) -> typing.List[typing.Dict[str, typing.Any]]:
+    def __get__(self, instance, owner) -> typing.Dict[str, typing.Callable]:
         return self.methods
 
 
@@ -180,20 +175,14 @@ class BaseResource(type):
     @classmethod
     def _add_routes(mcs, namespace: typing.Dict[str, typing.Any]):
         def _add_routes(self, app: "Starlette", root_path: str = "/"):
-            for route in self.routes:
-                path = root_path + self._meta.name + route.pop("path")
-                method = getattr(self, route.pop("route"))
-                app.add_route(path, method, **route)
+            for name, route in self.routes.items():
+                path = root_path + self._meta.name + route._meta.path
+                bound_route = getattr(self, name)
+                name = route._meta.name if route._meta.name is not None else f"{self._meta.name}-{route.__name__}"
+                app.add_route(path, bound_route, route._meta.methods, name, **route._meta.kwargs)
 
-        routes = ResourceRoutes()
-        methods = [
-            (name, method)
-            for name, method in namespace.items()
-            if getattr(method, "is_resource_method", False) and not name.startswith("_")
-        ]
-
-        for (name, method) in methods:
-            routes.add_route(method.path, name, method.methods, method.name, **method.route_kwargs)
+        methods = {name: m for name, m in namespace.items() if getattr(m, "_meta", False) and not name.startswith("_")}
+        routes = ResourceRoutes(methods)
 
         namespace["routes"] = routes
         namespace["add_routes"] = _add_routes
@@ -288,11 +277,17 @@ class RetrieveMixin:
 class UpdateMixin:
     @classmethod
     def _add_update(
-        mcs, name: str, database: databases.Database, input_schema: marshmallow.Schema, model: Model, **kwargs
+        mcs,
+        name: str,
+        database: databases.Database,
+        input_schema: marshmallow.Schema,
+        output_schema: marshmallow.Schema,
+        model: Model,
+        **kwargs,
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["PUT"], name=f"{name}-update")
         @database.transaction()
-        async def update(self, element_id: model.primary_key.type, element: input_schema):
+        async def update(self, element_id: model.primary_key.type, element: input_schema) -> output_schema:
             """
             description:
                 Update a document in this resource.
@@ -304,15 +299,15 @@ class UpdateMixin:
                     description:
                         Document not found.
             """
-            query = sqlalchemy.exists(
-                self.model.select().where(self.model.c[model.primary_key.name] == element_id)
-            ).select()
-            exists = (await self.database.fetch_one(query))[0]
+            query = sqlalchemy.select([sqlalchemy.exists().where(self.model.c[model.primary_key.name] == element_id)])
+            exists = next((i for i in (await self.database.fetch_one(query)).values()))
             if not exists:
                 raise HTTPException(status_code=404)
 
             query = self.model.update().where(self.model.c[model.primary_key.name] == element_id).values(**element)
             await self.database.execute(query)
+
+            return {model.primary_key.name: element_id, **element}
 
         return {"_update": update}
 
@@ -336,10 +331,8 @@ class DeleteMixin:
                     description:
                         Document not found.
             """
-            query = sqlalchemy.exists(
-                self.model.select().where(self.model.c[model.primary_key.name] == element_id)
-            ).select()
-            exists = (await self.database.fetch_one(query))[0]
+            query = sqlalchemy.select([sqlalchemy.exists().where(self.model.c[model.primary_key.name] == element_id)])
+            exists = next((i for i in (await self.database.fetch_one(query)).values()))
             if not exists:
                 raise HTTPException(status_code=404)
 
@@ -382,7 +375,7 @@ class ListMixin:
 
 class DropMixin:
     @classmethod
-    def _add_drop(mcs, name: str, database: databases.Database, **kwargs) -> typing.Dict[str, typing.Any]:
+    def _add_drop(mcs, name: str, database: databases.Database, model: Model, **kwargs) -> typing.Dict[str, typing.Any]:
         @resource_method("/", methods=["DELETE"], name=f"{name}-drop")
         @database.transaction()
         async def drop(self) -> DropSchema:
@@ -394,8 +387,8 @@ class DropMixin:
                     description:
                         Collection dropped successfully.
             """
-            query = self.model.select().count()
-            result = (await self.database.fetch_one(query))[0]
+            query = self.model.count()
+            result = next((i for i in (await self.database.fetch_one(query)).values()))
 
             query = self.model.delete()
             await self.database.execute(query)

@@ -75,3 +75,10 @@ class ResourceMeta(typing.NamedTuple):
     verbose_name: str
     columns: typing.Sequence[str]
     order: str
+
+
+class ResourceMethodMeta(typing.NamedTuple):
+    path: str
+    methods: typing.List[str] = ["GET"]
+    name: str = None
+    kwargs: typing.Dict[str, typing.Any] = {}

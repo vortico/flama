@@ -101,6 +101,28 @@ class TestCaseBaseResource:
         assert resource._meta.columns == ["custom_id"]
         assert resource._meta.order == "custom_id"
 
+    def test_meta_from_inheritance(self, model, schema, database):
+        model_ = model
+        schema_ = schema
+        database_ = database
+
+        class MetadataMixin:
+            database = database_
+            model = model_
+            schema = schema_
+
+        class PuppyResource(MetadataMixin, metaclass=CRUDListResource):
+            pass
+
+        assert PuppyResource._meta.name == "puppyresource"
+        assert PuppyResource._meta.verbose_name == "puppyresource"
+        assert PuppyResource._meta.order == "custom_id"
+        assert PuppyResource._meta.columns == ["custom_id"]
+        assert PuppyResource._meta.database == database_
+        assert PuppyResource._meta.model == Model(table=model, primary_key=PrimaryKey(name="custom_id", type=int))
+        assert PuppyResource._meta.input_schema == schema_
+        assert PuppyResource._meta.output_schema == schema_
+
     def test_crud_resource(self, model, schema, database, app_mock):
         model_ = model
         schema_ = schema
@@ -118,10 +140,10 @@ class TestCaseBaseResource:
         resource = PuppyResource()
 
         expected_calls = [
-            call("/puppy/", resource.create, methods=["POST"], name="puppy-create"),
-            call("/puppy/{element_id}/", resource.retrieve, methods=["GET"], name="puppy-retrieve"),
-            call("/puppy/{element_id}/", resource.update, methods=["PUT"], name="puppy-update"),
-            call("/puppy/{element_id}/", resource.delete, methods=["DELETE"], name="puppy-delete"),
+            call("/puppy/", resource.create, ["POST"], "puppy-create"),
+            call("/puppy/{element_id}/", resource.retrieve, ["GET"], "puppy-retrieve"),
+            call("/puppy/{element_id}/", resource.update, ["PUT"], "puppy-update"),
+            call("/puppy/{element_id}/", resource.delete, ["DELETE"], "puppy-delete"),
         ]
 
         resource.add_routes(app_mock)
@@ -150,11 +172,11 @@ class TestCaseBaseResource:
         resource = PuppyResource()
 
         expected_calls = [
-            call("/puppy/", resource.create, methods=["POST"], name="puppy-create"),
-            call("/puppy/{element_id}/", resource.retrieve, methods=["GET"], name="puppy-retrieve"),
-            call("/puppy/{element_id}/", resource.update, methods=["PUT"], name="puppy-update"),
-            call("/puppy/{element_id}/", resource.delete, methods=["DELETE"], name="puppy-delete"),
-            call("/puppy/", resource.list, methods=["GET"], name="puppy-list"),
+            call("/puppy/", resource.create, ["POST"], "puppy-create"),
+            call("/puppy/{element_id}/", resource.retrieve, ["GET"], "puppy-retrieve"),
+            call("/puppy/{element_id}/", resource.update, ["PUT"], "puppy-update"),
+            call("/puppy/{element_id}/", resource.delete, ["DELETE"], "puppy-delete"),
+            call("/puppy/", resource.list, ["GET"], "puppy-list"),
         ]
 
         resource.add_routes(app_mock)
@@ -184,12 +206,12 @@ class TestCaseBaseResource:
         resource = PuppyResource()
 
         expected_calls = [
-            call("/puppy/", resource.create, methods=["POST"], name="puppy-create"),
-            call("/puppy/{element_id}/", resource.retrieve, methods=["GET"], name="puppy-retrieve"),
-            call("/puppy/{element_id}/", resource.update, methods=["PUT"], name="puppy-update"),
-            call("/puppy/{element_id}/", resource.delete, methods=["DELETE"], name="puppy-delete"),
-            call("/puppy/", resource.list, methods=["GET"], name="puppy-list"),
-            call("/puppy/", resource.drop, methods=["DELETE"], name="puppy-drop"),
+            call("/puppy/", resource.create, ["POST"], "puppy-create"),
+            call("/puppy/{element_id}/", resource.retrieve, ["GET"], "puppy-retrieve"),
+            call("/puppy/{element_id}/", resource.update, ["PUT"], "puppy-update"),
+            call("/puppy/{element_id}/", resource.delete, ["DELETE"], "puppy-delete"),
+            call("/puppy/", resource.list, ["GET"], "puppy-list"),
+            call("/puppy/", resource.drop, ["DELETE"], "puppy-drop"),
         ]
 
         resource.add_routes(app_mock)
@@ -237,6 +259,19 @@ class TestCaseBaseResource:
             class PuppyResource(metaclass=CRUDListResource):
                 database = database_
                 schema = schema_
+
+    def test_invalid_no_model(self, schema, database):
+        schema_ = schema
+        database_ = database
+
+        with pytest.raises(
+            AttributeError, match=r"PuppyResource model must be a valid SQLAlchemy Table instance or a Model instance"
+        ):
+
+            class PuppyResource(metaclass=CRUDListResource):
+                database = database_
+                schema = schema_
+                model = None
 
     def test_new_no_name(self, model, schema, database):
         model_ = model
@@ -466,8 +501,9 @@ class TestCaseResource:
 
     def test_update(self, client, puppy, another_puppy):
         expected_puppy_id = 1
-        expected_result = [another_puppy.copy()]
-        expected_result[0]["custom_id"] = expected_puppy_id
+        expected_puppy = another_puppy.copy()
+        expected_puppy["custom_id"] = expected_puppy_id
+        expected_result = [expected_puppy]
 
         # Successfully create a new record
         response = client.post("/puppy/", json=puppy)
@@ -478,6 +514,7 @@ class TestCaseResource:
         # Update record
         response = client.put(f"/puppy/{expected_puppy_id}/", json=another_puppy)
         assert response.status_code == 200, response.json()
+        assert response.json() == expected_result[0]
 
         # List all the existing records
         response = client.get("/puppy/")
