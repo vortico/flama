@@ -1,0 +1,65 @@
+version: 2.1
+orbs:
+  codecov: codecov/codecov@1.0.2
+
+workflows:
+  version: 2.1
+  test_and_deploy:
+    jobs:
+      - test:
+          version: "3.6"
+          filters:  # required since `deploy` has tag filters AND requires `build`
+            tags:
+              only: /.*/
+      - test:
+          version: "3.7"
+          coverage: true
+          filters:  # required since `deploy` has tag filters AND requires `build`
+            tags:
+              only: /.*/
+#      - deploy:
+#          filters:
+#            tags:
+#              only: /v[0-9]+(\.[0-9]+)*/
+#          requires:
+#            - test
+jobs:
+  test:
+    parameters:
+      version:
+        type: string
+        default: latest
+      coverage:
+        type: boolean
+        default: false
+    docker:
+      - image: circleci/python:<< parameters.version >>
+    steps:
+      - checkout
+      - run:
+          name: build
+          command: poetry install
+      - run:
+          name: black
+          command: poetry run python build.py black --check .
+      - run:
+          name: isort
+          command: poetry run python build.py isort --check-only
+      - run:
+          name: flake8
+          command: poetry run python build.py flake8
+      - run:
+          name: tests
+          command: poetry run python build.py pytest
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+      - when:
+          condition: << parameters.coverage >>
+          steps:
+            - run:
+                name: codecov
+                command: |
+                  sudo pip install codecov
+                  codecov -f test-results/coverage.xml
