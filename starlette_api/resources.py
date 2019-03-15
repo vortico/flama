@@ -416,7 +416,7 @@ class DropMixin:
         @resource_method("/", methods=["DELETE"], name=f"{name}-drop")
         @database.transaction()
         async def drop(self) -> DropSchema:
-            query = self.model.count()
+            query = sqlalchemy.select([sqlalchemy.func.count(self.model.c[model.primary_key.name])])
             result = next((i for i in (await self.database.fetch_one(query)).values()))
 
             query = self.model.delete()
