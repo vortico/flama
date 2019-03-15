@@ -6,7 +6,6 @@ from functools import wraps
 import marshmallow
 import starlette.routing
 from starlette.concurrency import run_in_threadpool
-from starlette.responses import JSONResponse, Response
 from starlette.routing import Match, Mount
 from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 
@@ -178,9 +177,9 @@ class Route(starlette.routing.Route, FieldsMixin):
                 if isinstance(response, (dict, list)):
                     response = APIResponse(content=response, schema=get_output_schema(endpoint))
                 elif isinstance(response, str):
-                    response = Response(content=response)
+                    response = APIResponse(content=response)
                 elif response is None:
-                    response = JSONResponse()
+                    response = APIResponse(content="")
 
                 await response(receive, send)
 

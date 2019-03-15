@@ -41,7 +41,7 @@ class TestCaseHTTPEndpoint:
         response = client.get("/custom-component/")
 
         assert response.status_code == 200
-        assert response.content == b"Canna"
+        assert response.json() == "Canna"
 
     def test_query_param(self, app, client):
         @app.route("/query-param/", methods=["GET"])

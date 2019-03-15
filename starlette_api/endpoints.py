@@ -1,17 +1,18 @@
 import asyncio
-import inspect
 import typing
 
-import marshmallow
 from starlette import status
+from starlette.concurrency import run_in_threadpool
 from starlette.endpoints import HTTPEndpoint as BaseHTTPEndpoint
 from starlette.endpoints import WebSocketEndpoint as BaseWebSocketEndpoint
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 from starlette.types import Receive, Send
 from starlette.websockets import WebSocket, WebSocketState
 
 from starlette_api import exceptions, websockets
+from starlette_api.responses import APIResponse
+from starlette_api.validation import get_output_schema
 
 __all__ = ["HTTPEndpoint", "WebSocketEndpoint"]
 
@@ -44,20 +45,18 @@ class HTTPEndpoint(BaseHTTPEndpoint):
 
         app = state["app"]
         injected_func = await app.injector.inject(handler, state)
-
         if asyncio.iscoroutinefunction(handler):
             response = await injected_func()
         else:
-            response = injected_func()
+            response = await run_in_threadpool(injected_func)
 
-        return_annotation = inspect.signature(handler).return_annotation
-        if issubclass(return_annotation, marshmallow.Schema):
-            response = return_annotation().dump(response)
-
+        # Wrap response data with a proper response class
         if isinstance(response, (dict, list)):
-            response = JSONResponse(response)
+            response = APIResponse(content=response, schema=get_output_schema(handler))
         elif isinstance(response, str):
-            response = Response(response)
+            response = APIResponse(content=response)
+        elif response is None:
+            response = APIResponse(content="")
 
         return response
 
