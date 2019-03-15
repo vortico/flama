@@ -7,22 +7,29 @@ workflows:
   test_and_deploy:
     jobs:
       - test:
+          name: "test-py36"
           version: "3.6"
           filters:  # required since `deploy` has tag filters AND requires `build`
             tags:
               only: /.*/
       - test:
+          name: "test-py37"
           version: "3.7"
           coverage: true
           filters:  # required since `deploy` has tag filters AND requires `build`
             tags:
               only: /.*/
-#      - deploy:
-#          filters:
-#            tags:
-#              only: /v[0-9]+(\.[0-9]+)*/
-#          requires:
-#            - test
+      - deploy:
+          context:
+            perdy-pypi
+          filters:
+            branches:  # ignore any commit on any branch by default
+              ignore: /.*/
+            tags:  # only act on version tags
+              only: /v[0-9]+(\.[0-9]+)*/
+          requires:
+            - test-py36
+            - test-py37
 jobs:
   test:
     parameters:
@@ -37,20 +44,22 @@ jobs:
     steps:
       - checkout
       - run:
-          name: build
-          command: poetry install
+          name: install
+          command: |
+            sudo pip install clinner
+            python make install
       - run:
           name: black
-          command: poetry run python build.py black --check .
+          command: python make black --check .
       - run:
           name: isort
-          command: poetry run python build.py isort --check-only
+          command: python make isort --check-only
       - run:
           name: flake8
-          command: poetry run python build.py flake8
+          command: python make flake8
       - run:
           name: tests
-          command: poetry run python build.py pytest
+          command: python make test
       - store_test_results:
           path: test-results
       - store_artifacts:
@@ -63,3 +72,14 @@ jobs:
                 command: |
                   sudo pip install codecov
                   codecov -f test-results/coverage.xml
+  deploy:
+    docker:
+      - image: perdy/circleci-python-builder:latest
+    steps:
+      - checkout
+      - run:
+          name: build
+          command: python make build
+      - run:
+          name: publish
+          command: python make publish
