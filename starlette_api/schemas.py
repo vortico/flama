@@ -32,6 +32,7 @@ class OpenAPIResponse(schemas.OpenAPIResponse):
         assert isinstance(content, dict), "The schema passed to OpenAPIResponse should be a dictionary."
 
         from apispec.core import YAMLDumper
+
         return yaml.dump(content, default_flow_style=False, Dumper=YAMLDumper).encode("utf-8")
 
 
