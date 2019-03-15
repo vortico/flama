@@ -3,6 +3,7 @@ import inspect
 import typing
 
 import marshmallow
+import marshmallow.schema
 from starlette import status
 from starlette.endpoints import HTTPEndpoint as BaseHTTPEndpoint
 from starlette.endpoints import WebSocketEndpoint as BaseWebSocketEndpoint
@@ -51,13 +52,19 @@ class HTTPEndpoint(BaseHTTPEndpoint):
             response = injected_func()
 
         return_annotation = inspect.signature(handler).return_annotation
-        if issubclass(return_annotation, marshmallow.Schema):
-            response = return_annotation().dump(response)
+        try:
+            if issubclass(return_annotation, marshmallow.Schema):
+                response = return_annotation().dump(response)
+        except:
+            if isinstance(return_annotation, marshmallow.Schema):
+                response = return_annotation.dump(response)
 
         if isinstance(response, (dict, list)):
             response = JSONResponse(response)
         elif isinstance(response, str):
             response = Response(response)
+        elif isinstance(response, marshmallow.schema.MarshalResult):
+            response = JSONResponse(response.data)
 
         return response
 
