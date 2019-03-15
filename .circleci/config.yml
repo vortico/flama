@@ -4,7 +4,7 @@ orbs:
 
 workflows:
   version: 2.1
-  test_and_deploy:
+  test_and_release:
     jobs:
       - test:
           name: "test-py36"
@@ -19,7 +19,7 @@ workflows:
           filters:  # required since `deploy` has tag filters AND requires `build`
             tags:
               only: /.*/
-      - deploy:
+      - release:
           context:
             perdy-pypi
           filters:
@@ -72,7 +72,7 @@ jobs:
                 command: |
                   sudo pip install codecov
                   codecov -f test-results/coverage.xml
-  deploy:
+  release:
     docker:
       - image: perdy/circleci-python-builder:latest
     steps:
