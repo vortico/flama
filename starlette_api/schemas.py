@@ -6,7 +6,6 @@ from collections import defaultdict
 from string import Template
 
 import marshmallow
-from apispec.core import YAMLDumper
 from starlette import routing, schemas
 from starlette.responses import HTMLResponse
 
@@ -29,7 +28,10 @@ __all__ = ["OpenAPIResponse", "SchemaGenerator", "SchemaMixin"]
 class OpenAPIResponse(schemas.OpenAPIResponse):
     def render(self, content: typing.Any) -> bytes:
         assert yaml is not None, "`pyyaml` must be installed to use OpenAPIResponse."
+        assert apispec is not None, "`apispec` must be installed to use OpenAPIResponse."
         assert isinstance(content, dict), "The schema passed to OpenAPIResponse should be a dictionary."
+
+        from apispec.core import YAMLDumper
 
         return yaml.dump(content, default_flow_style=False, Dumper=YAMLDumper).encode("utf-8")
 
