@@ -1,0 +1,42 @@
+# Project information
+site_name: Starlette API
+site_description: 'Layer on top of Starlette to provide a fast and easy way for building highly performant REST APIs.'
+site_author: 'José Antonio Perdiguero López'
+site_url: 'https://starlette-api.perdy.io/'
+
+# Copyright
+copyright: 'GNU General Public License v3.0; 2018 - Present; José Antonio Perdiguero López'
+
+# Repository
+repo_name: 'perdy/starlette-api'
+repo_url: 'https://github.com/perdy/starlette-api'
+
+nav:
+    - Home: index.md
+
+# Theme configuration
+theme:
+    name: material
+    palette:
+        primary: 'blue'
+        accent: 'yellow'
+    font:
+        text: 'Fira Sans'
+        code: 'Fira Mono'
+    logo: 'images/icon.png'
+    favicon: 'images/favicon.ico'
+
+# Customization
+extra:
+  social:
+    - type: 'github'
+      link: 'https://github.com/perdy'
+    - type: 'linkedin'
+      link: 'https://linkedin.com/in/perdy'
+
+# Extensions
+markdown_extensions:
+  - toc:
+      permalink: true
+  - meta
+  - footnotes

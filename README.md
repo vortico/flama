@@ -1,35 +1,50 @@
+<p align="center">
+  <img width="1023" height="150" src="https://raw.githubusercontent.com/perdy/starlette-api/master/docs/images/logo.png" alt='Starlette API'>
+</p>
+<p align="center">
+    <em>API power up for Starlette.</em>
+</p>
+<p align="center">
+<a href="https://travis-ci.org/encode/starlette">
+    <img src="https://img.shields.io/circleci/project/github/PeRDy/starlette-api/master.svg" alt="Build Status">
+</a>
+<a href="https://codecov.io/gh/encode/starlette">
+    <img src="https://codecov.io/gh/perdy/starlette-api/branch/master/graph/badge.svg" alt="Coverage">
+</a>
+<a href="https://pypi.org/project/starlette/">
+    <img src="https://badge.fury.io/py/starlette-api.svg" alt="Package version">
+</a>
+</p>
+
+---
+
+**Documentation**: [https://starlette-api.perdy.io](https://starlette-api.perdy.io)
+
+---
+
 # Starlette API
-[![Build Status](https://travis-ci.org/PeRDy/starlette-api.svg?branch=master)](https://travis-ci.org/PeRDy/starlette-api)
-[![codecov](https://codecov.io/gh/PeRDy/starlette-api/branch/master/graph/badge.svg)](https://codecov.io/gh/PeRDy/starlette-api)
-[![PyPI version](https://badge.fury.io/py/starlette-api.svg)](https://badge.fury.io/py/starlette-api)
 
-* **Version:** 0.6.2
-* **Status:** Production/Stable
-* **Author:** José Antonio Perdiguero López
+Starlette API aims to bring a layer on top of Starlette to provide a fast and easy way for building highly performant REST APIs.
 
-## Introduction
-
-That library aims to bring a layer on top of Starlette framework to provide useful mechanism for building APIs. It's 
-based on API Star, inheriting some nice ideas like:
+It is production-ready and provides the following:
 
 * **Generic classes** for API resources that provides standard CRUD methods over SQLAlchemy tables.
 * **Schema system** based on [Marshmallow](https://github.com/marshmallow-code/marshmallow/) that allows to **declare**
 the inputs and outputs of endpoints and provides a reliable way of **validate** data against those schemas.
-* **Dependency Injection** that ease the process of managing parameters needed in endpoints.
+* **Dependency Injection** that ease the process of managing parameters needed in endpoints. Starlette ASGI objects 
+like `Request`, `Response`, `Session` and so on are defined as components and ready to be injected in your endpoints.
 * **Components** as the base of the plugin ecosystem, allowing you to create custom or use those already defined in 
 your endpoints, injected as parameters.
-* **Starlette ASGI** objects like `Request`, `Response`, `Session` and so on are defined as components and ready to be 
-injected in your endpoints.
 * **Auto generated API schema** using OpenAPI standard. It uses the schema system of your endpoints to extract all the 
 necessary information to generate your API Schema.
 * **Auto generated docs** providing a [Swagger UI](https://swagger.io/tools/swagger-ui/) or 
-[ReDocs](https://rebilly.github.io/ReDoc/) endpoint.
+[ReDoc](https://rebilly.github.io/ReDoc/) endpoint.
 * **Pagination** automatically handled using multiple methods such as limit and offset, page numbers...
 
 ## Requirements
 
-* Python 3.6+
-* Starlette 0.10+
+* [Python](https://www.python.org) 3.6+
+* [Starlette](https://starlette.io) 0.10+
 
 ## Installation
 
@@ -118,8 +133,9 @@ def create_puppy(puppy: Puppy) -> Puppy:
 
 ## Credits
 
-That library started mainly as extracted pieces from [APIStar](https://github.com/encode/apistar) and adapted to work 
-with [Starlette](https://github.com/encode/starlette).
+That library started as an adaptation [APIStar](https://github.com/encode/apistar) to work with 
+[Starlette](https://github.com/encode/starlette), but a great amount of the code has been rewritten to use 
+[Marshmallow](https://github.com/marshmallow-code/marshmallow/) as the schema system.
 
 ## Contributing
 

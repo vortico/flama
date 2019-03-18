@@ -44,8 +44,9 @@ coverage.xml
 .test_report/
 test-results/
 
-# Sphinx documentation
+## Docs
 docs/_build/
+site/
 
 node_modules
 *.vscode

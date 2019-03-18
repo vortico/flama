@@ -49,6 +49,8 @@ def clean(*args, **kwargs):
     for path in (".pytest_cache", ".tox", "dist", "pip-wheel-metadata", "starlette_api.egg-info", ".coverage"):
         shutil.rmtree(path, ignore_errors=True)
 
+    subprocess.run(poetry("mkdocs", "build", "--clean"))
+
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Build package"})
 def build(*args, **kwargs):
@@ -78,6 +80,11 @@ def lint(*args, **kwargs):
 @command(command_type=Type.SHELL, parser_opts={"help": "Run tests"})
 def test(*args, **kwargs):
     return poetry("run", "pytest", *args)
+
+
+@command(command_type=Type.SHELL, parser_opts={"help": "Build docs"})
+def docs(*args, **kwargs):
+    return poetry("run", "mkdocs", *args)
 
 
 @command(
@@ -118,7 +125,7 @@ def publish(*args, **kwargs):
 
 
 class Make(Main):
-    commands = ("install", "clean", "build", "publish", "black", "flake8", "isort", "lint", "test", "version")
+    commands = ("install", "clean", "build", "publish", "black", "flake8", "isort", "lint", "test", "version", "docs")
 
 
 def main():
