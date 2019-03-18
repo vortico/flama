@@ -78,8 +78,5 @@ jobs:
     steps:
       - checkout
       - run:
-          name: build
-          command: python make build
-      - run:
-          name: publish
-          command: python make publish
+          name: build & publish
+          command: python make publish --build
