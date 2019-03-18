@@ -40,3 +40,5 @@ markdown_extensions:
       permalink: true
   - meta
   - footnotes
+  - codehilite:
+      guess_lang: false

@@ -13,7 +13,7 @@ workflows:
             tags:
               only: /.*/
             branches:
-              ignore: /gh-pages/
+              ignore: gh-pages
       - test:
           name: "test-py37"
           version: "3.7"
@@ -22,7 +22,7 @@ workflows:
             tags:
               only: /.*/
             branches:
-              ignore: /gh-pages/
+              ignore: gh-pages
       - release:
           context:
             perdy-pypi
