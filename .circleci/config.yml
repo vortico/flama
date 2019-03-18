@@ -12,6 +12,8 @@ workflows:
           filters:  # required since `deploy` has tag filters AND requires `build`
             tags:
               only: /.*/
+            branches:
+              ignore: /gh-pages/
       - test:
           name: "test-py37"
           version: "3.7"
@@ -19,6 +21,8 @@ workflows:
           filters:  # required since `deploy` has tag filters AND requires `build`
             tags:
               only: /.*/
+            branches:
+              ignore: /gh-pages/
       - release:
           context:
             perdy-pypi
