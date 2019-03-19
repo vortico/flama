@@ -4,16 +4,25 @@ import re
 import typing
 import uuid
 
-import databases
 import marshmallow
-import sqlalchemy
-from sqlalchemy.dialects import postgresql
 
 from starlette_api.applications import Starlette
 from starlette_api.exceptions import HTTPException
 from starlette_api.pagination import Paginator
 from starlette_api.responses import APIResponse
 from starlette_api.types import Model, PrimaryKey, ResourceMeta, ResourceMethodMeta
+
+try:
+    import sqlalchemy
+    from sqlalchemy.dialects import postgresql
+except Exception:  # pragma: no cover
+    raise AssertionError("`sqlalchemy` must be installed to use resources") from None
+
+try:
+    import databases
+except Exception:  # pragma: no cover
+    raise AssertionError("`databases` must be installed to use resources") from None
+
 
 logger = logging.getLogger(__name__)
 

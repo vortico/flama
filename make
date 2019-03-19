@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import typing
 import urllib.request
 
 from clinner.command import Type, command
@@ -19,7 +20,7 @@ logger = logging.getLogger("cli")
 POETRY_URL = "https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py"
 
 
-def poetry(*args):
+def poetry(*args) -> typing.List[str]:
     """
     Build a poetry command.
 
@@ -36,40 +37,47 @@ def poetry(*args):
         else:
             logger.error("Poetry is not installed.")
 
-    return [shlex.split("poetry") + list(args)]
+    return shlex.split("poetry") + list(args)
 
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Install requirements"})
 def install(*args, **kwargs):
-    return poetry("install", *args)
+    return [poetry("install", *args)]
 
 
 @command(command_type=Type.PYTHON, parser_opts={"help": "Clean directory"})
 def clean(*args, **kwargs):
-    for path in (".pytest_cache", ".tox", "dist", "pip-wheel-metadata", "starlette_api.egg-info", ".coverage"):
+    for path in (
+        ".pytest_cache",
+        ".tox",
+        "dist",
+        "pip-wheel-metadata",
+        "starlette_api.egg-info",
+        ".coverage",
+        "test-results",
+        "site",
+    ):
         shutil.rmtree(path, ignore_errors=True)
-
-    subprocess.run(poetry("mkdocs", "build", "--clean"))
 
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Build package"})
 def build(*args, **kwargs):
-    return poetry("build", *args)
+    return [poetry("build", *args)]
 
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Black code formatting"})
 def black(*args, **kwargs):
-    return poetry("run", "black", *args)
+    return [poetry("run", "black", *args)]
 
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Flake8 code analysis"})
 def flake8(*args, **kwargs):
-    return poetry("run", "flake8", *args)
+    return [poetry("run", "flake8", *args)]
 
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Isort imports formatting"})
 def isort(*args, **kwargs):
-    return poetry("run", "isort", *args)
+    return [poetry("run", "isort", *args)]
 
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Code lint using multiple tools"})
@@ -79,12 +87,12 @@ def lint(*args, **kwargs):
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Run tests"})
 def test(*args, **kwargs):
-    return poetry("run", "pytest", *args)
+    return [poetry("run", "pytest", *args)]
 
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Build docs"})
 def docs(*args, **kwargs):
-    return poetry("run", "mkdocs", *args)
+    return [poetry("run", "mkdocs", *args)]
 
 
 @command(

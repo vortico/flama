@@ -3,9 +3,17 @@ import enum
 import typing
 import uuid
 
-import databases
 import marshmallow
-import sqlalchemy
+
+try:
+    from sqlalchemy import Table
+except Exception:  # pragma: no cover
+    Table = typing.Any
+
+try:
+    from databases import Database
+except Exception:  # pragma: no cover
+    Database = typing.Any
 
 __all__ = [
     "FieldLocation",
@@ -21,6 +29,7 @@ __all__ = [
     "Model",
     "PrimaryKey",
     "ResourceMeta",
+    "ResourceMethodMeta",
 ]
 
 
@@ -62,7 +71,7 @@ class PrimaryKey(typing.NamedTuple):
 
 
 class Model(typing.NamedTuple):
-    table: sqlalchemy.Table
+    table: Table
     primary_key: PrimaryKey
 
 
@@ -70,7 +79,7 @@ class ResourceMeta(typing.NamedTuple):
     model: Model
     input_schema: marshmallow.Schema
     output_schema: marshmallow.Schema
-    database: databases.Database
+    database: Database
     name: str
     verbose_name: str
     columns: typing.Sequence[str]

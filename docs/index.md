@@ -24,22 +24,22 @@ Starlette API aims to bring a layer on top of Starlette to provide a fast and ea
 It is production-ready and provides the following:
 
 * **Generic classes** for API resources that provides standard CRUD methods over SQLAlchemy tables.
-* **Schema system** based on [Marshmallow](https://github.com/marshmallow-code/marshmallow/) that allows to **declare**
-the inputs and outputs of endpoints and provides a reliable way of **validate** data against those schemas.
+* **Schema system** based on [Marshmallow] that allows to **declare** the inputs and outputs of endpoints and provides 
+a reliable way of **validate** data against those schemas.
 * **Dependency Injection** that ease the process of managing parameters needed in endpoints. Starlette ASGI objects 
 like `Request`, `Response`, `Session` and so on are defined as components and ready to be injected in your endpoints.
 * **Components** as the base of the plugin ecosystem, allowing you to create custom or use those already defined in 
 your endpoints, injected as parameters.
 * **Auto generated API schema** using OpenAPI standard. It uses the schema system of your endpoints to extract all the 
 necessary information to generate your API Schema.
-* **Auto generated docs** providing a [Swagger UI](https://swagger.io/tools/swagger-ui/) or 
-[ReDoc](https://rebilly.github.io/ReDoc/) endpoint.
+* **Auto generated docs** providing a [Swagger UI] or [ReDoc] endpoint.
 * **Pagination** automatically handled using multiple methods such as limit and offset, page numbers...
 
 ## Requirements
 
-* [Python](https://www.python.org) 3.6+
-* [Starlette](https://starlette.io) 0.10+
+* [Python] 3.6+
+* [Starlette] 0.10+
+* [Marshmallow] 3.0+
 
 ## Installation
 
@@ -84,17 +84,12 @@ app = Starlette(
 @app.route("/", methods=["GET"])
 def list_puppies(name: str = None) -> Puppy(many=True):
     """
-    List the puppies collection. There is an optional query parameter that 
-    specifies a name for filtering the collection based on it.
-    
-    Request example:
-    GET http://example.com/?name=Sandy
-    
-    Response example:
-    200
-    [
-        {"id": 2, "name": "Sandy", "age": 12}
-    ]
+    description:
+        List the puppies collection. There is an optional query parameter that 
+        specifies a name for filtering the collection based on it.
+    responses:
+        200:
+            description: List puppies.
     """
     return [puppy for puppy in puppies if puppy["name"] == name]
     
@@ -102,38 +97,53 @@ def list_puppies(name: str = None) -> Puppy(many=True):
 @app.route("/", methods=["POST"])
 def create_puppy(puppy: Puppy) -> Puppy:
     """
-    Create a new puppy using data validated from request body and add it
-    to the collection.
-    
-    Request example:
-    POST http://example.com/
-    {
-        "id": 1,
-        "name": "Canna",
-        "age": 6
-    }
-    
-    Response example:
-    200
-    {
-        "id": 1,
-        "name": "Canna",
-        "age": 6
-    }
+    description:
+        Create a new puppy using data validated from request body and add it 
+        to the collection.
+    responses:
+        200:
+            description: Puppy created successfully.
     """
     puppies.append(puppy)
     
     return puppy
 ```
 
+## Dependencies
+
+Following Starlette philosophy Starlette API reduce the number of hard dependencies to those that are used as the core:
+
+* [`starlette`][Starlette] - Starlette API is a layer on top of it.
+* [`marshmallow`][Marshmallow] - Starlette API data schemas and validation.
+
+It does not have any more hard dependencies, but some of them are necessaries to use some features:
+
+* [`pyyaml`][pyyaml] - Required for API Schema and Docs auto generation.
+* [`apispec`][apispec] - Required for API Schema and Docs auto generation.
+* [`python-forge`][python-forge] - Required for pagination.
+* [`sqlalchemy`][SQLAlchemy] - Required for Generic API resources.
+* [`databases`][databases] - Required for Generic API resources.
+
+You can install all of these with `pip3 install starlette-api[full]`.
+
 ## Credits
 
-That library started as an adaptation [APIStar](https://github.com/encode/apistar) to work with 
-[Starlette](https://github.com/encode/starlette), but a great amount of the code has been rewritten to use 
-[Marshmallow](https://github.com/marshmallow-code/marshmallow/) as the schema system, to support websockets and adding 
-new functionalities like pagination, generic resources...
+That library started as an adaptation of [APIStar] to work with [Starlette], but a great amount of the code has been 
+rewritten to use [Marshmallow] as the schema system.
 
 ## Contributing
 
 This project is absolutely open to contributions so if you have a nice idea, create an issue to let the community 
 discuss it.
+
+[Python]: https://www.python.org
+[Starlette]: https://starlette.io
+[APIStar]: https://github.com/encode/apistar/tree/version-0.5.x
+[Marshmallow]: https://marshmallow.readthedocs.io/
+[Swagger UI]: https://swagger.io/tools/swagger-ui/
+[ReDoc]: https://rebilly.github.io/ReDoc/
+[pyyaml]: https://pyyaml.org/wiki/PyYAMLDocumentation
+[apispec]: https://apispec.readthedocs.io/
+[python-forge]: https://python-forge.readthedocs.io/
+[SQLAlchemy]: https://www.sqlalchemy.org/
+[databases]: https://github.com/encode/databases

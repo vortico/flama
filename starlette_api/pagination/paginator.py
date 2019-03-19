@@ -1,12 +1,16 @@
 import asyncio
 import functools
 
-import forge
 import marshmallow
 
 from starlette_api.pagination.limit_offset import LimitOffsetResponse, LimitOffsetSchema
 from starlette_api.pagination.page_number import PageNumberResponse, PageNumberSchema
 from starlette_api.validation import get_output_schema
+
+try:
+    import forge
+except Exception:  # pragma: no cover
+    forge = None  # type: ignore
 
 __all__ = ["Paginator"]
 
@@ -27,6 +31,8 @@ class Paginator:
         :param func: View to be decorated.
         :return: Decorated view.
         """
+        assert forge is not None, "`python-forge` must be installed to use OpenAPIResponse."
+
         resource_schema = get_output_schema(func)
 
         schema = type(
@@ -83,6 +89,8 @@ class Paginator:
         :param func: View to be decorated.
         :return: Decorated view.
         """
+        assert forge is not None, "`python-forge` must be installed to use OpenAPIResponse."
+
         resource_schema = get_output_schema(func)
 
         schema = type(

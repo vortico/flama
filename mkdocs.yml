@@ -1,6 +1,6 @@
 # Project information
 site_name: Starlette API
-site_description: 'Layer on top of Starlette to provide a fast and easy way for building highly performant REST APIs.'
+site_description: 'API power up for Starlette'
 site_author: 'José Antonio Perdiguero López'
 site_url: 'https://starlette-api.perdy.io/'
 
