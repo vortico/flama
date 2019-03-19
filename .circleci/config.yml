@@ -104,4 +104,4 @@ jobs:
           command: |
             git config user.name "José Antonio Perdiguero López"
             git config user.email "perdy@perdy.io"
-            python make docs gh-deploy
+            python make docs gh-deploy -m "[skip ci] Deployed {sha} with MkDocs version: {version}"
