@@ -36,7 +36,7 @@ def poetry(*args):
         else:
             logger.error("Poetry is not installed.")
 
-    return [shlex.split("poetry " + " ".join(args))]
+    return [shlex.split("poetry") + list(args)]
 
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Install requirements"})
