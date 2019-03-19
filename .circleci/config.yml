@@ -34,6 +34,13 @@ workflows:
           requires:
             - test-py36
             - test-py37
+      - docs:
+          filters:
+            branches:  # ignore any commit on any branch by default
+              only: master
+          requires:
+            - test-py36
+            - test-py37
 jobs:
   test:
     parameters:
@@ -84,3 +91,17 @@ jobs:
       - run:
           name: build & publish
           command: python make publish --build
+  docs:
+    docker:
+      - image: perdy/circleci-python-builder:latest
+    steps:
+      - checkout
+      - run:
+          name: install
+          command: python make install
+      - run:
+          name: build docs
+          command: |
+            git config user.name "José Antonio Perdiguero López"
+            git config user.email "perdy@perdy.io"
+            python make docs gh-deploy
