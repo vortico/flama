@@ -1,17 +1,17 @@
 <p align="center">
-  <img width="1023" height="150" src="https://raw.githubusercontent.com/perdy/starlette-api/master/docs/images/logo.png" alt='Starlette API'>
+  <img width="825" height="96" src="https://raw.githubusercontent.com/perdy/starlette-api/master/docs/images/logo.png" alt='Starlette API'>
 </p>
 <p align="center">
     <em>API power up for Starlette</em>
 </p>
 <p align="center">
-<a href="https://travis-ci.org/encode/starlette">
-    <img src="https://img.shields.io/circleci/project/github/PeRDy/starlette-api/master.svg" alt="Build Status">
+<a href="https://circleci.com/gh/perdy/starlette-api">
+    <img src="https://img.shields.io/circleci/project/github/perdy/starlette-api/master.svg" alt="Build Status">
 </a>
-<a href="https://codecov.io/gh/encode/starlette">
+<a href="https://codecov.io/gh/perdy/starlette-api">
     <img src="https://codecov.io/gh/perdy/starlette-api/branch/master/graph/badge.svg" alt="Coverage">
 </a>
-<a href="https://pypi.org/project/starlette/">
+<a href="https://pypi.org/project/starlette-api/">
     <img src="https://badge.fury.io/py/starlette-api.svg" alt="Package version">
 </a>
 </p>

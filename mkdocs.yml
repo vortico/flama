@@ -1,15 +1,16 @@
 # Project information
 site_name: Starlette API
-site_description: 'API power up for Starlette'
-site_author: 'José Antonio Perdiguero López'
-site_url: 'https://starlette-api.perdy.io/'
+site_description: "API power up for Starlette"
+site_author: "José Antonio Perdiguero López"
+site_url: "https://starlette-api.perdy.io/"
 
 # Copyright
-copyright: 'GNU General Public License v3.0; 2018 - Present; José Antonio Perdiguero López'
+copyright: "GNU General Public License v3.0; 2018 - Present; José Antonio Perdiguero López"
 
 # Repository
-repo_name: 'perdy/starlette-api'
-repo_url: 'https://github.com/perdy/starlette-api'
+repo_name: "perdy/starlette-api"
+repo_url: "https://github.com/perdy/starlette-api"
+edit_uri: ""
 
 nav:
     - Home: index.md
@@ -18,21 +19,21 @@ nav:
 theme:
     name: material
     palette:
-        primary: 'blue'
-        accent: 'yellow'
+        primary: "blue"
+        accent: "yellow"
     font:
-        text: 'Fira Sans'
-        code: 'Fira Mono'
-    logo: 'images/icon.png'
-    favicon: 'images/favicon.ico'
+        text: "Fira Sans"
+        code: "Fira Mono"
+    logo: "images/icon.png"
+    favicon: "images/favicon.png"
 
 # Customization
 extra:
   social:
-    - type: 'github'
-      link: 'https://github.com/perdy'
-    - type: 'linkedin'
-      link: 'https://linkedin.com/in/perdy'
+    - type: "github"
+      link: "https://github.com/perdy"
+    - type: "linkedin"
+      link: "https://linkedin.com/in/perdy"
 
 # Extensions
 markdown_extensions:
