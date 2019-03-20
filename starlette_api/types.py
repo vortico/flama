@@ -91,3 +91,6 @@ class ResourceMethodMeta(typing.NamedTuple):
     methods: typing.List[str] = ["GET"]
     name: str = None
     kwargs: typing.Dict[str, typing.Any] = {}
+
+
+HTTPMethod = enum.Enum("HTTPMethod", ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"])

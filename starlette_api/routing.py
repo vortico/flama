@@ -12,7 +12,7 @@ from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 from starlette_api import http, websockets
 from starlette_api.components import Component
 from starlette_api.responses import APIResponse
-from starlette_api.types import Field, FieldLocation, OptBool, OptFloat, OptInt, OptStr
+from starlette_api.types import Field, FieldLocation, HTTPMethod, OptBool, OptFloat, OptInt, OptStr
 from starlette_api.validation import get_output_schema
 
 __all__ = ["Route", "WebSocketRoute", "Router"]
@@ -53,13 +53,9 @@ class FieldsMixin:
         body_field: typing.Dict[str, Field] = {}
         output_field: typing.Dict[str, typing.Any] = {}
 
-        if hasattr(self, "methods"):
+        if hasattr(self, "methods") and self.methods is not None:
             if inspect.isclass(self.endpoint):  # HTTP endpoint
-                methods = (
-                    [(m, getattr(self.endpoint, m.lower() if m != "HEAD" else "get")) for m in self.methods]
-                    if self.methods
-                    else []
-                )
+                methods = [(m, getattr(self.endpoint, m.lower() if m != "HEAD" else "get")) for m in self.methods]
             else:  # HTTP function
                 methods = [(m, self.endpoint) for m in self.methods] if self.methods else []
         else:  # Websocket
@@ -140,6 +136,9 @@ class Route(starlette.routing.Route, FieldsMixin):
         # Replace function with another wrapper that uses the injector
         if inspect.isfunction(endpoint) or inspect.ismethod(endpoint):
             self.app = self.endpoint_wrapper(endpoint)
+
+        if self.methods is None:
+            self.methods = [m for m in HTTPMethod.__members__.keys() if hasattr(self, m.lower())]
 
         self.query_fields, self.path_fields, self.body_field, self.output_field = self._get_fields(router)
 

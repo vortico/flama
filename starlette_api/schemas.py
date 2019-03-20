@@ -80,8 +80,8 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
                                 path=path,
                                 method=method.lower(),
                                 func=route.endpoint,
-                                query_fields=route.query_fields.get(method),
-                                path_fields=route.path_fields.get(method),
+                                query_fields=route.query_fields.get(method, {}),
+                                path_fields=route.path_fields.get(method, {}),
                                 body_field=route.body_field.get(method),
                                 output_field=route.output_field.get(method),
                             )
@@ -97,8 +97,8 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
                                 path=path,
                                 method=method.lower(),
                                 func=func,
-                                query_fields=route.query_fields.get(method.upper()),
-                                path_fields=route.path_fields.get(method.upper()),
+                                query_fields=route.query_fields.get(method.upper(), {}),
+                                path_fields=route.path_fields.get(method.upper(), {}),
                                 body_field=route.body_field.get(method.upper()),
                                 output_field=route.output_field.get(method.upper()),
                             )
@@ -108,13 +108,13 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
 
         return endpoints_info
 
-    def get_endpoint_parameters_schema(self, endpoint: EndpointInfo, schema: typing.Dict) -> typing.List[typing.Dict]:
+    def _add_endpoint_parameters(self, endpoint: EndpointInfo, schema: typing.Dict):
         schema["parameters"] = [
             self.openapi.field2parameter(field.schema, name=field.name, default_in=field.location.name)
             for field in itertools.chain(endpoint.query_fields.values(), endpoint.path_fields.values())
         ]
 
-    def get_endpoint_body_schema(self, endpoint: EndpointInfo, schema: typing.Dict):
+    def _add_endpoint_body(self, endpoint: EndpointInfo, schema: typing.Dict):
         component_schema = (
             endpoint.body_field.schema
             if inspect.isclass(endpoint.body_field.schema)
@@ -132,7 +132,7 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
             "schema",
         )
 
-    def get_endpoint_response_schema(self, endpoint: EndpointInfo, schema: typing.Dict):
+    def _add_endpoint_response(self, endpoint: EndpointInfo, schema: typing.Dict):
         component_schema = (
             endpoint.output_field if inspect.isclass(endpoint.output_field) else endpoint.output_field.__class__
         )
@@ -153,18 +153,19 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
         schema = self.parse_docstring(endpoint.func)
 
         # Query and Path parameters
-        self.get_endpoint_parameters_schema(endpoint, schema)
+        if endpoint.query_fields or endpoint.path_fields:
+            self._add_endpoint_parameters(endpoint, schema)
 
         # Body
         if endpoint.body_field:
-            self.get_endpoint_body_schema(endpoint, schema)
+            self._add_endpoint_body(endpoint, schema)
 
         # Response
         if endpoint.output_field and (
             (inspect.isclass(endpoint.output_field) and issubclass(endpoint.output_field, marshmallow.Schema))
             or isinstance(endpoint.output_field, marshmallow.Schema)
         ):
-            self.get_endpoint_response_schema(endpoint, schema)
+            self._add_endpoint_response(endpoint, schema)
 
         return schema
 

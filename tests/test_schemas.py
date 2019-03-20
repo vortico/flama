@@ -132,13 +132,13 @@ class TestCaseSchema:
 
     def test_schema_body_params(self, app):
         schema = app.schema["paths"]["/body-param/"]["post"]
-        parameters = schema.get("parameters", {})
+        parameters = schema.get("parameters")
         response = schema.get("responses", {}).get(200, {})
         body = schema.get("requestBody", {})
 
         assert schema["description"] == "Body param."
         assert response == {"description": "Param."}
-        assert parameters == []
+        assert parameters is None
         assert body == {
             "content": {"application/json": {"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}}
         }
@@ -155,9 +155,11 @@ class TestCaseSchema:
 
     def test_schema_output_schema_many(self, app):
         schema = app.schema["paths"]["/many-custom-component/"]["get"]
+        parameters = schema.get("parameters")
         response = schema.get("responses", {}).get(200, {})
 
         assert schema["description"] == "Many custom component."
+        assert parameters is None
         assert response == {
             "description": "Components.",
             "content": {
@@ -167,9 +169,11 @@ class TestCaseSchema:
 
     def test_schema_output_schema_using_endpoint(self, app):
         schema = app.schema["paths"]["/endpoint/"]["get"]
+        parameters = schema.get("parameters")
         response = schema.get("responses", {}).get(200, {})
 
         assert schema["description"] == "Custom component."
+        assert parameters is None
         assert response == {
             "description": "Component.",
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
@@ -177,9 +181,11 @@ class TestCaseSchema:
 
     def test_schema_output_schema_using_mount(self, app):
         schema = app.schema["paths"]["/mount/custom-component/"]["get"]
+        parameters = schema.get("parameters")
         response = schema.get("responses", {}).get(200, {})
 
         assert schema["description"] == "Custom component."
+        assert parameters is None
         assert response == {
             "description": "Component.",
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
