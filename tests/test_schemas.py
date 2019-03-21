@@ -91,6 +91,13 @@ class TestCaseSchema:
             """
             return {"name": param["name"]}
 
+        @app_.route("/default-response/", methods=["GET"])
+        async def default_response():
+            """
+            description: Default response.
+            """
+            return {"name": "Canna"}
+
         router = Router()
         router.add_route("/custom-component/", endpoint=get, methods=["GET"])
         app_.mount("/mount", router)
@@ -189,6 +196,18 @@ class TestCaseSchema:
         assert response == {
             "description": "Component.",
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
+        }
+
+    def test_schema_default_response(self, app):
+        schema = app.schema["paths"]["/default-response/"]["get"]
+        parameters = schema.get("parameters")
+        response = schema.get("responses", {}).get("default", {})
+
+        assert schema["description"] == "Default response."
+        assert parameters is None
+        assert response == {
+            "description": "Unexpected error.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
         }
 
     def test_view_schema(self, client):

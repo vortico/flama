@@ -3,14 +3,14 @@ import typing
 from starlette.applications import Starlette as App
 from starlette.exceptions import ExceptionMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
-from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
 
 from starlette_api import exceptions
 from starlette_api.components import Component
 from starlette_api.exceptions import HTTPException
+from starlette_api.http import Request, Response
 from starlette_api.injection import Injector
+from starlette_api.responses import APIErrorResponse
 from starlette_api.routing import Router
 from starlette_api.schemas import SchemaMixin
 
@@ -61,4 +61,4 @@ class Starlette(App, SchemaMixin):
         self.router.mount(path, app=app, name=name)
 
     def api_http_exception_handler(self, request: Request, exc: HTTPException) -> Response:
-        return JSONResponse(exc.detail, exc.status_code)
+        return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)

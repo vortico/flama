@@ -87,28 +87,40 @@ class TestCaseMarshmallowSchemaValidateOutput:
         assert body == products
 
     def test_deserialization_error(self, client):
+        expected_response = {
+            "detail": {"created": ['"bar" cannot be formatted as a datetime.'], "rating": ["Not a valid integer."]},
+            "error": "OutputValidationError",
+            "status_code": 500,
+        }
+
         response = client.get("/deserialization-error")
 
         assert response.status_code == 500
-        assert response.json() == {
-            "created": ['"bar" cannot be formatted as a datetime.'],
-            "rating": ["Not a valid integer."],
-        }
+        assert response.json() == expected_response
 
     def test_validation_error(self, client):
+        expected_response = {
+            "detail": {"name": ["Missing data for required field."]},
+            "error": "OutputValidationError",
+            "status_code": 500,
+        }
+
         response = client.get("/validation-error")
 
         assert response.status_code == 500
-        assert response.json() == {"name": ["Missing data for required field."]}
+        assert response.json() == expected_response
 
     def test_custom_error(self, client):
+        expected_response = {
+            "detail": {"created": ['"bar" cannot be formatted as a datetime.'], "rating": ["Not a valid integer."]},
+            "error": "ValidationError",
+            "status_code": 502,
+        }
+
         response = client.get("/custom-error")
 
         assert response.status_code == 502
-        assert response.json() == {
-            "created": ['"bar" cannot be formatted as a datetime.'],
-            "rating": ["Not a valid integer."],
-        }
+        assert response.json() == expected_response
 
     def test_function_without_return_schema(self):
         with pytest.raises(AssertionError, match="Return annotation must be a valid marshmallow schema"):
