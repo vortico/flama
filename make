@@ -10,12 +10,20 @@ import tempfile
 import typing
 import urllib.request
 
-from clinner.command import Type, command
-from clinner.inputs import bool_input
-from clinner.run import Main
-
 logger = logging.getLogger("cli")
 
+try:
+    from clinner.command import Type, command
+    from clinner.inputs import bool_input
+    from clinner.run import Main
+except Exception:
+    logger.error("Package clinner is not installed, run 'pip install clinner' to install it")
+    sys.exit(-1)
+
+try:
+    import toml
+except Exception:
+    toml = None
 
 POETRY_URL = "https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py"
 
@@ -95,13 +103,21 @@ def docs(*args, **kwargs):
     return [poetry("run", "mkdocs", *args)]
 
 
-@command(
-    command_type=Type.SHELL,
-    args=((("version",), {"help": "Version to upgrade", "choices": ("patch", "minor", "major")}),),
-    parser_opts={"help": "Upgrade version"},
-)
+@command(command_type=Type.PYTHON, parser_opts={"help": "Upgrade version"})
 def version(*args, **kwargs):
-    return [shlex.split(f"bumpversion {kwargs['version']}")]
+    if toml is None:
+        logger.error("Package toml is not installed, run 'pip install toml' to install it")
+        return -1
+
+    old_version = toml.load("pyproject.toml")["tool"]["poetry"]["version"]
+
+    subprocess.run(poetry("version", *args))
+
+    new_version = toml.load("pyproject.toml")["tool"]["poetry"]["version"]
+
+    subprocess.run(shlex.split(f"git add pyproject.toml poetry.lock"))
+    subprocess.run(shlex.split(f'git commit -m "Bumping version from {old_version} to {new_version}"'))
+    subprocess.run(shlex.split(f"git tag v{new_version}"))
 
 
 @command(

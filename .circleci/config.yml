@@ -9,7 +9,7 @@ workflows:
       - test:
           name: "test-py36"
           version: "3.6"
-          filters:  # required since `deploy` has tag filters AND requires `build`
+          filters:  # required since `deploy` has tag filters
             tags:
               only: /.*/
             branches:
@@ -18,7 +18,7 @@ workflows:
           name: "test-py37"
           version: "3.7"
           coverage: true
-          filters:  # required since `deploy` has tag filters AND requires `build`
+          filters:  # required since `deploy` has tag filters
             tags:
               only: /.*/
             branches:
