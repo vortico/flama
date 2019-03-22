@@ -135,7 +135,7 @@ def publish(*args, **kwargs):
     password = os.environ.get("PYPI_PASSWORD")
 
     if username and password:
-        cmds += poetry("config", "http-basic.pypi", username, password)
+        cmds.append(poetry("config", "http-basic.pypi", username, password))
 
     if kwargs.get("version", None):
         version(version=kwargs["version"])
@@ -143,7 +143,7 @@ def publish(*args, **kwargs):
     if kwargs["build"]:
         cmds += build()
 
-    cmds += poetry("publish")
+    cmds.append(poetry("publish"))
 
     return cmds
 
