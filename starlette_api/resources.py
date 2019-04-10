@@ -6,7 +6,6 @@ import uuid
 
 import marshmallow
 
-from starlette_api.applications import Starlette
 from starlette_api.exceptions import HTTPException
 from starlette_api.pagination import Paginator
 from starlette_api.responses import APIResponse
@@ -27,7 +26,7 @@ except Exception:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 
-__all__ = ["resource_method", "CRUDResource", "CRUDListResource", "CRUDListDropResource"]
+__all__ = ["resource_method", "BaseResource", "CRUDResource", "CRUDListResource", "CRUDListDropResource"]
 
 
 PK_MAPPING = {
@@ -183,18 +182,10 @@ class BaseResource(type):
 
     @classmethod
     def _add_routes(mcs, namespace: typing.Dict[str, typing.Any]):
-        def _add_routes(self, app: "Starlette", root_path: str = "/"):
-            for name, route in self.routes.items():
-                path = root_path + self._meta.name + route._meta.path
-                bound_route = getattr(self, name)
-                name = route._meta.name if route._meta.name is not None else f"{self._meta.name}-{route.__name__}"
-                app.add_route(path, bound_route, route._meta.methods, name, **route._meta.kwargs)
-
         methods = {name: m for name, m in namespace.items() if getattr(m, "_meta", False) and not name.startswith("_")}
         routes = ResourceRoutes(methods)
 
         namespace["routes"] = routes
-        namespace["add_routes"] = _add_routes
 
     @classmethod
     def _add_methods(

@@ -15,6 +15,9 @@ from starlette_api.responses import APIResponse
 from starlette_api.types import Field, FieldLocation, HTTPMethod, OptBool, OptFloat, OptInt, OptStr
 from starlette_api.validation import get_output_schema
 
+if typing.TYPE_CHECKING:
+    from starlette_api.resources import BaseResource
+
 __all__ = ["Route", "WebSocketRoute", "Router"]
 
 
@@ -253,6 +256,17 @@ class Router(starlette.routing.Router):
     def add_websocket_route(self, path: str, endpoint: typing.Callable, name: str = None):
         self.routes.append(WebSocketRoute(path, endpoint=endpoint, name=name, router=self))
 
+    def add_resource(self, path: str, resource: "BaseResource"):
+        # Handle class or instance objects
+        if inspect.isclass(resource):  # noqa
+            resource = resource()
+
+        for name, route in resource.routes.items():
+            route_path = path + resource._meta.name + route._meta.path
+            route_func = getattr(resource, name)
+            name = route._meta.name if route._meta.name is not None else f"{resource._meta.name}-{route.__name__}"
+            self.add_route(route_path, route_func, route._meta.methods, name, **route._meta.kwargs)
+
     def mount(self, path: str, app: ASGIApp, name: str = None) -> None:
         if isinstance(app, Router):
             app.components = self.components
@@ -274,6 +288,13 @@ class Router(starlette.routing.Router):
         def decorator(func: typing.Callable) -> typing.Callable:
             self.add_websocket_route(path, func, name=name)
             return func
+
+        return decorator
+
+    def resource(self, path: str) -> typing.Callable:
+        def decorator(resource: "BaseResource") -> "BaseResource":
+            self.add_resource(path, resource=resource)
+            return resource
 
         return decorator
 

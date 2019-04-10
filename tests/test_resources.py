@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import typing
 import uuid
-from unittest.mock import Mock, call
 
 import databases
 import marshmallow
@@ -80,8 +79,8 @@ class TestCaseBaseResource:
         return PuppyResource
 
     @pytest.fixture(scope="function")
-    def app_mock(self):
-        return Mock(spec=Starlette)
+    def app(self):
+        return Starlette(schema=None, docs=None, redoc=None)
 
     def test_meta_attributes(self, resource, model, database, schema):
         assert not hasattr(resource, "name")
@@ -123,11 +122,12 @@ class TestCaseBaseResource:
         assert PuppyResource._meta.input_schema == schema_
         assert PuppyResource._meta.output_schema == schema_
 
-    def test_crud_resource(self, model, schema, database, app_mock):
+    def test_crud_resource(self, model, schema, database, app):
         model_ = model
         schema_ = schema
         database_ = database
 
+        @app.resource("/")
         class PuppyResource(metaclass=CRUDResource):
             database = database_
 
@@ -137,25 +137,16 @@ class TestCaseBaseResource:
             model = model_
             schema = schema_
 
-        resource = PuppyResource()
-
-        expected_calls = [
-            call("/puppy/", resource.create, ["POST"], "puppy-create"),
-            call("/puppy/{element_id}/", resource.retrieve, ["GET"], "puppy-retrieve"),
-            call("/puppy/{element_id}/", resource.update, ["PUT"], "puppy-update"),
-            call("/puppy/{element_id}/", resource.delete, ["DELETE"], "puppy-delete"),
+        expected_routes = [
+            ("/puppy/", {"POST"}, "puppy-create"),
+            ("/puppy/{element_id}/", {"GET", "HEAD"}, "puppy-retrieve"),
+            ("/puppy/{element_id}/", {"PUT"}, "puppy-update"),
+            ("/puppy/{element_id}/", {"DELETE"}, "puppy-delete"),
         ]
 
-        resource.add_routes(app_mock)
+        assert [(i.path, i.methods, i.name) for i in app.routes] == expected_routes
 
-        assert hasattr(resource, "create")
-        assert hasattr(resource, "retrieve")
-        assert hasattr(resource, "update")
-        assert hasattr(resource, "delete")
-        assert len(resource.routes) == 4
-        assert app_mock.add_route.call_args_list == expected_calls
-
-    def test_crud_list_resource(self, model, schema, database, app_mock):
+    def test_crud_list_resource(self, model, schema, database, app):
         model_ = model
         schema_ = schema
         database_ = database
@@ -171,25 +162,24 @@ class TestCaseBaseResource:
 
         resource = PuppyResource()
 
-        expected_calls = [
-            call("/puppy/", resource.create, ["POST"], "puppy-create"),
-            call("/puppy/{element_id}/", resource.retrieve, ["GET"], "puppy-retrieve"),
-            call("/puppy/{element_id}/", resource.update, ["PUT"], "puppy-update"),
-            call("/puppy/{element_id}/", resource.delete, ["DELETE"], "puppy-delete"),
-            call("/puppy/", resource.list, ["GET"], "puppy-list"),
+        expected_routes = [
+            ("/puppy/", resource.create, {"POST"}, "puppy-create"),
+            ("/puppy/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
+            ("/puppy/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
+            ("/puppy/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
+            ("/puppy/", resource.list, {"GET", "HEAD"}, "puppy-list"),
         ]
 
-        resource.add_routes(app_mock)
+        app.add_resource("/", resource)
 
         assert hasattr(resource, "create")
         assert hasattr(resource, "retrieve")
         assert hasattr(resource, "update")
         assert hasattr(resource, "delete")
         assert hasattr(resource, "list")
-        assert len(resource.routes) == 5
-        assert app_mock.add_route.call_args_list == expected_calls
+        assert [(i.path, i.endpoint, i.methods, i.name) for i in app.routes] == expected_routes
 
-    def test_crud_list_drop_resource(self, model, schema, database, app_mock):
+    def test_crud_list_drop_resource(self, model, schema, database, app):
         model_ = model
         schema_ = schema
         database_ = database
@@ -205,16 +195,16 @@ class TestCaseBaseResource:
 
         resource = PuppyResource()
 
-        expected_calls = [
-            call("/puppy/", resource.create, ["POST"], "puppy-create"),
-            call("/puppy/{element_id}/", resource.retrieve, ["GET"], "puppy-retrieve"),
-            call("/puppy/{element_id}/", resource.update, ["PUT"], "puppy-update"),
-            call("/puppy/{element_id}/", resource.delete, ["DELETE"], "puppy-delete"),
-            call("/puppy/", resource.list, ["GET"], "puppy-list"),
-            call("/puppy/", resource.drop, ["DELETE"], "puppy-drop"),
+        expected_routes = [
+            ("/puppy/", resource.create, {"POST"}, "puppy-create"),
+            ("/puppy/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
+            ("/puppy/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
+            ("/puppy/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
+            ("/puppy/", resource.list, {"GET", "HEAD"}, "puppy-list"),
+            ("/puppy/", resource.drop, {"DELETE"}, "puppy-drop"),
         ]
 
-        resource.add_routes(app_mock)
+        app.add_resource("/", resource)
 
         assert hasattr(resource, "create")
         assert hasattr(resource, "retrieve")
@@ -222,8 +212,7 @@ class TestCaseBaseResource:
         assert hasattr(resource, "delete")
         assert hasattr(resource, "list")
         assert hasattr(resource, "drop")
-        assert len(resource.routes) == 6
-        assert app_mock.add_route.call_args_list == expected_calls
+        assert [(i.path, i.endpoint, i.methods, i.name) for i in app.routes] == expected_routes
 
     def test_override_method(self, resource):
         class SpecializedPuppyResource(resource):
@@ -435,7 +424,7 @@ class TestCaseResource:
     @pytest.fixture(scope="class")
     def app(self, resource):
         app_ = Starlette()
-        resource.add_routes(app_)
+        app_.add_resource("/", resource)
         return app_
 
     @pytest.fixture
@@ -665,14 +654,13 @@ class TestCaseResource:
             custom_id = marshmallow.fields.UUID()
             name = marshmallow.fields.String()
 
+        @app.resource("/")
         class CustomUUIDResource(metaclass=CRUDListResource):
             database = database_
             model = model_
             schema = Schema
 
             name = "custom_id_uuid"
-
-        CustomUUIDResource().add_routes(app)
 
         data = {"custom_id": str(uuid.uuid4()), "name": "foo"}
         expected_result = data.copy()
@@ -701,14 +689,13 @@ class TestCaseResource:
             custom_id = marshmallow.fields.DateTime()
             name = marshmallow.fields.String()
 
+        @app.resource("/")
         class CustomDatetimeResource(metaclass=CRUDListResource):
             database = database_
             model = model_
             schema = Schema
 
             name = "custom_id_datetime"
-
-        CustomDatetimeResource().add_routes(app)
 
         now = datetime.datetime.utcnow().replace(microsecond=0, tzinfo=datetime.timezone.utc)
         data = {"custom_id": now.isoformat(), "name": "foo"}

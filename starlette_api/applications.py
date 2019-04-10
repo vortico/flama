@@ -14,6 +14,9 @@ from starlette_api.responses import APIErrorResponse
 from starlette_api.routing import Router
 from starlette_api.schemas import SchemaMixin
 
+if typing.TYPE_CHECKING:
+    from starlette_api.resources import BaseResource
+
 __all__ = ["Starlette"]
 
 
@@ -59,6 +62,16 @@ class Starlette(App, SchemaMixin):
     def mount(self, path: str, app: ASGIApp, name: str = None) -> None:
         self.components += getattr(app, "components", [])
         self.router.mount(path, app=app, name=name)
+
+    def add_resource(self, path: str, resource: "BaseResource"):
+        self.router.add_resource(path, resource=resource)
+
+    def resource(self, path: str) -> typing.Callable:
+        def decorator(resource: "BaseResource") -> "BaseResource":
+            self.router.add_resource(path, resource=resource)
+            return resource
+
+        return decorator
 
     def api_http_exception_handler(self, request: Request, exc: HTTPException) -> Response:
         return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)

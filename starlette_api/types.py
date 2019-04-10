@@ -30,6 +30,7 @@ __all__ = [
     "PrimaryKey",
     "ResourceMeta",
     "ResourceMethodMeta",
+    "HTTPMethod",
 ]
 
 
