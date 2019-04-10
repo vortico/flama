@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="825" height="96" src="https://raw.githubusercontent.com/perdy/starlette-api/master/docs/images/logo.png" alt='Starlette API'>
+  <a href="https://starlette-api.perdy.io"><img src="https://raw.githubusercontent.com/perdy/starlette-api/master/docs/images/logo.png" alt='Starlette API'></a>
 </p>
 <p align="center">
     <em>API power up for Starlette.</em>
