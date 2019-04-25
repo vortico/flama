@@ -4,9 +4,9 @@ import pytest
 from marshmallow import Schema, fields, validate
 from starlette.testclient import TestClient
 
-from starlette_api import exceptions
-from starlette_api.applications import Starlette
-from starlette_api.validation import output_validation
+from flama import exceptions
+from flama.applications import Flama
+from flama.validation import output_validation
 
 utc = datetime.timezone.utc
 
@@ -17,7 +17,7 @@ class Product(Schema):
     created = fields.DateTime()
 
 
-app = Starlette()
+app = Flama()
 
 
 @app.route("/product", methods=["GET"])

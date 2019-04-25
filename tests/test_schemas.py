@@ -4,9 +4,9 @@ import marshmallow
 import pytest
 from starlette.testclient import TestClient
 
-from starlette_api.applications import Starlette
-from starlette_api.endpoints import HTTPEndpoint
-from starlette_api.routing import Router
+from flama.applications import Flama
+from flama.endpoints import HTTPEndpoint
+from flama.routing import Router
 
 
 class Puppy(marshmallow.Schema):
@@ -20,7 +20,7 @@ class BodyParam(marshmallow.Schema):
 class TestCaseSchema:
     @pytest.fixture(scope="class")
     def app(self):
-        app_ = Starlette(
+        app_ = Flama(
             components=[],
             title="Foo",
             version="0.1",
@@ -216,27 +216,27 @@ class TestCaseSchema:
         assert response.headers.get("content-type") == "application/vnd.oai.openapi"
 
     def test_view_docs(self, client):
-        with patch("starlette_api.schemas.Template") as mock_template, patch(
-            "starlette_api.schemas.open", mock_open(read_data="foo")
+        with patch("flama.schemas.Template") as mock_template, patch(
+            "flama.schemas.open", mock_open(read_data="foo")
         ) as file_mock:
             mock_template.return_value.substitute.return_value = "bar"
             response = client.get("/docs/")
 
         assert response.status_code == 200
         assert file_mock.call_count == 1
-        assert file_mock.call_args_list[0][0][0].endswith("starlette_api/templates/swagger_ui.html")
+        assert file_mock.call_args_list[0][0][0].endswith("flama/templates/swagger_ui.html")
         assert mock_template.call_args_list == [call("foo")]
         assert response.content == b"bar"
 
     def test_view_redoc(self, client):
-        with patch("starlette_api.schemas.Template") as mock_template, patch(
-            "starlette_api.schemas.open", mock_open(read_data="foo")
+        with patch("flama.schemas.Template") as mock_template, patch(
+            "flama.schemas.open", mock_open(read_data="foo")
         ) as file_mock:
             mock_template.return_value.substitute.return_value = "bar"
             response = client.get("/redoc/")
 
         assert response.status_code == 200
         assert file_mock.call_count == 1
-        assert file_mock.call_args_list[0][0][0].endswith("starlette_api/templates/redoc.html")
+        assert file_mock.call_args_list[0][0][0].endswith("flama/templates/redoc.html")
         assert mock_template.call_args_list == [call("foo")]
         assert response.content == b"bar"

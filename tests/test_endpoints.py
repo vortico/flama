@@ -2,10 +2,10 @@ import marshmallow
 import pytest
 from starlette.testclient import TestClient
 
-from starlette_api import exceptions, websockets
-from starlette_api.applications import Starlette
-from starlette_api.components import Component
-from starlette_api.endpoints import HTTPEndpoint, WebSocketEndpoint
+from flama import exceptions, websockets
+from flama.applications import Flama
+from flama.components import Component
+from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 
 
 class Puppy:
@@ -23,7 +23,7 @@ class BodyParam(marshmallow.Schema):
 
 @pytest.fixture(scope="function")
 def app():
-    return Starlette(components=[PuppyComponent()], schema=None, docs=None)
+    return Flama(components=[PuppyComponent()], schema=None, docs=None)
 
 
 @pytest.fixture(scope="function")

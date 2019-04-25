@@ -3,10 +3,10 @@ from starlette.responses import JSONResponse
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocket
 
-from starlette_api.applications import Starlette
-from starlette_api.components import Component
-from starlette_api.endpoints import HTTPEndpoint
-from starlette_api.exceptions import ComponentNotFound, ConfigurationError
+from flama.applications import Flama
+from flama.components import Component
+from flama.endpoints import HTTPEndpoint
+from flama.exceptions import ComponentNotFound, ConfigurationError
 
 
 class Puppy:
@@ -27,7 +27,7 @@ class UnhandledComponent(Component):
         pass
 
 
-app = Starlette(components=[PuppyComponent()])
+app = Flama(components=[PuppyComponent()])
 
 
 @app.route("/http-view")
@@ -85,7 +85,7 @@ class TestCaseComponentsInjection:
             match=r'Component "UnhandledComponent" must include a return annotation on the `resolve\(\)` method, '
             "or override `can_handle_parameter`",
         ):
-            app_ = Starlette(components=[UnhandledComponent()])
+            app_ = Flama(components=[UnhandledComponent()])
 
             @app_.route("/")
             def foo(unknown: Unknown):

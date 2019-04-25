@@ -3,16 +3,16 @@ from unittest.mock import Mock
 import pytest
 from starlette.routing import Mount
 
-from starlette_api.applications import Starlette
-from starlette_api.components import Component
-from starlette_api.endpoints import HTTPEndpoint, WebSocketEndpoint
-from starlette_api.routing import Route, Router, WebSocketRoute
+from flama.applications import Flama
+from flama.components import Component
+from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
+from flama.routing import Route, Router, WebSocketRoute
 
 
 class TestCaseRouter:
     @pytest.fixture(scope="function")
     def app(self):
-        return Starlette(schema=None, docs=None)
+        return Flama(schema=None, docs=None)
 
     @pytest.fixture(scope="function")
     def router(self):
@@ -20,7 +20,7 @@ class TestCaseRouter:
 
     @pytest.fixture(scope="function")
     def app_mock(self):
-        return Mock(spec=Starlette)
+        return Mock(spec=Flama)
 
     @pytest.fixture(scope="function")
     def component_mock(self):

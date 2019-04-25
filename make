@@ -60,7 +60,7 @@ def clean(*args, **kwargs):
         ".tox",
         "dist",
         "pip-wheel-metadata",
-        "starlette_api.egg-info",
+        "flama.egg-info",
         ".coverage",
         "test-results",
         "site",

@@ -2,8 +2,8 @@ import marshmallow
 import pytest
 from starlette.testclient import TestClient
 
-from starlette_api.applications import Starlette
-from starlette_api.pagination import Paginator
+from flama.applications import Flama
+from flama.pagination import Paginator
 
 
 class OutputSchema(marshmallow.Schema):
@@ -13,7 +13,7 @@ class OutputSchema(marshmallow.Schema):
 class TestPageNumberResponse:
     @pytest.fixture(scope="class")
     def app(self):
-        app_ = Starlette(title="Foo", version="0.1", description="Bar", schema="/schema/")
+        app_ = Flama(title="Foo", version="0.1", description="Bar", schema="/schema/")
 
         @app_.route("/page-number/", methods=["GET"])
         @Paginator.page_number
@@ -154,7 +154,7 @@ class TestPageNumberResponse:
 class TestLimitOffsetResponse:
     @pytest.fixture(scope="class")
     def app(self):
-        app_ = Starlette(title="Foo", version="0.1", description="Bar", schema="/schema/")
+        app_ = Flama(title="Foo", version="0.1", description="Bar", schema="/schema/")
 
         @app_.route("/limit-offset/", methods=["GET"])
         @Paginator.limit_offset

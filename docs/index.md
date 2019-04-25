@@ -1,32 +1,39 @@
 <p align="center">
-  <a href="https://starlette-api.perdy.io"><img src="https://raw.githubusercontent.com/perdy/starlette-api/master/docs/images/logo.png" alt='Starlette API'></a>
+  <a href="https://flama.perdy.io"><img src="https://raw.githubusercontent.com/perdy/flama/master/docs/images/logo.png" alt='Flama'></a>
 </p>
 <p align="center">
-    <em>API power up for Starlette.</em>
+    <em>Fire up your API with this flamethrower.</em>
 </p>
 <p align="center">
-<a href="https://circleci.com/gh/perdy/starlette-api">
-    <img src="https://img.shields.io/circleci/project/github/perdy/starlette-api/master.svg" alt="Build Status">
+<a href="https://circleci.com/gh/perdy/flama">
+    <img src="https://img.shields.io/circleci/project/github/perdy/flama/master.svg" alt="Build Status">
 </a>
-<a href="https://codecov.io/gh/perdy/starlette-api">
-    <img src="https://codecov.io/gh/perdy/starlette-api/branch/master/graph/badge.svg" alt="Coverage">
+<a href="https://codecov.io/gh/perdy/flama">
+    <img src="https://codecov.io/gh/perdy/flama/branch/master/graph/badge.svg" alt="Coverage">
 </a>
-<a href="https://pypi.org/project/starlette-api/">
-    <img src="https://badge.fury.io/py/starlette-api.svg" alt="Package version">
+<a href="https://pypi.org/project/flama/">
+    <img src="https://badge.fury.io/py/flama.svg" alt="Package version">
 </a>
 </p>
 
 ---
-# Introduction
 
-Starlette API aims to bring a layer on top of Starlette to provide a fast and easy way for building highly performant REST APIs.
+**Documentation**: [https://flama.perdy.io](https://flama.perdy.io)
 
-It is production-ready and provides the following:
+---
+
+# Flama
+
+Flama aims to bring a layer on top of [Starlette] to provide an **easy to learn** and **fast to develop** approach for 
+building **highly performant** GraphQL and REST APIs. In the same way of Starlette is, Flama is a perfect option for 
+developing **asynchronous** and **production-ready** services. 
+
+Among other characteristics it provides the following:
 
 * **Generic classes** for API resources that provides standard CRUD methods over SQLAlchemy tables.
 * **Schema system** based on [Marshmallow] that allows to **declare** the inputs and outputs of endpoints and provides 
 a reliable way of **validate** data against those schemas.
-* **Dependency Injection** that ease the process of managing parameters needed in endpoints. Starlette ASGI objects 
+* **Dependency Injection** that ease the process of managing parameters needed in endpoints. Flama ASGI objects 
 like `Request`, `Response`, `Session` and so on are defined as components and ready to be injected in your endpoints.
 * **Components** as the base of the plugin ecosystem, allowing you to create custom or use those already defined in 
 your endpoints, injected as parameters.
@@ -44,14 +51,14 @@ necessary information to generate your API Schema.
 ## Installation
 
 ```console
-$ pip install starlette-api
+$ pip install flama
 ```
 
 ## Example
 
 ```python
 from marshmallow import Schema, fields, validate
-from starlette_api.applications import Starlette
+from flama.applications import Flama
 
 
 # Data Schema
@@ -69,7 +76,7 @@ puppies = [
 
 
 # Application
-app = Starlette(
+app = Flama(
     components=[],      # Without custom components
     title="Foo",        # API title
     version="0.1",      # API version
@@ -111,10 +118,10 @@ def create_puppy(puppy: Puppy) -> Puppy:
 
 ## Dependencies
 
-Following Starlette philosophy Starlette API reduce the number of hard dependencies to those that are used as the core:
+Following Starlette philosophy Flama reduce the number of hard dependencies to those that are used as the core:
 
-* [`starlette`][Starlette] - Starlette API is a layer on top of it.
-* [`marshmallow`][Marshmallow] - Starlette API data schemas and validation.
+* [`starlette`][Starlette] - Flama is a layer on top of it.
+* [`marshmallow`][Marshmallow] - Flama data schemas and validation.
 
 It does not have any more hard dependencies, but some of them are necessaries to use some features:
 
@@ -124,12 +131,12 @@ It does not have any more hard dependencies, but some of them are necessaries to
 * [`sqlalchemy`][SQLAlchemy] - Required for Generic API resources.
 * [`databases`][databases] - Required for Generic API resources.
 
-You can install all of these with `pip3 install starlette-api[full]`.
+You can install all of these with `pip3 install flama[full]`.
 
 ## Credits
 
-That library started as an adaptation of [APIStar] to work with [Starlette], but a great amount of the code has been 
-rewritten to use [Marshmallow] as the schema system.
+That library is heavily inspired by [APIStar] server in an attempt to bring a good amount of it essence to work with 
+[Starlette] as the ASGI framework and [Marshmallow] as the schema system.
 
 ## Contributing
 

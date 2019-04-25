@@ -1,8 +1,8 @@
 import pytest
 from starlette.testclient import TestClient
 
-from starlette_api import http, websockets
-from starlette_api.applications import Starlette
+from flama import http, websockets
+from flama.applications import Flama
 
 # flake8: noqa
 
@@ -10,7 +10,7 @@ from starlette_api.applications import Starlette
 class TestCaseASGI:
     @pytest.fixture(scope="class")
     def app(self):  # noqa
-        app_ = Starlette(schema=None, docs=None)
+        app_ = Flama(schema=None, docs=None)
 
         @app_.route("/method/", methods=["GET", "POST"])
         def get_method(method: http.Method):

@@ -3,7 +3,7 @@ import typing
 import pytest
 from starlette.testclient import TestClient
 
-from starlette_api.applications import Starlette
+from flama.applications import Flama
 
 # flake8: noqa
 
@@ -11,7 +11,7 @@ from starlette_api.applications import Starlette
 class TestCaseParamsValidation:
     @pytest.fixture(scope="class")
     def app(self):
-        app_ = Starlette()
+        app_ = Flama()
 
         @app_.route("/str_path_param/{param}/")
         def str_path_param(param: str):

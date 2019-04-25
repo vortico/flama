@@ -3,10 +3,10 @@ import pytest
 from starlette.responses import HTMLResponse
 from starlette.testclient import TestClient
 
-from starlette_api import http
-from starlette_api.applications import Starlette
-from starlette_api.components import Component
-from starlette_api.endpoints import HTTPEndpoint
+from flama import http
+from flama.applications import Flama
+from flama.components import Component
+from flama.endpoints import HTTPEndpoint
 
 # flake8: noqa
 
@@ -29,7 +29,7 @@ class TestCaseReturnValidation:
         scope="class", params=[pytest.param(True, id="endpoints"), pytest.param(False, id="function views")]
     )
     def app(self, request):
-        app_ = Starlette(components=[PuppyComponent()], schema=None, docs=None)
+        app_ = Flama(components=[PuppyComponent()], schema=None, docs=None)
 
         if request.param:
 

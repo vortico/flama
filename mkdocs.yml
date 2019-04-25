@@ -1,15 +1,15 @@
 # Project information
-site_name: Starlette API
-site_description: "API power up for Starlette"
+site_name: Flama
+site_description: "API power up for Flama"
 site_author: "José Antonio Perdiguero López"
-site_url: "https://starlette-api.perdy.io/"
+site_url: "https://flama.perdy.io/"
 
 # Copyright
 copyright: "GNU General Public License v3.0; 2018 - Present; José Antonio Perdiguero López"
 
 # Repository
-repo_name: "perdy/starlette-api"
-repo_url: "https://github.com/perdy/starlette-api"
+repo_name: "perdy/flama"
+repo_url: "https://github.com/perdy/flama"
 edit_uri: ""
 
 nav:
@@ -19,8 +19,8 @@ nav:
 theme:
     name: material
     palette:
-        primary: "blue"
-        accent: "yellow"
+        primary: "deep orange"
+        accent: "blue"
     font:
         text: "Fira Sans"
         code: "Fira Mono"

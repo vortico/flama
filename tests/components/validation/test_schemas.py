@@ -5,7 +5,7 @@ import pytest
 from marshmallow import ValidationError, validate
 from starlette.testclient import TestClient
 
-from starlette_api.applications import Starlette
+from flama.applications import Flama
 
 utc = datetime.timezone.utc
 
@@ -33,7 +33,7 @@ class Place(marshmallow.Schema):
 class TestCaseSchemaValidation:
     @pytest.fixture(scope="class")
     def app(self):
-        app_ = Starlette()
+        app_ = Flama()
 
         @app_.route("/product", methods=["POST"])
         def product_identity(product: Product) -> Product:

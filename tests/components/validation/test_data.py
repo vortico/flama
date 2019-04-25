@@ -2,15 +2,15 @@ import pytest
 from _pytest.mark import param
 from starlette.testclient import TestClient
 
-from starlette_api import http, websockets
-from starlette_api.applications import Starlette
-from starlette_api.endpoints import WebSocketEndpoint
+from flama import http, websockets
+from flama.applications import Flama
+from flama.endpoints import WebSocketEndpoint
 
 
 class TestCaseDataValidation:
     @pytest.fixture(scope="function")
     def app(self):
-        return Starlette(schema=None, docs=None)
+        return Flama(schema=None, docs=None)
 
     @pytest.fixture(scope="function")
     def client(self, app):

@@ -12,10 +12,10 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy_utils import create_database, database_exists, drop_database
 from starlette.testclient import TestClient
 
-from starlette_api.applications import Starlette
-from starlette_api.pagination import Paginator
-from starlette_api.resources import CRUDListDropResource, CRUDListResource, CRUDResource, resource_method
-from starlette_api.types import Model, PrimaryKey
+from flama.applications import Flama
+from flama.pagination import Paginator
+from flama.resources import CRUDListDropResource, CRUDListResource, CRUDResource, resource_method
+from flama.types import Model, PrimaryKey
 
 DATABASE_URL = "sqlite:///test.db"
 
@@ -80,7 +80,7 @@ class TestCaseBaseResource:
 
     @pytest.fixture(scope="function")
     def app(self):
-        return Starlette(schema=None, docs=None, redoc=None)
+        return Flama(schema=None, docs=None, redoc=None)
 
     def test_meta_attributes(self, resource, model, database, schema):
         assert not hasattr(resource, "name")
@@ -423,7 +423,7 @@ class TestCaseResource:
 
     @pytest.fixture(scope="class")
     def app(self, resource):
-        app_ = Starlette()
+        app_ = Flama()
         app_.add_resource("/", resource)
         return app_
 
