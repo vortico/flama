@@ -26,13 +26,19 @@ except Exception:  # pragma: no cover
 __all__ = ["OpenAPIResponse", "SchemaGenerator", "SchemaMixin"]
 
 
+if yaml is not None and apispec is not None:
+    from apispec.core import YAMLDumper as BaseYAMLDumper
+
+    class YAMLDumper(BaseYAMLDumper):
+        def ignore_aliases(self, data):
+            return True
+
+
 class OpenAPIResponse(schemas.OpenAPIResponse):
     def render(self, content: typing.Any) -> bytes:
         assert yaml is not None, "`pyyaml` must be installed to use OpenAPIResponse."
         assert apispec is not None, "`apispec` must be installed to use OpenAPIResponse."
         assert isinstance(content, dict), "The schema passed to OpenAPIResponse should be a dictionary."
-
-        from apispec.core import YAMLDumper
 
         return yaml.dump(content, default_flow_style=False, Dumper=YAMLDumper).encode("utf-8")
 
