@@ -4,7 +4,7 @@ build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "flama"
-version = "0.8.0"
+version = "0.8.1"
 description = "Fire up your API with this flamethrower"
 authors = ["José Antonio Perdiguero López <perdy@perdy.io>"]
 license = "GPL-3.0+"
