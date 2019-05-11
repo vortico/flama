@@ -26,6 +26,7 @@ var/
 *dist/
 pip-wheel-metadata/
 .python-version
+.idea
 
 # Installer logs
 pip-log.txt
