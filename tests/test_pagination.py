@@ -2,7 +2,7 @@ import marshmallow
 import pytest
 from starlette.testclient import TestClient
 
-from flama.applications import Flama
+from flama.applications.flama import Flama
 from flama.pagination import Paginator
 
 

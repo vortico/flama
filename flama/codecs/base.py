@@ -1,6 +1,6 @@
 import typing
 
-from flama import http, websockets
+from flama.types import http, websockets
 
 
 class Codec:

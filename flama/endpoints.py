@@ -7,8 +7,9 @@ from starlette.endpoints import WebSocketEndpoint as BaseWebSocketEndpoint
 from starlette.requests import Request
 from starlette.websockets import WebSocket, WebSocketState
 
-from flama import exceptions, websockets
-from flama.responses import APIResponse
+from flama import exceptions
+from flama.responses import APIResponse, Response
+from flama.types import websockets
 from flama.validation import get_output_schema
 
 __all__ = ["HTTPEndpoint", "WebSocketEndpoint"]

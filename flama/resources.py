@@ -9,7 +9,7 @@ import marshmallow
 from flama.exceptions import HTTPException
 from flama.pagination import Paginator
 from flama.responses import APIResponse
-from flama.types import Model, PrimaryKey, ResourceMeta, ResourceMethodMeta
+from flama.types.data_structures import Model, PrimaryKey, ResourceMeta, ResourceMethodMeta
 
 try:
     import sqlalchemy

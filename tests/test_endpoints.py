@@ -2,10 +2,11 @@ import marshmallow
 import pytest
 from starlette.testclient import TestClient
 
-from flama import exceptions, websockets
-from flama.applications import Flama
+from flama import exceptions
+from flama.applications.flama import Flama
 from flama.components import Component
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
+from flama.types import websockets
 
 
 class Puppy:

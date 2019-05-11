@@ -3,7 +3,7 @@ import typing
 import pytest
 from starlette.testclient import TestClient
 
-from flama.applications import Flama
+from flama.applications.flama import Flama
 
 # flake8: noqa
 

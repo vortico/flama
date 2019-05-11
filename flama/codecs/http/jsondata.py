@@ -1,5 +1,6 @@
-from flama import exceptions, http
+from flama import exceptions
 from flama.codecs.base import HTTPCodec
+from flama.types import http
 
 __all__ = ["JSONDataCodec"]
 

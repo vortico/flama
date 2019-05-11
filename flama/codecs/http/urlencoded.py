@@ -1,5 +1,5 @@
-from flama import http
 from flama.codecs.base import HTTPCodec
+from flama.types import http
 
 __all__ = ["URLEncodedCodec"]
 

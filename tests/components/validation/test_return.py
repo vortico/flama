@@ -1,12 +1,12 @@
 import marshmallow
 import pytest
-from starlette.responses import HTMLResponse
 from starlette.testclient import TestClient
 
-from flama import http
-from flama.applications import Flama
+from flama.applications.flama import Flama
 from flama.components import Component
 from flama.endpoints import HTTPEndpoint
+from flama.responses import HTMLResponse
+from flama.types import http
 
 # flake8: noqa
 

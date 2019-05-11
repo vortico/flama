@@ -1,52 +1,63 @@
-import typing
 from inspect import Parameter
 from urllib.parse import parse_qsl
 
-from flama import http
 from flama.components import Component
+from flama.types import asgi, http
 
-ASGIScope = typing.NewType("ASGIScope", dict)
-ASGIReceive = typing.NewType("ASGIReceive", typing.Callable)
-ASGISend = typing.NewType("ASGISend", typing.Callable)
+__all__ = [
+    "MethodComponent",
+    "URLComponent",
+    "SchemeComponent",
+    "HostComponent",
+    "PortComponent",
+    "PathComponent",
+    "QueryStringComponent",
+    "QueryParamsComponent",
+    "QueryParamComponent",
+    "HeadersComponent",
+    "HeaderComponent",
+    "BodyComponent",
+    "ASGI_COMPONENTS",
+]
 
 
 class MethodComponent(Component):
-    def resolve(self, scope: ASGIScope) -> http.Method:
+    def resolve(self, scope: asgi.Scope) -> http.Method:
         return http.Method(scope["method"])
 
 
 class URLComponent(Component):
-    def resolve(self, scope: ASGIScope) -> http.URL:
+    def resolve(self, scope: asgi.Scope) -> http.URL:
         return http.URL(scope=scope)
 
 
 class SchemeComponent(Component):
-    def resolve(self, scope: ASGIScope) -> http.Scheme:
+    def resolve(self, scope: asgi.Scope) -> http.Scheme:
         return http.Scheme(scope["scheme"])
 
 
 class HostComponent(Component):
-    def resolve(self, scope: ASGIScope) -> http.Host:
+    def resolve(self, scope: asgi.Scope) -> http.Host:
         return http.Host(scope["server"][0])
 
 
 class PortComponent(Component):
-    def resolve(self, scope: ASGIScope) -> http.Port:
+    def resolve(self, scope: asgi.Scope) -> http.Port:
         return http.Port(scope["server"][1])
 
 
 class PathComponent(Component):
-    def resolve(self, scope: ASGIScope) -> http.Path:
+    def resolve(self, scope: asgi.Scope) -> http.Path:
         return http.Path(scope.get("root_path", "") + scope["path"])
 
 
 class QueryStringComponent(Component):
-    def resolve(self, scope: ASGIScope) -> http.QueryString:
+    def resolve(self, scope: asgi.Scope) -> http.QueryString:
         return http.QueryString(scope["query_string"].decode())
 
 
 class QueryParamsComponent(Component):
-    def resolve(self, scope: ASGIScope) -> http.QueryParams:
+    def resolve(self, scope: asgi.Scope) -> http.QueryParams:
         query_string = scope["query_string"].decode()
         return http.QueryParams(parse_qsl(query_string))
 
@@ -60,7 +71,7 @@ class QueryParamComponent(Component):
 
 
 class HeadersComponent(Component):
-    def resolve(self, scope: ASGIScope) -> http.Headers:
+    def resolve(self, scope: asgi.Scope) -> http.Headers:
         return http.Headers(scope=scope)
 
 
@@ -73,7 +84,7 @@ class HeaderComponent(Component):
 
 
 class BodyComponent(Component):
-    async def resolve(self, receive: ASGIReceive) -> http.Body:
+    async def resolve(self, receive: asgi.Receive) -> http.Body:
         body = b""
         while True:
             message = await receive()
