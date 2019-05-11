@@ -25,6 +25,11 @@ var/
 *.egg
 *dist/
 pip-wheel-metadata/
+.python-version
+
+# Admin FE distribution / packaging
+admin/node_modules
+admin/.next
 
 # Installer logs
 pip-log.txt
