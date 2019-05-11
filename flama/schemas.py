@@ -1,16 +1,12 @@
 import inspect
 import itertools
-import os
 import typing
 from collections import defaultdict
-from string import Template
 
 import marshmallow
 from starlette import routing, schemas
-from starlette.responses import HTMLResponse
 
-from flama.responses import APIError
-from flama.types import EndpointInfo
+from flama.types.data_structures import APIError, EndpointInfo
 from flama.utils import dict_safe_add
 
 try:
@@ -23,7 +19,7 @@ try:
 except Exception:  # pragma: no cover
     yaml = None  # type: ignore
 
-__all__ = ["OpenAPIResponse", "SchemaGenerator", "SchemaMixin"]
+__all__ = ["OpenAPIResponse", "SchemaGenerator"]
 
 
 if yaml is not None and apispec is not None:
@@ -214,69 +210,3 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
             self.spec.add_path(path=path, operations={e.method: self.get_endpoint_schema(e) for e in endpoints})
 
         return self.spec.to_dict()
-
-
-class SchemaMixin:
-    def add_schema_docs_routes(
-        self,
-        title: str = "",
-        version: str = "",
-        description: str = "",
-        schema: typing.Optional[str] = "/schema/",
-        docs: typing.Optional[str] = "/docs/",
-        redoc: typing.Optional[str] = None,
-    ):
-        # Schema
-        self.title = title
-        self.version = version
-        self.description = description
-        self.schema_url = schema
-        if self.schema_url:
-            self.add_schema_route()
-
-        # Docs (Swagger UI)
-        self.docs_url = docs
-        if self.docs_url:
-            self.add_docs_route()
-
-        # Redoc
-        self.redoc_url = redoc
-        if self.redoc_url:
-            self.add_redoc_route()
-
-    @property
-    def schema_generator(self):
-        if not hasattr(self, "_schema_generator"):
-            self._schema_generator = SchemaGenerator(
-                title=self.title, version=self.version, description=self.description
-            )
-
-        return self._schema_generator
-
-    @property
-    def schema(self):
-        return self.schema_generator.get_schema(self.routes)
-
-    def add_schema_route(self):
-        def schema():
-            return OpenAPIResponse(self.schema)
-
-        self.add_route(path=self.schema_url, route=schema, methods=["GET"], include_in_schema=False)
-
-    def add_docs_route(self):
-        def swagger_ui() -> HTMLResponse:
-            with open(os.path.join(os.path.dirname(__file__), "templates/swagger_ui.html")) as f:
-                content = Template(f.read()).substitute(title=self.title, schema_url=self.schema_url)
-
-            return HTMLResponse(content)
-
-        self.add_route(path=self.docs_url, route=swagger_ui, methods=["GET"], include_in_schema=False)
-
-    def add_redoc_route(self):
-        def redoc() -> HTMLResponse:
-            with open(os.path.join(os.path.dirname(__file__), "templates/redoc.html")) as f:
-                content = Template(f.read()).substitute(title=self.title, schema_url=self.schema_url)
-
-            return HTMLResponse(content)
-
-        self.add_route(path=self.redoc_url, route=redoc, methods=["GET"], include_in_schema=False)

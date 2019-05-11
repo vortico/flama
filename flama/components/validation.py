@@ -1,21 +1,27 @@
 import datetime
 import inspect
-import typing
 import uuid
 
 import marshmallow
 from starlette import status
 
-from flama import codecs, exceptions, http, websockets
+from flama import codecs, exceptions
 from flama.components import Component
 from flama.exceptions import WebSocketException
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
-from flama.routing import Route
-from flama.types import OptBool, OptDate, OptDateTime, OptFloat, OptInt, OptStr, OptUUID
+from flama.types import asgi, http, websockets
+from flama.types.data_structures import OptBool, OptDate, OptDateTime, OptFloat, OptInt, OptStr, OptUUID
 
-ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
-ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
-ValidatedRequestData = typing.TypeVar("ValidatedRequestData")
+__all__ = [
+    "RequestDataComponent",
+    "WebSocketMessageDataComponent",
+    "ValidatePathParamsComponent",
+    "ValidateQueryParamsComponent",
+    "ValidateRequestDataComponent",
+    "PrimitiveParamComponent",
+    "CompositeParamComponent",
+    "VALIDATION_COMPONENTS",
+]
 
 
 class RequestDataComponent(Component):
@@ -57,7 +63,9 @@ class WebSocketMessageDataComponent(Component):
 
 
 class ValidatePathParamsComponent(Component):
-    async def resolve(self, request: http.Request, route: Route, path_params: http.PathParams) -> ValidatedPathParams:
+    async def resolve(
+        self, request: http.Request, route: asgi.Route, path_params: http.PathParams
+    ) -> http.ValidatedPathParams:
         validator = type(
             "Validator", (marshmallow.Schema,), {f.name: f.schema for f in route.path_fields[request.method].values()}
         )
@@ -66,11 +74,13 @@ class ValidatePathParamsComponent(Component):
             path_params = validator().load(path_params)
         except marshmallow.ValidationError as exc:
             raise exceptions.InputValidationError(detail=exc.normalized_messages())
-        return ValidatedPathParams(path_params)
+        return http.ValidatedPathParams(path_params)
 
 
 class ValidateQueryParamsComponent(Component):
-    def resolve(self, request: http.Request, route: Route, query_params: http.QueryParams) -> ValidatedQueryParams:
+    def resolve(
+        self, request: http.Request, route: asgi.Route, query_params: http.QueryParams
+    ) -> http.ValidatedQueryParams:
         validator = type(
             "Validator", (marshmallow.Schema,), {f.name: f.schema for f in route.query_fields[request.method].values()}
         )
@@ -79,14 +89,14 @@ class ValidateQueryParamsComponent(Component):
             query_params = validator().load(dict(query_params), unknown=marshmallow.EXCLUDE)
         except marshmallow.ValidationError as exc:
             raise exceptions.InputValidationError(detail=exc.normalized_messages())
-        return ValidatedQueryParams(query_params)
+        return http.ValidatedQueryParams(query_params)
 
 
 class ValidateRequestDataComponent(Component):
     def can_handle_parameter(self, parameter: inspect.Parameter):
-        return parameter.annotation is ValidatedRequestData
+        return parameter.annotation is http.ValidatedRequestData
 
-    def resolve(self, request: http.Request, route: Route, data: http.RequestData):
+    def resolve(self, request: http.Request, route: asgi.Route, data: http.RequestData):
         if not route.body_field[request.method] or not route.body_field[request.method].schema:
             return data
 
@@ -118,7 +128,10 @@ class PrimitiveParamComponent(Component):
         )
 
     def resolve(
-        self, parameter: inspect.Parameter, path_params: ValidatedPathParams, query_params: ValidatedQueryParams
+        self,
+        parameter: inspect.Parameter,
+        path_params: http.ValidatedPathParams,
+        query_params: http.ValidatedQueryParams,
     ):
         params = path_params if (parameter.name in path_params) else query_params
 
@@ -160,7 +173,7 @@ class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: inspect.Parameter):
         return inspect.isclass(parameter.annotation) and issubclass(parameter.annotation, marshmallow.Schema)
 
-    def resolve(self, parameter: inspect.Parameter, data: ValidatedRequestData):
+    def resolve(self, parameter: inspect.Parameter, data: http.ValidatedRequestData):
         return data
 
 

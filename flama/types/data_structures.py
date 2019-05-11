@@ -31,6 +31,7 @@ __all__ = [
     "ResourceMeta",
     "ResourceMethodMeta",
     "HTTPMethod",
+    "APIError",
 ]
 
 
@@ -95,3 +96,9 @@ class ResourceMethodMeta(typing.NamedTuple):
 
 
 HTTPMethod = enum.Enum("HTTPMethod", ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"])
+
+
+class APIError(marshmallow.Schema):
+    status_code = marshmallow.fields.Integer(title="status_code", description="HTTP status code", required=True)
+    detail = marshmallow.fields.Raw(title="detail", description="Error detail", required=True)
+    error = marshmallow.fields.String(title="type", description="Exception or error type")

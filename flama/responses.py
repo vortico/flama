@@ -1,15 +1,29 @@
 import typing
 
 import marshmallow
-from starlette.responses import JSONResponse
+from starlette.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 
-__all__ = ["APIResponse", "APIErrorResponse", "APIError"]
+from flama.types.data_structures import APIError
 
-
-class APIError(marshmallow.Schema):
-    status_code = marshmallow.fields.Integer(title="status_code", description="HTTP status code", required=True)
-    detail = marshmallow.fields.Raw(title="detail", description="Error detail", required=True)
-    error = marshmallow.fields.String(title="type", description="Exception or error type")
+__all__ = [
+    "APIResponse",
+    "APIErrorResponse",
+    "Response",
+    "RedirectResponse",
+    "FileResponse",
+    "HTMLResponse",
+    "JSONResponse",
+    "PlainTextResponse",
+    "StreamingResponse",
+]
 
 
 class APIResponse(JSONResponse):

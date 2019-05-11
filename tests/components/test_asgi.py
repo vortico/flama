@@ -1,8 +1,8 @@
 import pytest
 from starlette.testclient import TestClient
 
-from flama import http, websockets
-from flama.applications import Flama
+from flama.applications.flama import Flama
+from flama.types import http, websockets
 
 # flake8: noqa
 

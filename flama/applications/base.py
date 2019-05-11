@@ -1,3 +1,4 @@
+import os
 import typing
 
 from starlette.applications import Starlette
@@ -8,33 +9,22 @@ from starlette.types import ASGIApp
 from flama import exceptions
 from flama.components import Component
 from flama.exceptions import HTTPException
-from flama.http import Request, Response
 from flama.injection import Injector
 from flama.responses import APIErrorResponse
 from flama.routing import Router
-from flama.schemas import SchemaMixin
+from flama.types.http import Request, Response
 
 if typing.TYPE_CHECKING:
     from flama.resources import BaseResource
 
-__all__ = ["Flama"]
+__all__ = ["BaseApp"]
 
 
-class Flama(Starlette, SchemaMixin):
-    def __init__(
-        self,
-        components: typing.Optional[typing.List[Component]] = None,
-        debug: bool = False,
-        title: typing.Optional[str] = "",
-        version: typing.Optional[str] = "",
-        description: typing.Optional[str] = "",
-        schema: typing.Optional[str] = "/schema/",
-        docs: typing.Optional[str] = "/docs/",
-        redoc: typing.Optional[str] = None,
-        *args,
-        **kwargs
-    ) -> None:
-        super().__init__(debug=debug, *args, **kwargs)
+class BaseApp(Starlette):
+    TEMPLATES_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "templates"))
+
+    def __init__(self, components: typing.Optional[typing.List[Component]] = None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         if components is None:
             components = []
@@ -44,16 +34,11 @@ class Flama(Starlette, SchemaMixin):
 
         self.router = Router(components=components)
         self.app = self.router
-        self.exception_middleware = ExceptionMiddleware(self.router, debug=debug)
-        self.error_middleware = ServerErrorMiddleware(self.exception_middleware, debug=debug)
+        self.exception_middleware = ExceptionMiddleware(self.router, debug=self._debug)
+        self.error_middleware = ServerErrorMiddleware(self.exception_middleware, debug=self._debug)
 
         # Add exception handler for API exceptions
         self.add_exception_handler(exceptions.HTTPException, self.api_http_exception_handler)
-
-        # Add schema and docs routes
-        self.add_schema_docs_routes(
-            title=title, version=version, description=description, schema=schema, docs=docs, redoc=redoc
-        )
 
     @property
     def injector(self):

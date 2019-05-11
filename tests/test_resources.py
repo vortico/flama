@@ -12,10 +12,10 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy_utils import create_database, database_exists, drop_database
 from starlette.testclient import TestClient
 
-from flama.applications import Flama
+from flama.applications.flama import Flama
 from flama.pagination import Paginator
 from flama.resources import CRUDListDropResource, CRUDListResource, CRUDResource, resource_method
-from flama.types import Model, PrimaryKey
+from flama.types.data_structures import Model, PrimaryKey
 
 DATABASE_URL = "sqlite:///test.db"
 

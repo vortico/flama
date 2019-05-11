@@ -5,7 +5,7 @@ import pytest
 from marshmallow import ValidationError, validate
 from starlette.testclient import TestClient
 
-from flama.applications import Flama
+from flama.applications.flama import Flama
 
 utc = datetime.timezone.utc
 

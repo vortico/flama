@@ -3,28 +3,25 @@ import functools
 import inspect
 import typing
 
-from flama import http, websockets
-from flama.components.asgi import ASGI_COMPONENTS, ASGIReceive, ASGIScope, ASGISend
+from flama.components.asgi import ASGI_COMPONENTS
 from flama.components.validation import VALIDATION_COMPONENTS
 from flama.exceptions import ComponentNotFound
-from flama.routing import Route
+from flama.types import asgi, http, websockets
 
 __all__ = ["Injector"]
 
 
 class Injector:
     def __init__(self, components):
-        from flama.applications import Flama
-
         self.components = list(ASGI_COMPONENTS + VALIDATION_COMPONENTS) + components
         self.initial = {
-            "scope": ASGIScope,
-            "receive": ASGIReceive,
-            "send": ASGISend,
+            "scope": asgi.Scope,
+            "receive": asgi.Receive,
+            "send": asgi.Send,
             "exc": Exception,
-            "app": Flama,
+            "app": asgi.App,
             "path_params": http.PathParams,
-            "route": Route,
+            "route": asgi.Route,
             "request": http.Request,
             "response": http.Response,
             "websocket": websockets.WebSocket,

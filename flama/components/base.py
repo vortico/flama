@@ -3,6 +3,8 @@ from abc import ABCMeta, abstractmethod
 
 from flama import exceptions
 
+__all__ = ["Component"]
+
 
 class Component(metaclass=ABCMeta):
     def identity(self, parameter: inspect.Parameter) -> str:

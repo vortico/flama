@@ -1,5 +1,6 @@
-from flama import exceptions, websockets
+from flama import exceptions
 from flama.codecs.base import WebsocketsCodec
+from flama.types import websockets
 
 __all__ = ["BytesCodec"]
 

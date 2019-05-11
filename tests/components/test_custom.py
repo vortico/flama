@@ -1,12 +1,12 @@
 import pytest
-from starlette.responses import JSONResponse
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocket
 
-from flama.applications import Flama
+from flama.applications.flama import Flama
 from flama.components import Component
 from flama.endpoints import HTTPEndpoint
 from flama.exceptions import ComponentNotFound, ConfigurationError
+from flama.responses import JSONResponse
 
 
 class Puppy:

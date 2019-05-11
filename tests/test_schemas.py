@@ -4,7 +4,7 @@ import marshmallow
 import pytest
 from starlette.testclient import TestClient
 
-from flama.applications import Flama
+from flama.applications.flama import Flama
 from flama.endpoints import HTTPEndpoint
 from flama.routing import Router
 
@@ -216,8 +216,8 @@ class TestCaseSchema:
         assert response.headers.get("content-type") == "application/vnd.oai.openapi"
 
     def test_view_docs(self, client):
-        with patch("flama.schemas.Template") as mock_template, patch(
-            "flama.schemas.open", mock_open(read_data="foo")
+        with patch("flama.applications.schema.Template") as mock_template, patch(
+            "flama.applications.schema.open", mock_open(read_data="foo")
         ) as file_mock:
             mock_template.return_value.substitute.return_value = "bar"
             response = client.get("/docs/")
@@ -229,8 +229,8 @@ class TestCaseSchema:
         assert response.content == b"bar"
 
     def test_view_redoc(self, client):
-        with patch("flama.schemas.Template") as mock_template, patch(
-            "flama.schemas.open", mock_open(read_data="foo")
+        with patch("flama.applications.schema.Template") as mock_template, patch(
+            "flama.applications.schema.open", mock_open(read_data="foo")
         ) as file_mock:
             mock_template.return_value.substitute.return_value = "bar"
             response = client.get("/redoc/")

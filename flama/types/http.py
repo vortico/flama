@@ -2,7 +2,8 @@ import typing
 
 from starlette.datastructures import URL, Headers, MutableHeaders, QueryParams
 from starlette.requests import Request
-from starlette.responses import (
+
+from flama.responses import (
     FileResponse,
     HTMLResponse,
     JSONResponse,
@@ -38,6 +39,9 @@ __all__ = [
     "RedirectResponse",
     "StreamingResponse",
     "ReturnValue",
+    "ValidatedPathParams",
+    "ValidatedQueryParams",
+    "ValidatedRequestData",
 ]
 
 
@@ -54,3 +58,6 @@ PathParams = typing.NewType("PathParams", dict)
 PathParam = typing.NewType("PathParam", str)
 RequestData = typing.TypeVar("RequestData")
 ReturnValue = typing.TypeVar("ReturnValue")
+ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
+ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
+ValidatedRequestData = typing.TypeVar("ValidatedRequestData")

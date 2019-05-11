@@ -5,7 +5,7 @@ from marshmallow import Schema, fields, validate
 from starlette.testclient import TestClient
 
 from flama import exceptions
-from flama.applications import Flama
+from flama.applications.flama import Flama
 from flama.validation import output_validation
 
 utc = datetime.timezone.utc

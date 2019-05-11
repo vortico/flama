@@ -45,6 +45,7 @@ python-forge = "^18.6"
 mkdocs = "^1.0"
 mkdocs-material = "^4.0"
 black = {version = "^19.3b0",allows-prereleases = true}
+uvicorn = "^0.7.1"
 
 [tool.poetry.extras]
 full = ["apispec","pyyaml","python-forge","sqlalchemy","databases"]

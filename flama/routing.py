@@ -9,10 +9,10 @@ from starlette.concurrency import run_in_threadpool
 from starlette.routing import Match, Mount
 from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 
-from flama import http, websockets
 from flama.components import Component
 from flama.responses import APIResponse
-from flama.types import Field, FieldLocation, HTTPMethod, OptBool, OptFloat, OptInt, OptStr
+from flama.types import http, websockets
+from flama.types.data_structures import Field, FieldLocation, HTTPMethod, OptBool, OptFloat, OptInt, OptStr
 from flama.validation import get_output_schema
 
 if typing.TYPE_CHECKING:

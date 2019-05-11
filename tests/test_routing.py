@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 from starlette.routing import Mount
 
-from flama.applications import Flama
+from flama.applications.flama import Flama
 from flama.components import Component
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 from flama.routing import Route, Router, WebSocketRoute
