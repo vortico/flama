@@ -29,7 +29,8 @@ pip-wheel-metadata/
 
 # Admin FE distribution / packaging
 admin/node_modules
-admin/.next
+admin/build
+admin/bundle
 
 # Installer logs
 pip-log.txt
