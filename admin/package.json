@@ -1,0 +1,35 @@
+{
+  "name": "flama-admin",
+  "version": "1.0.0",
+  "description": "Flama Admin Panel",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next",
+    "build": "next build",
+    "start": "next start",
+    "export": "npm run build && next export",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/perdy/flama.git"
+  },
+  "keywords": [
+    "python",
+    "javascript",
+    "flama",
+    "nextjs",
+    "react"
+  ],
+  "author": "Mario Beltrán Alarcón",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/perdy/flama/issues"
+  },
+  "homepage": "https://github.com/perdy/flama#readme",
+  "dependencies": {
+    "next": "^8.1.0",
+    "react": "^16.8.6",
+    "react-dom": "^16.8.6"
+  }
+}
