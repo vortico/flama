@@ -2,7 +2,7 @@
   <a href="https://flama.perdy.io"><img src="https://raw.githubusercontent.com/perdy/flama/master/docs/images/logo.png" alt='Flama'></a>
 </p>
 <p align="center">
-    <em>Fire up your API with this flamethrower.</em>
+    &#128293; <em>Fire up your API with this flamethrower.</em>
 </p>
 <p align="center">
 <a href="https://circleci.com/gh/perdy/flama">

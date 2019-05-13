@@ -44,7 +44,7 @@ class OpenAPIResponse(schemas.OpenAPIResponse):
 
 
 class SchemaRegistry(dict):
-    def __init__(self, spec: apispec.APISpec, *args, **kwargs):
+    def __init__(self, spec, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.spec = spec
         self.openapi = self.spec.plugins[0].openapi
