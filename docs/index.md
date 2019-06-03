@@ -45,8 +45,8 @@ necessary information to generate your API Schema.
 ## Requirements
 
 * [Python] 3.6+
-* [Starlette] 0.10+
-* [Marshmallow] 3.0+
+* [Starlette] 0.12.0+
+* [Marshmallow] 3.0.0rc6+
 
 ## Installation
 
