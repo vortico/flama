@@ -115,10 +115,11 @@ class TestCaseSchema:
         assert schema["version"] == "0.1"
         assert schema["description"] == "Bar"
 
+    @pytest.mark.wip
     def test_schema_query_params(self, app):
         schema = app.schema["paths"]["/query-param/"]["get"]
         parameters = schema.get("parameters", {})
-        response = schema.get("responses", {}).get(200, {})
+        response = schema.get("responses", {}).get("200", {})
 
         assert schema["description"] == "Query param."
         assert response == {"description": "Param."}
@@ -129,7 +130,7 @@ class TestCaseSchema:
     def test_schema_path_params(self, app):
         schema = app.schema["paths"]["/path-param/{param}/"]["get"]
         parameters = schema.get("parameters", {})
-        response = schema.get("responses", {}).get(200, {})
+        response = schema.get("responses", {}).get("200", {})
 
         assert schema["description"] == "Path param."
         assert response == {"description": "Param."}
@@ -140,19 +141,17 @@ class TestCaseSchema:
     def test_schema_body_params(self, app):
         schema = app.schema["paths"]["/body-param/"]["post"]
         parameters = schema.get("parameters")
-        response = schema.get("responses", {}).get(200, {})
+        response = schema.get("responses", {}).get("200", {})
         body = schema.get("requestBody", {})
 
         assert schema["description"] == "Body param."
         assert response == {"description": "Param."}
         assert parameters is None
-        assert body == {
-            "content": {"application/json": {"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}}
-        }
+        assert body == {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/BodyParam"}}}}
 
     def test_schema_output_schema(self, app):
         schema = app.schema["paths"]["/custom-component/"]["get"]
-        response = schema.get("responses", {}).get(200, {})
+        response = schema.get("responses", {}).get("200", {})
 
         assert schema["description"] == "Custom component."
         assert response == {
@@ -163,7 +162,7 @@ class TestCaseSchema:
     def test_schema_output_schema_many(self, app):
         schema = app.schema["paths"]["/many-custom-component/"]["get"]
         parameters = schema.get("parameters")
-        response = schema.get("responses", {}).get(200, {})
+        response = schema.get("responses", {}).get("200", {})
 
         assert schema["description"] == "Many custom component."
         assert parameters is None
@@ -177,7 +176,7 @@ class TestCaseSchema:
     def test_schema_output_schema_using_endpoint(self, app):
         schema = app.schema["paths"]["/endpoint/"]["get"]
         parameters = schema.get("parameters")
-        response = schema.get("responses", {}).get(200, {})
+        response = schema.get("responses", {}).get("200", {})
 
         assert schema["description"] == "Custom component."
         assert parameters is None
@@ -189,7 +188,7 @@ class TestCaseSchema:
     def test_schema_output_schema_using_mount(self, app):
         schema = app.schema["paths"]["/mount/custom-component/"]["get"]
         parameters = schema.get("parameters")
-        response = schema.get("responses", {}).get(200, {})
+        response = schema.get("responses", {}).get("200", {})
 
         assert schema["description"] == "Custom component."
         assert parameters is None

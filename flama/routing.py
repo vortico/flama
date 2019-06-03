@@ -7,7 +7,7 @@ import marshmallow
 import starlette.routing
 from starlette.concurrency import run_in_threadpool
 from starlette.routing import Match, Mount
-from starlette.types import ASGIApp, ASGIInstance, Receive, Scope, Send
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from flama import http, websockets
 from flama.components import Component
@@ -151,41 +151,38 @@ class Route(starlette.routing.Route, FieldsMixin):
         """
 
         @wraps(endpoint)
-        def _app(scope: Scope) -> ASGIInstance:
-            async def awaitable(receive: Receive, send: Send) -> None:
-                app = scope["app"]
+        async def _app(scope: Scope, receive: Receive, send: Send) -> None:
+            app = scope["app"]
 
-                route, route_scope = app.router.get_route_from_scope(scope)
+            route, route_scope = app.router.get_route_from_scope(scope)
 
-                state = {
-                    "scope": scope,
-                    "receive": receive,
-                    "send": send,
-                    "exc": None,
-                    "app": app,
-                    "path_params": route_scope["path_params"],
-                    "route": route,
-                    "request": http.Request(scope, receive),
-                }
+            state = {
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "exc": None,
+                "app": app,
+                "path_params": route_scope["path_params"],
+                "route": route,
+                "request": http.Request(scope, receive),
+            }
 
-                injected_func = await app.injector.inject(endpoint, state)
+            injected_func = await app.injector.inject(endpoint, state)
 
-                if asyncio.iscoroutinefunction(endpoint):
-                    response = await injected_func()
-                else:
-                    response = await run_in_threadpool(injected_func)
+            if asyncio.iscoroutinefunction(endpoint):
+                response = await injected_func()
+            else:
+                response = await run_in_threadpool(injected_func)
 
-                # Wrap response data with a proper response class
-                if isinstance(response, (dict, list)):
-                    response = APIResponse(content=response, schema=get_output_schema(endpoint))
-                elif isinstance(response, str):
-                    response = APIResponse(content=response)
-                elif response is None:
-                    response = APIResponse(content="")
+            # Wrap response data with a proper response class
+            if isinstance(response, (dict, list)):
+                response = APIResponse(content=response, schema=get_output_schema(endpoint))
+            elif isinstance(response, str):
+                response = APIResponse(content=response)
+            elif response is None:
+                response = APIResponse(content="")
 
-                await response(receive, send)
-
-            return awaitable
+            await response(scope, receive, send)
 
         return _app
 
@@ -206,29 +203,26 @@ class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
         """
 
         @wraps(endpoint)
-        def _app(scope: Scope) -> ASGIInstance:
-            async def awaitable(receive: Receive, send: Send) -> None:
-                app = scope["app"]
+        async def _app(scope: Scope, receive: Receive, send: Send) -> None:
+            app = scope["app"]
 
-                route, route_scope = app.router.get_route_from_scope(scope)
+            route, route_scope = app.router.get_route_from_scope(scope)
 
-                state = {
-                    "scope": scope,
-                    "receive": receive,
-                    "send": send,
-                    "exc": None,
-                    "app": app,
-                    "path_params": route_scope["path_params"],
-                    "route": route,
-                    "websocket": websockets.WebSocket(scope, receive, send),
-                }
+            state = {
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "exc": None,
+                "app": app,
+                "path_params": route_scope["path_params"],
+                "route": route,
+                "websocket": websockets.WebSocket(scope, receive, send),
+            }
 
-                injected_func = await app.injector.inject(endpoint, state)
+            injected_func = await app.injector.inject(endpoint, state)
 
-                kwargs = scope.get("kwargs", {})
-                await injected_func(**kwargs)
-
-            return awaitable
+            kwargs = scope.get("kwargs", {})
+            await injected_func(**kwargs)
 
         return _app
 
