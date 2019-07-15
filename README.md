@@ -59,7 +59,7 @@ $ pip install flama
 ```python
 from marshmallow import Schema, fields, validate
 from flama.applications import Flama
-
+import uvicorn
 
 # Data Schema
 class Puppy(Schema):
@@ -114,6 +114,10 @@ def create_puppy(puppy: Puppy) -> Puppy:
     puppies.append(puppy)
     
     return puppy
+
+
+if __name__ == '__main__':
+    uvicorn.run(app, host='0.0.0.0', port=8000)
 ```
 
 ## Dependencies
