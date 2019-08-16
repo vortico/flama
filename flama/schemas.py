@@ -100,9 +100,9 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
         endpoints_info: typing.Dict[str, typing.Sequence[EndpointInfo]] = defaultdict(list)
 
         for route in routes:
-            if isinstance(route, routing.Route) and route.include_in_schema:
-                _, path, _ = routing.compile_path(base_path + route.path)
+            _, path, _ = routing.compile_path(base_path + route.path)
 
+            if isinstance(route, routing.Route) and route.include_in_schema:
                 if inspect.isfunction(route.endpoint) or inspect.ismethod(route.endpoint):
                     for method in route.methods or ["GET"]:
                         if method == "HEAD":
@@ -137,7 +137,7 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
                             )
                         )
             elif isinstance(route, routing.Mount):
-                endpoints_info.update(self.get_endpoints(route.routes, base_path=route.path))
+                endpoints_info.update(self.get_endpoints(route.routes, base_path=path))
 
         return endpoints_info
 

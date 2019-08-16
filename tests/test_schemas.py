@@ -6,7 +6,7 @@ from starlette.testclient import TestClient
 
 from flama.applications import Flama
 from flama.endpoints import HTTPEndpoint
-from flama.routing import Router
+from flama.routing import Router, Mount
 
 
 class Puppy(marshmallow.Schema):
@@ -102,6 +102,12 @@ class TestCaseSchema:
         router.add_route("/custom-component/", endpoint=get, methods=["GET"])
         app_.mount("/mount", router)
 
+        nested_router = Router()
+        nested_router.add_route("/nested-component/", endpoint=get, methods=["GET"])
+        mounted_router = Router()
+        mounted_router.mount('/mount', nested_router)
+        app_.mount("/nested", mounted_router)
+
         return app_
 
     @pytest.fixture
@@ -187,6 +193,18 @@ class TestCaseSchema:
 
     def test_schema_output_schema_using_mount(self, app):
         schema = app.schema["paths"]["/mount/custom-component/"]["get"]
+        parameters = schema.get("parameters")
+        response = schema.get("responses", {}).get("200", {})
+
+        assert schema["description"] == "Custom component."
+        assert parameters is None
+        assert response == {
+            "description": "Component.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
+        }
+
+    def test_schema_output_schema_using_nested_mount(self, app):
+        schema = app.schema["paths"]["/nested/mount/nested-component/"]["get"]
         parameters = schema.get("parameters")
         response = schema.get("responses", {}).get("200", {})
 
