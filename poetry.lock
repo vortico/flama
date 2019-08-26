@@ -3,7 +3,7 @@ category = "main"
 description = "Asyncio support for PEP-567 contextvars backport."
 marker = "python_version < \"3.7\""
 name = "aiocontextvars"
-optional = false
+optional = true
 python-versions = ">=3.5"
 version = "0.2.2"
 
@@ -15,7 +15,6 @@ version = "2.4"
 [[package]]
 category = "dev"
 description = "asyncio bridge to the standard sqlite3 module"
-marker = "extra == \"sqlite\""
 name = "aiosqlite"
 optional = false
 python-versions = ">=3.5"
@@ -36,14 +35,6 @@ name = "apispec"
 optional = false
 python-versions = "*"
 version = "1.3.3"
-
-[package.extras]
-dev = ["PyYAML (>=3.10)", "prance (>=0.11)", "marshmallow (>=2.19.2)", "pytest", "mock", "flake8 (3.7.7)", "pre-commit (1.15.2)", "tox", "flake8-bugbear (19.3.0)"]
-lint = ["flake8 (3.7.7)", "pre-commit (1.15.2)", "flake8-bugbear (19.3.0)"]
-tests = ["PyYAML (>=3.10)", "prance (>=0.11)", "marshmallow (>=2.19.2)", "pytest", "mock"]
-validation = ["prance (>=0.11)"]
-webframeworks-tests = ["apispec-webframeworks (>=0.3.0)"]
-yaml = ["PyYAML (>=3.10)"]
 
 [[package]]
 category = "dev"
@@ -78,11 +69,6 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "19.1.0"
 
-[package.extras]
-dev = ["coverage", "hypothesis", "pympler", "pytest", "six", "zope.interface", "sphinx", "pre-commit"]
-docs = ["sphinx", "zope.interface"]
-tests = ["coverage", "hypothesis", "pympler", "pytest", "six", "zope.interface"]
-
 [[package]]
 category = "dev"
 description = "Specifications for callback functions passed in to an API"
@@ -104,9 +90,6 @@ appdirs = "*"
 attrs = ">=18.1.0"
 click = ">=6.5"
 toml = ">=0.9.4"
-
-[package.extras]
-d = ["aiohttp (>=3.3.2)", "aiohttp-cors"]
 
 [[package]]
 category = "dev"
@@ -168,7 +151,7 @@ category = "main"
 description = "PEP 567 Backport"
 marker = "python_version < \"3.7\""
 name = "contextvars"
-optional = false
+optional = true
 python-versions = "*"
 version = "2.4"
 
@@ -187,7 +170,7 @@ version = "4.5.4"
 category = "main"
 description = "Async database support for Python."
 name = "databases"
-optional = false
+optional = true
 python-versions = ">=3.6"
 version = "0.2.5"
 
@@ -197,15 +180,6 @@ sqlalchemy = "*"
 [package.dependencies.aiocontextvars]
 python = "<3.7"
 version = "*"
-
-[package.dependencies.aiosqlite]
-optional = true
-version = "*"
-
-[package.extras]
-mysql = ["aiomysql", "pymysql"]
-postgresql = ["asyncpg", "psycopg2-binary"]
-sqlite = ["aiosqlite"]
 
 [[package]]
 category = "dev"
@@ -286,7 +260,7 @@ category = "main"
 description = "Immutable Collections"
 marker = "python_version < \"3.7\""
 name = "immutables"
-optional = false
+optional = true
 python-versions = "*"
 version = "0.9"
 
@@ -300,10 +274,6 @@ version = "0.19"
 
 [package.dependencies]
 zipp = ">=0.5"
-
-[package.extras]
-docs = ["sphinx", "rst.linker"]
-testing = ["importlib-resources"]
 
 [[package]]
 category = "dev"
@@ -342,17 +312,6 @@ setuptools = ">=18.5"
 simplegeneric = ">0.8"
 traitlets = ">=4.2"
 
-[package.extras]
-all = ["requests", "nbformat", "ipykernel", "ipyparallel", "qtconsole", "testpath", "pygments", "notebook", "nose (>=0.10.1)", "Sphinx (>=1.3)", "ipywidgets", "nbconvert"]
-doc = ["Sphinx (>=1.3)"]
-kernel = ["ipykernel"]
-nbconvert = ["nbconvert"]
-nbformat = ["nbformat"]
-notebook = ["notebook", "ipywidgets"]
-parallel = ["ipyparallel"]
-qtconsole = ["qtconsole"]
-test = ["nose (>=0.10.1)", "requests", "testpath", "pygments", "nbformat", "ipykernel", "numpy"]
-
 [[package]]
 category = "dev"
 description = "Vestigial utilities from IPython"
@@ -369,12 +328,6 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "4.3.21"
 
-[package.extras]
-pipfile = ["pipreqs", "requirementslib"]
-pyproject = ["toml"]
-requirements = ["pipreqs", "pip-api"]
-xdg_home = ["appdirs (>=1.4.0)"]
-
 [[package]]
 category = "dev"
 description = "An autocompletion tool for Python that can be used for text editors."
@@ -386,9 +339,6 @@ version = "0.15.1"
 [package.dependencies]
 parso = ">=0.5.0"
 
-[package.extras]
-testing = ["colorama", "docopt", "pytest (>=3.1.0,<5.0.0)"]
-
 [[package]]
 category = "dev"
 description = "A small but fast and easy to use stand-alone template engine written in pure python."
@@ -399,9 +349,6 @@ version = "2.10.1"
 
 [package.dependencies]
 MarkupSafe = ">=0.23"
-
-[package.extras]
-i18n = ["Babel (>=0.8)"]
 
 [[package]]
 category = "dev"
@@ -434,9 +381,6 @@ version = "3.1.1"
 [package.dependencies]
 setuptools = ">=36"
 
-[package.extras]
-testing = ["coverage", "pyyaml"]
-
 [[package]]
 category = "dev"
 description = "Safely add untrusted strings to HTML/XML markup."
@@ -452,12 +396,6 @@ name = "marshmallow"
 optional = false
 python-versions = ">=3.5"
 version = "3.0.1"
-
-[package.extras]
-dev = ["pytest", "pytz", "simplejson", "flake8 (3.7.8)", "flake8-bugbear (19.8.0)", "pre-commit (>=1.17,<2.0)", "tox"]
-docs = ["sphinx (2.2.0)", "sphinx-issues (1.2.0)", "alabaster (0.7.12)", "sphinx-version-warning (1.1.2)"]
-lint = ["flake8 (3.7.8)", "flake8-bugbear (19.8.0)", "pre-commit (>=1.17,<2.0)"]
-tests = ["pytest", "pytz", "simplejson"]
 
 [[package]]
 category = "dev"
@@ -539,9 +477,6 @@ optional = false
 python-versions = "*"
 version = "0.5.1"
 
-[package.extras]
-testing = ["docopt", "pytest (>=3.0.7)"]
-
 [[package]]
 category = "dev"
 description = "Pexpect allows easy control of interactive console applications."
@@ -572,9 +507,6 @@ version = "0.12.0"
 
 [package.dependencies]
 importlib-metadata = ">=0.12"
-
-[package.extras]
-dev = ["pre-commit", "tox"]
 
 [[package]]
 category = "dev"
@@ -671,9 +603,6 @@ wcwidth = "*"
 python = ">=2.8"
 version = ">=4.0.0"
 
-[package.extras]
-testing = ["argcomplete", "hypothesis (>=3.56)", "nose", "requests", "mock"]
-
 [[package]]
 category = "dev"
 description = "Pytest support for asyncio."
@@ -684,9 +613,6 @@ version = "0.10.0"
 
 [package.dependencies]
 pytest = ">=3.0.6"
-
-[package.extras]
-testing = ["async-generator (>=1.3)", "coverage", "hypothesis (>=3.64)"]
 
 [[package]]
 category = "dev"
@@ -699,9 +625,6 @@ version = "2.7.1"
 [package.dependencies]
 coverage = ">=4.4"
 pytest = ">=3.6"
-
-[package.extras]
-testing = ["fields", "hunter", "process-tests (2.0.2)", "six", "virtualenv"]
 
 [[package]]
 category = "dev"
@@ -728,9 +651,6 @@ pytest = ">=4.4.0"
 pytest-forked = "*"
 six = "*"
 
-[package.extras]
-testing = ["filelock"]
-
 [[package]]
 category = "main"
 description = "forge (python signatures)"
@@ -738,11 +658,6 @@ name = "python-forge"
 optional = false
 python-versions = "*"
 version = "18.6.0"
-
-[package.extras]
-dev = ["coverage", "mypy", "pylint", "pytest", "sphinx", "sphinx-autodoc-typehints", "sphinx-paramlinks"]
-docs = ["sphinx (>=1.7.4)", "docutils", "requests", "sphinx-paramlinks"]
-testing = ["coverage", "mypy", "pylint", "pytest"]
 
 [[package]]
 category = "dev"
@@ -777,10 +692,6 @@ chardet = ">=3.0.2,<3.1.0"
 idna = ">=2.5,<2.9"
 urllib3 = ">=1.21.1,<1.25.0 || >1.25.0,<1.25.1 || >1.25.1,<1.26"
 
-[package.extras]
-security = ["pyOpenSSL (>=0.14)", "cryptography (>=1.3.4)", "idna (>=2.0.0)"]
-socks = ["PySocks (>=1.5.6,<1.5.7 || >1.5.7)", "win-inet-pton"]
-
 [[package]]
 category = "dev"
 description = "Simple generic functions (similar to Python's own len(), pickle.dump(), etc.)"
@@ -805,18 +716,6 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "1.3.7"
 
-[package.extras]
-mssql = ["pyodbc"]
-mssql_pymssql = ["pymssql"]
-mssql_pyodbc = ["pyodbc"]
-mysql = ["mysqlclient"]
-oracle = ["cx-oracle"]
-postgresql = ["psycopg2"]
-postgresql_pg8000 = ["pg8000"]
-postgresql_psycopg2binary = ["psycopg2-binary"]
-postgresql_psycopg2cffi = ["psycopg2cffi"]
-pymysql = ["pymysql"]
-
 [[package]]
 category = "dev"
 description = "Various utility functions for SQLAlchemy."
@@ -829,22 +728,6 @@ version = "0.33.11"
 SQLAlchemy = ">=1.0"
 six = "*"
 
-[package.extras]
-anyjson = ["anyjson (>=0.3.3)"]
-arrow = ["arrow (>=0.3.4)"]
-babel = ["Babel (>=1.3)"]
-color = ["colour (>=0.0.4)"]
-encrypted = ["cryptography (>=0.6)"]
-enum = ["enum34"]
-intervals = ["intervals (>=0.7.1)"]
-ipaddress = ["ipaddr"]
-password = ["passlib (>=1.6,<2.0)"]
-phone = ["phonenumbers (>=5.9.2)"]
-test = ["pytest (>=2.7.1)", "Pygments (>=1.2)", "Jinja2 (>=2.3)", "docutils (>=0.10)", "flexmock (>=0.9.7)", "mock (2.0.0)", "psycopg2 (>=2.5.1)", "pg8000 (>=1.12.4)", "pytz (>=2014.2)", "python-dateutil (>=2.2)", "pymysql", "flake8 (>=2.4.0)", "isort (>=4.2.2)", "pyodbc"]
-test_all = ["anyjson (>=0.3.3)", "arrow (>=0.3.4)", "Babel (>=1.3)", "colour (>=0.0.4)", "cryptography (>=0.6)", "enum34", "intervals (>=0.7.1)", "ipaddr", "passlib (>=1.6,<2.0)", "phonenumbers (>=5.9.2)", "pytest (>=2.7.1)", "Pygments (>=1.2)", "Jinja2 (>=2.3)", "docutils (>=0.10)", "flexmock (>=0.9.7)", "mock (2.0.0)", "psycopg2 (>=2.5.1)", "pg8000 (>=1.12.4)", "pytz (>=2014.2)", "python-dateutil (>=2.2)", "pymysql", "flake8 (>=2.4.0)", "isort (>=4.2.2)", "pyodbc", "python-dateutil", "furl (>=0.4.1)"]
-timezone = ["python-dateutil"]
-url = ["furl (>=0.4.1)"]
-
 [[package]]
 category = "main"
 description = "The little ASGI library that shines."
@@ -852,9 +735,6 @@ name = "starlette"
 optional = false
 python-versions = ">=3.6"
 version = "0.12.8"
-
-[package.extras]
-full = ["aiofiles", "graphene", "itsdangerous", "jinja2", "python-multipart", "pyyaml", "requests", "ujson"]
 
 [[package]]
 category = "dev"
@@ -885,9 +765,6 @@ decorator = "*"
 ipython-genutils = "*"
 six = "*"
 
-[package.extras]
-test = ["pytest", "mock"]
-
 [[package]]
 category = "dev"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
@@ -895,11 +772,6 @@ name = "urllib3"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, <4"
 version = "1.25.3"
-
-[package.extras]
-brotli = ["brotlipy (>=0.6.0)"]
-secure = ["pyOpenSSL (>=0.14)", "cryptography (>=1.3.4)", "idna (>=2.0.0)", "certifi", "ipaddress"]
-socks = ["PySocks (>=1.5.6,<1.5.7 || >1.5.7,<2.0)"]
 
 [[package]]
 category = "dev"
@@ -952,15 +824,14 @@ version = "0.6.0"
 [package.dependencies]
 more-itertools = "*"
 
-[package.extras]
-docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
-testing = ["pathlib2", "contextlib2", "unittest2"]
-
 [extras]
-full = ["apispec", "pyyaml", "python-forge", "sqlalchemy", "databases"]
+full = ["apispec", "pyyaml", "python-forge", "databases"]
+pagination = ["python-forge"]
+resources = ["databases"]
+schema = ["apispec", "pyyaml"]
 
 [metadata]
-content-hash = "e02a5340e7930a40f2c2fdb8b2934b49ef45df139207b6b2fdc780d20dcfe830"
+content-hash = "aab64b5be862a807380a5f41f961bdb838038e6240d424b840f9290325369b22"
 python-versions = "^3.6"
 
 [metadata.hashes]
