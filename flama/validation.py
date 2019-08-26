@@ -25,7 +25,7 @@ def get_output_schema(func):
     return None
 
 
-def output_validation(error_cls=exceptions.OutputValidationError, error_status_code=500):
+def output_validation(error_cls=exceptions.ValidationError, error_status_code=500):
     """
     Validate view output using schema annotated as function's return.
 
@@ -43,12 +43,14 @@ def output_validation(error_cls=exceptions.OutputValidationError, error_status_c
             response = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
 
             try:
-                # Use output schema to first deserialize the date and later validate it
+                # Use output schema to validate the data
                 errors = schema.validate(schema.dump(response))
                 if errors:
                     raise error_cls(detail=errors, status_code=error_status_code)
             except marshmallow.ValidationError as e:
                 raise error_cls(detail=e.messages, status_code=error_status_code)
+            except Exception:
+                raise error_cls(detail="Error serializing response before validation", status_code=error_status_code)
 
             return response
 

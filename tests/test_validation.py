@@ -35,16 +35,16 @@ def validate_many_products() -> Product(many=True):
     ]
 
 
-@app.route("/deserialization-error")
+@app.route("/serialization-error")
 @output_validation()
-def validate_deserialization_error() -> Product:
+def validate_serialization_error() -> Product:
     return {"rating": "foo", "created": "bar"}
 
 
 @app.route("/validation-error")
 @output_validation()
 def output_validation_error() -> Product:
-    return {"foo": "bar"}
+    return {"name": "foo", "rating": -1}
 
 
 @app.route("/custom-error")
@@ -86,22 +86,22 @@ class TestCaseMarshmallowSchemaValidateOutput:
         body = response.json()
         assert body == products
 
-    def test_deserialization_error(self, client):
+    def test_serialization_error(self, client):
         expected_response = {
-            "detail": {"created": ['"bar" cannot be formatted as a datetime.'], "rating": ["Not a valid integer."]},
-            "error": "OutputValidationError",
+            "detail": "Error serializing response before validation",
+            "error": "ValidationError",
             "status_code": 500,
         }
 
-        response = client.get("/deserialization-error")
+        response = client.get("/serialization-error")
 
         assert response.status_code == 500
         assert response.json() == expected_response
 
     def test_validation_error(self, client):
         expected_response = {
-            "detail": {"name": ["Missing data for required field."]},
-            "error": "OutputValidationError",
+            "detail": "Error serializing response before validation",
+            "error": "ValidationError",
             "status_code": 500,
         }
 
@@ -112,7 +112,7 @@ class TestCaseMarshmallowSchemaValidateOutput:
 
     def test_custom_error(self, client):
         expected_response = {
-            "detail": {"created": ['"bar" cannot be formatted as a datetime.'], "rating": ["Not a valid integer."]},
+            "detail": "Error serializing response before validation",
             "error": "ValidationError",
             "status_code": 502,
         }
