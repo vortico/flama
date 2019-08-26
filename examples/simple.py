@@ -50,9 +50,11 @@ app = Flama(
     title="Puppy Register",  # API title
     version="0.1",  # API version
     description="A register of puppies",  # API description
+    schema="/schema/",  # Path to expose OpenAPI schema
+    docs="/docs/",  # Path to expose SwaggerUI application
+    redoc="/redoc/",  # Path to expose ReDoc application
 )
 
-app.add_route("/", home, methods=["GET"])
 app.add_route("/puppy/", list_puppies, methods=["GET"])
 app.add_route("/puppy/", create_puppy, methods=["POST"])
 
