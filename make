@@ -50,7 +50,7 @@ def poetry(*args) -> typing.List[str]:
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Install requirements"})
 def install(*args, **kwargs):
-    return [poetry("install", *args)]
+    return [poetry("install", "--develop", "databases", *args)]
 
 
 @command(command_type=Type.PYTHON, parser_opts={"help": "Clean directory"})
