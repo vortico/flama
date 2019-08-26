@@ -1,6 +1,6 @@
 # Project information
 site_name: Flama
-site_description: "API power up for Flama"
+site_description: "Fire up your API with this flamethrower"
 site_author: "José Antonio Perdiguero López"
 site_url: "https://flama.perdy.io/"
 
@@ -13,19 +13,25 @@ repo_url: "https://github.com/perdy/flama"
 edit_uri: ""
 
 nav:
-    - Home: index.md
+  - Home: index.md
+  - Applications: applications.md
+  - API Schema: api_schema.md
+  - Views: views.md
+  - Pagination: pagination.md
+  - Components: components.md
+  - Resources: resources.md
 
 # Theme configuration
 theme:
-    name: material
-    palette:
-        primary: "deep orange"
-        accent: "blue"
-    font:
-        text: "Fira Sans"
-        code: "Fira Mono"
-    logo: "images/icon.png"
-    favicon: "images/favicon.png"
+  name: material
+  palette:
+    primary: "deep orange"
+    accent: "blue"
+  font:
+    text: "Fira Sans"
+    code: "Fira Mono"
+  logo: "images/icon.png"
+  favicon: "images/favicon.png"
 
 # Customization
 extra:
