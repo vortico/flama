@@ -2,7 +2,7 @@ import datetime
 
 import marshmallow
 import pytest
-from marshmallow import ValidationError, validate
+from marshmallow import validate
 from starlette.testclient import TestClient
 
 from flama.applications.flama import Flama
@@ -121,5 +121,5 @@ class TestCaseSchemaValidation:
         assert body == products
 
     def test_serialization_error(self, client):
-        with pytest.raises(ValidationError):
-            client.get("/serialization-error")
+        response = client.get("/serialization-error")
+        assert response.json() == {"detail": "Internal Server Error", "error": "SerializationError", "status_code": 500}

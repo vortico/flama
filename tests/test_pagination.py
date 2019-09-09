@@ -54,39 +54,13 @@ class TestPageNumberResponse:
         ]
 
     def test_pagination_schema_return(self, app):
-        response_schema = app.schema["paths"]["/page-number/"]["get"]["responses"][200]
+        response_schema = app.schema["paths"]["/page-number/"]["get"]["responses"]["200"]
         component_schema = app.schema["components"]["schemas"]["PageNumberPaginatedOutputSchema"]
 
         assert component_schema == {
             "properties": {
-                "data": {
-                    "items": {"properties": {"value": {"format": "int32", "type": "integer"}}, "type": "object"},
-                    "type": "array",
-                },
-                "meta": {
-                    "properties": {
-                        "count": {
-                            "description": "Total number of items",
-                            "format": "int32",
-                            "nullable": True,
-                            "title": "count",
-                            "type": "integer",
-                        },
-                        "page": {
-                            "description": "Current page number",
-                            "format": "int32",
-                            "title": "page",
-                            "type": "integer",
-                        },
-                        "page_size": {
-                            "description": "Page size",
-                            "format": "int32",
-                            "title": "page_size",
-                            "type": "integer",
-                        },
-                    },
-                    "type": "object",
-                },
+                "data": {"items": {"$ref": "#/components/schemas/Output"}, "type": "array"},
+                "meta": {"$ref": "#/components/schemas/PageNumberMeta"},
             },
             "type": "object",
         }
@@ -195,40 +169,14 @@ class TestLimitOffsetResponse:
         ]
 
     def test_pagination_schema_return(self, app):
-        response_schema = app.schema["paths"]["/limit-offset/"]["get"]["responses"][200]
+        response_schema = app.schema["paths"]["/limit-offset/"]["get"]["responses"]["200"]
         component_schema = app.schema["components"]["schemas"]["LimitOffsetPaginatedOutputSchema"]
 
         assert component_schema == {
             "type": "object",
             "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {"type": "object", "properties": {"value": {"type": "integer", "format": "int32"}}},
-                },
-                "meta": {
-                    "type": "object",
-                    "properties": {
-                        "limit": {
-                            "type": "integer",
-                            "format": "int32",
-                            "title": "limit",
-                            "description": "Number of retrieved items",
-                        },
-                        "count": {
-                            "type": "integer",
-                            "format": "int32",
-                            "nullable": True,
-                            "title": "count",
-                            "description": "Total number of items",
-                        },
-                        "offset": {
-                            "type": "integer",
-                            "format": "int32",
-                            "title": "offset",
-                            "description": "Collection offset",
-                        },
-                    },
-                },
+                "data": {"items": {"$ref": "#/components/schemas/Output"}, "type": "array"},
+                "meta": {"$ref": "#/components/schemas/LimitOffsetMeta"},
             },
         }
 

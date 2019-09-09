@@ -2,7 +2,7 @@
   <a href="https://flama.perdy.io"><img src="https://raw.githubusercontent.com/perdy/flama/master/docs/images/logo.png" alt='Flama'></a>
 </p>
 <p align="center">
-    <em>Fire up your API with this flamethrower.</em>
+    &#128293; <em>Fire up your API with this flamethrower.</em>
 </p>
 <p align="center">
 <a href="https://circleci.com/gh/perdy/flama">
@@ -45,8 +45,8 @@ necessary information to generate your API Schema.
 ## Requirements
 
 * [Python] 3.6+
-* [Starlette] 0.10+
-* [Marshmallow] 3.0+
+* [Starlette] 0.12.0+
+* [Marshmallow] 3.0.0+
 
 ## Installation
 
@@ -59,7 +59,7 @@ $ pip install flama
 ```python
 from marshmallow import Schema, fields, validate
 from flama.applications import Flama
-
+import uvicorn
 
 # Data Schema
 class Puppy(Schema):
@@ -114,6 +114,10 @@ def create_puppy(puppy: Puppy) -> Puppy:
     puppies.append(puppy)
     
     return puppy
+
+
+if __name__ == '__main__':
+    uvicorn.run(app, host='0.0.0.0', port=8000)
 ```
 
 ## Dependencies

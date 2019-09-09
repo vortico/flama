@@ -2,7 +2,7 @@
   <a href="https://flama.perdy.io"><img src="https://raw.githubusercontent.com/perdy/flama/master/docs/images/logo.png" alt='Flama'></a>
 </p>
 <p align="center">
-    <em>Fire up your API with this flamethrower.</em>
+    &#128293; <em>Fire up your API with this flamethrower.</em>
 </p>
 <p align="center">
 <a href="https://circleci.com/gh/perdy/flama">
@@ -45,8 +45,8 @@ necessary information to generate your API Schema.
 ## Requirements
 
 * [Python] 3.6+
-* [Starlette] 0.10+
-* [Marshmallow] 3.0+
+* [Starlette] 0.12.0+
+* [Marshmallow] 3.0.0+
 
 ## Installation
 

@@ -1,12 +1,10 @@
 import asyncio
-import typing
 
 from starlette import status
 from starlette.concurrency import run_in_threadpool
 from starlette.endpoints import HTTPEndpoint as BaseHTTPEndpoint
 from starlette.endpoints import WebSocketEndpoint as BaseWebSocketEndpoint
 from starlette.requests import Request
-from starlette.types import Receive, Send
 from starlette.websockets import WebSocket, WebSocketState
 
 from flama import exceptions
@@ -18,32 +16,25 @@ __all__ = ["HTTPEndpoint", "WebSocketEndpoint"]
 
 
 class HTTPEndpoint(BaseHTTPEndpoint):
-    async def __call__(self, receive: Receive, send: Send):
-        request = Request(self.scope, receive=receive)
+    async def dispatch(self) -> None:
+        request = Request(self.scope, receive=self.receive)
         app = self.scope["app"]
-        kwargs = self.scope.get("kwargs", {})
 
         route, route_scope = app.router.get_route_from_scope(self.scope)
 
         state = {
             "scope": self.scope,
-            "receive": receive,
-            "send": send,
+            "receive": self.receive,
+            "send": self.send,
             "exc": None,
             "app": app,
             "path_params": route_scope["path_params"],
             "route": route,
             "request": request,
         }
-        response = await self.dispatch(request, state, **kwargs)
-
-        return await response(receive, send)
-
-    async def dispatch(self, request: Request, state: typing.Dict, **kwargs) -> Response:
         handler_name = "get" if request.method == "HEAD" else request.method.lower()
         handler = getattr(self, handler_name, self.method_not_allowed)
 
-        app = state["app"]
         injected_func = await app.injector.inject(handler, state)
         if asyncio.iscoroutinefunction(handler):
             response = await injected_func()
@@ -58,20 +49,20 @@ class HTTPEndpoint(BaseHTTPEndpoint):
         elif response is None:
             response = APIResponse(content="")
 
-        return response
+        await response(self.scope, self.receive, self.send)
 
 
 class WebSocketEndpoint(BaseWebSocketEndpoint):
-    async def __call__(self, receive: Receive, send: Send) -> None:
+    async def dispatch(self) -> None:
         app = self.scope["app"]
-        websocket = WebSocket(self.scope, receive, send)
+        websocket = WebSocket(self.scope, self.receive, self.send)
 
         route, route_scope = app.router.get_route_from_scope(self.scope)
 
         state = {
             "scope": self.scope,
-            "receive": receive,
-            "send": send,
+            "receive": self.receive,
+            "send": self.send,
             "exc": None,
             "app": app,
             "path_params": route_scope["path_params"],

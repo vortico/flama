@@ -697,7 +697,7 @@ class TestCaseResource:
 
             name = "custom_id_datetime"
 
-        now = datetime.datetime.utcnow().replace(microsecond=0, tzinfo=datetime.timezone.utc)
+        now = datetime.datetime.utcnow().replace(microsecond=0, tzinfo=None)
         data = {"custom_id": now.isoformat(), "name": "foo"}
         expected_result = data.copy()
 

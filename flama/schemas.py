@@ -23,7 +23,7 @@ __all__ = ["OpenAPIResponse", "SchemaGenerator"]
 
 
 if yaml is not None and apispec is not None:
-    from apispec.core import YAMLDumper as BaseYAMLDumper
+    from apispec.yaml_utils import YAMLDumper as BaseYAMLDumper
 
     class YAMLDumper(BaseYAMLDumper):
         def ignore_aliases(self, data):
@@ -40,21 +40,24 @@ class OpenAPIResponse(schemas.OpenAPIResponse):
 
 
 class SchemaRegistry(dict):
-    def __init__(self, spec: apispec.APISpec, *args, **kwargs):
+    def __init__(self, spec, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.spec = spec
         self.openapi = self.spec.plugins[0].openapi
 
     def __getitem__(self, item):
+        is_class = inspect.isclass(item)
+        schema_class = item if is_class else item.__class__
+
         try:
-            schema = super().__getitem__(item)
+            schema = super().__getitem__(schema_class)
         except KeyError:
-            component_schema = item if inspect.isclass(item) else item.__class__
+            self.spec.components.schema(name=schema_class.__name__, schema=schema_class)
+            schema = self.openapi.resolve_schema_dict(schema_class)
+            super().__setitem__(schema_class, schema)
 
-            self.spec.definition(name=component_schema.__name__, schema=component_schema)
-
+        if not is_class:
             schema = self.openapi.resolve_schema_dict(item)
-            super().__setitem__(item, schema)
 
         return schema
 
@@ -141,21 +144,8 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
         ]
 
     def _add_endpoint_body(self, endpoint: EndpointInfo, schema: typing.Dict):
-        component_schema = (
-            endpoint.body_field.schema
-            if inspect.isclass(endpoint.body_field.schema)
-            else endpoint.body_field.schema.__class__
-        )
-
-        self.spec.definition(name=component_schema.__name__, schema=component_schema)
-
         dict_safe_add(
-            schema,
-            self.openapi.schema2jsonschema(endpoint.body_field.schema),
-            "requestBody",
-            "content",
-            "application/json",
-            "schema",
+            schema, self.schemas[endpoint.body_field.schema], "requestBody", "content", "application/json", "schema"
         )
 
     def _add_endpoint_response(self, endpoint: EndpointInfo, schema: typing.Dict):
@@ -207,6 +197,6 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
         endpoints_info = self.get_endpoints(routes)
 
         for path, endpoints in endpoints_info.items():
-            self.spec.add_path(path=path, operations={e.method: self.get_endpoint_schema(e) for e in endpoints})
+            self.spec.path(path=path, operations={e.method: self.get_endpoint_schema(e) for e in endpoints})
 
         return self.spec.to_dict()
