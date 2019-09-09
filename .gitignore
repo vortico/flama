@@ -27,10 +27,19 @@ var/
 pip-wheel-metadata/
 .python-version
 
-# Admin FE distribution / packaging
-admin/node_modules
-admin/build
-admin/bundle
+# Admin Client distribution / packaging
+admin-client/node_modules
+admin-client/build
+admin-client/.pnp
+admin-client/.pnp.js
+admin-client/.env.local
+admin-client/.env.development.local
+admin-client/.env.test.local
+admin-client/.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Installer logs
 pip-log.txt
