@@ -4,6 +4,7 @@
   "description": "Flama Admin Client Panel",
   "private": true,
   "dependencies": {
+    "ra-jsonapi-client": "^0.5.0",
     "react": "^16.9.0",
     "react-admin": "^2.9.6",
     "react-dom": "^16.9.0",
