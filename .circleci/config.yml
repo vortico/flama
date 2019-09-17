@@ -57,7 +57,7 @@ jobs:
       - run:
           name: install
           command: |
-            sudo pip install clinner
+            sudo pip install clinner pip poetry --upgrade
             python make install
       - run:
           name: black

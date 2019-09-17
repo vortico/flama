@@ -3,6 +3,8 @@ import typing
 import marshmallow
 from starlette.responses import JSONResponse
 
+from flama.exceptions import SerializationError
+
 __all__ = ["APIResponse", "APIErrorResponse", "APIError"]
 
 
@@ -21,8 +23,11 @@ class APIResponse(JSONResponse):
 
     def render(self, content: typing.Any):
         # Use output schema to validate and format data
-        if self.schema is not None:
-            content = self.schema.dump(content)
+        try:
+            if self.schema is not None:
+                content = self.schema.dump(content)
+        except Exception:
+            raise SerializationError(status_code=500)
 
         return super().render(content)
 
