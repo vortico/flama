@@ -1,0 +1,24 @@
+name: Update docs
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  docs:
+    name: Update docs
+    runs-on: ubuntu-latest
+    container:
+      image: perdy/github-actions-builder:latest
+    steps:
+      - uses: actions/checkout@master
+      - id: install
+        name: Install requirements
+        run: python make install
+      - id: build_docs
+        name: Update docs
+        run: |
+          git config user.name "José Antonio Perdiguero López"
+          git config user.email "perdy@perdy.io"
+          python make docs gh-deploy -m "[skip ci] Deployed {sha} with MkDocs version: {version}" --force
