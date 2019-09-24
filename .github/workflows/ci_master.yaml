@@ -1,4 +1,4 @@
-name: Continuous Integration (master)
+name: Continuous Integration
 
 on:
   push:

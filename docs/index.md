@@ -5,8 +5,11 @@
     &#128293; <em>Fire up your API with this flamethrower.</em>
 </p>
 <p align="center">
-<a href="https://circleci.com/gh/perdy/flama">
-    <img src="https://img.shields.io/circleci/project/github/perdy/flama/master.svg" alt="Build Status">
+<a href="https://github.com/perdy/flama/actions">
+    <img src="https://github.com/perdy/flama/workflows/Continuous%20Integration/badge.svg" alt="CI Status">
+</a>
+<a href="https://github.com/perdy/flama/actions">
+    <img src="https://github.com/perdy/flama/workflows/Publish%20Docs/badge.svg" alt="Docs Status">
 </a>
 <a href="https://codecov.io/gh/perdy/flama">
     <img src="https://codecov.io/gh/perdy/flama/branch/master/graph/badge.svg" alt="Coverage">
