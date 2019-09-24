@@ -15,7 +15,10 @@
     <img src="https://codecov.io/gh/perdy/flama/branch/master/graph/badge.svg" alt="Coverage">
 </a>
 <a href="https://pypi.org/project/flama/">
-    <img src="https://badge.fury.io/py/flama.svg" alt="Package version">
+    <img src="https://img.shields.io/pypi/v/flama?logo=PyPI&logoColor=white" alt="Package version">
+</a>
+<a href="https://pypi.org/project/flama/">
+    <img src="https://img.shields.io/pypi/pyversions/flama?logo=Python&logoColor=white" alt="PyPI - Python Version">
 </a>
 </p>
 
