@@ -3,6 +3,7 @@ name: Continuous Integration (Branch)
 on:
   push:
     branches:
+      - "*"
       - "!master"
   pull_request:
     types: [opened, synchronize, reopened]
