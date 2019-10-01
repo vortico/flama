@@ -16,10 +16,10 @@ nav:
   - Home: index.md
   - Applications: applications.md
   - API Schema: api_schema.md
-  - Views: views.md
-  - Pagination: pagination.md
-  - Components: components.md
-  - Resources: resources.md
+#  - Views: views.md
+#  - Pagination: pagination.md
+#  - Components: components.md
+#  - Resources: resources.md
 
 # Theme configuration
 theme:
@@ -43,6 +43,7 @@ extra:
 
 # Extensions
 markdown_extensions:
+  - admonition
   - toc:
       permalink: true
   - meta
