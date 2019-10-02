@@ -150,7 +150,7 @@ This project is absolutely open to contributions so if you have a nice idea, cre
 discuss it.
 
 [Python]: https://www.python.org
-[Starlette]: https://starlette.io
+[Starlette]: https://www.starlette.io
 [APIStar]: https://github.com/encode/apistar/tree/version-0.5.x
 [Marshmallow]: https://marshmallow.readthedocs.io/
 [Swagger UI]: https://swagger.io/tools/swagger-ui/
