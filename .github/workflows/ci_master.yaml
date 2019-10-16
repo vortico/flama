@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: [3.6, 3.7]
+        python: [3.6, 3.7, 3.8]
     container:
       image: python:${{ matrix.python }}
     steps:
@@ -39,7 +39,7 @@ jobs:
         name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1.0.2
         # Run on a specific python version and only master branch commits
-        if: matrix.python == 3.7 && github.event_name == 'push' && github.ref == 'refs/heads/master'
+        if: matrix.python == 3.8 && github.event_name == 'push' && github.ref == 'refs/heads/master'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: test-results/coverage.xml
