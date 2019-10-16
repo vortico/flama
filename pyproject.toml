@@ -43,6 +43,7 @@ mkdocs-material = "^4.0"
 black = {version = "^19.3b0",allows-prereleases = true}
 uvicorn = "^0.9"
 aiosqlite = "^0.10.0"
+requests = "^2.22.0"
 
 [tool.poetry.extras]
 full = ["apispec","pyyaml","python-forge","sqlalchemy","databases"]
