@@ -104,7 +104,7 @@ def list_puppies(name: str = None) -> Puppy(many=True):
         200:
             description: List puppies.
     """
-    return [puppy for puppy in puppies if puppy["name"] == name]
+    return [puppy for puppy in puppies if name in (puppy["name"], None)]
     
 
 @app.route("/", methods=["POST"])
