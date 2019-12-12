@@ -44,10 +44,10 @@ class OpenAPIResponse(schemas.OpenAPIResponse):
 
 
 class SchemaRegistry(dict):
-    def __init__(self, spec, *args, **kwargs):
+    def __init__(self, spec, resolver, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.spec = spec
-        self.openapi = self.spec.plugins[0].openapi
+        self.resolver = resolver
 
     def __getitem__(self, item):
         is_class = inspect.isclass(item)
@@ -57,11 +57,11 @@ class SchemaRegistry(dict):
             schema = super().__getitem__(schema_class)
         except KeyError:
             self.spec.components.schema(name=schema_class.__name__, schema=schema_class)
-            schema = self.openapi.resolve_schema_dict(schema_class)
+            schema = self.resolver.resolve_schema_dict(schema_class)
             super().__setitem__(schema_class, schema)
 
         if not is_class:
-            schema = self.openapi.resolve_schema_dict(item)
+            schema = self.resolver.resolve_schema_dict(item)
 
         return schema
 
@@ -72,17 +72,20 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
 
         from apispec.ext.marshmallow import MarshmallowPlugin
 
+        marshmallow_plugin = MarshmallowPlugin()
         self.spec = apispec.APISpec(
             title=title,
             version=version,
             openapi_version=openapi_version,
             info={"description": description},
-            plugins=[MarshmallowPlugin()],
+            plugins=[marshmallow_plugin],
         )
-        self.openapi = self.spec.plugins[0].openapi
+
+        self.converter = marshmallow_plugin.converter
+        self.resolver = marshmallow_plugin.resolver
 
         # Builtin definitions
-        self.schemas = SchemaRegistry(self.spec)
+        self.schemas = SchemaRegistry(self.spec, self.resolver)
 
     def get_endpoints(
         self, routes: typing.List[routing.BaseRoute], base_path: str = ""
@@ -143,7 +146,7 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
 
     def _add_endpoint_parameters(self, endpoint: EndpointInfo, schema: typing.Dict):
         schema["parameters"] = [
-            self.openapi.field2parameter(field.schema, name=field.name, default_in=field.location.name)
+            self.converter.field2parameter(field.schema, name=field.name, default_in=field.location.name)
             for field in itertools.chain(endpoint.query_fields.values(), endpoint.path_fields.values())
         ]
 
