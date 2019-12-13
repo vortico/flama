@@ -871,7 +871,7 @@ description = "The little ASGI library that shines."
 name = "starlette"
 optional = false
 python-versions = ">=3.6"
-version = "0.12.13"
+version = "0.13.0"
 
 [package.extras]
 full = ["aiofiles", "graphene", "itsdangerous", "jinja2", "python-multipart", "pyyaml", "requests", "ujson"]
@@ -992,7 +992,7 @@ resources = ["databases"]
 schema = ["apispec", "pyyaml"]
 
 [metadata]
-content-hash = "fafc59102b8614ec1b6fc2ee1a14047688f144f3178b39a2c6b3974e39b6906c"
+content-hash = "bd9c6398bdcfacf51d5522936b025d0c47d048ba5bccc4f22bfc2bd841d3e2d4"
 python-versions = "^3.6"
 
 [metadata.files]
@@ -1365,7 +1365,7 @@ sqlalchemy-utils = [
     {file = "SQLAlchemy-Utils-0.33.11.tar.gz", hash = "sha256:3f1cb542cf0549a0de508d4919f3ad693a36230bf4cd13fdd6253549fec71182"},
 ]
 starlette = [
-    {file = "starlette-0.12.13.tar.gz", hash = "sha256:9597bc28e3c4659107c1c4a45ec32dc45e947d78fe56230222be673b2c36454a"},
+    {file = "starlette-0.13.0.tar.gz", hash = "sha256:6bd414152d40d000ccbf6aa40ed89718b40868366a0f69fb83034f416303acef"},
 ]
 toml = [
     {file = "toml-0.10.0-py2.7.egg", hash = "sha256:f1db651f9657708513243e61e6cc67d101a39bad662eaa9b5546f789338e07a3"},
