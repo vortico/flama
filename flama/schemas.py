@@ -47,7 +47,8 @@ class SchemaRegistry(dict):
     def __init__(self, spec, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.spec = spec
-        self.openapi = self.spec.plugins[0].openapi
+        self.converter = self.spec.plugins[0].converter
+        self.resolver = self.spec.plugins[0].resolver
 
     def __getitem__(self, item):
         is_class = inspect.isclass(item)
@@ -57,11 +58,11 @@ class SchemaRegistry(dict):
             schema = super().__getitem__(schema_class)
         except KeyError:
             self.spec.components.schema(name=schema_class.__name__, schema=schema_class)
-            schema = self.openapi.resolve_schema_dict(schema_class)
+            schema = self.resolver.resolve_schema_dict(schema_class)
             super().__setitem__(schema_class, schema)
 
         if not is_class:
-            schema = self.openapi.resolve_schema_dict(item)
+            schema = self.resolver.resolve_schema_dict(item)
 
         return schema
 
@@ -79,7 +80,8 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
             info={"description": description},
             plugins=[MarshmallowPlugin()],
         )
-        self.openapi = self.spec.plugins[0].openapi
+        self.converter = self.spec.plugins[0].converter
+        self.resolver = self.spec.plugins[0].resolver
 
         # Builtin definitions
         self.schemas = SchemaRegistry(self.spec)
@@ -143,7 +145,7 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
 
     def _add_endpoint_parameters(self, endpoint: EndpointInfo, schema: typing.Dict):
         schema["parameters"] = [
-            self.openapi.field2parameter(field.schema, name=field.name, default_in=field.location.name)
+            self.converter.field2parameter(field.schema, name=field.name, default_in=field.location.name)
             for field in itertools.chain(endpoint.query_fields.values(), endpoint.path_fields.values())
         ]
 
