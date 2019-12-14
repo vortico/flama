@@ -24,8 +24,8 @@ jobs:
           pip install clinner pip poetry --upgrade
           python make install
       - id: black
-        name: Code format checking
-        run: python make black --check .
+        name: Code formatting
+        run: python make black .
       - id: isort
         name: Imports order checking
         run: python make isort --check-only
