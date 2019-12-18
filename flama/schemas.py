@@ -20,18 +20,17 @@ except Exception:  # pragma: no cover
 
 try:
     import yaml
-except Exception:  # pragma: no cover
-    yaml = None  # type: ignore
-
-__all__ = ["OpenAPIResponse", "SchemaGenerator", "SchemaMixin"]
-
-
-if yaml is not None and apispec is not None:
     from apispec.yaml_utils import YAMLDumper as BaseYAMLDumper
 
     class YAMLDumper(BaseYAMLDumper):
         def ignore_aliases(self, data):
             return True
+
+
+except Exception:  # pragma: no cover
+    yaml = None  # type: ignore
+
+__all__ = ["OpenAPIResponse", "SchemaGenerator", "SchemaMixin"]
 
 
 class OpenAPIResponse(schemas.OpenAPIResponse):

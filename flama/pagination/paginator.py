@@ -31,7 +31,7 @@ class Paginator:
         :param func: View to be decorated.
         :return: Decorated view.
         """
-        assert forge is not None, "`python-forge` must be installed to use OpenAPIResponse."
+        assert forge is not None, "`python-forge` must be installed to use Paginator."
 
         resource_schema = get_output_schema(func)
 
@@ -89,7 +89,7 @@ class Paginator:
         :param func: View to be decorated.
         :return: Decorated view.
         """
-        assert forge is not None, "`python-forge` must be installed to use OpenAPIResponse."
+        assert forge is not None, "`python-forge` must be installed to use Paginator."
 
         resource_schema = get_output_schema(func)
 

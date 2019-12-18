@@ -6,6 +6,7 @@ from starlette.routing import Mount
 from flama.applications import Flama
 from flama.components import Component
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
+from flama.resources import CRUDResource
 from flama.routing import Route, Router, WebSocketRoute
 
 
@@ -105,7 +106,7 @@ class TestCaseRouter:
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == foo
 
-    def test_add_route_websocket_endpoint(self, router):
+    def test_add_websocket_route_endpoint(self, router):
         @router.websocket_route("/")
         class FooEndpoint(WebSocketEndpoint):
             async def on_receive(self, websocket):
@@ -115,6 +116,49 @@ class TestCaseRouter:
         assert isinstance(router.routes[0], WebSocketRoute)
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == FooEndpoint
+
+    def test_add_resource(self, router, database, model, schema):
+        model_ = model
+        schema_ = schema
+        database_ = database
+
+        class PuppyResource(metaclass=CRUDResource):
+            database = database_
+            name = "puppy"
+            model = model_
+            schema = schema_
+
+        resource = PuppyResource()
+        router.add_resource("/", resource)
+
+        assert len(router.routes) == 4
+        assert [(route.path, route.methods, route.endpoint) for route in router.routes] == [
+            ("/puppy/", {"POST"}, resource.create),
+            ("/puppy/{element_id}/", {"GET", "HEAD"}, resource.retrieve),
+            ("/puppy/{element_id}/", {"PUT"}, resource.update),
+            ("/puppy/{element_id}/", {"DELETE"}, resource.delete),
+        ]
+
+    def test_add_resource_decorator(self, router, database, model, schema):
+        model_ = model
+        schema_ = schema
+        database_ = database
+
+        class PuppyResource(metaclass=CRUDResource):
+            database = database_
+            name = "puppy"
+            model = model_
+            schema = schema_
+
+        resource = router.resource("/")(PuppyResource())  # Apply decoration to an instance in order to check endpoints
+
+        assert len(router.routes) == 4
+        assert [(route.path, route.methods, route.endpoint) for route in router.routes] == [
+            ("/puppy/", {"POST"}, resource.create),
+            ("/puppy/{element_id}/", {"GET", "HEAD"}, resource.retrieve),
+            ("/puppy/{element_id}/", {"PUT"}, resource.update),
+            ("/puppy/{element_id}/", {"DELETE"}, resource.delete),
+        ]
 
     def test_mount_app(self, router, app_mock):
         router.mount("/app/", app=app_mock)

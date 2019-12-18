@@ -38,7 +38,7 @@ def validate_many_products() -> Product(many=True):
 @app.route("/serialization-error")
 @output_validation()
 def validate_serialization_error() -> Product:
-    return {"rating": "foo", "created": "bar"}
+    return {"name": "foo", "rating": "foo"}
 
 
 @app.route("/validation-error")
@@ -50,7 +50,7 @@ def output_validation_error() -> Product:
 @app.route("/custom-error")
 @output_validation(error_cls=exceptions.ValidationError, error_status_code=502)
 def validate_custom_error() -> Product:
-    return {"rating": "foo", "created": "bar"}
+    return {"name": "foo", "rating": -1}
 
 
 @pytest.fixture
@@ -88,7 +88,7 @@ class TestCaseMarshmallowSchemaValidateOutput:
 
     def test_serialization_error(self, client):
         expected_response = {
-            "detail": "Error serializing response before validation",
+            "detail": "Error serializing response before validation: invalid literal for int() with base 10: 'foo'",
             "error": "ValidationError",
             "status_code": 500,
         }
@@ -100,7 +100,7 @@ class TestCaseMarshmallowSchemaValidateOutput:
 
     def test_validation_error(self, client):
         expected_response = {
-            "detail": "Error serializing response before validation",
+            "detail": {"rating": ["Must be greater than or equal to 0 and less than or equal to 100."]},
             "error": "ValidationError",
             "status_code": 500,
         }
@@ -112,7 +112,7 @@ class TestCaseMarshmallowSchemaValidateOutput:
 
     def test_custom_error(self, client):
         expected_response = {
-            "detail": "Error serializing response before validation",
+            "detail": {"rating": ["Must be greater than or equal to 0 and less than or equal to 100."]},
             "error": "ValidationError",
             "status_code": 502,
         }

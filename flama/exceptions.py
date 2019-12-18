@@ -32,15 +32,25 @@ class ConfigurationError(Exception):
 
 
 class ComponentNotFound(ConfigurationError):
-    def __init__(self, parameter: str, resolver: typing.Optional[str] = None, *args, **kwargs):
+    def __init__(
+        self,
+        parameter: str,
+        component: typing.Optional[str] = None,
+        function: typing.Optional[str] = None,
+        *args,
+        **kwargs,
+    ):
         self.parameter = parameter
-        self.resolver = resolver
+        self.component = component
+        self.function = function
         super().__init__(*args, **kwargs)
 
     def __str__(self):
         msg = f'No component able to handle parameter "{self.parameter}"'
-        if self.resolver:
-            msg += f' in function "{self.resolver}"'
+        if self.component:
+            msg += f' in component "{self.component}"'
+        if self.function:
+            msg += f' for function "{self.function}"'
 
         return msg
 

@@ -45,12 +45,13 @@ def output_validation(error_cls=exceptions.ValidationError, error_status_code=50
             try:
                 # Use output schema to validate the data
                 errors = schema.validate(schema.dump(response))
-                if errors:
-                    raise error_cls(detail=errors, status_code=error_status_code)
-            except marshmallow.ValidationError as e:
-                raise error_cls(detail=e.messages, status_code=error_status_code)
-            except Exception:
-                raise error_cls(detail="Error serializing response before validation", status_code=error_status_code)
+            except Exception as e:
+                raise error_cls(
+                    detail=f"Error serializing response before validation: {str(e)}", status_code=error_status_code
+                )
+
+            if errors:
+                raise error_cls(detail=errors, status_code=error_status_code)
 
             return response
 
