@@ -308,7 +308,7 @@ class Router(starlette.routing.Router):
 
                 if isinstance(route, Mount):
                     if mounted:
-                        scope['root_path'] = root_path + child_scope.get('root_path', '')
+                        scope["root_path"] = root_path + child_scope.get("root_path", "")
                     route, mount_scope = route.app.get_route_from_scope(scope, mounted=True)
                     return route, mount_scope
 
