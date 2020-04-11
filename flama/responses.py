@@ -1,11 +1,9 @@
 import typing
 
 import marshmallow
-from starlette.responses import JSONResponse
+from starlette.responses import *
 
-from flama.exceptions import SerializationError
-
-__all__ = ["APIResponse", "APIErrorResponse", "APIError"]
+from flama.exceptions import HTTPException, SerializationError
 
 
 class APIError(marshmallow.Schema):
@@ -46,3 +44,14 @@ class APIErrorResponse(APIResponse):
 
         self.detail = detail
         self.exception = exception
+
+
+class HTMLFileResponse(HTMLResponse):
+    def __init__(self, path: str, *args, **kwargs):
+        try:
+            with open(path) as f:
+                content = f.read()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+        super().__init__(content=content, *args, **kwargs)
