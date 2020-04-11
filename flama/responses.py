@@ -1,9 +1,32 @@
 import typing
 
 import marshmallow
-from starlette.responses import *
+from starlette.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+    UJSONResponse,
+)
 
 from flama.exceptions import HTTPException, SerializationError
+
+__all__ = [
+    "Response",
+    "HTMLResponse",
+    "PlainTextResponse",
+    "JSONResponse",
+    "UJSONResponse",
+    "RedirectResponse",
+    "StreamingResponse",
+    "FileResponse",
+    "APIResponse",
+    "APIErrorResponse",
+    "HTMLFileResponse",
+]
 
 
 class APIError(marshmallow.Schema):
@@ -27,6 +50,9 @@ class APIResponse(JSONResponse):
         except Exception:
             raise SerializationError(status_code=500)
 
+        if not content:
+            return b""
+
         return super().render(content)
 
 
@@ -35,9 +61,9 @@ class APIErrorResponse(APIResponse):
         self, detail: typing.Any, status_code: int = 400, exception: typing.Optional[Exception] = None, *args, **kwargs
     ):
         content = {
-            "status_code": status_code,
             "detail": detail,
             "error": str(exception.__class__.__name__) if exception is not None else None,
+            "status_code": status_code,
         }
 
         super().__init__(schema=APIError(), content=content, status_code=status_code, *args, **kwargs)

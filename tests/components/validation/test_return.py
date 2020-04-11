@@ -163,11 +163,9 @@ class TestCaseReturnValidation:
         assert response.headers["content-type"] == "application/json"
         assert response.json() == [{"name": "Canna"}, {"name": "Sandy"}]
 
-        response = client.get("/return-schema-str/")
-
     def test_return_schema_empty(self, client):
         response = client.get("/return-schema-empty/")
 
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/json"
-        assert response.json() == ""
+        assert response.content == b""

@@ -9,7 +9,7 @@ from flama.applications import Flama
 
 class TestCaseASGI:
     @pytest.fixture(scope="class")
-    def app(self):  # noqa
+    def app(self):
         app_ = Flama(schema=None, docs=None)
 
         @app_.route("/method/", methods=["GET", "POST"])
