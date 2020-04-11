@@ -217,6 +217,25 @@ class TestCaseRouter:
         assert route_scope["root_path"] == "/router"
         assert route_scope["endpoint"] == foo
 
+    def test_get_route_from_scope_nested_mount_view(self, app, router, scope):
+        @router.route("/foo/")
+        async def foo():
+            return "foo"
+
+        app.mount("/router", app=Router(routes=[Mount('/nested', app=router)]))
+
+        scope["path"] = "/router/nested/foo/"
+        scope["method"] = "GET"
+
+        route, route_scope = app.router.get_route_from_scope(scope=scope)
+
+        assert route_scope is not None
+        assert route.endpoint == foo
+        assert route.path == "/foo/"
+        assert route_scope["path"] == "/foo/"
+        assert route_scope["root_path"] == "/router/nested"
+        assert route_scope["endpoint"] == foo
+
     def test_get_route_from_scope_partial(self, app, scope):
         @app.route("/foo/")
         async def foo():

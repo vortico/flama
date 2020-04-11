@@ -289,21 +289,24 @@ class Router(starlette.routing.Router):
 
         return decorator
 
-    def get_route_from_scope(self, scope) -> typing.Tuple[Route, typing.Optional[typing.Dict]]:
+    def get_route_from_scope(self, scope, mounted=False) -> typing.Tuple[Route, typing.Optional[typing.Dict]]:
         partial = None
 
         for route in self.routes:
             if isinstance(route, Mount):
                 path = scope.get("path", "")
                 root_path = scope.pop("root_path", "")
-                scope["path"] = root_path + path
+                if not mounted:
+                    scope["path"] = root_path + path
 
             match, child_scope = route.matches(scope)
             if match == Match.FULL:
                 scope.update(child_scope)
 
                 if isinstance(route, Mount):
-                    route, mount_scope = route.app.get_route_from_scope(scope)
+                    if mounted:
+                        scope["root_path"] = root_path + child_scope.get("root_path", "")
+                    route, mount_scope = route.app.get_route_from_scope(scope, mounted=True)
                     return route, mount_scope
 
                 return route, scope
