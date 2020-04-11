@@ -6,7 +6,7 @@ from starlette.testclient import TestClient
 
 from flama.applications import Flama
 from flama.endpoints import HTTPEndpoint
-from flama.routing import Router, Mount
+from flama.routing import Router
 from flama.schemas import OpenAPIResponse, SchemaGenerator
 
 
@@ -106,7 +106,7 @@ class TestCaseSchema:
         nested_router = Router()
         nested_router.add_route("/nested-component/", endpoint=get, methods=["GET"])
         mounted_router = Router()
-        mounted_router.mount('/mount', nested_router)
+        mounted_router.mount("/mount", nested_router)
         app_.mount("/nested", mounted_router)
 
         return app_

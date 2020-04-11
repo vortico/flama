@@ -222,7 +222,7 @@ class TestCaseRouter:
         async def foo():
             return "foo"
 
-        app.mount("/router", app=Router(routes=[Mount('/nested', app=router)]))
+        app.mount("/router", app=Router(routes=[Mount("/nested", app=router)]))
 
         scope["path"] = "/router/nested/foo/"
         scope["method"] = "GET"
