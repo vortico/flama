@@ -2,6 +2,8 @@
     rev: master
     hooks:
     -   id: check-added-large-files
+        args:
+        - --maxkb=2000
     -   id: check-merge-conflict
     -   id: check-xml
     -   id: check-yaml

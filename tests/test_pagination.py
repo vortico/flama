@@ -11,7 +11,7 @@ class OutputSchema(marshmallow.Schema):
 
 
 class TestPageNumberResponse:
-    @pytest.fixture(scope="class")
+    @pytest.fixture
     def app(self):
         app_ = Flama(title="Foo", version="0.1", description="Bar", schema="/schema/")
 

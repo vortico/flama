@@ -7,6 +7,7 @@ from starlette.testclient import TestClient
 from flama.applications import Flama
 from flama.endpoints import HTTPEndpoint
 from flama.routing import Router, Mount
+from flama.schemas import OpenAPIResponse, SchemaGenerator
 
 
 class Puppy(marshmallow.Schema):
@@ -121,7 +122,6 @@ class TestCaseSchema:
         assert schema["version"] == "0.1"
         assert schema["description"] == "Bar"
 
-    @pytest.mark.wip
     def test_schema_query_params(self, app):
         schema = app.schema["paths"]["/query-param/"]["get"]
         parameters = schema.get("parameters", {})
@@ -257,3 +257,16 @@ class TestCaseSchema:
         assert file_mock.call_args_list[0][0][0].endswith("flama/templates/redoc.html")
         assert mock_template.call_args_list == [call("foo")]
         assert response.content == b"bar"
+
+    def test_pyyaml_not_installed(self):
+        with patch("flama.schemas.yaml", new=None):
+            with pytest.raises(AssertionError, match="`pyyaml` must be installed to use OpenAPIResponse."):
+                OpenAPIResponse({})
+
+    def test_apispec_not_installed(self):
+        with patch("flama.schemas.apispec", new=None):
+            with pytest.raises(AssertionError, match="`apispec` must be installed to use OpenAPIResponse."):
+                OpenAPIResponse({})
+
+            with pytest.raises(AssertionError, match="`apispec` must be installed to use SchemaGenerator."):
+                SchemaGenerator(None, None, None)

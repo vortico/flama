@@ -51,10 +51,6 @@ class Injector:
         :param parent_parameter: parent parameter.
         :return: list of steps to resolve the component.
         """
-        if parameter.annotation is http.ReturnValue:
-            kwargs[parameter.name] = "return_value"
-            return []
-
         # Check if the parameter class exists in 'initial'.
         if parameter.annotation in self.reverse_initial:
             initial_kwarg = self.reverse_initial[parameter.annotation]
@@ -106,19 +102,14 @@ class Injector:
         kwargs = {}
         consts = {}
 
-        if output_name is None:
-            if signature.return_annotation in self.reverse_initial:
-                output_name = self.reverse_initial[signature.return_annotation]
-            else:
-                output_name = "return_value"
-
         for parameter in signature.parameters.values():
             try:
                 steps += self.resolve_parameter(
                     parameter, kwargs, consts, seen_state=seen_state, parent_parameter=parent_parameter
                 )
-            except ComponentNotFound:
-                raise ComponentNotFound(parameter=parameter.name, resolver=resolver.__class__.__name__)
+            except ComponentNotFound as e:
+                e.component = resolver.__self__.__class__.__name__
+                raise e
 
         is_async = asyncio.iscoroutinefunction(resolver)
 
@@ -145,8 +136,9 @@ class Injector:
         for parameter in signature.parameters.values():
             try:
                 steps += self.resolve_parameter(parameter, kwargs, consts, seen_state=seen_state)
-            except ComponentNotFound:
-                raise ComponentNotFound(parameter=parameter.name, resolver=func.__name__)
+            except ComponentNotFound as e:
+                e.function = func.__name__
+                raise e
 
         return kwargs, consts, steps
 

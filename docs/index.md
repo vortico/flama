@@ -5,14 +5,20 @@
     &#128293; <em>Fire up your API with this flamethrower.</em>
 </p>
 <p align="center">
-<a href="https://circleci.com/gh/perdy/flama">
-    <img src="https://img.shields.io/circleci/project/github/perdy/flama/master.svg" alt="Build Status">
+<a href="https://github.com/perdy/flama/actions">
+    <img src="https://github.com/perdy/flama/workflows/Continuous%20Integration/badge.svg" alt="CI Status">
+</a>
+<a href="https://github.com/perdy/flama/actions">
+    <img src="https://github.com/perdy/flama/workflows/Publish%20Docs/badge.svg" alt="Docs Status">
 </a>
 <a href="https://codecov.io/gh/perdy/flama">
     <img src="https://codecov.io/gh/perdy/flama/branch/master/graph/badge.svg" alt="Coverage">
 </a>
 <a href="https://pypi.org/project/flama/">
-    <img src="https://badge.fury.io/py/flama.svg" alt="Package version">
+    <img src="https://img.shields.io/pypi/v/flama?logo=PyPI&logoColor=white" alt="Package version">
+</a>
+<a href="https://pypi.org/project/flama/">
+    <img src="https://img.shields.io/pypi/pyversions/flama?logo=Python&logoColor=white" alt="PyPI - Python Version">
 </a>
 </p>
 
@@ -144,7 +150,7 @@ This project is absolutely open to contributions so if you have a nice idea, cre
 discuss it.
 
 [Python]: https://www.python.org
-[Starlette]: https://starlette.io
+[Starlette]: https://www.starlette.io
 [APIStar]: https://github.com/encode/apistar/tree/version-0.5.x
 [Marshmallow]: https://marshmallow.readthedocs.io/
 [Swagger UI]: https://swagger.io/tools/swagger-ui/

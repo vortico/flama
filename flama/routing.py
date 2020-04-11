@@ -95,7 +95,6 @@ class FieldsMixin:
         for name, param in self._get_parameters_from_handler(handler, router).items():
             if name in ("self", "cls"):
                 continue
-
             # Matches as path param
             if name in self.param_convertors.keys():
                 try:
@@ -106,7 +105,6 @@ class FieldsMixin:
                 path_fields[name] = Field(
                     name=name, location=FieldLocation.path, schema=schema(required=True), required=True
                 )
-
             # Matches as query param
             elif param.annotation in QUERY_SCHEMA_MAPPING:
                 if param.annotation in (OptInt, OptFloat, OptBool, OptStr) or param.default is not param.empty:
@@ -122,7 +120,6 @@ class FieldsMixin:
                     schema=QUERY_SCHEMA_MAPPING[param.annotation](**kwargs),
                     required=required,
                 )
-
             # Body params
             elif inspect.isclass(param.annotation) and issubclass(param.annotation, marshmallow.Schema):
                 body_field = Field(name=name, location=FieldLocation.body, schema=param.annotation())

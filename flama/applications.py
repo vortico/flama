@@ -31,6 +31,8 @@ class Flama(Starlette, SchemaMixin):
         schema: typing.Optional[str] = "/schema/",
         docs: typing.Optional[str] = "/docs/",
         redoc: typing.Optional[str] = None,
+        on_startup: typing.Sequence[typing.Callable] = None,
+        on_shutdown: typing.Sequence[typing.Callable] = None,
         *args,
         **kwargs
     ) -> None:
@@ -42,7 +44,7 @@ class Flama(Starlette, SchemaMixin):
         # Initialize injector
         self.components = components
 
-        self.router = Router(components=components)
+        self.router = Router(components=components, on_startup=on_startup, on_shutdown=on_shutdown)
         self.app = self.router
         self.exception_middleware = ExceptionMiddleware(self.router, debug=debug)
         self.error_middleware = ServerErrorMiddleware(self.exception_middleware, debug=debug)
