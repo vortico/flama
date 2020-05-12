@@ -18,6 +18,9 @@ jobs:
       image: python:${{ matrix.python }}
     steps:
       - uses: actions/checkout@master
+        with:
+          fetch-depth: 0
+      - uses: wagoid/commitlint-github-action@v1
       - id: install
         name: Install requirements
         run: |
