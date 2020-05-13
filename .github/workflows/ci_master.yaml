@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - master
-    tags:
-      - "v[0-9]*.[0-9]*.[0-9]*"
 
 jobs:
   test:
@@ -54,11 +52,14 @@ jobs:
       image: perdy/github-actions-builder:latest
     steps:
       - uses: actions/checkout@master
-        if: github.event_name == 'push' && github.ref != 'refs/heads/master'
+      - name: Setup node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 12
       - id: publish
         name: Publish version
-        if: github.event_name == 'push' && github.ref != 'refs/heads/master'
-        run: python make publish --build
+        run: npx semantic-release
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_ACTIONS_TOKEN }}
           PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
           PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
