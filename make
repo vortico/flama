@@ -108,9 +108,9 @@ def version(*args, **kwargs):
 
     new_version = toml.load("pyproject.toml")["tool"]["poetry"]["version"]
 
-    subprocess.run(shlex.split(f"git add pyproject.toml poetry.lock"))
+    subprocess.run(shlex.split(f"git add pyproject.toml poetry.lock CHANGELOG.md"))
     subprocess.run(shlex.split(f'git commit -m "Bumping version from {old_version} to {new_version}"'))
-    subprocess.run(shlex.split(f"git tag v{new_version}"))
+    subprocess.run(shlex.split(f"git tag {new_version}"))
 
 
 @command(
