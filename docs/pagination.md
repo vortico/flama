@@ -39,7 +39,7 @@ Some requests examples based on above endpoint.
 
 #### Default request
 
-```http request
+```
 GET https://flama.server/number/
 
 {
@@ -65,7 +65,7 @@ GET https://flama.server/number/
 
 #### Specific page
 
-```http request
+```
 GET https://flama.server/number/?page=2
 
 {
@@ -91,7 +91,7 @@ GET https://flama.server/number/?page=2
 
 #### Different page size
 
-```http request
+```
 GET https://flama.server/number/?page_size=2
 
 {
@@ -109,7 +109,7 @@ GET https://flama.server/number/?page_size=2
 
 #### Avoid counting elements
 
-```http request
+```
 GET https://flama.server/number/?count=false
 
 {
@@ -168,7 +168,7 @@ Some requests examples based on above endpoint.
 
 #### Default request
 
-```http request
+```
 GET https://flama.server/alphabet/
 
 {
@@ -194,7 +194,7 @@ GET https://flama.server/alphabet/
 
 #### Using offset
 
-```http request
+```
 GET https://flama.server/alphabet/?offset=5
 
 {
@@ -220,7 +220,7 @@ GET https://flama.server/alphabet/?offset=5
 
 #### Different limit
 
-```http request
+```
 GET https://flama.server/alphabet/?limit=2
 
 {
@@ -238,7 +238,7 @@ GET https://flama.server/alphabet/?limit=2
 
 #### Avoid counting elements
 
-```http request
+```
 GET https://flama.server/alphabet/?count=false
 
 {
