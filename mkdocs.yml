@@ -16,8 +16,8 @@ nav:
   - Home: index.md
   - Applications: applications.md
   - API Schema: api_schema.md
+  - Pagination: pagination.md
 #  - Views: views.md
-#  - Pagination: pagination.md
 #  - Components: components.md
 #  - Resources: resources.md
 
