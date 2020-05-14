@@ -1,10 +1,18 @@
+import asyncio
+import functools
 import typing
 
 import marshmallow
 
 from flama.responses import APIResponse
+from flama.validation import get_output_schema
 
-__all__ = ["PageNumberSchema", "PageNumberResponse"]
+try:
+    import forge
+except Exception:  # pragma: no cover
+    forge = None  # type: ignore
+
+__all__ = ["PageNumberSchema", "PageNumberResponse", "page_number"]
 
 
 class PageNumberMeta(marshmallow.Schema):
@@ -59,3 +67,62 @@ class PageNumberResponse(APIResponse):
                 "data": content[init:end],
             }
         )
+
+
+def page_number(func):
+    """
+    Decorator for adding pagination behavior to a view. That decorator produces a view based on page numbering and
+    it adds three query parameters to control the pagination: page, page_size and count. Page has a default value of
+    first page, page_size default value is defined in
+    :class:`PageNumberResponse` and count defines if the response will define
+    the total number of elements.
+
+    The output schema is also modified by :class:`PageNumberSchema`, creating
+    a new schema based on it but using the old output schema as the content of its data field.
+
+    :param func: View to be decorated.
+    :return: Decorated view.
+    """
+    assert forge is not None, "`python-forge` must be installed to use Paginator."
+
+    resource_schema = get_output_schema(func)
+    data_schema = marshmallow.fields.Nested(resource_schema, many=True) if resource_schema else marshmallow.fields.Raw()
+
+    schema = type(
+        "PageNumberPaginated" + resource_schema.__class__.__name__,  # Add a prefix to avoid collision
+        (PageNumberSchema,),
+        {"data": data_schema},  # Replace generic with resource schema
+    )()
+
+    forge_revision_list = (
+        forge.copy(func),
+        forge.insert(forge.arg("page", default=None, type=int), index=-1),
+        forge.insert(forge.arg("page_size", default=None, type=int), index=-1),
+        forge.insert(forge.arg("count", default=True, type=bool), index=-1),
+        forge.delete("kwargs"),
+        forge.returns(schema),
+    )
+
+    try:
+        if asyncio.iscoroutinefunction(func):
+
+            @forge.compose(*forge_revision_list)
+            @functools.wraps(func)
+            async def decorator(*args, page: int = None, page_size: int = None, count: bool = True, **kwargs):
+                return PageNumberResponse(
+                    schema=schema, page=page, page_size=page_size, count=count, content=await func(*args, **kwargs)
+                )
+
+        else:
+
+            @forge.compose(*forge_revision_list)
+            @functools.wraps(func)
+            def decorator(*args, page: int = None, page_size: int = None, count: bool = True, **kwargs):
+                return PageNumberResponse(
+                    schema=schema, page=page, page_size=page_size, count=count, content=func(*args, **kwargs)
+                )
+
+    except ValueError as e:
+        raise TypeError("Paginated views must define **kwargs param") from e
+
+    return decorator

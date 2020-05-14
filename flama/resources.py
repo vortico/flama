@@ -6,8 +6,8 @@ import uuid
 
 import marshmallow
 
+from flama import pagination
 from flama.exceptions import HTTPException
-from flama.pagination import Paginator
 from flama.responses import APIResponse
 from flama.types import Model, PrimaryKey, ResourceMeta, ResourceMethodMeta
 
@@ -388,7 +388,7 @@ class ListMixin:
             return [dict(row) for row in await self.database.fetch_all(query)]
 
         @resource_method("/", methods=["GET"], name=f"{name}-list")
-        @Paginator.page_number
+        @pagination.page_number
         async def list(self, **kwargs) -> output_schema(many=True):
             return await self._filter()  # noqa
 

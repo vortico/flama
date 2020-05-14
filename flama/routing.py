@@ -1,5 +1,6 @@
 import asyncio
 import inspect
+import logging
 import typing
 from functools import wraps
 
@@ -19,6 +20,8 @@ if typing.TYPE_CHECKING:
     from flama.resources import BaseResource
 
 __all__ = ["Route", "WebSocketRoute", "Router"]
+
+logger = logging.getLogger(__name__)
 
 
 FieldsMap = typing.Dict[str, Field]
@@ -164,20 +167,24 @@ class Route(starlette.routing.Route, FieldsMixin):
                 "request": http.Request(scope, receive),
             }
 
-            injected_func = await app.injector.inject(endpoint, state)
+            try:
+                injected_func = await app.injector.inject(endpoint, state)
 
-            if asyncio.iscoroutinefunction(endpoint):
-                response = await injected_func()
-            else:
-                response = await run_in_threadpool(injected_func)
+                if asyncio.iscoroutinefunction(endpoint):
+                    response = await injected_func()
+                else:
+                    response = await run_in_threadpool(injected_func)
 
-            # Wrap response data with a proper response class
-            if isinstance(response, (dict, list)):
-                response = APIResponse(content=response, schema=get_output_schema(endpoint))
-            elif isinstance(response, str):
-                response = APIResponse(content=response)
-            elif response is None:
-                response = APIResponse(content="")
+                # Wrap response data with a proper response class
+                if isinstance(response, (dict, list)):
+                    response = APIResponse(content=response, schema=get_output_schema(endpoint))
+                elif isinstance(response, str):
+                    response = APIResponse(content=response)
+                elif response is None:
+                    response = APIResponse(content="")
+            except Exception:
+                logger.exception("Error building response")
+                raise
 
             await response(scope, receive, send)
 
@@ -216,10 +223,14 @@ class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
                 "websocket": websockets.WebSocket(scope, receive, send),
             }
 
-            injected_func = await app.injector.inject(endpoint, state)
+            try:
+                injected_func = await app.injector.inject(endpoint, state)
 
-            kwargs = scope.get("kwargs", {})
-            await injected_func(**kwargs)
+                kwargs = scope.get("kwargs", {})
+                await injected_func(**kwargs)
+            except Exception:
+                logger.exception("Error building response")
+                raise
 
         return _app
 

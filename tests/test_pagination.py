@@ -2,8 +2,8 @@ import marshmallow
 import pytest
 from starlette.testclient import TestClient
 
+from flama import pagination
 from flama.applications import Flama
-from flama.pagination import Paginator
 
 
 class OutputSchema(marshmallow.Schema):
@@ -16,7 +16,7 @@ class TestPageNumberResponse:
         app_ = Flama(title="Foo", version="0.1", description="Bar", schema="/schema/")
 
         @app_.route("/page-number/", methods=["GET"])
-        @Paginator.page_number
+        @pagination.page_number
         def page_number(**kwargs) -> OutputSchema(many=True):
             return [{"value": i} for i in range(25)]
 
@@ -29,7 +29,7 @@ class TestPageNumberResponse:
     def test_invalid_view(self, app):
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
-            @Paginator.page_number
+            @pagination.page_number
             def invalid():
                 ...
 
@@ -73,7 +73,7 @@ class TestPageNumberResponse:
 
     def test_async_function(self, app, client):
         @app.route("/page-number-async/", methods=["GET"])
-        @Paginator.page_number
+        @pagination.page_number
         async def page_number_async(**kwargs) -> OutputSchema(many=True):
             return [{"value": i} for i in range(25)]
 
@@ -131,7 +131,7 @@ class TestLimitOffsetResponse:
         app_ = Flama(title="Foo", version="0.1", description="Bar", schema="/schema/")
 
         @app_.route("/limit-offset/", methods=["GET"])
-        @Paginator.limit_offset
+        @pagination.limit_offset
         def limit_offset(**kwargs) -> OutputSchema(many=True):
             return [{"value": i} for i in range(25)]
 
@@ -144,7 +144,7 @@ class TestLimitOffsetResponse:
     def test_invalid_view(self, app):
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
-            @Paginator.limit_offset
+            @pagination.limit_offset
             def invalid():
                 ...
 
@@ -188,7 +188,7 @@ class TestLimitOffsetResponse:
 
     def test_async_function(self, app, client):
         @app.route("/limit-offset-async/", methods=["GET"])
-        @Paginator.limit_offset
+        @pagination.limit_offset
         async def limit_offset_async(**kwargs) -> OutputSchema(many=True):
             return [{"value": i} for i in range(25)]
 

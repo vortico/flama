@@ -10,8 +10,8 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy_utils import create_database, database_exists, drop_database
 from starlette.testclient import TestClient
 
+from flama import pagination
 from flama.applications import Flama
-from flama.pagination import Paginator
 from flama.resources import CRUDListDropResource, CRUDListResource, CRUDResource, resource_method
 from flama.types import Model, PrimaryKey
 from tests.conftest import DATABASE_URL
@@ -357,7 +357,7 @@ class TestCaseResource:
             methods = ("create", "retrieve", "update", "delete", "list", "drop")
 
             @resource_method("/", methods=["GET"], name="puppy-list")
-            @Paginator.page_number
+            @pagination.page_number
             async def list(
                 self, name: typing.Optional[str] = None, custom_id__le: typing.Optional[int] = None, **kwargs
             ) -> schema_(many=True):
