@@ -1,7 +1,7 @@
 import uvicorn
 from marshmallow import Schema, fields, validate
 
-from flama.applications import Flama
+from flama import Flama
 
 
 class Puppy(Schema):

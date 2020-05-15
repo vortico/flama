@@ -3,8 +3,7 @@ import string
 import uvicorn
 from marshmallow import Schema, fields, validate
 
-from flama import pagination
-from flama.applications import Flama
+from flama import Flama, pagination
 
 
 class Puppy(Schema):

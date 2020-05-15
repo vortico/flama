@@ -4,7 +4,7 @@ import sqlalchemy
 import uvicorn
 from sqlalchemy import create_engine
 
-from flama.applications import Flama
+from flama import Flama
 from flama.resources import CRUDListResource
 
 DATABASE_URL = "sqlite:///resource.db"

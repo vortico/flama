@@ -17,8 +17,12 @@ nav:
   - Applications: applications.md
   - API Schema: api_schema.md
   - Pagination: pagination.md
+#  - Models: models.md
 #  - Views: views.md
+#  - Templates: templates.md
+  - Examples: examples.md
 #  - Components: components.md
+#  - Responses: responses.md
 #  - Resources: resources.md
 
 # Theme configuration
