@@ -17,7 +17,7 @@ nav:
   - Applications: applications.md
   - API Schema: api_schema.md
   - Pagination: pagination.md
-#  - Models: models.md
+  - Models: models.md
 #  - Views: views.md
 #  - Templates: templates.md
   - Examples: examples.md
