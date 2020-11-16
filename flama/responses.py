@@ -9,7 +9,6 @@ from starlette.responses import (
     RedirectResponse,
     Response,
     StreamingResponse,
-    UJSONResponse,
 )
 
 from flama.exceptions import HTTPException, SerializationError
@@ -19,7 +18,6 @@ __all__ = [
     "HTMLResponse",
     "PlainTextResponse",
     "JSONResponse",
-    "UJSONResponse",
     "RedirectResponse",
     "StreamingResponse",
     "FileResponse",
