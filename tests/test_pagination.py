@@ -42,13 +42,13 @@ class TestPageNumberResponse:
                 "name": "page",
                 "in": "query",
                 "required": False,
-                "schema": {"default": None, "type": "integer", "format": "int32", "nullable": True},
+                "schema": {"default": None, "type": "integer", "nullable": True},
             },
             {
                 "name": "page_size",
                 "in": "query",
                 "required": False,
-                "schema": {"default": None, "type": "integer", "format": "int32", "nullable": True},
+                "schema": {"default": None, "type": "integer", "nullable": True},
             },
             {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
         ]
@@ -157,13 +157,13 @@ class TestLimitOffsetResponse:
                 "name": "limit",
                 "in": "query",
                 "required": False,
-                "schema": {"default": None, "type": "integer", "format": "int32", "nullable": True},
+                "schema": {"default": None, "type": "integer", "nullable": True},
             },
             {
                 "name": "offset",
                 "in": "query",
                 "required": False,
-                "schema": {"default": None, "type": "integer", "format": "int32", "nullable": True},
+                "schema": {"default": None, "type": "integer", "nullable": True},
             },
             {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
         ]

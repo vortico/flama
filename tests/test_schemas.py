@@ -140,9 +140,7 @@ class TestCaseSchema:
 
         assert schema["description"] == "Path param."
         assert response == {"description": "Param."}
-        assert parameters == [
-            {"name": "param", "in": "path", "required": True, "schema": {"type": "integer", "format": "int32"}}
-        ]
+        assert parameters == [{"name": "param", "in": "path", "required": True, "schema": {"type": "integer"}}]
 
     def test_schema_body_params(self, app):
         schema = app.schema["paths"]["/body-param/"]["post"]

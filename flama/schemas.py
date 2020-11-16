@@ -145,7 +145,7 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
 
     def _add_endpoint_parameters(self, endpoint: EndpointInfo, schema: typing.Dict):
         schema["parameters"] = [
-            self.converter.field2parameter(field.schema, name=field.name, default_in=field.location.name)
+            self.converter._field2parameter(field.schema, name=field.name, location=field.location.name)
             for field in itertools.chain(endpoint.query_fields.values(), endpoint.path_fields.values())
         ]
 
