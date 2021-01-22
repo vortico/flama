@@ -1,9 +1,9 @@
+import typing
+
 import datetime
 import inspect
-import typing
-import uuid
-
 import marshmallow
+import uuid
 from starlette import status
 
 from flama import codecs, exceptions, http, websockets
@@ -12,6 +12,7 @@ from flama.exceptions import WebSocketException
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from flama.routing import Route
 from flama.types import OptBool, OptDate, OptDateTime, OptFloat, OptInt, OptStr, OptUUID
+from flama.utils import is_marshmallow_dataclass, is_marshmallow_schema
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
@@ -158,7 +159,7 @@ class PrimitiveParamComponent(Component):
 
 class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: inspect.Parameter):
-        return inspect.isclass(parameter.annotation) and issubclass(parameter.annotation, marshmallow.Schema)
+        return is_marshmallow_schema(parameter.annotation) or is_marshmallow_dataclass(parameter.annotation)
 
     def resolve(self, parameter: inspect.Parameter, data: ValidatedRequestData):
         return data

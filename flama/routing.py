@@ -14,6 +14,7 @@ from flama import http, websockets
 from flama.components import Component
 from flama.responses import APIResponse
 from flama.types import Field, FieldLocation, HTTPMethod, OptBool, OptFloat, OptInt, OptStr
+from flama.utils import is_marshmallow_dataclass, is_marshmallow_schema
 from flama.validation import get_output_schema
 
 if typing.TYPE_CHECKING:
@@ -131,10 +132,15 @@ class FieldsMixin:
                     required=required,
                 )
             # Body params
-            elif inspect.isclass(param.annotation) and issubclass(param.annotation, marshmallow.Schema):
+            elif is_marshmallow_schema(param.annotation):
                 body_field = Field(name=name, location=FieldLocation.body, schema=param.annotation())
+            # Handle marshmallow-dataclass
+            elif is_marshmallow_dataclass(param.annotation):
+                body_field = Field(name=name, location=FieldLocation.body, schema=param.annotation.Schema())
 
         output_field = response_schema if response_schema else inspect.signature(handler).return_annotation
+        if is_marshmallow_dataclass(output_field):
+            output_field = output_field.Schema
 
         return query_fields, path_fields, body_field, output_field
 
