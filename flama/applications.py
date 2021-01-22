@@ -101,8 +101,19 @@ class Flama(Starlette, SchemaMixin):
         **request_schemas: typing.Dict[str, marshmallow.Schema]
     ) -> typing.Callable:
         def decorator(func: typing.Callable) -> typing.Callable:
-            func._request_schemas = request_schemas
-            func._response_schema = response_schema
+            # If @schemas is used, it has precedence
+            # i.e.:
+            # @app.route('/', arg1: FooSchema)
+            # @app.schemas('/', arg2: BarSchema, response_schema=FooBarSchema)
+            # def endpoint(arg1, arg2):
+            #       pass
+            if getattr(func, '_request_schemas', None):
+                merged_schemas = request_schemas.copy()
+                merged_schemas.update(func._request_schemas)
+                func._request_schemas = merged_schemas
+            else:
+                func._request_schemas = request_schemas
+            func._response_schema = response_schema if getattr(func, '_response_schema', None) is None else func._response_schema
 
             self.router.add_route(
                 path,
