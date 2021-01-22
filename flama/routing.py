@@ -1,11 +1,11 @@
+import typing
+
 import asyncio
 import inspect
 import logging
-import typing
-from functools import wraps
-
 import marshmallow
 import starlette.routing
+from functools import wraps
 from starlette.concurrency import run_in_threadpool
 from starlette.routing import Match, Mount
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -93,9 +93,16 @@ class FieldsMixin:
         query_fields: FieldsMap = {}
         path_fields: FieldsMap = {}
         body_field: Field = None
+        request_schemas = getattr(handler, '_request_schemas', {})
+        response_schema = getattr(handler, '_response_schema', None)
 
         # Iterate over all params
         for name, param in self._get_parameters_from_handler(handler, router).items():
+            # If schema override exists, update the parameter's annotation
+            schema_override = request_schemas.get(name)
+            if schema_override:
+                param = param.replace(annotation=schema_override)
+
             if name in ("self", "cls"):
                 continue
             # Matches as path param
@@ -127,7 +134,7 @@ class FieldsMixin:
             elif inspect.isclass(param.annotation) and issubclass(param.annotation, marshmallow.Schema):
                 body_field = Field(name=name, location=FieldLocation.body, schema=param.annotation())
 
-        output_field = inspect.signature(handler).return_annotation
+        output_field = response_schema if response_schema else inspect.signature(handler).return_annotation
 
         return query_fields, path_fields, body_field, output_field
 

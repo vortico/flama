@@ -1,8 +1,7 @@
 import asyncio
 import inspect
-from functools import wraps
-
 import marshmallow
+from functools import wraps
 
 from flama import exceptions
 
@@ -16,7 +15,8 @@ def get_output_schema(func):
     :param func: Annotated function.
     :returns: Output schema.
     """
-    return_annotation = inspect.signature(func).return_annotation
+    response_schema = getattr(func, '_response_schema', None)
+    return_annotation = response_schema if response_schema else inspect.signature(func).return_annotation
     if inspect.isclass(return_annotation) and issubclass(return_annotation, marshmallow.Schema):
         return return_annotation()
     elif isinstance(return_annotation, marshmallow.Schema):

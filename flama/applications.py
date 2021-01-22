@@ -1,5 +1,6 @@
 import typing
 
+import marshmallow
 from starlette.applications import Starlette
 from starlette.exceptions import ExceptionMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
@@ -77,3 +78,39 @@ class Flama(Starlette, SchemaMixin):
 
     def api_http_exception_handler(self, request: Request, exc: HTTPException) -> Response:
         return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
+
+    def schemas(
+        self,
+        response_schema: marshmallow.Schema = None,
+        **request_schemas: typing.Dict[str, marshmallow.Schema]
+    ):
+        def decorator(func):
+            func._request_schemas = request_schemas
+            func._response_schema = response_schema
+            return func
+
+        return decorator
+
+    def route(
+        self,
+        path: str,
+        methods: typing.List[str] = None,
+        name: str = None,
+        include_in_schema: bool = True,
+        response_schema: marshmallow.Schema = None,
+        **request_schemas: typing.Dict[str, marshmallow.Schema]
+    ) -> typing.Callable:
+        def decorator(func: typing.Callable) -> typing.Callable:
+            func._request_schemas = request_schemas
+            func._response_schema = response_schema
+
+            self.router.add_route(
+                path,
+                func,
+                methods=methods,
+                name=name,
+                include_in_schema=include_in_schema,
+            )
+            return func
+
+        return decorator
