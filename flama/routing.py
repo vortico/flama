@@ -311,10 +311,24 @@ class Router(starlette.routing.Router):
         self.routes.append(route)
 
     def route(
-        self, path: str, methods: typing.List[str] = None, name: str = None, include_in_schema: bool = True
+        self,
+        path: str,
+        methods: typing.List[str] = None,
+        name: str = None,
+        include_in_schema: bool = True,
+        response_schema: marshmallow.Schema = None,
+        request_schemas: typing.Dict[str, marshmallow.Schema] = None,
     ) -> typing.Callable:
         def decorator(func: typing.Callable) -> typing.Callable:
-            self.add_route(path, func, methods=methods, name=name, include_in_schema=include_in_schema)
+            self.add_route(
+                path,
+                func,
+                methods=methods,
+                name=name,
+                include_in_schema=include_in_schema,
+                response_schema=response_schema,
+                request_schemas=request_schemas
+            )
             return func
 
         return decorator
