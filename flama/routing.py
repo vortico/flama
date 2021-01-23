@@ -94,7 +94,7 @@ class FieldsMixin:
         query_fields: FieldsMap = {}
         path_fields: FieldsMap = {}
         body_field: Field = None
-        request_schemas = getattr(handler, '_request_schemas', {})
+        request_schemas = getattr(handler, '_request_schemas', None) or {}
         response_schema = getattr(handler, '_response_schema', None)
 
         # Iterate over all params
@@ -267,7 +267,23 @@ class Router(starlette.routing.Router):
         methods: typing.List[str] = None,
         name: str = None,
         include_in_schema: bool = True,
+        response_schema: marshmallow.Schema = None,
+        request_schemas: typing.Dict[str, marshmallow.Schema] = None,
     ):
+        # If @schemas is used, it has precedence
+        # i.e.:
+        # @app.route('/', arg1: FooSchema)
+        # @app.schemas('/', arg2: BarSchema, response_schema=FooBarSchema)
+        # def endpoint(arg1, arg2):
+        #       pass
+        if getattr(endpoint, '_request_schemas', None):
+            merged_schemas = request_schemas.copy()
+            merged_schemas.update(endpoint._request_schemas)
+            endpoint._request_schemas = merged_schemas
+        else:
+            endpoint._request_schemas = request_schemas
+        endpoint._response_schema = response_schema if getattr(endpoint, '_response_schema', None) is None else endpoint._response_schema
+
         self.routes.append(
             Route(path, endpoint=endpoint, methods=methods, name=name, include_in_schema=include_in_schema, router=self)
         )
