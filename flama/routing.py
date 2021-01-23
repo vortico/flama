@@ -12,7 +12,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from flama import http, websockets
 from flama.components import Component
-from flama.responses import APIResponse
+from flama.responses import APIResponse, Response
 from flama.types import Field, FieldLocation, HTTPMethod, OptBool, OptFloat, OptInt, OptStr
 from flama.utils import is_marshmallow_dataclass, is_marshmallow_schema
 from flama.validation import get_output_schema
@@ -195,6 +195,10 @@ class Route(starlette.routing.Route, FieldsMixin):
                     response = APIResponse(content=response)
                 elif response is None:
                     response = APIResponse(content="")
+                elif not isinstance(response, Response):
+                    schema = get_output_schema(endpoint)
+                    if schema is not None:
+                        response = APIResponse(content=response, schema=get_output_schema(endpoint))
             except Exception:
                 logger.exception("Error building response")
                 raise

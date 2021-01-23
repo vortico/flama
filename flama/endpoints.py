@@ -1,5 +1,4 @@
 import asyncio
-
 from starlette import status
 from starlette.concurrency import run_in_threadpool
 from starlette.endpoints import HTTPEndpoint as BaseHTTPEndpoint
@@ -8,7 +7,7 @@ from starlette.requests import Request
 from starlette.websockets import WebSocket, WebSocketState
 
 from flama import exceptions, websockets
-from flama.responses import APIResponse
+from flama.responses import APIResponse, Response
 from flama.validation import get_output_schema
 
 __all__ = ["HTTPEndpoint", "WebSocketEndpoint"]
@@ -47,6 +46,10 @@ class HTTPEndpoint(BaseHTTPEndpoint):
             response = APIResponse(content=response)
         elif response is None:
             response = APIResponse(content="")
+        elif not isinstance(response, Response):
+            schema = get_output_schema(handler)
+            if schema is not None:
+                response = APIResponse(content=response, schema=get_output_schema(handler))
 
         await response(self.scope, self.receive, self.send)
 
