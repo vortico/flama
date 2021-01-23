@@ -6,6 +6,7 @@ import logging
 import marshmallow
 import starlette.routing
 from functools import wraps
+from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 from starlette.routing import Match, Mount
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -182,6 +183,10 @@ class Route(starlette.routing.Route, FieldsMixin):
 
             try:
                 injected_func = await app.injector.inject(endpoint, state)
+                background_task = next(
+                    (v for k, v in state.items() if k.startswith('backgroundtasks:') and isinstance(v, BackgroundTask)), 
+                    None
+                )
 
                 if asyncio.iscoroutinefunction(endpoint):
                     response = await injected_func()
@@ -190,15 +195,15 @@ class Route(starlette.routing.Route, FieldsMixin):
 
                 # Wrap response data with a proper response class
                 if isinstance(response, (dict, list)):
-                    response = APIResponse(content=response, schema=get_output_schema(endpoint))
+                    response = APIResponse(content=response, schema=get_output_schema(endpoint), background=background_task)
                 elif isinstance(response, str):
-                    response = APIResponse(content=response)
+                    response = APIResponse(content=response, background=background_task)
                 elif response is None:
-                    response = APIResponse(content="")
+                    response = APIResponse(content="", background=background_task)
                 elif not isinstance(response, Response):
                     schema = get_output_schema(endpoint)
                     if schema is not None:
-                        response = APIResponse(content=response, schema=get_output_schema(endpoint))
+                        response = APIResponse(content=response, schema=get_output_schema(endpoint), background=background_task)
             except Exception:
                 logger.exception("Error building response")
                 raise

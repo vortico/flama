@@ -1,5 +1,6 @@
 import asyncio
 from starlette import status
+from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 from starlette.endpoints import HTTPEndpoint as BaseHTTPEndpoint
 from starlette.endpoints import WebSocketEndpoint as BaseWebSocketEndpoint
@@ -34,6 +35,10 @@ class HTTPEndpoint(BaseHTTPEndpoint):
         handler = getattr(self, handler_name, self.method_not_allowed)
 
         injected_func = await app.injector.inject(handler, state)
+        background_task = next(
+            (v for k, v in state.items() if k.startswith('backgroundtasks:') and isinstance(v, BackgroundTask)),
+            None
+        )
         if asyncio.iscoroutinefunction(handler):
             response = await injected_func()
         else:
@@ -41,15 +46,15 @@ class HTTPEndpoint(BaseHTTPEndpoint):
 
         # Wrap response data with a proper response class
         if isinstance(response, (dict, list)):
-            response = APIResponse(content=response, schema=get_output_schema(handler))
+            response = APIResponse(content=response, schema=get_output_schema(handler), background=background_task)
         elif isinstance(response, str):
-            response = APIResponse(content=response)
+            response = APIResponse(content=response, background=background_task)
         elif response is None:
-            response = APIResponse(content="")
+            response = APIResponse(content="", background=background_task)
         elif not isinstance(response, Response):
             schema = get_output_schema(handler)
             if schema is not None:
-                response = APIResponse(content=response, schema=get_output_schema(handler))
+                response = APIResponse(content=response, schema=get_output_schema(handler), background=background_task)
 
         await response(self.scope, self.receive, self.send)
 

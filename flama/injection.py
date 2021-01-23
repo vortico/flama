@@ -1,10 +1,12 @@
+import typing
+
 import asyncio
 import functools
 import inspect
-import typing
 
 from flama import http, websockets
 from flama.components.asgi import ASGI_COMPONENTS, ASGIReceive, ASGIScope, ASGISend
+from flama.components.response import RESPONSE_COMPONENTS
 from flama.components.validation import VALIDATION_COMPONENTS
 from flama.exceptions import ComponentNotFound
 from flama.routing import Route
@@ -16,7 +18,7 @@ class Injector:
     def __init__(self, components):
         from flama.applications import Flama
 
-        self.components = list(ASGI_COMPONENTS + VALIDATION_COMPONENTS) + components
+        self.components = list(ASGI_COMPONENTS + VALIDATION_COMPONENTS + RESPONSE_COMPONENTS) + components
         self.initial = {
             "scope": ASGIScope,
             "receive": ASGIReceive,
