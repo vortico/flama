@@ -1,7 +1,8 @@
+import typing
+
 import asyncio
 import functools
 import inspect
-import typing
 
 from flama import http, websockets
 from flama.components.asgi import ASGI_COMPONENTS, ASGIReceive, ASGIScope, ASGISend
@@ -101,8 +102,14 @@ class Injector:
         steps = []
         kwargs = {}
         consts = {}
+        request_schemas = getattr(resolver, '_request_schemas', None) or {}
 
         for parameter in signature.parameters.values():
+            # If schema override exists, update the parameter's annotation
+            schema_override = request_schemas.get(parameter.name)
+            if schema_override:
+                parameter = parameter.replace(annotation=schema_override)
+
             try:
                 steps += self.resolve_parameter(
                     parameter, kwargs, consts, seen_state=seen_state, parent_parameter=parent_parameter
@@ -130,10 +137,16 @@ class Injector:
         steps = []
         kwargs = {}
         consts = {}
+        request_schemas = getattr(func, '_request_schemas', None) or {}
 
         signature = inspect.signature(func)
 
         for parameter in signature.parameters.values():
+            # If schema override exists, update the parameter's annotation
+            schema_override = request_schemas.get(parameter.name)
+            if schema_override:
+                parameter = parameter.replace(annotation=schema_override)
+
             try:
                 steps += self.resolve_parameter(parameter, kwargs, consts, seen_state=seen_state)
             except ComponentNotFound as e:
