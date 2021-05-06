@@ -4,7 +4,7 @@ Flama provides an application class that acts as an interface to interact with a
 high level parameters.
 
 ```python
-from flama.applications import Flama
+from flama import Flama
 
 
 def home():

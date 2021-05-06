@@ -2,7 +2,7 @@
 
 Flama relies on [SQLAlchemy](https://www.sqlalchemy.org/) to define data models, specifically on [SQLAlchemy Core](https://docs.sqlalchemy.org/core/).
 
-Here you can find a simple example of how to define a model but you can find more complex examples in SQLAlchemy docs.
+Here you can find a simple example of how to define a model, but you can find more complex examples in SQLAlchemy docs.
 
 ```python
 import sqlalchemy as sa
@@ -18,4 +18,4 @@ user = sa.Table(
 )
 ```
 
-You can also find useful some of the complete [examples](examples.md) under this docs.
+You can also find useful some complete [examples](examples.md) under these docs.
