@@ -2,9 +2,7 @@ import asyncio
 import inspect
 from functools import wraps
 
-import marshmallow
-
-from flama import exceptions
+from flama import exceptions, schemas
 
 __all__ = ["get_output_schema", "output_validation"]
 
@@ -17,9 +15,9 @@ def get_output_schema(func):
     :returns: Output schema.
     """
     return_annotation = inspect.signature(func).return_annotation
-    if inspect.isclass(return_annotation) and issubclass(return_annotation, marshmallow.Schema):
+    if inspect.isclass(return_annotation) and issubclass(return_annotation, schemas.Schema):
         return return_annotation()
-    elif isinstance(return_annotation, marshmallow.Schema):
+    elif isinstance(return_annotation, schemas.Schema):
         return return_annotation
 
     return None

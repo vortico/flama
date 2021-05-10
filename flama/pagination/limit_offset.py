@@ -2,8 +2,7 @@ import asyncio
 import functools
 import typing
 
-import marshmallow
-
+from flama import schemas
 from flama.responses import APIResponse
 from flama.validation import get_output_schema
 
@@ -12,18 +11,7 @@ try:
 except Exception:  # pragma: no cover
     forge = None  # type: ignore
 
-__all__ = ["LimitOffsetSchema", "LimitOffsetResponse", "limit_offset"]
-
-
-class LimitOffsetMeta(marshmallow.Schema):
-    limit = marshmallow.fields.Integer(title="limit", description="Number of retrieved items")
-    offset = marshmallow.fields.Integer(title="offset", description="Collection offset")
-    count = marshmallow.fields.Integer(title="count", description="Total number of items", allow_none=True)
-
-
-class LimitOffsetSchema(marshmallow.Schema):
-    meta = marshmallow.fields.Nested(LimitOffsetMeta)
-    data = marshmallow.fields.List(marshmallow.fields.Dict())
+__all__ = ["LimitOffsetResponse", "limit_offset"]
 
 
 class LimitOffsetResponse(APIResponse):
@@ -40,7 +28,7 @@ class LimitOffsetResponse(APIResponse):
 
     def __init__(
         self,
-        schema: marshmallow.Schema,
+        schema: schemas.Schema,
         offset: typing.Optional[typing.Union[int, str]] = None,
         limit: typing.Optional[typing.Union[int, str]] = None,
         count: typing.Optional[bool] = True,
@@ -79,11 +67,11 @@ def limit_offset(func):
     assert forge is not None, "`python-forge` must be installed to use Paginator."
 
     resource_schema = get_output_schema(func)
-    data_schema = marshmallow.fields.Nested(resource_schema, many=True) if resource_schema else marshmallow.fields.Raw()
+    data_schema = schemas.fields.Nested(resource_schema, many=True) if resource_schema else schemas.fields.Raw()
 
     schema = type(
         "LimitOffsetPaginated" + resource_schema.__class__.__name__,  # Add a prefix to avoid collision
-        (LimitOffsetSchema,),
+        (schemas.core.LimitOffsetSchema,),
         {"data": data_schema},  # Replace generic with resource schema
     )()
 

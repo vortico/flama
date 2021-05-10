@@ -6,7 +6,7 @@ import uuid
 
 import marshmallow
 
-from flama import pagination
+from flama import pagination, schemas
 from flama.exceptions import HTTPException
 from flama.responses import APIResponse
 from flama.types import Model, PrimaryKey, ResourceMeta, ResourceMethodMeta
@@ -36,10 +36,6 @@ PK_MAPPING = {
     sqlalchemy.DateTime: datetime.datetime,
     postgresql.UUID: uuid.UUID,
 }
-
-
-class DropCollection(marshmallow.Schema):
-    deleted = marshmallow.fields.Integer(title="deleted", description="Number of deleted elements", required=True)
 
 
 def resource_method(path: str, methods: typing.List[str] = None, name: str = None, **kwargs) -> typing.Callable:
@@ -415,14 +411,14 @@ class DropMixin:
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/", methods=["DELETE"], name=f"{name}-drop")
         @database.transaction()
-        async def drop(self) -> DropCollection:
+        async def drop(self) -> schemas.core.DropCollection:
             query = sqlalchemy.select([sqlalchemy.func.count(self.model.c[model.primary_key.name])])
             result = next((i for i in (await self.database.fetch_one(query)).values()))
 
             query = self.model.delete()
             await self.database.execute(query)
 
-            return APIResponse(schema=DropCollection(), content={"deleted": result}, status_code=204)
+            return APIResponse(schema=schemas.core.DropCollection(), content={"deleted": result}, status_code=204)
 
         drop.__doc__ = f"""
             tags:

@@ -53,6 +53,7 @@ uvicorn = ">=0.10.0,<1.0.0"
 aiosqlite = ">=0.11.0,<1.0.0"
 requests = "^2.22.0"
 databases = ">=0.4.0,<1.0.0"
+typesystem = "^0.2.4"
 
 [tool.poetry.extras]
 full = ["apispec","pyyaml","python-forge","sqlalchemy","databases"]
