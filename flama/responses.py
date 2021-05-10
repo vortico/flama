@@ -1,6 +1,5 @@
 import typing
 
-import marshmallow
 from starlette.responses import (
     FileResponse,
     HTMLResponse,
@@ -11,6 +10,7 @@ from starlette.responses import (
     StreamingResponse,
 )
 
+from flama import schemas
 from flama.exceptions import HTTPException, SerializationError
 
 __all__ = [
@@ -27,16 +27,10 @@ __all__ = [
 ]
 
 
-class APIError(marshmallow.Schema):
-    status_code = marshmallow.fields.Integer(title="status_code", description="HTTP status code", required=True)
-    detail = marshmallow.fields.Raw(title="detail", description="Error detail", required=True)
-    error = marshmallow.fields.String(title="type", description="Exception or error type")
-
-
 class APIResponse(JSONResponse):
     media_type = "application/json"
 
-    def __init__(self, schema: typing.Optional[marshmallow.Schema] = None, *args, **kwargs):
+    def __init__(self, schema: typing.Optional[schemas.Schema] = None, *args, **kwargs):
         self.schema = schema
         super().__init__(*args, **kwargs)
 
@@ -64,7 +58,7 @@ class APIErrorResponse(APIResponse):
             "status_code": status_code,
         }
 
-        super().__init__(schema=APIError(), content=content, status_code=status_code, *args, **kwargs)
+        super().__init__(schema=schemas.core.APIError(), content=content, status_code=status_code, *args, **kwargs)
 
         self.detail = detail
         self.exception = exception

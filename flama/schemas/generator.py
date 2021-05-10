@@ -6,10 +6,12 @@ from collections import defaultdict
 from string import Template
 
 import marshmallow
-from starlette import routing, schemas
+from starlette import routing
+from starlette import schemas as starlette_schemas
 from starlette.responses import HTMLResponse
 
-from flama.responses import APIError
+from flama import schemas
+from flama.templates import PATH as TEMPLATES_PATH
 from flama.types import EndpointInfo
 from flama.utils import dict_safe_add
 
@@ -33,7 +35,7 @@ except Exception:  # pragma: no cover
 __all__ = ["OpenAPIResponse", "SchemaGenerator", "SchemaMixin"]
 
 
-class OpenAPIResponse(schemas.OpenAPIResponse):
+class OpenAPIResponse(starlette_schemas.OpenAPIResponse):
     def render(self, content: typing.Any) -> bytes:
         assert yaml is not None, "`pyyaml` must be installed to use OpenAPIResponse."
         assert apispec is not None, "`apispec` must be installed to use OpenAPIResponse."
@@ -65,7 +67,7 @@ class SchemaRegistry(dict):
         return schema
 
 
-class SchemaGenerator(schemas.BaseSchemaGenerator):
+class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
     def __init__(self, title: str, version: str, description: str, openapi_version="3.0.0"):
         assert apispec is not None, "`apispec` must be installed to use SchemaGenerator."
 
@@ -169,7 +171,9 @@ class SchemaGenerator(schemas.BaseSchemaGenerator):
         )
 
     def _add_endpoint_default_response(self, schema: typing.Dict):
-        dict_safe_add(schema, self.schemas[APIError], "responses", "default", "content", "application/json", "schema")
+        dict_safe_add(
+            schema, self.schemas[schemas.core.APIError], "responses", "default", "content", "application/json", "schema"
+        )
 
         # Default description
         schema["responses"]["default"]["description"] = schema["responses"]["default"].get(
@@ -257,7 +261,7 @@ class SchemaMixin:
 
     def add_docs_route(self):
         def swagger_ui() -> HTMLResponse:
-            with open(os.path.join(os.path.dirname(__file__), "templates/swagger_ui.html")) as f:
+            with open(os.path.join(TEMPLATES_PATH, "swagger_ui.html")) as f:
                 content = Template(f.read()).substitute(title=self.title, schema_url=self.schema_url)
 
             return HTMLResponse(content)
@@ -266,7 +270,7 @@ class SchemaMixin:
 
     def add_redoc_route(self):
         def redoc() -> HTMLResponse:
-            with open(os.path.join(os.path.dirname(__file__), "templates/redoc.html")) as f:
+            with open(os.path.join(TEMPLATES_PATH, "redoc.html")) as f:
                 content = Template(f.read()).substitute(title=self.title, schema_url=self.schema_url)
 
             return HTMLResponse(content)

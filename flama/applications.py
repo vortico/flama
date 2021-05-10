@@ -12,7 +12,7 @@ from flama.http import Request, Response
 from flama.injection import Injector
 from flama.responses import APIErrorResponse
 from flama.routing import Router
-from flama.schemas import SchemaMixin
+from flama.schemas.generator import SchemaMixin
 
 if typing.TYPE_CHECKING:
     from flama.resources import BaseResource
