@@ -4,8 +4,6 @@ import re
 import typing
 import uuid
 
-import marshmallow
-
 from flama import pagination, schemas
 from flama.exceptions import HTTPException
 from flama.responses import APIResponse
@@ -160,7 +158,7 @@ class BaseResource(type):
     @classmethod
     def _get_schemas(
         mcs, name: str, namespace: typing.Dict[str, typing.Any], bases: typing.Sequence[typing.Any]
-    ) -> typing.Tuple[marshmallow.Schema, marshmallow.Schema]:
+    ) -> typing.Tuple[schemas.Schema, schemas.Schema]:
         try:
             schema = mcs._get_attribute("schema", name, namespace, bases)
             input_schema = schema
@@ -190,8 +188,8 @@ class BaseResource(type):
         verbose_name: str,
         namespace: typing.Dict[str, typing.Any],
         database: "databases.Database",
-        input_schema: marshmallow.Schema,
-        output_schema: marshmallow.Schema,
+        input_schema: schemas.Schema,
+        output_schema: schemas.Schema,
         model: Model,
     ):
         # Get available methods
@@ -226,8 +224,8 @@ class CreateMixin:
         name: str,
         verbose_name: str,
         database: databases.Database,
-        input_schema: marshmallow.Schema,
-        output_schema: marshmallow.Schema,
+        input_schema: schemas.Schema,
+        output_schema: schemas.Schema,
         **kwargs,
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/", methods=["POST"], name=f"{name}-create")
@@ -256,7 +254,7 @@ class CreateMixin:
 class RetrieveMixin:
     @classmethod
     def _add_retrieve(
-        mcs, name: str, verbose_name: str, output_schema: marshmallow.Schema, model: Model, **kwargs
+        mcs, name: str, verbose_name: str, output_schema: schemas.Schema, model: Model, **kwargs
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["GET"], name=f"{name}-retrieve")
         async def retrieve(self, element_id: model.primary_key.type) -> output_schema:
@@ -294,8 +292,8 @@ class UpdateMixin:
         name: str,
         verbose_name: str,
         database: databases.Database,
-        input_schema: marshmallow.Schema,
-        output_schema: marshmallow.Schema,
+        input_schema: schemas.Schema,
+        output_schema: schemas.Schema,
         model: Model,
         **kwargs,
     ) -> typing.Dict[str, typing.Any]:
@@ -371,7 +369,7 @@ class DeleteMixin:
 class ListMixin:
     @classmethod
     def _add_list(
-        mcs, name: str, verbose_name: str, output_schema: marshmallow.Schema, **kwargs
+        mcs, name: str, verbose_name: str, output_schema: schemas.Schema, **kwargs
     ) -> typing.Dict[str, typing.Any]:
         async def filter(self, *clauses, **filters) -> typing.List[typing.Dict]:
             query = self.model.select()
@@ -411,14 +409,14 @@ class DropMixin:
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/", methods=["DELETE"], name=f"{name}-drop")
         @database.transaction()
-        async def drop(self) -> schemas.core.DropCollection:
+        async def drop(self) -> schemas.schemas.DropCollection:
             query = sqlalchemy.select([sqlalchemy.func.count(self.model.c[model.primary_key.name])])
             result = next((i for i in (await self.database.fetch_one(query)).values()))
 
             query = self.model.delete()
             await self.database.execute(query)
 
-            return APIResponse(schema=schemas.core.DropCollection(), content={"deleted": result}, status_code=204)
+            return APIResponse(schema=schemas.schemas.DropCollection(), content={"deleted": result}, status_code=204)
 
         drop.__doc__ = f"""
             tags:

@@ -58,7 +58,7 @@ class APIErrorResponse(APIResponse):
             "status_code": status_code,
         }
 
-        super().__init__(schema=schemas.core.APIError(), content=content, status_code=status_code, *args, **kwargs)
+        super().__init__(schema=schemas.schemas.APIError(), content=content, status_code=status_code, *args, **kwargs)
 
         self.detail = detail
         self.exception = exception
