@@ -4,6 +4,7 @@ import databases
 import marshmallow
 import pytest
 import sqlalchemy
+from faker import Faker
 
 DATABASE_URL = "sqlite:///test.db"
 
@@ -46,3 +47,8 @@ def model(database_metadata):
     )
 
     return model_
+
+
+@pytest.fixture(scope="session")
+def fake():
+    return Faker()

@@ -30,29 +30,28 @@
 
 # Flama
 
-Flama aims to bring a layer on top of [Starlette] to provide an **easy to learn** and **fast to develop** approach for 
-building **highly performant** GraphQL and REST APIs. In the same way of Starlette is, Flama is a perfect option for 
-developing **asynchronous** and **production-ready** services. 
+Flama aims to bring a layer on top of [Starlette] to provide an **easy to learn** and **fast to develop** approach for
+building **highly performant** GraphQL and REST APIs. In the same way of Starlette is, Flama is a perfect option for
+developing **asynchronous** and **production-ready** services.
 
 Among other characteristics it provides the following:
 
 * **Generic classes** for API resources that provides standard CRUD methods over SQLAlchemy tables.
-* **Schema system** based on [Marshmallow] that allows to **declare** the inputs and outputs of endpoints and provides 
-a reliable way of **validate** data against those schemas.
-* **Dependency Injection** that ease the process of managing parameters needed in endpoints. Flama ASGI objects 
-like `Request`, `Response`, `Session` and so on are defined as components and ready to be injected in your endpoints.
-* **Components** as the base of the plugin ecosystem, allowing you to create custom or use those already defined in 
-your endpoints, injected as parameters.
-* **Auto generated API schema** using OpenAPI standard. It uses the schema system of your endpoints to extract all the 
-necessary information to generate your API Schema.
+* **Schema system** based on [Marshmallow] that allows to **declare** the inputs and outputs of endpoints and provides
+  a reliable way of **validate** data against those schemas.
+* **Dependency Injection** that ease the process of managing parameters needed in endpoints. Flama ASGI objects
+  like `Request`, `Response`, `Session` and so on are defined as components and ready to be injected in your endpoints.
+* **Components** as the base of the plugin ecosystem, allowing you to create custom or use those already defined in
+  your endpoints, injected as parameters.
+* **Auto generated API schema** using OpenAPI standard. It uses the schema system of your endpoints to extract all the
+  necessary information to generate your API Schema.
 * **Auto generated docs** providing a [Swagger UI] or [ReDoc] endpoint.
 * **Pagination** automatically handled using multiple methods such as limit and offset, page numbers...
 
 ## Requirements
 
 * [Python] 3.6+
-* [Starlette] 0.12.0+
-* [Marshmallow] 3.0.0+
+* [Starlette] 0.14.0+
 
 ## Installation
 
@@ -65,7 +64,7 @@ $ pip install flama
 ```python
 from marshmallow import Schema, fields, validate
 from flama.applications import Flama
-
+import uvicorn
 
 # Data Schema
 class Puppy(Schema):
@@ -104,7 +103,7 @@ def list_puppies(name: str = None) -> Puppy(many=True):
         200:
             description: List puppies.
     """
-    return [puppy for puppy in puppies if puppy["name"] == name]
+    return [puppy for puppy in puppies if name in (puppy["name"], None)]
     
 
 @app.route("/", methods=["POST"])
@@ -120,33 +119,38 @@ def create_puppy(puppy: Puppy) -> Puppy:
     puppies.append(puppy)
     
     return puppy
+
+
+if __name__ == '__main__':
+    uvicorn.run(app, host='0.0.0.0', port=8000)
 ```
 
 ## Dependencies
 
-Following Starlette philosophy Flama reduce the number of hard dependencies to those that are used as the core:
+Following Starlette philosophy Flama doesn't have any hard dependency (other than [Starlette]), but some of them are
+necessaries to enable some features:
 
-* [`starlette`][Starlette] - Flama is a layer on top of it.
-* [`marshmallow`][Marshmallow] - Flama data schemas and validation.
+### Marshmallow Data Schemas and Validation
+* [`marshmallow`][Marshmallow]
+* [`apispec`][apispec]
 
-It does not have any more hard dependencies, but some of them are necessaries to use some features:
+### Pagination
+* [`python-forge`][python-forge]
 
-* [`pyyaml`][pyyaml] - Required for API Schema and Docs auto generation.
-* [`apispec`][apispec] - Required for API Schema and Docs auto generation.
-* [`python-forge`][python-forge] - Required for pagination.
-* [`sqlalchemy`][SQLAlchemy] - Required for Generic API resources.
-* [`databases`][databases] - Required for Generic API resources.
+### Generic API Resources
+* [`sqlalchemy`][SQLAlchemy]
+* [`databases`][databases]
 
 You can install all of these with `pip3 install flama[full]`.
 
 ## Credits
 
-That library is heavily inspired by [APIStar] server in an attempt to bring a good amount of it essence to work with 
+That library is heavily inspired by [APIStar] server in an attempt to bring a good amount of it essence to work with
 [Starlette] as the ASGI framework and [Marshmallow] as the schema system.
 
 ## Contributing
 
-This project is absolutely open to contributions so if you have a nice idea, create an issue to let the community 
+This project is absolutely open to contributions so if you have a nice idea, create an issue to let the community
 discuss it.
 
 [Python]: https://www.python.org
@@ -155,7 +159,6 @@ discuss it.
 [Marshmallow]: https://marshmallow.readthedocs.io/
 [Swagger UI]: https://swagger.io/tools/swagger-ui/
 [ReDoc]: https://rebilly.github.io/ReDoc/
-[pyyaml]: https://pyyaml.org/wiki/PyYAMLDocumentation
 [apispec]: https://apispec.readthedocs.io/
 [python-forge]: https://python-forge.readthedocs.io/
 [SQLAlchemy]: https://www.sqlalchemy.org/

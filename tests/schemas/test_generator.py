@@ -7,7 +7,6 @@ from starlette.testclient import TestClient
 from flama.applications import Flama
 from flama.endpoints import HTTPEndpoint
 from flama.routing import Router
-from flama.schemas.generator import OpenAPIResponse, SchemaGenerator
 
 
 class Puppy(marshmallow.Schema):
@@ -18,7 +17,7 @@ class BodyParam(marshmallow.Schema):
     name = marshmallow.fields.String()
 
 
-class TestCaseSchema:
+class TestCaseSchemaGenerator:
     @pytest.fixture(scope="class")
     def app(self):
         app_ = Flama(
@@ -35,7 +34,7 @@ class TestCaseSchema:
         class PuppyEndpoint(HTTPEndpoint):
             async def get(self) -> Puppy:
                 """
-                description: Custom component.
+                description: Endpoint.
                 responses:
                   200:
                     description: Component.
@@ -124,53 +123,60 @@ class TestCaseSchema:
 
     def test_schema_query_params(self, app):
         schema = app.schema["paths"]["/query-param/"]["get"]
-        parameters = schema.get("parameters", {})
-        response = schema.get("responses", {}).get("200", {})
 
         assert schema["description"] == "Query param."
-        assert response == {"description": "Param."}
-        assert parameters == [
+        assert "responses" in schema
+        assert "200" in schema["responses"]
+        assert schema["responses"]["200"] == {"description": "Param."}
+        assert "parameters" in schema
+        assert schema["parameters"] == [
             {"name": "param", "in": "query", "required": False, "schema": {"type": "string", "default": "Foo"}}
         ]
 
     def test_schema_path_params(self, app):
         schema = app.schema["paths"]["/path-param/{param}/"]["get"]
-        parameters = schema.get("parameters", {})
-        response = schema.get("responses", {}).get("200", {})
 
         assert schema["description"] == "Path param."
-        assert response == {"description": "Param."}
-        assert parameters == [{"name": "param", "in": "path", "required": True, "schema": {"type": "integer"}}]
+        assert "responses" in schema
+        assert "200" in schema["responses"]
+        assert schema["responses"]["200"] == {"description": "Param."}
+        assert "parameters" in schema
+        assert schema["parameters"] == [
+            {"name": "param", "in": "path", "required": True, "schema": {"type": "integer"}}
+        ]
 
     def test_schema_body_params(self, app):
         schema = app.schema["paths"]["/body-param/"]["post"]
-        parameters = schema.get("parameters")
-        response = schema.get("responses", {}).get("200", {})
-        body = schema.get("requestBody", {})
 
         assert schema["description"] == "Body param."
-        assert response == {"description": "Param."}
-        assert parameters is None
-        assert body == {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/BodyParam"}}}}
+        assert "responses" in schema
+        assert "200" in schema["responses"]
+        assert schema["responses"]["200"] == {"description": "Param."}
+        assert "parameters" not in schema
+        assert "requestBody" in schema
+        assert schema["requestBody"] == {
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/BodyParam"}}}
+        }
 
     def test_schema_output_schema(self, app):
         schema = app.schema["paths"]["/custom-component/"]["get"]
-        response = schema.get("responses", {}).get("200", {})
 
         assert schema["description"] == "Custom component."
-        assert response == {
+        assert "responses" in schema
+        assert "200" in schema["responses"]
+        assert schema["responses"]["200"] == {
             "description": "Component.",
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
         }
 
     def test_schema_output_schema_many(self, app):
         schema = app.schema["paths"]["/many-custom-component/"]["get"]
-        parameters = schema.get("parameters")
-        response = schema.get("responses", {}).get("200", {})
 
         assert schema["description"] == "Many custom component."
-        assert parameters is None
-        assert response == {
+        assert "parameters" not in schema
+        assert "responses" in schema
+        assert "200" in schema["responses"]
+        assert schema["responses"]["200"] == {
             "description": "Components.",
             "content": {
                 "application/json": {"schema": {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"}}
@@ -179,48 +185,48 @@ class TestCaseSchema:
 
     def test_schema_output_schema_using_endpoint(self, app):
         schema = app.schema["paths"]["/endpoint/"]["get"]
-        parameters = schema.get("parameters")
-        response = schema.get("responses", {}).get("200", {})
 
-        assert schema["description"] == "Custom component."
-        assert parameters is None
-        assert response == {
+        assert schema["description"] == "Endpoint."
+        assert "parameters" not in schema
+        assert "responses" in schema
+        assert "200" in schema["responses"]
+        assert schema["responses"]["200"] == {
             "description": "Component.",
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
         }
 
     def test_schema_output_schema_using_mount(self, app):
         schema = app.schema["paths"]["/mount/custom-component/"]["get"]
-        parameters = schema.get("parameters")
-        response = schema.get("responses", {}).get("200", {})
 
         assert schema["description"] == "Custom component."
-        assert parameters is None
-        assert response == {
+        assert "parameters" not in schema
+        assert "responses" in schema
+        assert "200" in schema["responses"]
+        assert schema["responses"]["200"] == {
             "description": "Component.",
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
         }
 
     def test_schema_output_schema_using_nested_mount(self, app):
         schema = app.schema["paths"]["/nested/mount/nested-component/"]["get"]
-        parameters = schema.get("parameters")
-        response = schema.get("responses", {}).get("200", {})
 
         assert schema["description"] == "Custom component."
-        assert parameters is None
-        assert response == {
+        assert "parameters" not in schema
+        assert "responses" in schema
+        assert "200" in schema["responses"]
+        assert schema["responses"]["200"] == {
             "description": "Component.",
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
         }
 
     def test_schema_default_response(self, app):
         schema = app.schema["paths"]["/default-response/"]["get"]
-        parameters = schema.get("parameters")
-        response = schema.get("responses", {}).get("default", {})
 
         assert schema["description"] == "Default response."
-        assert parameters is None
-        assert response == {
+        assert "parameters" not in schema
+        assert "responses" in schema
+        assert "200" in schema["responses"]
+        assert schema["responses"]["default"] == {
             "description": "Unexpected error.",
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
         }
@@ -255,16 +261,3 @@ class TestCaseSchema:
         assert file_mock.call_args_list[0][0][0].endswith("flama/templates/redoc.html")
         assert mock_template.call_args_list == [call("foo")]
         assert response.content == b"bar"
-
-    def test_pyyaml_not_installed(self):
-        with patch("flama.schemas.generator.yaml", new=None):
-            with pytest.raises(AssertionError, match="`pyyaml` must be installed to use OpenAPIResponse."):
-                OpenAPIResponse({})
-
-    def test_apispec_not_installed(self):
-        with patch("flama.schemas.generator.apispec", new=None):
-            with pytest.raises(AssertionError, match="`apispec` must be installed to use OpenAPIResponse."):
-                OpenAPIResponse({})
-
-            with pytest.raises(AssertionError, match="`apispec` must be installed to use SchemaGenerator."):
-                SchemaGenerator(None, None, None)

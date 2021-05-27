@@ -3,15 +3,14 @@ import inspect
 import typing
 import uuid
 
-import marshmallow
 from starlette import status
 
-from flama import codecs, exceptions, http, websockets
+from flama import codecs, exceptions, http, schemas, websockets
 from flama.components import Component
 from flama.exceptions import WebSocketException
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from flama.routing import Route
-from flama.types import OptBool, OptDate, OptDateTime, OptFloat, OptInt, OptStr, OptUUID
+from flama.types import OptBool, OptDate, OptDateTime, OptFloat, OptInt, OptStr, OptTime, OptUUID
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
@@ -58,28 +57,22 @@ class WebSocketMessageDataComponent(Component):
 
 class ValidatePathParamsComponent(Component):
     async def resolve(self, request: http.Request, route: Route, path_params: http.PathParams) -> ValidatedPathParams:
-        validator = type(
-            "Validator", (marshmallow.Schema,), {f.name: f.schema for f in route.path_fields[request.method].values()}
-        )
+        fields = {f.name: f.schema for f in route.path_fields[request.method].values()}
 
         try:
-            path_params = validator().load(path_params)
-        except marshmallow.ValidationError as exc:
-            raise exceptions.ValidationError(detail=exc.normalized_messages())
-        return ValidatedPathParams(path_params)
+            return ValidatedPathParams(schemas.validate(schemas.build_schema(fields), path_params))
+        except schemas.ValidationError as exc:
+            raise exceptions.ValidationError(detail=exc.errors)
 
 
 class ValidateQueryParamsComponent(Component):
     def resolve(self, request: http.Request, route: Route, query_params: http.QueryParams) -> ValidatedQueryParams:
-        validator = type(
-            "Validator", (marshmallow.Schema,), {f.name: f.schema for f in route.query_fields[request.method].values()}
-        )
+        fields = {f.name: f.schema for f in route.query_fields[request.method].values()}
 
         try:
-            query_params = validator().load(dict(query_params), unknown=marshmallow.EXCLUDE)
-        except marshmallow.ValidationError as exc:
-            raise exceptions.ValidationError(detail=exc.normalized_messages())
-        return ValidatedQueryParams(query_params)
+            return ValidatedQueryParams(schemas.validate(schemas.build_schema(fields), dict(query_params)))
+        except schemas.ValidationError as exc:
+            raise exceptions.ValidationError(detail=exc.errors)
 
 
 class ValidateRequestDataComponent(Component):
@@ -93,9 +86,9 @@ class ValidateRequestDataComponent(Component):
         validator = route.body_field[request.method].schema
 
         try:
-            return validator.load(data)
-        except marshmallow.ValidationError as exc:
-            raise exceptions.ValidationError(detail=exc.normalized_messages())
+            return schemas.validate(validator, data)
+        except schemas.ValidationError as exc:
+            raise exceptions.ValidationError(detail=exc.errors)
 
 
 class PrimitiveParamComponent(Component):
@@ -115,6 +108,7 @@ class PrimitiveParamComponent(Component):
             uuid.UUID,
             datetime.date,
             datetime.datetime,
+            datetime.time,
         )
 
     def resolve(
@@ -128,37 +122,39 @@ class PrimitiveParamComponent(Component):
             kwargs = {"required": True}
 
         param_validator = {
-            inspect.Signature.empty: marshmallow.fields.Field,
-            int: marshmallow.fields.Integer,
-            float: marshmallow.fields.Number,
-            bool: marshmallow.fields.Boolean,
-            str: marshmallow.fields.String,
-            uuid.UUID: marshmallow.fields.UUID,
-            datetime.date: marshmallow.fields.Date,
-            datetime.datetime: marshmallow.fields.DateTime,
-            OptInt: marshmallow.fields.Integer,
-            OptFloat: marshmallow.fields.Number,
-            OptBool: marshmallow.fields.Boolean,
-            OptStr: marshmallow.fields.String,
-            http.QueryParam: marshmallow.fields.String,
-            http.PathParam: marshmallow.fields.String,
-            OptUUID: marshmallow.fields.UUID,
-            OptDate: marshmallow.fields.Date,
-            OptDateTime: marshmallow.fields.DateTime,
+            inspect.Signature.empty: schemas.Field,
+            int: schemas.fields.MAPPING[int],
+            float: schemas.fields.MAPPING[float],
+            bool: schemas.fields.MAPPING[bool],
+            str: schemas.fields.MAPPING[str],
+            uuid.UUID: schemas.fields.MAPPING[uuid.UUID],
+            datetime.date: schemas.fields.MAPPING[datetime.date],
+            datetime.datetime: schemas.fields.MAPPING[datetime.datetime],
+            datetime.time: schemas.fields.MAPPING[datetime.time],
+            OptInt: schemas.fields.MAPPING[int],
+            OptFloat: schemas.fields.MAPPING[float],
+            OptBool: schemas.fields.MAPPING[bool],
+            OptStr: schemas.fields.MAPPING[str],
+            http.QueryParam: schemas.fields.MAPPING[str],
+            http.PathParam: schemas.fields.MAPPING[str],
+            OptUUID: schemas.fields.MAPPING[uuid.UUID],
+            OptDate: schemas.fields.MAPPING[datetime.date],
+            OptDateTime: schemas.fields.MAPPING[datetime.datetime],
+            OptTime: schemas.fields.MAPPING[datetime.time],
         }[parameter.annotation](**kwargs)
 
-        validator = type("Validator", (marshmallow.Schema,), {parameter.name: param_validator})
+        fields = {parameter.name: param_validator}
 
         try:
-            params = validator().load(params, unknown=marshmallow.EXCLUDE)
-        except marshmallow.ValidationError as exc:
-            raise exceptions.ValidationError(detail=exc.normalized_messages())
+            params = schemas.validate(schemas.build_schema(fields), params)
+        except schemas.ValidationError as exc:
+            raise exceptions.ValidationError(detail=exc.errors)
         return params.get(parameter.name, parameter.default)
 
 
 class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: inspect.Parameter):
-        return inspect.isclass(parameter.annotation) and issubclass(parameter.annotation, marshmallow.Schema)
+        return inspect.isclass(parameter.annotation) and issubclass(parameter.annotation, schemas.Schema)
 
     def resolve(self, parameter: inspect.Parameter, data: ValidatedRequestData):
         return data

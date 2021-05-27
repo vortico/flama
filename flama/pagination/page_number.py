@@ -78,7 +78,7 @@ def page_number(func):
 
     schema = type(
         "PageNumberPaginated" + resource_schema.__class__.__name__,  # Add a prefix to avoid collision
-        (schemas.core.PageNumberSchema,),
+        (schemas.schemas.PageNumberSchema,),
         {"data": data_schema},  # Replace generic with resource schema
     )()
 

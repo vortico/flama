@@ -4,16 +4,16 @@ import logging
 import typing
 from functools import wraps
 
-import marshmallow
 import starlette.routing
 from starlette.concurrency import run_in_threadpool
 from starlette.routing import Match, Mount
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from flama import http, websockets
+from flama import http, schemas, websockets
 from flama.components import Component
 from flama.responses import APIResponse
-from flama.types import Field, FieldLocation, HTTPMethod, OptBool, OptFloat, OptInt, OptStr
+from flama.schemas.generator import Field, FieldLocation
+from flama.types import HTTPMethod, OptBool, OptFloat, OptInt, OptStr
 from flama.validation import get_output_schema
 
 if typing.TYPE_CHECKING:
@@ -29,24 +29,24 @@ MethodsMap = typing.Dict[str, FieldsMap]
 
 PATH_SCHEMA_MAPPING = {
     inspect.Signature.empty: lambda *args, **kwargs: None,
-    int: marshmallow.fields.Integer,
-    float: marshmallow.fields.Number,
-    str: marshmallow.fields.String,
-    bool: marshmallow.fields.Boolean,
-    http.PathParam: marshmallow.fields.String,
+    int: schemas.fields.MAPPING[int],
+    float: schemas.fields.MAPPING[float],
+    str: schemas.fields.MAPPING[str],
+    bool: schemas.fields.MAPPING[bool],
+    http.PathParam: schemas.fields.MAPPING[str],
 }
 
 QUERY_SCHEMA_MAPPING = {
     inspect.Signature.empty: lambda *args, **kwargs: None,
-    int: marshmallow.fields.Integer,
-    float: marshmallow.fields.Number,
-    bool: marshmallow.fields.Boolean,
-    str: marshmallow.fields.String,
-    OptInt: marshmallow.fields.Integer,
-    OptFloat: marshmallow.fields.Number,
-    OptBool: marshmallow.fields.Boolean,
-    OptStr: marshmallow.fields.String,
-    http.QueryParam: marshmallow.fields.String,
+    int: schemas.fields.MAPPING[int],
+    float: schemas.fields.MAPPING[float],
+    str: schemas.fields.MAPPING[str],
+    bool: schemas.fields.MAPPING[bool],
+    OptInt: schemas.fields.MAPPING[int],
+    OptFloat: schemas.fields.MAPPING[float],
+    OptStr: schemas.fields.MAPPING[str],
+    OptBool: schemas.fields.MAPPING[bool],
+    http.QueryParam: schemas.fields.MAPPING[str],
 }
 
 
@@ -100,10 +100,7 @@ class FieldsMixin:
                 continue
             # Matches as path param
             if name in self.param_convertors.keys():
-                try:
-                    schema = PATH_SCHEMA_MAPPING[param.annotation]
-                except KeyError:
-                    schema = marshmallow.fields.String
+                schema = PATH_SCHEMA_MAPPING.get(param.annotation, schemas.fields.MAPPING[str])
 
                 path_fields[name] = Field(
                     name=name, location=FieldLocation.path, schema=schema(required=True), required=True
@@ -124,7 +121,7 @@ class FieldsMixin:
                     required=required,
                 )
             # Body params
-            elif inspect.isclass(param.annotation) and issubclass(param.annotation, marshmallow.Schema):
+            elif inspect.isclass(param.annotation) and issubclass(param.annotation, schemas.Schema):
                 body_field = Field(name=name, location=FieldLocation.body, schema=param.annotation())
 
         output_field = inspect.signature(handler).return_annotation
