@@ -34,7 +34,7 @@ def output_validation(error_cls=exceptions.ValidationError, error_status_code=50
 
     def outer_decorator(func):
         schema = get_output_schema(func)
-        assert schema is not None, "Return annotation must be a valid marshmallow schema"
+        assert schema is not None, "Return annotation must be a valid schema"
 
         @wraps(func)
         async def inner_decorator(*args, **kwargs):

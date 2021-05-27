@@ -123,7 +123,7 @@ class TestCaseMarshmallowSchemaValidateOutput:
         assert response.json() == expected_response
 
     def test_function_without_return_schema(self):
-        with pytest.raises(AssertionError, match="Return annotation must be a valid marshmallow schema"):
+        with pytest.raises(AssertionError, match="Return annotation must be a valid schema"):
 
             @output_validation()
             def foo():

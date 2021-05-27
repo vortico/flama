@@ -71,7 +71,7 @@ def limit_offset(func):
 
     schema = type(
         "LimitOffsetPaginated" + resource_schema.__class__.__name__,  # Add a prefix to avoid collision
-        (schemas.core.LimitOffsetSchema,),
+        (schemas.schemas.LimitOffsetSchema,),
         {"data": data_schema},  # Replace generic with resource schema
     )()
 

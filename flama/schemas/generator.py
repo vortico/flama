@@ -1,96 +1,138 @@
+import enum
 import inspect
 import itertools
+import json
+import logging
 import os
 import typing
 from collections import defaultdict
 from string import Template
 
-import marshmallow
 from starlette import routing
 from starlette import schemas as starlette_schemas
 from starlette.responses import HTMLResponse
 
-from flama import schemas
+from flama.schemas import Field, Schema, openapi, schemas, to_json_schema
 from flama.templates import PATH as TEMPLATES_PATH
-from flama.types import EndpointInfo
-from flama.utils import dict_safe_add
 
-try:
-    import apispec
-except Exception:  # pragma: no cover
-    apispec = None  # type: ignore
-
-try:
-    import yaml
-    from apispec.yaml_utils import YAMLDumper as BaseYAMLDumper
-
-    class YAMLDumper(BaseYAMLDumper):
-        def ignore_aliases(self, data):
-            return True
-
-
-except Exception:  # pragma: no cover
-    yaml = None  # type: ignore
+logger = logging.getLogger(__name__)
 
 __all__ = ["OpenAPIResponse", "SchemaGenerator", "SchemaMixin"]
 
 
+class FieldLocation(enum.Enum):
+    query = enum.auto()
+    path = enum.auto()
+    body = enum.auto()
+
+
+class Field(typing.NamedTuple):
+    name: str
+    location: FieldLocation
+    schema: typing.Union[Field, Schema]
+    required: bool = False
+
+
+class EndpointInfo(typing.NamedTuple):
+    path: str
+    method: str
+    func: typing.Callable
+    query_fields: typing.Dict[str, Field]
+    path_fields: typing.Dict[str, Field]
+    body_field: Field
+    output_field: typing.Any
+
+
 class OpenAPIResponse(starlette_schemas.OpenAPIResponse):
     def render(self, content: typing.Any) -> bytes:
-        assert yaml is not None, "`pyyaml` must be installed to use OpenAPIResponse."
-        assert apispec is not None, "`apispec` must be installed to use OpenAPIResponse."
         assert isinstance(content, dict), "The schema passed to OpenAPIResponse should be a dictionary."
 
-        return yaml.dump(content, default_flow_style=False, Dumper=YAMLDumper).encode("utf-8")
+        return json.dumps(content).encode("utf-8")
 
 
-class SchemaRegistry(dict):
-    def __init__(self, spec, resolver, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.spec = spec
-        self.resolver = resolver
+class SchemaRegistry(typing.Set[Schema]):
+    @staticmethod
+    def _schema_class(element: Schema):
+        return element if inspect.isclass(element) else element.__class__
 
-    def __getitem__(self, item):
-        is_class = inspect.isclass(item)
-        schema_class = item if is_class else item.__class__
+    def __contains__(self, item):
+        return super().__contains__(self._schema_class(item))
 
-        try:
-            schema = super().__getitem__(schema_class)
-        except KeyError:
-            self.spec.components.schema(name=schema_class.__name__, schema=schema_class)
-            schema = self.resolver.resolve_schema_dict(schema_class)
-            super().__setitem__(schema_class, schema)
+    def add(self, element: Schema) -> None:
+        """
+        Register a new Schema to this registry.
 
-        if not is_class:
-            schema = self.resolver.resolve_schema_dict(item)
+        :param element: Schema object or class.
+        """
+        super().add(self._schema_class(element))
 
-        return schema
+    def get_name(self, element: Schema) -> str:
+        """
+        Generate a name for given schema.
+
+        :param element: Schema object or class.
+        :return: Schema name.
+        """
+        if element not in self:
+            raise ValueError("Unregistered schema")
+
+        return self._schema_class(element).__name__
+
+    def get_ref(self, element: Schema) -> typing.Union[openapi.Schema, openapi.Reference]:
+        """
+        Generate a reference for given schema.
+
+        :param element: Schema object or class.
+        :return: Schema reference.
+        """
+        if element not in self:
+            raise ValueError("Unregistered schema")
+
+        reference = openapi.Reference(ref=f"#/components/schemas/{self.get_name(element)}")
+        schema = to_json_schema(element)
+        if schema.get("type") == "array" and schema.get("items"):
+            schema["items"] = reference
+            return openapi.Schema(schema)
+
+        return reference
 
 
 class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
-    def __init__(self, title: str, version: str, description: str, openapi_version="3.0.0"):
-        assert apispec is not None, "`apispec` must be installed to use SchemaGenerator."
-
-        from apispec.ext.marshmallow import MarshmallowPlugin
-
-        marshmallow_plugin = MarshmallowPlugin()
-        self.spec = apispec.APISpec(
-            title=title,
-            version=version,
-            openapi_version=openapi_version,
-            info={"description": description},
-            plugins=[marshmallow_plugin],
+    def __init__(
+        self,
+        title: str,
+        version: str,
+        description: str = None,
+        terms_of_service: str = None,
+        contact_name: str = None,
+        contact_url: str = None,
+        contact_email: str = None,
+        license_name: str = None,
+        license_url: str = None,
+    ):
+        contact = (
+            openapi.Contact(name=contact_name, url=contact_url, email=contact_email)
+            if contact_name or contact_url or contact_email
+            else None
         )
 
-        self.converter = marshmallow_plugin.converter
-        self.resolver = marshmallow_plugin.resolver
+        license = openapi.License(name=license_name, url=license_url) if license_name else None
+
+        self.spec = openapi.OpenAPISpec(
+            title=title,
+            version=version,
+            description=description,
+            terms_of_service=terms_of_service,
+            contact=contact,
+            license=license,
+        )
 
         # Builtin definitions
-        self.schemas = SchemaRegistry(self.spec, self.resolver)
+        self.schemas = SchemaRegistry()
 
     def get_endpoints(
         self, routes: typing.List[routing.BaseRoute], base_path: str = ""
-    ) -> typing.Dict[str, typing.Sequence[EndpointInfo]]:
+    ) -> typing.Dict[str, typing.List[EndpointInfo]]:
         """
         Given the routes, yields the following information:
 
@@ -100,8 +142,12 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
             one of 'get', 'post', 'put', 'patch', 'delete', 'options'
         - func
             method ready to extract the docstring
+
+        :param routes: A list of routes.
+        :param base_path: The base endpoints path.
+        :return: Data structure that contains metadata from every route.
         """
-        endpoints_info: typing.Dict[str, typing.Sequence[EndpointInfo]] = defaultdict(list)
+        endpoints_info: typing.Dict[str, typing.List[EndpointInfo]] = defaultdict(list)
 
         for route in routes:
             _, path, _ = routing.compile_path(base_path + route.path)
@@ -145,71 +191,129 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
 
         return endpoints_info
 
-    def _add_endpoint_parameters(self, endpoint: EndpointInfo, schema: typing.Dict):
-        schema["parameters"] = [
-            self.converter._field2parameter(field.schema, name=field.name, location=field.location.name)
+    def _build_endpoint_parameters(
+        self, endpoint: EndpointInfo, metadata: typing.Dict[str, typing.Any]
+    ) -> typing.Optional[typing.List[openapi.Parameter]]:
+        if not endpoint.query_fields and not endpoint.path_fields:
+            return None
+
+        return [
+            openapi.Parameter(
+                schema=to_json_schema(field.schema),
+                name=field.name,
+                in_=field.location.name,
+                required=field.required,
+                **{
+                    x: y.get(x)
+                    for y in [x for x in metadata.get("parameters", []) if x.get("name") == field.name]
+                    if y
+                    for x in (
+                        "description",
+                        "deprecated",
+                        "allowEmptyValue",
+                        "style",
+                        "explode",
+                        "allowReserved",
+                        "example",
+                    )
+                },
+            )
             for field in itertools.chain(endpoint.query_fields.values(), endpoint.path_fields.values())
         ]
 
-    def _add_endpoint_body(self, endpoint: EndpointInfo, schema: typing.Dict):
-        dict_safe_add(
-            schema, self.schemas[endpoint.body_field.schema], "requestBody", "content", "application/json", "schema"
+    def _build_endpoint_body(
+        self, endpoint: EndpointInfo, metadata: typing.Dict[str, typing.Any]
+    ) -> typing.Optional[openapi.RequestBody]:
+        if not endpoint.body_field:
+            return None
+
+        self.schemas.add(endpoint.body_field.schema)
+        schema_ref = self.schemas.get_ref(endpoint.body_field.schema)
+
+        return openapi.RequestBody(
+            content={"application/json": openapi.MediaType(schema=schema_ref)},
+            **{
+                x: metadata.get("requestBody", {}).get("content", {}).get("application/json", {}).get(x)
+                for x in ("description", "required")
+            },
         )
 
-    def _add_endpoint_response(self, endpoint: EndpointInfo, schema: typing.Dict):
-        response_codes = list(schema.get("responses", {}).keys())
-        main_response = response_codes[0] if response_codes else 200
+    def _build_endpoint_response(
+        self, endpoint: EndpointInfo, metadata: typing.Dict[str, typing.Any]
+    ) -> typing.Tuple[typing.Optional[openapi.Response], typing.Optional[str]]:
+        try:
+            response_code, main_response = list(metadata.get("responses", {}).items())[0]
+        except IndexError:
+            response_code, main_response = "200", {}
+            logger.warning(
+                'OpenAPI description not provided in docstring for main response in endpoint "%s"', endpoint.path
+            )
 
-        dict_safe_add(
-            schema,
-            self.schemas[endpoint.output_field],
-            "responses",
-            main_response,
-            "content",
-            "application/json",
-            "schema",
+        if endpoint.output_field and (
+            (inspect.isclass(endpoint.output_field) and issubclass(endpoint.output_field, Schema))
+            or isinstance(endpoint.output_field, Schema)
+        ):
+            self.schemas.add(endpoint.output_field)
+            schema_ref = self.schemas.get_ref(endpoint.output_field)
+            content = {"application/json": openapi.MediaType(schema=schema_ref)}
+        else:
+            content = None
+
+        return (
+            openapi.Response(
+                description=main_response.get("description", "Description not provided."), content=content,
+            ),
+            str(response_code),
         )
 
-    def _add_endpoint_default_response(self, schema: typing.Dict):
-        dict_safe_add(
-            schema, self.schemas[schemas.core.APIError], "responses", "default", "content", "application/json", "schema"
+    def _build_endpoint_default_response(self, metadata: typing.Dict[str, typing.Any]) -> openapi.Response:
+        self.schemas.add(schemas.APIError)
+        schema_ref = self.schemas.get_ref(schemas.APIError)
+
+        return openapi.Response(
+            description=metadata.get("responses", {}).get("default", {}).get("description", "Unexpected error."),
+            content={"application/json": openapi.MediaType(schema=schema_ref)},
         )
 
-        # Default description
-        schema["responses"]["default"]["description"] = schema["responses"]["default"].get(
-            "description", "Unexpected error."
-        )
-
-    def get_endpoint_schema(self, endpoint: EndpointInfo) -> typing.Dict[str, typing.Any]:
-        schema = self.parse_docstring(endpoint.func)
+    def get_operation_schema(self, endpoint: EndpointInfo) -> openapi.Operation:
+        docstring_info = self.parse_docstring(endpoint.func)
 
         # Query and Path parameters
-        if endpoint.query_fields or endpoint.path_fields:
-            self._add_endpoint_parameters(endpoint, schema)
+        parameters = self._build_endpoint_parameters(endpoint, docstring_info)
 
         # Body
-        if endpoint.body_field:
-            self._add_endpoint_body(endpoint, schema)
+        request_body = self._build_endpoint_body(endpoint, docstring_info)
+
+        responses = {}
 
         # Response
-        if endpoint.output_field and (
-            (inspect.isclass(endpoint.output_field) and issubclass(endpoint.output_field, marshmallow.Schema))
-            or isinstance(endpoint.output_field, marshmallow.Schema)
-        ):
-            self._add_endpoint_response(endpoint, schema)
+        response, response_code = self._build_endpoint_response(endpoint, docstring_info)
+        if response:
+            responses[response_code] = response
 
         # Default response
-        self._add_endpoint_default_response(schema)
+        responses["default"] = self._build_endpoint_default_response(docstring_info)
 
-        return schema
+        return openapi.Operation(
+            responses=openapi.Responses(responses),
+            parameters=parameters,
+            requestBody=request_body,
+            **{
+                x: docstring_info.get(x)
+                for x in ("tags", "summary", "description", "externalDocs", "operationId", "deprecated")
+            },
+        )
 
-    def get_schema(self, routes: typing.List[routing.BaseRoute]) -> typing.Dict[str, typing.Any]:
+    def get_api_schema(self, routes: typing.List[routing.BaseRoute]) -> typing.Dict[str, typing.Any]:
         endpoints_info = self.get_endpoints(routes)
 
         for path, endpoints in endpoints_info.items():
-            self.spec.path(path=path, operations={e.method: self.get_endpoint_schema(e) for e in endpoints})
+            self.spec.add_path(path, openapi.Path(**{e.method: self.get_operation_schema(e) for e in endpoints}))
 
-        return self.spec.to_dict()
+        for name, schema in [(self.schemas.get_name(x), x) for x in self.schemas]:
+            self.spec.add_schema(name, openapi.Schema(to_json_schema(schema)))
+
+        return self.spec.asdict()
 
 
 class SchemaMixin:
@@ -251,7 +355,7 @@ class SchemaMixin:
 
     @property
     def schema(self):
-        return self.schema_generator.get_schema(self.routes)
+        return self.schema_generator.get_api_schema(self.routes)
 
     def add_schema_route(self):
         def schema():

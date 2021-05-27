@@ -38,18 +38,8 @@ class TestPageNumberResponse:
         parameters = schema.get("parameters", {})
 
         assert parameters == [
-            {
-                "name": "page",
-                "in": "query",
-                "required": False,
-                "schema": {"default": None, "type": "integer", "nullable": True},
-            },
-            {
-                "name": "page_size",
-                "in": "query",
-                "required": False,
-                "schema": {"default": None, "type": "integer", "nullable": True},
-            },
+            {"name": "page", "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}},
+            {"name": "page_size", "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}},
             {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
         ]
 
@@ -66,9 +56,10 @@ class TestPageNumberResponse:
         }
 
         assert response_schema == {
+            "description": "Description not provided.",
             "content": {
-                "application/json": {"schema": {"$ref": "#/components/schemas/PageNumberPaginatedOutputSchema"}}
-            }
+                "application/json": {"schema": {"$ref": "#/components/schemas/PageNumberPaginatedOutputSchema"}},
+            },
         }
 
     def test_async_function(self, app, client):
@@ -153,18 +144,8 @@ class TestLimitOffsetResponse:
         parameters = schema.get("parameters", {})
 
         assert parameters == [
-            {
-                "name": "limit",
-                "in": "query",
-                "required": False,
-                "schema": {"default": None, "type": "integer", "nullable": True},
-            },
-            {
-                "name": "offset",
-                "in": "query",
-                "required": False,
-                "schema": {"default": None, "type": "integer", "nullable": True},
-            },
+            {"name": "limit", "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}},
+            {"name": "offset", "in": "query", "required": False, "schema": {"type": "integer", "nullable": True}},
             {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
         ]
 
@@ -181,9 +162,10 @@ class TestLimitOffsetResponse:
         }
 
         assert response_schema == {
+            "description": "Description not provided.",
             "content": {
                 "application/json": {"schema": {"$ref": "#/components/schemas/LimitOffsetPaginatedOutputSchema"}}
-            }
+            },
         }
 
     def test_async_function(self, app, client):

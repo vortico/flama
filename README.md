@@ -51,8 +51,7 @@ necessary information to generate your API Schema.
 ## Requirements
 
 * [Python] 3.6+
-* [Starlette] 0.12.0+
-* [Marshmallow] 3.0.0+
+* [Starlette] 0.14.0+
 
 ## Installation
 
@@ -128,18 +127,19 @@ if __name__ == '__main__':
 
 ## Dependencies
 
-Following Starlette philosophy Flama reduce the number of hard dependencies to those that are used as the core:
+Following Starlette philosophy Flama doesn't have any hard dependency (other than [Starlette]), but some of them are 
+necessaries to enable some features:
 
-* [`starlette`][Starlette] - Flama is a layer on top of it.
-* [`marshmallow`][Marshmallow] - Flama data schemas and validation.
-
-It does not have any more hard dependencies, but some of them are necessaries to use some features:
-
-* [`pyyaml`][pyyaml] - Required for API Schema and Docs auto generation.
-* [`apispec`][apispec] - Required for API Schema and Docs auto generation.
-* [`python-forge`][python-forge] - Required for pagination.
-* [`sqlalchemy`][SQLAlchemy] - Required for Generic API resources.
-* [`databases`][databases] - Required for Generic API resources.
+### Marshmallow Data Schemas and Validation
+* [`marshmallow`][Marshmallow]
+* [`apispec`][apispec]
+  
+### Pagination
+* [`python-forge`][python-forge]
+  
+### Generic API Resources
+* [`sqlalchemy`][SQLAlchemy]
+* [`databases`][databases]
 
 You can install all of these with `pip3 install flama[full]`.
 
@@ -159,7 +159,6 @@ discuss it.
 [Marshmallow]: https://marshmallow.readthedocs.io/
 [Swagger UI]: https://swagger.io/tools/swagger-ui/
 [ReDoc]: https://rebilly.github.io/ReDoc/
-[pyyaml]: https://pyyaml.org/wiki/PyYAMLDocumentation
 [apispec]: https://apispec.readthedocs.io/
 [python-forge]: https://python-forge.readthedocs.io/
 [SQLAlchemy]: https://www.sqlalchemy.org/
