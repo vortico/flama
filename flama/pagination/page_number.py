@@ -3,8 +3,9 @@ import functools
 import typing
 
 from flama import schemas
+from flama.pagination import SCHEMAS
 from flama.responses import APIResponse
-from flama.validation import get_output_schema
+from flama.schemas.validation import get_output_schema
 
 try:
     import forge
@@ -57,7 +58,7 @@ class PageNumberResponse(APIResponse):
         )
 
 
-def page_number(func):
+def page_number(schema_name: str):
     """
     Decorator for adding pagination behavior to a view. That decorator produces a view based on page numbering and
     it adds three query parameters to control the pagination: page, page_size and count. Page has a default value of
@@ -68,49 +69,56 @@ def page_number(func):
     The output schema is also modified by :class:`PageNumberSchema`, creating
     a new schema based on it but using the old output schema as the content of its data field.
 
-    :param func: View to be decorated.
+    :param schema_name: Name used for output schema.
     :return: Decorated view.
     """
-    assert forge is not None, "`python-forge` must be installed to use Paginator."
 
-    resource_schema = get_output_schema(func)
-    data_schema = schemas.fields.Nested(resource_schema, many=True) if resource_schema else schemas.fields.Raw()
+    def _inner(func):
+        assert forge is not None, "`python-forge` must be installed to use Paginator."
 
-    schema = type(
-        "PageNumberPaginated" + resource_schema.__class__.__name__,  # Add a prefix to avoid collision
-        (schemas.schemas.PageNumberSchema,),
-        {"data": data_schema},  # Replace generic with resource schema
-    )()
+        resource_schema = schemas.unique_instance(get_output_schema(func))
+        paginated_schema_name = "PageNumberPaginated" + schema_name
+        schema = schemas.build_schema(
+            schema=resource_schema,
+            pagination=schemas.schemas.PageNumber,
+            paginated_schema_name=paginated_schema_name,
+            name=schema_name,
+        )
 
-    forge_revision_list = (
-        forge.copy(func),
-        forge.insert(forge.arg("page", default=None, type=int), index=-1),
-        forge.insert(forge.arg("page_size", default=None, type=int), index=-1),
-        forge.insert(forge.arg("count", default=True, type=bool), index=-1),
-        forge.delete("kwargs"),
-        forge.returns(schema),
-    )
+        forge_revision_list = (
+            forge.copy(func),
+            forge.insert(forge.arg("page", default=None, type=int), index=-1),
+            forge.insert(forge.arg("page_size", default=None, type=int), index=-1),
+            forge.insert(forge.arg("count", default=True, type=bool), index=-1),
+            forge.delete("kwargs"),
+            forge.returns(schema),
+        )
 
-    try:
-        if asyncio.iscoroutinefunction(func):
+        try:
+            if asyncio.iscoroutinefunction(func):
 
-            @forge.compose(*forge_revision_list)
-            @functools.wraps(func)
-            async def decorator(*args, page: int = None, page_size: int = None, count: bool = True, **kwargs):
-                return PageNumberResponse(
-                    schema=schema, page=page, page_size=page_size, count=count, content=await func(*args, **kwargs)
-                )
+                @forge.compose(*forge_revision_list)
+                @functools.wraps(func)
+                async def decorator(*args, page: int = None, page_size: int = None, count: bool = True, **kwargs):
+                    return PageNumberResponse(
+                        schema=schema, page=page, page_size=page_size, count=count, content=await func(*args, **kwargs)
+                    )
 
+            else:
+
+                @forge.compose(*forge_revision_list)
+                @functools.wraps(func)
+                def decorator(*args, page: int = None, page_size: int = None, count: bool = True, **kwargs):
+                    return PageNumberResponse(
+                        schema=schema, page=page, page_size=page_size, count=count, content=func(*args, **kwargs)
+                    )
+
+        except ValueError as e:
+            raise TypeError("Paginated views must define **kwargs param") from e
         else:
+            SCHEMAS[schema_name] = resource_schema
+            SCHEMAS[paginated_schema_name] = schema
 
-            @forge.compose(*forge_revision_list)
-            @functools.wraps(func)
-            def decorator(*args, page: int = None, page_size: int = None, count: bool = True, **kwargs):
-                return PageNumberResponse(
-                    schema=schema, page=page, page_size=page_size, count=count, content=func(*args, **kwargs)
-                )
+        return decorator
 
-    except ValueError as e:
-        raise TypeError("Paginated views must define **kwargs param") from e
-
-    return decorator
+    return _inner

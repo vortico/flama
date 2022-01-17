@@ -3,8 +3,9 @@ import functools
 import typing
 
 from flama import schemas
+from flama.pagination import SCHEMAS
 from flama.responses import APIResponse
-from flama.validation import get_output_schema
+from flama.schemas.validation import get_output_schema
 
 try:
     import forge
@@ -50,7 +51,7 @@ class LimitOffsetResponse(APIResponse):
         )
 
 
-def limit_offset(func):
+def limit_offset(schema_name: str):
     """
     Decorator for adding pagination behavior to a view. That decorator produces a view based on limit-offset and
     it adds three query parameters to control the pagination: limit, offset and count. Offset has a default value of
@@ -61,49 +62,56 @@ def limit_offset(func):
     The output schema is also modified by :class:`LimitOffsetSchema`,
     creating a new schema based on it but using the old output schema as the content of its data field.
 
-    :param func: View to be decorated.
+    :param schema_name: Name used for output schema.
     :return: Decorated view.
     """
-    assert forge is not None, "`python-forge` must be installed to use Paginator."
 
-    resource_schema = get_output_schema(func)
-    data_schema = schemas.fields.Nested(resource_schema, many=True) if resource_schema else schemas.fields.Raw()
+    def _inner(func):
+        assert forge is not None, "`python-forge` must be installed to use Paginator."
 
-    schema = type(
-        "LimitOffsetPaginated" + resource_schema.__class__.__name__,  # Add a prefix to avoid collision
-        (schemas.schemas.LimitOffsetSchema,),
-        {"data": data_schema},  # Replace generic with resource schema
-    )()
+        resource_schema = get_output_schema(func)
+        paginated_schema_name = "LimitOffsetPaginated" + schema_name
+        schema = schemas.build_schema(
+            schema=resource_schema,
+            pagination=schemas.schemas.LimitOffset,
+            paginated_schema_name=paginated_schema_name,
+            name=schema_name,
+        )
 
-    forge_revision_list = (
-        forge.copy(func),
-        forge.insert(forge.arg("limit", default=None, type=int), index=-1),
-        forge.insert(forge.arg("offset", default=None, type=int), index=-1),
-        forge.insert(forge.arg("count", default=True, type=bool), index=-1),
-        forge.delete("kwargs"),
-        forge.returns(schema),
-    )
+        forge_revision_list = (
+            forge.copy(func),
+            forge.insert(forge.arg("limit", default=None, type=int), index=-1),
+            forge.insert(forge.arg("offset", default=None, type=int), index=-1),
+            forge.insert(forge.arg("count", default=True, type=bool), index=-1),
+            forge.delete("kwargs"),
+            forge.returns(schema),
+        )
 
-    try:
-        if asyncio.iscoroutinefunction(func):
+        try:
+            if asyncio.iscoroutinefunction(func):
 
-            @forge.compose(*forge_revision_list)
-            @functools.wraps(func)
-            async def decorator(*args, limit: int = None, offset: int = None, count: bool = True, **kwargs):
-                return LimitOffsetResponse(
-                    schema=schema, limit=limit, offset=offset, count=count, content=await func(*args, **kwargs)
-                )
+                @forge.compose(*forge_revision_list)
+                @functools.wraps(func)
+                async def decorator(*args, limit: int = None, offset: int = None, count: bool = True, **kwargs):
+                    return LimitOffsetResponse(
+                        schema=schema, limit=limit, offset=offset, count=count, content=await func(*args, **kwargs)
+                    )
 
+            else:
+
+                @forge.compose(*forge_revision_list)
+                @functools.wraps(func)
+                def decorator(*args, limit: int = None, offset: int = None, count: bool = True, **kwargs):
+                    return LimitOffsetResponse(
+                        schema=schema, limit=limit, offset=offset, count=count, content=func(*args, **kwargs)
+                    )
+
+        except ValueError as e:
+            raise TypeError("Paginated views must define **kwargs param") from e
         else:
+            SCHEMAS[schema_name] = resource_schema
+            SCHEMAS[paginated_schema_name] = schema
 
-            @forge.compose(*forge_revision_list)
-            @functools.wraps(func)
-            def decorator(*args, limit: int = None, offset: int = None, count: bool = True, **kwargs):
-                return LimitOffsetResponse(
-                    schema=schema, limit=limit, offset=offset, count=count, content=func(*args, **kwargs)
-                )
+        return decorator
 
-    except ValueError as e:
-        raise TypeError("Paginated views must define **kwargs param") from e
-
-    return decorator
+    return _inner

@@ -9,127 +9,53 @@ from starlette.concurrency import run_in_threadpool
 from starlette.routing import Match, Mount
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from flama import http, schemas, websockets
+from flama import http, websockets
 from flama.components import Component
-from flama.responses import APIResponse
-from flama.schemas.generator import Field, FieldLocation
-from flama.types import HTTPMethod, OptBool, OptFloat, OptInt, OptStr
-from flama.validation import get_output_schema
+from flama.responses import APIResponse, Response
+from flama.schemas.routing import RouteFieldsMixin
+from flama.schemas.utils import is_schema_instance
+from flama.schemas.validation import get_output_schema
+from flama.types import HTTPMethod
 
 if typing.TYPE_CHECKING:
     from flama.resources import BaseResource
+    from flama.applications import Flama
 
-__all__ = ["Route", "WebSocketRoute", "Router"]
+__all__ = ["Mount", "Route", "Router", "WebSocketRoute"]
 
 logger = logging.getLogger(__name__)
 
 
-FieldsMap = typing.Dict[str, Field]
-MethodsMap = typing.Dict[str, FieldsMap]
+async def prepare_http_request(app: "Flama", handler: typing.Callable, state: typing.Dict[str, typing.Any]) -> Response:
+    try:
+        injected_func = await app.injector.inject(handler, state)
 
-PATH_SCHEMA_MAPPING = {
-    inspect.Signature.empty: lambda *args, **kwargs: None,
-    int: schemas.fields.MAPPING[int],
-    float: schemas.fields.MAPPING[float],
-    str: schemas.fields.MAPPING[str],
-    bool: schemas.fields.MAPPING[bool],
-    http.PathParam: schemas.fields.MAPPING[str],
-}
+        if asyncio.iscoroutinefunction(handler):
+            response = await injected_func()
+        else:
+            response = await run_in_threadpool(injected_func)
 
-QUERY_SCHEMA_MAPPING = {
-    inspect.Signature.empty: lambda *args, **kwargs: None,
-    int: schemas.fields.MAPPING[int],
-    float: schemas.fields.MAPPING[float],
-    str: schemas.fields.MAPPING[str],
-    bool: schemas.fields.MAPPING[bool],
-    OptInt: schemas.fields.MAPPING[int],
-    OptFloat: schemas.fields.MAPPING[float],
-    OptStr: schemas.fields.MAPPING[str],
-    OptBool: schemas.fields.MAPPING[bool],
-    http.QueryParam: schemas.fields.MAPPING[str],
-}
+        # Wrap response data with a proper response class
+        if is_schema_instance(response):
+            response = APIResponse(content=response, schema=response.__class__)
+        elif isinstance(response, (dict, list)):
+            response = APIResponse(content=response, schema=get_output_schema(handler))
+        elif isinstance(response, str):
+            response = APIResponse(content=response)
+        elif response is None:
+            response = APIResponse(content="")
+    except Exception:
+        logger.exception("Error building response")
+        raise
 
-
-class FieldsMixin:
-    def _get_fields(
-        self, router: "Router"
-    ) -> typing.Tuple[MethodsMap, MethodsMap, typing.Dict[str, Field], typing.Dict[str, typing.Any]]:
-        query_fields: MethodsMap = {}
-        path_fields: MethodsMap = {}
-        body_field: typing.Dict[str, Field] = {}
-        output_field: typing.Dict[str, typing.Any] = {}
-
-        if hasattr(self, "methods") and self.methods is not None:
-            if inspect.isclass(self.endpoint):  # HTTP endpoint
-                methods = [(m, getattr(self.endpoint, m.lower() if m != "HEAD" else "get")) for m in self.methods]
-            else:  # HTTP function
-                methods = [(m, self.endpoint) for m in self.methods] if self.methods else []
-        else:  # Websocket
-            methods = [("GET", self.endpoint)]
-
-        for m, h in methods:
-            query_fields[m], path_fields[m], body_field[m], output_field[m] = self._get_fields_from_handler(h, router)
-
-        return query_fields, path_fields, body_field, output_field
-
-    def _get_parameters_from_handler(
-        self, handler: typing.Callable, router: "Router"
-    ) -> typing.Dict[str, inspect.Parameter]:
-        parameters = {}
-
-        for name, parameter in inspect.signature(handler).parameters.items():
-            for component in router.components:
-                if component.can_handle_parameter(parameter):
-                    parameters.update(self._get_parameters_from_handler(component.resolve, router))
-                    break
-            else:
-                parameters[name] = parameter
-
-        return parameters
-
-    def _get_fields_from_handler(
-        self, handler: typing.Callable, router: "Router"
-    ) -> typing.Tuple[FieldsMap, FieldsMap, Field, typing.Any]:
-        query_fields: FieldsMap = {}
-        path_fields: FieldsMap = {}
-        body_field: Field = None
-
-        # Iterate over all params
-        for name, param in self._get_parameters_from_handler(handler, router).items():
-            if name in ("self", "cls"):
-                continue
-            # Matches as path param
-            if name in self.param_convertors.keys():
-                schema = PATH_SCHEMA_MAPPING.get(param.annotation, schemas.fields.MAPPING[str])
-
-                path_fields[name] = Field(
-                    name=name, location=FieldLocation.path, schema=schema(required=True), required=True
-                )
-            # Matches as query param
-            elif param.annotation in QUERY_SCHEMA_MAPPING:
-                if param.annotation in (OptInt, OptFloat, OptBool, OptStr) or param.default is not param.empty:
-                    required = False
-                    kwargs = {"missing": param.default if param.default is not param.empty else None}
-                else:
-                    required = True
-                    kwargs = {"required": True}
-
-                query_fields[name] = Field(
-                    name=name,
-                    location=FieldLocation.query,
-                    schema=QUERY_SCHEMA_MAPPING[param.annotation](**kwargs),
-                    required=required,
-                )
-            # Body params
-            elif inspect.isclass(param.annotation) and issubclass(param.annotation, schemas.Schema):
-                body_field = Field(name=name, location=FieldLocation.body, schema=param.annotation())
-
-        output_field = inspect.signature(handler).return_annotation
-
-        return query_fields, path_fields, body_field, output_field
+    return response
 
 
-class Route(starlette.routing.Route, FieldsMixin):
+class BaseRoute(starlette.routing.BaseRoute, RouteFieldsMixin):
+    ...
+
+
+class Route(starlette.routing.Route, BaseRoute):
     def __init__(self, path: str, endpoint: typing.Callable, router: "Router", *args, **kwargs):
         super().__init__(path, endpoint=endpoint, **kwargs)
 
@@ -150,9 +76,7 @@ class Route(starlette.routing.Route, FieldsMixin):
         @wraps(endpoint)
         async def _app(scope: Scope, receive: Receive, send: Send) -> None:
             app = scope["app"]
-
             route, route_scope = app.router.get_route_from_scope(scope)
-
             state = {
                 "scope": scope,
                 "receive": receive,
@@ -163,32 +87,13 @@ class Route(starlette.routing.Route, FieldsMixin):
                 "route": route,
                 "request": http.Request(scope, receive),
             }
-
-            try:
-                injected_func = await app.injector.inject(endpoint, state)
-
-                if asyncio.iscoroutinefunction(endpoint):
-                    response = await injected_func()
-                else:
-                    response = await run_in_threadpool(injected_func)
-
-                # Wrap response data with a proper response class
-                if isinstance(response, (dict, list)):
-                    response = APIResponse(content=response, schema=get_output_schema(endpoint))
-                elif isinstance(response, str):
-                    response = APIResponse(content=response)
-                elif response is None:
-                    response = APIResponse(content="")
-            except Exception:
-                logger.exception("Error building response")
-                raise
-
+            response = await prepare_http_request(app, endpoint, state)
             await response(scope, receive, send)
 
         return _app
 
 
-class WebSocketRoute(starlette.routing.WebSocketRoute, FieldsMixin):
+class WebSocketRoute(starlette.routing.WebSocketRoute, BaseRoute):
     def __init__(self, path: str, endpoint: typing.Callable, router: "Router", *args, **kwargs):
         super().__init__(path, endpoint=endpoint, **kwargs)
 

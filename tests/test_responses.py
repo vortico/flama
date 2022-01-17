@@ -1,10 +1,27 @@
+import datetime
 import json
-from unittest.mock import Mock, call, mock_open, patch
+from unittest.mock import Mock, mock_open, patch
 
 import pytest
+from pytest import param
 
+from flama import schemas
 from flama.exceptions import HTTPException, SerializationError
-from flama.responses import APIErrorResponse, APIResponse, HTMLFileResponse
+from flama.responses import APIErrorResponse, APIResponse, HTMLFileResponse, JSONResponse, OpenAPIResponse
+
+
+class TestCaseJSONResponse:
+    @pytest.fixture
+    def schema(self):
+        return Mock()
+
+    def test_render(self, schema):  # TODO: do
+        content = {"foo": datetime.timedelta(days=1, hours=20, minutes=30, seconds=10, milliseconds=10, microseconds=6)}
+        expected_result = {"foo": "P1D20H30M10.010006S"}
+
+        response = JSONResponse(content=content)
+
+        assert json.loads(response.body.decode()) == expected_result
 
 
 class TestCaseAPIResponse:
@@ -18,42 +35,20 @@ class TestCaseAPIResponse:
 
         assert response.schema == schema
 
-    def test_render(self, schema):
-        content = {"foo": "bar"}
-        expected_calls = [call(content)]
-        expected_result = {"foo": "bar"}
-        schema.dump.return_value = content
-
-        response = APIResponse(schema=schema, content=content)
-
-        assert schema.dump.call_args_list == expected_calls
-        assert json.loads(response.body.decode()) == expected_result
-
-    def test_render_no_content(self):
-        content = {}
-        expected_result = b""
-
-        response = APIResponse(content=content)
-
-        assert response.body == expected_result
-
-    def test_render_no_schema(self):
-        content = {"foo": "bar"}
-        expected_result = {"foo": "bar"}
-
-        response = APIResponse(content=content)
-
-        assert json.loads(response.body.decode()) == expected_result
-
-    def test_render_error(self, schema):
-        content = {}
-        expected_calls = [call(content)]
-        schema.dump.side_effect = Exception
-
-        with pytest.raises(SerializationError):
-            APIResponse(schema=schema, content=content)
-
-        assert schema.dump.call_args_list == expected_calls
+    @pytest.mark.parametrize(
+        "schema,content,expected,exception",
+        (
+            param(Mock(return_value={"foo": "bar"}), {"foo": "bar"}, '{"foo":"bar"}', None, id="schema_and_content"),
+            param(None, {}, "", None, id="no_content"),
+            param(None, {"foo": "bar"}, '{"foo":"bar"}', None, id="no_schema"),
+            param(Mock(side_effect=schemas.SchemaValidationError(errors={})), {}, "", SerializationError, id="error"),
+        ),
+        indirect=("exception",),
+    )
+    def test_render(self, schema, content, expected, exception):
+        with patch.object(schemas, "dump", new=schema), exception:
+            response = APIResponse(schema=schema, content=content)
+            assert response.body.decode() == expected
 
 
 class TestCaseAPIErrorResponse:
@@ -86,3 +81,19 @@ class TestCaseHTMLFileResponse:
 
             assert exc.status_code == 500
             assert exc.detail == error_detail
+
+
+class TestCaseOpenAPIResponse:
+    @pytest.mark.parametrize(
+        "test_input,expected,exception",
+        (
+            param({"foo": "bar"}, {"foo": "bar"}, None, id="success"),
+            param("foo", None, AssertionError, id="wrong_content"),
+        ),
+        indirect=("exception",),
+    )
+    def test_render(self, test_input, expected, exception):
+        with exception:
+            response = OpenAPIResponse(test_input)
+
+            assert json.loads(response.body.decode()) == expected
