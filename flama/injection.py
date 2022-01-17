@@ -4,6 +4,7 @@ import inspect
 import typing
 
 from flama import http, websockets
+from flama.components import Component
 from flama.components.asgi import ASGI_COMPONENTS, ASGIReceive, ASGIScope, ASGISend
 from flama.components.validation import VALIDATION_COMPONENTS
 from flama.exceptions import ComponentNotFound
@@ -13,10 +14,10 @@ __all__ = ["Injector"]
 
 
 class Injector:
-    def __init__(self, components):
+    def __init__(self, components: typing.List[Component]):
         from flama.applications import Flama
 
-        self.components = list(ASGI_COMPONENTS + VALIDATION_COMPONENTS) + components
+        self._components = components
         self.initial = {
             "scope": ASGIScope,
             "receive": ASGIReceive,
@@ -34,6 +35,10 @@ class Injector:
         }
         self.reverse_initial = {val: key for key, val in self.initial.items()}
         self.resolver_cache = {}
+
+    @property
+    def components(self) -> typing.List[Component]:
+        return self._components + ASGI_COMPONENTS + VALIDATION_COMPONENTS
 
     def resolve_parameter(
         self, parameter, kwargs: typing.Dict, consts: typing.Dict, seen_state: typing.Set, parent_parameter=None

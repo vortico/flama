@@ -2,7 +2,7 @@ import marshmallow
 from marshmallow import Schema
 from marshmallow.fields import Field
 
-from flama.schemas.marshmallow import core, fields, schemas
+from flama.schemas._libs.marshmallow import core, fields, schemas
 
 lib = marshmallow
 

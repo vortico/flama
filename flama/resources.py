@@ -77,7 +77,7 @@ class BaseResource(type):
         order = namespace.pop("order", model.primary_key.name)
 
         # Get input and output schemas
-        input_schema, output_schema = mcs._get_schemas(name, namespace, bases)
+        input_schema, output_schema, input_schema_name, output_schema_name = mcs._get_schemas(name, namespace, bases)
 
         namespace["_meta"] = ResourceMeta(
             database=database,
@@ -86,12 +86,24 @@ class BaseResource(type):
             verbose_name=verbose_name,
             input_schema=input_schema,
             output_schema=output_schema,
+            input_schema_name=input_schema_name,
+            output_schema_name=output_schema_name,
             columns=columns,
             order=order,
         )
 
         # Create CRUD methods and routes
-        mcs._add_methods(resource_name, verbose_name, namespace, database, input_schema, output_schema, model)
+        mcs._add_methods(
+            resource_name,
+            verbose_name,
+            namespace,
+            database,
+            input_schema,
+            output_schema,
+            model,
+            input_schema_name,
+            output_schema_name,
+        )
         mcs._add_routes(namespace)
 
         return super().__new__(mcs, name, bases, namespace)
@@ -113,7 +125,7 @@ class BaseResource(type):
 
     @classmethod
     def _get_resource_name(mcs, name: str, namespace: typing.Dict[str, typing.Any]) -> typing.Tuple[str, str]:
-        resource_name = namespace.pop("name", name.lower())
+        resource_name = namespace.pop("name", name)
 
         # Check resource name validity
         if re.match("[a-zA-Z][-_a-zA-Z]", resource_name) is None:
@@ -158,21 +170,25 @@ class BaseResource(type):
     @classmethod
     def _get_schemas(
         mcs, name: str, namespace: typing.Dict[str, typing.Any], bases: typing.Sequence[typing.Any]
-    ) -> typing.Tuple[schemas.Schema, schemas.Schema]:
+    ) -> typing.Tuple[schemas.Schema, schemas.Schema, str, str]:
         try:
             schema = mcs._get_attribute("schema", name, namespace, bases)
             input_schema = schema
             output_schema = schema
+            input_schema_name = name
+            output_schema_name = name
         except AttributeError:
             try:
                 input_schema = mcs._get_attribute("input_schema", name, namespace, bases)
                 output_schema = mcs._get_attribute("output_schema", name, namespace, bases)
+                input_schema_name = "Input" + name
+                output_schema_name = "Output" + name
             except AttributeError:
                 raise AttributeError(
                     f"{name} needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'"
                 )
 
-        return input_schema, output_schema
+        return input_schema, output_schema, input_schema_name, output_schema_name
 
     @classmethod
     def _add_routes(mcs, namespace: typing.Dict[str, typing.Any]):
@@ -191,6 +207,8 @@ class BaseResource(type):
         input_schema: schemas.Schema,
         output_schema: schemas.Schema,
         model: Model,
+        input_schema_name: str,
+        output_schema_name: str,
     ):
         # Get available methods
         methods = [getattr(mcs, f"_add_{method}") for method in mcs.METHODS if hasattr(mcs, f"_add_{method}")]
@@ -206,6 +224,8 @@ class BaseResource(type):
                 input_schema=input_schema,
                 output_schema=output_schema,
                 model=model,
+                input_schema_name=input_schema_name,
+                output_schema_name=output_schema_name,
             ).items()
         }
 
@@ -305,10 +325,16 @@ class UpdateMixin:
             if not exists:
                 raise HTTPException(status_code=404)
 
-            query = self.model.update().where(self.model.c[model.primary_key.name] == element_id).values(**element)
+            clean_element = {
+                k: v for k, v in schemas.dump(input_schema, element).items() if k != model.primary_key.name
+            }
+
+            query = (
+                self.model.update().where(self.model.c[model.primary_key.name] == element_id).values(**clean_element)
+            )
             await self.database.execute(query)
 
-            return {model.primary_key.name: element_id, **element}
+            return {model.primary_key.name: element_id, **clean_element}
 
         update.__doc__ = f"""
             tags:
@@ -369,7 +395,7 @@ class DeleteMixin:
 class ListMixin:
     @classmethod
     def _add_list(
-        mcs, name: str, verbose_name: str, output_schema: schemas.Schema, **kwargs
+        mcs, name: str, verbose_name: str, output_schema: schemas.Schema, output_schema_name: str, **kwargs
     ) -> typing.Dict[str, typing.Any]:
         async def filter(self, *clauses, **filters) -> typing.List[typing.Dict]:
             query = self.model.select()
@@ -382,8 +408,8 @@ class ListMixin:
             return [dict(row) for row in await self.database.fetch_all(query)]
 
         @resource_method("/", methods=["GET"], name=f"{name}-list")
-        @pagination.page_number
-        async def list(self, **kwargs) -> output_schema(many=True):
+        @pagination.page_number(schema_name=output_schema_name)
+        async def list(self, **kwargs) -> output_schema:
             return await self._filter()  # noqa
 
         list.__doc__ = f"""
@@ -416,7 +442,7 @@ class DropMixin:
             query = self.model.delete()
             await self.database.execute(query)
 
-            return APIResponse(schema=schemas.schemas.DropCollection(), content={"deleted": result}, status_code=204)
+            return APIResponse(schema=schemas.schemas.DropCollection, content={"deleted": result}, status_code=204)
 
         drop.__doc__ = f"""
             tags:

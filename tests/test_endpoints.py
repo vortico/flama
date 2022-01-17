@@ -1,9 +1,8 @@
 import marshmallow
 import pytest
-from starlette.testclient import TestClient
+import typesystem
 
 from flama import exceptions, websockets
-from flama.applications import Flama
 from flama.components import Component
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 
@@ -17,18 +16,31 @@ class PuppyComponent(Component):
         return Puppy()
 
 
-class BodyParam(marshmallow.Schema):
-    name = marshmallow.fields.String()
+@pytest.fixture(scope="class")
+def app(app):
+    app.add_component(PuppyComponent())
+    return app
 
 
-@pytest.fixture(scope="function")
-def app():
-    return Flama(components=[PuppyComponent()], schema=None, docs=None)
+@pytest.fixture(scope="class")
+def puppy_schema(app):
+    from flama import schemas
 
+    if schemas.lib == typesystem:
+        schema = typesystem.Schema(fields={"name": typesystem.fields.String()})
+    elif schemas.lib == marshmallow:
+        schema = type(
+            "Puppy",
+            (marshmallow.Schema,),
+            {
+                "name": marshmallow.fields.String(),
+            },
+        )
+    else:
+        raise ValueError("Wrong schema lib")
 
-@pytest.fixture(scope="function")
-def client(app):
-    return TestClient(app)
+    app.schemas["Puppy"] = schema
+    return schema
 
 
 class TestCaseHTTPEndpoint:
@@ -43,10 +55,10 @@ class TestCaseHTTPEndpoint:
         assert response.status_code == 200
         assert response.json() == "Canna"
 
-    def test_query_param(self, app, client):
+    def test_query_param(self, app, client, puppy_schema):
         @app.route("/query-param/", methods=["GET"])
         class QueryParamHTTPEndpoint(HTTPEndpoint):
-            async def get(self, param: str) -> BodyParam:
+            async def get(self, param: str) -> puppy_schema:
                 return {"name": param}
 
         response = client.get("/query-param/", params={"param": "Canna"})
@@ -54,10 +66,10 @@ class TestCaseHTTPEndpoint:
         assert response.status_code == 200
         assert response.json() == {"name": "Canna"}
 
-    def test_path_param(self, app, client):
+    def test_path_param(self, app, client, puppy_schema):
         @app.route("/path-param/{param}/", methods=["GET"])
         class PathParamHTTPEndpoint(HTTPEndpoint):
-            async def get(self, param: str) -> BodyParam:
+            async def get(self, param: str) -> puppy_schema:
                 return {"name": param}
 
         response = client.get("/path-param/Canna/")
@@ -65,10 +77,10 @@ class TestCaseHTTPEndpoint:
         assert response.status_code == 200
         assert response.json() == {"name": "Canna"}
 
-    def test_body_param(self, app, client):
+    def test_body_param(self, app, client, puppy_schema):
         @app.route("/body-param/", methods=["POST"])
         class BodyParamHTTPEndpoint(HTTPEndpoint):
-            async def post(self, param: BodyParam) -> BodyParam:
+            async def post(self, param: puppy_schema) -> puppy_schema:
                 return {"name": param["name"]}
 
         response = client.post("/body-param/", json={"name": "Canna"})
@@ -255,8 +267,10 @@ class TestCaseWebSocketEndpoint:
             async def on_connect(self, websocket: websockets.WebSocket):
                 raise Exception
 
-        with pytest.raises(exceptions.WebSocketConnectionException, match="Error connecting socket"):
-            client.websocket_connect("/")
+        with pytest.raises(
+            exceptions.WebSocketConnectionException, match="Error connecting socket"
+        ), client.websocket_connect("/") as ws:
+            ws.send_bytes("foo")
 
     def test_fail_receiving(self, app, client):
         @app.websocket_route("/")

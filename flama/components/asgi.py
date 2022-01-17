@@ -86,7 +86,7 @@ class BodyComponent(Component):
         return http.Body(body)
 
 
-ASGI_COMPONENTS = (
+ASGI_COMPONENTS = [
     MethodComponent(),
     URLComponent(),
     SchemeComponent(),
@@ -99,4 +99,4 @@ ASGI_COMPONENTS = (
     HeadersComponent(),
     HeaderComponent(),
     BodyComponent(),
-)
+]

@@ -12,7 +12,7 @@ from flama.http import Request, Response
 from flama.injection import Injector
 from flama.responses import APIErrorResponse
 from flama.routing import Router
-from flama.schemas.generator import SchemaMixin
+from flama.schemas.applications import AppDocsMixin, AppRedocMixin, AppSchemaMixin
 
 if typing.TYPE_CHECKING:
     from flama.resources import BaseResource
@@ -20,7 +20,7 @@ if typing.TYPE_CHECKING:
 __all__ = ["Flama"]
 
 
-class Flama(Starlette, SchemaMixin):
+class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
     def __init__(
         self,
         components: typing.Optional[typing.List[Component]] = None,
@@ -44,7 +44,7 @@ class Flama(Starlette, SchemaMixin):
         # Initialize injector
         self.components = components
 
-        self.router = Router(components=components, on_startup=on_startup, on_shutdown=on_shutdown)
+        self.router = Router(components=self.components, on_startup=on_startup, on_shutdown=on_shutdown)
         self.app = self.router
         self.exception_middleware = ExceptionMiddleware(self.router, debug=debug)
         self.error_middleware = ServerErrorMiddleware(self.exception_middleware, debug=debug)
@@ -53,9 +53,9 @@ class Flama(Starlette, SchemaMixin):
         self.add_exception_handler(exceptions.HTTPException, self.api_http_exception_handler)
 
         # Add schema and docs routes
-        self.add_schema_docs_routes(
-            title=title, version=version, description=description, schema=schema, docs=docs, redoc=redoc
-        )
+        self.add_schema_routes(title=title, version=version, description=description, schema=schema)
+        self.add_docs_route(docs=docs)
+        self.add_redoc_route(redoc=redoc)
 
     @property
     def injector(self):
@@ -67,6 +67,9 @@ class Flama(Starlette, SchemaMixin):
 
     def add_resource(self, path: str, resource: "BaseResource"):
         self.router.add_resource(path, resource=resource)
+
+    def add_component(self, component: Component):
+        self.components.append(component)
 
     def resource(self, path: str) -> typing.Callable:
         def decorator(resource: "BaseResource") -> "BaseResource":

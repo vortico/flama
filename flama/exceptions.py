@@ -2,6 +2,21 @@ import typing
 
 import starlette.exceptions
 
+import flama.schemas.exceptions
+
+__all__ = [
+    "DecodeError",
+    "NoReverseMatch",
+    "NoCodecAvailable",
+    "ConfigurationError",
+    "ComponentNotFound",
+    "WebSocketException",
+    "WebSocketConnectionException",
+    "HTTPException",
+    "ValidationError",
+    "SerializationError",
+] + flama.schemas.exceptions.__all__
+
 
 class DecodeError(Exception):
     """

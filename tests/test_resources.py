@@ -2,9 +2,9 @@ import datetime
 import typing
 import uuid
 
-import marshmallow
 import pytest
 import sqlalchemy
+import typesystem
 from sqlalchemy import create_engine
 from sqlalchemy.dialects import postgresql
 from sqlalchemy_utils import create_database, database_exists, drop_database
@@ -17,11 +17,15 @@ from flama.types import Model, PrimaryKey
 from tests.conftest import DATABASE_URL
 
 
+@pytest.fixture
+def app(app):
+    # Remove schema and docs endpoint from base fixture
+    return Flama(schema=None, docs=None, redoc=None)
+
+
 class TestCaseBaseResource:
     @pytest.fixture(scope="function")
-    def resource(self, model, schema, database):
-        model_ = model
-        schema_ = schema
+    def resource(self, puppy_model, puppy_schema, database):
         database_ = database
 
         class PuppyResource(metaclass=CRUDListResource):
@@ -30,16 +34,12 @@ class TestCaseBaseResource:
             name = "puppy"
             verbose_name = "Puppy"
 
-            model = model_
-            schema = schema_
+            model = puppy_model
+            schema = puppy_schema
 
         return PuppyResource
 
-    @pytest.fixture(scope="function")
-    def app(self):
-        return Flama(schema=None, docs=None, redoc=None)
-
-    def test_meta_attributes(self, resource, model, database, schema):
+    def test_meta_attributes(self, resource, puppy_model, database, puppy_schema):
         assert not hasattr(resource, "name")
         assert not hasattr(resource, "verbose_name")
         assert not hasattr(resource, "schema")
@@ -51,37 +51,33 @@ class TestCaseBaseResource:
         assert resource._meta.database == database
         assert resource._meta.name == "puppy"
         assert resource._meta.verbose_name == "Puppy"
-        assert resource._meta.model == Model(table=model, primary_key=PrimaryKey(name="custom_id", type=int))
-        assert resource._meta.input_schema == schema
-        assert resource._meta.output_schema == schema
+        assert resource._meta.model == Model(table=puppy_model, primary_key=PrimaryKey(name="custom_id", type=int))
+        assert resource._meta.input_schema == puppy_schema
+        assert resource._meta.output_schema == puppy_schema
         assert resource._meta.columns == ["custom_id"]
         assert resource._meta.order == "custom_id"
 
-    def test_meta_from_inheritance(self, model, schema, database):
-        model_ = model
-        schema_ = schema
+    def test_meta_from_inheritance(self, puppy_model, puppy_schema, database):
         database_ = database
 
         class MetadataMixin:
             database = database_
-            model = model_
-            schema = schema_
+            model = puppy_model
+            schema = puppy_schema
 
         class PuppyResource(MetadataMixin, metaclass=CRUDListResource):
             pass
 
-        assert PuppyResource._meta.name == "puppyresource"
-        assert PuppyResource._meta.verbose_name == "puppyresource"
+        assert PuppyResource._meta.name == "PuppyResource"
+        assert PuppyResource._meta.verbose_name == "PuppyResource"
         assert PuppyResource._meta.order == "custom_id"
         assert PuppyResource._meta.columns == ["custom_id"]
         assert PuppyResource._meta.database == database_
-        assert PuppyResource._meta.model == Model(table=model, primary_key=PrimaryKey(name="custom_id", type=int))
-        assert PuppyResource._meta.input_schema == schema_
-        assert PuppyResource._meta.output_schema == schema_
+        assert PuppyResource._meta.model == Model(table=puppy_model, primary_key=PrimaryKey(name="custom_id", type=int))
+        assert PuppyResource._meta.input_schema == puppy_schema
+        assert PuppyResource._meta.output_schema == puppy_schema
 
-    def test_crud_resource(self, model, schema, database, app):
-        model_ = model
-        schema_ = schema
+    def test_crud_resource(self, puppy_model, puppy_schema, database, app):
         database_ = database
 
         @app.resource("/")
@@ -91,8 +87,8 @@ class TestCaseBaseResource:
             name = "puppy"
             verbose_name = "Puppy"
 
-            model = model_
-            schema = schema_
+            model = puppy_model
+            schema = puppy_schema
 
         expected_routes = [
             ("/puppy/", {"POST"}, "puppy-create"),
@@ -103,9 +99,7 @@ class TestCaseBaseResource:
 
         assert [(i.path, i.methods, i.name) for i in app.routes] == expected_routes
 
-    def test_crud_list_resource(self, model, schema, database, app):
-        model_ = model
-        schema_ = schema
+    def test_crud_list_resource(self, puppy_model, puppy_schema, database, app):
         database_ = database
 
         class PuppyResource(metaclass=CRUDListResource):
@@ -114,8 +108,8 @@ class TestCaseBaseResource:
             name = "puppy"
             verbose_name = "Puppy"
 
-            model = model_
-            schema = schema_
+            model = puppy_model
+            schema = puppy_schema
 
         resource = PuppyResource()
 
@@ -136,9 +130,7 @@ class TestCaseBaseResource:
         assert hasattr(resource, "list")
         assert [(i.path, i.endpoint, i.methods, i.name) for i in app.routes] == expected_routes
 
-    def test_crud_list_drop_resource(self, model, schema, database, app):
-        model_ = model
-        schema_ = schema
+    def test_crud_list_drop_resource(self, puppy_model, puppy_schema, database, app):
         database_ = database
 
         class PuppyResource(metaclass=CRUDListDropResource):
@@ -147,8 +139,8 @@ class TestCaseBaseResource:
             name = "puppy"
             verbose_name = "Puppy"
 
-            model = model_
-            schema = schema_
+            model = puppy_model
+            schema = puppy_schema
 
         resource = PuppyResource()
 
@@ -186,28 +178,23 @@ class TestCaseBaseResource:
         with pytest.raises(ValueError):
             SpecializedPuppyResource().list()
 
-    def test_new_no_database(self, model, schema):
-        model_ = model
-        schema_ = schema
-
+    def test_new_no_database(self, puppy_model, puppy_schema):
         with pytest.raises(AttributeError, match=r"PuppyResource needs to define attribute 'database'"):
 
             class PuppyResource(metaclass=CRUDListResource):
-                model = model_
-                schema = schema_
+                model = puppy_model
+                schema = puppy_schema
 
-    def test_new_no_model(self, schema, database):
-        schema_ = schema
+    def test_new_no_model(self, puppy_schema, database):
         database_ = database
 
         with pytest.raises(AttributeError, match=r"PuppyResource needs to define attribute 'model'"):
 
             class PuppyResource(metaclass=CRUDListResource):
                 database = database_
-                schema = schema_
+                schema = puppy_schema
 
-    def test_invalid_no_model(self, schema, database):
-        schema_ = schema
+    def test_invalid_no_model(self, puppy_schema, database):
         database_ = database
 
         with pytest.raises(
@@ -216,36 +203,31 @@ class TestCaseBaseResource:
 
             class PuppyResource(metaclass=CRUDListResource):
                 database = database_
-                schema = schema_
+                schema = puppy_schema
                 model = None
 
-    def test_new_no_name(self, model, schema, database):
-        model_ = model
-        schema_ = schema
+    def test_new_no_name(self, puppy_model, puppy_schema, database):
         database_ = database
 
         class PuppyResource(metaclass=CRUDListResource):
             database = database_
-            model = model_
-            schema = schema_
+            model = puppy_model
+            schema = puppy_schema
 
-        assert PuppyResource._meta.name == "puppyresource"
+        assert PuppyResource._meta.name == "PuppyResource"
 
-    def test_new_wrong_name(self, model, schema, database):
-        model_ = model
-        schema_ = schema
+    def test_new_wrong_name(self, puppy_model, puppy_schema, database):
         database_ = database
 
         with pytest.raises(AttributeError, match=r"Invalid resource name '123foo'"):
 
             class PuppyResource(metaclass=CRUDListResource):
                 database = database_
-                model = model_
-                schema = schema_
+                model = puppy_model
+                schema = puppy_schema
                 name = "123foo"
 
-    def test_new_no_schema(self, model, database):
-        model_ = model
+    def test_new_no_schema(self, puppy_model, database):
         database_ = database
 
         with pytest.raises(
@@ -255,11 +237,9 @@ class TestCaseBaseResource:
 
             class PuppyResource(metaclass=CRUDListResource):
                 database = database_
-                model = model_
+                model = puppy_model
 
-    def test_new_no_input_schema(self, model, schema, database):
-        model_ = model
-        schema_ = schema
+    def test_new_no_input_schema(self, puppy_model, puppy_schema, database):
         database_ = database
 
         with pytest.raises(
@@ -269,12 +249,10 @@ class TestCaseBaseResource:
 
             class PuppyResource(metaclass=CRUDListResource):
                 database = database_
-                model = model_
-                output_schema = schema_
+                model = puppy_model
+                output_schema = puppy_schema
 
-    def test_new_no_output_schema(self, model, schema, database):
-        model_ = model
-        schema_ = schema
+    def test_new_no_output_schema(self, puppy_model, puppy_schema, database):
         database_ = database
 
         with pytest.raises(
@@ -284,12 +262,11 @@ class TestCaseBaseResource:
 
             class PuppyResource(metaclass=CRUDListResource):
                 database = database_
-                model = model_
-                input_schema = schema_
+                model = puppy_model
+                input_schema = puppy_schema
 
-    def test_resource_model_no_pk(self, database_metadata, schema, database):
+    def test_resource_model_no_pk(self, database_metadata, puppy_schema, database):
         model_ = sqlalchemy.Table("no_pk", database_metadata, sqlalchemy.Column("integer", sqlalchemy.Integer))
-        schema_ = schema
         database_ = database
 
         with pytest.raises(AttributeError, match=r"PuppyResource model must define a single-column primary key"):
@@ -298,9 +275,9 @@ class TestCaseBaseResource:
                 database = database_
 
                 model = model_
-                schema = schema_
+                schema = puppy_schema
 
-    def test_resource_model_multicolumn_pk(self, database_metadata, schema, database):
+    def test_resource_model_multicolumn_pk(self, database_metadata, puppy_schema, database):
         model_ = sqlalchemy.Table(
             "multicolumn_pk",
             database_metadata,
@@ -308,7 +285,6 @@ class TestCaseBaseResource:
             sqlalchemy.Column("string", sqlalchemy.String),
             sqlalchemy.PrimaryKeyConstraint("integer", "string"),
         )
-        schema_ = schema
         database_ = database
 
         with pytest.raises(AttributeError, match=r"PuppyResource model must define a single-column primary key"):
@@ -317,13 +293,12 @@ class TestCaseBaseResource:
                 database = database_
 
                 model = model_
-                schema = schema_
+                schema = puppy_schema
 
-    def test_resource_model_invalid_type_pk(self, database_metadata, schema, database):
+    def test_resource_model_invalid_type_pk(self, database_metadata, puppy_schema, database):
         model_ = sqlalchemy.Table(
             "invalid_pk", database_metadata, sqlalchemy.Column("id", sqlalchemy.PickleType, primary_key=True)
         )
-        schema_ = schema
         database_ = database
 
         with pytest.raises(
@@ -335,14 +310,13 @@ class TestCaseBaseResource:
                 database = database_
 
                 model = model_
-                schema = schema_
+                schema = puppy_schema
 
 
+@pytest.mark.skip
 class TestCaseResource:
-    @pytest.fixture(scope="class")
-    def resource(self, model, schema, database):
-        model_ = model
-        schema_ = schema
+    @pytest.fixture(scope="function")
+    def resource(self, puppy_model, puppy_schema, database):
         database_ = database
 
         class PuppyResource(metaclass=CRUDListDropResource):
@@ -351,16 +325,16 @@ class TestCaseResource:
             name = "puppy"
             verbose_name = "Puppy"
 
-            model = model_
-            input_schema = schema_
-            output_schema = schema_
+            model = puppy_model
+            input_schema = puppy_schema
+            output_schema = puppy_schema
             methods = ("create", "retrieve", "update", "delete", "list", "drop")
 
             @resource_method("/", methods=["GET"], name="puppy-list")
-            @pagination.page_number
+            @pagination.page_number(schema_name="PuppyResource")
             async def list(
                 self, name: typing.Optional[str] = None, custom_id__le: typing.Optional[int] = None, **kwargs
-            ) -> schema_(many=True):
+            ) -> puppy_schema:
                 """
                 description: Custom list method with filtering by name.
                 """
@@ -378,11 +352,9 @@ class TestCaseResource:
 
         return PuppyResource()
 
-    @pytest.fixture(scope="class")
-    def app(self, resource):
-        app_ = Flama()
-        app_.add_resource("/", resource)
-        return app_
+    @pytest.fixture(scope="function", autouse=True)
+    def add_resources(self, app, resource):
+        app.add_resource("/", resource)
 
     @pytest.fixture
     async def client(self, database_metadata, app):
@@ -405,6 +377,8 @@ class TestCaseResource:
 
     def test_create(self, client, puppy):
         expected_puppy_id = 1
+        created_result = puppy.copy()
+        created_result["custom_id"] = None
         expected_result = [puppy.copy()]
         expected_result[0]["custom_id"] = expected_puppy_id
 
@@ -412,7 +386,7 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy == puppy
+        assert created_puppy == created_result
 
         # List all the existing records
         response = client.get("/puppy/")
@@ -421,6 +395,8 @@ class TestCaseResource:
 
     def test_retrieve(self, client, puppy):
         expected_puppy_id = 1
+        created_result = puppy.copy()
+        created_result["custom_id"] = None
         expected_result = puppy.copy()
         expected_result["custom_id"] = expected_puppy_id
 
@@ -428,7 +404,7 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy == puppy
+        assert created_puppy == created_result
 
         # Retrieve same record
         response = client.get(f"/puppy/{expected_puppy_id}/")
@@ -447,6 +423,8 @@ class TestCaseResource:
 
     def test_update(self, client, puppy, another_puppy):
         expected_puppy_id = 1
+        created_result = puppy.copy()
+        created_result["custom_id"] = None
         expected_puppy = another_puppy.copy()
         expected_puppy["custom_id"] = expected_puppy_id
         expected_result = [expected_puppy]
@@ -455,7 +433,7 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy == puppy
+        assert created_puppy == created_result
 
         # Update record
         response = client.put(f"/puppy/{expected_puppy_id}/", json=another_puppy)
@@ -479,6 +457,8 @@ class TestCaseResource:
 
     def test_delete(self, client, puppy):
         expected_puppy_id = 1
+        created_result = puppy.copy()
+        created_result["custom_id"] = None
         expected_puppy = puppy.copy()
         expected_puppy["custom_id"] = expected_puppy_id
 
@@ -486,7 +466,7 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy == puppy
+        assert created_puppy == created_result
 
         # Retrieve same record
         response = client.get(f"/puppy/{expected_puppy_id}/")
@@ -514,6 +494,10 @@ class TestCaseResource:
     def test_list(self, client, puppy, another_puppy):
         expected_puppy_id = 1
         expected_another_puppy_id = 2
+        created_result_1 = puppy.copy()
+        created_result_1["custom_id"] = None
+        created_result_2 = another_puppy.copy()
+        created_result_2["custom_id"] = None
         expected_result = [puppy.copy(), another_puppy.copy()]
         expected_result[0]["custom_id"] = expected_puppy_id
         expected_result[1]["custom_id"] = expected_another_puppy_id
@@ -522,13 +506,13 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy == puppy
+        assert created_puppy == created_result_1
 
         # Successfully create another new record
         response = client.post("/puppy/", json=another_puppy)
         assert response.status_code == 201, response.json()
         created_second_puppy = response.json()
-        assert created_second_puppy == another_puppy
+        assert created_second_puppy == created_result_2
 
         # List all the existing records
         response = client.get("/puppy/")
@@ -537,6 +521,10 @@ class TestCaseResource:
 
     def test_list_filter(self, client, puppy, another_puppy):
         expected_puppy_id = 1
+        created_result_1 = puppy.copy()
+        created_result_1["custom_id"] = None
+        created_result_2 = another_puppy.copy()
+        created_result_2["custom_id"] = None
         expected_result = [puppy.copy()]
         expected_result[0]["custom_id"] = expected_puppy_id
 
@@ -544,13 +532,13 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy == puppy
+        assert created_puppy == created_result_1
 
         # Successfully create another new record
         response = client.post("/puppy/", json=another_puppy)
         assert response.status_code == 201, response.json()
         created_second_puppy = response.json()
-        assert created_second_puppy == another_puppy
+        assert created_second_puppy == created_result_2
 
         # Filter and found something
         response = client.get("/puppy/", params={"name": "canna", "custom_id__le": 1})
@@ -565,6 +553,10 @@ class TestCaseResource:
     def test_drop(self, client, puppy, another_puppy):
         expected_puppy_id = 1
         expected_another_puppy_id = 2
+        created_result_1 = puppy.copy()
+        created_result_1["custom_id"] = None
+        created_result_2 = another_puppy.copy()
+        created_result_2["custom_id"] = None
         expected_result = [puppy.copy(), another_puppy.copy()]
         expected_result[0]["custom_id"] = expected_puppy_id
         expected_result[1]["custom_id"] = expected_another_puppy_id
@@ -573,13 +565,13 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy == puppy
+        assert created_puppy == created_result_1
 
         # Successfully create a new record
         response = client.post("/puppy/", json=another_puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy == another_puppy
+        assert created_puppy == created_result_2
 
         # List all the existing records
         response = client.get("/puppy/")
@@ -607,15 +599,18 @@ class TestCaseResource:
         )
         database_metadata.create_all(create_engine(DATABASE_URL))
 
-        class Schema(marshmallow.Schema):
-            custom_id = marshmallow.fields.UUID()
-            name = marshmallow.fields.String()
+        schema_ = typesystem.Schema(
+            fields={
+                "custom_id": typesystem.fields.UUID(),
+                "name": typesystem.fields.String(),
+            }
+        )
 
         @app.resource("/")
         class CustomUUIDResource(metaclass=CRUDListResource):
             database = database_
             model = model_
-            schema = Schema
+            schema = schema_
 
             name = "custom_id_uuid"
 
@@ -642,15 +637,18 @@ class TestCaseResource:
         )
         database_metadata.create_all(create_engine(DATABASE_URL))
 
-        class Schema(marshmallow.Schema):
-            custom_id = marshmallow.fields.DateTime()
-            name = marshmallow.fields.String()
+        schema_ = typesystem.Schema(
+            fields={
+                "custom_id": typesystem.fields.DateTime(),
+                "name": typesystem.fields.String(),
+            }
+        )
 
         @app.resource("/")
         class CustomDatetimeResource(metaclass=CRUDListResource):
             database = database_
             model = model_
-            schema = Schema
+            schema = schema_
 
             name = "custom_id_datetime"
 
