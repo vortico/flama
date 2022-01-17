@@ -18,7 +18,8 @@ jobs:
       - uses: actions/checkout@master
         with:
           fetch-depth: 0
-      - uses: wagoid/commitlint-github-action@v1
+      - name: Commit Linter
+        uses: wagoid/commitlint-github-action@v4
       - id: install
         name: Install requirements
         run: |
