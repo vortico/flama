@@ -46,7 +46,7 @@ class TestCaseParamsValidation:
             return {"param": param}
 
         @app_.route("/str_query_param_with_default/")
-        def str_query_param_with_default(param: str = ""):
+        def str_query_param_with_default(param: str = "Foo"):
             return {"param": param}
 
         @app_.route("/int_query_param_with_default/")
@@ -116,7 +116,7 @@ class TestCaseParamsValidation:
     @pytest.mark.parametrize(
         "url,value",
         [
-            pytest.param("/str_query_param_with_default/", "", id="str query param"),
+            pytest.param("/str_query_param_with_default/", "Foo", id="str query param"),
             pytest.param("/int_query_param_with_default/", None, id="int query param"),
             pytest.param("/float_query_param_with_default/", None, id="float query param"),
             pytest.param("/bool_query_param_with_default/", False, id="bool query param"),

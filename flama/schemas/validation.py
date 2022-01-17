@@ -3,6 +3,7 @@ import inspect
 from functools import wraps
 
 from flama import exceptions, schemas
+from flama.schemas.utils import is_field_class, is_field_instance, is_schema_class, is_schema_instance
 
 __all__ = ["get_output_schema", "output_validation"]
 
@@ -15,9 +16,9 @@ def get_output_schema(func):
     :returns: Output schema.
     """
     return_annotation = inspect.signature(func).return_annotation
-    if inspect.isclass(return_annotation) and issubclass(return_annotation, schemas.Schema):
+    if is_schema_class(return_annotation) or is_field_class(return_annotation):
         return return_annotation()
-    elif isinstance(return_annotation, schemas.Schema):
+    elif is_schema_instance(return_annotation) or is_field_instance(return_annotation):
         return return_annotation
 
     return None
@@ -42,14 +43,13 @@ def output_validation(error_cls=exceptions.ValidationError, error_status_code=50
 
             try:
                 # Use output schema to validate the data
-                errors = schema.validate(schema.dump(response))
+                schemas.validate(schema, schemas.dump(schema, response))
+            except schemas.SchemaValidationError as e:
+                raise error_cls(detail=e.errors, status_code=error_status_code)
             except Exception as e:
                 raise error_cls(
                     detail=f"Error serializing response before validation: {str(e)}", status_code=error_status_code
                 )
-
-            if errors:
-                raise error_cls(detail=errors, status_code=error_status_code)
 
             return response
 

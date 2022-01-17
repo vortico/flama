@@ -1,9 +1,10 @@
 import datetime
 import enum
+import inspect
 import typing
 import uuid
 
-from flama import schemas
+from flama import http, schemas
 
 try:
     from sqlalchemy import Table
@@ -54,7 +55,9 @@ class Model(typing.NamedTuple):
 class ResourceMeta(typing.NamedTuple):
     model: Model
     input_schema: schemas.Schema
+    input_schema_name: str
     output_schema: schemas.Schema
+    output_schema_name: str
     database: Database
     name: str
     verbose_name: str
@@ -70,3 +73,25 @@ class ResourceMethodMeta(typing.NamedTuple):
 
 
 HTTPMethod = enum.Enum("HTTPMethod", ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"])
+
+FIELDS_TYPE_MAPPING = {
+    inspect.Signature.empty: str,
+    int: int,
+    float: float,
+    str: str,
+    bool: bool,
+    uuid.UUID: uuid.UUID,
+    datetime.date: datetime.date,
+    datetime.datetime: datetime.datetime,
+    datetime.time: datetime.time,
+    OptInt: int,
+    OptFloat: float,
+    OptStr: str,
+    OptBool: bool,
+    OptUUID: uuid.UUID,
+    OptDate: datetime.date,
+    OptDateTime: datetime.datetime,
+    OptTime: datetime.time,
+    http.QueryParam: str,
+    http.PathParam: str,
+}

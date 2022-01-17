@@ -14,19 +14,15 @@ class Component(metaclass=ABCMeta):
         :return: Unique identifier.
         """
         parameter_name = parameter.name.lower()
-        try:
-            annotation_name = parameter.annotation.__name__.lower()
-        except AttributeError:
-            annotation_name = parameter.annotation.__args__[0].__name__.lower()
+        annotation_id = str(id(parameter.annotation))
 
         # If `resolve_parameter` includes `Parameter` then we use an identifier that is additionally parameterized by
         # the parameter name.
         args = inspect.signature(self.resolve).parameters.values()
         if inspect.Parameter in [arg.annotation for arg in args]:
-            return annotation_name + ":" + parameter_name
+            return f"{annotation_id}:{parameter_name}"
 
-        # Standard case is to use the class name, lowercased.
-        return annotation_name
+        return annotation_id
 
     def can_handle_parameter(self, parameter: inspect.Parameter) -> bool:
         """

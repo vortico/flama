@@ -5,8 +5,9 @@ import uuid
 from marshmallow.fields import *
 
 MAPPING = {
+    None: Field,
     int: Integer,
-    float: Number,
+    float: Float,
     str: String,
     bool: Boolean,
     list: List,

@@ -180,6 +180,14 @@ class Path(typing.NamedTuple):
     servers: typing.List[Server] = None
     parameters: typing.List[typing.Union[Parameter, Reference]] = None
 
+    @property
+    def operations(self) -> typing.Dict[str, Operation]:
+        return {
+            x: getattr(self, x)
+            for x in ("get", "put", "post", "delete", "options", "head", "patch", "trace")
+            if getattr(self, x) is not None
+        }
+
 
 Paths = typing.NewType("Paths", typing.Dict[str, Path])
 

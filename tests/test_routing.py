@@ -1,13 +1,12 @@
 from unittest.mock import Mock
 
 import pytest
-from starlette.routing import Mount
 
 from flama.applications import Flama
 from flama.components import Component
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 from flama.resources import CRUDResource
-from flama.routing import Route, Router, WebSocketRoute
+from flama.routing import Mount, Route, Router, WebSocketRoute
 
 
 class TestCaseRouter:
@@ -117,16 +116,14 @@ class TestCaseRouter:
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == FooEndpoint
 
-    def test_add_resource(self, router, database, model, schema):
-        model_ = model
-        schema_ = schema
+    def test_add_resource(self, router, database, puppy_model, puppy_schema):
         database_ = database
 
         class PuppyResource(metaclass=CRUDResource):
             database = database_
             name = "puppy"
-            model = model_
-            schema = schema_
+            model = puppy_model
+            schema = puppy_schema
 
         resource = PuppyResource()
         router.add_resource("/", resource)
@@ -139,16 +136,14 @@ class TestCaseRouter:
             ("/puppy/{element_id}/", {"DELETE"}, resource.delete),
         ]
 
-    def test_add_resource_decorator(self, router, database, model, schema):
-        model_ = model
-        schema_ = schema
+    def test_add_resource_decorator(self, router, database, puppy_model, puppy_schema):
         database_ = database
 
         class PuppyResource(metaclass=CRUDResource):
             database = database_
             name = "puppy"
-            model = model_
-            schema = schema_
+            model = puppy_model
+            schema = puppy_schema
 
         resource = router.resource("/")(PuppyResource())  # Apply decoration to an instance in order to check endpoints
 

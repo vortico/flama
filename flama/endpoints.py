@@ -1,15 +1,11 @@
-import asyncio
-
 from starlette import status
-from starlette.concurrency import run_in_threadpool
 from starlette.endpoints import HTTPEndpoint as BaseHTTPEndpoint
 from starlette.endpoints import WebSocketEndpoint as BaseWebSocketEndpoint
 from starlette.requests import Request
 from starlette.websockets import WebSocket, WebSocketState
 
 from flama import exceptions, websockets
-from flama.responses import APIResponse
-from flama.validation import get_output_schema
+from flama.routing import prepare_http_request
 
 __all__ = ["HTTPEndpoint", "WebSocketEndpoint"]
 
@@ -21,6 +17,9 @@ class HTTPEndpoint(BaseHTTPEndpoint):
 
         route, route_scope = app.router.get_route_from_scope(self.scope)
 
+        handler_name = "get" if request.method == "HEAD" else request.method.lower()
+        handler = getattr(self, handler_name, self.method_not_allowed)
+
         state = {
             "scope": self.scope,
             "receive": self.receive,
@@ -31,23 +30,8 @@ class HTTPEndpoint(BaseHTTPEndpoint):
             "route": route,
             "request": request,
         }
-        handler_name = "get" if request.method == "HEAD" else request.method.lower()
-        handler = getattr(self, handler_name, self.method_not_allowed)
 
-        injected_func = await app.injector.inject(handler, state)
-        if asyncio.iscoroutinefunction(handler):
-            response = await injected_func()
-        else:
-            response = await run_in_threadpool(injected_func)
-
-        # Wrap response data with a proper response class
-        if isinstance(response, (dict, list)):
-            response = APIResponse(content=response, schema=get_output_schema(handler))
-        elif isinstance(response, str):
-            response = APIResponse(content=response)
-        elif response is None:
-            response = APIResponse(content="")
-
+        response = await prepare_http_request(app, handler, state)
         await response(self.scope, self.receive, self.send)
 
 
