@@ -42,6 +42,6 @@ repos:
         name: Isort - Sort Imports
         entry: poetry run isort
         args:
-        - -e
+        - .
         language: system
         types: [python]
