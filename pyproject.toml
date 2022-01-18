@@ -38,7 +38,7 @@ pytest-cov = "^3.0"
 clinner = "^1.12"
 ipython = "^7.0"
 ipdb = "^0.13.9"
-isort = "^4.3"
+isort = "^5.1"
 python-multipart = "^0.0.5"
 pyyaml = "^5.0"
 flake8 = "^3.7"
@@ -58,8 +58,10 @@ databases = "^0.5.0"
 typesystem = "^0.4.1"
 
 [tool.poetry.extras]
-typesystem = ["typesystem","python-forge","databases"]
-marshmallow = ["marshmallow","apispec","python-forge","databases"]
+typesystem = ["typesystem"]
+marshmallow = ["marshmallow","apispec"]
+pagination = ["python-forge"]
+resources = ["databases"]
 
 [tool.black]
 line-length = 120
@@ -75,10 +77,10 @@ exclude = '''
 '''
 
 [tool.isort]
+profile = "black"
 atomic = true
 multi_line_output = 3
 include_trailing_comma = true
-not_skip = "__init__.py"
 line_length = 120
 skip_glob = [
     "*/.venv/**",
@@ -87,7 +89,6 @@ skip_glob = [
     "*/build/**",
     "*/dist/**",
 ]
-known_standard_library = "typing"
 
 [tool.pytest.ini_options]
 minversion = 3
@@ -118,7 +119,7 @@ omit = [
 [tool.coverage.report]
 show_missing = true
 ignore_errors = true
-fail_under = 98
+fail_under = 95
 exclude_lines = [
     "noqa",
     "pragma: no cover",

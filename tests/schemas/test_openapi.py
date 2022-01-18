@@ -108,7 +108,10 @@ class TestCaseOpenAPISpec:
     @pytest.fixture
     def response(self, header, media_type, link):
         return Response(
-            description="Foo", headers={"header": header}, content={"content": media_type}, links={"link": link},
+            description="Foo",
+            headers={"header": header},
+            content={"content": media_type},
+            links={"link": link},
         )
 
     @pytest.fixture
