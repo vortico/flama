@@ -75,7 +75,7 @@ class TestCaseOpenAPISpec:
 
     @pytest.fixture
     def server_variable(self, fake):
-        return ServerVariable(enum=fake.pylist(value_types=str), default=fake.word(), description=fake.sentence())
+        return ServerVariable(enum=fake.pylist(value_types=[str]), default=fake.word(), description=fake.sentence())
 
     @pytest.fixture
     def server(self, fake, server_variable):
@@ -85,7 +85,7 @@ class TestCaseOpenAPISpec:
     def link(self, fake, server):
         return Link(
             operationId=fake.word(),
-            parameters=fake.pydict(value_types=str),
+            parameters=fake.pydict(value_types=[str]),
             requestBody={},
             description=fake.sentence(),
             server=server,
@@ -136,7 +136,7 @@ class TestCaseOpenAPISpec:
 
     @pytest.fixture
     def security(self, fake):
-        return Security({fake.word(): fake.pylist(value_types=str)})
+        return Security({fake.word(): fake.pylist(value_types=[str])})
 
     @pytest.fixture
     def external_docs(self, fake):
@@ -146,7 +146,7 @@ class TestCaseOpenAPISpec:
     def operation(self, fake, response, external_docs, parameter, request_body, security, server):
         return Operation(
             responses=Responses({str(fake.random_number(digits=3)): response}),
-            tags=fake.pylist(value_types=str),
+            tags=fake.pylist(value_types=[str]),
             summary=fake.sentence(),
             description=fake.text(),
             externalDocs=external_docs,

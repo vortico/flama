@@ -24,7 +24,7 @@ def build_field(field_type: type, required: bool, default: typing.Any) -> marshm
     if required:
         kwargs = {"required": required}
     else:
-        kwargs = {"missing": default}
+        kwargs = {"load_default": default}
 
     return MAPPING[field_type](**kwargs)
 
