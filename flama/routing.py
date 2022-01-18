@@ -18,8 +18,8 @@ from flama.schemas.validation import get_output_schema
 from flama.types import HTTPMethod
 
 if typing.TYPE_CHECKING:
-    from flama.resources import BaseResource
     from flama.applications import Flama
+    from flama.resources import BaseResource
 
 __all__ = ["Mount", "Route", "Router", "WebSocketRoute"]
 
