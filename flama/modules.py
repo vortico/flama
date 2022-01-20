@@ -17,6 +17,12 @@ class _BaseModule:
     def __init__(self, app: "Flama", *args, **kwargs):
         self.app = app
 
+    async def on_startup(self):
+        ...
+
+    async def on_shutdown(self):
+        ...
+
 
 class _ModuleMeta(abc.ABCMeta):
     def __new__(mcs, name, bases, namespace):
