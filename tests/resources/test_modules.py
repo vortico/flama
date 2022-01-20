@@ -8,7 +8,7 @@ from flama import Flama
 class TestCaseDatabaseModule:
     @pytest.fixture
     def app(self):
-        return Flama(database="sqlite+aiosqlite:///test")
+        return Flama(database="sqlite+aiosqlite://")
 
     def test_init(self, app):
         assert isinstance(app.database.engine, AsyncEngine)

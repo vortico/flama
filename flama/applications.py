@@ -1,6 +1,7 @@
 import functools
 import typing
 
+import anyio
 from starlette.applications import Starlette
 from starlette.exceptions import ExceptionMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
@@ -30,6 +31,31 @@ DEFAULT_MODULES = [
 ]
 
 
+class Lifespan:
+    def __init__(self, app: "Flama", lifespan: typing.Callable[["Flama"], typing.AsyncContextManager] = None):
+        self.app = app
+        self.lifespan = lifespan
+
+    async def __aenter__(self):
+        async with anyio.create_task_group() as tg:
+            for module in self.app.modules.values():
+                tg.start_soon(module.on_startup)
+
+        if self.lifespan:  # pragma: no cover
+            await self.lifespan.__aenter__()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.lifespan:  # pragma: no cover
+            await self.lifespan.__aexit__(exc_type, exc_val, exc_tb)
+
+        async with anyio.create_task_group() as tg:
+            for module in self.app.modules.values():
+                tg.start_soon(module.on_shutdown)
+
+    def __call__(self, app: object) -> "Lifespan":
+        return self
+
+
 class Flama(Starlette):
     def __init__(
         self,
@@ -38,6 +64,7 @@ class Flama(Starlette):
         debug: bool = False,
         on_startup: typing.Sequence[typing.Callable] = None,
         on_shutdown: typing.Sequence[typing.Callable] = None,
+        lifespan: typing.Callable[["Flama"], typing.AsyncContextManager] = None,
         database: typing.Optional[str] = None,
         title: typing.Optional[str] = "",
         version: typing.Optional[str] = "",
@@ -56,7 +83,12 @@ class Flama(Starlette):
         # Initialize injector
         self.components = components
 
-        self.router = Router(components=self.components, on_startup=on_startup, on_shutdown=on_shutdown)
+        self.router = Router(
+            components=self.components,
+            on_startup=on_startup,
+            on_shutdown=on_shutdown,
+            lifespan=Lifespan(self, lifespan),
+        )
         self.app = self.router
         self.exception_middleware = ExceptionMiddleware(self.router, debug=debug)
         self.error_middleware = ServerErrorMiddleware(self.exception_middleware, debug=debug)
