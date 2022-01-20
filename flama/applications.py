@@ -10,19 +10,21 @@ from flama.database import DatabaseModule
 from flama.exceptions import HTTPException
 from flama.http import Request, Response
 from flama.injection import Injector
-from flama.modules import Module, Modules
+from flama.modules import Modules
+from flama.resources import ResourcesModule
 from flama.responses import APIErrorResponse
 from flama.routing import Router
 from flama.schemas.applications import AppDocsMixin, AppRedocMixin, AppSchemaMixin
 
 if typing.TYPE_CHECKING:
-    from flama.resources import BaseResource
+    from flama.modules import Module
 
 __all__ = ["Flama"]
 
 
 DEFAULT_MODULES = [
     DatabaseModule,
+    ResourcesModule,
 ]
 
 
@@ -30,7 +32,7 @@ class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
     def __init__(
         self,
         components: typing.Optional[typing.List[Component]] = None,
-        modules: typing.Optional[typing.List[Module]] = None,
+        modules: typing.Optional[typing.List["Module"]] = None,
         debug: bool = False,
         on_startup: typing.Sequence[typing.Callable] = None,
         on_shutdown: typing.Sequence[typing.Callable] = None,
@@ -52,7 +54,7 @@ class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
         # Initialize injector
         self.components = components
         self.modules = Modules(
-            modules=[*(modules or []), *DEFAULT_MODULES],
+            modules=[*DEFAULT_MODULES, *(modules or [])],
             app=self,
             *args,
             **{
@@ -83,7 +85,7 @@ class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
         self.add_docs_route(docs=docs)
         self.add_redoc_route(redoc=redoc)
 
-    def __getattr__(self, item: str) -> Module:
+    def __getattr__(self, item: str) -> "Module":
         return self.modules.__getattr__(item)
 
     @property
@@ -99,24 +101,3 @@ class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
 
     def api_http_exception_handler(self, request: Request, exc: HTTPException) -> Response:
         return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
-
-    def add_resource(self, path: str, resource: "BaseResource"):
-        """Adds a resource to this application, setting its endpoints.
-
-        :param path: Resource base path.
-        :param resource: Resource class.
-        """
-        self.router.add_resource(path, resource=resource)
-
-    def resource(self, path: str) -> typing.Callable:
-        """Decorator for Resources classes for adding them to the application.
-
-        :param path: Resource base path.
-        :return: Decorated resource class.
-        """
-
-        def decorator(resource: "BaseResource") -> "BaseResource":
-            self.router.add_resource(path, resource=resource)
-            return resource
-
-        return decorator

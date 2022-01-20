@@ -19,7 +19,7 @@ from flama.types import HTTPMethod
 
 if typing.TYPE_CHECKING:
     from flama.applications import Flama
-    from flama.resources import BaseResource
+    from flama.resources.base import BaseResource
 
 __all__ = ["Mount", "Route", "Router", "WebSocketRoute"]
 
