@@ -6,6 +6,7 @@ from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.types import ASGIApp
 
 from flama.components import Component
+from flama.database import DatabaseModule
 from flama.exceptions import HTTPException
 from flama.http import Request, Response
 from flama.injection import Injector
@@ -20,20 +21,26 @@ if typing.TYPE_CHECKING:
 __all__ = ["Flama"]
 
 
+DEFAULT_MODULES = [
+    DatabaseModule,
+]
+
+
 class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
     def __init__(
         self,
         components: typing.Optional[typing.List[Component]] = None,
         modules: typing.Optional[typing.List[Module]] = None,
         debug: bool = False,
+        on_startup: typing.Sequence[typing.Callable] = None,
+        on_shutdown: typing.Sequence[typing.Callable] = None,
+        database: typing.Optional[str] = None,
         title: typing.Optional[str] = "",
         version: typing.Optional[str] = "",
         description: typing.Optional[str] = "",
         schema: typing.Optional[str] = "/schema/",
         docs: typing.Optional[str] = "/docs/",
         redoc: typing.Optional[str] = None,
-        on_startup: typing.Sequence[typing.Callable] = None,
-        on_shutdown: typing.Sequence[typing.Callable] = None,
         *args,
         **kwargs
     ) -> None:
@@ -45,12 +52,13 @@ class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
         # Initialize injector
         self.components = components
         self.modules = Modules(
-            modules,
+            modules=[*(modules or []), *DEFAULT_MODULES],
             app=self,
             *args,
             **{
                 **{
                     "debug": debug,
+                    "database": database,
                     "title": title,
                     "version": version,
                     "description": description,
