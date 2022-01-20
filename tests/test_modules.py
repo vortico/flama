@@ -20,9 +20,14 @@ class TestCaseModule:
 
         return FooModule
 
-    def test_new_module(self):
+    async def test_new_module(self):
         class FooModule(Module):
             name = "foo"
+
+        module = FooModule(Mock())
+
+        assert await module.on_startup() is None
+        assert await module.on_shutdown() is None
 
     def test_new_module_no_name(self):
         with pytest.raises(AssertionError, match="Module 'FooModule' does not have a 'name' attribute."):

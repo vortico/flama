@@ -43,7 +43,7 @@ isort = "^5.1"
 python-multipart = "^0.0.5"
 pyyaml = "^5.0"
 flake8 = "^3.7"
-pytest-asyncio = "^0.10"
+pytest-asyncio = "^0.17"
 sqlalchemy-utils = "^0.37"
 mkdocs = "^1.0"
 mkdocs-material = "^4.0"
@@ -102,6 +102,7 @@ norecursedirs = [
     ".tox*",
     "*docs*",
 ]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = [
