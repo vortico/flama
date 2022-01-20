@@ -5,7 +5,7 @@ import pytest
 from flama.applications import Flama
 from flama.components import Component
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
-from flama.resources import CRUDResource
+from flama.resources.resources import CRUDResource
 from flama.routing import Mount, Route, Router, WebSocketRoute
 
 
