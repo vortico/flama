@@ -396,7 +396,7 @@ class TestCaseSchemaGenerator:
             schema = type("Owner", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         else:
             raise ValueError("Wrong schema lib")
-        app.schemas["Owner"] = schema
+        app.schema.schemas["Owner"] = schema
         return schema
 
     @pytest.fixture(scope="function")
@@ -407,7 +407,7 @@ class TestCaseSchemaGenerator:
             schema = typesystem.Schema(
                 fields={
                     "name": typesystem.fields.String(),
-                    "owner": typesystem.Reference(to="Owner", definitions=app.schemas),
+                    "owner": typesystem.Reference(to="Owner", definitions=app.schema.schemas),
                 }
             )
         elif schemas.lib == marshmallow:
@@ -421,7 +421,7 @@ class TestCaseSchemaGenerator:
             )
         else:
             raise ValueError("Wrong schema lib")
-        app.schemas["Puppy"] = schema
+        app.schema.schemas["Puppy"] = schema
         return schema
 
     @pytest.fixture(scope="function")
@@ -429,7 +429,7 @@ class TestCaseSchemaGenerator:
         from flama import schemas
 
         if schemas.lib == typesystem:
-            schema = typesystem.Array(typesystem.Reference(to="Puppy", definitions=app.schemas))
+            schema = typesystem.Array(typesystem.Reference(to="Puppy", definitions=app.schema.schemas))
         elif schemas.lib == marshmallow:
             schema = puppy_schema(many=True)
         else:
@@ -447,7 +447,7 @@ class TestCaseSchemaGenerator:
         else:
             raise ValueError("Wrong schema lib")
 
-        app.schemas["BodyParam"] = schema
+        app.schema.schemas["BodyParam"] = schema
         return schema
 
     @pytest.fixture(scope="function", autouse=True)
@@ -531,14 +531,14 @@ class TestCaseSchemaGenerator:
         app.mount("/nested", mounted_router)
 
     def test_schema_info(self, app):
-        schema = app.schema["info"]
+        schema = app.schema.schema["info"]
 
         assert schema["title"] == "Foo"
         assert schema["version"] == "0.1"
         assert schema["description"] == "Bar"
 
     def test_components_schemas(self, app):
-        schemas = app.schema["components"]["schemas"]
+        schemas = app.schema.schema["components"]["schemas"]
 
         # Check declared components are only those that are in use
         assert set(schemas.keys()) == {"Owner", "Puppy", "BodyParam", "APIError"}
@@ -698,4 +698,4 @@ class TestCaseSchemaGenerator:
         ],
     )
     def test_schema(self, app, path, verb, expected_schema):
-        assert_recursive_contains(expected_schema, app.schema["paths"][path][verb])
+        assert_recursive_contains(expected_schema, app.schema.schema["paths"][path][verb])

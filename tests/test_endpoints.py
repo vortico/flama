@@ -39,7 +39,7 @@ def puppy_schema(app):
     else:
         raise ValueError("Wrong schema lib")
 
-    app.schemas["Puppy"] = schema
+    app.schema.schemas["Puppy"] = schema
     return schema
 
 
