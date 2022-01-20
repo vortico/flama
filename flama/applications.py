@@ -1,3 +1,4 @@
+import functools
 import typing
 
 from starlette.applications import Starlette
@@ -99,3 +100,22 @@ class Flama(Starlette):
 
     def api_http_exception_handler(self, request: Request, exc: HTTPException) -> Response:
         return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
+
+    get = functools.partialmethod(Starlette.route, methods=["GET"])
+    head = functools.partialmethod(Starlette.route, methods=["HEAD"])
+    post = functools.partialmethod(Starlette.route, methods=["POST"])
+    put = functools.partialmethod(Starlette.route, methods=["PUT"])
+    delete = functools.partialmethod(Starlette.route, methods=["DELETE"])
+    connect = functools.partialmethod(Starlette.route, methods=["CONNECT"])
+    options = functools.partialmethod(Starlette.route, methods=["OPTIONS"])
+    trace = functools.partialmethod(Starlette.route, methods=["TRACE"])
+    patch = functools.partialmethod(Starlette.route, methods=["PATCH"])
+    add_get = functools.partialmethod(Starlette.add_route, methods=["GET"])
+    add_head = functools.partialmethod(Starlette.add_route, methods=["HEAD"])
+    add_post = functools.partialmethod(Starlette.add_route, methods=["POST"])
+    add_put = functools.partialmethod(Starlette.add_route, methods=["PUT"])
+    add_delete = functools.partialmethod(Starlette.add_route, methods=["DELETE"])
+    add_connect = functools.partialmethod(Starlette.add_route, methods=["CONNECT"])
+    add_options = functools.partialmethod(Starlette.add_route, methods=["OPTIONS"])
+    add_trace = functools.partialmethod(Starlette.add_route, methods=["TRACE"])
+    add_patch = functools.partialmethod(Starlette.add_route, methods=["PATCH"])
