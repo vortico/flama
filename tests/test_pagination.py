@@ -17,7 +17,7 @@ def output_schema(app):
     else:
         raise ValueError("Wrong schema lib")
 
-    app.schemas["OutputSchema"] = schema
+    app.schema.schemas["OutputSchema"] = schema
     return schema
 
 
@@ -30,7 +30,7 @@ class TestPageNumberResponse:
             return [{"value": i} for i in range(25)]
 
     def test_registered_schemas(self, app):
-        schemas = app.schema["components"]["schemas"]
+        schemas = app.schema.schema["components"]["schemas"]
 
         assert set(schemas.keys()) == {"OutputSchema", "PageNumberPaginatedOutputSchema", "PageNumberMeta", "APIError"}
 
@@ -42,7 +42,7 @@ class TestPageNumberResponse:
                 ...
 
     def test_pagination_schema_parameters(self, app):
-        schema = app.schema["paths"]["/page-number/"]["get"]
+        schema = app.schema.schema["paths"]["/page-number/"]["get"]
         parameters = schema.get("parameters", {})
 
         assert parameters == [
@@ -52,8 +52,8 @@ class TestPageNumberResponse:
         ]
 
     def test_pagination_schema_return(self, app):
-        response_schema = app.schema["paths"]["/page-number/"]["get"]["responses"]["200"]
-        component_schema = app.schema["components"]["schemas"]["PageNumberPaginatedOutputSchema"]
+        response_schema = app.schema.schema["paths"]["/page-number/"]["get"]["responses"]["200"]
+        component_schema = app.schema.schema["components"]["schemas"]["PageNumberPaginatedOutputSchema"]
 
         assert "data" in component_schema["properties"]
         assert component_schema["properties"]["data"]["items"] == {"$ref": "#/components/schemas/OutputSchema"}
@@ -131,7 +131,7 @@ class TestLimitOffsetResponse:
             return [{"value": i} for i in range(25)]
 
     def test_registered_schemas(self, app):
-        schemas = app.schema["components"]["schemas"]
+        schemas = app.schema.schema["components"]["schemas"]
 
         assert set(schemas.keys()) == {
             "OutputSchema",
@@ -148,7 +148,7 @@ class TestLimitOffsetResponse:
                 ...
 
     def test_pagination_schema_parameters(self, app):
-        schema = app.schema["paths"]["/limit-offset/"]["get"]
+        schema = app.schema.schema["paths"]["/limit-offset/"]["get"]
         parameters = schema.get("parameters", {})
 
         assert parameters == [
@@ -158,8 +158,8 @@ class TestLimitOffsetResponse:
         ]
 
     def test_pagination_schema_return(self, app):
-        response_schema = app.schema["paths"]["/limit-offset/"]["get"]["responses"]["200"]
-        component_schema = app.schema["components"]["schemas"]["LimitOffsetPaginatedOutputSchema"]
+        response_schema = app.schema.schema["paths"]["/limit-offset/"]["get"]["responses"]["200"]
+        component_schema = app.schema.schema["components"]["schemas"]["LimitOffsetPaginatedOutputSchema"]
 
         assert "data" in component_schema["properties"]
         assert component_schema["properties"]["data"]["items"] == {"$ref": "#/components/schemas/OutputSchema"}

@@ -15,7 +15,7 @@ from flama.schemas.utils import is_field, is_schema, is_schema_instance
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["SchemaGenerator"]
+__all__ = ["SchemaRegistry", "SchemaGenerator"]
 
 
 class SchemaRegistry(typing.Dict[int, SchemaInfo]):

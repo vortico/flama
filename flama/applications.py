@@ -14,7 +14,7 @@ from flama.modules import Modules
 from flama.resources import ResourcesModule
 from flama.responses import APIErrorResponse
 from flama.routing import Router
-from flama.schemas.applications import AppDocsMixin, AppRedocMixin, AppSchemaMixin
+from flama.schemas.modules import SchemaModule
 
 if typing.TYPE_CHECKING:
     from flama.modules import Module
@@ -25,10 +25,11 @@ __all__ = ["Flama"]
 DEFAULT_MODULES = [
     DatabaseModule,
     ResourcesModule,
+    SchemaModule,
 ]
 
 
-class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
+class Flama(Starlette):
     def __init__(
         self,
         components: typing.Optional[typing.List[Component]] = None,
@@ -53,6 +54,16 @@ class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
 
         # Initialize injector
         self.components = components
+
+        self.router = Router(components=self.components, on_startup=on_startup, on_shutdown=on_shutdown)
+        self.app = self.router
+        self.exception_middleware = ExceptionMiddleware(self.router, debug=debug)
+        self.error_middleware = ServerErrorMiddleware(self.exception_middleware, debug=debug)
+
+        # Add exception handler for API exceptions
+        self.add_exception_handler(HTTPException, self.api_http_exception_handler)
+
+        # Initialize Modules
         self.modules = Modules(
             modules=[*DEFAULT_MODULES, *(modules or [])],
             app=self,
@@ -71,19 +82,6 @@ class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
                 **kwargs,
             },
         )
-
-        self.router = Router(components=self.components, on_startup=on_startup, on_shutdown=on_shutdown)
-        self.app = self.router
-        self.exception_middleware = ExceptionMiddleware(self.router, debug=debug)
-        self.error_middleware = ServerErrorMiddleware(self.exception_middleware, debug=debug)
-
-        # Add exception handler for API exceptions
-        self.add_exception_handler(HTTPException, self.api_http_exception_handler)
-
-        # Add schema and docs routes
-        self.add_schema_routes(title=title, version=version, description=description, schema=schema)
-        self.add_docs_route(docs=docs)
-        self.add_redoc_route(redoc=redoc)
 
     def __getattr__(self, item: str) -> "Module":
         return self.modules.__getattr__(item)

@@ -4,7 +4,7 @@ import typing
 
 from flama import schemas
 
-__all__ = ["FieldLocation", "Field", "Fields", "Methods", "EndpointInfo", "SchemaInfo"]
+__all__ = ["FieldLocation", "Field", "Fields", "Methods", "EndpointInfo", "SchemaInfo", "Schemas"]
 
 
 Schemas = typing.NewType("Schemas", typing.Dict[str, schemas.Schema])

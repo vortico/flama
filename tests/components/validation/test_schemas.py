@@ -36,7 +36,7 @@ class TestCaseSchemaValidation:
         else:
             raise ValueError("Wrong schema lib")
 
-        app.schemas["Product"] = schema
+        app.schema.schemas["Product"] = schema
         return schema
 
     @pytest.fixture(scope="function")
@@ -44,7 +44,7 @@ class TestCaseSchemaValidation:
         from flama import schemas
 
         if schemas.lib == typesystem:
-            schema = typesystem.fields.Array(typesystem.Reference("Product", app.schemas))
+            schema = typesystem.fields.Array(typesystem.Reference("Product", app.schema.schemas))
         elif schemas.lib == marshmallow:
             schema = product_schema(many=True)
         else:
@@ -63,7 +63,7 @@ class TestCaseSchemaValidation:
         else:
             raise ValueError("Wrong schema lib")
 
-        app.schemas["ReviewedProduct"] = schema
+        app.schema.schemas["ReviewedProduct"] = schema
         return schema
 
     @pytest.fixture(scope="function")
@@ -89,7 +89,7 @@ class TestCaseSchemaValidation:
         else:
             raise ValueError("Wrong schema lib")
 
-        app.schemas["Location"] = schema
+        app.schema.schemas["Location"] = schema
         return schema
 
     @pytest.fixture(scope="function")
@@ -99,7 +99,7 @@ class TestCaseSchemaValidation:
         if schemas.lib == typesystem:
             schema = typesystem.Schema(
                 fields={
-                    "location": typesystem.Reference("Location", app.schemas),
+                    "location": typesystem.Reference("Location", app.schema.schemas),
                     "name": typesystem.String(),
                 }
             )
@@ -111,7 +111,7 @@ class TestCaseSchemaValidation:
             )
         else:
             raise ValueError("Wrong schema lib")
-        app.schemas["Place"] = schema
+        app.schema.schemas["Place"] = schema
         return schema
 
     @pytest.fixture(scope="function", autouse=True)
