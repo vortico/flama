@@ -5,11 +5,11 @@ from starlette.exceptions import ExceptionMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.types import ASGIApp
 
-from flama import exceptions
 from flama.components import Component
 from flama.exceptions import HTTPException
 from flama.http import Request, Response
 from flama.injection import Injector
+from flama.modules import Module, Modules
 from flama.responses import APIErrorResponse
 from flama.routing import Router
 from flama.schemas.applications import AppDocsMixin, AppRedocMixin, AppSchemaMixin
@@ -24,6 +24,7 @@ class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
     def __init__(
         self,
         components: typing.Optional[typing.List[Component]] = None,
+        modules: typing.Optional[typing.List[Module]] = None,
         debug: bool = False,
         title: typing.Optional[str] = "",
         version: typing.Optional[str] = "",
@@ -43,6 +44,23 @@ class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
 
         # Initialize injector
         self.components = components
+        self.modules = Modules(
+            modules,
+            app=self,
+            *args,
+            **{
+                **{
+                    "debug": debug,
+                    "title": title,
+                    "version": version,
+                    "description": description,
+                    "schema": schema,
+                    "docs": docs,
+                    "redoc": redoc,
+                },
+                **kwargs,
+            },
+        )
 
         self.router = Router(components=self.components, on_startup=on_startup, on_shutdown=on_shutdown)
         self.app = self.router
@@ -50,12 +68,15 @@ class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
         self.error_middleware = ServerErrorMiddleware(self.exception_middleware, debug=debug)
 
         # Add exception handler for API exceptions
-        self.add_exception_handler(exceptions.HTTPException, self.api_http_exception_handler)
+        self.add_exception_handler(HTTPException, self.api_http_exception_handler)
 
         # Add schema and docs routes
         self.add_schema_routes(title=title, version=version, description=description, schema=schema)
         self.add_docs_route(docs=docs)
         self.add_redoc_route(redoc=redoc)
+
+    def __getattr__(self, item: str) -> Module:
+        return self.modules.__getattr__(item)
 
     @property
     def injector(self):
@@ -65,18 +86,29 @@ class Flama(Starlette, AppSchemaMixin, AppDocsMixin, AppRedocMixin):
         self.components += getattr(app, "components", [])
         self.router.mount(path, app=app, name=name)
 
-    def add_resource(self, path: str, resource: "BaseResource"):
-        self.router.add_resource(path, resource=resource)
-
     def add_component(self, component: Component):
         self.components.append(component)
 
+    def api_http_exception_handler(self, request: Request, exc: HTTPException) -> Response:
+        return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
+
+    def add_resource(self, path: str, resource: "BaseResource"):
+        """Adds a resource to this application, setting its endpoints.
+
+        :param path: Resource base path.
+        :param resource: Resource class.
+        """
+        self.router.add_resource(path, resource=resource)
+
     def resource(self, path: str) -> typing.Callable:
+        """Decorator for Resources classes for adding them to the application.
+
+        :param path: Resource base path.
+        :return: Decorated resource class.
+        """
+
         def decorator(resource: "BaseResource") -> "BaseResource":
             self.router.add_resource(path, resource=resource)
             return resource
 
         return decorator
-
-    def api_http_exception_handler(self, request: Request, exc: HTTPException) -> Response:
-        return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
