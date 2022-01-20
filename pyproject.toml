@@ -124,6 +124,7 @@ exclude_lines = [
     "noqa",
     "pragma: no cover",
     "pass",
+    "\\.\\.\\.",
     "raise AssertionError",
     "raise NotImplementedError",
     "if 0:",
