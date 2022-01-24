@@ -1,11 +1,10 @@
-from unittest.mock import Mock
+from unittest.mock import MagicMock
 
 import pytest
 
 from flama.applications import Flama
 from flama.components import Component
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
-from flama.resources.resources import CRUDResource
 from flama.routing import Mount, Route, Router, WebSocketRoute
 
 
@@ -20,11 +19,11 @@ class TestCaseRouter:
 
     @pytest.fixture(scope="function")
     def app_mock(self):
-        return Mock(spec=Flama)
+        return MagicMock(spec=Flama)
 
     @pytest.fixture(scope="function")
     def component_mock(self):
-        return Mock(spec=Component)
+        return MagicMock(spec=Component)
 
     @pytest.fixture(scope="function")
     def scope(self, app):
@@ -116,64 +115,87 @@ class TestCaseRouter:
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == FooEndpoint
 
-    def test_add_resource(self, router, database, puppy_model, puppy_schema):
-        database_ = database
+    def test_mount_app(self, app, app_mock):
+        app.mount("/app/", app=app_mock)
 
-        class PuppyResource(metaclass=CRUDResource):
-            database = database_
-            name = "puppy"
-            model = puppy_model
-            schema = puppy_schema
+        assert len(app.routes) == 1
+        assert isinstance(app.routes[0], Mount)
+        assert app.routes[0].path == "/app"
+        assert app.routes[0].app == app_mock
 
-        resource = PuppyResource()
-        router.add_resource("/", resource)
+    def test_mount_router(self, app, component_mock):
+        components = [component_mock]
+        router = Router(components=components)
 
-        assert len(router.routes) == 4
-        assert [(route.path, route.methods, route.endpoint) for route in router.routes] == [
-            ("/puppy/", {"POST"}, resource.create),
-            ("/puppy/{element_id}/", {"GET", "HEAD"}, resource.retrieve),
-            ("/puppy/{element_id}/", {"PUT"}, resource.update),
-            ("/puppy/{element_id}/", {"DELETE"}, resource.delete),
+        app.mount("/app/", app=router)
+
+        assert len(app.router.routes) == 1
+        # Check mount is initialized
+        assert isinstance(app.routes[0], Mount)
+        mount_route = app.router.routes[0]
+        assert mount_route.path == "/app"
+        assert mount_route.main_app == app
+        # Check router is created and initialized, also shares components and modules with main app
+        assert isinstance(mount_route.app, Router)
+        mount_router = mount_route.app
+        assert mount_router.main_app == app
+        assert mount_router.modules == app.modules
+        assert mount_router.components == components
+
+    def test_mount_declarative(self):
+        root_mock, foo_mock, foo_view_mock = MagicMock(), MagicMock(), MagicMock()
+        routes = [
+            Route("/", root_mock),
+            Mount(
+                "/foo", routes=[Route("/", foo_mock, methods=["GET"]), Route("/view", foo_view_mock, methods=["GET"])]
+            ),
         ]
 
-    def test_add_resource_decorator(self, router, database, puppy_model, puppy_schema):
-        database_ = database
+        # Check app is not propagated yet
+        with pytest.raises(AttributeError):
+            routes[0].main_app
 
-        class PuppyResource(metaclass=CRUDResource):
-            database = database_
-            name = "puppy"
-            model = puppy_model
-            schema = puppy_schema
+        app = Flama(routes=routes, schema=None, docs=None)
 
-        resource = router.resource("/")(PuppyResource())  # Apply decoration to an instance in order to check endpoints
+        assert len(app.router.routes) == 2
 
-        assert len(router.routes) == 4
-        assert [(route.path, route.methods, route.endpoint) for route in router.routes] == [
-            ("/puppy/", {"POST"}, resource.create),
-            ("/puppy/{element_id}/", {"GET", "HEAD"}, resource.retrieve),
-            ("/puppy/{element_id}/", {"PUT"}, resource.update),
-            ("/puppy/{element_id}/", {"DELETE"}, resource.delete),
-        ]
+        # Check first-level route is initialized
+        assert isinstance(app.router.routes[0], Route)
+        root_route = app.router.routes[0]
+        assert root_route.path == "/"
+        assert root_route.main_app == app
+        # Check mount is initialized
+        assert isinstance(app.router.routes[1], Mount)
+        mount_route = app.router.routes[1]
+        assert mount_route.main_app == app
+        # Check router is created and initialized, also shares components and modules with main app
+        assert isinstance(mount_route.app, Router)
+        mount_router = mount_route.app
+        assert mount_router.main_app == app
+        assert mount_router.components == app.components
+        assert mount_router.modules == app.modules
+        # Check second-level routes are created an initialized
+        assert len(mount_route.routes) == 2
+        assert mount_route.routes[0].path == "/"
+        assert mount_route.routes[0].main_app == app
+        assert mount_route.routes[1].path == "/view"
+        assert mount_route.routes[1].main_app == app
 
-    def test_mount_app(self, router, app_mock):
-        router.mount("/app/", app=app_mock)
+        # Check can delete app
+        del app.routes[0].main_app
+        del app.routes[1].main_app
 
-        assert len(router.routes) == 1
-        assert isinstance(router.routes[0], Mount)
-        assert router.routes[0].path == "/app"
-        assert router.routes[0].app == app_mock
+        # Check app is deleted in first-level route
+        with pytest.raises(AttributeError):
+            app.routes[0].main_app
 
-    def test_mount_router(self, router, component_mock):
-        router.components = [component_mock]
+        # Check app is deleted in mount
+        with pytest.raises(AttributeError):
+            app.routes[1].main_app
 
-        app = Router()
-
-        router.mount("/app/", app=app)
-        assert len(router.routes) == 1
-        assert isinstance(router.routes[0], Mount)
-        assert router.routes[0].path == "/app"
-        assert router.routes[0].app == app
-        assert router.routes[0].app.components == [component_mock]
+        # Check app is deleted in second-level route
+        with pytest.raises(AttributeError):
+            app.routes[1].routes[0].main_app
 
     def test_get_route_from_scope_route(self, app, scope):
         @app.route("/foo/")

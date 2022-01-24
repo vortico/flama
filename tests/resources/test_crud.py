@@ -12,7 +12,8 @@ from starlette.testclient import TestClient
 
 from flama import pagination
 from flama.applications import Flama
-from flama.resources.resources import CRUDListDropResource, CRUDListResource, resource_method
+from flama.resources.crud import CRUDListDropResource, CRUDListResource
+from flama.resources.resource import resource_method
 from tests.conftest import DATABASE_URL
 
 
