@@ -7,7 +7,6 @@ from starlette.exceptions import ExceptionMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.types import ASGIApp
 
-from flama.components import Component
 from flama.database import DatabaseModule
 from flama.exceptions import HTTPException
 from flama.http import Request, Response
@@ -19,7 +18,9 @@ from flama.routing import Router
 from flama.schemas.modules import SchemaModule
 
 if typing.TYPE_CHECKING:
+    from flama.components import Component
     from flama.modules import Module
+    from flama.routing import BaseRoute, Mount
 
 __all__ = ["Flama"]
 
@@ -59,7 +60,8 @@ class Lifespan:
 class Flama(Starlette):
     def __init__(
         self,
-        components: typing.Optional[typing.List[Component]] = None,
+        routes: typing.Sequence[typing.Union["BaseRoute", "Mount"]] = None,
+        components: typing.Optional[typing.List["Component"]] = None,
         modules: typing.Optional[typing.List["Module"]] = None,
         debug: bool = False,
         on_startup: typing.Sequence[typing.Callable] = None,
@@ -84,7 +86,8 @@ class Flama(Starlette):
         self.components = components
 
         self.router = Router(
-            components=self.components,
+            main_app=self,
+            routes=routes,
             on_startup=on_startup,
             on_shutdown=on_shutdown,
             lifespan=Lifespan(self, lifespan),
@@ -127,7 +130,7 @@ class Flama(Starlette):
         self.components += getattr(app, "components", [])
         self.router.mount(path, app=app, name=name)
 
-    def add_component(self, component: Component):
+    def add_component(self, component: "Component"):
         self.components.append(component)
 
     def api_http_exception_handler(self, request: Request, exc: HTTPException) -> Response:

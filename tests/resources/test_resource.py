@@ -2,8 +2,10 @@ import pytest
 import sqlalchemy
 
 from flama.applications import Flama
-from flama.resources.resources import CRUDListDropResource, CRUDListResource, CRUDResource, resource_method
-from flama.resources.types import Model, PrimaryKey
+from flama.resources import types
+from flama.resources.crud import CRUDListDropResource, CRUDListResource, CRUDResource
+from flama.resources.resource import BaseResource, resource_method
+from flama.resources.routing import ResourceRoute
 
 
 @pytest.fixture
@@ -14,12 +16,8 @@ def app(app):
 
 class TestCaseBaseResource:
     @pytest.fixture(scope="function")
-    def resource(self, puppy_model, puppy_schema, database):
-        database_ = database
-
-        class PuppyResource(metaclass=CRUDListResource):
-            database = database_
-
+    def resource(self, puppy_model, puppy_schema):
+        class PuppyResource(BaseResource, metaclass=CRUDListResource):
             name = "puppy"
             verbose_name = "Puppy"
 
@@ -28,79 +26,58 @@ class TestCaseBaseResource:
 
         return PuppyResource
 
-    def test_meta_attributes(self, resource, puppy_model, database, puppy_schema):
+    def test_meta_attributes(self, resource, puppy_model, puppy_schema):
         assert not hasattr(resource, "name")
         assert not hasattr(resource, "verbose_name")
         assert not hasattr(resource, "schema")
-        assert hasattr(resource, "database")
-        assert isinstance(getattr(resource, "database"), property)
         assert hasattr(resource, "model")
         assert isinstance(getattr(resource, "model"), property)
         assert hasattr(resource, "_meta")
-        assert resource._meta.database == database
         assert resource._meta.name == "puppy"
         assert resource._meta.verbose_name == "Puppy"
-        assert resource._meta.model == Model(table=puppy_model, primary_key=PrimaryKey(name="custom_id", type=int))
-        assert resource._meta.input_schema == puppy_schema
-        assert resource._meta.output_schema == puppy_schema
+        assert resource._meta.model == types.Model(
+            table=puppy_model, primary_key=types.PrimaryKey(name="custom_id", type=int)
+        )
+        assert resource._meta.schemas == types.Schemas(
+            input=types.Schema(name="PuppyResource", schema=puppy_schema),
+            output=types.Schema(name="PuppyResource", schema=puppy_schema),
+        )
         assert resource._meta.columns == ["custom_id"]
         assert resource._meta.order == "custom_id"
 
-    def test_meta_from_inheritance(self, puppy_model, puppy_schema, database):
-        database_ = database
-
-        class MetadataMixin:
-            database = database_
-            model = puppy_model
-            schema = puppy_schema
-
-        class PuppyResource(MetadataMixin, metaclass=CRUDListResource):
-            pass
-
-        assert PuppyResource._meta.name == "PuppyResource"
-        assert PuppyResource._meta.verbose_name == "PuppyResource"
-        assert PuppyResource._meta.order == "custom_id"
-        assert PuppyResource._meta.columns == ["custom_id"]
-        assert PuppyResource._meta.database == database_
-        assert PuppyResource._meta.model == Model(table=puppy_model, primary_key=PrimaryKey(name="custom_id", type=int))
-        assert PuppyResource._meta.input_schema == puppy_schema
-        assert PuppyResource._meta.output_schema == puppy_schema
-
-    def test_crud_resource(self, puppy_model, puppy_schema, database, app):
-        database_ = database
-
-        @app.resources.resource("/")
-        class PuppyResource(metaclass=CRUDResource):
-            database = database_
-
+    def test_crud_resource(self, puppy_model, puppy_schema, app):
+        class PuppyResource(BaseResource, metaclass=CRUDResource):
             name = "puppy"
             verbose_name = "Puppy"
 
             model = puppy_model
             schema = puppy_schema
+
+        resource = PuppyResource(app=app)
 
         expected_routes = [
-            ("/puppy/", {"POST"}, "puppy-create"),
-            ("/puppy/{element_id}/", {"GET", "HEAD"}, "puppy-retrieve"),
-            ("/puppy/{element_id}/", {"PUT"}, "puppy-update"),
-            ("/puppy/{element_id}/", {"DELETE"}, "puppy-delete"),
+            ("/puppy/", resource.create, {"POST"}, "puppy-create"),
+            ("/puppy/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
+            ("/puppy/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
+            ("/puppy/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
         ]
 
-        assert [(i.path, i.methods, i.name) for i in app.routes] == expected_routes
+        app.resources.add_resource("/", resource)
 
-    def test_crud_list_resource(self, puppy_model, puppy_schema, database, app):
-        database_ = database
+        assert len(app.routes) == 1
+        assert isinstance(app.routes[0], ResourceRoute)
+        resource_route = app.routes[0]
+        assert [(i.path, i.endpoint, i.methods, i.name) for i in resource_route.routes] == expected_routes
 
-        class PuppyResource(metaclass=CRUDListResource):
-            database = database_
-
+    def test_crud_list_resource(self, puppy_model, puppy_schema, app):
+        class PuppyResource(BaseResource, metaclass=CRUDListResource):
             name = "puppy"
             verbose_name = "Puppy"
 
             model = puppy_model
             schema = puppy_schema
 
-        resource = PuppyResource()
+        resource = PuppyResource(app=app)
 
         expected_routes = [
             ("/puppy/", resource.create, {"POST"}, "puppy-create"),
@@ -117,21 +94,20 @@ class TestCaseBaseResource:
         assert hasattr(resource, "update")
         assert hasattr(resource, "delete")
         assert hasattr(resource, "list")
-        assert [(i.path, i.endpoint, i.methods, i.name) for i in app.routes] == expected_routes
+        assert len(app.routes) == 1
+        assert isinstance(app.routes[0], ResourceRoute)
+        resource_route = app.routes[0]
+        assert [(i.path, i.endpoint, i.methods, i.name) for i in resource_route.routes] == expected_routes
 
-    def test_crud_list_drop_resource(self, puppy_model, puppy_schema, database, app):
-        database_ = database
-
-        class PuppyResource(metaclass=CRUDListDropResource):
-            database = database_
-
+    def test_crud_list_drop_resource(self, puppy_model, puppy_schema, app):
+        class PuppyResource(BaseResource, metaclass=CRUDListDropResource):
             name = "puppy"
             verbose_name = "Puppy"
 
             model = puppy_model
             schema = puppy_schema
 
-        resource = PuppyResource()
+        resource = PuppyResource(app=app)
 
         expected_routes = [
             ("/puppy/", resource.create, {"POST"}, "puppy-create"),
@@ -150,13 +126,16 @@ class TestCaseBaseResource:
         assert hasattr(resource, "delete")
         assert hasattr(resource, "list")
         assert hasattr(resource, "drop")
-        assert [(i.path, i.endpoint, i.methods, i.name) for i in app.routes] == expected_routes
+        assert len(app.routes) == 1
+        assert isinstance(app.routes[0], ResourceRoute)
+        resource_route = app.routes[0]
+        assert [(i.path, i.endpoint, i.methods, i.name) for i in resource_route.routes] == expected_routes
 
-    def test_override_method(self, resource):
+    def test_override_method(self, app, resource):
         class SpecializedPuppyResource(resource):
             @resource_method("/")
             def list(self):
-                raise ValueError
+                return ["foo", "bar"]
 
         assert hasattr(SpecializedPuppyResource, "create")
         assert hasattr(SpecializedPuppyResource, "retrieve")
@@ -164,15 +143,8 @@ class TestCaseBaseResource:
         assert hasattr(SpecializedPuppyResource, "delete")
         assert hasattr(SpecializedPuppyResource, "list")
         assert len(SpecializedPuppyResource.routes) == 5
-        with pytest.raises(ValueError):
-            SpecializedPuppyResource().list()
 
-    def test_new_no_database(self, puppy_model, puppy_schema):
-        with pytest.raises(AttributeError, match=r"PuppyResource needs to define attribute 'database'"):
-
-            class PuppyResource(metaclass=CRUDListResource):
-                model = puppy_model
-                schema = puppy_schema
+        assert SpecializedPuppyResource(app=app).list() == ["foo", "bar"]
 
     def test_new_no_model(self, puppy_schema, database):
         database_ = database
@@ -208,7 +180,7 @@ class TestCaseBaseResource:
     def test_new_wrong_name(self, puppy_model, puppy_schema, database):
         database_ = database
 
-        with pytest.raises(AttributeError, match=r"Invalid resource name '123foo'"):
+        with pytest.raises(AttributeError, match=r"PuppyResource invalid resource name '123foo'"):
 
             class PuppyResource(metaclass=CRUDListResource):
                 database = database_
@@ -300,3 +272,16 @@ class TestCaseBaseResource:
 
                 model = model_
                 schema = puppy_schema
+
+
+class TestCaseResourceMethod:
+    def test_resource_method(self):
+        @resource_method(path="/", methods=["POST"], name="foo", additional="bar")
+        def foo(x: int):
+            return x
+
+        assert hasattr(foo, "_meta")
+        assert foo._meta.path == "/"
+        assert foo._meta.methods == ["POST"]
+        assert foo._meta.name == "foo"
+        assert foo._meta.kwargs == {"additional": "bar"}
