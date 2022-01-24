@@ -69,10 +69,18 @@ class TestCaseDataValidation:
         [
             # bytes
             param("bytes", "bytes", b"foo", {"type": "websocket.send", "bytes": b"foo"}, id="bytes"),
-            param("bytes", "text", b"foo", {"type": "websocket.close", "code": 1003}, id="bytes wrong format"),
+            param(
+                "bytes",
+                "text",
+                b"foo",
+                {"type": "websocket.close", "code": 1003, "reason": ""},
+                id="bytes wrong format",
+            ),
             # text
             param("text", "text", "foo", {"type": "websocket.send", "text": "foo"}, id="text"),
-            param("text", "bytes", "foo", {"type": "websocket.close", "code": 1003}, id="text wrong format"),
+            param(
+                "text", "bytes", "foo", {"type": "websocket.close", "code": 1003, "reason": ""}, id="text wrong format"
+            ),
             # json
             param(
                 "json",
@@ -95,7 +103,13 @@ class TestCaseDataValidation:
                 {"type": "websocket.send", "text": '{"foo": "bar"}'},
                 id="json from bytes",
             ),
-            param("json", "bytes", b'{"foo":', {"type": "websocket.close", "code": 1003}, id="json wrong format"),
+            param(
+                "json",
+                "bytes",
+                b'{"foo":',
+                {"type": "websocket.close", "code": 1003, "reason": ""},
+                id="json wrong format",
+            ),
         ],
     )
     def test_websocket_message_data(self, encoding, send_method, data, expected_result, app, client):
