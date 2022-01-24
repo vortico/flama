@@ -6,11 +6,10 @@ from functools import wraps
 
 import starlette.routing
 from starlette.concurrency import run_in_threadpool
-from starlette.routing import Match, Mount
+from starlette.routing import Match
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from flama import http, websockets
-from flama.components import Component
 from flama.responses import APIResponse, Response
 from flama.schemas.routing import RouteFieldsMixin
 from flama.schemas.utils import is_schema_instance
@@ -19,7 +18,8 @@ from flama.types import HTTPMethod
 
 if typing.TYPE_CHECKING:
     from flama.applications import Flama
-    from flama.resources.base import BaseResource
+    from flama.components import Component
+    from flama.modules import Module, Modules
 
 __all__ = ["Mount", "Route", "Router", "WebSocketRoute"]
 
@@ -52,12 +52,34 @@ async def prepare_http_request(app: "Flama", handler: typing.Callable, state: ty
 
 
 class BaseRoute(starlette.routing.BaseRoute, RouteFieldsMixin):
-    ...
+    @property
+    def main_app(self) -> "Flama":
+        if self._main_app is None:
+            raise AttributeError("Route is not initialized")
+
+        return self._main_app
+
+    @main_app.setter
+    def main_app(self, app: "Flama"):
+        self._main_app = app
+
+    @main_app.deleter
+    def main_app(self):
+        self._main_app = None
+
+    @property
+    def router(self) -> "Router":
+        return self.main_app.router
 
 
 class Route(starlette.routing.Route, BaseRoute):
-    def __init__(self, path: str, endpoint: typing.Callable, router: "Router", *args, **kwargs):
+    def __init__(self, path: str, endpoint: typing.Callable, main_app: "Flama" = None, *args, **kwargs):
+        self._main_app = None
+
         super().__init__(path, endpoint=endpoint, **kwargs)
+
+        if main_app is not None:
+            self.main_app = main_app
 
         # Replace function with another wrapper that uses the injector
         if inspect.isfunction(endpoint) or inspect.ismethod(endpoint):
@@ -65,8 +87,6 @@ class Route(starlette.routing.Route, BaseRoute):
 
         if self.methods is None:
             self.methods = [m for m in HTTPMethod.__members__.keys() if hasattr(self, m.lower())]
-
-        self.query_fields, self.path_fields, self.body_field, self.output_field = self._get_fields(router)
 
     def endpoint_wrapper(self, endpoint: typing.Callable) -> ASGIApp:
         """
@@ -94,14 +114,17 @@ class Route(starlette.routing.Route, BaseRoute):
 
 
 class WebSocketRoute(starlette.routing.WebSocketRoute, BaseRoute):
-    def __init__(self, path: str, endpoint: typing.Callable, router: "Router", *args, **kwargs):
+    def __init__(self, path: str, endpoint: typing.Callable, main_app: "Flama" = None, *args, **kwargs):
+        self._main_app = None
+
         super().__init__(path, endpoint=endpoint, **kwargs)
+
+        if main_app is not None:
+            self.main_app = main_app
 
         # Replace function with another wrapper that uses the injector
         if inspect.isfunction(endpoint):
             self.app = self.endpoint_wrapper(endpoint)
-
-        self.query_fields, self.path_fields, self.body_field, self.output_field = self._get_fields(router)
 
     def endpoint_wrapper(self, endpoint: typing.Callable) -> ASGIApp:
         """
@@ -137,13 +160,99 @@ class WebSocketRoute(starlette.routing.WebSocketRoute, BaseRoute):
         return _app
 
 
-class Router(starlette.routing.Router):
-    def __init__(self, components: typing.Optional[typing.List[Component]] = None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if components is None:
-            components = []
+class Mount(starlette.routing.Mount):
+    def __init__(
+        self,
+        path: str,
+        main_app: "Flama" = None,
+        app: ASGIApp = None,
+        routes: typing.Sequence[BaseRoute] = None,
+        name: str = None,
+    ):
+        self._main_app = None
 
-        self.components = components
+        if app is None:
+            app = Router(routes=routes)
+
+        super().__init__(path, app, routes, name)
+
+        if main_app is not None:
+            self.main_app = main_app
+
+    @property
+    def main_app(self) -> "Flama":
+        if self._main_app is None:
+            raise AttributeError("Mount is not initialized")
+
+        return self._main_app
+
+    @main_app.setter
+    def main_app(self, app: "Flama"):
+        self._main_app = app
+
+        self.app.main_app = app
+        for route in self.routes:
+            route.main_app = app
+
+    @main_app.deleter
+    def main_app(self):
+        self._main_app = None
+
+        del self.app.main_app
+        for route in self.routes:
+            del route.main_app
+
+
+class Router(starlette.routing.Router):
+    def __init__(self, main_app: "Flama" = None, components: typing.List["Component"] = None, *args, **kwargs):
+        self._main_app = None
+        self._components = components or []
+
+        super().__init__(*args, **kwargs)
+
+        if main_app is not None:
+            self.main_app = main_app
+
+    def __getattr__(self, item: str) -> "Module":
+        return self.__getattribute__("main_app").modules.__getattr__(item)
+
+    @property
+    def main_app(self) -> "Flama":
+        if self._main_app is None:
+            raise AttributeError("Router is not initialized")
+
+        return self._main_app
+
+    @main_app.setter
+    def main_app(self, app: "Flama"):
+        self._main_app = app
+        self._main_app.components.extend(self._components)
+
+        for route in self.routes:
+            route.main_app = app
+
+    @main_app.deleter
+    def main_app(self):
+        self._main_app = None
+
+        for route in self.routes:
+            del route.main_app
+
+    @property
+    def components(self) -> typing.List["Component"]:
+        return self.main_app.components
+
+    @property
+    def modules(self) -> "Modules":
+        return self.main_app.modules
+
+    def mount(self, path: str, app: ASGIApp, name: str = None) -> None:
+        try:
+            main_app = self.main_app
+        except AttributeError:
+            main_app = None
+
+        self.routes.append(Mount(path.rstrip("/"), app=app, name=name, main_app=main_app))
 
     def add_route(
         self,
@@ -153,31 +262,21 @@ class Router(starlette.routing.Router):
         name: str = None,
         include_in_schema: bool = True,
     ):
+        try:
+            main_app = self.main_app
+        except AttributeError:
+            main_app = None
+
         self.routes.append(
-            Route(path, endpoint=endpoint, methods=methods, name=name, include_in_schema=include_in_schema, router=self)
+            Route(
+                path,
+                endpoint=endpoint,
+                methods=methods,
+                name=name,
+                include_in_schema=include_in_schema,
+                main_app=main_app,
+            )
         )
-
-    def add_websocket_route(self, path: str, endpoint: typing.Callable, name: str = None):
-        self.routes.append(WebSocketRoute(path, endpoint=endpoint, name=name, router=self))
-
-    def add_resource(self, path: str, resource: "BaseResource"):
-        # Handle class or instance objects
-        if inspect.isclass(resource):  # noqa
-            resource = resource()
-
-        for name, route in resource.routes.items():
-            route_path = path + resource._meta.name + route._meta.path
-            route_func = getattr(resource, name)
-            name = route._meta.name if route._meta.name is not None else f"{resource._meta.name}-{route.__name__}"
-            self.add_route(route_path, route_func, route._meta.methods, name, **route._meta.kwargs)
-
-    def mount(self, path: str, app: ASGIApp, name: str = None) -> None:
-        if isinstance(app, Router):
-            app.components = self.components
-
-        path = path.rstrip("/")
-        route = Mount(path, app=app, name=name)
-        self.routes.append(route)
 
     def route(
         self, path: str, methods: typing.List[str] = None, name: str = None, include_in_schema: bool = True
@@ -188,17 +287,18 @@ class Router(starlette.routing.Router):
 
         return decorator
 
+    def add_websocket_route(self, path: str, endpoint: typing.Callable, name: str = None):
+        try:
+            main_app = self.main_app
+        except AttributeError:
+            main_app = None
+
+        self.routes.append(WebSocketRoute(path, endpoint=endpoint, name=name, main_app=main_app))
+
     def websocket_route(self, path: str, name: str = None) -> typing.Callable:
         def decorator(func: typing.Callable) -> typing.Callable:
             self.add_websocket_route(path, func, name=name)
             return func
-
-        return decorator
-
-    def resource(self, path: str) -> typing.Callable:
-        def decorator(resource: "BaseResource") -> "BaseResource":
-            self.add_resource(path, resource=resource)
-            return resource
 
         return decorator
 

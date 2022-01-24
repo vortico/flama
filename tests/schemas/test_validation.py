@@ -1,4 +1,5 @@
 import datetime
+from unittest.mock import patch
 
 import marshmallow
 import pytest
@@ -144,6 +145,26 @@ class TestCaseTypesystemSchemaValidateOutput:
         response = client.get(path)
         assert response.status_code == status_code
         assert response.json() == expected_response
+
+    def test_validation_uncontrolled_error(self, client):
+        with patch(
+            "flama.schemas.validation.schemas.dump",
+            side_effect=[
+                Exception,
+                {
+                    "detail": "Error serializing response before validation: Exception",
+                    "error": "ValidationError",
+                    "status_code": 500,
+                },
+            ],
+        ):
+            response = client.get("/product")
+            assert response.status_code == 500
+            assert response.json() == {
+                "detail": "Error serializing response before validation: Exception",
+                "error": "ValidationError",
+                "status_code": 500,
+            }
 
     def test_function_without_return_schema(self):
         with pytest.raises(AssertionError, match="Return annotation must be a valid schema"):

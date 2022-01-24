@@ -98,3 +98,31 @@ class RouteFieldsMixin:
             query_fields[m], path_fields[m], body_field[m], output_field[m] = self._get_fields_from_handler(h, router)
 
         return query_fields, path_fields, body_field, output_field
+
+    @property
+    def query_fields(self):
+        if not hasattr(self, "_query_fields"):  # noqa
+            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(self.router)
+
+        return self._query_fields
+
+    @property
+    def path_fields(self):
+        if not hasattr(self, "_path_fields"):  # noqa
+            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(self.router)
+
+        return self._path_fields
+
+    @property
+    def body_field(self):
+        if not hasattr(self, "_body_field"):  # noqa
+            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(self.router)
+
+        return self._body_field
+
+    @property
+    def output_field(self):
+        if not hasattr(self, "_output_field"):  # noqa
+            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(self.router)
+
+        return self._output_field
