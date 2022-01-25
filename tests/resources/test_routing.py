@@ -9,7 +9,7 @@ from flama.resources.routing import ResourceRoute
 class TestCaseRouter:
     @pytest.fixture(scope="function")
     def app(self):
-        return Flama(schema=None, docs=None)
+        return Flama(schema=None, docs=None, redoc=None, database="sqlite+aiosqlite://")
 
     @pytest.fixture(scope="function")
     def scope(self, app):
@@ -44,17 +44,17 @@ class TestCaseRouter:
             schema = puppy_schema
 
         resource = PuppyResource()
-        app.resources.add_resource("/", resource)
+        app.resources.add_resource("/puppy/", resource)
 
         assert len(app.routes) == 1
         assert isinstance(app.routes[0], ResourceRoute)
         resource_route = app.routes[0]
         assert len(resource_route.routes) == 4
         assert [(route.path, route.methods, route.endpoint) for route in resource_route.routes] == [
-            ("/puppy/", {"POST"}, resource.create),
-            ("/puppy/{element_id}/", {"GET", "HEAD"}, resource.retrieve),
-            ("/puppy/{element_id}/", {"PUT"}, resource.update),
-            ("/puppy/{element_id}/", {"DELETE"}, resource.delete),
+            ("/", {"POST"}, resource.create),
+            ("/{element_id}/", {"GET", "HEAD"}, resource.retrieve),
+            ("/{element_id}/", {"PUT"}, resource.update),
+            ("/{element_id}/", {"DELETE"}, resource.delete),
         ]
 
     def test_add_resource_decorator(self, app, puppy_model, puppy_schema):
@@ -63,7 +63,7 @@ class TestCaseRouter:
             model = puppy_model
             schema = puppy_schema
 
-        resource = app.resources.resource("/")(
+        resource = app.resources.resource("/puppy/")(
             PuppyResource()
         )  # Apply decoration to an instance in order to check endpoints
 
@@ -72,10 +72,10 @@ class TestCaseRouter:
         resource_route = app.routes[0]
         assert len(resource_route.routes) == 4
         assert [(route.path, route.methods, route.endpoint) for route in resource_route.routes] == [
-            ("/puppy/", {"POST"}, resource.create),
-            ("/puppy/{element_id}/", {"GET", "HEAD"}, resource.retrieve),
-            ("/puppy/{element_id}/", {"PUT"}, resource.update),
-            ("/puppy/{element_id}/", {"DELETE"}, resource.delete),
+            ("/", {"POST"}, resource.create),
+            ("/{element_id}/", {"GET", "HEAD"}, resource.retrieve),
+            ("/{element_id}/", {"PUT"}, resource.update),
+            ("/{element_id}/", {"DELETE"}, resource.delete),
         ]
 
     def test_mount_resource_declarative(self, puppy_model, puppy_schema):
@@ -84,7 +84,7 @@ class TestCaseRouter:
             model = puppy_model
             schema = puppy_schema
 
-        route = ResourceRoute("/", PuppyResource)
+        route = ResourceRoute("/puppy/", PuppyResource)
 
         # Check app is None yet
         with pytest.raises(AttributeError):
@@ -100,10 +100,10 @@ class TestCaseRouter:
         assert resource_route.main_app == app
         assert len(resource_route.routes) == 4
         assert [(route.path, route.methods, route.endpoint) for route in resource_route.routes] == [
-            ("/puppy/", {"POST"}, resource_route.resource.create),
-            ("/puppy/{element_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
-            ("/puppy/{element_id}/", {"PUT"}, resource_route.resource.update),
-            ("/puppy/{element_id}/", {"DELETE"}, resource_route.resource.delete),
+            ("/", {"POST"}, resource_route.resource.create),
+            ("/{element_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
+            ("/{element_id}/", {"PUT"}, resource_route.resource.update),
+            ("/{element_id}/", {"DELETE"}, resource_route.resource.delete),
         ]
         assert isinstance(resource_route.resource, PuppyResource)
         assert resource_route.resource.app == app

@@ -10,8 +10,7 @@ from flama.resources.routing import ResourceRoute
 
 @pytest.fixture
 def app(app):
-    # Remove schema and docs endpoint from base fixture
-    return Flama(schema=None, docs=None, redoc=None)
+    return Flama(schema=None, docs=None, redoc=None, database="sqlite+aiosqlite://")
 
 
 class TestCaseBaseResource:
@@ -56,10 +55,10 @@ class TestCaseBaseResource:
         resource = PuppyResource(app=app)
 
         expected_routes = [
-            ("/puppy/", resource.create, {"POST"}, "puppy-create"),
-            ("/puppy/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
-            ("/puppy/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
-            ("/puppy/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
+            ("/", resource.create, {"POST"}, "puppy-create"),
+            ("/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
+            ("/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
+            ("/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
         ]
 
         app.resources.add_resource("/", resource)
@@ -80,11 +79,11 @@ class TestCaseBaseResource:
         resource = PuppyResource(app=app)
 
         expected_routes = [
-            ("/puppy/", resource.create, {"POST"}, "puppy-create"),
-            ("/puppy/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
-            ("/puppy/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
-            ("/puppy/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
-            ("/puppy/", resource.list, {"GET", "HEAD"}, "puppy-list"),
+            ("/", resource.create, {"POST"}, "puppy-create"),
+            ("/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
+            ("/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
+            ("/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
+            ("/", resource.list, {"GET", "HEAD"}, "puppy-list"),
         ]
 
         app.resources.add_resource("/", resource)
@@ -110,12 +109,12 @@ class TestCaseBaseResource:
         resource = PuppyResource(app=app)
 
         expected_routes = [
-            ("/puppy/", resource.create, {"POST"}, "puppy-create"),
-            ("/puppy/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
-            ("/puppy/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
-            ("/puppy/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
-            ("/puppy/", resource.list, {"GET", "HEAD"}, "puppy-list"),
-            ("/puppy/", resource.drop, {"DELETE"}, "puppy-drop"),
+            ("/", resource.create, {"POST"}, "puppy-create"),
+            ("/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
+            ("/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
+            ("/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
+            ("/", resource.list, {"GET", "HEAD"}, "puppy-list"),
+            ("/", resource.drop, {"DELETE"}, "puppy-drop"),
         ]
 
         app.resources.add_resource("/", resource)
@@ -146,121 +145,93 @@ class TestCaseBaseResource:
 
         assert SpecializedPuppyResource(app=app).list() == ["foo", "bar"]
 
-    def test_new_no_model(self, puppy_schema, database):
-        database_ = database
-
+    def test_new_no_model(self, puppy_schema):
         with pytest.raises(AttributeError, match=r"PuppyResource needs to define attribute 'model'"):
 
             class PuppyResource(metaclass=CRUDListResource):
-                database = database_
                 schema = puppy_schema
 
-    def test_invalid_no_model(self, puppy_schema, database):
-        database_ = database
-
+    def test_invalid_no_model(self, puppy_schema):
         with pytest.raises(
             AttributeError, match=r"PuppyResource model must be a valid SQLAlchemy Table instance or a Model instance"
         ):
 
             class PuppyResource(metaclass=CRUDListResource):
-                database = database_
                 schema = puppy_schema
                 model = None
 
-    def test_new_no_name(self, puppy_model, puppy_schema, database):
-        database_ = database
-
+    def test_new_no_name(self, puppy_model, puppy_schema):
         class PuppyResource(metaclass=CRUDListResource):
-            database = database_
             model = puppy_model
             schema = puppy_schema
 
         assert PuppyResource._meta.name == "PuppyResource"
 
-    def test_new_wrong_name(self, puppy_model, puppy_schema, database):
-        database_ = database
-
+    def test_new_wrong_name(self, puppy_model, puppy_schema):
         with pytest.raises(AttributeError, match=r"PuppyResource invalid resource name '123foo'"):
 
             class PuppyResource(metaclass=CRUDListResource):
-                database = database_
                 model = puppy_model
                 schema = puppy_schema
                 name = "123foo"
 
-    def test_new_no_schema(self, puppy_model, database):
-        database_ = database
-
+    def test_new_no_schema(self, puppy_model):
         with pytest.raises(
             AttributeError,
             match=r"PuppyResource needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'",
         ):
 
             class PuppyResource(metaclass=CRUDListResource):
-                database = database_
                 model = puppy_model
 
-    def test_new_no_input_schema(self, puppy_model, puppy_schema, database):
-        database_ = database
-
+    def test_new_no_input_schema(self, puppy_model, puppy_schema):
         with pytest.raises(
             AttributeError,
             match=r"PuppyResource needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'",
         ):
 
             class PuppyResource(metaclass=CRUDListResource):
-                database = database_
                 model = puppy_model
                 output_schema = puppy_schema
 
-    def test_new_no_output_schema(self, puppy_model, puppy_schema, database):
-        database_ = database
-
+    def test_new_no_output_schema(self, puppy_model, puppy_schema):
         with pytest.raises(
             AttributeError,
             match=r"PuppyResource needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'",
         ):
 
             class PuppyResource(metaclass=CRUDListResource):
-                database = database_
                 model = puppy_model
                 input_schema = puppy_schema
 
-    def test_resource_model_no_pk(self, database_metadata, puppy_schema, database):
-        model_ = sqlalchemy.Table("no_pk", database_metadata, sqlalchemy.Column("integer", sqlalchemy.Integer))
-        database_ = database
+    def test_resource_model_no_pk(self, app, puppy_schema):
+        model_ = sqlalchemy.Table("no_pk", app.database.metadata, sqlalchemy.Column("integer", sqlalchemy.Integer))
 
         with pytest.raises(AttributeError, match=r"PuppyResource model must define a single-column primary key"):
 
             class PuppyResource(metaclass=CRUDListResource):
-                database = database_
-
                 model = model_
                 schema = puppy_schema
 
-    def test_resource_model_multicolumn_pk(self, database_metadata, puppy_schema, database):
+    def test_resource_model_multicolumn_pk(self, app, puppy_schema):
         model_ = sqlalchemy.Table(
             "multicolumn_pk",
-            database_metadata,
+            app.database.metadata,
             sqlalchemy.Column("integer", sqlalchemy.Integer),
             sqlalchemy.Column("string", sqlalchemy.String),
             sqlalchemy.PrimaryKeyConstraint("integer", "string"),
         )
-        database_ = database
 
         with pytest.raises(AttributeError, match=r"PuppyResource model must define a single-column primary key"):
 
             class PuppyResource(metaclass=CRUDListResource):
-                database = database_
-
                 model = model_
                 schema = puppy_schema
 
-    def test_resource_model_invalid_type_pk(self, database_metadata, puppy_schema, database):
+    def test_resource_model_invalid_type_pk(self, app, puppy_schema):
         model_ = sqlalchemy.Table(
-            "invalid_pk", database_metadata, sqlalchemy.Column("id", sqlalchemy.PickleType, primary_key=True)
+            "invalid_pk", app.database.metadata, sqlalchemy.Column("id", sqlalchemy.PickleType, primary_key=True)
         )
-        database_ = database
 
         with pytest.raises(
             AttributeError,
@@ -268,8 +239,6 @@ class TestCaseBaseResource:
         ):
 
             class PuppyResource(metaclass=CRUDListResource):
-                database = database_
-
                 model = model_
                 schema = puppy_schema
 

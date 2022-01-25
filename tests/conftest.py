@@ -1,7 +1,6 @@
 import asyncio
 from contextlib import ExitStack
 
-import databases
 import marshmallow
 import pytest
 import sqlalchemy
@@ -11,7 +10,7 @@ from starlette.testclient import TestClient
 
 from flama import Flama, schemas
 
-DATABASE_URL = "sqlite:///test.db"
+DATABASE_URL = "sqlite+aiosqlite://"
 
 
 @pytest.fixture(scope="session")
@@ -34,17 +33,6 @@ def exception(request):
 
 
 @pytest.fixture(scope="function")
-def database_metadata():
-    return sqlalchemy.MetaData()
-
-
-@pytest.fixture(scope="session")
-async def database():
-    async with databases.Database(DATABASE_URL) as db:
-        yield db
-
-
-@pytest.fixture(scope="function")
 def puppy_schema(app):
     from flama import schemas
 
@@ -56,10 +44,7 @@ def puppy_schema(app):
         schema_ = type(
             "Puppy",
             (marshmallow.Schema,),
-            {
-                "custom_id": marshmallow.fields.Integer(allow_none=True),
-                "name": marshmallow.fields.String(),
-            },
+            {"custom_id": marshmallow.fields.Integer(allow_none=True), "name": marshmallow.fields.String()},
         )
     else:
         raise ValueError("Wrong schema lib")
@@ -69,15 +54,21 @@ def puppy_schema(app):
 
 
 @pytest.fixture(scope="function")
-def puppy_model(database_metadata):
-    model_ = sqlalchemy.Table(
+async def puppy_model(app):
+    table = sqlalchemy.Table(
         "puppy",
-        database_metadata,
+        app.database.metadata,
         sqlalchemy.Column("custom_id", sqlalchemy.Integer, primary_key=True, autoincrement=True),
         sqlalchemy.Column("name", sqlalchemy.String),
     )
 
-    return model_
+    async with app.database.engine.begin() as connection:
+        await connection.run_sync(app.database.metadata.create_all, tables=[table])
+
+    yield table
+
+    async with app.database.engine.begin() as connection:
+        await connection.run_sync(app.database.metadata.drop_all, tables=[table])
 
 
 @pytest.fixture(scope="session")
@@ -106,6 +97,7 @@ def app(request):
         schema="/schema/",
         docs="/docs/",
         redoc="/redoc/",
+        database="sqlite+aiosqlite://",
     )
 
 

@@ -49,7 +49,7 @@ def build_schema(
             {"data": marshmallow.fields.List(data_item_schema, required=True)},
         )
 
-    return type(name, (marshmallow.Schema,), fields)
+    return type(name, (marshmallow.Schema,), fields.copy())
 
 
 def validate(schema: marshmallow.Schema, values: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:

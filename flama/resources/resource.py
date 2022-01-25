@@ -116,19 +116,17 @@ class Resource(type):
         return super().__new__(mcs, name, bases, namespace)
 
     @classmethod
-    def _get_mro(mcs, *classes: type) -> typing.Sequence[type]:
+    def _get_mro(mcs, *classes: type) -> typing.List[type]:
         """Generate the MRO list for given base class or list of base classes.
 
         :param classes: Base classes.
         :return: MRO list.
         """
-        mro = []
-        for cls in classes:
-            try:
-                mro += [cls.__mro__[0]] + [y for x in cls.__mro__[1:] for y in mcs._get_mro(x)]
-            except AttributeError:
-                ...
-        return mro
+        return list(
+            dict.fromkeys(
+                [y for x in [[cls.__mro__[0]] + mcs._get_mro(*cls.__mro__[1:]) for cls in classes] for y in x]
+            )
+        )
 
     @classmethod
     def _get_attribute(

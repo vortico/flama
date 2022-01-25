@@ -81,7 +81,6 @@ class APIResponse(JSONResponse):
                 content = schemas.dump(self.schema, content)
                 schemas.validate(self.schema, content)
             except schemas.SchemaValidationError as e:
-
                 raise SerializationError(status_code=500, detail=e.errors)
 
         if not content:
