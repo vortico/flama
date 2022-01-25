@@ -42,6 +42,7 @@ nosetests.xml
 coverage.xml
 *,cover
 .pytest_cache/
+.mypy_cache/
 .test_report/
 test-results/
 

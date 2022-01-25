@@ -1,6 +1,5 @@
 import datetime
 import enum
-import inspect
 import typing
 import uuid
 
@@ -30,7 +29,6 @@ OptTime = typing.Optional[datetime.time]
 HTTPMethod = enum.Enum("HTTPMethod", ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"])
 
 FIELDS_TYPE_MAPPING = {
-    inspect.Signature.empty: str,
     int: int,
     float: float,
     str: str,

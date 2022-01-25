@@ -18,7 +18,7 @@ __all__ = [
 
 class PrimaryKey(typing.NamedTuple):
     name: str
-    type: typing.Any
+    type: type
 
 
 class Model(typing.NamedTuple):

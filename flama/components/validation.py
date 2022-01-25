@@ -59,7 +59,8 @@ class ValidatePathParamsComponent(Component):
         fields = {f.name: f.schema for f in route.path_fields[request.method].values()}
 
         try:
-            return ValidatedPathParams(schemas.validate(schemas.build_schema(fields=fields), path_params))
+            validated = schemas.validate(schemas.build_schema(fields=fields), path_params)
+            return ValidatedPathParams({k: v for k, v in path_params.items() if k in validated})
         except schemas.SchemaValidationError as exc:
             raise exceptions.ValidationError(detail=exc.errors)
 
@@ -69,7 +70,8 @@ class ValidateQueryParamsComponent(Component):
         fields = {f.name: f.schema for f in route.query_fields[request.method].values()}
 
         try:
-            return ValidatedQueryParams(schemas.validate(schemas.build_schema(fields=fields), dict(query_params)))
+            validated = schemas.validate(schemas.build_schema(fields=fields), query_params)
+            return ValidatedQueryParams({k: v for k, v in query_params.items() if k in validated})
         except schemas.SchemaValidationError as exc:
             raise exceptions.ValidationError(detail=exc.errors)
 
@@ -83,13 +85,13 @@ class ValidateRequestDataComponent(Component):
 
         try:
             return schemas.validate(validator, data)
-        except schemas.SchemaValidationError as exc:
+        except schemas.SchemaValidationError as exc:  # noqa: safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
 
 
 class PrimitiveParamComponent(Component):
     def can_handle_parameter(self, parameter: inspect.Parameter):
-        return parameter.annotation in FIELDS_TYPE_MAPPING.keys()
+        return parameter.annotation in FIELDS_TYPE_MAPPING
 
     def resolve(
         self, parameter: inspect.Parameter, path_params: ValidatedPathParams, query_params: ValidatedQueryParams
@@ -114,7 +116,7 @@ class PrimitiveParamComponent(Component):
 
         try:
             params = schemas.validate(schemas.build_schema(fields=fields), params)
-        except schemas.SchemaValidationError as exc:
+        except schemas.SchemaValidationError as exc:  # noqa: safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
         return params.get(parameter.name, parameter.default)
 
