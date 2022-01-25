@@ -90,7 +90,7 @@ def isort(*args, **kwargs):
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Code lint using multiple tools"})
 def lint(*args, **kwargs):
-    return black() + flake8() + isort()
+    return black(".") + flake8() + isort(".")
 
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Run tests"})

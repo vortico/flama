@@ -19,7 +19,7 @@ class ResourceRoute(Mount):
 
         routes = [
             Route(
-                path=f"/{self.resource._meta.name}{route._meta.path}",
+                path=route._meta.path,
                 endpoint=getattr(self.resource, name),
                 methods=route._meta.methods,
                 name=route._meta.name

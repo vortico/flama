@@ -1,112 +1,177 @@
-import datetime
 import typing
 import uuid
 
+import marshmallow
 import pytest
 import sqlalchemy
 import typesystem
-from sqlalchemy import create_engine
 from sqlalchemy.dialects import postgresql
-from sqlalchemy_utils import create_database, database_exists, drop_database
-from starlette.testclient import TestClient
 
 from flama import pagination
 from flama.applications import Flama
-from flama.resources.crud import CRUDListDropResource, CRUDListResource
-from flama.resources.resource import resource_method
+from flama.resources.crud import CRUDListDropResource, CRUDListResource, CRUDResource
+from flama.resources.resource import BaseResource, resource_method
 from tests.conftest import DATABASE_URL
 
 
 @pytest.fixture
 def app(app):
     # Remove schema and docs endpoint from base fixture
-    return Flama(schema=None, docs=None, redoc=None)
+    return Flama(docs=None, redoc=None, database="sqlite+aiosqlite://")
 
 
-@pytest.mark.skip
-class TestCaseResource:
-    @pytest.fixture(scope="function")
-    def resource(self, puppy_model, puppy_schema, database):
-        database_ = database
+@pytest.fixture(scope="function", autouse=True)
+def add_resources(app, resource):
+    app.resources.add_resource("/puppy/", resource)
 
-        class PuppyResource(metaclass=CRUDListDropResource):
-            database = database_
 
+@pytest.fixture
+def puppy():
+    return {"name": "canna"}
+
+
+@pytest.fixture
+def another_puppy():
+    return {"name": "sandy"}
+
+
+class TestCaseCRUDResource:
+    @pytest.fixture
+    def resource(self, puppy_model, puppy_schema):
+        class PuppyResource(BaseResource, metaclass=CRUDResource):
             name = "puppy"
             verbose_name = "Puppy"
 
             model = puppy_model
             input_schema = puppy_schema
             output_schema = puppy_schema
-            methods = ("create", "retrieve", "update", "delete", "list", "drop")
-
-            @resource_method("/", methods=["GET"], name="puppy-list")
-            @pagination.page_number(schema_name="PuppyResource")
-            async def list(
-                self, name: typing.Optional[str] = None, custom_id__le: typing.Optional[int] = None, **kwargs
-            ) -> puppy_schema:
-                """
-                description: Custom list method with filtering by name.
-                """
-                clauses = []
-
-                if custom_id__le is not None:
-                    clauses.append(self.model.c.custom_id <= custom_id__le)
-
-                filters = {}
-
-                if name is not None:
-                    filters["name"] = name
-
-                return await self._filter(*clauses, **filters)
 
         return PuppyResource()
 
-    @pytest.fixture(scope="function", autouse=True)
-    def add_resources(self, app, resource):
-        app.add_resource("/", resource)
+    @pytest.fixture
+    async def custom_id_datetime_model(self, app):
+        table = sqlalchemy.Table(
+            "custom_id_datetime",
+            app.database.metadata,
+            sqlalchemy.Column("custom_id", sqlalchemy.DateTime, primary_key=True),
+            sqlalchemy.Column("name", sqlalchemy.String),
+        )
+
+        async with app.database.engine.begin() as connection:
+            await connection.run_sync(app.database.metadata.create_all, tables=[table])
+
+        yield table
+
+        async with app.database.engine.begin() as connection:
+            await connection.run_sync(app.database.metadata.drop_all, tables=[table])
 
     @pytest.fixture
-    async def client(self, database_metadata, app):
-        engine = create_engine(DATABASE_URL)
-        assert not database_exists(DATABASE_URL), f"Database '{DATABASE_URL}' exists. Abort tests"
-        create_database(DATABASE_URL)  # Create the test database.
-        database_metadata.create_all(engine)  # Create the tables.
+    def custom_id_datetime_schema(self, app):
+        from flama import schemas
 
-        yield TestClient(app)
+        if schemas.lib == typesystem:
+            schema_ = typesystem.Schema(
+                fields={
+                    "custom_id": typesystem.fields.DateTime(),
+                    "name": typesystem.fields.String(),
+                }
+            )
+        elif schemas.lib == marshmallow:
+            schema_ = type(
+                "CustomIDDatetime",
+                (marshmallow.Schema,),
+                {
+                    "custom_id": marshmallow.fields.DateTime(),
+                    "name": marshmallow.fields.String(),
+                },
+            )
+        else:
+            raise ValueError("Wrong schema lib")
 
-        drop_database(DATABASE_URL)  # Drop the test database.
+        app.schema.schemas["CustomIDDatetime"] = schema_
+        return schema_
 
     @pytest.fixture
-    def puppy(self):
-        return {"name": "canna"}
+    def custom_id_datetime_resource(self, custom_id_datetime_model, custom_id_datetime_schema):
+        class CustomUUIDResource(BaseResource, metaclass=CRUDListResource):
+            model = custom_id_datetime_model
+            schema = custom_id_datetime_schema
+
+            name = "custom_id_datetime"
+
+        return CustomUUIDResource
 
     @pytest.fixture
-    def another_puppy(self):
-        return {"name": "sandy"}
+    async def custom_id_uuid_model(self, app):
+        table = sqlalchemy.Table(
+            "custom_id_uuid",
+            app.database.metadata,
+            sqlalchemy.Column("custom_id", postgresql.UUID, primary_key=True),
+            sqlalchemy.Column("name", sqlalchemy.String),
+        )
+
+        async with app.database.engine.begin() as connection:
+            await connection.run_sync(app.database.metadata.create_all, tables=[table])
+
+        yield table
+
+        async with app.database.engine.begin() as connection:
+            await connection.run_sync(app.database.metadata.drop_all, tables=[table])
+
+    @pytest.fixture
+    def custom_id_uuid_schema(self, app):
+        from flama import schemas
+
+        if schemas.lib == typesystem:
+            schema_ = typesystem.Schema(
+                fields={
+                    "custom_id": typesystem.fields.UUID(),
+                    "name": typesystem.fields.String(),
+                }
+            )
+        elif schemas.lib == marshmallow:
+            schema_ = type(
+                "CustomIDUUID",
+                (marshmallow.Schema,),
+                {
+                    "custom_id": marshmallow.fields.UUID(),
+                    "name": marshmallow.fields.String(),
+                },
+            )
+        else:
+            raise ValueError("Wrong schema lib")
+
+        app.schema.schemas["CustomIDUUID"] = schema_
+        return schema_
+
+    @pytest.fixture
+    def custom_id_uuid_resource(self, custom_id_uuid_model, custom_id_uuid_schema):
+        class CustomUUIDResource(BaseResource, metaclass=CRUDListResource):
+            model = custom_id_uuid_model
+            schema = custom_id_uuid_schema
+
+            name = "custom_id_uuid"
+
+        return CustomUUIDResource
 
     def test_create(self, client, puppy):
         expected_puppy_id = 1
-        created_result = puppy.copy()
-        created_result["custom_id"] = None
-        expected_result = [puppy.copy()]
-        expected_result[0]["custom_id"] = expected_puppy_id
+        expected_puppy = puppy.copy()
+        expected_puppy["custom_id"] = expected_puppy_id
 
         # Successfully create a new record
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy == created_result
+        assert created_puppy == expected_puppy
 
         # List all the existing records
-        response = client.get("/puppy/")
+        response = client.get(f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 200, response.json()
-        assert response.json()["data"] == expected_result
+        assert response.json() == expected_puppy
 
     def test_retrieve(self, client, puppy):
         expected_puppy_id = 1
-        created_result = puppy.copy()
-        created_result["custom_id"] = None
         expected_result = puppy.copy()
         expected_result["custom_id"] = expected_puppy_id
 
@@ -114,7 +179,7 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy == created_result
+        assert created_puppy == expected_result
 
         # Retrieve same record
         response = client.get(f"/puppy/{expected_puppy_id}/")
@@ -133,27 +198,26 @@ class TestCaseResource:
 
     def test_update(self, client, puppy, another_puppy):
         expected_puppy_id = 1
-        created_result = puppy.copy()
-        created_result["custom_id"] = None
+        created_puppy = puppy.copy()
+        created_puppy["custom_id"] = expected_puppy_id
         expected_puppy = another_puppy.copy()
         expected_puppy["custom_id"] = expected_puppy_id
-        expected_result = [expected_puppy]
 
         # Successfully create a new record
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy == created_result
+        assert created_puppy == created_puppy
 
         # Update record
         response = client.put(f"/puppy/{expected_puppy_id}/", json=another_puppy)
         assert response.status_code == 200, response.json()
-        assert response.json() == expected_result[0]
+        assert response.json() == expected_puppy
 
         # List all the existing records
-        response = client.get("/puppy/")
+        response = client.get(f"/puppy/{expected_puppy_id}")
         assert response.status_code == 200, response.json()
-        assert response.json()["data"] == expected_result
+        assert response.json() == expected_puppy
 
     def test_update_not_found(self, client, puppy):
         # Update wrong record
@@ -167,8 +231,6 @@ class TestCaseResource:
 
     def test_delete(self, client, puppy):
         expected_puppy_id = 1
-        created_result = puppy.copy()
-        created_result["custom_id"] = None
         expected_puppy = puppy.copy()
         expected_puppy["custom_id"] = expected_puppy_id
 
@@ -176,7 +238,7 @@ class TestCaseResource:
         response = client.post("/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
-        assert created_puppy == created_result
+        assert created_puppy == expected_puppy
 
         # Retrieve same record
         response = client.get(f"/puppy/{expected_puppy_id}/")
@@ -201,13 +263,80 @@ class TestCaseResource:
         response = client.delete("/puppy/42/", json=puppy)
         assert response.status_code == 404, response.json()
 
+    @pytest.mark.skipif(not DATABASE_URL.startswith("postgresql"), reason="Only valid for PostgreSQL backend")
+    def test_id_uuid(self, app, client, custom_id_uuid_resource):
+        app.resources.add_resource("/custom_id_datetime/", custom_id_uuid_resource)
+
+        data = {"custom_id": str(uuid.uuid4()), "name": "foo"}
+        expected_result = data.copy()
+
+        # Successfully create a new record
+        response = client.post("/custom_id_uuid/", json=data)
+        assert response.status_code == 201, response.content
+        assert response.json() == expected_result, response.json()
+
+        # Retrieve same record
+        response = client.get(f"/custom_id_uuid/{data['custom_id']}/")
+        assert response.status_code == 200, response.json()
+        assert response.json() == expected_result
+
+    async def test_id_datetime(self, client, app, custom_id_datetime_resource):
+        app.resources.add_resource("/custom_id_datetime/", custom_id_datetime_resource)
+
+        data = {"custom_id": "2018-01-01T00:00:00", "name": "foo"}
+        expected_result = data.copy()
+
+        # Successfully create a new record
+        response = client.post("/custom_id_datetime/", json=data)
+        assert response.status_code == 201, response.content
+        assert response.json() == expected_result, response.json()
+
+        # Retrieve same record
+        response = client.get(f"/custom_id_datetime/{data['custom_id']}/")
+        assert response.status_code == 200, response.json()
+        assert response.json() == expected_result
+
+
+class TestCaseCRUDListResource:
+    @pytest.fixture
+    def resource(self, puppy_model, puppy_schema):
+        class PuppyResource(BaseResource, metaclass=CRUDListResource):
+            name = "puppy"
+            verbose_name = "Puppy"
+
+            model = puppy_model
+            input_schema = puppy_schema
+            output_schema = puppy_schema
+
+            @resource_method("/", methods=["GET"], name="puppy-list")
+            @pagination.page_number(schema_name="PuppyResource")
+            async def list(
+                self, name: typing.Optional[str] = None, custom_id__le: typing.Optional[int] = None, **kwargs
+            ) -> puppy_schema:
+                """
+                description: Custom list method with filtering by name.
+                """
+                clauses = []
+
+                if custom_id__le is not None:
+                    clauses.append(self.model.c.custom_id <= custom_id__le)
+
+                filters = {}
+
+                if name is not None:
+                    filters["name"] = name
+
+                return await self._filter(*clauses, **filters)
+
+        return PuppyResource()
+
     def test_list(self, client, puppy, another_puppy):
         expected_puppy_id = 1
         expected_another_puppy_id = 2
         created_result_1 = puppy.copy()
-        created_result_1["custom_id"] = None
+        created_result_1["custom_id"] = expected_puppy_id
         created_result_2 = another_puppy.copy()
-        created_result_2["custom_id"] = None
+        created_result_2["custom_id"] = expected_another_puppy_id
         expected_result = [puppy.copy(), another_puppy.copy()]
         expected_result[0]["custom_id"] = expected_puppy_id
         expected_result[1]["custom_id"] = expected_another_puppy_id
@@ -231,10 +360,11 @@ class TestCaseResource:
 
     def test_list_filter(self, client, puppy, another_puppy):
         expected_puppy_id = 1
+        expected_another_puppy_id = 2
         created_result_1 = puppy.copy()
-        created_result_1["custom_id"] = None
+        created_result_1["custom_id"] = expected_puppy_id
         created_result_2 = another_puppy.copy()
-        created_result_2["custom_id"] = None
+        created_result_2["custom_id"] = expected_another_puppy_id
         expected_result = [puppy.copy()]
         expected_result[0]["custom_id"] = expected_puppy_id
 
@@ -260,13 +390,27 @@ class TestCaseResource:
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == []
 
+
+class TestCaseCRUDListDropResource:
+    @pytest.fixture
+    def resource(self, puppy_model, puppy_schema):
+        class PuppyResource(BaseResource, metaclass=CRUDListDropResource):
+            name = "puppy"
+            verbose_name = "Puppy"
+
+            model = puppy_model
+            input_schema = puppy_schema
+            output_schema = puppy_schema
+
+        return PuppyResource()
+
     def test_drop(self, client, puppy, another_puppy):
         expected_puppy_id = 1
         expected_another_puppy_id = 2
         created_result_1 = puppy.copy()
-        created_result_1["custom_id"] = None
+        created_result_1["custom_id"] = expected_puppy_id
         created_result_2 = another_puppy.copy()
-        created_result_2["custom_id"] = None
+        created_result_2["custom_id"] = expected_another_puppy_id
         expected_result = [puppy.copy(), another_puppy.copy()]
         expected_result[0]["custom_id"] = expected_puppy_id
         expected_result[1]["custom_id"] = expected_another_puppy_id
@@ -297,81 +441,3 @@ class TestCaseResource:
         response = client.get("/puppy/")
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == []
-
-    @pytest.mark.skipif(not DATABASE_URL.startswith("postgresql"), reason="Only valid for PostgreSQL backend")
-    def test_id_uuid(self, database, database_metadata, client, app):
-        database_ = database
-        model_ = sqlalchemy.Table(
-            "custom_id_uuid",
-            database_metadata,
-            sqlalchemy.Column("custom_id", postgresql.UUID, primary_key=True),
-            sqlalchemy.Column("name", sqlalchemy.String),
-        )
-        database_metadata.create_all(create_engine(DATABASE_URL))
-
-        schema_ = typesystem.Schema(
-            fields={
-                "custom_id": typesystem.fields.UUID(),
-                "name": typesystem.fields.String(),
-            }
-        )
-
-        @app.resource("/")
-        class CustomUUIDResource(metaclass=CRUDListResource):
-            database = database_
-            model = model_
-            schema = schema_
-
-            name = "custom_id_uuid"
-
-        data = {"custom_id": str(uuid.uuid4()), "name": "foo"}
-        expected_result = data.copy()
-
-        # Successfully create a new record
-        response = client.post("/custom_id_uuid/", json=data)
-        assert response.status_code == 201, response.content
-        assert response.json() == expected_result, response.json()
-
-        # Retrieve same record
-        response = client.get(f"/custom_id_uuid/{data['custom_id']}/")
-        assert response.status_code == 200, response.json()
-        assert response.json() == expected_result
-
-    def test_id_datetime(self, database, database_metadata, client, app):
-        database_ = database
-        model_ = sqlalchemy.Table(
-            "custom_id_datetime",
-            database_metadata,
-            sqlalchemy.Column("custom_id", sqlalchemy.DateTime, primary_key=True),
-            sqlalchemy.Column("name", sqlalchemy.String),
-        )
-        database_metadata.create_all(create_engine(DATABASE_URL))
-
-        schema_ = typesystem.Schema(
-            fields={
-                "custom_id": typesystem.fields.DateTime(),
-                "name": typesystem.fields.String(),
-            }
-        )
-
-        @app.resource("/")
-        class CustomDatetimeResource(metaclass=CRUDListResource):
-            database = database_
-            model = model_
-            schema = schema_
-
-            name = "custom_id_datetime"
-
-        now = datetime.datetime.utcnow().replace(microsecond=0, tzinfo=None)
-        data = {"custom_id": now.isoformat(), "name": "foo"}
-        expected_result = data.copy()
-
-        # Successfully create a new record
-        response = client.post("/custom_id_datetime/", json=data)
-        assert response.status_code == 201, response.content
-        assert response.json() == expected_result, response.json()
-
-        # Retrieve same record
-        response = client.get(f"/custom_id_datetime/{data['custom_id']}/")
-        assert response.status_code == 200, response.json()
-        assert response.json() == expected_result

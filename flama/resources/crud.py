@@ -1,6 +1,9 @@
 import typing
 
-import sqlalchemy
+try:
+    import sqlalchemy
+except Exception:  # pragma: no cover
+    raise AssertionError("sqlalchemy[asyncio] must be installed to use CRUD resources")
 
 import flama.schemas
 from flama import pagination
@@ -25,14 +28,22 @@ __all__ = [
 class CreateMixin:
     @classmethod
     def _add_create(
-        mcs, name: str, verbose_name: str, schemas: types.Schemas, **kwargs
+        mcs, name: str, verbose_name: str, schemas: types.Schemas, model: types.Model, **kwargs
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/", methods=["POST"], name=f"{name}-create")
         async def create(self, element: schemas.input.schema) -> schemas.output.schema:
-            with mcs.app.database.connection():  # TODO
+            if element.get(model.primary_key.name) is None:
+                element.pop(model.primary_key.name, None)
+
+            async with self.app.database.engine.begin() as connection:
                 query = self.model.insert().values(**element)
-                await self.database.execute(query)
-                return APIResponse(schema=schemas.output.schema(), content=element, status_code=201)
+                result = await connection.execute(query)
+
+            return APIResponse(
+                schema=schemas.output.schema,
+                content={**element, **dict(result.inserted_primary_key)},
+                status_code=201,
+            )
 
         create.__doc__ = f"""
             tags:
@@ -57,9 +68,10 @@ class RetrieveMixin:
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["GET"], name=f"{name}-retrieve")
         async def retrieve(self, element_id: model.primary_key.type) -> schemas.output.schema:
-            with mcs.app.database.connection():  # TODO
+            async with self.app.database.engine.begin() as connection:
                 query = self.model.select().where(self.model.c[model.primary_key.name] == element_id)
-                element = await self.database.fetch_one(query)
+                result = await connection.execute(query)
+                element = result.fetchone()
 
             if element is None:
                 raise HTTPException(status_code=404)
@@ -94,11 +106,12 @@ class UpdateMixin:
         async def update(
             self, element_id: model.primary_key.type, element: schemas.input.schema
         ) -> schemas.output.schema:
-            with mcs.app.database.connection():  # TODO
-                query = sqlalchemy.select(
-                    [sqlalchemy.exists().where(self.model.c[model.primary_key.name] == element_id)]
+            async with self.app.database.engine.begin() as connection:
+                query = self.model.select().where(
+                    self.model.select().where(self.model.c[model.primary_key.name] == element_id).exists()
                 )
-                exists = next((i for i in (await self.database.fetch_one(query)).values()))
+                result = await connection.execute(query)
+                exists = result.scalar()
 
             if not exists:
                 raise HTTPException(status_code=404)
@@ -109,10 +122,13 @@ class UpdateMixin:
                 if k != model.primary_key.name
             }
 
-            query = (
-                self.model.update().where(self.model.c[model.primary_key.name] == element_id).values(**clean_element)
-            )
-            await self.database.execute(query)
+            async with self.app.database.engine.begin() as connection:
+                query = (
+                    self.model.update()
+                    .where(self.model.c[model.primary_key.name] == element_id)
+                    .values(**clean_element)
+                )
+                await connection.execute(query)
 
             return {model.primary_key.name: element_id, **clean_element}
 
@@ -140,18 +156,19 @@ class DeleteMixin:
     def _add_delete(mcs, name: str, verbose_name: str, model: types.Model, **kwargs) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["DELETE"], name=f"{name}-delete")
         async def delete(self, element_id: model.primary_key.type):
-            with mcs.app.database.connection():  # TODO
-                query = sqlalchemy.select(
-                    [sqlalchemy.exists().where(self.model.c[model.primary_key.name] == element_id)]
+            async with self.app.database.engine.begin() as connection:
+                query = self.model.select().where(
+                    self.model.select().where(self.model.c[model.primary_key.name] == element_id).exists()
                 )
-                exists = next((i for i in (await self.database.fetch_one(query)).values()))
+                result = await connection.execute(query)
+                exists = result.scalar()
 
             if not exists:
                 raise HTTPException(status_code=404)
 
-            with mcs.app.database.connection():  # TODO
+            async with self.app.database.engine.begin() as connection:
                 query = self.model.delete().where(self.model.c[model.primary_key.name] == element_id)
-                await self.database.execute(query)
+                await connection.execute(query)
 
             return APIResponse(status_code=204)
 
@@ -178,7 +195,7 @@ class ListMixin:
     @classmethod
     def _add_list(mcs, name: str, verbose_name: str, schemas: types.Schemas, **kwargs) -> typing.Dict[str, typing.Any]:
         async def filter(self, *clauses, **filters) -> typing.List[typing.Dict]:
-            with mcs.app.database.connection():  # TODO
+            async with self.app.database.engine.begin() as connection:
                 query = self.model.select()
 
                 where_clauses = tuple(clauses) + tuple(self.model.c[k] == v for k, v in filters.items())
@@ -186,7 +203,7 @@ class ListMixin:
                 if where_clauses:
                     query = query.where(sqlalchemy.and_(*where_clauses))
 
-                return [dict(row) for row in await self.database.fetch_all(query)]
+                return [dict(row) async for row in await connection.stream(query)]
 
         @resource_method("/", methods=["GET"], name=f"{name}-list")
         @pagination.page_number(schema_name=schemas.output.name)
@@ -214,15 +231,12 @@ class DropMixin:
     def _add_drop(mcs, name: str, verbose_name: str, model: types.Model, **kwargs) -> typing.Dict[str, typing.Any]:
         @resource_method("/", methods=["DELETE"], name=f"{name}-drop")
         async def drop(self) -> flama.schemas.schemas.DropCollection:
-            with mcs.app.database.connection():  # TODO
-                query = sqlalchemy.select([sqlalchemy.func.count(self.model.c[model.primary_key.name])])
-                result = next((i for i in (await self.database.fetch_one(query)).values()))
-
+            async with self.app.database.engine.begin() as connection:
                 query = self.model.delete()
-                await self.database.execute(query)
+                result = await connection.execute(query)
 
             return APIResponse(
-                schema=flama.schemas.schemas.DropCollection, content={"deleted": result}, status_code=204
+                schema=flama.schemas.schemas.DropCollection, content={"deleted": result.rowcount}, status_code=204
             )
 
         drop.__doc__ = f"""
