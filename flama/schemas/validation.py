@@ -43,7 +43,7 @@ def output_validation(error_cls=exceptions.ValidationError, error_status_code=50
 
             try:
                 # Use output schema to validate the data
-                schemas.validate(schema, schemas.dump(schema, response))
+                schemas.adapter.validate(schema, schemas.adapter.dump(schema, response))
             except schemas.SchemaValidationError as e:
                 raise error_cls(detail=e.errors, status_code=error_status_code)
             except Exception as e:

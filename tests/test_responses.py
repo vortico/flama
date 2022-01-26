@@ -46,7 +46,7 @@ class TestCaseAPIResponse:
         indirect=("exception",),
     )
     def test_render(self, schema, content, expected, exception):
-        with patch.object(schemas, "dump", new=schema), exception:
+        with patch.object(schemas.adapter, "dump", new=schema), exception:
             response = APIResponse(schema=schema, content=content)
             assert response.body.decode() == expected
 

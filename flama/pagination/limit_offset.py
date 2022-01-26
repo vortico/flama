@@ -69,9 +69,9 @@ def limit_offset(schema_name: str):
     def _inner(func):
         assert forge is not None, "`python-forge` must be installed to use Paginator."
 
-        resource_schema = get_output_schema(func)
+        resource_schema = schemas.adapter.unique_instance(get_output_schema(func))
         paginated_schema_name = "LimitOffsetPaginated" + schema_name
-        schema = schemas.build_schema(
+        schema = schemas.adapter.build_schema(
             schema=resource_schema,
             pagination=schemas.schemas.LimitOffset,
             paginated_schema_name=paginated_schema_name,
