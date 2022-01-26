@@ -9,6 +9,7 @@ from starlette.responses import PlainTextResponse, RedirectResponse, Response, S
 
 from flama import schemas
 from flama.exceptions import HTTPException, SerializationError
+from flama.schemas.types import Schema
 from flama.schemas.utils import is_schema_instance
 
 __all__ = [
@@ -66,7 +67,7 @@ class JSONResponse(StarletteJSONResponse):
 class APIResponse(JSONResponse):
     media_type = "application/json"
 
-    def __init__(self, schema: typing.Optional[schemas.Schema] = None, *args, **kwargs):
+    def __init__(self, schema: typing.Optional[Schema] = None, *args, **kwargs):
         self.schema = schema
         super().__init__(*args, **kwargs)
 

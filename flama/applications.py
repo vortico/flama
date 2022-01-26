@@ -4,6 +4,7 @@ import typing
 import anyio
 from starlette.applications import Starlette
 from starlette.exceptions import ExceptionMiddleware
+from starlette.middleware import Middleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.types import ASGIApp
 
@@ -13,6 +14,7 @@ from flama.exceptions import HTTPException
 from flama.http import Request, Response
 from flama.injection import Injector
 from flama.modules import Modules
+from flama.pagination import paginator
 from flama.resources import ResourcesModule
 from flama.responses import APIErrorResponse
 from flama.routing import Router
@@ -60,6 +62,7 @@ class Flama(Starlette):
         routes: typing.Sequence[typing.Union["BaseRoute", "Mount"]] = None,
         components: typing.Optional[typing.List["Component"]] = None,
         modules: typing.Optional[typing.List["Module"]] = None,
+        middleware: typing.Sequence[Middleware] = None,
         debug: bool = False,
         on_startup: typing.Sequence[typing.Callable] = None,
         on_shutdown: typing.Sequence[typing.Callable] = None,
@@ -79,6 +82,7 @@ class Flama(Starlette):
         # Initialize components
         self.components = Components([*(components or [])])
 
+        # Initialize router and middleware stack
         self.router = Router(
             main_app=self,
             routes=routes,
@@ -89,6 +93,8 @@ class Flama(Starlette):
         self.app = self.router
         self.exception_middleware = ExceptionMiddleware(self.router, debug=debug)
         self.error_middleware = ServerErrorMiddleware(self.exception_middleware, debug=debug)
+        self.user_middleware = [] if middleware is None else list(middleware)
+        self.middleware_stack = self.build_middleware_stack()
 
         # Add exception handler for API exceptions
         self.add_exception_handler(HTTPException, self.api_http_exception_handler)
@@ -112,6 +118,9 @@ class Flama(Starlette):
                 **kwargs,
             },
         )
+
+        # Reference to paginator from within app
+        self.paginator = paginator
 
     def __getattr__(self, item: str) -> "Module":
         return self.modules.__getattr__(item)
