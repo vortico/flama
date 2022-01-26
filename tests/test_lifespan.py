@@ -7,7 +7,7 @@ from starlette.testclient import TestClient
 from flama import Flama
 
 
-class TestCaseFlama:
+class TestCaseLifespan:
     @pytest.fixture
     def lifespan(self):
         return MagicMock()
