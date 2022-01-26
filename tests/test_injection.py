@@ -3,8 +3,8 @@ from starlette.responses import JSONResponse
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocket
 
+from flama import Component
 from flama.applications import Flama
-from flama.components import Component
 from flama.endpoints import HTTPEndpoint
 from flama.exceptions import ComponentNotFound, ConfigurationError
 
@@ -21,58 +21,52 @@ class Foo:
     name = "Foo"
 
 
-class PuppyComponent(Component):
-    def resolve(self) -> Puppy:
-        return Puppy()
-
-
-class UnhandledComponent(Component):
-    def resolve(self):
-        pass
-
-
-class UnknownParamComponent(Component):
-    def resolve(self, foo: Unknown) -> Foo:
-        pass
-
-
-app = Flama(components=[PuppyComponent(), UnknownParamComponent()], title="Puppies")
-
-
-@app.route("/http-view/")
-async def puppy_http_view(puppy: Puppy):
-    return JSONResponse({"puppy": puppy.name})
-
-
-@app.route("/http-endpoint/", methods=["GET"])
-class PuppyHTTPEndpoint(HTTPEndpoint):
-    async def get(self, puppy: Puppy):
-        return JSONResponse({"puppy": puppy.name})
-
-
-@app.websocket_route("/websocket-view/")
-async def puppy_websocket_view(session: WebSocket, puppy: Puppy):
-    await session.accept()
-    await session.send_json({"puppy": puppy.name})
-    await session.close()
-
-
-@app.route("/unknown-component/")
-def unknown_component_view(unknown: Unknown):
-    return JSONResponse({"foo": "bar"})
-
-
-@app.route("/unknown-param-in-component/")
-def unknown_param_in_component_view(foo: Foo):
-    return JSONResponse({"foo": "bar"})
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-
 class TestCaseComponentsInjection:
+    @pytest.fixture(scope="class")
+    def puppy_component(self):
+        class PuppyComponent(Component):
+            def resolve(self) -> Puppy:
+                return Puppy()
+
+        return PuppyComponent()
+
+    @pytest.fixture(scope="class")
+    def unknown_param_component(self):
+        class UnknownParamComponent(Component):
+            def resolve(self, foo: Unknown) -> Foo:
+                pass
+
+        return UnknownParamComponent()
+
+    @pytest.fixture
+    def app(self, app, puppy_component, unknown_param_component):
+        return Flama(components=[puppy_component, unknown_param_component])
+
+    @pytest.fixture(autouse=True)
+    def add_endpoints(self, app):
+        @app.route("/http-view/")
+        async def puppy_http_view(puppy: Puppy):
+            return JSONResponse({"puppy": puppy.name})
+
+        @app.route("/http-endpoint/", methods=["GET"])
+        class PuppyHTTPEndpoint(HTTPEndpoint):
+            async def get(self, puppy: Puppy):
+                return JSONResponse({"puppy": puppy.name})
+
+        @app.websocket_route("/websocket-view/")
+        async def puppy_websocket_view(session: WebSocket, puppy: Puppy):
+            await session.accept()
+            await session.send_json({"puppy": puppy.name})
+            await session.close()
+
+        @app.route("/unknown-component/")
+        def unknown_component_view(unknown: Unknown):
+            return JSONResponse({"foo": "bar"})
+
+        @app.route("/unknown-param-in-component/")
+        def unknown_param_in_component_view(foo: Foo):
+            return JSONResponse({"foo": "bar"})
+
     def test_injection_http_view(self, client):
         response = client.get("/http-view/")
         assert response.status_code == 200
@@ -103,17 +97,19 @@ class TestCaseComponentsInjection:
             client.get("/unknown-param-in-component/")
 
     def test_unhandled_component(self):
+        class UnhandledComponent(Component):
+            def resolve(self):
+                pass
+
+        app = Flama(components=[UnhandledComponent()])
+
+        @app.route("/")
+        def foo(unknown: Unknown):
+            return JSONResponse({"foo": "bar"})
+
         with pytest.raises(
             ConfigurationError,
             match=r'Component "UnhandledComponent" must include a return annotation on the `resolve\(\)` method, '
             "or override `can_handle_parameter`",
-        ):
-            app_ = Flama(components=[UnhandledComponent()])
-
-            @app_.route("/")
-            def foo(unknown: Unknown):
-                return JSONResponse({"foo": "bar"})
-
-            client = TestClient(app_)
-
+        ), TestClient(app) as client:
             client.get("/")

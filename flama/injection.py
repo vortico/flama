@@ -4,26 +4,28 @@ import inspect
 import typing
 
 from flama import http, websockets
-from flama.components import Component
-from flama.components.asgi import ASGI_COMPONENTS, ASGIReceive, ASGIScope, ASGISend
-from flama.components.validation import VALIDATION_COMPONENTS
+from flama.asgi import ASGI_COMPONENTS, ASGIReceive, ASGIScope, ASGISend
+from flama.components import Components
 from flama.exceptions import ComponentNotFound
 from flama.routing import Route
+from flama.validation import VALIDATION_COMPONENTS
+
+if typing.TYPE_CHECKING:
+    from flama.applications import Flama
+    from flama.components import Component
 
 __all__ = ["Injector"]
 
 
 class Injector:
-    def __init__(self, components: typing.List[Component]):
-        from flama.applications import Flama
-
-        self._components = components
+    def __init__(self, app: "Flama"):
+        self.app = app
         self.initial = {
             "scope": ASGIScope,
             "receive": ASGIReceive,
             "send": ASGISend,
             "exc": Exception,
-            "app": Flama,
+            "app": type(self.app),
             "path_params": http.PathParams,
             "route": Route,
             "request": http.Request,
@@ -35,13 +37,25 @@ class Injector:
         }
         self.reverse_initial = {val: key for key, val in self.initial.items()}
         self.resolver_cache = {}
+        self.asgi_components = Components(ASGI_COMPONENTS)
+        self.validation_components = Components(VALIDATION_COMPONENTS)
 
     @property
-    def components(self) -> typing.List[Component]:
-        return self._components + ASGI_COMPONENTS + VALIDATION_COMPONENTS
+    def components(self) -> typing.List["Component"]:
+        """Generate the list of custom components followed by asgi and validation components that will be used to
+        resolve parameters. It's mandatory to keep this order in the list.
+
+        :return: Components list.
+        """
+        return self.app.components + self.asgi_components + self.validation_components
 
     def resolve_parameter(
-        self, parameter, kwargs: typing.Dict, consts: typing.Dict, seen_state: typing.Set, parent_parameter=None
+        self,
+        parameter: inspect.Parameter,
+        kwargs: typing.Dict,
+        consts: typing.Dict,
+        seen_state: typing.Set,
+        parent_parameter=None,
     ) -> typing.List[typing.Tuple]:
         """
         Resolve a parameter by inferring the component that suits it or by adding a value to kwargs or consts.
@@ -87,7 +101,7 @@ class Injector:
             raise ComponentNotFound(parameter.name)
 
     def resolve_component(
-        self, resolver, output_name: str, seen_state: typing.Set, parent_parameter=None
+        self, resolver: typing.Callable, output_name: str, seen_state: typing.Set, parent_parameter=None
     ) -> typing.List[typing.Tuple]:
         """
         Resolve a component injecting all dependencies needed in its resolver function.
@@ -123,7 +137,7 @@ class Injector:
 
         return steps
 
-    def resolve(self, func) -> typing.Tuple[typing.Dict, typing.Dict, typing.List]:
+    def resolve(self, func: typing.Callable) -> typing.Tuple[typing.Dict, typing.Dict, typing.List]:
         """
         Inspects a function and creates a resolution list of all components needed to run it. returning
 
@@ -147,7 +161,7 @@ class Injector:
 
         return kwargs, consts, steps
 
-    async def inject(self, func, state: typing.Dict) -> typing.Callable:
+    async def inject(self, func: typing.Callable, state: typing.Dict) -> typing.Callable:
         """
         Given a function, injects all components defined in its signature and returns the partialized function.
 
