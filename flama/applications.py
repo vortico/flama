@@ -1,18 +1,15 @@
 import functools
 import typing
 
-import anyio
 from starlette.applications import Starlette
 from starlette.exceptions import ExceptionMiddleware
-from starlette.middleware import Middleware
 from starlette.middleware.errors import ServerErrorMiddleware
-from starlette.types import ASGIApp
 
 from flama.components import Components
 from flama.database import DatabaseModule
 from flama.exceptions import HTTPException
-from flama.http import Request, Response
 from flama.injection import Injector
+from flama.lifespan import Lifespan
 from flama.modules import Modules
 from flama.pagination import paginator
 from flama.resources import ResourcesModule
@@ -21,7 +18,11 @@ from flama.routing import Router
 from flama.schemas.modules import SchemaModule
 
 if typing.TYPE_CHECKING:
+    from starlette.middleware import Middleware
+    from starlette.types import ASGIApp
+
     from flama.components import Component
+    from flama.http import Request, Response
     from flama.modules import Module
     from flama.routing import BaseRoute, Mount
 
@@ -31,38 +32,13 @@ __all__ = ["Flama"]
 DEFAULT_MODULES = [DatabaseModule, ResourcesModule, SchemaModule]
 
 
-class Lifespan:
-    def __init__(self, app: "Flama", lifespan: typing.Callable[["Flama"], typing.AsyncContextManager] = None):
-        self.app = app
-        self.lifespan = lifespan
-
-    async def __aenter__(self):
-        async with anyio.create_task_group() as tg:
-            for module in self.app.modules.values():
-                tg.start_soon(module.on_startup)
-
-        if self.lifespan:  # pragma: no cover
-            await self.lifespan.__aenter__()
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.lifespan:  # pragma: no cover
-            await self.lifespan.__aexit__(exc_type, exc_val, exc_tb)
-
-        async with anyio.create_task_group() as tg:
-            for module in self.app.modules.values():
-                tg.start_soon(module.on_shutdown)
-
-    def __call__(self, app: object) -> "Lifespan":
-        return self
-
-
 class Flama(Starlette):
     def __init__(
         self,
         routes: typing.Sequence[typing.Union["BaseRoute", "Mount"]] = None,
         components: typing.Optional[typing.List["Component"]] = None,
         modules: typing.Optional[typing.List["Module"]] = None,
-        middleware: typing.Sequence[Middleware] = None,
+        middleware: typing.Sequence["Middleware"] = None,
         debug: bool = False,
         on_startup: typing.Sequence[typing.Callable] = None,
         on_shutdown: typing.Sequence[typing.Callable] = None,
@@ -129,11 +105,11 @@ class Flama(Starlette):
     def injector(self):
         return Injector(app=self)
 
-    def mount(self, path: str, app: ASGIApp, name: str = None) -> None:
+    def mount(self, path: str, app: "ASGIApp", name: str = None) -> None:
         self.components += getattr(app, "components", [])
         self.router.mount(path, app=app, name=name)
 
-    def api_http_exception_handler(self, request: Request, exc: HTTPException) -> Response:
+    def api_http_exception_handler(self, request: "Request", exc: HTTPException) -> "Response":
         return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
 
     get = functools.partialmethod(Starlette.route, methods=["GET"])
