@@ -118,7 +118,7 @@ class UpdateMixin:
 
             clean_element = {
                 k: v
-                for k, v in flama.schemas.dump(schemas.input.schema, element).items()
+                for k, v in flama.schemas.adapter.dump(schemas.input.schema, element).items()
                 if k != model.primary_key.name
             }
 

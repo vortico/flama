@@ -76,9 +76,9 @@ def page_number(schema_name: str):
     def _inner(func):
         assert forge is not None, "`python-forge` must be installed to use Paginator."
 
-        resource_schema = schemas.unique_instance(get_output_schema(func))
+        resource_schema = schemas.adapter.unique_instance(get_output_schema(func))
         paginated_schema_name = "PageNumberPaginated" + schema_name
-        schema = schemas.build_schema(
+        schema = schemas.adapter.build_schema(
             schema=resource_schema,
             pagination=schemas.schemas.PageNumber,
             paginated_schema_name=paginated_schema_name,

@@ -1,22 +1,21 @@
 import importlib.util
 import sys
+import typing
 
 from flama.schemas.exceptions import SchemaParseError, SchemaValidationError
+
+if typing.TYPE_CHECKING:
+    from flama.schemas._libs.adapter import Adapter
 
 __all__ = [
     "SchemaValidationError",
     "SchemaParseError",
     "Field",
     "Schema",
-    "build_field",
-    "build_schema",
+    "adapter",
     "fields",
     "lib",
-    "dump",
     "schemas",
-    "to_json_schema",
-    "unique_instance",
-    "validate",
 ]
 
 
@@ -32,13 +31,7 @@ def _setup(library: str):
     module_dict["schemas"] = library.schemas
     module_dict["lib"] = library.lib
     module_dict["fields"] = library.fields
-    module_dict["build_field"] = library.core.build_field
-    module_dict["build_schema"] = library.core.build_schema
-    module_dict["dump"] = library.core.dump
-    module_dict["load"] = library.core.load
-    module_dict["to_json_schema"] = library.core.to_json_schema
-    module_dict["unique_instance"] = library.core.unique_instance
-    module_dict["validate"] = library.core.validate
+    module_dict["adapter"]: "Adapter" = library.adapter
     module_dict["Field"] = library.Field
     module_dict["Schema"] = library.Schema
 

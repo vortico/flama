@@ -35,7 +35,7 @@ class Field(typing.NamedTuple):
         if isinstance(self.schema_type, schemas.Schema) or isinstance(self.schema_type, schemas.Field):
             return self.schema_type
 
-        return schemas.build_field(field_type=self.schema_type, required=self.required, default=self.default)
+        return schemas.adapter.build_field(field_type=self.schema_type, required=self.required, default=self.default)
 
 
 Fields = typing.Dict[str, Field]
@@ -62,4 +62,4 @@ class SchemaInfo(typing.NamedTuple):
 
     @property
     def json_schema(self) -> typing.Dict[str, typing.Any]:
-        return schemas.to_json_schema(self.schema)
+        return schemas.adapter.to_json_schema(self.schema)
