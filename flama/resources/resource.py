@@ -3,8 +3,8 @@ import re
 import typing
 import uuid
 
-from flama import schemas
 from flama.resources import types
+from flama.schemas.types import Schema
 
 try:
     import sqlalchemy
@@ -42,9 +42,9 @@ class BaseResource:
     name: str
     verbose_name: str
     model: sqlalchemy.Table
-    schema: schemas.Schema
-    input_schema: schemas.Schema
-    output_schema: schemas.Schema
+    schema: Schema
+    input_schema: Schema
+    output_schema: Schema
     columns: typing.Sequence[str]
     order: str
 

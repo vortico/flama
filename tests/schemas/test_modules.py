@@ -30,7 +30,12 @@ class TestCaseSchemaModule:
             module.schema_generator
 
         assert generator_mock.call_args_list == [
-            call(title="", version="", description="", schemas={**schemas.schemas.SCHEMAS, **pagination.SCHEMAS})
+            call(
+                title="",
+                version="",
+                description="",
+                schemas={**schemas.schemas.SCHEMAS, **pagination.paginator.schemas},
+            )
         ]
 
     def test_schema(self, module):

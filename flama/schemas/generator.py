@@ -10,7 +10,7 @@ from starlette import schemas as starlette_schemas
 from flama import routing, schemas
 from flama.schemas import openapi
 from flama.schemas.exceptions import SchemaGenerationError
-from flama.schemas.types import EndpointInfo, SchemaInfo
+from flama.schemas.types import EndpointInfo, Schema, SchemaInfo
 from flama.schemas.utils import is_field, is_schema, is_schema_instance
 
 logger = logging.getLogger(__name__)
@@ -19,16 +19,16 @@ __all__ = ["SchemaRegistry", "SchemaGenerator"]
 
 
 class SchemaRegistry(typing.Dict[int, SchemaInfo]):
-    def __init__(self, schemas: typing.Dict[str, schemas.Schema] = None):
+    def __init__(self, schemas: typing.Dict[str, Schema] = None):
         if schemas is None:
             schemas = {}
 
         super().__init__({id(schema): SchemaInfo(name=name, schema=schema) for name, schema in schemas.items()})
 
-    def __contains__(self, item: schemas.Schema) -> bool:
+    def __contains__(self, item: Schema) -> bool:
         return super().__contains__(id(schemas.adapter.unique_instance(item)))
 
-    def __getitem__(self, item: schemas.Schema) -> schemas.Schema:
+    def __getitem__(self, item: Schema) -> Schema:
         """
         Lookup method that allows using Schema classes or instances.
 
@@ -138,7 +138,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
 
         return used_schemas
 
-    def register(self, schema: schemas.Schema, name: str = None):
+    def register(self, schema: Schema, name: str = None):
         """
         Register a new Schema to this registry.
 
@@ -157,7 +157,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
 
         self[id(schema_instance)] = SchemaInfo(name=name, schema=schema_instance)
 
-    def get_openapi_ref(self, element: schemas.Schema) -> typing.Union[openapi.Schema, openapi.Reference]:
+    def get_openapi_ref(self, element: Schema) -> typing.Union[openapi.Schema, openapi.Reference]:
         """
         Builds the reference for a single schema or the array schema containing the reference.
 

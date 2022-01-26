@@ -76,7 +76,7 @@ class SchemaModule(Module):
 
     @property
     def schema_generator(self) -> SchemaGenerator:
-        self.schemas.update({**schemas.schemas.SCHEMAS, **pagination.SCHEMAS})
+        self.schemas.update({**schemas.schemas.SCHEMAS, **pagination.paginator.schemas})
         return SchemaGenerator(
             title=self.title, version=self.version, description=self.description, schemas=self.schemas
         )
