@@ -26,7 +26,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         super().__init__({id(schema): SchemaInfo(name=name, schema=schema) for name, schema in schemas.items()})
 
     def __contains__(self, item: schemas.Schema) -> bool:
-        return super().__contains__(id(schemas.unique_instance(item)))
+        return super().__contains__(id(schemas.adapter.unique_instance(item)))
 
     def __getitem__(self, item: schemas.Schema) -> schemas.Schema:
         """
@@ -35,7 +35,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         :param item: Schema to look for.
         :return: Registered schema.
         """
-        return super().__getitem__(id(schemas.unique_instance(item)))
+        return super().__getitem__(id(schemas.adapter.unique_instance(item)))
 
     def _get_schema_references_from_schema(
         self, schema: typing.Union[openapi.Schema, openapi.Reference]
@@ -148,7 +148,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         if schema in self:
             raise ValueError("Schema is already registered.")
 
-        schema_instance = schemas.unique_instance(schema)
+        schema_instance = schemas.adapter.unique_instance(schema)
         if name is None:
             if is_schema_instance(schema_instance):
                 raise ValueError("Cannot infer schema name.")
@@ -165,7 +165,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         :return: Reference or array schema.
         """
         reference = openapi.Reference(ref=self[element].ref)
-        schema = schemas.to_json_schema(element)
+        schema = schemas.adapter.to_json_schema(element)
         if schema.get("type") == "array" and schema.get("items"):
             schema["items"] = reference
             schema.pop("definitions", None)
@@ -277,7 +277,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
 
         return [
             openapi.Parameter(
-                schema=schemas.to_json_schema(field.schema),
+                schema=schemas.adapter.to_json_schema(field.schema),
                 name=field.name,
                 in_=field.location.name,
                 required=field.required,

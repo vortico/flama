@@ -78,8 +78,8 @@ class APIResponse(JSONResponse):
         # Use output schema to validate and format data
         if self.schema is not None:
             try:
-                content = schemas.dump(self.schema, content)
-                schemas.validate(self.schema, content)
+                content = schemas.adapter.dump(self.schema, content)
+                schemas.adapter.validate(self.schema, content)
             except schemas.SchemaValidationError as e:
                 raise SerializationError(status_code=500, detail=e.errors)
 

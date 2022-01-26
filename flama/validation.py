@@ -59,7 +59,7 @@ class ValidatePathParamsComponent(Component):
         fields = {f.name: f.schema for f in route.path_fields[request.method].values()}
 
         try:
-            validated = schemas.validate(schemas.build_schema(fields=fields), path_params)
+            validated = schemas.adapter.validate(schemas.adapter.build_schema(fields=fields), path_params)
             return ValidatedPathParams({k: v for k, v in path_params.items() if k in validated})
         except schemas.SchemaValidationError as exc:
             raise exceptions.ValidationError(detail=exc.errors)
@@ -70,7 +70,7 @@ class ValidateQueryParamsComponent(Component):
         fields = {f.name: f.schema for f in route.query_fields[request.method].values()}
 
         try:
-            validated = schemas.validate(schemas.build_schema(fields=fields), query_params)
+            validated = schemas.adapter.validate(schemas.adapter.build_schema(fields=fields), query_params)
             return ValidatedQueryParams({k: v for k, v in query_params.items() if k in validated})
         except schemas.SchemaValidationError as exc:
             raise exceptions.ValidationError(detail=exc.errors)
@@ -84,7 +84,7 @@ class ValidateRequestDataComponent(Component):
         validator = route.body_field[request.method].schema
 
         try:
-            return schemas.validate(validator, data)
+            return schemas.adapter.validate(validator, data)
         except schemas.SchemaValidationError as exc:  # noqa: safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
 
@@ -105,14 +105,14 @@ class PrimitiveParamComponent(Component):
             required = True
             default = None
 
-        param_validator = schemas.build_field(
+        param_validator = schemas.adapter.build_field(
             field_type=FIELDS_TYPE_MAPPING[parameter.annotation], required=required, default=default
         )
 
         fields = {parameter.name: param_validator}
 
         try:
-            params = schemas.validate(schemas.build_schema(fields=fields), params)
+            params = schemas.adapter.validate(schemas.adapter.build_schema(fields=fields), params)
         except schemas.SchemaValidationError as exc:  # noqa: safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
         return params.get(parameter.name, parameter.default)
