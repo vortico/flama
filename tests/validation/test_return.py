@@ -3,9 +3,8 @@ import pytest
 from starlette.responses import HTMLResponse
 from starlette.testclient import TestClient
 
-from flama import http
+from flama import Component, http
 from flama.applications import Flama
-from flama.components import Component
 from flama.endpoints import HTTPEndpoint
 
 # flake8: noqa

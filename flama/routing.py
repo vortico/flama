@@ -10,6 +10,7 @@ from starlette.routing import Match
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from flama import http, websockets
+from flama.components import Component
 from flama.responses import APIResponse, Response
 from flama.schemas.routing import RouteFieldsMixin
 from flama.schemas.utils import is_schema_instance
@@ -18,7 +19,6 @@ from flama.types import HTTPMethod
 
 if typing.TYPE_CHECKING:
     from flama.applications import Flama
-    from flama.components import Component
     from flama.modules import Module, Modules
 
 __all__ = ["Mount", "Route", "Router", "WebSocketRoute"]

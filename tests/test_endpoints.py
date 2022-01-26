@@ -2,8 +2,7 @@ import marshmallow
 import pytest
 import typesystem
 
-from flama import exceptions, websockets
-from flama.components import Component
+from flama import Component, exceptions, websockets
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 
 
@@ -18,7 +17,7 @@ class PuppyComponent(Component):
 
 @pytest.fixture(scope="class")
 def app(app):
-    app.add_component(PuppyComponent())
+    app.components.append(PuppyComponent())
     return app
 
 

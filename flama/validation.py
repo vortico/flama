@@ -9,7 +9,7 @@ from flama.exceptions import WebSocketException
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from flama.routing import Route
 from flama.schemas.utils import is_field, is_schema
-from flama.types import FIELDS_TYPE_MAPPING, OptBool, OptDate, OptDateTime, OptFloat, OptInt, OptStr, OptTime, OptUUID
+from flama.types import FIELDS_TYPE_MAPPING, OPTIONAL_FIELD_TYPE_MAPPING
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
@@ -98,10 +98,7 @@ class PrimitiveParamComponent(Component):
     ):
         params = path_params if (parameter.name in path_params) else query_params
 
-        if (
-            parameter.annotation in (OptInt, OptFloat, OptBool, OptStr, OptUUID, OptDate, OptDateTime, OptTime)
-            or parameter.default is not parameter.empty
-        ):
+        if parameter.annotation in OPTIONAL_FIELD_TYPE_MAPPING or parameter.default is not parameter.empty:
             required = False
             default = parameter.default if parameter.default is not parameter.empty else None
         else:

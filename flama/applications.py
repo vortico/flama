@@ -7,6 +7,7 @@ from starlette.exceptions import ExceptionMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.types import ASGIApp
 
+from flama.components import Components
 from flama.database import DatabaseModule
 from flama.exceptions import HTTPException
 from flama.http import Request, Response
@@ -25,11 +26,7 @@ if typing.TYPE_CHECKING:
 __all__ = ["Flama"]
 
 
-DEFAULT_MODULES = [
-    DatabaseModule,
-    ResourcesModule,
-    SchemaModule,
-]
+DEFAULT_MODULES = [DatabaseModule, ResourcesModule, SchemaModule]
 
 
 class Lifespan:
@@ -79,11 +76,8 @@ class Flama(Starlette):
     ) -> None:
         super().__init__(debug=debug, *args, **kwargs)
 
-        if components is None:
-            components = []
-
-        # Initialize injector
-        self.components = components
+        # Initialize components
+        self.components = Components([*(components or [])])
 
         self.router = Router(
             main_app=self,
@@ -124,14 +118,11 @@ class Flama(Starlette):
 
     @property
     def injector(self):
-        return Injector(components=self.components)
+        return Injector(app=self)
 
     def mount(self, path: str, app: ASGIApp, name: str = None) -> None:
         self.components += getattr(app, "components", [])
         self.router.mount(path, app=app, name=name)
-
-    def add_component(self, component: "Component"):
-        self.components.append(component)
 
     def api_http_exception_handler(self, request: Request, exc: HTTPException) -> Response:
         return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)

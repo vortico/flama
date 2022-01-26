@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from flama.applications import Flama
-from flama.components import Component
+from flama.components import Component, Components
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 from flama.routing import Mount, Route, Router, WebSocketRoute
 
@@ -124,8 +124,7 @@ class TestCaseRouter:
         assert app.routes[0].app == app_mock
 
     def test_mount_router(self, app, component_mock):
-        components = [component_mock]
-        router = Router(components=components)
+        router = Router(components=[component_mock])
 
         app.mount("/app/", app=router)
 
@@ -140,7 +139,7 @@ class TestCaseRouter:
         mount_router = mount_route.app
         assert mount_router.main_app == app
         assert mount_router.modules == app.modules
-        assert mount_router.components == components
+        assert mount_router.components == Components([component_mock])
 
     def test_mount_declarative(self):
         root_mock, foo_mock, foo_view_mock = MagicMock(), MagicMock(), MagicMock()

@@ -5,17 +5,7 @@ import uuid
 
 from flama import http
 
-__all__ = [
-    "OptInt",
-    "OptStr",
-    "OptBool",
-    "OptFloat",
-    "OptUUID",
-    "OptDate",
-    "OptDateTime",
-    "OptTime",
-    "HTTPMethod",
-]
+__all__ = ["OptInt", "OptStr", "OptBool", "OptFloat", "OptUUID", "OptDate", "OptDateTime", "OptTime", "HTTPMethod"]
 
 OptInt = typing.Optional[int]
 OptStr = typing.Optional[str]
@@ -28,7 +18,7 @@ OptTime = typing.Optional[datetime.time]
 
 HTTPMethod = enum.Enum("HTTPMethod", ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"])
 
-FIELDS_TYPE_MAPPING = {
+STANDARD_FIELD_TYPE_MAPPING = {
     int: int,
     float: float,
     str: str,
@@ -37,6 +27,9 @@ FIELDS_TYPE_MAPPING = {
     datetime.date: datetime.date,
     datetime.datetime: datetime.datetime,
     datetime.time: datetime.time,
+}
+
+OPTIONAL_FIELD_TYPE_MAPPING = {
     OptInt: int,
     OptFloat: float,
     OptStr: str,
@@ -45,6 +38,8 @@ FIELDS_TYPE_MAPPING = {
     OptDate: datetime.date,
     OptDateTime: datetime.datetime,
     OptTime: datetime.time,
-    http.QueryParam: str,
-    http.PathParam: str,
 }
+
+HTTP_FIELDS_TYPE_MAPPING = {http.QueryParam: str, http.PathParam: str}
+
+FIELDS_TYPE_MAPPING = {**STANDARD_FIELD_TYPE_MAPPING, **OPTIONAL_FIELD_TYPE_MAPPING, **HTTP_FIELDS_TYPE_MAPPING}
