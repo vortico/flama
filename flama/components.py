@@ -1,7 +1,11 @@
 import inspect
+import typing
 from abc import ABCMeta, abstractmethod
+from collections.abc import MutableSequence
 
 from flama import exceptions
+
+__all__ = ["Component", "Components"]
 
 
 class Component(metaclass=ABCMeta):
@@ -47,5 +51,31 @@ class Component(metaclass=ABCMeta):
         return parameter.annotation is return_annotation
 
     @abstractmethod
-    def resolve(self):
-        pass
+    def resolve(self, *args, **kwargs):
+        ...
+
+
+class Components(MutableSequence):
+    def __init__(self, components: typing.Optional[typing.List[Component]]):
+        self._components: typing.List[Component] = components or []
+
+    def __setitem__(self, i: int, o: Component) -> None:
+        self._components.__setitem__(i, o)
+
+    def __delitem__(self, i: int) -> None:
+        self._components.__delitem__(i)
+
+    def __getitem__(self, i: int) -> Component:
+        return self._components.__getitem__(i)
+
+    def __len__(self) -> int:
+        return self._components.__len__()
+
+    def __add__(self, other: typing.List[Component]) -> "Components":
+        return Components(self._components + list(other))
+
+    def __eq__(self, other: typing.List[Component]) -> bool:
+        return self._components == list(other)
+
+    def insert(self, index: int, value: Component) -> None:
+        self._components.insert(index, value)

@@ -36,8 +36,8 @@ class Module(_BaseModule, metaclass=_ModuleMeta):
 
 
 class Modules(Mapping):
-    def __init__(self, modules: typing.Optional[typing.List[type(Module)]], app: "Flama", *args, **kwargs):
-        modules_map: typing.Dict[str, typing.List[type(Module)]] = defaultdict(list)
+    def __init__(self, modules: typing.Optional[typing.List[typing.Type[Module]]], app: "Flama", *args, **kwargs):
+        modules_map: typing.Dict[str, typing.List[typing.Type[Module]]] = defaultdict(list)
         for module in modules or []:
             modules_map[module.name].append(module)
 

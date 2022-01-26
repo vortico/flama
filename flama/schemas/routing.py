@@ -3,7 +3,7 @@ import typing
 
 from flama.schemas.types import Field, FieldLocation, Fields, Methods
 from flama.schemas.utils import is_schema
-from flama.types import FIELDS_TYPE_MAPPING, OptBool, OptFloat, OptInt, OptStr
+from flama.types import FIELDS_TYPE_MAPPING, OPTIONAL_FIELD_TYPE_MAPPING
 
 if typing.TYPE_CHECKING:
     from flama.routing import Router
@@ -50,7 +50,7 @@ class RouteFieldsMixin:
                 )
             # Matches as query param
             elif param.annotation in FIELDS_TYPE_MAPPING:
-                if param.annotation in (OptInt, OptFloat, OptBool, OptStr) or param.default is not param.empty:
+                if param.annotation in OPTIONAL_FIELD_TYPE_MAPPING or param.default is not param.empty:
                     required = False
                     default = param.default if param.default is not param.empty else None
                 else:
