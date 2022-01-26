@@ -7,8 +7,8 @@ import sqlalchemy
 import typesystem
 from sqlalchemy.dialects import postgresql
 
-from flama import pagination
 from flama.applications import Flama
+from flama.pagination import paginator
 from flama.resources.crud import CRUDListDropResource, CRUDListResource, CRUDResource
 from flama.resources.resource import BaseResource, resource_method
 from tests.conftest import DATABASE_URL
@@ -309,7 +309,7 @@ class TestCaseCRUDListResource:
             output_schema = puppy_schema
 
             @resource_method("/", methods=["GET"], name="puppy-list")
-            @pagination.page_number(schema_name="PuppyResource")
+            @paginator.page_number(schema_name="PuppyResource")
             async def list(
                 self, name: typing.Optional[str] = None, custom_id__le: typing.Optional[int] = None, **kwargs
             ) -> puppy_schema:

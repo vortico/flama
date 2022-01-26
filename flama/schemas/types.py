@@ -4,9 +4,10 @@ import typing
 
 from flama import schemas
 
-__all__ = ["FieldLocation", "Field", "Fields", "Methods", "EndpointInfo", "SchemaInfo", "Schemas"]
+__all__ = ["FieldLocation", "Field", "Fields", "Methods", "EndpointInfo", "SchemaInfo", "Schemas", "Schema"]
 
 
+Schema = typing.NewType("Schema", schemas.Schema)
 Schemas = typing.NewType("Schemas", typing.Dict[str, schemas.Schema])
 
 
@@ -20,7 +21,7 @@ class FieldLocation(enum.Enum):
 class Field(typing.NamedTuple):
     name: str
     location: FieldLocation
-    schema_type: typing.Union[type, schemas.Schema, schemas.Field]
+    schema_type: typing.Union[type, Schema, schemas.Field]
     required: bool = False
     default: typing.Any = None
 

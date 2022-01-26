@@ -6,8 +6,8 @@ except Exception:  # pragma: no cover
     raise AssertionError("sqlalchemy[asyncio] must be installed to use CRUD resources")
 
 import flama.schemas
-from flama import pagination
 from flama.exceptions import HTTPException
+from flama.pagination import paginator
 from flama.resources import types
 from flama.resources.resource import Resource, resource_method
 from flama.responses import APIResponse
@@ -206,7 +206,7 @@ class ListMixin:
                 return [dict(row) async for row in await connection.stream(query)]
 
         @resource_method("/", methods=["GET"], name=f"{name}-list")
-        @pagination.page_number(schema_name=schemas.output.name)
+        @paginator.page_number(schema_name=schemas.output.name)
         async def list(self, **kwargs) -> schemas.output.schema:
             return await self._filter()  # noqa
 

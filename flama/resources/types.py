@@ -1,6 +1,6 @@
 import typing
 
-from flama import schemas
+from flama.schemas.types import Schema
 
 try:
     from sqlalchemy import Table
@@ -28,7 +28,7 @@ class Model(typing.NamedTuple):
 
 class Schema(typing.NamedTuple):
     name: str
-    schema: schemas.Schema
+    schema: Schema
 
 
 class Schemas(typing.NamedTuple):
