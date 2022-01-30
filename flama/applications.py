@@ -6,7 +6,6 @@ from starlette.exceptions import ExceptionMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 
 from flama.components import Components
-from flama.database import DatabaseModule
 from flama.exceptions import HTTPException
 from flama.injection import Injector
 from flama.lifespan import Lifespan
@@ -16,6 +15,7 @@ from flama.resources import ResourcesModule
 from flama.responses import APIErrorResponse
 from flama.routing import Router
 from flama.schemas.modules import SchemaModule
+from flama.sqlalchemy import SQLAlchemyModule
 
 if typing.TYPE_CHECKING:
     from starlette.middleware import Middleware
@@ -29,7 +29,7 @@ if typing.TYPE_CHECKING:
 __all__ = ["Flama"]
 
 
-DEFAULT_MODULES = [DatabaseModule, ResourcesModule, SchemaModule]
+DEFAULT_MODULES = [SQLAlchemyModule, ResourcesModule, SchemaModule]
 
 
 class Flama(Starlette):
@@ -43,7 +43,7 @@ class Flama(Starlette):
         on_startup: typing.Sequence[typing.Callable] = None,
         on_shutdown: typing.Sequence[typing.Callable] = None,
         lifespan: typing.Callable[["Flama"], typing.AsyncContextManager] = None,
-        database: typing.Optional[str] = None,
+        sqlalchemy_database: typing.Optional[str] = None,
         title: typing.Optional[str] = "",
         version: typing.Optional[str] = "",
         description: typing.Optional[str] = "",
@@ -83,7 +83,7 @@ class Flama(Starlette):
             **{
                 **{
                     "debug": debug,
-                    "database": database,
+                    "sqlalchemy_database": sqlalchemy_database,
                     "title": title,
                     "version": version,
                     "description": description,
