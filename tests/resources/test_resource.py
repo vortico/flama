@@ -6,11 +6,12 @@ from flama.resources import types
 from flama.resources.crud import CRUDListDropResource, CRUDListResource, CRUDResource
 from flama.resources.resource import BaseResource, resource_method
 from flama.resources.routing import ResourceRoute
+from flama.sqlalchemy import metadata
 
 
 @pytest.fixture
 def app(app):
-    return Flama(schema=None, docs=None, redoc=None, database="sqlite+aiosqlite://")
+    return Flama(schema=None, docs=None, redoc=None, sqlalchemy_database="sqlite+aiosqlite://")
 
 
 class TestCaseBaseResource:
@@ -204,8 +205,8 @@ class TestCaseBaseResource:
                 model = puppy_model
                 input_schema = puppy_schema
 
-    def test_resource_model_no_pk(self, app, puppy_schema):
-        model_ = sqlalchemy.Table("no_pk", app.database.metadata, sqlalchemy.Column("integer", sqlalchemy.Integer))
+    def test_resource_model_no_pk(self, puppy_schema):
+        model_ = sqlalchemy.Table("no_pk", metadata, sqlalchemy.Column("integer", sqlalchemy.Integer))
 
         with pytest.raises(AttributeError, match=r"PuppyResource model must define a single-column primary key"):
 
@@ -213,10 +214,10 @@ class TestCaseBaseResource:
                 model = model_
                 schema = puppy_schema
 
-    def test_resource_model_multicolumn_pk(self, app, puppy_schema):
+    def test_resource_model_multicolumn_pk(self, puppy_schema):
         model_ = sqlalchemy.Table(
             "multicolumn_pk",
-            app.database.metadata,
+            metadata,
             sqlalchemy.Column("integer", sqlalchemy.Integer),
             sqlalchemy.Column("string", sqlalchemy.String),
             sqlalchemy.PrimaryKeyConstraint("integer", "string"),
@@ -228,9 +229,9 @@ class TestCaseBaseResource:
                 model = model_
                 schema = puppy_schema
 
-    def test_resource_model_invalid_type_pk(self, app, puppy_schema):
+    def test_resource_model_invalid_type_pk(self, puppy_schema):
         model_ = sqlalchemy.Table(
-            "invalid_pk", app.database.metadata, sqlalchemy.Column("id", sqlalchemy.PickleType, primary_key=True)
+            "invalid_pk", metadata, sqlalchemy.Column("id", sqlalchemy.PickleType, primary_key=True)
         )
 
         with pytest.raises(

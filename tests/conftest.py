@@ -9,6 +9,7 @@ from faker import Faker
 from starlette.testclient import TestClient
 
 from flama import Flama, schemas
+from flama.sqlalchemy import metadata
 
 DATABASE_URL = "sqlite+aiosqlite://"
 
@@ -54,21 +55,21 @@ def puppy_schema(app):
 
 
 @pytest.fixture(scope="function")
-async def puppy_model(app):
+async def puppy_model(app, client):
     table = sqlalchemy.Table(
         "puppy",
-        app.database.metadata,
+        app.sqlalchemy.metadata,
         sqlalchemy.Column("custom_id", sqlalchemy.Integer, primary_key=True, autoincrement=True),
         sqlalchemy.Column("name", sqlalchemy.String),
     )
 
-    async with app.database.engine.begin() as connection:
-        await connection.run_sync(app.database.metadata.create_all, tables=[table])
+    async with app.sqlalchemy.engine.begin() as connection:
+        await connection.run_sync(app.sqlalchemy.metadata.create_all, tables=[table])
 
     yield table
 
-    async with app.database.engine.begin() as connection:
-        await connection.run_sync(app.database.metadata.drop_all, tables=[table])
+    async with app.sqlalchemy.engine.begin() as connection:
+        await connection.run_sync(app.sqlalchemy.metadata.drop_all, tables=[table])
 
 
 @pytest.fixture(scope="session")
@@ -76,10 +77,9 @@ def fake():
     return Faker()
 
 
-# TODO: Unneeded?
-@pytest.fixture(scope="module", autouse=True)
-def enforce_typesystem():
-    schemas._setup("typesystem")
+@pytest.fixture(autouse=True)
+def clear_metadata():
+    metadata.clear()
 
 
 @pytest.fixture(
@@ -97,13 +97,14 @@ def app(request):
         schema="/schema/",
         docs="/docs/",
         redoc="/redoc/",
-        database="sqlite+aiosqlite://",
+        sqlalchemy_database="sqlite+aiosqlite://",
     )
 
 
 @pytest.fixture(scope="function")
 def client(app):
-    return TestClient(app)
+    with TestClient(app) as client:
+        yield client
 
 
 def assert_recursive_contains(first, second):

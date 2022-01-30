@@ -35,7 +35,7 @@ class CreateMixin:
             if element.get(model.primary_key.name) is None:
                 element.pop(model.primary_key.name, None)
 
-            async with self.app.database.engine.begin() as connection:
+            async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.insert().values(**element)
                 result = await connection.execute(query)
 
@@ -68,7 +68,7 @@ class RetrieveMixin:
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["GET"], name=f"{name}-retrieve")
         async def retrieve(self, element_id: model.primary_key.type) -> schemas.output.schema:
-            async with self.app.database.engine.begin() as connection:
+            async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select().where(self.model.c[model.primary_key.name] == element_id)
                 result = await connection.execute(query)
                 element = result.fetchone()
@@ -106,7 +106,7 @@ class UpdateMixin:
         async def update(
             self, element_id: model.primary_key.type, element: schemas.input.schema
         ) -> schemas.output.schema:
-            async with self.app.database.engine.begin() as connection:
+            async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select().where(
                     self.model.select().where(self.model.c[model.primary_key.name] == element_id).exists()
                 )
@@ -122,7 +122,7 @@ class UpdateMixin:
                 if k != model.primary_key.name
             }
 
-            async with self.app.database.engine.begin() as connection:
+            async with self.app.sqlalchemy.engine.begin() as connection:
                 query = (
                     self.model.update()
                     .where(self.model.c[model.primary_key.name] == element_id)
@@ -156,7 +156,7 @@ class DeleteMixin:
     def _add_delete(mcs, name: str, verbose_name: str, model: types.Model, **kwargs) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["DELETE"], name=f"{name}-delete")
         async def delete(self, element_id: model.primary_key.type):
-            async with self.app.database.engine.begin() as connection:
+            async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select().where(
                     self.model.select().where(self.model.c[model.primary_key.name] == element_id).exists()
                 )
@@ -166,7 +166,7 @@ class DeleteMixin:
             if not exists:
                 raise HTTPException(status_code=404)
 
-            async with self.app.database.engine.begin() as connection:
+            async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.delete().where(self.model.c[model.primary_key.name] == element_id)
                 await connection.execute(query)
 
@@ -195,7 +195,7 @@ class ListMixin:
     @classmethod
     def _add_list(mcs, name: str, verbose_name: str, schemas: types.Schemas, **kwargs) -> typing.Dict[str, typing.Any]:
         async def filter(self, *clauses, **filters) -> typing.List[typing.Dict]:
-            async with self.app.database.engine.begin() as connection:
+            async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select()
 
                 where_clauses = tuple(clauses) + tuple(self.model.c[k] == v for k, v in filters.items())
@@ -231,7 +231,7 @@ class DropMixin:
     def _add_drop(mcs, name: str, verbose_name: str, model: types.Model, **kwargs) -> typing.Dict[str, typing.Any]:
         @resource_method("/", methods=["DELETE"], name=f"{name}-drop")
         async def drop(self) -> flama.schemas.schemas.DropCollection:
-            async with self.app.database.engine.begin() as connection:
+            async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.delete()
                 result = await connection.execute(query)
 
