@@ -153,7 +153,10 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
             if is_schema_instance(schema_instance):
                 raise ValueError("Cannot infer schema name.")
 
-            name = schema_instance.__name__
+            try:
+                name = schema_instance.__name__
+            except AttributeError:
+                raise ValueError("Cannot infer schema name.")
 
         self[id(schema_instance)] = SchemaInfo(name=name, schema=schema_instance)
 

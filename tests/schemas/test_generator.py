@@ -13,11 +13,11 @@ from tests.conftest import assert_recursive_contains
 
 
 class TestCaseSchemaRegistry:
-    @pytest.fixture()
+    @pytest.fixture
     def registry(self):
         return SchemaRegistry()
 
-    @pytest.fixture()
+    @pytest.fixture
     def foo_schema(self, registry):
         from flama import schemas
 

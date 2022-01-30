@@ -17,7 +17,7 @@ from tests.conftest import DATABASE_URL
 @pytest.fixture
 def app(app):
     # Remove schema and docs endpoint from base fixture
-    return Flama(docs=None, redoc=None, database="sqlite+aiosqlite://")
+    return Flama(docs=None, redoc=None, sqlalchemy_database="sqlite+aiosqlite://")
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -52,18 +52,18 @@ class TestCaseCRUDResource:
     async def custom_id_datetime_model(self, app):
         table = sqlalchemy.Table(
             "custom_id_datetime",
-            app.database.metadata,
+            app.sqlalchemy.metadata,
             sqlalchemy.Column("custom_id", sqlalchemy.DateTime, primary_key=True),
             sqlalchemy.Column("name", sqlalchemy.String),
         )
 
-        async with app.database.engine.begin() as connection:
-            await connection.run_sync(app.database.metadata.create_all, tables=[table])
+        async with app.sqlalchemy.engine.begin() as connection:
+            await connection.run_sync(app.sqlalchemy.metadata.create_all, tables=[table])
 
         yield table
 
-        async with app.database.engine.begin() as connection:
-            await connection.run_sync(app.database.metadata.drop_all, tables=[table])
+        async with app.sqlalchemy.engine.begin() as connection:
+            await connection.run_sync(app.sqlalchemy.metadata.drop_all, tables=[table])
 
     @pytest.fixture
     def custom_id_datetime_schema(self, app):

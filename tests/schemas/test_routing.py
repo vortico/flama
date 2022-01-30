@@ -1,5 +1,6 @@
 import inspect
 
+import marshmallow
 import pytest
 import typesystem
 
@@ -21,18 +22,32 @@ class TestCaseRouteFieldsMixin:
         return CustomComponent
 
     @pytest.fixture
-    def app(self, component):
+    def app(self, app, component):
         return Flama(components=[component()], schema=None, docs=None)
 
-    @pytest.fixture(scope="class")
-    def foo_schema(self):
-        return typesystem.Schema({"x": typesystem.fields.Integer(), "y": typesystem.fields.String()})
+    @pytest.fixture
+    def foo_schema(self, app):
+        from flama import schemas
 
-    @pytest.fixture()
+        if schemas.lib == typesystem:
+            schema = typesystem.Schema({"x": typesystem.fields.Integer(), "y": typesystem.fields.String()})
+        elif schemas.lib == marshmallow:
+            schema = type(
+                "FooSchema",
+                (marshmallow.Schema,),
+                {"x": marshmallow.fields.Integer(), "y": marshmallow.fields.String()},
+            )
+        else:
+            raise ValueError("Wrong schema lib")
+
+        app.schema.schemas["FooSchema"] = schema
+        return schema
+
+    @pytest.fixture
     def router(self, app):
         return Router(main_app=app)
 
-    @pytest.fixture()
+    @pytest.fixture
     def route(self, foo_schema):
         def foo(w: int, a: Custom, z: foo_schema, x: int = 1, y: str = None) -> foo_schema:
             ...
