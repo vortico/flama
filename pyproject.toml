@@ -115,6 +115,9 @@ omit = [
     "*/migrations/*",
     "make",
     "examples*",
+    "flama/authentication.py",
+    "flama/middleware.py",
+    "flama/testclient.py",
 ]
 concurrency = ["thread", "gevent"]
 
