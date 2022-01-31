@@ -6,10 +6,10 @@ import pytest
 import sqlalchemy
 import typesystem
 from faker import Faker
-from starlette.testclient import TestClient
 
 from flama import Flama, schemas
 from flama.sqlalchemy import metadata
+from flama.testclient import TestClient
 
 DATABASE_URL = "sqlite+aiosqlite://"
 

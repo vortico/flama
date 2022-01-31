@@ -4,10 +4,10 @@ from unittest.mock import Mock, call, patch
 import pytest
 import sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncEngine
-from starlette.testclient import TestClient
 
 from flama import Flama
 from flama.sqlalchemy import SQLAlchemyModule
+from flama.testclient import TestClient
 
 if sys.version_info >= (3, 8):  # PORT: Remove when Python3.7 EOL
     from unittest.mock import AsyncMock
