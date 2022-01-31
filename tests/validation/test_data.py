@@ -1,10 +1,10 @@
 import pytest
 from _pytest.mark import param
-from starlette.testclient import TestClient
 
 from flama import http, websockets
 from flama.applications import Flama
 from flama.endpoints import WebSocketEndpoint
+from flama.testclient import TestClient
 
 
 class TestCaseDataValidation:

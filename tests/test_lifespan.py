@@ -2,9 +2,9 @@ import sys
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-from starlette.testclient import TestClient
 
 from flama import Flama
+from flama.testclient import TestClient
 
 
 class TestCaseLifespan:
