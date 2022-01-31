@@ -67,9 +67,9 @@ class JSONResponse(StarletteJSONResponse):
 class APIResponse(JSONResponse):
     media_type = "application/json"
 
-    def __init__(self, schema: typing.Optional[Schema] = None, *args, **kwargs):
+    def __init__(self, content: typing.Any = None, schema: typing.Optional[Schema] = None, *args, **kwargs):
         self.schema = schema
-        super().__init__(*args, **kwargs)
+        super().__init__(content=content, *args, **kwargs)
 
     def render(self, content: typing.Any):
         if content and is_schema_instance(content):  # pragma: no cover (only apply to marshmallow)
