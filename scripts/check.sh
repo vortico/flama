@@ -17,7 +17,7 @@ install_poetry()
   rm $POETRY_INSTALLER
 }
 
-install_poetry_question()
+install_poetry_menu()
 {
   printf "%b" "\n⚠️ ${C_YELLOW1} Poetry is not available:${NO_FORMAT}\n";
   while true; do
@@ -38,10 +38,20 @@ install_poetry_question()
   done
 }
 
-echo "🔥 Checking dependencies..."
-if ! (command -v poetry &> /dev/null)
-then
-  install_poetry_question
-else
+success_message()
+{
   printf "%b" "✅ ${C_SPRINGGREEN2}Poetry is installed:${NO_FORMAT} $(poetry --version))\n"
-fi
+}
+
+main()
+{
+  echo "🔥 Checking dependencies..."
+  if ! (command -v poetry &> /dev/null)
+  then
+    install_poetry_menu
+  else
+    success_message
+  fi
+}
+
+main
