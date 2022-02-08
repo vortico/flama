@@ -20,7 +20,7 @@ function clean()
 
 function main()
 {
-  echo "🔥 Cleaning directory..."
+  echo "🔥 Clean directory..."
   clean
 }
 

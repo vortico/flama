@@ -45,7 +45,7 @@ success_message()
 
 function main()
 {
-  echo "🔥 Checking dependencies..."
+  echo "🔥 Check dependencies..."
   if ! (command -v poetry &> /dev/null)
   then
     install_poetry_menu
