@@ -10,14 +10,14 @@ C_RED1="\033[38;5;196m"
 POETRY_INSTALLER="/tmp/poetry_install.py"
 POETRY_URL="https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py"
 
-install_poetry()
+function install_poetry()
 {
   curl $POETRY_URL --output $POETRY_INSTALLER
   python $POETRY_INSTALLER -y
   rm $POETRY_INSTALLER
 }
 
-install_poetry_menu()
+function install_poetry_menu()
 {
   printf "%b" "\n⚠️ ${C_YELLOW1} Poetry is not available:${NO_FORMAT}\n";
   while true; do
@@ -43,7 +43,7 @@ success_message()
   printf "%b" "✅ ${C_SPRINGGREEN2}Poetry is installed:${NO_FORMAT} $(poetry --version))\n"
 }
 
-main()
+function main()
 {
   echo "🔥 Checking dependencies..."
   if ! (command -v poetry &> /dev/null)

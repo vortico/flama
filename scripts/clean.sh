@@ -5,7 +5,7 @@ C_YELLOW1="\033[38;5;226m"
 C_SPRINGGREEN2="\033[38;5;47m"
 FOLDERS="dist flama.egg-info pip-wheel-metadata site test-results .coverage .pytest_cache"
 
-clean()
+function clean()
 {
   for folder in $FOLDERS; do
     if [[ ! -d $folder ]]
@@ -18,7 +18,7 @@ clean()
   done
 }
 
-main()
+function main()
 {
   echo "🔥 Cleaning directory..."
   clean
