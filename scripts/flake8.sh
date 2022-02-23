@@ -2,4 +2,4 @@
 
 command_suite="${PWD}/scripts/poetry-suite.sh"
 
-sh "$command_suite" build "$@"
+sh "$command_suite" flake "$@"
