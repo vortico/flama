@@ -18,7 +18,7 @@ OptTime = typing.Optional[datetime.time]
 
 HTTPMethod = enum.Enum("HTTPMethod", ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"])
 
-STANDARD_FIELD_TYPE_MAPPING = {
+STANDARD_FIELD_TYPE_MAPPING: typing.Dict[typing.Any, typing.Any] = {
     int: int,
     float: float,
     str: str,
@@ -29,7 +29,7 @@ STANDARD_FIELD_TYPE_MAPPING = {
     datetime.time: datetime.time,
 }
 
-OPTIONAL_FIELD_TYPE_MAPPING = {
+OPTIONAL_FIELD_TYPE_MAPPING: typing.Dict[typing.Any, typing.Any] = {
     OptInt: int,
     OptFloat: float,
     OptStr: str,
@@ -40,6 +40,6 @@ OPTIONAL_FIELD_TYPE_MAPPING = {
     OptTime: datetime.time,
 }
 
-HTTP_FIELDS_TYPE_MAPPING = {http.QueryParam: str, http.PathParam: str}
+HTTP_FIELDS_TYPE_MAPPING: typing.Dict[typing.Any, typing.Any] = {http.QueryParam: str, http.PathParam: str}
 
 FIELDS_TYPE_MAPPING = {**STANDARD_FIELD_TYPE_MAPPING, **OPTIONAL_FIELD_TYPE_MAPPING, **HTTP_FIELDS_TYPE_MAPPING}

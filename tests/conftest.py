@@ -87,7 +87,7 @@ def clear_metadata():
     params=[pytest.param("typesystem", id="typesystem"), pytest.param("marshmallow", id="marshmallow")],
 )
 def app(request):
-    schemas._setup(request.param)
+    schemas._module.setup(request.param)
 
     return Flama(
         components=[],
