@@ -74,12 +74,12 @@ class PageNumberMixin:
         :return: Decorated view.
         """
 
-        def _inner(func: typing.Callable) -> typing.Callable:
+        def _inner(func: typing.Callable):
             assert forge is not None, "`python-forge` must be installed to use Paginator."
 
             resource_schema = flama.schemas.adapter.unique_instance(get_output_schema(func))
             paginated_schema_name = "PageNumberPaginated" + schema_name
-            schema = flama.schemas.adapter.build_schema(
+            schema: Schema = flama.schemas.adapter.build_schema(
                 schema=resource_schema,
                 pagination=flama.schemas.schemas.PageNumber,
                 paginated_schema_name=paginated_schema_name,
@@ -121,7 +121,9 @@ class PageNumberMixin:
             except ValueError as e:
                 raise TypeError("Paginated views must define **kwargs param") from e
             else:
-                self.schemas.update({schema_name: resource_schema, paginated_schema_name: schema})
+                self.schemas.update(  # type: ignore[attr-defined]
+                    {schema_name: resource_schema, paginated_schema_name: schema}
+                )
             return decorator
 
         return _inner

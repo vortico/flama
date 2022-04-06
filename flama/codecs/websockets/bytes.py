@@ -7,8 +7,8 @@ __all__ = ["BytesCodec"]
 class BytesCodec(WebsocketsCodec):
     encoding = "bytes"
 
-    async def decode(self, message: websockets.Message, **options):
-        if "bytes" not in message:
+    async def decode(self, item: websockets.Message, **options):
+        if "bytes" not in item:
             raise exceptions.DecodeError("Expected bytes websocket messages")
 
-        return message["bytes"]
+        return item["bytes"]

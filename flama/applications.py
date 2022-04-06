@@ -53,7 +53,7 @@ class Flama(Starlette):
         *args,
         **kwargs
     ) -> None:
-        super().__init__(debug=debug, *args, **kwargs)
+        super().__init__(debug, *args, **kwargs)
 
         # Initialize components
         self.components = Components([*(components or [])])

@@ -9,11 +9,11 @@ __all__ = ["JSONCodec"]
 class JSONCodec(WebsocketsCodec):
     encoding = "json"
 
-    async def decode(self, message: websockets.Message, **options):
-        if message.get("text") is not None:
-            text = message["text"]
+    async def decode(self, item: websockets.Message, **options):
+        if item.get("text") is not None:
+            text = item["text"]
         else:
-            text = message["bytes"].decode("utf-8")
+            text = item["bytes"].decode("utf-8")
 
         try:
             return json.loads(text)
