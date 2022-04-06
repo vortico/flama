@@ -1,6 +1,6 @@
 import typing
 
-from flama.schemas.types import Schema
+from flama.schemas.types import Schema as SchemaType
 
 try:
     from sqlalchemy import Table
@@ -28,7 +28,7 @@ class Model(typing.NamedTuple):
 
 class Schema(typing.NamedTuple):
     name: str
-    schema: Schema
+    schema: SchemaType
 
 
 class Schemas(typing.NamedTuple):
@@ -48,5 +48,5 @@ class Metadata(typing.NamedTuple):
 class MethodMetadata(typing.NamedTuple):
     path: str
     methods: typing.List[str] = ["GET"]
-    name: str = None
+    name: typing.Optional[str] = None
     kwargs: typing.Dict[str, typing.Any] = {}

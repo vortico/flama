@@ -15,9 +15,9 @@ class Codec(metaclass=abc.ABCMeta):
 
 
 class HTTPCodec(Codec):
-    media_type = None
+    media_type: typing.Optional[str] = None
 
-    async def decode(self, request: http.Request, **options):
+    async def decode(self, item: http.Request, **options):
         ...
 
     async def encode(self, item: typing.Any, **options):
@@ -25,9 +25,9 @@ class HTTPCodec(Codec):
 
 
 class WebsocketsCodec(Codec):
-    encoding = None
+    encoding: typing.Optional[str] = None
 
-    async def decode(self, message: websockets.Message, **options):
+    async def decode(self, item: websockets.Message, **options):
         ...
 
     async def encode(self, item: typing.Any, **options):

@@ -34,7 +34,7 @@ class ResourcesModule(Module):
         """
 
         def decorator(resource: typing.Type["BaseResource"]) -> typing.Type["BaseResource"]:
-            self.add_resource(path, resource=resource, *args, **kwargs)
+            self.add_resource(path, resource, *args, **kwargs)
             return resource
 
         return decorator

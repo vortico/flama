@@ -5,6 +5,7 @@ import typing
 from flama.schemas.exceptions import SchemaParseError, SchemaValidationError
 
 if typing.TYPE_CHECKING:
+    from flama.schemas import types
     from flama.schemas._libs.adapter import Adapter
 
 __all__ = [
@@ -18,35 +19,50 @@ __all__ = [
     "schemas",
 ]
 
-
-_SCHEMA_LIBS = ("typesystem", "marshmallow")
-_INSTALLED = [x for x in _SCHEMA_LIBS if x in sys.modules or importlib.util.find_spec(x) is not None]
-_LIB = None
-
-
-def _setup(library: str):
-    library = importlib.import_module(f"flama.schemas._libs.{library}")
-    module_dict = globals()
-    module_dict["_LIB"] = library
-    module_dict["schemas"] = library.schemas
-    module_dict["lib"] = library.lib
-    module_dict["fields"] = library.fields
-    module_dict["adapter"]: "Adapter" = library.adapter
-    module_dict["Field"] = library.Field
-    module_dict["Schema"] = library.Schema
+Field: "types.Field" = None
+Schema: "types.Schema" = None
+adapter: "Adapter" = None
+fields: typing.Dict[typing.Any, "types.Field"] = None
+lib: typing.Any = None
+schemas: typing.Any = None
 
 
-def _get_lib():
-    for library in _INSTALLED:
-        try:
-            importlib.import_module(f"flama.schemas._libs.{library}")
-            return library
-        except ModuleNotFoundError:
-            pass
+class Module:
+    SCHEMA_LIBS = ("typesystem", "marshmallow")
+
+    def __init__(self):
+        self.lib = None
+
+    @property
+    def installed(self) -> typing.List[str]:
+        return [x for x in self.SCHEMA_LIBS if x in sys.modules or importlib.util.find_spec(x) is not None]
+
+    @property
+    def available(self) -> typing.Generator[str, None, None]:
+        for library in self.installed:
+            try:
+                importlib.import_module(f"flama.schemas._libs.{library}")
+                yield library
+            except ModuleNotFoundError:
+                pass
+
+    def setup(self, library: typing.Optional[str] = None):
+        if library is None:
+            library = next(self.available)
+        self.lib = importlib.import_module(f"flama.schemas._libs.{library}")
+
+        global schemas, lib, fields, adapter, Field, Schema
+        schemas = self.lib.schemas
+        lib = self.lib.lib
+        fields = self.lib.fields
+        adapter = self.lib.adapter
+        Field = self.lib.Field
+        Schema = self.lib.Schema
 
 
 # Find the first schema lib available and setup the module using it
-_setup(_get_lib())
+_module = Module()
+_module.setup()
 
 # Check that at least one of the schema libs is installed
-assert _LIB is not None, f"Any of the schema libraries ({', '.join(_SCHEMA_LIBS)}) must be installed."
+assert _module.lib is not None, f"Any of the schema libraries ({', '.join(_module.SCHEMA_LIBS)}) must be installed."

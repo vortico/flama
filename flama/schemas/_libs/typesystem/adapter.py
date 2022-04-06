@@ -22,11 +22,11 @@ class TypesystemAdapter(Adapter):
 
     def build_schema(
         self,
-        schema: typesystem.Schema = None,
-        pagination: typesystem.Schema = None,
-        paginated_schema_name: str = None,
+        schema: typing.Optional[typesystem.Schema] = None,
+        pagination: typing.Optional[typesystem.Schema] = None,
+        paginated_schema_name: typing.Optional[str] = None,
         name: str = "Schema",
-        fields: typing.Dict[str, typesystem.Field] = None,
+        fields: typing.Optional[typing.Dict[str, typesystem.Field]] = None,
     ) -> typesystem.Schema:
         if fields is None:
             fields = {}
@@ -57,7 +57,7 @@ class TypesystemAdapter(Adapter):
 
     def dump(
         self,
-        schema: typing.Union[typesystem.fields.Field, type(typesystem.Schema)],
+        schema: typing.Union[typesystem.fields.Field, typing.Type[typesystem.Schema]],
         value: typing.Dict[str, typing.Any],
     ) -> typing.Any:
         return self._dump(self.validate(schema, value))
