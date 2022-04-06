@@ -7,17 +7,17 @@ Schema = typing.TypeVar("Schema")
 
 class Adapter(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def build_field(self, field_type: typing.Type, required: bool, default: typing.Any) -> Field:
+    def build_field(self, field_type: typing.Type, required: bool, default: typing.Any, **kwargs) -> Field:
         ...
 
     @abc.abstractmethod
     def build_schema(
         self,
-        schema: Schema = None,
-        pagination: Schema = None,
-        paginated_schema_name: str = None,
+        schema: typing.Optional[Schema] = None,
+        pagination: typing.Optional[Schema] = None,
+        paginated_schema_name: typing.Optional[str] = None,
         name: str = "Schema",
-        fields: typing.Dict[str, Field] = None,
+        fields: typing.Optional[typing.Dict[str, Field]] = None,
     ) -> Schema:
         ...
 

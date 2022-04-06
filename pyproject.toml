@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Application Frameworks"
 ]
-include = []
+include = ["flama/py.typed"]
 exclude = []
 
 [tool.poetry.dependencies]
@@ -55,6 +55,7 @@ apispec = "^5.0"
 typesystem = "^0.4.1"
 SQLAlchemy = { version = "^1.4", extras = ["asyncio"] }
 gevent = "^21.12.0"
+mypy = "^0.942"
 
 [tool.poetry.extras]
 typesystem = ["typesystem"]
@@ -69,7 +70,6 @@ include = '\.pyi?$'
 exclude = '''
 /(
     \.git
-  | \.tox
   | \.venv
   | build
   | dist
@@ -84,10 +84,24 @@ include_trailing_comma = true
 line_length = 120
 skip_glob = [
     "*/.venv/**",
-    "*/.tox/**",
     "*/docs/**",
     "*/build/**",
     "*/dist/**",
+]
+
+[tool.mypy]
+python_version = "3.7"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+show_error_codes = true
+exclude = [
+    "\\.venv.*",
+    "\\.github.*",
+    "examples.*",
+    "docs.*",
+    "build.*",
+    "dist.*",
 ]
 
 [tool.pytest.ini_options]
@@ -96,7 +110,6 @@ addopts = "-n auto --junitxml=./test-results/pytest/results.xml --no-cov-on-fail
 norecursedirs = [
     "*settings*",
     "*urls*",
-    ".tox*",
     "*docs*",
 ]
 asyncio_mode = "auto"

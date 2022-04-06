@@ -10,7 +10,7 @@ __all__ = [
     "SCHEMAS",
 ]
 
-SCHEMAS = {}
+SCHEMAS = typesystem.Definitions()
 
 
 APIError = typesystem.Schema(

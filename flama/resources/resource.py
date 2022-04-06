@@ -65,7 +65,7 @@ class ResourceRoutes:
 class Resource(type):
     METHODS: typing.Sequence[str] = ()
 
-    def __new__(mcs, name: str, bases: typing.Sequence[type], namespace: typing.Dict[str, typing.Any]):
+    def __new__(mcs, name: str, bases: typing.Tuple[type], namespace: typing.Dict[str, typing.Any]):
         """Resource metaclass for defining basic behavior:
         * Create _meta attribute containing some metadata (model, schemas, names...).
         * Adds methods related to REST resource (create, retrieve, update, delete...) listed in METHODS class attribute.
@@ -116,7 +116,7 @@ class Resource(type):
         return super().__new__(mcs, name, bases, namespace)
 
     @classmethod
-    def _get_mro(mcs, *classes: type) -> typing.List[type]:
+    def _get_mro(mcs, *classes: type) -> typing.List[typing.Type]:
         """Generate the MRO list for given base class or list of base classes.
 
         :param classes: Base classes.
@@ -183,13 +183,13 @@ class Resource(type):
         # Resource define model as a sqlalchemy Table, so extract necessary info from it
         elif isinstance(model, sqlalchemy.Table):
             # Get model primary key
-            model_pk = list(sqlalchemy.inspect(model).primary_key.columns.values())
+            model_pk_columns = list(sqlalchemy.inspect(model).primary_key.columns.values())
 
             # Check primary key exists and is a single column
-            if len(model_pk) != 1:
+            if len(model_pk_columns) != 1:
                 raise AttributeError(ResourceAttributeError.PK_NOT_FOUND)
 
-            model_pk = model_pk[0]
+            model_pk = model_pk_columns[0]
             model_pk_name = model_pk.name
 
             # Check primary key is a valid type
@@ -234,7 +234,8 @@ class Resource(type):
             ...
 
         try:
-            return mcs._get_attribute("schemas", bases, namespace)
+            schemas: types.Schemas = mcs._get_attribute("schemas", bases, namespace)
+            return schemas
         except AttributeError:
             ...
 
@@ -297,7 +298,7 @@ def resource_method(path: str, methods: typing.List[str] = None, name: str = Non
     :return: Decorated method.
     """
 
-    def wrapper(func: typing.Callable) -> typing.Callable:
+    def wrapper(func):
         func._meta = types.MethodMetadata(
             path=path, methods=methods if methods is not None else ["GET"], name=name, kwargs=kwargs
         )
