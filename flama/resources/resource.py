@@ -48,8 +48,24 @@ class BaseResource:
     columns: typing.Sequence[str]
     order: str
 
-    def __init__(self, app: "Flama" = None, *args, **kwargs):
-        self.app = app
+    def __init__(self, app: typing.Optional["Flama"] = None, *args, **kwargs):
+        if app is not None:
+            self.app = app
+
+    @property
+    def app(self) -> "Flama":
+        try:
+            return self._app
+        except AttributeError:
+            raise AttributeError(f"{self.__class__.__name__} is not initialized")
+
+    @app.setter
+    def app(self, app: "Flama"):
+        self._app = app
+
+    @app.deleter
+    def app(self):
+        del self._app
 
 
 class ResourceRoutes:

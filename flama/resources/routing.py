@@ -1,7 +1,7 @@
 import inspect
 import typing
 
-from flama.routing import Mount, Route
+from flama.routing import BaseRoute, Mount, Route
 
 if typing.TYPE_CHECKING:
     from flama import Flama
@@ -31,32 +31,14 @@ class ResourceRoute(Mount):
             for name, route in self.resource.routes.items()
         ]
 
-        super().__init__(path=path, routes=routes)
+        super().__init__(path=path, routes=routes, main_app=main_app)
 
-        if main_app is not None:
-            self.main_app = main_app
-
-    @property
-    def main_app(self) -> "Flama":
-        if self._main_app is None:
-            raise AttributeError("ResourceRoute is not initialized")
-
-        return self._main_app
-
-    @main_app.setter
+    @BaseRoute.main_app.setter
     def main_app(self, app: "Flama"):
-        self._main_app = app
-
-        self.app.main_app = app
+        BaseRoute.main_app.fset(self, app)
         self.resource.app = app  # Inject app to resource
-        for route in self.routes:
-            route.main_app = app
 
-    @main_app.deleter
+    @main_app.deleter  # type: ignore[no-redef]
     def main_app(self):
-        self._main_app = None
-
-        del self.app.main_app
-        self.resource.app = None
-        for route in self.routes:
-            del route.main_app
+        BaseRoute.main_app.fdel(self)
+        del self.resource.app
