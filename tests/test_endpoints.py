@@ -17,7 +17,7 @@ class PuppyComponent(Component):
 
 @pytest.fixture(scope="class")
 def app(app):
-    app.components.append(PuppyComponent())
+    app.router._components.append(PuppyComponent())
     return app
 
 

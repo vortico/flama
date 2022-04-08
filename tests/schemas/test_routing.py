@@ -70,7 +70,7 @@ class TestCaseRouteFieldsMixin:
 
         return WebSocketRoute("/foo", endpoint=FooWebsocket)
 
-    def test_get_parameters_from_handler(self, route, router, foo_schema):
+    def test_get_parameters_from_handler(self, route, app, foo_schema):
         expected_parameters = {
             "x": inspect.Parameter("x", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int, default=1),
             "y": inspect.Parameter("y", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=str, default=None),
@@ -78,9 +78,9 @@ class TestCaseRouteFieldsMixin:
             "ax": inspect.Parameter("ax", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int),
             "w": inspect.Parameter("w", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int),
         }
-        assert route._get_parameters_from_handler(route.endpoint, router) == expected_parameters
+        assert route._get_parameters_from_handler(route.endpoint, app) == expected_parameters
 
-    def test_get_fields_from_handler(self, route, router, foo_schema):
+    def test_get_fields_from_handler(self, route, app, foo_schema):
         expected_query_fields = {
             "x": Field("x", FieldLocation.query, schema_type=int, required=False, default=1),
             "y": Field("y", FieldLocation.query, schema_type=str, required=False, default=None),
@@ -92,14 +92,14 @@ class TestCaseRouteFieldsMixin:
         expected_body_field = Field("z", FieldLocation.body, schema_type=foo_schema, required=False)
         expected_output_field = Field("_output", FieldLocation.output, schema_type=foo_schema, required=False)
 
-        query_fields, path_fields, body_field, output_field = route._get_fields_from_handler(route.endpoint, router)
+        query_fields, path_fields, body_field, output_field = route._get_fields_from_handler(route.endpoint, app)
 
         assert query_fields == expected_query_fields
         assert path_fields == expected_path_fields
         assert body_field == expected_body_field
         assert output_field == expected_output_field
 
-    def test_get_fields_function(self, route, router, foo_schema):
+    def test_get_fields_function(self, route, app, foo_schema):
         expected_query_fields = {
             "GET": {
                 "x": Field("x", FieldLocation.query, schema_type=int, required=False, default=1),
@@ -129,14 +129,14 @@ class TestCaseRouteFieldsMixin:
             "HEAD": Field("_output", FieldLocation.output, schema_type=foo_schema, required=False),
         }
 
-        query_fields, path_fields, body_field, output_field = route._get_fields(router)
+        query_fields, path_fields, body_field, output_field = route._get_fields(app)
 
         assert query_fields == expected_query_fields
         assert path_fields == expected_path_fields
         assert body_field == expected_body_field
         assert output_field == expected_output_field
 
-    def test_get_fields_endpoint(self, endpoint, router, foo_schema):
+    def test_get_fields_endpoint(self, endpoint, app, foo_schema):
         expected_query_fields = {
             "GET": {
                 "x": Field("x", FieldLocation.query, schema_type=int, required=False, default=1),
@@ -166,20 +166,20 @@ class TestCaseRouteFieldsMixin:
             "HEAD": Field("_output", FieldLocation.output, schema_type=foo_schema, required=False),
         }
 
-        query_fields, path_fields, body_field, output_field = endpoint._get_fields(router)
+        query_fields, path_fields, body_field, output_field = endpoint._get_fields(app)
 
         assert query_fields == expected_query_fields
         assert path_fields == expected_path_fields
         assert body_field == expected_body_field
         assert output_field == expected_output_field
 
-    def test_get_fields_websocket(self, websocket, router, foo_schema):
+    def test_get_fields_websocket(self, websocket, app, foo_schema):
         expected_query_fields = {"GET": {}}
         expected_path_fields = {"GET": {}}
         expected_body_field = {"GET": None}
         expected_output_field = {"GET": Field("_output", FieldLocation.output, schema_type=None, required=False)}
 
-        query_fields, path_fields, body_field, output_field = websocket._get_fields(router)
+        query_fields, path_fields, body_field, output_field = websocket._get_fields(app)
 
         assert query_fields == expected_query_fields
         assert path_fields == expected_path_fields

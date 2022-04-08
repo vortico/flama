@@ -6,7 +6,7 @@ from flama.schemas.utils import is_schema
 from flama.types import FIELDS_TYPE_MAPPING, OPTIONAL_FIELD_TYPE_MAPPING
 
 if typing.TYPE_CHECKING:
-    from flama.routing import Router
+    from flama.applications import Flama
 
 
 class RouteFieldsMixin:
@@ -15,14 +15,14 @@ class RouteFieldsMixin:
     """
 
     def _get_parameters_from_handler(
-        self, handler: typing.Callable, router: "Router"
+        self, handler: typing.Callable, app: "Flama"
     ) -> typing.Dict[str, inspect.Parameter]:
         parameters = {}
 
         for name, parameter in inspect.signature(handler).parameters.items():
-            for component in router.components:
+            for component in app.components:
                 if component.can_handle_parameter(parameter):
-                    parameters.update(self._get_parameters_from_handler(component.resolve, router))
+                    parameters.update(self._get_parameters_from_handler(component.resolve, app))
                     break
             else:
                 parameters[name] = parameter
@@ -30,14 +30,14 @@ class RouteFieldsMixin:
         return parameters
 
     def _get_fields_from_handler(
-        self, handler: typing.Callable, router: "Router"
+        self, handler: typing.Callable, app: "Flama"
     ) -> typing.Tuple[Fields, Fields, Field, typing.Any]:
         query_fields: Fields = {}
         path_fields: Fields = {}
         body_field: Field = None
 
         # Iterate over all params
-        for name, param in self._get_parameters_from_handler(handler, router).items():
+        for name, param in self._get_parameters_from_handler(handler, app).items():
             if name in ("self", "cls"):
                 continue
             # Matches as path param
@@ -79,7 +79,7 @@ class RouteFieldsMixin:
         return query_fields, path_fields, body_field, output_field
 
     def _get_fields(
-        self, router: "Router"
+        self, app: "Flama"
     ) -> typing.Tuple[Methods, Methods, typing.Dict[str, Field], typing.Dict[str, typing.Any]]:
         query_fields: Methods = {}
         path_fields: Methods = {}
@@ -95,34 +95,42 @@ class RouteFieldsMixin:
             methods = [("GET", self.endpoint)]
 
         for m, h in methods:
-            query_fields[m], path_fields[m], body_field[m], output_field[m] = self._get_fields_from_handler(h, router)
+            query_fields[m], path_fields[m], body_field[m], output_field[m] = self._get_fields_from_handler(h, app)
 
         return query_fields, path_fields, body_field, output_field
 
     @property
     def query_fields(self):
         if not hasattr(self, "_query_fields"):  # noqa
-            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(self.router)
+            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(
+                self.main_app
+            )
 
         return self._query_fields
 
     @property
     def path_fields(self):
         if not hasattr(self, "_path_fields"):  # noqa
-            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(self.router)
+            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(
+                self.main_app
+            )
 
         return self._path_fields
 
     @property
     def body_field(self):
         if not hasattr(self, "_body_field"):  # noqa
-            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(self.router)
+            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(
+                self.main_app
+            )
 
         return self._body_field
 
     @property
     def output_field(self):
         if not hasattr(self, "_output_field"):  # noqa
-            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(self.router)
+            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(
+                self.main_app
+            )
 
         return self._output_field
