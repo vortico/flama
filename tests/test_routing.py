@@ -138,15 +138,22 @@ class TestCaseRouter:
         assert isinstance(mount_route.app, Router)
         mount_router = mount_route.app
         assert mount_router.main_app == app
-        assert mount_router.modules == app.modules
         assert mount_router.components == Components([component_mock])
+        assert app.components == Components([component_mock])
 
-    def test_mount_declarative(self):
+    def test_mount_declarative(self, component_mock):
         root_mock, foo_mock, foo_view_mock = MagicMock(), MagicMock(), MagicMock()
         routes = [
             Route("/", root_mock),
             Mount(
                 "/foo", routes=[Route("/", foo_mock, methods=["GET"]), Route("/view", foo_view_mock, methods=["GET"])]
+            ),
+            Mount(
+                "/bar",
+                app=Router(
+                    routes=[Route("/", foo_mock, methods=["GET"]), Route("/view", foo_view_mock, methods=["GET"])],
+                    components=[component_mock],
+                ),
             ),
         ]
 
@@ -156,29 +163,45 @@ class TestCaseRouter:
 
         app = Flama(routes=routes, schema=None, docs=None)
 
-        assert len(app.router.routes) == 2
+        assert len(app.router.routes) == 3
 
         # Check first-level route is initialized
         assert isinstance(app.router.routes[0], Route)
         root_route = app.router.routes[0]
         assert root_route.path == "/"
         assert root_route.main_app == app
-        # Check mount is initialized
+
+        # Check mount with routes is initialized
         assert isinstance(app.router.routes[1], Mount)
-        mount_route = app.router.routes[1]
-        assert mount_route.main_app == app
+        mount_with_routes_route = app.router.routes[1]
+        assert mount_with_routes_route.main_app == app
         # Check router is created and initialized, also shares components and modules with main app
-        assert isinstance(mount_route.app, Router)
-        mount_router = mount_route.app
-        assert mount_router.main_app == app
-        assert mount_router.components == app.components
-        assert mount_router.modules == app.modules
+        assert isinstance(mount_with_routes_route.app, Router)
+        mount_with_routes_router = mount_with_routes_route.app
+        assert mount_with_routes_router.main_app == app
         # Check second-level routes are created an initialized
-        assert len(mount_route.routes) == 2
-        assert mount_route.routes[0].path == "/"
-        assert mount_route.routes[0].main_app == app
-        assert mount_route.routes[1].path == "/view"
-        assert mount_route.routes[1].main_app == app
+        assert len(mount_with_routes_route.routes) == 2
+        assert mount_with_routes_route.routes[0].path == "/"
+        assert mount_with_routes_route.routes[0].main_app == app
+        assert mount_with_routes_route.routes[1].path == "/view"
+        assert mount_with_routes_route.routes[1].main_app == app
+
+        # Check mount with app is initialized
+        assert isinstance(app.router.routes[2], Mount)
+        mount_with_app_route = app.router.routes[2]
+        assert mount_with_app_route.main_app == app
+        # Check router is created and initialized, also shares components and modules with main app
+        assert isinstance(mount_with_app_route.app, Router)
+        mount_with_app_router = mount_with_app_route.app
+        assert mount_with_app_router.main_app == app
+        assert mount_with_app_router.components == Components([component_mock])
+        assert app.components == Components([component_mock])
+        # Check second-level routes are created an initialized
+        assert len(mount_with_app_route.routes) == 2
+        assert mount_with_app_route.routes[0].path == "/"
+        assert mount_with_app_route.routes[0].main_app == app
+        assert mount_with_app_route.routes[1].path == "/view"
+        assert mount_with_app_route.routes[1].main_app == app
 
         # Check can delete app
         del app.routes[0].main_app

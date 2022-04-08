@@ -55,13 +55,11 @@ class Flama(Starlette):
     ) -> None:
         super().__init__(debug, *args, **kwargs)
 
-        # Initialize components
-        self.components = Components([*(components or [])])
-
         # Initialize router and middleware stack
         self.router = Router(
             main_app=self,
             routes=routes,
+            components=Components([*(components or [])]),
             on_startup=on_startup,
             on_shutdown=on_shutdown,
             lifespan=Lifespan(self, lifespan),
@@ -102,11 +100,14 @@ class Flama(Starlette):
         return self.modules.__getattr__(item)
 
     @property
-    def injector(self):
+    def injector(self) -> Injector:
         return Injector(app=self)
 
+    @property
+    def components(self) -> Components:
+        return self.router.components
+
     def mount(self, path: str, app: "ASGIApp", name: str = None) -> None:
-        self.components += getattr(app, "components", [])
         self.router.mount(path, app=app, name=name)
 
     def api_http_exception_handler(self, request: "Request", exc: HTTPException) -> "Response":

@@ -74,8 +74,17 @@ class Components(MutableSequence):
     def __add__(self, other: typing.List[Component]) -> "Components":
         return Components(self._components + list(other))
 
-    def __eq__(self, other: typing.List[Component]) -> bool:
-        return self._components == list(other)
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Components):
+            return self._components == other._components
+
+        try:
+            return self._components == list(other)  # type: ignore
+        except TypeError:
+            return False
+
+    def __repr__(self):
+        return f"Components({self._components})"
 
     def insert(self, index: int, value: Component) -> None:
         self._components.insert(index, value)
