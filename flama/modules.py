@@ -61,3 +61,15 @@ class Modules(Mapping):
 
     def __getattr__(self, item: str) -> Module:
         return self.__getitem__(item)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Modules):
+            return self._modules == other._modules
+
+        try:
+            return [module.__class__ for module in self._modules.values()] == list(other)  # type: ignore
+        except TypeError:
+            return False
+
+    def __repr__(self) -> str:
+        return f"Modules({self._modules})"
