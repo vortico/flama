@@ -244,10 +244,10 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
                                 path=path,
                                 method=method.lower(),
                                 func=route.endpoint,
-                                query_fields=route.query_fields.get(method, {}),
-                                path_fields=route.path_fields.get(method, {}),
-                                body_field=route.body_field.get(method),
-                                output_field=route.output_field.get(method),
+                                query_parameters=route.parameters.query.get(method, {}),
+                                path_parameters=route.parameters.path.get(method, {}),
+                                body_parameter=route.parameters.body.get(method),
+                                output_parameter=route.parameters.output.get(method),
                             )
                         )
                 else:
@@ -261,10 +261,10 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
                                 path=path,
                                 method=method.lower(),
                                 func=func,
-                                query_fields=route.query_fields.get(method.upper(), {}),
-                                path_fields=route.path_fields.get(method.upper(), {}),
-                                body_field=route.body_field.get(method.upper()),
-                                output_field=route.output_field.get(method.upper()),
+                                query_parameters=route.parameters.query.get(method.upper(), {}),
+                                path_parameters=route.parameters.path.get(method.upper(), {}),
+                                body_parameter=route.parameters.body.get(method.upper()),
+                                output_parameter=route.parameters.output.get(method.upper()),
                             )
                         )
             elif isinstance(route, routing.Mount):
@@ -275,7 +275,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
     def _build_endpoint_parameters(
         self, endpoint: EndpointInfo, metadata: typing.Dict[str, typing.Any]
     ) -> typing.Optional[typing.List[openapi.Parameter]]:
-        if not endpoint.query_fields and not endpoint.path_fields:
+        if not endpoint.query_parameters and not endpoint.path_parameters:
             return None
 
         return [
@@ -299,16 +299,16 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
                     )
                 },
             )
-            for field in itertools.chain(endpoint.query_fields.values(), endpoint.path_fields.values())
+            for field in itertools.chain(endpoint.query_parameters.values(), endpoint.path_parameters.values())
         ]
 
     def _build_endpoint_body(
         self, endpoint: EndpointInfo, metadata: typing.Dict[str, typing.Any]
     ) -> typing.Optional[openapi.RequestBody]:
-        if not endpoint.body_field:
+        if not endpoint.body_parameter:
             return None
 
-        schema = endpoint.body_field.schema
+        schema = endpoint.body_parameter.schema
         if schema not in self.schemas:
             self.schemas.register(schema=schema)
 
@@ -331,7 +331,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
                 'OpenAPI description not provided in docstring for main response in endpoint "%s"', endpoint.path
             )
 
-        schema = endpoint.output_field.schema
+        schema = endpoint.output_parameter.schema
         if schema is not None and (is_schema(schema) or is_field(schema)):
             if schema not in self.schemas:
                 self.schemas.register(schema=schema)

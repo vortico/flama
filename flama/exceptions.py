@@ -1,6 +1,5 @@
+import http
 import typing
-
-import starlette.exceptions
 
 import flama.schemas.exceptions
 
@@ -79,12 +78,28 @@ class WebSocketConnectionException(Exception):
     ...
 
 
-class HTTPException(starlette.exceptions.HTTPException):
-    ...
+class HTTPException(Exception):
+    def __init__(
+        self,
+        status_code: int,
+        detail: typing.Optional[typing.Union[str, typing.Dict[str, typing.List[str]]]] = None,
+    ) -> None:
+        if detail is None:
+            detail = http.HTTPStatus(status_code).phrase
+        self.status_code = status_code
+        self.detail = detail
+
+    def __repr__(self) -> str:
+        class_name = self.__class__.__name__
+        return f"{class_name}(status_code={self.status_code!r}, detail={self.detail!r})"
 
 
 class ValidationError(HTTPException):
-    def __init__(self, detail: typing.Union[str, typing.Dict[str, typing.List[str]]], status_code: int = 400):
+    def __init__(
+        self,
+        detail: typing.Optional[typing.Union[str, typing.Dict[str, typing.List[str]]]] = None,
+        status_code: int = 400,
+    ):
         super().__init__(status_code=status_code, detail=detail)
 
 

@@ -87,6 +87,8 @@ class WebSocketEndpoint(BaseWebSocketEndpoint):
     async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data) -> None:
         """Override to handle an incoming websocket message"""
 
-    async def on_disconnect(self, websocket: websockets.WebSocket, websocket_code: websockets.Code) -> None:
+    async def on_disconnect(
+        self, websocket: websockets.WebSocket, websocket_code: websockets.Code
+    ) -> None:  # type: ignore[override]
         """Override to handle a disconnecting websocket"""
         await websocket.close(websocket_code)
