@@ -4,24 +4,25 @@ import typing
 
 from flama import schemas
 
-__all__ = ["FieldLocation", "Field", "Fields", "Methods", "EndpointInfo", "SchemaInfo", "Schemas", "Schema"]
+__all__ = ["ParameterLocation", "Parameter", "Parameters", "Methods", "EndpointInfo", "SchemaInfo", "Schemas", "Schema"]
 
 
-Schema = typing.NewType("Schema", schemas.Schema)
-Schemas = typing.NewType("Schemas", typing.Dict[str, schemas.Schema])
+Field = typing.TypeVar("Field")
+Schema = typing.TypeVar("Schema")
+Schemas = typing.NewType("Schemas", typing.Dict[str, Schema])
 
 
-class FieldLocation(enum.Enum):
+class ParameterLocation(enum.Enum):
     query = enum.auto()
     path = enum.auto()
     body = enum.auto()
     output = enum.auto()
 
 
-class Field(typing.NamedTuple):
+class Parameter(typing.NamedTuple):
     name: str
-    location: FieldLocation
-    schema_type: typing.Union[type, Schema, schemas.Field]
+    location: ParameterLocation
+    schema_type: typing.Union[type, Field, Schema]
     required: bool = False
     default: typing.Any = None
 
@@ -39,18 +40,18 @@ class Field(typing.NamedTuple):
         return schemas.adapter.build_field(field_type=self.schema_type, required=self.required, default=self.default)
 
 
-Fields = typing.Dict[str, Field]
-Methods = typing.Dict[str, Fields]
+Parameters = typing.Dict[str, Parameter]
+Methods = typing.Dict[str, Parameters]
 
 
 class EndpointInfo(typing.NamedTuple):
     path: str
     method: str
     func: typing.Callable
-    query_fields: typing.Dict[str, Field]
-    path_fields: typing.Dict[str, Field]
-    body_field: Field
-    output_field: Field
+    query_parameters: typing.Dict[str, Parameter]
+    path_parameters: typing.Dict[str, Parameter]
+    body_parameter: Parameter
+    output_parameter: Parameter
 
 
 class SchemaInfo(typing.NamedTuple):

@@ -12,7 +12,6 @@ from flama.validation import VALIDATION_COMPONENTS
 
 if typing.TYPE_CHECKING:
     from flama.applications import Flama
-    from flama.components import Component
 
 __all__ = ["Injector"]
 
@@ -41,7 +40,7 @@ class Injector:
         self.validation_components = Components(VALIDATION_COMPONENTS)
 
     @property
-    def components(self) -> typing.List["Component"]:
+    def components(self) -> "Components":
         """Generate the list of custom components followed by asgi and validation components that will be used to
         resolve parameters. It's mandatory to keep this order in the list.
 
@@ -49,7 +48,7 @@ class Injector:
         """
         return self.app.components + self.asgi_components + self.validation_components
 
-    def resolve_parameter(
+    def _resolve_parameter(
         self,
         parameter: inspect.Parameter,
         kwargs: typing.Dict,
@@ -89,7 +88,7 @@ class Injector:
                 kwargs[parameter.name] = identity
                 if identity not in seen_state:
                     seen_state.add(identity)
-                    return self.resolve_component(
+                    return self._resolve_component(
                         resolver=component.resolve,
                         output_name=identity,
                         seen_state=seen_state,
@@ -100,7 +99,7 @@ class Injector:
         else:
             raise ComponentNotFound(parameter.name)
 
-    def resolve_component(
+    def _resolve_component(
         self, resolver: typing.Callable, output_name: str, seen_state: typing.Set, parent_parameter=None
     ) -> typing.List[typing.Tuple]:
         """
@@ -123,7 +122,7 @@ class Injector:
 
         for parameter in signature.parameters.values():
             try:
-                steps += self.resolve_parameter(
+                steps += self._resolve_parameter(
                     parameter, kwargs, consts, seen_state=seen_state, parent_parameter=parent_parameter
                 )
             except ComponentNotFound as e:
@@ -137,7 +136,7 @@ class Injector:
 
         return steps
 
-    def resolve(self, func: typing.Callable) -> typing.Tuple[typing.Dict, typing.Dict, typing.List]:
+    def _resolve(self, func: typing.Callable) -> typing.Tuple[typing.Dict, typing.Dict, typing.List]:
         """
         Inspects a function and creates a resolution list of all components needed to run it. returning
 
@@ -154,14 +153,14 @@ class Injector:
 
         for parameter in signature.parameters.values():
             try:
-                steps += self.resolve_parameter(parameter, kwargs, consts, seen_state=seen_state)
+                steps += self._resolve_parameter(parameter, kwargs, consts, seen_state=seen_state)
             except ComponentNotFound as e:
                 e.function = func.__name__
                 raise e
 
         return kwargs, consts, steps
 
-    async def inject(self, func: typing.Callable, state: typing.Dict) -> typing.Callable:
+    async def inject(self, func: typing.Callable, state: typing.Dict[str, typing.Any]) -> typing.Callable:
         """
         Given a function, injects all components defined in its signature and returns the partialized function.
 
@@ -172,7 +171,7 @@ class Injector:
         try:
             func_kwargs, func_consts, steps = self.resolver_cache[func]
         except KeyError:
-            func_kwargs, func_consts, steps = self.resolve(func)
+            func_kwargs, func_consts, steps = self._resolve(func)
             self.resolver_cache[func] = (func_kwargs, func_consts, steps)
 
         for resolver, is_async, kwargs, consts, output_name in steps:

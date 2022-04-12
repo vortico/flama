@@ -13,7 +13,7 @@ from starlette.middleware.wsgi import WSGIMiddleware
 try:
     from starlette.middleware.sessions import SessionMiddleware
 except Exception:
-    SessionMiddleware = None
+    SessionMiddleware = None  # type: ignore
 
 __all__ = [
     "Middleware",

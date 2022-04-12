@@ -1,50 +1,74 @@
 import inspect
 import typing
 
-from flama.schemas.types import Field, FieldLocation, Fields, Methods
+from flama.schemas.types import Methods, Parameter, ParameterLocation, Parameters
 from flama.schemas.utils import is_schema
 from flama.types import FIELDS_TYPE_MAPPING, OPTIONAL_FIELD_TYPE_MAPPING
 
 if typing.TYPE_CHECKING:
-    from flama.applications import Flama
+    from flama.components import Components
+    from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
+    from flama.routing import Route, WebSocketRoute
+
+__all__ = ["RouteParametersMixin"]
 
 
-class RouteFieldsMixin:
-    """
-    Mixin for adding fields discovery behavior to Routes.
-    """
+class ParametersDescriptor:
+    def __init__(self):
+        self._route = None
 
-    def _get_parameters_from_handler(
-        self, handler: typing.Callable, app: "Flama"
+    def __get__(self, instance, owner):
+        self._route = instance
+
+        return self
+
+    @property
+    def query(self) -> typing.Dict[str, Parameters]:
+        return self._get_parameters(self._route)[0]
+
+    @property
+    def path(self) -> typing.Dict[str, Parameters]:
+        return self._get_parameters(self._route)[1]
+
+    @property
+    def body(self) -> typing.Dict[str, typing.Optional[Parameter]]:
+        return self._get_parameters(self._route)[2]
+
+    @property
+    def output(self) -> typing.Dict[str, Parameter]:
+        return self._get_parameters(self._route)[3]
+
+    def _inspect_parameters_from_handler(
+        self, handler: typing.Callable, components: "Components"
     ) -> typing.Dict[str, inspect.Parameter]:
         parameters = {}
 
         for name, parameter in inspect.signature(handler).parameters.items():
-            for component in app.components:
+            for component in components:
                 if component.can_handle_parameter(parameter):
-                    parameters.update(self._get_parameters_from_handler(component.resolve, app))
+                    parameters.update(self._inspect_parameters_from_handler(component.resolve, components))
                     break
             else:
                 parameters[name] = parameter
 
         return parameters
 
-    def _get_fields_from_handler(
-        self, handler: typing.Callable, app: "Flama"
-    ) -> typing.Tuple[Fields, Fields, Field, typing.Any]:
-        query_fields: Fields = {}
-        path_fields: Fields = {}
-        body_field: Field = None
+    def _get_parameters_from_handler(
+        self, handler: typing.Callable, path_params: typing.Sequence[str], components: "Components"
+    ) -> typing.Tuple[Parameters, Parameters, typing.Optional[Parameter], Parameter]:
+        query_parameters: Parameters = {}
+        path_parameters: Parameters = {}
+        body_parameter: typing.Optional[Parameter] = None
 
         # Iterate over all params
-        for name, param in self._get_parameters_from_handler(handler, app).items():
+        for name, param in self._inspect_parameters_from_handler(handler, components).items():
             if name in ("self", "cls"):
                 continue
             # Matches as path param
-            if name in self.param_convertors.keys():
-                path_fields[name] = Field(
+            if name in path_params:
+                path_parameters[name] = Parameter(
                     name=name,
-                    location=FieldLocation.path,
+                    location=ParameterLocation.path,
                     schema_type=FIELDS_TYPE_MAPPING.get(param.annotation, str),
                     required=True,
                 )
@@ -57,80 +81,57 @@ class RouteFieldsMixin:
                     required = True
                     default = None
 
-                query_fields[name] = Field(
+                query_parameters[name] = Parameter(
                     name=name,
-                    location=FieldLocation.query,
+                    location=ParameterLocation.query,
                     schema_type=FIELDS_TYPE_MAPPING[param.annotation],
                     required=required,
                     default=default,
                 )
             # Body params
             elif is_schema(param.annotation):
-                body_field = Field(name=name, location=FieldLocation.body, schema_type=param.annotation)
+                body_parameter = Parameter(name=name, location=ParameterLocation.body, schema_type=param.annotation)
 
         # Output param
         output_annotation = inspect.signature(handler).return_annotation
-        output_field = Field(
+        output_parameter = Parameter(
             name="_output",
-            location=FieldLocation.output,
+            location=ParameterLocation.output,
             schema_type=output_annotation if output_annotation != inspect.Signature.empty else None,
         )
 
-        return query_fields, path_fields, body_field, output_field
+        return query_parameters, path_parameters, body_parameter, output_parameter
 
-    def _get_fields(
-        self, app: "Flama"
-    ) -> typing.Tuple[Methods, Methods, typing.Dict[str, Field], typing.Dict[str, typing.Any]]:
-        query_fields: Methods = {}
-        path_fields: Methods = {}
-        body_field: typing.Dict[str, Field] = {}
-        output_field: typing.Dict[str, typing.Any] = {}
+    def _get_parameters(
+        self, route: typing.Union["HTTPEndpoint", "Route", "WebSocketEndpoint", "WebSocketRoute"] = None
+    ) -> typing.Tuple[Methods, Methods, typing.Dict[str, typing.Optional[Parameter]], typing.Dict[str, Parameter]]:
+        query_parameters: Methods = {}
+        path_parameters: Methods = {}
+        body_parameter: typing.Dict[str, typing.Optional[Parameter]] = {}
+        output_parameter: typing.Dict[str, Parameter] = {}
 
-        if hasattr(self, "methods") and self.methods is not None:
-            if inspect.isclass(self.endpoint):  # HTTP endpoint
-                methods = [(m, getattr(self.endpoint, m.lower() if m != "HEAD" else "get")) for m in self.methods]
+        if hasattr(route, "methods") and route.methods is not None:
+            if inspect.isclass(route.endpoint):  # HTTP endpoint
+                methods = [(m, getattr(route.endpoint, m.lower() if m != "HEAD" else "get")) for m in route.methods]
             else:  # HTTP function
-                methods = [(m, self.endpoint) for m in self.methods] if self.methods else []
+                methods = [(m, route.endpoint) for m in route.methods] if route.methods else []
         else:  # Websocket
-            methods = [("GET", self.endpoint)]
+            methods = [("GET", route.endpoint)]
 
-        for m, h in methods:
-            query_fields[m], path_fields[m], body_field[m], output_field[m] = self._get_fields_from_handler(h, app)
+        for method, handler in methods:
+            (
+                query_parameters[method],
+                path_parameters[method],
+                body_parameter[method],
+                output_parameter[method],
+            ) = self._get_parameters_from_handler(handler, route.param_convertors.keys(), route.main_app.components)
 
-        return query_fields, path_fields, body_field, output_field
+        return query_parameters, path_parameters, body_parameter, output_parameter
 
-    @property
-    def query_fields(self):
-        if not hasattr(self, "_query_fields"):  # noqa
-            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(
-                self.main_app
-            )
 
-        return self._query_fields
+class RouteParametersMixin:
+    """
+    Mixin for adding fields discovery behavior to Routes.
+    """
 
-    @property
-    def path_fields(self):
-        if not hasattr(self, "_path_fields"):  # noqa
-            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(
-                self.main_app
-            )
-
-        return self._path_fields
-
-    @property
-    def body_field(self):
-        if not hasattr(self, "_body_field"):  # noqa
-            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(
-                self.main_app
-            )
-
-        return self._body_field
-
-    @property
-    def output_field(self):
-        if not hasattr(self, "_output_field"):  # noqa
-            self._query_fields, self._path_fields, self._body_field, self._output_field = self._get_fields(
-                self.main_app
-            )
-
-        return self._output_field
+    parameters = ParametersDescriptor()
