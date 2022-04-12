@@ -31,7 +31,7 @@ class CreateMixin:
         mcs, name: str, verbose_name: str, schemas: types.Schemas, model: types.Model, **kwargs
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/", methods=["POST"], name=f"{name}-create")
-        async def create(self, element: schemas.input.schema) -> schemas.output.schema:
+        async def create(self, element: schemas.input.schema) -> schemas.output.schema:  # type: ignore[name-defined]
             if element.get(model.primary_key.name) is None:
                 element.pop(model.primary_key.name, None)
 
@@ -67,7 +67,9 @@ class RetrieveMixin:
         mcs, name: str, verbose_name: str, schemas: types.Schemas, model: types.Model, **kwargs
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["GET"], name=f"{name}-retrieve")
-        async def retrieve(self, element_id: model.primary_key.type) -> schemas.output.schema:
+        async def retrieve(
+            self, element_id: model.primary_key.type
+        ) -> schemas.output.schema:  # type: ignore[name-defined]
             async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select().where(self.model.c[model.primary_key.name] == element_id)
                 result = await connection.execute(query)
@@ -104,8 +106,8 @@ class UpdateMixin:
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["PUT"], name=f"{name}-update")
         async def update(
-            self, element_id: model.primary_key.type, element: schemas.input.schema
-        ) -> schemas.output.schema:
+            self, element_id: model.primary_key.type, element: schemas.input.schema  # type: ignore[name-defined]
+        ) -> schemas.output.schema:  # type: ignore[name-defined]
             async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select().where(
                     self.model.select().where(self.model.c[model.primary_key.name] == element_id).exists()
@@ -155,7 +157,7 @@ class DeleteMixin:
     @classmethod
     def _add_delete(mcs, name: str, verbose_name: str, model: types.Model, **kwargs) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["DELETE"], name=f"{name}-delete")
-        async def delete(self, element_id: model.primary_key.type):
+        async def delete(self, element_id: model.primary_key.type):  # type: ignore[name-defined]
             async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select().where(
                     self.model.select().where(self.model.c[model.primary_key.name] == element_id).exists()
@@ -207,7 +209,7 @@ class ListMixin:
 
         @resource_method("/", methods=["GET"], name=f"{name}-list")
         @paginator.page_number(schema_name=schemas.output.name)
-        async def list(self, **kwargs) -> schemas.output.schema:
+        async def list(self, **kwargs) -> schemas.output.schema:  # type: ignore[name-defined]
             return await self._filter()  # noqa
 
         list.__doc__ = f"""

@@ -11,7 +11,7 @@ class ContentTypeNegotiator:
     def __init__(self, codecs: typing.Optional[typing.List[HTTPCodec]] = None):
         self.codecs = codecs or []
 
-    def negotiate(self, content_type: str = None) -> WebsocketsCodec:
+    def negotiate(self, content_type: str = None) -> HTTPCodec:
         """
         Given the value of a 'Content-Type' header, return the appropriate codec for decoding the request content.
         """

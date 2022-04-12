@@ -6,8 +6,8 @@ from flama import http
 from flama.components import Component
 
 ASGIScope = typing.NewType("ASGIScope", dict)
-ASGIReceive = typing.NewType("ASGIReceive", typing.Callable)
-ASGISend = typing.NewType("ASGISend", typing.Callable)
+ASGIReceive = typing.Callable[..., typing.Awaitable[typing.Dict[str, typing.Any]]]
+ASGISend = typing.Callable[..., typing.Awaitable[typing.Any]]
 
 
 class MethodComponent(Component):
@@ -55,7 +55,7 @@ class QueryParamComponent(Component):
     def resolve(self, parameter: Parameter, query_params: http.QueryParams) -> http.QueryParam:
         name = parameter.name
         if name not in query_params:
-            return None
+            return None  # type: ignore[return-value]
         return http.QueryParam(query_params[name])
 
 
@@ -68,7 +68,7 @@ class HeaderComponent(Component):
     def resolve(self, parameter: Parameter, headers: http.Headers) -> http.Header:
         name = parameter.name.replace("_", "-")
         if name not in headers:
-            return None
+            return None  # type: ignore[return-value]
         return http.Header(headers[name])
 
 

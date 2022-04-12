@@ -75,8 +75,8 @@ class Flama(Starlette):
 
         # Initialize Modules
         self.modules = Modules(
-            modules=[*DEFAULT_MODULES, *(modules or [])],
-            app=self,
+            [*DEFAULT_MODULES, *(modules or [])],
+            self,
             *args,
             **{
                 **{
