@@ -69,7 +69,7 @@ class APIResponse(JSONResponse):
 
     def __init__(self, content: typing.Any = None, schema: typing.Optional[Schema] = None, *args, **kwargs):
         self.schema = schema
-        super().__init__(content=content, *args, **kwargs)
+        super().__init__(content, *args, **kwargs)
 
     def render(self, content: typing.Any):
         if content and is_schema_instance(content):  # pragma: no cover (only apply to marshmallow)
@@ -100,7 +100,7 @@ class APIErrorResponse(APIResponse):
             "status_code": status_code,
         }
 
-        super().__init__(schema=schemas.schemas.APIError, content=content, status_code=status_code, *args, **kwargs)
+        super().__init__(content, schemas.schemas.APIError, status_code=status_code, *args, **kwargs)
 
         self.detail = detail
         self.exception = exception
@@ -114,7 +114,7 @@ class HTMLFileResponse(HTMLResponse):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-        super().__init__(content=content, *args, **kwargs)
+        super().__init__(content, *args, **kwargs)
 
 
 class OpenAPIResponse(starlette_schemas.OpenAPIResponse):

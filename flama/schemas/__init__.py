@@ -19,10 +19,10 @@ __all__ = [
     "schemas",
 ]
 
-Field: "types.Field" = None
-Schema: "types.Schema" = None
+Field = None
+Schema = None
 adapter: "Adapter" = None
-fields: typing.Dict[typing.Any, "types.Field"] = None
+fields: typing.Dict[typing.Any, "types.Parameter"] = None
 lib: typing.Any = None
 schemas: typing.Any = None
 

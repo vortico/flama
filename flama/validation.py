@@ -56,7 +56,7 @@ class WebSocketMessageDataComponent(Component):
 
 class ValidatePathParamsComponent(Component):
     async def resolve(self, request: http.Request, route: Route, path_params: http.PathParams) -> ValidatedPathParams:
-        fields = {f.name: f.schema for f in route.path_fields[request.method].values()}
+        fields = {f.name: f.schema for f in route.parameters.path[request.method].values()}
 
         try:
             validated = schemas.adapter.validate(schemas.adapter.build_schema(fields=fields), path_params)
@@ -67,10 +67,10 @@ class ValidatePathParamsComponent(Component):
 
 class ValidateQueryParamsComponent(Component):
     def resolve(self, request: http.Request, route: Route, query_params: http.QueryParams) -> ValidatedQueryParams:
-        fields = {f.name: f.schema for f in route.query_fields[request.method].values()}
+        fields = {f.name: f.schema for f in route.parameters.query[request.method].values()}
 
         try:
-            validated = schemas.adapter.validate(schemas.adapter.build_schema(fields=fields), query_params)
+            validated = schemas.adapter.validate(schemas.adapter.build_schema(fields=fields), dict(query_params))
             return ValidatedQueryParams({k: v for k, v in query_params.items() if k in validated})
         except schemas.SchemaValidationError as exc:
             raise exceptions.ValidationError(detail=exc.errors)
@@ -81,10 +81,10 @@ class ValidateRequestDataComponent(Component):
         return parameter.annotation is ValidatedRequestData
 
     def resolve(self, request: http.Request, route: Route, data: http.RequestData):
-        validator = route.body_field[request.method].schema
+        validator = route.parameters.body[request.method].schema
 
         try:
-            return schemas.adapter.validate(validator, data)
+            return schemas.adapter.validate(validator, dict(data))
         except schemas.SchemaValidationError as exc:  # noqa: safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
 
@@ -105,7 +105,7 @@ class PrimitiveParamComponent(Component):
             required = True
             default = None
 
-        param_validator = schemas.adapter.build_field(
+        param_validator: schemas.Field = schemas.adapter.build_field(
             field_type=FIELDS_TYPE_MAPPING[parameter.annotation], required=required, default=default
         )
 

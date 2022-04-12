@@ -12,7 +12,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from flama import http, websockets
 from flama.components import Component, Components
 from flama.responses import APIResponse, Response
-from flama.schemas.routing import RouteFieldsMixin
+from flama.schemas.routing import RouteParametersMixin
 from flama.schemas.utils import is_schema_instance
 from flama.schemas.validation import get_output_schema
 from flama.types import HTTPMethod
@@ -51,7 +51,7 @@ async def prepare_http_request(app: "Flama", handler: typing.Callable, state: ty
     return response
 
 
-class BaseRoute(starlette.routing.BaseRoute, RouteFieldsMixin):
+class BaseRoute(RouteParametersMixin, starlette.routing.BaseRoute):
     @property
     def main_app(self) -> "Flama":
         try:
@@ -103,7 +103,7 @@ class BaseRoute(starlette.routing.BaseRoute, RouteFieldsMixin):
             ...
 
 
-class Route(starlette.routing.Route, BaseRoute):
+class Route(BaseRoute, starlette.routing.Route):
     def __init__(
         self, path: str, endpoint: typing.Callable, main_app: typing.Optional["Flama"] = None, *args, **kwargs
     ):
@@ -144,7 +144,7 @@ class Route(starlette.routing.Route, BaseRoute):
         return _app
 
 
-class WebSocketRoute(starlette.routing.WebSocketRoute, BaseRoute):
+class WebSocketRoute(BaseRoute, starlette.routing.WebSocketRoute):
     def __init__(self, path: str, endpoint: typing.Callable, main_app: "Flama" = None, *args, **kwargs):
         super().__init__(path, endpoint=endpoint, **kwargs)
 
@@ -189,13 +189,13 @@ class WebSocketRoute(starlette.routing.WebSocketRoute, BaseRoute):
         return _app
 
 
-class Mount(starlette.routing.Mount, BaseRoute):
+class Mount(BaseRoute, starlette.routing.Mount):
     def __init__(
         self,
         path: str,
         main_app: "Flama" = None,
         app: ASGIApp = None,
-        routes: typing.List[BaseRoute] = None,
+        routes: typing.Sequence[BaseRoute] = None,
         name: str = None,
     ):
         if app is None:
@@ -211,8 +211,8 @@ class Router(starlette.routing.Router):
     def __init__(
         self,
         main_app: "Flama" = None,
-        components: typing.List["Component"] = None,
-        routes: typing.List[BaseRoute] = None,
+        components: typing.Sequence["Component"] = None,
+        routes: typing.Sequence[BaseRoute] = None,
         lifespan: typing.Optional["Lifespan"] = None,
         *args,
         **kwargs,
@@ -220,7 +220,7 @@ class Router(starlette.routing.Router):
         self._components = Components([*(components or [])])
         super().__init__(routes=routes, lifespan=lifespan, *args, **kwargs)  # type: ignore[misc]
         self.lifespan: typing.Optional["Lifespan"]  # type: ignore[assignment]
-        self.routes: typing.List[BaseRoute]  # type: ignore[assignment]
+        self.routes: typing.List[BaseRoute] = list(self.routes)  # type: ignore[assignment]
 
         if main_app is not None:
             self.main_app = main_app

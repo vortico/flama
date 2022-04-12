@@ -5,7 +5,7 @@ import pytest
 import typesystem
 
 from flama import Component, Flama, HTTPEndpoint, Route, Router, WebSocketEndpoint, WebSocketRoute, websockets
-from flama.schemas.types import Field, FieldLocation
+from flama.schemas.types import Parameter, ParameterLocation
 
 
 class Custom:
@@ -20,10 +20,6 @@ class TestCaseRouteFieldsMixin:
                 return Custom()
 
         return CustomComponent
-
-    @pytest.fixture
-    def app(self, app, component):
-        return Flama(components=[component()], schema=None, docs=None)
 
     @pytest.fixture
     def foo_schema(self, app):
@@ -70,7 +66,11 @@ class TestCaseRouteFieldsMixin:
 
         return WebSocketRoute("/foo", endpoint=FooWebsocket)
 
-    def test_get_parameters_from_handler(self, route, app, foo_schema):
+    @pytest.fixture(autouse=True)
+    def app(self, app, component, route, endpoint, websocket):
+        return Flama(routes=[route, endpoint, websocket], components=[component()], schema=None, docs=None)
+
+    def test_inspect_parameters_from_handler(self, route, app, foo_schema):
         expected_parameters = {
             "x": inspect.Parameter("x", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int, default=1),
             "y": inspect.Parameter("y", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=str, default=None),
@@ -78,108 +78,112 @@ class TestCaseRouteFieldsMixin:
             "ax": inspect.Parameter("ax", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int),
             "w": inspect.Parameter("w", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int),
         }
-        assert route._get_parameters_from_handler(route.endpoint, app) == expected_parameters
+        assert route.parameters._inspect_parameters_from_handler(route.endpoint, app.components) == expected_parameters
 
-    def test_get_fields_from_handler(self, route, app, foo_schema):
+    def test_get_parameters_from_handler(self, route, app, foo_schema):
         expected_query_fields = {
-            "x": Field("x", FieldLocation.query, schema_type=int, required=False, default=1),
-            "y": Field("y", FieldLocation.query, schema_type=str, required=False, default=None),
-            "ax": Field("ax", FieldLocation.query, schema_type=int, required=True),
+            "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
+            "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
+            "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
         }
         expected_path_fields = {
-            "w": Field("w", FieldLocation.path, schema_type=int, required=True),
+            "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
         }
-        expected_body_field = Field("z", FieldLocation.body, schema_type=foo_schema, required=False)
-        expected_output_field = Field("_output", FieldLocation.output, schema_type=foo_schema, required=False)
+        expected_body_field = Parameter("z", ParameterLocation.body, schema_type=foo_schema, required=False)
+        expected_output_field = Parameter("_output", ParameterLocation.output, schema_type=foo_schema, required=False)
 
-        query_fields, path_fields, body_field, output_field = route._get_fields_from_handler(route.endpoint, app)
+        query_fields, path_fields, body_field, output_field = route.parameters._get_parameters_from_handler(
+            route.endpoint, route.param_convertors.keys(), app.components
+        )
 
         assert query_fields == expected_query_fields
         assert path_fields == expected_path_fields
         assert body_field == expected_body_field
         assert output_field == expected_output_field
 
-    def test_get_fields_function(self, route, app, foo_schema):
+    def test_get_parameters_function(self, route, app, foo_schema):
         expected_query_fields = {
             "GET": {
-                "x": Field("x", FieldLocation.query, schema_type=int, required=False, default=1),
-                "y": Field("y", FieldLocation.query, schema_type=str, required=False, default=None),
-                "ax": Field("ax", FieldLocation.query, schema_type=int, required=True),
+                "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
+                "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
+                "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
             },
             "HEAD": {
-                "x": Field("x", FieldLocation.query, schema_type=int, required=False, default=1),
-                "y": Field("y", FieldLocation.query, schema_type=str, required=False, default=None),
-                "ax": Field("ax", FieldLocation.query, schema_type=int, required=True),
+                "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
+                "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
+                "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
             },
         }
         expected_path_fields = {
             "GET": {
-                "w": Field("w", FieldLocation.path, schema_type=int, required=True),
+                "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
             },
             "HEAD": {
-                "w": Field("w", FieldLocation.path, schema_type=int, required=True),
+                "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
             },
         }
         expected_body_field = {
-            "GET": Field("z", FieldLocation.body, schema_type=foo_schema, required=False),
-            "HEAD": Field("z", FieldLocation.body, schema_type=foo_schema, required=False),
+            "GET": Parameter("z", ParameterLocation.body, schema_type=foo_schema, required=False),
+            "HEAD": Parameter("z", ParameterLocation.body, schema_type=foo_schema, required=False),
         }
         expected_output_field = {
-            "GET": Field("_output", FieldLocation.output, schema_type=foo_schema, required=False),
-            "HEAD": Field("_output", FieldLocation.output, schema_type=foo_schema, required=False),
+            "GET": Parameter("_output", ParameterLocation.output, schema_type=foo_schema, required=False),
+            "HEAD": Parameter("_output", ParameterLocation.output, schema_type=foo_schema, required=False),
         }
 
-        query_fields, path_fields, body_field, output_field = route._get_fields(app)
+        query_fields, path_fields, body_field, output_field = route.parameters._get_parameters(route)
 
         assert query_fields == expected_query_fields
         assert path_fields == expected_path_fields
         assert body_field == expected_body_field
         assert output_field == expected_output_field
 
-    def test_get_fields_endpoint(self, endpoint, app, foo_schema):
+    def test_get_parameters_endpoint(self, endpoint, app, foo_schema):
         expected_query_fields = {
             "GET": {
-                "x": Field("x", FieldLocation.query, schema_type=int, required=False, default=1),
-                "y": Field("y", FieldLocation.query, schema_type=str, required=False, default=None),
-                "ax": Field("ax", FieldLocation.query, schema_type=int, required=True),
+                "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
+                "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
+                "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
             },
             "HEAD": {
-                "x": Field("x", FieldLocation.query, schema_type=int, required=False, default=1),
-                "y": Field("y", FieldLocation.query, schema_type=str, required=False, default=None),
-                "ax": Field("ax", FieldLocation.query, schema_type=int, required=True),
+                "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
+                "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
+                "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
             },
         }
         expected_path_fields = {
             "GET": {
-                "w": Field("w", FieldLocation.path, schema_type=int, required=True),
+                "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
             },
             "HEAD": {
-                "w": Field("w", FieldLocation.path, schema_type=int, required=True),
+                "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
             },
         }
         expected_body_field = {
-            "GET": Field("z", FieldLocation.body, schema_type=foo_schema, required=False),
-            "HEAD": Field("z", FieldLocation.body, schema_type=foo_schema, required=False),
+            "GET": Parameter("z", ParameterLocation.body, schema_type=foo_schema, required=False),
+            "HEAD": Parameter("z", ParameterLocation.body, schema_type=foo_schema, required=False),
         }
         expected_output_field = {
-            "GET": Field("_output", FieldLocation.output, schema_type=foo_schema, required=False),
-            "HEAD": Field("_output", FieldLocation.output, schema_type=foo_schema, required=False),
+            "GET": Parameter("_output", ParameterLocation.output, schema_type=foo_schema, required=False),
+            "HEAD": Parameter("_output", ParameterLocation.output, schema_type=foo_schema, required=False),
         }
 
-        query_fields, path_fields, body_field, output_field = endpoint._get_fields(app)
+        query_fields, path_fields, body_field, output_field = endpoint.parameters._get_parameters(endpoint)
 
         assert query_fields == expected_query_fields
         assert path_fields == expected_path_fields
         assert body_field == expected_body_field
         assert output_field == expected_output_field
 
-    def test_get_fields_websocket(self, websocket, app, foo_schema):
+    def test_get_parameters_websocket(self, websocket, app, foo_schema):
         expected_query_fields = {"GET": {}}
         expected_path_fields = {"GET": {}}
         expected_body_field = {"GET": None}
-        expected_output_field = {"GET": Field("_output", FieldLocation.output, schema_type=None, required=False)}
+        expected_output_field = {
+            "GET": Parameter("_output", ParameterLocation.output, schema_type=None, required=False)
+        }
 
-        query_fields, path_fields, body_field, output_field = websocket._get_fields(app)
+        query_fields, path_fields, body_field, output_field = websocket.parameters._get_parameters(websocket)
 
         assert query_fields == expected_query_fields
         assert path_fields == expected_path_fields
