@@ -5,7 +5,6 @@ from starlette.applications import Starlette
 from starlette.exceptions import ExceptionMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 
-from flama.components import Components
 from flama.exceptions import HTTPException
 from flama.injection import Injector
 from flama.lifespan import Lifespan
@@ -21,7 +20,7 @@ if typing.TYPE_CHECKING:
     from starlette.middleware import Middleware
     from starlette.types import ASGIApp
 
-    from flama.components import Component
+    from flama.components import Component, Components
     from flama.http import Request, Response
     from flama.modules import Module
     from flama.routing import BaseRoute, Mount
@@ -59,7 +58,7 @@ class Flama(Starlette):
         self.router = Router(
             main_app=self,
             routes=routes,
-            components=Components([*(components or [])]),
+            components=components,
             on_startup=on_startup,
             on_shutdown=on_shutdown,
             lifespan=Lifespan(self, lifespan),
@@ -101,10 +100,10 @@ class Flama(Starlette):
 
     @property
     def injector(self) -> Injector:
-        return Injector(app=self)
+        return Injector(self.components)
 
     @property
-    def components(self) -> Components:
+    def components(self) -> "Components":
         return self.router.components
 
     def mount(self, path: str, app: "ASGIApp", name: str = None) -> None:

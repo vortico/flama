@@ -3,7 +3,7 @@ from inspect import Parameter
 from urllib.parse import parse_qsl
 
 from flama import http
-from flama.components import Component
+from flama.components import Component, Components
 
 ASGIScope = typing.NewType("ASGIScope", dict)
 ASGIReceive = typing.Callable[..., typing.Awaitable[typing.Dict[str, typing.Any]]]
@@ -86,17 +86,19 @@ class BodyComponent(Component):
         return http.Body(body)
 
 
-ASGI_COMPONENTS = [
-    MethodComponent(),
-    URLComponent(),
-    SchemeComponent(),
-    HostComponent(),
-    PortComponent(),
-    PathComponent(),
-    QueryStringComponent(),
-    QueryParamsComponent(),
-    QueryParamComponent(),
-    HeadersComponent(),
-    HeaderComponent(),
-    BodyComponent(),
-]
+ASGI_COMPONENTS = Components(
+    [
+        MethodComponent(),
+        URLComponent(),
+        SchemeComponent(),
+        HostComponent(),
+        PortComponent(),
+        PathComponent(),
+        QueryStringComponent(),
+        QueryParamsComponent(),
+        QueryParamComponent(),
+        HeadersComponent(),
+        HeaderComponent(),
+        BodyComponent(),
+    ]
+)

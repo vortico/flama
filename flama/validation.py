@@ -4,7 +4,7 @@ import typing
 from starlette import status
 
 from flama import codecs, exceptions, http, schemas, websockets
-from flama.components import Component
+from flama.components import Component, Components
 from flama.exceptions import WebSocketException
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from flama.routing import Route
@@ -126,12 +126,14 @@ class CompositeParamComponent(Component):
         return data
 
 
-VALIDATION_COMPONENTS = [
-    RequestDataComponent(),
-    WebSocketMessageDataComponent(),
-    ValidatePathParamsComponent(),
-    ValidateQueryParamsComponent(),
-    ValidateRequestDataComponent(),
-    PrimitiveParamComponent(),
-    CompositeParamComponent(),
-]
+VALIDATION_COMPONENTS = Components(
+    [
+        RequestDataComponent(),
+        WebSocketMessageDataComponent(),
+        ValidatePathParamsComponent(),
+        ValidateQueryParamsComponent(),
+        ValidateRequestDataComponent(),
+        PrimitiveParamComponent(),
+        CompositeParamComponent(),
+    ]
+)
