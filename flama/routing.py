@@ -248,9 +248,9 @@ class Router(starlette.routing.Router):
 
     @property
     def components(self) -> Components:
-        return self._components + [
-            component for route in self.routes for component in getattr(route.app, "components", [])
-        ]
+        return self._components + Components(
+            [component for route in self.routes for component in getattr(route.app, "components", [])]
+        )
 
     def mount(self, path: str, app: ASGIApp, name: str = None) -> None:
         try:
