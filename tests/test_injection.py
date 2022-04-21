@@ -13,12 +13,29 @@ class Puppy:
     name = "Canna"
 
 
-class Unknown(Puppy):
+class Owner:
+    name = "Perdy"
+
+    def __init__(self, puppy: Puppy):
+        self.puppy = puppy
+
+
+class Unknown:
     pass
 
 
 class Foo:
     name = "Foo"
+
+
+class ParamObject1:
+    def __init__(self, param):
+        self.param = param
+
+
+class ParamObject2:
+    def __init__(self, param):
+        self.param = param
 
 
 class TestCaseComponentsInjection:
@@ -38,9 +55,35 @@ class TestCaseComponentsInjection:
 
         return UnknownParamComponent()
 
+    @pytest.fixture(scope="class")
+    def owner_component(self):
+        class OwnerComponent(Component):
+            def resolve(self, puppy: Puppy) -> Owner:
+                return Owner(puppy=puppy)
+
+        return OwnerComponent()
+
+    @pytest.fixture(scope="class")
+    def param_component_1(self):
+        class ParamComponent1(Component):
+            def resolve(self, param: str) -> ParamObject1:
+                return ParamObject1(param=param)
+
+        return ParamComponent1()
+
+    @pytest.fixture(scope="class")
+    def param_component_2(self):
+        class ParamComponent2(Component):
+            def resolve(self, param: str) -> ParamObject2:
+                return ParamObject2(param=param)
+
+        return ParamComponent2()
+
     @pytest.fixture
-    def app(self, app, puppy_component, unknown_param_component):
-        return Flama(components=[puppy_component, unknown_param_component])
+    def app(self, app, puppy_component, owner_component, param_component_1, param_component_2, unknown_param_component):
+        return Flama(
+            components=[puppy_component, owner_component, param_component_1, param_component_2, unknown_param_component]
+        )
 
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
@@ -59,6 +102,22 @@ class TestCaseComponentsInjection:
             await session.send_json({"puppy": puppy.name})
             await session.close()
 
+        @app.route("/nested-component/")
+        async def nested_component_view(owner: Owner):
+            return {"name": owner.name, "puppy": {"name": owner.puppy.name}}
+
+        @app.route("/param-1-component/")
+        async def param_1_components_view(param: ParamObject1):
+            return {"param": param.param}
+
+        @app.route("/param-2-component/")
+        async def param_2_components_view(param: ParamObject2):
+            return {"param": param.param}
+
+        @app.route("/same-param-components/")
+        async def same_param_components_view(param1: ParamObject1, param2: ParamObject2):
+            return {"param1": param1.param, "param2": param2.param}
+
         @app.route("/unknown-component/")
         def unknown_component_view(unknown: Unknown):
             return JSONResponse({"foo": "bar"})
@@ -68,18 +127,37 @@ class TestCaseComponentsInjection:
             return JSONResponse({"foo": "bar"})
 
     def test_injection_http_view(self, client):
-        response = client.get("/http-view/")
-        assert response.status_code == 200
-        assert response.json() == {"puppy": "Canna"}
+        with client.get("/http-view/") as response:
+            assert response.status_code == 200
+            assert response.json() == {"puppy": "Canna"}
 
     def test_injection_http_endpoint(self, client):
-        response = client.get("/http-endpoint/")
-        assert response.status_code == 200
-        assert response.json() == {"puppy": "Canna"}
+        with client.get("/http-endpoint/") as response:
+            assert response.status_code == 200
+            assert response.json() == {"puppy": "Canna"}
 
     def test_injection_websocket_view(self, client):
         with client.websocket_connect("/websocket-view/") as websocket:
             assert websocket.receive_json() == {"puppy": "Canna"}
+
+    def test_nested_component(self, client):
+        with client.get("/nested-component/") as response:
+            assert response.status_code == 200
+            assert response.json() == {"name": "Perdy", "puppy": {"name": "Canna"}}
+
+    def test_same_param_components_single_view(self, client):
+        with client.get("/same-param-components/", params={"param": "foo"}) as response:
+            assert response.status_code == 200
+            assert response.json() == {"param1": "foo", "param2": "foo"}
+
+    def test_same_param_components_multiple_views(self, client):
+        with client.get("/param-1-component/", params={"param": "foo"}) as response:
+            assert response.status_code == 200
+            assert response.json() == {"param": "foo"}
+
+        with client.get("/param-2-component/", params={"param": "foo"}) as response:
+            assert response.status_code == 200
+            assert response.json() == {"param": "foo"}
 
     def test_unknown_component(self, client):
         with pytest.raises(
