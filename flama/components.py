@@ -18,16 +18,19 @@ class _BaseComponent(metaclass=ABCMeta):
         :param parameter: The parameter to check if that component can handle it.
         :return: Unique identifier.
         """
-        parameter_name = parameter.name.lower()
-        annotation_id = str(id(parameter.annotation))
+        try:
+            parameter_type = parameter.annotation.__name__
+        except AttributeError:
+            parameter_type = parameter.annotation.__class__.__name__
+        component_id = f"{id(parameter.annotation)}:{parameter_type}"
 
         # If `resolve_parameter` includes `Parameter` then we use an identifier that is additionally parameterized by
         # the parameter name.
         args = inspect.signature(self.resolve).parameters.values()  # type: ignore[attr-defined]
         if inspect.Parameter in [arg.annotation for arg in args]:
-            return f"{annotation_id}:{parameter_name}"
+            component_id += f":{parameter.name.lower()}"
 
-        return annotation_id
+        return component_id
 
     def can_handle_parameter(self, parameter: inspect.Parameter) -> bool:
         """
@@ -79,7 +82,7 @@ class Components(MutableSequence[Component]):
     def __len__(self) -> int:
         return self._components.__len__()
 
-    def __add__(self, other: typing.List[Component]) -> "Components":
+    def __add__(self, other: "Components") -> "Components":
         return Components(self._components + list(other))
 
     def __eq__(self, other: object) -> bool:

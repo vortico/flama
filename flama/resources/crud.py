@@ -68,7 +68,7 @@ class RetrieveMixin:
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["GET"], name=f"{name}-retrieve")
         async def retrieve(
-            self, element_id: model.primary_key.type
+            self, element_id: model.primary_key.type  # type: ignore[name-defined]
         ) -> schemas.output.schema:  # type: ignore[name-defined]
             async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select().where(self.model.c[model.primary_key.name] == element_id)
