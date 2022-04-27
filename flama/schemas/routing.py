@@ -1,13 +1,12 @@
 import inspect
 import typing
 
+from flama import schemas
 from flama.schemas.types import Methods, Parameter, ParameterLocation, Parameters
-from flama.schemas.utils import is_schema
 from flama.types import FIELDS_TYPE_MAPPING, OPTIONAL_FIELD_TYPE_MAPPING
 
 if typing.TYPE_CHECKING:
     from flama.components import Components
-    from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
     from flama.routing import Route, WebSocketRoute
 
 __all__ = ["RouteParametersMixin"]
@@ -46,7 +45,11 @@ class ParametersDescriptor:
         for name, parameter in inspect.signature(handler).parameters.items():
             for component in components:
                 if component.can_handle_parameter(parameter):
-                    parameters.update(self._inspect_parameters_from_handler(component.resolve, components))
+                    parameters.update(
+                        self._inspect_parameters_from_handler(
+                            component.resolve, components  # type: ignore[attr-defined]
+                        )
+                    )
                     break
             else:
                 parameters[name] = parameter
@@ -89,12 +92,12 @@ class ParametersDescriptor:
                     default=default,
                 )
             # Body params
-            elif is_schema(param.annotation):
+            elif schemas.adapter.is_schema(param.annotation):
                 body_parameter = Parameter(name=name, location=ParameterLocation.body, schema_type=param.annotation)
 
         # Output param
         output_annotation = inspect.signature(handler).return_annotation
-        output_parameter = Parameter(
+        output_parameter: Parameter = Parameter(
             name="_output",
             location=ParameterLocation.output,
             schema_type=output_annotation if output_annotation != inspect.Signature.empty else None,
@@ -103,19 +106,22 @@ class ParametersDescriptor:
         return query_parameters, path_parameters, body_parameter, output_parameter
 
     def _get_parameters(
-        self, route: typing.Union["HTTPEndpoint", "Route", "WebSocketEndpoint", "WebSocketRoute"] = None
+        self, route: typing.Union["Route", "WebSocketRoute"]
     ) -> typing.Tuple[Methods, Methods, typing.Dict[str, typing.Optional[Parameter]], typing.Dict[str, Parameter]]:
         query_parameters: Methods = {}
         path_parameters: Methods = {}
         body_parameter: typing.Dict[str, typing.Optional[Parameter]] = {}
         output_parameter: typing.Dict[str, Parameter] = {}
 
-        if hasattr(route, "methods") and route.methods is not None:
+        route_methods = getattr(route, "methods", None)
+        if route_methods is not None:
             if inspect.isclass(route.endpoint):  # HTTP endpoint
-                methods = [(m, getattr(route.endpoint, m.lower() if m != "HEAD" else "get")) for m in route.methods]
+                methods = [
+                    (m, getattr(route.endpoint, m.lower() if m != "HEAD" else "get")) for m in route_methods or []
+                ]
             else:  # HTTP function
-                methods = [(m, route.endpoint) for m in route.methods] if route.methods else []
-        else:  # Websocket
+                methods = [(m, route.endpoint) for m in route_methods]
+        else:
             methods = [("GET", route.endpoint)]
 
         for method, handler in methods:
@@ -124,7 +130,9 @@ class ParametersDescriptor:
                 path_parameters[method],
                 body_parameter[method],
                 output_parameter[method],
-            ) = self._get_parameters_from_handler(handler, route.param_convertors.keys(), route.main_app.components)
+            ) = self._get_parameters_from_handler(
+                handler, list(route.param_convertors.keys()), route.main_app.components
+            )
 
         return query_parameters, path_parameters, body_parameter, output_parameter
 

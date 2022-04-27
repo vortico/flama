@@ -1,3 +1,5 @@
+import dataclasses
+
 import pytest
 
 from flama.schemas.openapi import (
@@ -21,7 +23,6 @@ from flama.schemas.openapi import (
     Security,
     Server,
     ServerVariable,
-    _object_asdict,
 )
 
 
@@ -220,7 +221,7 @@ class TestCaseOpenAPISpec:
     def test_add_path(self, spec, path):
         path_name = "foo"
         expected_result = spec.asdict()
-        expected_result["paths"] = {"foo": _object_asdict(path)}
+        expected_result["paths"] = {"foo": spec.asdict(dataclasses.asdict(path))}
 
         spec.add_path(path_name, path)
 
@@ -238,7 +239,7 @@ class TestCaseOpenAPISpec:
     def test_add_response(self, spec, response):
         response_name = "foo"
         expected_result = spec.asdict()
-        expected_result["components"]["responses"] = {response_name: _object_asdict(response)}
+        expected_result["components"]["responses"] = {response_name: spec.asdict(dataclasses.asdict(response))}
 
         spec.add_response(response_name, response)
 
@@ -247,7 +248,7 @@ class TestCaseOpenAPISpec:
     def test_add_parameter(self, spec, parameter):
         parameter_name = "foo"
         expected_result = spec.asdict()
-        expected_result["components"]["parameters"] = {parameter_name: _object_asdict(parameter)}
+        expected_result["components"]["parameters"] = {parameter_name: spec.asdict(dataclasses.asdict(parameter))}
 
         spec.add_parameter(parameter_name, parameter)
 
@@ -256,7 +257,7 @@ class TestCaseOpenAPISpec:
     def test_add_example(self, spec, example):
         example_name = "foo"
         expected_result = spec.asdict()
-        expected_result["components"]["examples"] = {example_name: _object_asdict(example)}
+        expected_result["components"]["examples"] = {example_name: spec.asdict(dataclasses.asdict(example))}
 
         spec.add_example(example_name, example)
 
@@ -265,7 +266,9 @@ class TestCaseOpenAPISpec:
     def test_add_request_body(self, spec, request_body):
         request_body_name = "foo"
         expected_result = spec.asdict()
-        expected_result["components"]["requestBodies"] = {request_body_name: _object_asdict(request_body)}
+        expected_result["components"]["requestBodies"] = {
+            request_body_name: spec.asdict(dataclasses.asdict(request_body))
+        }
 
         spec.add_request_body(request_body_name, request_body)
 
@@ -274,7 +277,7 @@ class TestCaseOpenAPISpec:
     def test_add_header(self, spec, header):
         header_name = "foo"
         expected_result = spec.asdict()
-        expected_result["components"]["headers"] = {header_name: _object_asdict(header)}
+        expected_result["components"]["headers"] = {header_name: spec.asdict(dataclasses.asdict(header))}
 
         spec.add_header(header_name, header)
 
@@ -283,7 +286,7 @@ class TestCaseOpenAPISpec:
     def test_add_security(self, spec, security):
         security_name = "foo"
         expected_result = spec.asdict()
-        expected_result["components"]["securitySchemes"] = {security_name: _object_asdict(security)}
+        expected_result["components"]["securitySchemes"] = {security_name: spec.asdict(security)}
 
         spec.add_security(security_name, security)
 
@@ -292,7 +295,7 @@ class TestCaseOpenAPISpec:
     def test_add_link(self, spec, link):
         link_name = "foo"
         expected_result = spec.asdict()
-        expected_result["components"]["links"] = {link_name: _object_asdict(link)}
+        expected_result["components"]["links"] = {link_name: spec.asdict(dataclasses.asdict(link))}
 
         spec.add_link(link_name, link)
 
@@ -301,7 +304,7 @@ class TestCaseOpenAPISpec:
     def test_add_callback(self, spec, callback):
         callback_name = "foo"
         expected_result = spec.asdict()
-        expected_result["components"]["callbacks"] = {callback_name: _object_asdict(callback)}
+        expected_result["components"]["callbacks"] = {callback_name: spec.asdict(callback)}
 
         spec.add_callback(callback_name, callback)
 

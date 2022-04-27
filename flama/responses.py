@@ -10,7 +10,6 @@ from starlette.responses import PlainTextResponse, RedirectResponse, Response, S
 from flama import schemas
 from flama.exceptions import HTTPException, SerializationError
 from flama.schemas.types import Schema
-from flama.schemas.utils import is_schema_instance
 
 __all__ = [
     "Response",
@@ -72,11 +71,6 @@ class APIResponse(JSONResponse):
         super().__init__(content, *args, **kwargs)
 
     def render(self, content: typing.Any):
-        if content and is_schema_instance(content):  # pragma: no cover (only apply to marshmallow)
-            if self.schema and content.__class__ != self.schema:
-                raise AttributeError("Attribute 'schema' specified cannot be different from schema used in 'content'")
-
-        # Use output schema to validate and format data
         if self.schema is not None:
             try:
                 content = schemas.adapter.dump(self.schema, content)

@@ -1,5 +1,3 @@
-from unittest.mock import Mock
-
 import marshmallow
 import pytest
 import typesystem
@@ -356,7 +354,6 @@ class TestCaseSchemaRegistry:
                 ValueError("Cannot infer schema name."),
                 id="typesystem_cannot_infer_name",
             ),
-            pytest.param(Mock(__name__="Foo"), None, None, id="mock_infer_name"),
             pytest.param(type("Foo", (marshmallow.Schema,), {}), None, None, id="marshmallow_infer_name"),
         ],
         indirect=["exception"],

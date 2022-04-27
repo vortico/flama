@@ -1,184 +1,211 @@
+import dataclasses
 import typing
 
-
-def _fix_key_names(x):
-    try:
-        return {"ref": "$ref", "in_": "in"}[x]
-    except KeyError:
-        return x
-
-
-def _object_asdict(x=None):
-    if isinstance(x, list):
-        return [_object_asdict(i) for i in x]
-
-    if isinstance(x, dict):
-        return {_fix_key_names(k): _object_asdict(v) for k, v in x.items() if v is not None}
-
-    try:
-        return {_fix_key_names(k): _object_asdict(v) for k, v in x._asdict().items() if v is not None}
-    except AttributeError:
-        return x
-
+__all__ = [
+    "Schema",
+    "Reference",
+    "Contact",
+    "License",
+    "ExternalDocs",
+    "Example",
+    "Tag",
+    "Info",
+    "ServerVariable",
+    "Server",
+    "Link",
+    "Security",
+    "Callback",
+    "Header",
+    "Parameter",
+    "Encoding",
+    "MediaType",
+    "RequestBody",
+    "Response",
+    "Responses",
+    "Operation",
+    "Path",
+    "Paths",
+    "Components",
+    "OpenAPI",
+    "OpenAPISpec",
+]
 
 Schema = typing.NewType("Schema", typing.Dict[str, typing.Any])
 
 
-class Reference(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class Reference:
     ref: str
 
 
-class Contact(typing.NamedTuple):
-    name: str = None
-    url: str = None
-    email: str = None
+@dataclasses.dataclass(frozen=True)
+class Contact:
+    name: typing.Optional[str] = None
+    url: typing.Optional[str] = None
+    email: typing.Optional[str] = None
 
 
-class License(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class License:
     name: str
-    url: str = None
+    url: typing.Optional[str] = None
 
 
-class ExternalDocs(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class ExternalDocs:
     url: str
-    description: str = None
+    description: typing.Optional[str] = None
 
 
-class Example(typing.NamedTuple):
-    summary: str = None
-    description: str = None
-    value: typing.Any = None
-    externalValue: str = None
+@dataclasses.dataclass(frozen=True)
+class Example:
+    summary: typing.Optional[str] = None
+    description: typing.Optional[str] = None
+    value: typing.Optional[typing.Any] = None
+    externalValue: typing.Optional[str] = None
 
 
-class Tag(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class Tag:
     name: str
-    description: str = None
-    externalDocs: ExternalDocs = None
+    description: typing.Optional[str] = None
+    externalDocs: typing.Optional[ExternalDocs] = None
 
 
-class Info(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class Info:
     title: str
     version: str
-    description: str = None
-    termsOfService: str = None
-    contact: Contact = None
-    license: License = None
+    description: typing.Optional[str] = None
+    termsOfService: typing.Optional[str] = None
+    contact: typing.Optional[Contact] = None
+    license: typing.Optional[License] = None
 
 
-class ServerVariable(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class ServerVariable:
     enum: typing.List[str]
     default: str
-    description: str = None
+    description: typing.Optional[str] = None
 
 
-class Server(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class Server:
     url: str
     variables: typing.Dict[str, ServerVariable]
-    description: str = None
+    description: typing.Optional[str] = None
 
 
-class Link(typing.NamedTuple):
-    operationRef: str = None
-    operationId: str = None
-    parameters: typing.Dict[str, typing.Any] = None
-    requestBody: typing.Any = None
-    description: str = None
-    server: Server = None
+@dataclasses.dataclass(frozen=True)
+class Link:
+    operationRef: typing.Optional[str] = None
+    operationId: typing.Optional[str] = None
+    parameters: typing.Optional[typing.Dict[str, typing.Any]] = None
+    requestBody: typing.Optional[typing.Any] = None
+    description: typing.Optional[str] = None
+    server: typing.Optional[Server] = None
 
 
 Security = typing.NewType("Security", typing.Dict[str, typing.List[str]])
 Callback = typing.NewType("Callback", typing.Dict[str, "Path"])
 
 
-class Header(typing.NamedTuple):
-    description: str = None
-    required: bool = None
-    deprecated: bool = None
-    allowEmptyValue: bool = None
-    style: str = None
-    explode: bool = None
-    allowReserved: bool = None
-    schema: typing.Union[Schema, Reference] = None
-    example: typing.Any = None
-    examples: typing.Dict[str, typing.Union[Example, Reference]] = None
+@dataclasses.dataclass(frozen=True)
+class Header:
+    description: typing.Optional[str] = None
+    required: typing.Optional[bool] = None
+    deprecated: typing.Optional[bool] = None
+    allowEmptyValue: typing.Optional[bool] = None
+    style: typing.Optional[str] = None
+    explode: typing.Optional[bool] = None
+    allowReserved: typing.Optional[bool] = None
+    schema: typing.Optional[typing.Union[Schema, Reference]] = None
+    example: typing.Optional[typing.Any] = None
+    examples: typing.Optional[typing.Dict[str, typing.Union[Example, Reference]]] = None
 
 
-class Parameter(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class Parameter:
     name: str
     in_: str
-    description: str = None
-    required: bool = None
-    deprecated: bool = None
-    allowEmptyValue: bool = None
-    style: str = None
-    explode: bool = None
-    allowReserved: bool = None
-    schema: typing.Union[Schema, Reference] = None
-    example: typing.Any = None
-    examples: typing.Dict[str, typing.Union[Example, Reference]] = None
+    description: typing.Optional[str] = None
+    required: typing.Optional[bool] = None
+    deprecated: typing.Optional[bool] = None
+    allowEmptyValue: typing.Optional[bool] = None
+    style: typing.Optional[str] = None
+    explode: typing.Optional[bool] = None
+    allowReserved: typing.Optional[bool] = None
+    schema: typing.Optional[typing.Union[Schema, Reference]] = None
+    example: typing.Optional[typing.Any] = None
+    examples: typing.Optional[typing.Dict[str, typing.Union[Example, Reference]]] = None
 
 
-class Encoding(typing.NamedTuple):
-    contentType: str = None
-    headers: typing.Dict[str, typing.Union[Header, Reference]] = None
-    style: str = None
-    explode: bool = None
-    allowReserved: bool = None
+@dataclasses.dataclass(frozen=True)
+class Encoding:
+    contentType: typing.Optional[str] = None
+    headers: typing.Optional[typing.Dict[str, typing.Union[Header, Reference]]] = None
+    style: typing.Optional[str] = None
+    explode: typing.Optional[bool] = None
+    allowReserved: typing.Optional[bool] = None
 
 
-class MediaType(typing.NamedTuple):
-    schema: typing.Union[Schema, Reference] = None
-    example: typing.Any = None
-    examples: typing.Dict[str, typing.Union[typing.Any, Reference]] = None
-    encoding: typing.Dict[str, Encoding] = None
+@dataclasses.dataclass(frozen=True)
+class MediaType:
+    schema: typing.Optional[typing.Union[Schema, Reference]] = None
+    example: typing.Optional[typing.Any] = None
+    examples: typing.Optional[typing.Dict[str, typing.Union[typing.Any, Reference]]] = None
+    encoding: typing.Optional[typing.Dict[str, Encoding]] = None
 
 
-class RequestBody(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class RequestBody:
     content: typing.Dict[str, MediaType]
-    description: str = None
-    required: bool = None
+    description: typing.Optional[str] = None
+    required: typing.Optional[bool] = None
 
 
-class Response(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class Response:
     description: str
-    headers: typing.Dict[str, typing.Union[Header, Reference]] = None
-    content: typing.Dict[str, MediaType] = None
-    links: typing.Dict[str, typing.Union[Link, Reference]] = None
+    headers: typing.Optional[typing.Dict[str, typing.Union[Header, Reference]]] = None
+    content: typing.Optional[typing.Dict[str, MediaType]] = None
+    links: typing.Optional[typing.Dict[str, typing.Union[Link, Reference]]] = None
 
 
 Responses = typing.NewType("Responses", typing.Dict[str, Response])
 
 
-class Operation(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class Operation:
     responses: Responses
-    tags: typing.List[str] = None
-    summary: str = None
-    description: str = None
-    externalDocs: ExternalDocs = None
-    operationId: str = None
-    parameters: typing.List[typing.Union[Parameter, Reference]] = None
-    requestBody: typing.Union[RequestBody, Reference] = None
-    callbacks: typing.Dict[str, typing.Union[Callback, Reference]] = None
-    deprecated: bool = None
-    security: typing.List[Security] = None
-    servers: typing.List[Server] = None
+    tags: typing.Optional[typing.List[str]] = None
+    summary: typing.Optional[str] = None
+    description: typing.Optional[str] = None
+    externalDocs: typing.Optional[ExternalDocs] = None
+    operationId: typing.Optional[str] = None
+    parameters: typing.Optional[typing.List[typing.Union[Parameter, Reference]]] = None
+    requestBody: typing.Optional[typing.Union[RequestBody, Reference]] = None
+    callbacks: typing.Optional[typing.Dict[str, typing.Union[Callback, Reference]]] = None
+    deprecated: typing.Optional[bool] = None
+    security: typing.Optional[typing.List[Security]] = None
+    servers: typing.Optional[typing.List[Server]] = None
 
 
-class Path(typing.NamedTuple):
-    ref: str = None
-    summary: str = None
-    description: str = None
-    get: Operation = None
-    put: Operation = None
-    post: Operation = None
-    delete: Operation = None
-    options: Operation = None
-    head: Operation = None
-    patch: Operation = None
-    trace: Operation = None
-    servers: typing.List[Server] = None
-    parameters: typing.List[typing.Union[Parameter, Reference]] = None
+@dataclasses.dataclass(frozen=True)
+class Path:
+    ref: typing.Optional[str] = None
+    summary: typing.Optional[str] = None
+    description: typing.Optional[str] = None
+    get: typing.Optional[Operation] = None
+    put: typing.Optional[Operation] = None
+    post: typing.Optional[Operation] = None
+    delete: typing.Optional[Operation] = None
+    options: typing.Optional[Operation] = None
+    head: typing.Optional[Operation] = None
+    patch: typing.Optional[Operation] = None
+    trace: typing.Optional[Operation] = None
+    servers: typing.Optional[typing.List[Server]] = None
+    parameters: typing.Optional[typing.List[typing.Union[Parameter, Reference]]] = None
 
     @property
     def operations(self) -> typing.Dict[str, Operation]:
@@ -192,7 +219,8 @@ class Path(typing.NamedTuple):
 Paths = typing.NewType("Paths", typing.Dict[str, Path])
 
 
-class Components(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class Components:
     schemas: typing.Dict[str, typing.Union[Schema, Reference]]
     responses: typing.Dict[str, typing.Union[Response, Reference]]
     parameters: typing.Dict[str, typing.Union[Parameter, Reference]]
@@ -204,15 +232,16 @@ class Components(typing.NamedTuple):
     callbacks: typing.Dict[str, typing.Union[Callback, Reference]]
 
 
-class OpenAPI(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class OpenAPI:
     openapi: str
     info: Info
     paths: Paths
     components: Components
-    servers: typing.List[Server] = None
-    security: typing.List[Security] = None
-    tags: typing.List[Tag] = None
-    externalDocs: ExternalDocs = None
+    servers: typing.Optional[typing.List[Server]] = None
+    security: typing.Optional[typing.List[Security]] = None
+    tags: typing.Optional[typing.List[Tag]] = None
+    externalDocs: typing.Optional[ExternalDocs] = None
 
 
 class OpenAPISpec:
@@ -281,5 +310,17 @@ class OpenAPISpec:
     def add_callback(self, name: str, item: typing.Union[Callback, Reference]):
         self.spec.components.callbacks[name] = item
 
-    def asdict(self):
-        return _object_asdict(self.spec)
+    def asdict(self, obj: typing.Any = None) -> typing.Any:
+        if obj is None:
+            return self.asdict(dataclasses.asdict(self.spec))
+
+        if isinstance(obj, list):
+            return [self.asdict(i) for i in obj]
+
+        if isinstance(obj, dict):
+            return {{"ref": "$ref", "in_": "in"}.get(k, k): self.asdict(v) for k, v in obj.items() if v is not None}
+
+        if dataclasses.is_dataclass(obj):
+            return self.asdict(dataclasses.asdict(obj))
+
+        return obj
