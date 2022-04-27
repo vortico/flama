@@ -60,19 +60,19 @@ class LimitOffsetMixin:
         :class:`LimitOffsetResponse` and count defines if the response will
         define the total number of elements.
 
-        The output schema is also modified by :class:`LimitOffsetSchema`,
-        creating a new schema based on it but using the old output schema as the content of its data field.
+        The output field is also modified by :class:`LimitOffsetSchema`,
+        creating a new field based on it but using the old output field as the content of its data field.
 
-        :param schema_name: Name used for output schema.
+        :param schema_name: Name used for output field.
         :return: Decorated view.
         """
 
         def _inner(func: typing.Callable):
             assert forge is not None, "`python-forge` must be installed to use Paginator."
 
-            resource_schema = flama.schemas.adapter.unique_instance(get_output_schema(func))
+            resource_schema = flama.schemas.adapter.unique_schema(get_output_schema(func))
             paginated_schema_name = "LimitOffsetPaginated" + schema_name
-            schema: Schema = flama.schemas.adapter.build_schema(
+            schema = flama.schemas.adapter.build_schema(
                 schema=resource_schema,
                 pagination=flama.schemas.schemas.LimitOffset,
                 paginated_schema_name=paginated_schema_name,

@@ -4,7 +4,6 @@ import typing
 import uuid
 
 from flama.resources import types
-from flama.schemas.types import Schema
 
 try:
     import sqlalchemy
@@ -42,9 +41,9 @@ class BaseResource:
     name: str
     verbose_name: str
     model: sqlalchemy.Table
-    schema: Schema
-    input_schema: Schema
-    output_schema: Schema
+    schema: typing.Any
+    input_schema: typing.Any
+    output_schema: typing.Any
     columns: typing.Sequence[str]
     order: str
 

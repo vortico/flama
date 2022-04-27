@@ -12,8 +12,8 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from flama import http, websockets
 from flama.components import Component, Components
 from flama.responses import APIResponse, Response
+from flama.schemas import adapter
 from flama.schemas.routing import RouteParametersMixin
-from flama.schemas.utils import is_schema_instance
 from flama.schemas.validation import get_output_schema
 from flama.types import HTTPMethod
 
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 async def prepare_http_request(app: "Flama", handler: typing.Callable, state: typing.Dict[str, typing.Any]) -> Response:
+    response: Response
     try:
         injected_func = await app.injector.inject(handler, state)
 
@@ -36,7 +37,7 @@ async def prepare_http_request(app: "Flama", handler: typing.Callable, state: ty
             response = await run_in_threadpool(injected_func)
 
         # Wrap response data with a proper response class
-        if is_schema_instance(response):
+        if adapter.is_schema(response):
             response = APIResponse(content=response, schema=response.__class__)
         elif isinstance(response, (dict, list)):
             response = APIResponse(content=response, schema=get_output_schema(handler))
@@ -117,7 +118,7 @@ class Route(BaseRoute, starlette.routing.Route):
             self.app = self.endpoint_wrapper(endpoint)
 
         if self.methods is None:
-            self.methods = {m for m in HTTPMethod.__members__.keys() if hasattr(self, m.lower())}
+            self.methods = {m for m in HTTPMethod.__members__.keys() if hasattr(self.endpoint, m.lower())}
 
     def endpoint_wrapper(self, endpoint: typing.Callable) -> ASGIApp:
         """
@@ -206,6 +207,10 @@ class Mount(BaseRoute, starlette.routing.Mount):
         if main_app is not None:
             self.main_app = main_app
 
+    @property
+    def routes(self) -> typing.List[BaseRoute]:  # type: ignore[override]
+        return getattr(self.app, "routes", [])
+
 
 class Router(starlette.routing.Router):
     def __init__(
@@ -249,7 +254,12 @@ class Router(starlette.routing.Router):
     @property
     def components(self) -> Components:
         return self._components + Components(
-            [component for route in self.routes for component in getattr(route.app, "components", [])]
+            [
+                component
+                for route in self.routes
+                if hasattr(route, "app") and hasattr(route.app, "components")  # type: ignore[attr-defined]
+                for component in getattr(route.app, "components", [])  # type: ignore[attr-defined]
+            ]
         )
 
     def mount(self, path: str, app: ASGIApp, name: str = None) -> None:
@@ -308,7 +318,9 @@ class Router(starlette.routing.Router):
 
         return decorator
 
-    def get_route_from_scope(self, scope, mounted=False) -> typing.Tuple[Route, typing.Optional[typing.Dict]]:
+    def get_route_from_scope(
+        self, scope, mounted=False
+    ) -> typing.Tuple[typing.Union[BaseRoute, ASGIApp], typing.Optional[typing.Dict]]:
         partial = None
 
         for route in self.routes:
@@ -322,11 +334,11 @@ class Router(starlette.routing.Router):
             if match == Match.FULL:
                 scope.update(child_scope)
 
-                if isinstance(route, Mount):
+                if isinstance(route, Mount) and isinstance(route.app, Router):
                     if mounted:
                         scope["root_path"] = root_path + child_scope.get("root_path", "")
-                    route, mount_scope = route.app.get_route_from_scope(scope, mounted=True)
-                    return route, mount_scope
+                    mount_route, mount_scope = route.app.get_route_from_scope(scope, mounted=True)
+                    return mount_route, mount_scope
 
                 return route, scope
             elif match == Match.PARTIAL and partial is None:

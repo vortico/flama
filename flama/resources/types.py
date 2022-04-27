@@ -1,7 +1,5 @@
 import typing
 
-from flama.schemas.types import Schema as SchemaType
-
 try:
     from sqlalchemy import Table
 except Exception:  # pragma: no cover
@@ -28,7 +26,7 @@ class Model(typing.NamedTuple):
 
 class Schema(typing.NamedTuple):
     name: str
-    schema: SchemaType
+    schema: typing.Any
 
 
 class Schemas(typing.NamedTuple):

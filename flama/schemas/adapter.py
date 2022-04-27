@@ -1,13 +1,12 @@
 import abc
 import typing
 
-Field = typing.TypeVar("Field")
-Schema = typing.TypeVar("Schema")
+from flama.schemas.types import Field, Schema
 
 
-class Adapter(metaclass=abc.ABCMeta):
+class Adapter(typing.Generic[Schema, Field], metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def build_field(self, field_type: typing.Type, required: bool, default: typing.Any, **kwargs) -> Field:
+    def build_field(self, field_type: typing.Type, required: bool, default: typing.Any) -> Field:
         ...
 
     @abc.abstractmethod
@@ -38,5 +37,13 @@ class Adapter(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def unique_instance(self, schema: Schema) -> Schema:
+    def unique_schema(self, schema: Schema) -> Schema:
+        ...
+
+    @abc.abstractmethod
+    def is_schema(self, obj: typing.Union[Schema, typing.Type[Schema]]) -> bool:
+        ...
+
+    @abc.abstractmethod
+    def is_field(self, obj: typing.Union[Field, typing.Type[Field]]) -> bool:
         ...

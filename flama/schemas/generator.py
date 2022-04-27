@@ -11,7 +11,6 @@ from flama import routing, schemas
 from flama.schemas import openapi
 from flama.schemas.exceptions import SchemaGenerationError
 from flama.schemas.types import EndpointInfo, Schema, SchemaInfo
-from flama.schemas.utils import is_field, is_schema, is_schema_instance
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +25,16 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         super().__init__({id(schema): SchemaInfo(name=name, schema=schema) for name, schema in schemas.items()})
 
     def __contains__(self, item: Schema) -> bool:
-        return super().__contains__(id(schemas.adapter.unique_instance(item)))
+        return super().__contains__(id(schemas.adapter.unique_schema(item)))
 
-    def __getitem__(self, item: Schema) -> Schema:
+    def __getitem__(self, item: Schema) -> SchemaInfo:
         """
         Lookup method that allows using Schema classes or instances.
 
         :param item: Schema to look for.
         :return: Registered schema.
         """
-        return super().__getitem__(id(schemas.adapter.unique_instance(item)))
+        return super().__getitem__(id(schemas.adapter.unique_schema(item)))
 
     def _get_schema_references_from_schema(
         self, schema: typing.Union[openapi.Schema, openapi.Reference]
@@ -55,7 +54,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
 
         return result
 
-    def _get_schema_references_from_path(self, path: typing.Union[openapi.Path, openapi.Callback]) -> typing.List[str]:
+    def _get_schema_references_from_path(self, path: openapi.Path) -> typing.List[str]:
         return [y for x in path.operations.values() for y in self._get_schema_references_from_operation(x)]
 
     def _get_schema_references_from_operation(self, operation: openapi.Operation) -> typing.List[str]:
@@ -70,13 +69,17 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         refs = []
 
         for response in [x for x in responses.values() if x.content]:
-            for media_type in [x for x in response.content.values() if isinstance(x, openapi.MediaType)]:
-                refs += self._get_schema_references_from_schema(media_type.schema)
+            for media_type in [
+                x
+                for x in response.content.values()  # type: ignore[union-attr]
+                if isinstance(x, openapi.MediaType) and x.schema
+            ]:
+                refs += self._get_schema_references_from_schema(media_type.schema)  # type: ignore[arg-type]
 
         return refs
 
     def _get_schema_references_from_operation_callbacks(
-        self, callbacks: typing.Dict[str, typing.Union[openapi.Callback, openapi.Reference]]
+        self, callbacks: typing.Optional[typing.Dict[str, typing.Union[openapi.Callback, openapi.Reference]]]
     ) -> typing.List[str]:
         refs = []
 
@@ -91,7 +94,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         return refs
 
     def _get_schema_references_from_operation_request_body(
-        self, request_body: typing.Union[openapi.RequestBody, openapi.Reference]
+        self, request_body: typing.Optional[typing.Union[openapi.RequestBody, openapi.Reference]]
     ) -> typing.List[str]:
         refs = []
 
@@ -100,12 +103,12 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
                 refs.append(request_body.ref)
             else:
                 for media_type in [x for x in request_body.content.values() if isinstance(x, openapi.MediaType)]:
-                    refs += self._get_schema_references_from_schema(media_type.schema)
+                    refs += self._get_schema_references_from_schema(media_type.schema)  # type: ignore[arg-type]
 
         return refs
 
     def _get_schema_references_from_operation_parameters(
-        self, parameters: typing.List[typing.Union[openapi.Parameter, openapi.Reference]]
+        self, parameters: typing.Optional[typing.List[typing.Union[openapi.Parameter, openapi.Reference]]]
     ) -> typing.List[str]:
         refs = []
 
@@ -114,7 +117,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
                 if isinstance(param, openapi.Reference):
                     refs.append(param.ref)
                 else:
-                    refs += self._get_schema_references_from_schema(param.schema)
+                    refs += self._get_schema_references_from_schema(param.schema)  # type: ignore[arg-type]
 
         return refs
 
@@ -148,9 +151,9 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         if schema in self:
             raise ValueError("Schema is already registered.")
 
-        schema_instance = schemas.adapter.unique_instance(schema)
+        schema_instance = schemas.adapter.unique_schema(schema)
         if name is None:
-            if is_schema_instance(schema_instance):
+            if not inspect.isclass(schema_instance):
                 raise ValueError("Cannot infer schema name.")
 
             try:
@@ -211,7 +214,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
         # Builtin definitions
         self.schemas = SchemaRegistry(schemas=schemas)
 
-    def get_endpoints(
+    def get_endpoints(  # type: ignore[override]
         self, routes: typing.List[routing.BaseRoute], base_path: str = ""
     ) -> typing.Dict[str, typing.List[EndpointInfo]]:
         """
@@ -231,7 +234,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
         endpoints_info: typing.Dict[str, typing.List[EndpointInfo]] = defaultdict(list)
 
         for route in routes:
-            _, path, _ = starlette.routing.compile_path(base_path + route.path)
+            _, path, _ = starlette.routing.compile_path(base_path + route.path)  # type: ignore[attr-defined]
 
             if isinstance(route, routing.Route) and route.include_in_schema:
                 if inspect.isfunction(route.endpoint) or inspect.ismethod(route.endpoint):
@@ -280,7 +283,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
 
         return [
             openapi.Parameter(
-                schema=schemas.adapter.to_json_schema(field.schema),
+                schema=openapi.Schema(schemas.adapter.to_json_schema(field.schema)),
                 name=field.name,
                 in_=field.location.name,
                 required=field.required,
@@ -322,7 +325,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
 
     def _build_endpoint_response(
         self, endpoint: EndpointInfo, metadata: typing.Dict[str, typing.Any]
-    ) -> typing.Tuple[typing.Optional[openapi.Response], typing.Optional[str]]:
+    ) -> typing.Tuple[typing.Optional[openapi.Response], str]:
         try:
             response_code, main_response = list(metadata.get("responses", {}).items())[0]
         except IndexError:
@@ -332,7 +335,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
             )
 
         schema = endpoint.output_parameter.schema
-        if schema is not None and (is_schema(schema) or is_field(schema)):
+        if schema is not None and (schemas.adapter.is_schema(schema) or schemas.adapter.is_field(schema)):
             if schema not in self.schemas:
                 self.schemas.register(schema=schema)
             content = {"application/json": openapi.MediaType(schema=self.schemas.get_openapi_ref(schema))}
@@ -376,7 +379,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
 
         return openapi.Operation(
             responses=openapi.Responses(responses),
-            parameters=parameters,
+            parameters=parameters,  # type: ignore[arg-type]
             requestBody=request_body,
             **{
                 x: docstring_info.get(x)
@@ -388,9 +391,12 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
         endpoints_info = self.get_endpoints(routes)
 
         for path, endpoints in endpoints_info.items():
-            self.spec.add_path(path, openapi.Path(**{e.method: self.get_operation_schema(e) for e in endpoints}))
+            operations = {e.method: self.get_operation_schema(e) for e in endpoints}
+            self.spec.add_path(path, openapi.Path(**operations))  # type: ignore[arg-type]
 
         for schema in self.schemas.used(self.spec).values():
             self.spec.add_schema(schema.name, openapi.Schema(schema.json_schema))
 
-        return self.spec.asdict()
+        api_schema: typing.Dict[str, typing.Any] = self.spec.asdict()
+
+        return api_schema

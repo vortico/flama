@@ -28,7 +28,7 @@ if typing.TYPE_CHECKING:
 __all__ = ["Flama"]
 
 
-DEFAULT_MODULES = [SQLAlchemyModule, ResourcesModule, SchemaModule]
+DEFAULT_MODULES: typing.List[typing.Type["Module"]] = [SQLAlchemyModule, ResourcesModule, SchemaModule]
 
 
 class Flama(Starlette):
@@ -36,7 +36,7 @@ class Flama(Starlette):
         self,
         routes: typing.Sequence[typing.Union["BaseRoute", "Mount"]] = None,
         components: typing.Optional[typing.List["Component"]] = None,
-        modules: typing.Optional[typing.List["Module"]] = None,
+        modules: typing.Optional[typing.List[typing.Type["Module"]]] = None,
         middleware: typing.Sequence["Middleware"] = None,
         debug: bool = False,
         on_startup: typing.Sequence[typing.Callable] = None,
@@ -55,7 +55,7 @@ class Flama(Starlette):
         super().__init__(debug, *args, **kwargs)
 
         # Initialize router and middleware stack
-        self.router = Router(
+        self.router: Router = Router(
             main_app=self,
             routes=routes,
             components=components,
@@ -105,6 +105,10 @@ class Flama(Starlette):
     @property
     def components(self) -> "Components":
         return self.router.components
+
+    @property
+    def routes(self) -> typing.List["BaseRoute"]:  # type: ignore[override]
+        return self.router.routes
 
     def mount(self, path: str, app: "ASGIApp", name: str = None) -> None:
         self.router.mount(path, app=app, name=name)
