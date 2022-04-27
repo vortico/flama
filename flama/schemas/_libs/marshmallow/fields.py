@@ -1,10 +1,12 @@
 # flake8: noqa
 import datetime
+import typing
 import uuid
 
+import marshmallow.fields
 from marshmallow.fields import *
 
-MAPPING = {
+MAPPING: typing.Dict[typing.Optional[typing.Type], typing.Type[marshmallow.fields.Field]] = {
     None: Field,
     int: Integer,
     float: Float,

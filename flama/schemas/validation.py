@@ -3,7 +3,6 @@ import inspect
 from functools import wraps
 
 from flama import exceptions, schemas
-from flama.schemas.utils import is_field_class, is_field_instance, is_schema_class, is_schema_instance
 
 __all__ = ["get_output_schema", "output_validation"]
 
@@ -16,9 +15,8 @@ def get_output_schema(func):
     :returns: Output schema.
     """
     return_annotation = inspect.signature(func).return_annotation
-    if is_schema_class(return_annotation) or is_field_class(return_annotation):
-        return return_annotation()
-    elif is_schema_instance(return_annotation) or is_field_instance(return_annotation):
+
+    if schemas.adapter.is_schema(return_annotation) or schemas.adapter.is_field(return_annotation):
         return return_annotation
 
     return None

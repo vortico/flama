@@ -8,7 +8,6 @@ from flama import pagination, schemas
 from flama.modules import Module
 from flama.responses import OpenAPIResponse
 from flama.schemas.generator import SchemaGenerator
-from flama.schemas.types import Schemas
 from flama.templates import PATH as TEMPLATES_PATH
 
 if typing.TYPE_CHECKING:
@@ -34,7 +33,7 @@ class SchemaModule(Module):
     ):
         super().__init__(app, *args, **kwargs)
         # Schema definitions
-        self.schemas = Schemas({})
+        self.schemas: typing.Dict[str, typing.Any] = {}
 
         # Schema
         self.title = title
@@ -45,10 +44,10 @@ class SchemaModule(Module):
         if schema:
             schema_url = schema
 
-            def schema():
+            def schema_view():
                 return OpenAPIResponse(self.schema)
 
-            self.app.add_route(path=schema_url, route=schema, methods=["GET"], include_in_schema=False)
+            self.app.add_route(path=schema_url, route=schema_view, methods=["GET"], include_in_schema=False)
 
         # Adds swagger ui endpoint
         if docs:
@@ -66,13 +65,13 @@ class SchemaModule(Module):
         if redoc:
             redoc_url = redoc
 
-            def redoc() -> HTMLResponse:
+            def redoc_view() -> HTMLResponse:
                 with open(os.path.join(TEMPLATES_PATH, "redoc.html")) as f:
                     content = Template(f.read()).substitute(title=self.title, schema_url=schema_url)
 
                 return HTMLResponse(content)
 
-            self.app.add_route(path=redoc_url, route=redoc, methods=["GET"], include_in_schema=False)
+            self.app.add_route(path=redoc_url, route=redoc_view, methods=["GET"], include_in_schema=False)
 
     @property
     def schema_generator(self) -> SchemaGenerator:

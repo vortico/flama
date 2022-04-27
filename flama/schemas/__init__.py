@@ -6,7 +6,7 @@ from flama.schemas.exceptions import SchemaParseError, SchemaValidationError
 
 if typing.TYPE_CHECKING:
     from flama.schemas import types
-    from flama.schemas._libs.adapter import Adapter
+    from flama.schemas.adapter import Adapter
 
 __all__ = [
     "SchemaValidationError",
@@ -19,10 +19,10 @@ __all__ = [
     "schemas",
 ]
 
-Field = None
-Schema = None
-adapter: "Adapter" = None
-fields: typing.Dict[typing.Any, "types.Parameter"] = None
+Field: typing.Any = None
+Schema: typing.Any = None
+adapter: "Adapter"
+fields: typing.Dict[typing.Any, "types.Parameter"] = {}
 lib: typing.Any = None
 schemas: typing.Any = None
 
