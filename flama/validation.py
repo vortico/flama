@@ -8,7 +8,6 @@ from flama.components import Component, Components
 from flama.exceptions import WebSocketException
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from flama.routing import Route
-from flama.schemas.utils import is_field, is_schema
 from flama.types import FIELDS_TYPE_MAPPING, OPTIONAL_FIELD_TYPE_MAPPING
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
@@ -120,7 +119,7 @@ class PrimitiveParamComponent(Component):
 
 class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: inspect.Parameter):
-        return is_schema(parameter.annotation) or is_field(parameter.annotation)
+        return schemas.adapter.is_schema(parameter.annotation) or schemas.adapter.is_field(parameter.annotation)
 
     def resolve(self, parameter: inspect.Parameter, data: ValidatedRequestData):
         return data

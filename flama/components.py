@@ -58,7 +58,7 @@ class _BaseComponent(metaclass=ABCMeta):
 class _ComponentMeta(abc.ABCMeta):
     def __new__(mcs, name, bases, namespace):
         if _BaseComponent not in bases:
-            assert namespace.get("resolve"), f"Module '{name}' does not have a 'name' attribute."
+            assert namespace.get("resolve"), f"Component '{name}' does not have a 'resolve' method."
         return super().__new__(mcs, name, bases, namespace)
 
 

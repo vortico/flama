@@ -1,18 +1,17 @@
+import inspect
 import typing
 
 import typesystem
 
-from flama.schemas._libs.adapter import Adapter
 from flama.schemas._libs.typesystem.fields import MAPPING
+from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 
 __all__ = ["TypesystemAdapter"]
 
 
-class TypesystemAdapter(Adapter):
-    def build_field(
-        self, field_type: typing.Type, required: bool, default: typing.Any, **kwargs
-    ) -> typesystem.fields.Field:
+class TypesystemAdapter(Adapter[typesystem.Schema, typesystem.Field]):
+    def build_field(self, field_type: typing.Type, required: bool, default: typing.Any, **kwargs) -> typesystem.Field:
         if required is False and default is None:
             kwargs["allow_null"] = True
         else:
@@ -46,18 +45,20 @@ class TypesystemAdapter(Adapter):
 
         return typesystem.Schema(fields=fields)
 
-    def validate(self, schema: typesystem.Schema, values: typing.Dict[str, typing.Any]) -> typing.Any:
+    def validate(
+        self, schema: typing.Union[typesystem.Schema, typesystem.Field], values: typing.Dict[str, typing.Any]
+    ) -> typing.Any:
         try:
             return schema.validate(values)
         except typesystem.ValidationError as errors:
             raise SchemaValidationError(errors={k: [v] for k, v in errors.items()})
 
-    def load(self, schema: typesystem.Schema, value: typing.Dict[str, typing.Any]) -> typesystem.Schema:
+    def load(self, schema: typesystem.Schema, value: typing.Dict[str, typing.Any]) -> typing.Any:
         return schema.validate(value)
 
     def dump(
         self,
-        schema: typing.Union[typesystem.fields.Field, typing.Type[typesystem.Schema]],
+        schema: typing.Union[typesystem.Field, typesystem.Schema],
         value: typing.Dict[str, typing.Any],
     ) -> typing.Any:
         return self._dump(self.validate(schema, value))
@@ -71,21 +72,31 @@ class TypesystemAdapter(Adapter):
 
         return value
 
-    def to_json_schema(
-        self, schema: typing.Union[typesystem.Schema, typesystem.fields.Field]
-    ) -> typing.Dict[str, typing.Any]:
+    def to_json_schema(self, schema: typing.Union[typesystem.Schema, typesystem.Field]) -> typing.Dict[str, typing.Any]:
         try:
             json_schema = typesystem.to_json_schema(schema)
+
+            if not isinstance(json_schema, dict):
+                raise SchemaGenerationError
+
             json_schema.pop("components", None)
-            return json_schema
         except Exception as e:
             raise SchemaGenerationError from e
 
-    def unique_instance(self, schema: typing.Union[typesystem.Schema, typesystem.Array]) -> typesystem.Schema:
+        return json_schema
+
+    def unique_schema(self, schema: typing.Union[typesystem.Schema, typesystem.Array]) -> typesystem.Schema:
         if isinstance(schema, typesystem.Array):
             if not isinstance(schema.items, typesystem.Reference):
                 raise ValueError("Schema cannot be resolved")
 
-            return schema.items.target
+            item_schema: typesystem.Schema = schema.items.target
+            return item_schema
 
         return schema
+
+    def is_schema(self, obj: typing.Union[typesystem.Schema, typing.Type[typesystem.Schema]]) -> bool:
+        return isinstance(obj, typesystem.Schema) or (inspect.isclass(obj) and issubclass(obj, typesystem.Schema))
+
+    def is_field(self, obj: typing.Union[typesystem.Field, typing.Type[typesystem.Field]]) -> bool:
+        return isinstance(obj, typesystem.Field) or (inspect.isclass(obj) and issubclass(obj, typesystem.Field))

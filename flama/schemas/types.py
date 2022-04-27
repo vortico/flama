@@ -1,15 +1,24 @@
+import dataclasses
 import enum
 import inspect
 import typing
 
 from flama import schemas
 
-__all__ = ["ParameterLocation", "Parameter", "Parameters", "Methods", "EndpointInfo", "SchemaInfo", "Schemas", "Schema"]
+__all__ = [
+    "ParameterLocation",
+    "Parameter",
+    "Parameters",
+    "Methods",
+    "EndpointInfo",
+    "SchemaInfo",
+    "Schema",
+    "Field",
+]
 
 
 Field = typing.TypeVar("Field")
 Schema = typing.TypeVar("Schema")
-Schemas = typing.NewType("Schemas", typing.Dict[str, Schema])
 
 
 class ParameterLocation(enum.Enum):
@@ -19,7 +28,8 @@ class ParameterLocation(enum.Enum):
     output = enum.auto()
 
 
-class Parameter(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class Parameter(typing.Generic[Field, Schema]):
     name: str
     location: ParameterLocation
     schema_type: typing.Union[type, Field, Schema]
@@ -44,7 +54,8 @@ Parameters = typing.Dict[str, Parameter]
 Methods = typing.Dict[str, Parameters]
 
 
-class EndpointInfo(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class EndpointInfo:
     path: str
     method: str
     func: typing.Callable
@@ -54,9 +65,10 @@ class EndpointInfo(typing.NamedTuple):
     output_parameter: Parameter
 
 
-class SchemaInfo(typing.NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class SchemaInfo(typing.Generic[Schema]):
     name: str
-    schema: typing.Dict
+    schema: Schema
 
     @property
     def ref(self) -> str:
