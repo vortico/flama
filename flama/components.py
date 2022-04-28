@@ -1,8 +1,13 @@
 import abc
 import inspect
+import sys
 import typing
 from abc import ABCMeta
-from collections.abc import MutableSequence
+
+if sys.version_info >= (3, 9):  # PORT: Remove when stop supporting 3.8 # pragma: no cover
+    from collections.abc import MutableSequence
+else:
+    from typing import MutableSequence
 
 from flama import exceptions
 
