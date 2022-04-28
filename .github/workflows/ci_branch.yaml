@@ -33,6 +33,9 @@ jobs:
       - id: flake8
         name: Code lint
         run: python make flake8
+      - id: mypy
+        name: Static types check
+        run: python make mypy
       - id: tests
         name: Tests
         run: python make test
