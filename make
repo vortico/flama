@@ -88,9 +88,14 @@ def isort(*args, **kwargs):
     return [poetry("run", "isort", *args)]
 
 
+@command(command_type=Type.SHELL, parser_opts={"help": "Mypy static types check"})
+def mypy(*args, **kwargs):
+    return [poetry("run", "mypy", "flama", *args)]
+
+
 @command(command_type=Type.SHELL, parser_opts={"help": "Code lint using multiple tools"})
 def lint(*args, **kwargs):
-    return black(".") + flake8() + isort(".")
+    return black(".") + flake8() + isort(".") + mypy()
 
 
 @command(command_type=Type.SHELL, parser_opts={"help": "Run tests"})
@@ -131,7 +136,20 @@ def publish(*args, **kwargs):
 
 
 class Make(Main):
-    commands = ("install", "clean", "build", "publish", "black", "flake8", "isort", "lint", "test", "version", "docs")
+    commands = (
+        "install",
+        "clean",
+        "build",
+        "publish",
+        "black",
+        "flake8",
+        "isort",
+        "mypy",
+        "lint",
+        "test",
+        "version",
+        "docs",
+    )
 
 
 def main():
