@@ -1,7 +1,12 @@
 import abc
+import sys
 import typing
 from collections import defaultdict
-from collections.abc import Mapping
+
+if sys.version_info >= (3, 9):  # PORT: Remove when stop supporting 3.8 # pragma: no cover
+    from collections.abc import Mapping
+else:
+    from typing import Mapping
 
 from flama.exceptions import ConfigurationError
 
