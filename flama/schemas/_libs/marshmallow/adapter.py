@@ -9,6 +9,9 @@ from flama.schemas._libs.marshmallow.fields import MAPPING
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 
+if typing.TYPE_CHECKING:
+    from apispec.ext.marshmallow import OpenAPIConverter
+
 __all__ = ["MarshmallowAdapter"]
 
 
@@ -92,14 +95,16 @@ class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
     ) -> typing.Dict[str, typing.Any]:
         json_schema: typing.Dict[str, typing.Any]
         try:
-            plugin = MarshmallowPlugin(schema_name_resolver=lambda x: resolve_schema_cls(x).__name__)
+            plugin = MarshmallowPlugin(
+                schema_name_resolver=lambda x: resolve_schema_cls(x).__name__  # type: ignore[no-any-return]
+            )
             APISpec("", "", "3.1.0", [plugin])
-            converter = plugin.converter
+            converter: "OpenAPIConverter" = plugin.converter  # type: ignore[assignment]
 
             if (inspect.isclass(schema) and issubclass(schema, marshmallow.fields.Field)) or isinstance(
                 schema, marshmallow.fields.Field
             ):
-                json_schema = converter.field2property(schema)
+                json_schema = converter.field2property(schema)  # type: ignore[arg-type]
             elif inspect.isclass(schema) and issubclass(schema, marshmallow.Schema):
                 json_schema = converter.schema2jsonschema(schema)
             elif isinstance(schema, marshmallow.Schema):

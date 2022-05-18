@@ -7,3 +7,4 @@ from flama.endpoints import *  # noqa
 from flama.modules import Module  # noqa
 from flama.pagination import *  # noqa
 from flama.routing import *  # noqa
+from flama.serialize import *  # noqa
