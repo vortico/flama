@@ -29,7 +29,7 @@ class TestCaseBackgroundTask:
 
         else:
 
-            async def _task(path: str, msg: str):
+            async def _task(path: str, msg: str):  # type: ignore[misc]
                 async with await anyio.open_file(path, "w") as f:
                     await f.write(msg)
 
@@ -49,7 +49,7 @@ class TestCaseBackgroundTask:
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
-        time.sleep(0.2)
+        time.sleep(1)
         with open(tmp_file.name) as f:
             assert f.read() == "foo"
 
@@ -62,7 +62,7 @@ class TestCaseBackgroundTask:
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
-        time.sleep(0.2)
+        time.sleep(1)
         with open(tmp_file.name) as f:
             assert f.read() == "foo"
 
@@ -92,7 +92,7 @@ class TestCaseBackgroundTasks:
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
-        time.sleep(0.2)
+        time.sleep(1)
         with open(tmp_file.name) as f:
             assert f.read() == "foo"
 
