@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
-command_suite="${PWD}/scripts/poetry-suite.sh"
+run_version()
+{
+  echo "⬆️ Upgrade version:"
+  poetry version "$@"
+}
 
-sh "$command_suite" version "$@"
+run_version "${@:2}"

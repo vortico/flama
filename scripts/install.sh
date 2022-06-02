@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
-command_suite="${PWD}/scripts/poetry-suite.sh"
+install_pkg()
+{
+  echo "🔥 Install requirements..."
+  poetry install "$@"
+}
 
-sh "$command_suite" install "$@"
+install_pkg "${@:2}"

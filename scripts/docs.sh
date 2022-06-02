@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
-command_suite="${PWD}/scripts/poetry-suite.sh"
+run_docs()
+{
+  echo "📝 Build docs:"
+  poetry run mkdocs "$@"
+}
 
-sh "$command_suite" docs "$@"
+run_docs "${@:2}"

@@ -1,45 +1,49 @@
-CHDIR_SHELL := $(SHELL)
-define chdir
-	$(eval _D=$(firstword $(1) $(@D)))
-	$(info $(MAKE): cd $(_D)) $(eval SHELL = cd $(_D); $(CHDIR_SHELL))
-endef
-
 all: check
 
+.PHONY: check
 check:
-	@$(shell) ./scripts/check.sh
+	./scripts/check.sh
 
 .PHONY: clean
 clean:
-	@$(shell) ./scripts/clean.sh
+	./scripts/clean.sh
 
+.PHONY: install
 install:
-	@$(shell) ./scripts/install.sh
+	./scripts/install.sh
 
+.PHONY: build
 build:
-	@$(shell) ./scripts/build.sh
+	./scripts/build.sh
 
+.PHONY: lint
 lint:
-	@$(shell) ./scripts/lint.sh
+	./scripts/lint.sh
 
+.PHONY: docs
 docs:
-	@$(shell) ./scripts/docs.sh
+	./scripts/docs.sh
 
-test:
-	$(call chdir,$(PWD))
+.PHONY: tests
+tests:
 	./scripts/test.sh
 
+.PHONY: publish
 publish:
-	@$(shell) ./scripts/publish.sh
+	./scripts/publish.sh
 
+.PHONY: version
 version:
-	@$(shell) ./scripts/version.sh
+	./scripts/version.sh
 
+.PHONY: isort
 isort:
-	@$(shell) ./scripts/isort.sh
+	./scripts/isort.sh
 
+.PHONY: black
 black:
-	@$(shell) ./scripts/black.sh
+	./scripts/black.sh
 
+.PHONY: flake8
 flake8:
-	@$(shell) ./scripts/flake8.sh
+	./scripts/flake8.sh

@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
-command_suite="${PWD}/scripts/poetry-suite.sh"
+run_test()
+{
+  echo "🧪 Run tests:"
+  pytest --ignore=flama --cov=flama tests
+}
 
-sh "$command_suite" test "$@"
+run_test "${@:2}"

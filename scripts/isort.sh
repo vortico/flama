@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
-command_suite="${PWD}/scripts/poetry-suite.sh"
+run_isort()
+{
+  echo "• Run Isort imports formatting:"
+  poetry run isort "$@"
+}
 
-sh "$command_suite" isort "$@"
+run_isort "${@:2}"

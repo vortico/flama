@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
-command_suite="${PWD}/scripts/poetry-suite.sh"
+run_flake8()
+{
+  echo "• Run Flake8 code analysis:"
+  poetry run flake8 "$@"
+}
 
-sh "$command_suite" flake "$@"
+run_flake8 "${@:2}"

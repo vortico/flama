@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
-command_suite="${PWD}/scripts/poetry-suite.sh"
+run_black()
+{
+  echo "• Run Black code formatting:"
+  poetry run black "$@"
+}
 
-sh "$command_suite" black "$@"
+run_black "${@:2}"
