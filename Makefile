@@ -25,7 +25,7 @@ docs:
 	./scripts/docs
 
 .PHONY: tests
-tests:
+test:
 	./scripts/test
 
 .PHONY: publish

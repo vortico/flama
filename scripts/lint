@@ -21,7 +21,6 @@ run_isort()
   printf "↳ Isort done\n\n"
 }
 
-
 run_lint()
 {
   echo "🧹 Code lint using multiple tools:"
