@@ -23,19 +23,19 @@ jobs:
         name: Install requirements
         run: |
           pip install clinner pip poetry --upgrade
-          python make install
+          ./scripts/install
       - id: black
         name: Code format checking
-        run: python make black --check .
+        run: ./scripts/black --check .
       - id: isort
         name: Imports order checking
-        run: python make isort --check .
+        run: ./scripts/isort --check .
       - id: flake8
-        name: Code lint
-        run: python make flake8
+        name: Code style (flake8)
+        run: ./scripts/flake8
       - id: mypy
         name: Static types check
-        run: python make mypy
+        run: ./scripts/mypy
       - id: tests
         name: Tests
-        run: python make test
+        run: ./scripts/test

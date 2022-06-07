@@ -26,7 +26,7 @@ repos:
     hooks:
     -   id: black
         name: Black - Code Style
-        entry: poetry run black
+        entry: ./scripts/black
         args:
         - -q
         - --safe
@@ -36,19 +36,19 @@ repos:
         exclude: "make"
     -   id: isort
         name: Isort - Sort Imports
-        entry: poetry run isort
+        entry: ./scripts/isort
         language: system
         types: [file, python]
         exclude: "make"
     -   id: flake8
         name: Flake8 - Code Linter
-        entry: poetry run flake8
+        entry: ./scripts/flake8
         language: system
         types: [file, python]
         exclude: "make"
     -   id: mypy
         name: Mypy - Static types check
-        entry: poetry run mypy
+        entry: ./scripts/mypy
         language: system
         types: [file, python]
         exclude: "make"

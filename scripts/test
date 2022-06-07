@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+run_test()
+{
+  echo "🧪 Run tests:"
+  poetry run pytest
+}
+
+run_test "${@:2}"

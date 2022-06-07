@@ -22,4 +22,4 @@ jobs:
           git config user.name "José Antonio Perdiguero López"
           git config user.email "perdy@perdy.io"
           git remote set-url origin "https://${{ secrets.GITHUB_ACTIONS_TOKEN }}@github.com/${{ github.repository }}.git"
-          python make docs gh-deploy -m "[skip ci] Deployed {sha} with MkDocs version: {version}" --force
+          ./scripts/docs gh-deploy -m "[skip ci] Deployed {sha} with MkDocs version: {version}" --force
