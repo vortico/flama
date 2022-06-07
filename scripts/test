@@ -3,7 +3,7 @@
 run_test()
 {
   echo "🧪 Run tests:"
-  pytest --ignore=flama --cov=flama tests
+  poetry run pytest
 }
 
 run_test "${@:2}"
