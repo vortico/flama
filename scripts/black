@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+run_black()
+{
+  echo "• Run Black code formatting:"
+  poetry run black "$@"
+  echo "↳ Black done"
+}
+
+run_black "${@:2}"

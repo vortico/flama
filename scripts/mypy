@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+run_mypy()
+{
+  echo "• Run MyPy code formatting:"
+  poetry run mypy flama "$@"
+  echo "↳ MyPy done"
+}
+
+run_mypy "${@:2}"

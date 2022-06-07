@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+run_flake8()
+{
+  echo "• Run Flake8 code analysis:"
+  poetry run flake8 "$@"
+  echo "↳ Flake8 done"
+}
+
+run_flake8 "${@:2}"
