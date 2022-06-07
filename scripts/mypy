@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-run_black()
+run_mypy()
 {
   echo "• Run Black code formatting:"
   poetry run mypy flama "$@"
