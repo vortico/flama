@@ -35,8 +35,8 @@ jobs:
         name: Code lint
         run: ./scripts/flake8
       - id: mypy
-          name: Static types check
-          run: python make mypy
+        name: Static types check
+        run: python make mypy
       - id: tests
         name: Tests
         run: ./scripts/test
