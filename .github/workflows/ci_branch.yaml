@@ -35,7 +35,7 @@ jobs:
         run: ./scripts/flake8
       - id: mypy
         name: Static types check
-        run: ./scritps/mypy
+        run: ./scripts/mypy
       - id: tests
         name: Tests
         run: ./scripts/test
