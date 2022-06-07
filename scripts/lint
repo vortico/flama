@@ -10,7 +10,7 @@ run_black()
 run_flake8()
 {
   echo "• Run Flake8 code analysis:"
-  poetry run flake8 "$@"
+  poetry run flake8
   printf "↳ Flake8 done\n\n"
 }
 

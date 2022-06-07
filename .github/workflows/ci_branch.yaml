@@ -31,11 +31,11 @@ jobs:
         name: Imports order checking
         run: ./scripts/isort --check .
       - id: flake8
-        name: Code lint
+        name: Code style (flake8)
         run: ./scripts/flake8
       - id: mypy
         name: Static types check
-        run: python make mypy
+        run: ./scritps/mypy
       - id: tests
         name: Tests
         run: ./scripts/test

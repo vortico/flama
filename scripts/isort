@@ -4,6 +4,7 @@ run_isort()
 {
   echo "• Run Isort imports formatting:"
   poetry run isort "$@"
+  echo "↳ Isort done"
 }
 
 run_isort "${@:2}"
