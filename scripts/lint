@@ -2,29 +2,32 @@
 
 run_black()
 {
-  echo "• Run Black code formatting:"
+  printf "\n• Run Black code formatting: "
   poetry run black "$@"
+  printf "↳ Black done\n\n"
 }
 
 run_flake8()
 {
   echo "• Run Flake8 code analysis:"
   poetry run flake8 "$@"
+  printf "↳ Flake8 done\n\n"
 }
 
 run_isort()
 {
   echo "• Run Isort imports formatting:"
   poetry run isort "$@"
+  printf "↳ Isort done\n\n"
 }
 
 
 run_lint()
 {
   echo "🧹 Code lint using multiple tools:"
-  run_black "."
+  run_black --check .
+  run_isort --check .
   run_flake8
-  run_isort "."
 }
 
 run_lint "${@:2}"

@@ -2,48 +2,48 @@ all: check
 
 .PHONY: check
 check:
-	./scripts/check.sh
+	./scripts/check
 
 .PHONY: clean
 clean:
-	./scripts/clean.sh
+	./scripts/clean
 
 .PHONY: install
 install:
-	./scripts/install.sh
+	./scripts/install
 
 .PHONY: build
 build:
-	./scripts/build.sh
+	./scripts/build
 
 .PHONY: lint
 lint:
-	./scripts/lint.sh
+	./scripts/lint
 
 .PHONY: docs
 docs:
-	./scripts/docs.sh
+	./scripts/docs
 
 .PHONY: tests
 tests:
-	./scripts/test.sh
+	./scripts/test
 
 .PHONY: publish
 publish:
-	./scripts/publish.sh
+	./scripts/publish
 
 .PHONY: version
 version:
-	./scripts/version.sh
+	./scripts/version
 
 .PHONY: isort
 isort:
-	./scripts/isort.sh
+	./scripts/isort
 
 .PHONY: black
 black:
-	./scripts/black.sh
+	./scripts/black
 
 .PHONY: flake8
 flake8:
-	./scripts/flake8.sh
+	./scripts/flake8
