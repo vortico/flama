@@ -48,7 +48,7 @@ repos:
         exclude: "make"
     -   id: mypy
         name: Mypy - Static types check
-        entry: poetry run mypy
+        entry: ./scripts/mypy
         language: system
         types: [file, python]
         exclude: "make"
