@@ -22,13 +22,13 @@ SERIALIZERS = {
 
 @dataclasses.dataclass(frozen=True)
 class Model:
-    lib: typing.Union[str, Format]
+    lib: Format
     model: typing.Any
 
     @classmethod
-    def serializer(cls, lib: typing.Union[str, Format]) -> Serializer:
+    def serializer(cls, lib: Format) -> Serializer:
         try:
-            return SERIALIZERS[Format(lib)]
+            return SERIALIZERS[lib]
         except ValueError:
             raise ValueError("Wrong lib")
 
@@ -36,7 +36,7 @@ class Model:
     def from_bytes(cls, data: bytes) -> "Model":
         try:
             serialized_data = json.loads(codecs.decode(data, "zlib"))
-            lib = serialized_data["lib"]
+            lib = Format(serialized_data["lib"])
             model = cls.serializer(lib).load(serialized_data["model"].encode())
         except KeyError:
             raise ValueError("Wrong data")
@@ -45,7 +45,7 @@ class Model:
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         pickled_model = self.serializer(self.lib).dump(self.model).decode()
-        return {"lib": self.lib, "model": pickled_model}
+        return {"lib": self.lib.value, "model": pickled_model}
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict())

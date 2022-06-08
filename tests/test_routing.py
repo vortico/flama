@@ -146,7 +146,9 @@ class TestCaseRouter:
         routes = [
             Route("/", root_mock),
             Mount(
-                "/foo", routes=[Route("/", foo_mock, methods=["GET"]), Route("/view", foo_view_mock, methods=["GET"])]
+                "/foo",
+                routes=[Route("/", foo_mock, methods=["GET"]), Route("/view", foo_view_mock, methods=["GET"])],
+                components=[component_mock],
             ),
             Mount(
                 "/bar",
@@ -179,6 +181,8 @@ class TestCaseRouter:
         assert isinstance(mount_with_routes_route.app, Router)
         mount_with_routes_router = mount_with_routes_route.app
         assert mount_with_routes_router.main_app == app
+        assert mount_with_routes_router.components == Components([component_mock])
+        assert app.components == Components([component_mock])
         # Check second-level routes are created an initialized
         assert len(mount_with_routes_route.routes) == 2
         assert mount_with_routes_route.routes[0].path == "/"

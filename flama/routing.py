@@ -197,10 +197,11 @@ class Mount(BaseRoute, starlette.routing.Mount):
         main_app: "Flama" = None,
         app: ASGIApp = None,
         routes: typing.Sequence[BaseRoute] = None,
+        components: typing.Sequence[Component] = None,
         name: str = None,
     ):
         if app is None:
-            app = Router(routes=routes)
+            app = Router(routes=routes, components=components)
 
         super().__init__(path, app, routes, name)
 
