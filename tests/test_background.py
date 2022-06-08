@@ -1,8 +1,8 @@
-import time
 from tempfile import NamedTemporaryFile
 
 import anyio
 import pytest
+from conftest import assert_read_from_file
 
 from flama import BackgroundProcessTask, BackgroundTasks, BackgroundThreadTask, Concurrency
 from flama.responses import APIResponse
@@ -49,9 +49,7 @@ class TestCaseBackgroundTask:
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
-        time.sleep(1)
-        with open(tmp_file.name) as f:
-            assert f.read() == "foo"
+        assert_read_from_file(tmp_file.name, "foo")
 
     def test_background_thread_task(self, app, client, task, tmp_file):
         @app.route("/")
@@ -62,9 +60,7 @@ class TestCaseBackgroundTask:
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
-        time.sleep(1)
-        with open(tmp_file.name) as f:
-            assert f.read() == "foo"
+        assert_read_from_file(tmp_file.name, "foo")
 
 
 class TestCaseBackgroundTasks:
@@ -92,9 +88,5 @@ class TestCaseBackgroundTasks:
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
-        time.sleep(1)
-        with open(tmp_file.name) as f:
-            assert f.read() == "foo"
-
-        with open(tmp_file_2.name) as f:
-            assert f.read() == "bar"
+        assert_read_from_file(tmp_file.name, "foo")
+        assert_read_from_file(tmp_file_2.name, "bar")

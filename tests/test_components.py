@@ -13,7 +13,7 @@ class TestCaseComponent:
     @pytest.fixture
     def component(self):
         class FooComponent(Component):
-            def resolve(self, *args, **kwargs) -> Foo:
+            def resolve(self, z: int, *args, **kwargs) -> Foo:
                 return Foo()
 
         return FooComponent()

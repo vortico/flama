@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import ExitStack
+from time import sleep
 
 import marshmallow
 import pytest
@@ -120,3 +121,15 @@ def assert_recursive_contains(first, second):
             assert_recursive_contains(first[i], second[i])
     else:
         assert first == second
+
+
+def assert_read_from_file(file_path, value, max_tries=10):
+    read_value = None
+    i = 0
+    while not read_value and i < max_tries:
+        sleep(i)
+        with open(file_path) as f:
+            read_value = f.read()
+        i += 1
+
+    assert read_value == value
