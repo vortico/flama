@@ -6,7 +6,7 @@ __all__ = ["dump", "dumps", "load", "loads"]
 
 
 def dumps(lib: typing.Union[str, Format], model: typing.Any) -> bytes:
-    return Model(lib, model).to_bytes()
+    return Model(Format(lib), model).to_bytes()
 
 
 def dump(lib: typing.Union[str, Format], model: typing.Any, fs: typing.BinaryIO) -> None:

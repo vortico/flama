@@ -88,7 +88,7 @@ class Components(MutableSequence[Component]):
         return self._components.__len__()
 
     def __add__(self, other: "Components") -> "Components":
-        return Components(self._components + list(other))
+        return Components(list(dict.fromkeys(self._components + list(other))))
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Components):
