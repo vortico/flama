@@ -33,17 +33,16 @@ class RESTResource(BaseResource):
 
 class RESTResourceType(ResourceType):
     def __new__(mcs, name: str, bases: typing.Tuple[type], namespace: typing.Dict[str, typing.Any]):
-        """Resource metaclass for defining basic behavior:
-        * Create _meta attribute containing some metadata (model, schemas, names...).
+        """Resource metaclass for defining basic behavior for REST resources:
+        * Create _meta attribute containing some metadata (model, schemas...).
         * Adds methods related to REST resource (create, retrieve, update, delete...) listed in METHODS class attribute.
-        * Generate a Router with above methods.
 
         :param name: Class name.
         :param bases: List of superclasses.
         :param namespace: Variables namespace used to create the class.
         """
         try:
-            # Get model and replace it with a read-only descriptor
+            # Get model
             model = mcs._get_model(bases, namespace)
             namespace["model"] = model.table
 
