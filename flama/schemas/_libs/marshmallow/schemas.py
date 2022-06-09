@@ -51,6 +51,22 @@ class PageNumber(marshmallow.Schema):
     data = marshmallow.fields.List(marshmallow.fields.Dict(), required=True)
 
 
+class MLModelInput(marshmallow.Schema):
+    input = marshmallow.fields.List(
+        marshmallow.fields.Raw(),
+        required=True,
+        metadata={"title": "input", "description": "Model input"},
+    )
+
+
+class MLModelOutput(marshmallow.Schema):
+    output = marshmallow.fields.List(
+        marshmallow.fields.Raw(),
+        required=True,
+        metadata={"title": "output", "description": "Model output"},
+    )
+
+
 SCHEMAS = {
     "APIError": APIError,
     "DropCollection": DropCollection,
@@ -58,4 +74,6 @@ SCHEMAS = {
     "LimitOffset": LimitOffset,
     "PageNumberMeta": PageNumberMeta,
     "PageNumber": PageNumber,
+    "MLModelInput": MLModelInput,
+    "MLModelOutput": MLModelOutput,
 }

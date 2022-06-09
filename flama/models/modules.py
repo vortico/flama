@@ -1,30 +1,32 @@
-import inspect
+import os
 import typing
 
+from flama.models.resource import ModelResource, ModelResourceType
 from flama.modules import Module
-from flama.resources.routing import ResourceRoute
-
-if typing.TYPE_CHECKING:
-    from flama.resources.resource import BaseResource
 
 __all__ = ["ModelsModule"]
 
 
 class ModelsModule(Module):
-    name = "resources"
+    name = "models"
 
-    def add_model(
-        self, path: str, resource: typing.Union["BaseResource", typing.Type["BaseResource"]], *args, **kwargs
-    ):
+    def add_model(self, path: str, model: typing.Union[str, os.PathLike], name: str, *args, **kwargs):
         """Adds a model to this application, setting its endpoints.
 
         :param path: Resource base path.
-        :param resource: Resource class.
+        :param model: Model path.
+        :param name: Model name.
         """
-        # Handle class or instance objects
-        resource = resource(app=self.app, *args, **kwargs) if inspect.isclass(resource) else resource
+        name_ = name
+        model_ = model
 
-        self.app.routes.append(ResourceRoute(path, resource, main_app=self.app))
+        class Resource(ModelResource, metaclass=ModelResourceType):
+            name = name_
+            model = model_
+
+        resource = Resource()
+        self.app.resources.add_resource(path, resource)  # type: ignore[attr-defined]
+        self.app.add_component(resource.component)  # type: ignore
 
     def model(self, path: str, *args, **kwargs) -> typing.Callable:
         """Decorator for Model classes for adding them to the application.

@@ -1,4 +1,5 @@
 import abc
+import json
 import typing
 
 from flama.components import Component
@@ -12,18 +13,28 @@ class Model:
         self.model = model
 
     @abc.abstractmethod
+    def inspect(self) -> typing.Any:
+        ...
+
+    @abc.abstractmethod
     def predict(self, x: typing.Any) -> typing.Any:
         ...
 
 
 class TensorFlowModel(Model):
-    def predict(self, x: typing.Any) -> typing.Any:
-        return self.model.predict(x)
+    def inspect(self) -> typing.Any:
+        return json.loads(self.model.to_json())
+
+    def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
+        return self.model.predict(x).tolist()
 
 
 class SKLearnModel(Model):
-    def predict(self, x: typing.Any) -> typing.Any:
-        return self.model.predict(x)
+    def inspect(self) -> typing.Any:
+        return self.model.get_params()
+
+    def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
+        return self.model.predict(x).tolist()
 
 
 class ModelComponentBuilder:
@@ -39,7 +50,7 @@ class ModelComponentBuilder:
             def __init__(self, model: model_class):  # type: ignore[valid-type]
                 self.model = model
 
-            def resolve(self, test: bool) -> model_class:  # type: ignore[valid-type]
+            def resolve(self) -> model_class:  # type: ignore[valid-type]
                 return self.model
 
         return ModelComponent(model_obj)

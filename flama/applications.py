@@ -8,6 +8,7 @@ from starlette.middleware.errors import ServerErrorMiddleware
 from flama.exceptions import HTTPException
 from flama.injection import Injector
 from flama.lifespan import Lifespan
+from flama.models.modules import ModelsModule
 from flama.modules import Modules
 from flama.pagination import paginator
 from flama.resources import ResourcesModule
@@ -28,7 +29,7 @@ if typing.TYPE_CHECKING:
 __all__ = ["Flama"]
 
 
-DEFAULT_MODULES: typing.List[typing.Type["Module"]] = [SQLAlchemyModule, ResourcesModule, SchemaModule]
+DEFAULT_MODULES: typing.List[typing.Type["Module"]] = [SQLAlchemyModule, ResourcesModule, SchemaModule, ModelsModule]
 
 
 class Flama(Starlette):
@@ -105,6 +106,9 @@ class Flama(Starlette):
     @property
     def components(self) -> "Components":
         return self.router.components
+
+    def add_component(self, component: "Component"):
+        self.router.add_component(component)
 
     @property
     def routes(self) -> typing.List["BaseRoute"]:  # type: ignore[override]

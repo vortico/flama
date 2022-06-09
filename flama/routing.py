@@ -263,6 +263,9 @@ class Router(starlette.routing.Router):
             ]
         )
 
+    def add_component(self, component: Component):
+        self._components.append(component)
+
     def mount(self, path: str, app: ASGIApp, name: str = None) -> None:
         try:
             main_app = self.main_app
