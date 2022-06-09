@@ -2,7 +2,7 @@ import pytest
 
 from flama.applications import Flama
 from flama.resources import BaseResource
-from flama.resources.crud import CRUDResource
+from flama.resources.crud import CRUDResourceType
 from flama.resources.routing import ResourceRoute
 
 
@@ -12,7 +12,7 @@ class TestCaseResourcesModule:
         return Flama(schema=None, docs=None, redoc=None, sqlalchemy_database="sqlite+aiosqlite://")
 
     def test_add_resource(self, app, puppy_model, puppy_schema):
-        class PuppyResource(BaseResource, metaclass=CRUDResource):
+        class PuppyResource(BaseResource, metaclass=CRUDResourceType):
             name = "puppy"
             model = puppy_model
             schema = puppy_schema
@@ -32,7 +32,7 @@ class TestCaseResourcesModule:
         ]
 
     def test_add_resource_decorator(self, app, puppy_model, puppy_schema):
-        class PuppyResource(BaseResource, metaclass=CRUDResource):
+        class PuppyResource(BaseResource, metaclass=CRUDResourceType):
             name = "puppy"
             model = puppy_model
             schema = puppy_schema
@@ -53,7 +53,7 @@ class TestCaseResourcesModule:
         ]
 
     def test_mount_resource_declarative(self, puppy_model, puppy_schema):
-        class PuppyResource(BaseResource, metaclass=CRUDResource):
+        class PuppyResource(BaseResource, metaclass=CRUDResourceType):
             name = "puppy"
             model = puppy_model
             schema = puppy_schema

@@ -4,6 +4,8 @@ import typing
 from flama.components import Component
 from flama.serialize import Format, loads
 
+__all__ = ["Model", "TensorFlowModel", "SKLearnModel", "ModelComponentBuilder"]
+
 
 class Model:
     def __init__(self, model: typing.Any):

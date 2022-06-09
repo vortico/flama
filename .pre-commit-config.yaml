@@ -51,4 +51,4 @@ repos:
         entry: ./scripts/mypy
         language: system
         types: [file, python]
-        exclude: "make"
+        exclude: "(make|tests/|examples/)"
