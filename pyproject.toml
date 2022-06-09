@@ -6,8 +6,11 @@ build-backend = "poetry.core.masonry.api"
 name = "flama"
 version = "0.16.0"
 description = "Fire up your API"
-authors = ["José Antonio Perdiguero López <perdy@perdy.io>"]
-license = "Apache-2.0"
+authors = [
+    "José Antonio Perdiguero López <perdy@perdy.io>",
+    "Miguel A. Durán Olivencia"
+]
+license = "GPL-3.0+"
 readme = "README.md"
 repository = "https://github.com/perdy/flama"
 keywords = ["starlette", "api", "components", "schema", "openapi", "async"]
@@ -71,7 +74,7 @@ pagination = ["python-forge"]
 database = ["sqlalchemy"]
 
 [tool.poetry.scripts]
-flama = 'cli.__main__:cli'
+flama = 'flama.cli.__main__:cli'
 
 [tool.black]
 line-length = 120
