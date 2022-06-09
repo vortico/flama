@@ -69,3 +69,13 @@ PageNumber = typesystem.Schema(
     }
 )
 SCHEMAS["PageNumber"] = PageNumber
+
+MLModelInput = typesystem.Schema(
+    fields={"input": typesystem.fields.Array(typesystem.fields.Any(), title="input", description="Model input")}
+)
+SCHEMAS["MLModelInput"] = MLModelInput
+
+MLModelOutput = typesystem.Schema(
+    fields={"output": typesystem.fields.Array(typesystem.fields.Any(), title="input", description="Model input")}
+)
+SCHEMAS["MLModelOutput"] = MLModelOutput
