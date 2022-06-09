@@ -5,7 +5,7 @@ import uvicorn
 from sqlalchemy import create_engine
 
 from flama import Flama
-from flama.resources.crud import CRUDListResource
+from flama.resources.crud import CRUDListResourceType
 
 DATABASE_URL = "sqlite:///resource.db"
 
@@ -27,7 +27,7 @@ PuppyModel = sqlalchemy.Table(
 )
 
 
-class PuppyResource(metaclass=CRUDListResource):
+class PuppyResource(metaclass=CRUDListResourceType):
     database = database
 
     name = "puppy"

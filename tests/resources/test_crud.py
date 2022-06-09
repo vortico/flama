@@ -9,8 +9,9 @@ from sqlalchemy.dialects import postgresql
 
 from flama.applications import Flama
 from flama.pagination import paginator
-from flama.resources.crud import CRUDListDropResource, CRUDListResource, CRUDResource
-from flama.resources.resource import BaseResource, resource_method
+from flama.resources.crud import CRUDListDropResourceType, CRUDListResourceType, CRUDResourceType
+from flama.resources.rest import RESTResource
+from flama.resources.routing import resource_method
 from tests.conftest import DATABASE_URL
 
 
@@ -38,7 +39,7 @@ def another_puppy():
 class TestCaseCRUDResource:
     @pytest.fixture
     def resource(self, puppy_model, puppy_schema):
-        class PuppyResource(BaseResource, metaclass=CRUDResource):
+        class PuppyResource(RESTResource, metaclass=CRUDResourceType):
             name = "puppy"
             verbose_name = "Puppy"
 
@@ -93,7 +94,7 @@ class TestCaseCRUDResource:
 
     @pytest.fixture
     def custom_id_datetime_resource(self, custom_id_datetime_model, custom_id_datetime_schema):
-        class CustomUUIDResource(BaseResource, metaclass=CRUDListResource):
+        class CustomUUIDResource(RESTResource, metaclass=CRUDListResourceType):
             model = custom_id_datetime_model
             schema = custom_id_datetime_schema
 
@@ -146,7 +147,7 @@ class TestCaseCRUDResource:
 
     @pytest.fixture
     def custom_id_uuid_resource(self, custom_id_uuid_model, custom_id_uuid_schema):
-        class CustomUUIDResource(BaseResource, metaclass=CRUDListResource):
+        class CustomUUIDResource(RESTResource, metaclass=CRUDListResourceType):
             model = custom_id_uuid_model
             schema = custom_id_uuid_schema
 
@@ -300,7 +301,7 @@ class TestCaseCRUDResource:
 class TestCaseCRUDListResource:
     @pytest.fixture
     def resource(self, puppy_model, puppy_schema):
-        class PuppyResource(BaseResource, metaclass=CRUDListResource):
+        class PuppyResource(RESTResource, metaclass=CRUDListResourceType):
             name = "puppy"
             verbose_name = "Puppy"
 
@@ -394,7 +395,7 @@ class TestCaseCRUDListResource:
 class TestCaseCRUDListDropResource:
     @pytest.fixture
     def resource(self, puppy_model, puppy_schema):
-        class PuppyResource(BaseResource, metaclass=CRUDListDropResource):
+        class PuppyResource(RESTResource, metaclass=CRUDListDropResourceType):
             name = "puppy"
             verbose_name = "Puppy"
 

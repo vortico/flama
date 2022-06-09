@@ -67,7 +67,6 @@ pre-commit = "^2.19.0"
 typesystem = ["typesystem"]
 marshmallow = ["marshmallow", "apispec"]
 pagination = ["python-forge"]
-resources = ["sqlalchemy"]
 database = ["sqlalchemy"]
 
 [tool.black]
@@ -102,13 +101,13 @@ warn_unused_configs = true
 ignore_missing_imports = true
 show_error_codes = true
 exclude = [
-    "\\.venv.*",
-    "\\.github.*",
-    "examples.*",
-    "docs.*",
-    "build.*",
-    "dist.*",
-    "test*",
+    "\\.venv",
+    "\\.github",
+    "examples",
+    "docs",
+    "build",
+    "dist",
+    "test",
 ]
 
 [tool.pytest.ini_options]

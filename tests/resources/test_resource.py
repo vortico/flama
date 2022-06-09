@@ -3,9 +3,9 @@ import sqlalchemy
 
 from flama.applications import Flama
 from flama.resources import types
-from flama.resources.crud import CRUDListDropResource, CRUDListResource, CRUDResource
-from flama.resources.resource import BaseResource, resource_method
-from flama.resources.routing import ResourceRoute
+from flama.resources.crud import CRUDListDropResourceType, CRUDListResourceType, CRUDResourceType
+from flama.resources.resource import BaseResource
+from flama.resources.routing import ResourceRoute, resource_method
 from flama.sqlalchemy import metadata
 
 
@@ -17,7 +17,7 @@ def app(app):
 class TestCaseBaseResource:
     @pytest.fixture(scope="function")
     def resource(self, puppy_model, puppy_schema):
-        class PuppyResource(BaseResource, metaclass=CRUDListResource):
+        class PuppyResource(BaseResource, metaclass=CRUDListResourceType):
             name = "puppy"
             verbose_name = "Puppy"
 
@@ -31,22 +31,22 @@ class TestCaseBaseResource:
         assert not hasattr(resource, "verbose_name")
         assert not hasattr(resource, "schema")
         assert hasattr(resource, "model")
-        assert isinstance(getattr(resource, "model"), property)
+        assert isinstance(getattr(resource, "model"), sqlalchemy.Table)
         assert hasattr(resource, "_meta")
         assert resource._meta.name == "puppy"
         assert resource._meta.verbose_name == "Puppy"
-        assert resource._meta.model == types.Model(
-            table=puppy_model, primary_key=types.PrimaryKey(name="custom_id", type=int)
-        )
-        assert resource._meta.schemas == types.Schemas(
-            input=types.Schema(name="PuppyResource", schema=puppy_schema),
-            output=types.Schema(name="PuppyResource", schema=puppy_schema),
-        )
-        assert resource._meta.columns == ["custom_id"]
-        assert resource._meta.order == "custom_id"
+        assert resource._meta.namespaces == {
+            "rest": {
+                "model": types.Model(table=puppy_model, primary_key=types.PrimaryKey(name="custom_id", type=int)),
+                "schemas": types.Schemas(
+                    input=types.Schema(name="PuppyResource", schema=puppy_schema),
+                    output=types.Schema(name="PuppyResource", schema=puppy_schema),
+                ),
+            }
+        }
 
     def test_crud_resource(self, puppy_model, puppy_schema, app):
-        class PuppyResource(BaseResource, metaclass=CRUDResource):
+        class PuppyResource(BaseResource, metaclass=CRUDResourceType):
             name = "puppy"
             verbose_name = "Puppy"
 
@@ -70,7 +70,7 @@ class TestCaseBaseResource:
         assert [(i.path, i.endpoint, i.methods, i.name) for i in resource_route.routes] == expected_routes
 
     def test_crud_list_resource(self, puppy_model, puppy_schema, app):
-        class PuppyResource(BaseResource, metaclass=CRUDListResource):
+        class PuppyResource(BaseResource, metaclass=CRUDListResourceType):
             name = "puppy"
             verbose_name = "Puppy"
 
@@ -100,7 +100,7 @@ class TestCaseBaseResource:
         assert [(i.path, i.endpoint, i.methods, i.name) for i in resource_route.routes] == expected_routes
 
     def test_crud_list_drop_resource(self, puppy_model, puppy_schema, app):
-        class PuppyResource(BaseResource, metaclass=CRUDListDropResource):
+        class PuppyResource(BaseResource, metaclass=CRUDListDropResourceType):
             name = "puppy"
             verbose_name = "Puppy"
 
@@ -149,7 +149,7 @@ class TestCaseBaseResource:
     def test_new_no_model(self, puppy_schema):
         with pytest.raises(AttributeError, match=r"PuppyResource needs to define attribute 'model'"):
 
-            class PuppyResource(metaclass=CRUDListResource):
+            class PuppyResource(metaclass=CRUDListResourceType):
                 schema = puppy_schema
 
     def test_invalid_no_model(self, puppy_schema):
@@ -157,12 +157,12 @@ class TestCaseBaseResource:
             AttributeError, match=r"PuppyResource model must be a valid SQLAlchemy Table instance or a Model instance"
         ):
 
-            class PuppyResource(metaclass=CRUDListResource):
+            class PuppyResource(metaclass=CRUDListResourceType):
                 schema = puppy_schema
                 model = None
 
     def test_new_no_name(self, puppy_model, puppy_schema):
-        class PuppyResource(metaclass=CRUDListResource):
+        class PuppyResource(metaclass=CRUDListResourceType):
             model = puppy_model
             schema = puppy_schema
 
@@ -171,7 +171,7 @@ class TestCaseBaseResource:
     def test_new_wrong_name(self, puppy_model, puppy_schema):
         with pytest.raises(AttributeError, match=r"PuppyResource invalid resource name '123foo'"):
 
-            class PuppyResource(metaclass=CRUDListResource):
+            class PuppyResource(metaclass=CRUDListResourceType):
                 model = puppy_model
                 schema = puppy_schema
                 name = "123foo"
@@ -182,7 +182,7 @@ class TestCaseBaseResource:
             match=r"PuppyResource needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'",
         ):
 
-            class PuppyResource(metaclass=CRUDListResource):
+            class PuppyResource(metaclass=CRUDListResourceType):
                 model = puppy_model
 
     def test_new_no_input_schema(self, puppy_model, puppy_schema):
@@ -191,7 +191,7 @@ class TestCaseBaseResource:
             match=r"PuppyResource needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'",
         ):
 
-            class PuppyResource(metaclass=CRUDListResource):
+            class PuppyResource(metaclass=CRUDListResourceType):
                 model = puppy_model
                 output_schema = puppy_schema
 
@@ -201,7 +201,7 @@ class TestCaseBaseResource:
             match=r"PuppyResource needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'",
         ):
 
-            class PuppyResource(metaclass=CRUDListResource):
+            class PuppyResource(metaclass=CRUDListResourceType):
                 model = puppy_model
                 input_schema = puppy_schema
 
@@ -210,7 +210,7 @@ class TestCaseBaseResource:
 
         with pytest.raises(AttributeError, match=r"PuppyResource model must define a single-column primary key"):
 
-            class PuppyResource(metaclass=CRUDListResource):
+            class PuppyResource(metaclass=CRUDListResourceType):
                 model = model_
                 schema = puppy_schema
 
@@ -225,7 +225,7 @@ class TestCaseBaseResource:
 
         with pytest.raises(AttributeError, match=r"PuppyResource model must define a single-column primary key"):
 
-            class PuppyResource(metaclass=CRUDListResource):
+            class PuppyResource(metaclass=CRUDListResourceType):
                 model = model_
                 schema = puppy_schema
 
@@ -234,12 +234,9 @@ class TestCaseBaseResource:
             "invalid_pk", metadata, sqlalchemy.Column("id", sqlalchemy.PickleType, primary_key=True)
         )
 
-        with pytest.raises(
-            AttributeError,
-            match=r"PuppyResource model primary key must be any of Integer, String, Date, DateTime, UUID",
-        ):
+        with pytest.raises(AttributeError, match=r"PuppyResource model primary key wrong type"):
 
-            class PuppyResource(metaclass=CRUDListResource):
+            class PuppyResource(metaclass=CRUDListResourceType):
                 model = model_
                 schema = puppy_schema
 

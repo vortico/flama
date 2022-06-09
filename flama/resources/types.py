@@ -1,3 +1,4 @@
+import dataclasses
 import typing
 
 try:
@@ -5,46 +6,50 @@ try:
 except Exception:  # pragma: no cover
     Table = typing.Any
 
-__all__ = [
-    "Model",
-    "PrimaryKey",
-    "Schema",
-    "Metadata",
-    "MethodMetadata",
-]
+__all__ = ["Model", "PrimaryKey", "Schema", "Metadata", "MethodMetadata"]
 
 
-class PrimaryKey(typing.NamedTuple):
+@dataclasses.dataclass
+class PrimaryKey:
     name: str
     type: type
 
 
-class Model(typing.NamedTuple):
+@dataclasses.dataclass
+class Model:
     table: Table
     primary_key: PrimaryKey
 
 
-class Schema(typing.NamedTuple):
+@dataclasses.dataclass
+class Schema:
     name: str
     schema: typing.Any
 
 
-class Schemas(typing.NamedTuple):
+@dataclasses.dataclass
+class Schemas:
     input: Schema
     output: Schema
 
 
-class Metadata(typing.NamedTuple):
-    model: Model
-    schemas: Schemas
-    name: str
-    verbose_name: str
-    columns: typing.Sequence[str]
-    order: str
-
-
-class MethodMetadata(typing.NamedTuple):
-    path: str
-    methods: typing.List[str] = ["GET"]
+@dataclasses.dataclass
+class Metadata:
     name: typing.Optional[str] = None
-    kwargs: typing.Dict[str, typing.Any] = {}
+    verbose_name: typing.Optional[str] = None
+    namespaces: typing.Dict[str, typing.Dict[str, typing.Any]] = dataclasses.field(default_factory=dict)
+
+    def to_plain_dict(self) -> typing.Dict[str, typing.Any]:
+        return {
+            "name": self.name,
+            "verbose_name": self.verbose_name,
+            **{f"{namespace}_{k}": v for namespace, values in self.namespaces.items() for k, v in values.items()},
+        }
+
+
+@dataclasses.dataclass
+class MethodMetadata:
+    path: str
+    methods: typing.Tuple[str] = ("GET",)
+    name: typing.Optional[str] = None
+    kwargs: typing.Dict[str, typing.Any] = dataclasses.field(default_factory=dict)
