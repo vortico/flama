@@ -8,7 +8,7 @@ if typing.TYPE_CHECKING:
     from flama import Flama
     from flama.resources import BaseResource
 
-__all__ = ["ResourceRoute"]
+__all__ = ["ResourceRoute", "resource_method"]
 
 
 class ResourceRoute(Mount):
