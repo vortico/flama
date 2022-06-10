@@ -189,4 +189,5 @@ class TestCaseModelResource:
     def test_predict(self, client, url, x, y):
         response = client.post(url, json={"input": x})
         assert response.status_code == 200, response.json()
-        assert response.json() == {"output": y}
+        for a, e in zip(response.json()["output"], y):
+            assert a == pytest.approx(e)
