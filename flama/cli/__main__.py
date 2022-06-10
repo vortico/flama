@@ -1,4 +1,11 @@
 import click
+import typing
+import subprocess
+import shlex
+
+
+def uvicorn(*args) -> typing.List[str]:
+    return shlex.split("uvicorn") + list(args)
 
 
 @click.group()
@@ -10,11 +17,14 @@ def cli():
 
 
 @click.command()
-def run():
+@click.argument("flama-app", envvar="FLAMA_APP")
+def run(app_path: str):
     """
     Run an API.
+
+    FLAMA_APP is the path to the Flama object to be served, e.g. examples.hello_flama:app
     """
-    ...
+    subprocess.run(uvicorn(app_path))
 
 
 cli.add_command(run)
