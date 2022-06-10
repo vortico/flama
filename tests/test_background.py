@@ -2,10 +2,10 @@ from tempfile import NamedTemporaryFile
 
 import anyio
 import pytest
-from conftest import assert_read_from_file
 
 from flama import BackgroundProcessTask, BackgroundTasks, BackgroundThreadTask, Concurrency
 from flama.responses import APIResponse
+from tests.conftest import assert_read_from_file
 
 
 def sync_task(path: str, msg: str):
