@@ -9,9 +9,14 @@ def uvicorn(*args) -> typing.List[str]:
 
 
 @click.group()
+@click.version_option(
+    package_name="Flama",
+    help="Check the version of your locally installed Flama",
+)
+@click.help_option(help="Get help about how to use Flama CLI")
 def cli():
     """
-    Flama 🔥.
+    Fire up your models with Flama 🔥
     """
     ...
 
