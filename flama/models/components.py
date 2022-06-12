@@ -2,7 +2,7 @@ import abc
 import json
 import typing
 
-from flama.components import Component
+from flama.components import _ComponentMeta, _BaseComponent
 from flama.serialize import Format, loads
 
 __all__ = ["Model", "TensorFlowModel", "SKLearnModel", "ModelComponentBuilder"]
@@ -37,20 +37,25 @@ class SKLearnModel(Model):
         return self.model.predict(x).tolist()
 
 
+class ModelComponent(_BaseComponent, metaclass=_ComponentMeta):
+    def __init__(self, model):
+        self.model = model
+
+    def get_model_type(self) -> typing.Type[Model]:
+        return self.model.__class__
+
+
 class ModelComponentBuilder:
     @classmethod
-    def loads(cls, data: bytes) -> Component:
+    def loads(cls, data: bytes) -> ModelComponent:
         load_model = loads(data)
         name = {Format.tensorflow: "TensorFlowModel", Format.sklearn: "SKLearnModel"}[load_model.lib]
         parent = {Format.tensorflow: TensorFlowModel, Format.sklearn: SKLearnModel}[load_model.lib]
         model_class = type(name, (parent,), {})
         model_obj = model_class(load_model.model)
 
-        class ModelComponent(Component):
-            def __init__(self, model: model_class):  # type: ignore[valid-type]
-                self.model = model
-
+        class SpecificModelComponent(ModelComponent):
             def resolve(self) -> model_class:  # type: ignore[valid-type]
-                return self.model
+                return self.model  # type: ignore[no-any-return]
 
-        return ModelComponent(model_obj)
+        return SpecificModelComponent(model_obj)
