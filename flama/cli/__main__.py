@@ -23,24 +23,25 @@ def cli():
 
 @click.command()
 @click.argument("flama-app", envvar="FLAMA_APP")
-def run(app_path: str):
+def run(flama_app: str):
     """
     Run an API.
 
     FLAMA_APP is the path to the Flama object to be served, e.g. examples.hello_flama:app
     """
-    subprocess.run(uvicorn(app_path))
+    subprocess.run(uvicorn(flama_app))
 
 
 cli.add_command(run)
 
 
 @click.command()
-def dev():
+@click.argument("flama-app", envvar="FLAMA_APP")
+def dev(flama_app: str):
     """
     Run an API in development mode.
     """
-    ...
+    subprocess.run(uvicorn(flama_app, "--reload"))
 
 
 cli.add_command(dev)
