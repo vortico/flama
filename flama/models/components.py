@@ -2,7 +2,7 @@ import abc
 import json
 import typing
 
-from flama.components import _BaseComponent, _ComponentMeta
+from flama.components import Component
 from flama.serialize import Format, loads
 
 __all__ = ["Model", "TensorFlowModel", "SKLearnModel", "ModelComponent", "ModelComponentBuilder"]
@@ -37,7 +37,7 @@ class SKLearnModel(Model):
         return self.model.predict(x).tolist()
 
 
-class ModelComponent(_BaseComponent, metaclass=_ComponentMeta):
+class ModelComponent(Component):
     def __init__(self, model):
         self.model = model
 
