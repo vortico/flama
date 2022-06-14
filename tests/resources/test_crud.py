@@ -11,14 +11,14 @@ from flama.applications import Flama
 from flama.pagination import paginator
 from flama.resources.crud import CRUDListDropResourceType, CRUDListResourceType, CRUDResourceType
 from flama.resources.rest import RESTResource
-from flama.resources.routing import resource_method
+from flama.resources.routing import resource_method, ResourceRoute
 from tests.conftest import DATABASE_URL
 
 
 @pytest.fixture
 def app(app):
     # Remove schema and docs endpoint from base fixture
-    return Flama(docs=None, redoc=None, sqlalchemy_database="sqlite+aiosqlite://")
+    return Flama(schema=None, docs=None, redoc=None, sqlalchemy_database="sqlite+aiosqlite://")
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -154,6 +154,19 @@ class TestCaseCRUDResource:
             name = "custom_id_uuid"
 
         return CustomUUIDResource
+
+    def test_crud_resource(self, resource, puppy_model, puppy_schema, app):
+        expected_routes = [
+            ("/", resource.create, {"POST"}, "puppy-create"),
+            ("/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
+            ("/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
+            ("/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
+        ]
+
+        assert len(app.routes) == 1
+        assert isinstance(app.routes[0], ResourceRoute)
+        resource_route = app.routes[0]
+        assert [(i.path, i.endpoint, i.methods, i.name) for i in resource_route.routes] == expected_routes
 
     def test_create(self, client, puppy):
         expected_puppy_id = 1
@@ -331,6 +344,40 @@ class TestCaseCRUDListResource:
 
         return PuppyResource()
 
+    def test_crud_list_resource(self, resource, puppy_model, puppy_schema, app):
+        expected_routes = [
+            ("/", resource.list, {"GET", "HEAD"}, "puppy-list"),
+            ("/", resource.create, {"POST"}, "puppy-create"),
+            ("/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
+            ("/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
+            ("/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
+        ]
+
+        assert hasattr(resource, "create")
+        assert hasattr(resource, "retrieve")
+        assert hasattr(resource, "update")
+        assert hasattr(resource, "delete")
+        assert hasattr(resource, "list")
+        assert len(app.routes) == 1
+        assert isinstance(app.routes[0], ResourceRoute)
+        resource_route = app.routes[0]
+        assert [(i.path, i.endpoint, i.methods, i.name) for i in resource_route.routes] == expected_routes
+
+    def test_override_method(self, app, resource):
+        class SpecializedPuppyResource(type(resource)):
+            @resource_method("/")
+            def list(self):
+                return ["foo", "bar"]
+
+        assert hasattr(SpecializedPuppyResource, "create")
+        assert hasattr(SpecializedPuppyResource, "retrieve")
+        assert hasattr(SpecializedPuppyResource, "update")
+        assert hasattr(SpecializedPuppyResource, "delete")
+        assert hasattr(SpecializedPuppyResource, "list")
+        assert len(SpecializedPuppyResource.routes) == 5
+
+        assert SpecializedPuppyResource(app=app).list() == ["foo", "bar"]
+
     def test_list(self, client, puppy, another_puppy):
         expected_puppy_id = 1
         expected_another_puppy_id = 2
@@ -404,6 +451,27 @@ class TestCaseCRUDListDropResource:
             output_schema = puppy_schema
 
         return PuppyResource()
+
+    def test_crud_list_drop_resource(self, resource, puppy_model, puppy_schema, app):
+        expected_routes = [
+            ("/", resource.create, {"POST"}, "puppy-create"),
+            ("/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
+            ("/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
+            ("/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
+            ("/", resource.list, {"GET", "HEAD"}, "puppy-list"),
+            ("/", resource.drop, {"DELETE"}, "puppy-drop"),
+        ]
+
+        assert hasattr(resource, "create")
+        assert hasattr(resource, "retrieve")
+        assert hasattr(resource, "update")
+        assert hasattr(resource, "delete")
+        assert hasattr(resource, "list")
+        assert hasattr(resource, "drop")
+        assert len(app.routes) == 1
+        assert isinstance(app.routes[0], ResourceRoute)
+        resource_route = app.routes[0]
+        assert [(i.path, i.endpoint, i.methods, i.name) for i in resource_route.routes] == expected_routes
 
     def test_drop(self, client, puppy, another_puppy):
         expected_puppy_id = 1
