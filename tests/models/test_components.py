@@ -10,8 +10,8 @@ class TestCaseModelComponent:
     @pytest.mark.parametrize(
         ("model_file", "component_model_class", "serialized_model_class"),
         (
-            param("models/tensorflow_model.flm", TensorFlowModel, tf.keras.models.Sequential, id="tensorflow"),
-            param("models/sklearn_model.flm", SKLearnModel, LogisticRegression, id="sklearn"),
+            param("tests/models/tensorflow_model.flm", TensorFlowModel, tf.keras.models.Sequential, id="tensorflow"),
+            param("tests/models/sklearn_model.flm", SKLearnModel, LogisticRegression, id="sklearn"),
         ),
     )
     def test_build(self, model_file, component_model_class, serialized_model_class):
