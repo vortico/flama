@@ -1,8 +1,86 @@
+from unittest.mock import Mock
+
 import pytest
 from pytest import param
 
+from flama.models import ModelComponent, ModelResource, ModelResourceType, SKLearnModel, TensorFlowModel
+
 
 class TestCaseModelResource:
+    @pytest.fixture(params=["tensorflow", "sklearn"])
+    def model(self, request):
+        if request.param == "tensorflow":
+            return TensorFlowModel(Mock())
+        elif request.param == "sklearn":
+            return SKLearnModel(Mock())
+        else:
+            raise AttributeError("Wrong lib")
+
+    @pytest.fixture
+    def component(self, model):
+        class SpecificModelComponent(ModelComponent):
+            def resolve(self) -> type(model):
+                return self.model
+
+        return SpecificModelComponent(model)
+
+    @pytest.fixture
+    def resource_using_component(self, component):
+        component_ = component
+
+        class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
+            name = "puppy"
+            verbose_name = "Puppy"
+            component = component_
+
+        return PuppyModelResource()
+
+    @pytest.fixture(params=["tensorflow", "sklearn"])
+    def resource_using_model_path(self, request):
+        if request.param == "tensorflow":
+            model_path_ = "tests/models/tensorflow_model.flm"
+        elif request.param == "sklearn":
+            model_path_ = "tests/models/sklearn_model.flm"
+        else:
+            raise AttributeError("Wrong lib")
+
+        class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
+            name = "puppy"
+            verbose_name = "Puppy"
+            model_path = model_path_
+
+        return PuppyModelResource()
+
+    def test_resource_using_component(self, resource_using_component, model, component):
+        assert not hasattr(resource_using_component, "name")
+        assert not hasattr(resource_using_component, "verbose_name")
+        assert hasattr(resource_using_component, "component")
+        assert resource_using_component.component == component
+        assert hasattr(resource_using_component, "model")
+        assert resource_using_component.model == model
+        assert hasattr(resource_using_component, "_meta")
+        assert resource_using_component._meta.name == "puppy"
+        assert resource_using_component._meta.verbose_name == "Puppy"
+        assert resource_using_component._meta.namespaces == {
+            "model": {"component": component, "model": model, "model_type": component.get_model_type()}
+        }
+
+    def test_resource_using_model_path(self, resource_using_model_path):
+        assert not hasattr(resource_using_model_path, "name")
+        assert not hasattr(resource_using_model_path, "verbose_name")
+        assert hasattr(resource_using_model_path, "component")
+        component = resource_using_model_path.component
+        assert hasattr(resource_using_model_path, "model")
+        assert resource_using_model_path.model == component.model
+        assert hasattr(resource_using_model_path, "_meta")
+        assert resource_using_model_path._meta.name == "puppy"
+        assert resource_using_model_path._meta.verbose_name == "Puppy"
+        assert resource_using_model_path._meta.namespaces == {
+            "model": {"component": component, "model": component.model, "model_type": component.get_model_type()}
+        }
+
+
+class TestCaseModelResourceMethods:
     @pytest.fixture(scope="function", autouse=True)
     def add_models(self, app):
         app.models.add_model("/tensorflow/", model="tests/models/tensorflow_model.flm", name="tensorflow")

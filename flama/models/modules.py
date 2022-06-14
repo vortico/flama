@@ -22,21 +22,32 @@ class ModelsModule(Module):
 
         class Resource(ModelResource, metaclass=ModelResourceType):
             name = name_
-            model = model_
+            model_path = model_
 
         resource = Resource()
         self.app.resources.add_resource(path, resource)  # type: ignore[attr-defined]
-        self.app.add_component(resource.component)  # type: ignore
+        self.app.add_component(resource.component)  # type: ignore[arg-type]
 
     def model(self, path: str, *args, **kwargs) -> typing.Callable:
-        """Decorator for Model classes for adding them to the application.
+        """Decorator for ModelResource classes for adding them to the application.
 
         :param path: Resource base path.
         :return: Decorated resource class.
         """
 
-        def decorator(resource: typing.Type["BaseResource"]) -> typing.Type["BaseResource"]:
-            self.add_model(path, resource, *args, **kwargs)
+        def decorator(resource: typing.Type[ModelResource]) -> typing.Type[ModelResource]:
+            self.app.resources.add_resource(path, resource, *args, **kwargs)  # type: ignore[attr-defined]
+            self.app.add_component(resource.component)  # type: ignore[arg-type]
             return resource
 
         return decorator
+
+    def add_model_resource(
+        self, path: str, resource: typing.Union[ModelResource, typing.Type[ModelResource]], *args, **kwargs
+    ):
+        """Adds a resource to this application, setting its endpoints.
+
+        :param path: Resource base path.
+        :param resource: Resource class.
+        """
+        self.app.resources.add_resource(path, resource, *args, **kwargs)  # type: ignore[attr-defined]
