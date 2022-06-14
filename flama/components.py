@@ -1,8 +1,6 @@
-import abc
 import inspect
 import sys
 import typing
-from abc import ABCMeta
 
 if sys.version_info >= (3, 9):  # PORT: Remove when stop supporting 3.8 # pragma: no cover
     from collections.abc import MutableSequence
@@ -14,7 +12,7 @@ from flama import exceptions
 __all__ = ["Component", "Components"]
 
 
-class _BaseComponent(metaclass=ABCMeta):
+class Component:
     def identity(self, parameter: inspect.Parameter) -> str:
         """
         Each component needs a unique identifier string that we use for lookups from the `state` dictionary when we run
@@ -58,17 +56,6 @@ class _BaseComponent(metaclass=ABCMeta):
             )
             raise exceptions.ConfigurationError(msg)
         return parameter.annotation is return_annotation
-
-
-class _ComponentMeta(abc.ABCMeta):
-    def __new__(mcs, name, bases, namespace):
-        if _BaseComponent not in bases:
-            assert namespace.get("resolve"), f"Component '{name}' does not have a 'resolve' method."
-        return super().__new__(mcs, name, bases, namespace)
-
-
-class Component(_BaseComponent, metaclass=_ComponentMeta):
-    ...
 
 
 class Components(MutableSequence[Component]):
