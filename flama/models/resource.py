@@ -3,15 +3,13 @@ import typing
 
 import flama.schemas
 from flama.models.components import ModelComponentBuilder
-from flama.resources import types, BaseResource
+from flama.resources import BaseResource, types
 from flama.resources.exceptions import ResourceAttributeError
 from flama.resources.resource import ResourceType
 from flama.resources.routing import resource_method
-import flama.schemas
 
 if typing.TYPE_CHECKING:
-    from flama.components import Component
-    from flama.models.components import Model
+    from flama.models.components import Model, ModelComponent
 
 __all__ = ["ModelResource", "InspectMixin", "PredictMixin", "ModelResourceType"]
 
@@ -19,10 +17,10 @@ __all__ = ["ModelResource", "InspectMixin", "PredictMixin", "ModelResourceType"]
 class InspectMixin:
     @classmethod
     def _add_inspect(
-        mcs, name: str, verbose_name: str, ml_model_type: "Model", **kwargs
+        mcs, name: str, verbose_name: str, model_model_type: "Model", **kwargs
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/", methods=["GET"], name=f"{name}-inspect")
-        async def inspect(self, model: ml_model_type):  # type: ignore[valid-type]
+        async def inspect(self, model: model_model_type):  # type: ignore[valid-type]
             return model.inspect()  # type: ignore[attr-defined]
 
         inspect.__doc__ = f"""
@@ -44,11 +42,11 @@ class InspectMixin:
 class PredictMixin:
     @classmethod
     def _add_predict(
-        mcs, name: str, verbose_name: str, ml_model_type: "Model", **kwargs
+        mcs, name: str, verbose_name: str, model_model_type: "Model", **kwargs
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/predict/", methods=["POST"], name=f"{name}-predict")
         async def predict(
-            self, model: ml_model_type, data: flama.schemas.schemas.MLModelInput  # type: ignore[valid-type]
+            self, model: model_model_type, data: flama.schemas.schemas.MLModelInput  # type: ignore[valid-type]
         ) -> flama.schemas.schemas.MLModelOutput:
             return {"output": model.predict(data["input"])}  # type: ignore[attr-defined]
 
@@ -69,7 +67,8 @@ class PredictMixin:
 
 
 class ModelResource(BaseResource):
-    model: typing.Union[str, os.PathLike]
+    component: "ModelComponent"
+    model_path: typing.Union[str, os.PathLike]
 
 
 class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
@@ -87,23 +86,37 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
         try:
             # Get model component
             component = mcs._get_model_component(bases, namespace)
-            model = component.model  # type: ignore[attr-defined]
             namespace["component"] = component
-            namespace["model"] = component.model  # type: ignore[attr-defined]
+            namespace["model"] = component.model
         except AttributeError as e:
             raise ResourceAttributeError(str(e), name)
 
-        metadata_namespace = {"component": component, "model": model, "model_type": type(model)}
+        metadata_namespace = {
+            "component": component,
+            "model": component.model,
+            "model_type": component.get_model_type(),
+        }
         if "_meta" in namespace:
-            namespace["_meta"].namespaces["ml"] = metadata_namespace
+            namespace["_meta"].namespaces["model"] = metadata_namespace
         else:
-            namespace["_meta"] = types.Metadata(namespaces={"ml": metadata_namespace})
+            namespace["_meta"] = types.Metadata(namespaces={"model": metadata_namespace})
 
         return super().__new__(mcs, name, bases, namespace)
 
     @classmethod
     def _get_model_component(
         mcs, bases: typing.Sequence[typing.Any], namespace: typing.Dict[str, typing.Any]
-    ) -> "Component":
-        with open(mcs._get_attribute("model", bases, namespace), "rb") as f:
-            return ModelComponentBuilder.loads(f.read())
+    ) -> "ModelComponent":
+        try:
+            component: "ModelComponent" = mcs._get_attribute("component", bases, namespace)
+            return component
+        except AttributeError:
+            ...
+
+        try:
+            with open(mcs._get_attribute("model_path", bases, namespace), "rb") as f:
+                return ModelComponentBuilder.loads(f.read())
+        except AttributeError:
+            ...
+
+        raise AttributeError(ResourceAttributeError.MODEL_NOT_FOUND)

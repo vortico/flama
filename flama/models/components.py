@@ -2,10 +2,10 @@ import abc
 import json
 import typing
 
-from flama.components import _ComponentMeta, _BaseComponent
+from flama.components import _BaseComponent, _ComponentMeta
 from flama.serialize import Format, loads
 
-__all__ = ["Model", "TensorFlowModel", "SKLearnModel", "ModelComponentBuilder"]
+__all__ = ["Model", "TensorFlowModel", "SKLearnModel", "ModelComponent", "ModelComponentBuilder"]
 
 
 class Model:
@@ -42,7 +42,7 @@ class ModelComponent(_BaseComponent, metaclass=_ComponentMeta):
         self.model = model
 
     def get_model_type(self) -> typing.Type[Model]:
-        return self.model.__class__
+        return self.model.__class__  # type: ignore[no-any-return]
 
 
 class ModelComponentBuilder:
