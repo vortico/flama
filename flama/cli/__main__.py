@@ -1,11 +1,10 @@
 import click
-import typing
 import subprocess
 import shlex
+import uvicorn
 
 
-def uvicorn(*args) -> typing.List[str]:
-    return shlex.split("uvicorn") + list(args)
+from flama import Flama
 
 
 @click.group()
@@ -23,36 +22,34 @@ def cli():
 
 @click.command()
 @click.argument("flama-app", envvar="FLAMA_APP")
-def run(flama_app: str):
+@click.option("-d", "--dev", envvar="FLAMA_DEV", is_flag=True, help="Development mode.")
+def run(flama_app: str, dev: bool):
     """
-    Run an API.
+    Runs a Flama Application.
 
     FLAMA_APP is the path to the Flama object to be served, e.g. examples.hello_flama:app
     """
-    subprocess.run(uvicorn(flama_app))
+    command = shlex.split(f"uvicorn {flama_app}")
+    if dev:
+        command += ["--reload"]
+
+    subprocess.run(command)
 
 
 cli.add_command(run)
 
 
 @click.command()
-@click.argument("flama-app", envvar="FLAMA_APP")
-def dev(flama_app: str):
+@click.argument("flama-model", envvar="FLAMA_MODEL")
+@click.argument("flama-model-url", envvar="FLAMA_MODEL_URL", default="/")
+@click.argument("flama-model-name", envvar="FLAMA_MODEL_NAME", default="model")
+def serve(flama_model: str, flama_model_url: str, flama_model_name: str):
     """
-    Run an API in development mode.
+    Serves an ML model within a Flama Application.
     """
-    subprocess.run(uvicorn(flama_app, "--reload"))
-
-
-cli.add_command(dev)
-
-
-@click.command()
-def serve():
-    """
-    Run an API for a ML Model.
-    """
-    ...
+    app = Flama()
+    app.models.add_model(flama_model_url, model=flama_model, name=flama_model_name)
+    uvicorn.run(app)
 
 
 cli.add_command(serve)
