@@ -73,6 +73,9 @@ class SchemaModule(Module):
 
             self.app.add_route(path=redoc_url, route=redoc_view, methods=["GET"], include_in_schema=False)
 
+    def register_schema(self, name: str, schema):
+        self.schemas[name] = schema
+
     @property
     def schema_generator(self) -> SchemaGenerator:
         self.schemas.update({**schemas.schemas.SCHEMAS, **pagination.paginator.schemas})
