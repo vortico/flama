@@ -56,4 +56,4 @@ class CustomModelResource(ModelResource, metaclass=ModelResourceType):
 
 
 app.add_component(component)
-app.models.add_model_resource(CustomModelResource)
+app.models.add_model_resource("/", CustomModelResource)
