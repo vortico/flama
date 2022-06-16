@@ -46,7 +46,7 @@ SCHEMAS["LimitOffsetMeta"] = LimitOffsetMeta
 LimitOffset = typesystem.Schema(
     fields={
         "meta": typesystem.Reference(to="LimitOffsetMeta", definitions=SCHEMAS),
-        "data": typesystem.fields.Array(typesystem.fields.Any()),
+        "data": typesystem.fields.Array(),
     }
 )
 SCHEMAS["LimitOffset"] = LimitOffset
@@ -65,17 +65,15 @@ SCHEMAS["PageNumberMeta"] = PageNumberMeta
 PageNumber = typesystem.Schema(
     fields={
         "meta": typesystem.Reference(to="PageNumberMeta", definitions=SCHEMAS),
-        "data": typesystem.fields.Array(typesystem.fields.Any()),
+        "data": typesystem.fields.Array(),
     }
 )
 SCHEMAS["PageNumber"] = PageNumber
 
-MLModelInput = typesystem.Schema(
-    fields={"input": typesystem.fields.Array(typesystem.fields.Any(), title="input", description="Model input")}
-)
+MLModelInput = typesystem.Schema(fields={"input": typesystem.fields.Array(title="input", description="Model input")})
 SCHEMAS["MLModelInput"] = MLModelInput
 
 MLModelOutput = typesystem.Schema(
-    fields={"output": typesystem.fields.Array(typesystem.fields.Any(), title="input", description="Model input")}
+    fields={"output": typesystem.fields.Array(title="output", description="Model output")}
 )
 SCHEMAS["MLModelOutput"] = MLModelOutput
