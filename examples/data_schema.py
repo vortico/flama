@@ -1,20 +1,35 @@
 import uvicorn
-from marshmallow import Schema, fields, validate
+import typesystem
 
 from flama import Flama
 
+app = Flama(
+    title="Puppy Register",  # API title
+    version="0.1",  # API version
+    description="A register of puppies",  # API description
+    schema="/schema/",  # Path to expose OpenAPI schema
+    docs="/docs/",  # Path to expose SwaggerUI application
+    redoc="/redoc/",  # Path to expose ReDoc application
+)
 
-class Puppy(Schema):
-    id = fields.Integer()
-    name = fields.String()
-    age = fields.Integer(validate=validate.Range(min=0))
+Puppy = typesystem.Schema(
+    fields={
+        "id": typesystem.fields.Integer(),
+        "name": typesystem.fields.String(),
+        "age": typesystem.fields.Integer(minimum=0),
+    }
+)
+
+app.schema.register_schema("Puppy", Puppy)
 
 
 def home():
     return {"hello": "world"}
 
 
-def list_puppies(name: str = None) -> Puppy(many=True):
+def list_puppies(
+    name: str = None,
+) -> typesystem.fields.Array(typesystem.Reference("Puppy", definitions=app.schema.schemas)):
     """
     tags:
         - puppy
@@ -45,15 +60,6 @@ def create_puppy(puppy: Puppy) -> Puppy:
     """
     ...
 
-
-app = Flama(
-    title="Puppy Register",  # API title
-    version="0.1",  # API version
-    description="A register of puppies",  # API description
-    schema="/schema/",  # Path to expose OpenAPI schema
-    docs="/docs/",  # Path to expose SwaggerUI application
-    redoc="/redoc/",  # Path to expose ReDoc application
-)
 
 app.add_route("/puppy/", list_puppies, methods=["GET"])
 app.add_route("/puppy/", create_puppy, methods=["POST"])
