@@ -48,7 +48,10 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
                 if "$ref" in prop:
                     result.append(prop["$ref"])
                 elif prop.get("type", "") == "array":
-                    result.append(prop["items"]["$ref"])
+                    try:
+                        result.append(prop["items"]["$ref"])
+                    except (TypeError, KeyError):
+                        ...
             except KeyError as e:
                 raise SchemaGenerationError from e
 
