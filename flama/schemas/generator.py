@@ -44,16 +44,10 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
 
         result = []
         for name, prop in schema.get("properties", {}).items():
-            try:
-                if "$ref" in prop:
-                    result.append(prop["$ref"])
-                elif prop.get("type", "") == "array":
-                    try:
-                        result.append(prop["items"]["$ref"])
-                    except (TypeError, KeyError):
-                        ...
-            except KeyError as e:
-                raise SchemaGenerationError from e
+            if "$ref" in prop:
+                result.append(prop["$ref"])
+            elif prop.get("type", "") == "array" and prop.get("items", {}).get("$ref"):
+                result.append(prop["items"]["$ref"])
 
         return result
 
