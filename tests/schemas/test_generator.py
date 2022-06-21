@@ -48,7 +48,7 @@ class TestCaseSchemaRegistry:
         assert SchemaRegistry() == {}
 
     @pytest.mark.parametrize(
-        "operation,exception",
+        "operation,output",
         [
             pytest.param(
                 openapi.Operation(
@@ -65,7 +65,7 @@ class TestCaseSchemaRegistry:
                         }
                     )
                 ),
-                None,
+                True,
                 id="response_reference",
             ),
             pytest.param(
@@ -88,7 +88,7 @@ class TestCaseSchemaRegistry:
                         }
                     )
                 ),
-                None,
+                True,
                 id="response_schema",
             ),
             pytest.param(
@@ -116,7 +116,7 @@ class TestCaseSchemaRegistry:
                         }
                     )
                 ),
-                None,
+                True,
                 id="response_array",
             ),
             pytest.param(
@@ -128,7 +128,7 @@ class TestCaseSchemaRegistry:
                                 content={
                                     "application/json": openapi.MediaType(
                                         schema=openapi.Schema(
-                                            {"type": "object", "properties": {"foo": {"type": "array"}}}
+                                            {"type": "object", "properties": {"foo": {"type": "foo"}}}
                                         ),
                                     )
                                 },
@@ -136,14 +136,14 @@ class TestCaseSchemaRegistry:
                         }
                     )
                 ),
-                SchemaGenerationError,
+                False,
                 id="response_wrong",
             ),
             pytest.param(
                 openapi.Operation(
                     requestBody=openapi.Reference(ref="#!/components/schemas/Foo"), responses=openapi.Responses({})
                 ),
-                None,
+                True,
                 id="body_reference",
             ),
             pytest.param(
@@ -160,7 +160,7 @@ class TestCaseSchemaRegistry:
                     ),
                     responses=openapi.Responses({}),
                 ),
-                None,
+                True,
                 id="body_schema",
             ),
             pytest.param(
@@ -182,7 +182,7 @@ class TestCaseSchemaRegistry:
                     ),
                     responses=openapi.Responses({}),
                 ),
-                None,
+                True,
                 id="body_array",
             ),
             pytest.param(
@@ -191,20 +191,20 @@ class TestCaseSchemaRegistry:
                         description="Foo",
                         content={
                             "application/json": openapi.MediaType(
-                                schema=openapi.Schema({"type": "object", "properties": {"foo": {"type": "array"}}}),
+                                schema=openapi.Schema({"type": "object", "properties": {"foo": {"type": "foo"}}}),
                             )
                         },
                     ),
                     responses=openapi.Responses({}),
                 ),
-                SchemaGenerationError,
+                False,
                 id="body_wrong",
             ),
             pytest.param(
                 openapi.Operation(
                     parameters=[openapi.Reference(ref="#!/components/schemas/Foo")], responses=openapi.Responses({})
                 ),
-                None,
+                True,
                 id="parameter_reference",
             ),
             pytest.param(
@@ -220,7 +220,7 @@ class TestCaseSchemaRegistry:
                     ],
                     responses=openapi.Responses({}),
                 ),
-                None,
+                True,
                 id="parameter_schema",
             ),
             pytest.param(
@@ -241,7 +241,7 @@ class TestCaseSchemaRegistry:
                     ],
                     responses=openapi.Responses({}),
                 ),
-                None,
+                True,
                 id="parameter_array",
             ),
             pytest.param(
@@ -250,12 +250,12 @@ class TestCaseSchemaRegistry:
                         openapi.Parameter(
                             in_="query",
                             name="foo",
-                            schema=openapi.Schema({"type": "object", "properties": {"foo": {"type": "array"}}}),
+                            schema=openapi.Schema({"type": "object", "properties": {"foo": {"type": "foo"}}}),
                         )
                     ],
                     responses=openapi.Responses({}),
                 ),
-                SchemaGenerationError,
+                False,
                 id="parameter_wrong",
             ),
             pytest.param(
@@ -263,7 +263,7 @@ class TestCaseSchemaRegistry:
                     callbacks={"200": openapi.Reference(ref="#!/components/schemas/Foo")},
                     responses=openapi.Responses({}),
                 ),
-                None,
+                True,
                 id="callback_reference",
             ),
             pytest.param(
@@ -299,7 +299,7 @@ class TestCaseSchemaRegistry:
                     },
                     responses=openapi.Responses({}),
                 ),
-                None,
+                True,
                 id="callback_schema",
             ),
             pytest.param(
@@ -318,7 +318,7 @@ class TestCaseSchemaRegistry:
                                                             schema=openapi.Schema(
                                                                 {
                                                                     "type": "object",
-                                                                    "properties": {"foo": {"type": "array"}},
+                                                                    "properties": {"foo": {"type": "foo"}},
                                                                 }
                                                             )
                                                         )
@@ -333,16 +333,15 @@ class TestCaseSchemaRegistry:
                     },
                     responses=openapi.Responses({}),
                 ),
-                SchemaGenerationError,
+                False,
                 id="callback_wrong",
             ),
         ],
-        indirect=["exception"],
     )
-    def test_used(self, registry, foo_schema, spec, operation, exception):
-        with exception:
-            spec.add_path("/", openapi.Path(get=operation))
-            assert registry.used(spec) == {id(foo_schema): registry[foo_schema]}
+    def test_used(self, registry, foo_schema, spec, operation, output):
+        expected_output = {id(foo_schema): registry[foo_schema]} if output else {}
+        spec.add_path("/", openapi.Path(get=operation))
+        assert registry.used(spec) == expected_output
 
     @pytest.mark.parametrize(
         "schema,name,exception",
