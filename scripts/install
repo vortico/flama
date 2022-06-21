@@ -6,4 +6,4 @@ install_pkg()
   poetry install "$@"
 }
 
-install_pkg "${@:2}"
+install_pkg "$@"
