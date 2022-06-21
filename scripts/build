@@ -17,4 +17,4 @@ build_pkg()
   fi
 }
 
-build_pkg "${@:2}"
+build_pkg "$@"

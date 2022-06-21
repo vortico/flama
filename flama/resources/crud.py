@@ -32,7 +32,9 @@ class CreateMixin:
         mcs, name: str, verbose_name: str, rest_schemas: types.Schemas, rest_model: types.Model, **kwargs
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/", methods=["POST"], name=f"{name}-create")
-        async def create(self, element: rest_schemas.input.schema) -> rest_schemas.output.schema:  # type: ignore[name-defined]
+        async def create(
+            self, element: rest_schemas.input.schema  # type: ignore[name-defined]
+        ) -> rest_schemas.output.schema:  # type: ignore[name-defined]
             if element.get(rest_model.primary_key.name) is None:
                 element.pop(rest_model.primary_key.name, None)
 
@@ -107,7 +109,9 @@ class UpdateMixin:
     ) -> typing.Dict[str, typing.Any]:
         @resource_method("/{element_id}/", methods=["PUT"], name=f"{name}-update")
         async def update(
-            self, element_id: rest_model.primary_key.type, element: rest_schemas.input.schema  # type: ignore[name-defined]
+            self,
+            element_id: rest_model.primary_key.type,  # type: ignore[name-defined]
+            element: rest_schemas.input.schema,  # type: ignore[name-defined]
         ) -> rest_schemas.output.schema:  # type: ignore[name-defined]
             async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select().where(

@@ -28,7 +28,7 @@ class AppConfig:
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AppConfig":
-        return cls(**{**data, "models": [Model(**model) for model in data.pop("models")]})
+        return cls(**{**data, "models": [Model(**model) for model in data.pop("models")]})  # type: ignore[arg-type]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -70,7 +70,7 @@ class Config:
         )
 
         for model in self.app.models:
-            app.models.add_model(model.url, model=model.path, name=model.name)
+            app.models.add_model(model.url, model=model.path, name=model.name)  # type: ignore[attr-defined]
 
         return app
 
@@ -84,10 +84,10 @@ def start(flama_config: str, create_config: bool):
     """
     if create_config:
         with open(flama_config, "w") as fs:
-            Config().dump(fs)
+            Config().dump(fs)  # type: ignore[arg-type]
             return
 
     with open(flama_config, "r") as fs:
-        config = Config.load(fs)
+        config = Config.load(fs)  # type: ignore[arg-type]
 
     uvicorn.run(config.build_app(), reload=config.dev)

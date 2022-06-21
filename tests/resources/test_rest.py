@@ -2,8 +2,7 @@ import pytest
 import sqlalchemy
 
 from flama.applications import Flama
-from flama.resources import RESTResource, types, RESTResourceType
-from flama.resources.routing import resource_method
+from flama.resources import RESTResource, RESTResourceType, types
 from flama.sqlalchemy import metadata
 
 

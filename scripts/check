@@ -54,4 +54,4 @@ check_poetry()
   fi
 }
 
-check_poetry "${@:2}"
+check_poetry "$@"

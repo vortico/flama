@@ -1,6 +1,6 @@
-from flama import Flama
-
 import uvicorn
+
+from flama import Flama
 
 app = Flama(
     title="Hello-🔥",
