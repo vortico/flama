@@ -13,5 +13,5 @@ def serve(flama_model: str, flama_model_url: str, flama_model_name: str):
     Serves an ML model within a Flama Application.
     """
     app = Flama()
-    app.models.add_model(flama_model_url, model=flama_model, name=flama_model_name)
+    app.models.add_model(flama_model_url, model=flama_model, name=flama_model_name)  # type: ignore[attr-defined]
     uvicorn.run(app)

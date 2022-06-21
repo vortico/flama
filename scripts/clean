@@ -20,4 +20,4 @@ clean_folder()
   done
 }
 
-clean_folder "${@:2}"
+clean_folder "$@"

@@ -11,7 +11,7 @@ from flama.applications import Flama
 from flama.pagination import paginator
 from flama.resources.crud import CRUDListDropResourceType, CRUDListResourceType, CRUDResourceType
 from flama.resources.rest import RESTResource
-from flama.resources.routing import resource_method, ResourceRoute
+from flama.resources.routing import ResourceRoute, resource_method
 from tests.conftest import DATABASE_URL
 
 

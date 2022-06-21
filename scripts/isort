@@ -2,9 +2,10 @@
 
 run_isort()
 {
+  echo "poetry run isort $@"
   echo "• Run Isort imports formatting:"
   poetry run isort "$@"
   echo "↳ Isort done"
 }
 
-run_isort "${@:2}"
+run_isort "$@"

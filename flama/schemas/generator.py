@@ -9,7 +9,6 @@ from starlette import schemas as starlette_schemas
 
 from flama import routing, schemas
 from flama.schemas import openapi
-from flama.schemas.exceptions import SchemaGenerationError
 from flama.schemas.types import EndpointInfo, Schema, SchemaInfo
 
 logger = logging.getLogger(__name__)

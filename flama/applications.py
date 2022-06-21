@@ -97,7 +97,10 @@ class Flama(Starlette):
         self.paginator = paginator
 
     def __getattr__(self, item: str) -> "Module":
-        return self.modules.__getattr__(item)
+        try:
+            return self.modules.__getattr__(item)
+        except KeyError:
+            return None  # type: ignore[return-value]
 
     @property
     def injector(self) -> Injector:
