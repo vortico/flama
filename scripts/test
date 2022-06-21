@@ -6,4 +6,4 @@ run_test()
   poetry run pytest
 }
 
-run_test "${@:2}"
+run_test "$@"

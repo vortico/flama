@@ -1,5 +1,5 @@
-import uvicorn
 import typesystem
+import uvicorn
 
 from flama import Flama
 

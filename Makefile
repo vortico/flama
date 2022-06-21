@@ -38,12 +38,16 @@ version:
 
 .PHONY: isort
 isort:
-	./scripts/isort
+	./scripts/isort .
 
 .PHONY: black
 black:
-	./scripts/black
+	./scripts/black .
 
 .PHONY: flake8
 flake8:
 	./scripts/flake8
+
+.PHONY: mypy
+mypy:
+	./scripts/mypy .

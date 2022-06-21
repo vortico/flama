@@ -23,4 +23,4 @@ publish_pkg()
     poetry publish
 }
 
-publish_pkg "${@:2}"
+publish_pkg "$@"
