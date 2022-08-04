@@ -20,10 +20,6 @@ build:
 lint:
 	./scripts/lint
 
-.PHONY: docs
-docs:
-	./scripts/docs
-
 .PHONY: tests
 test:
 	./scripts/test
