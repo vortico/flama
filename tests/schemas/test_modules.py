@@ -9,15 +9,15 @@ from flama.schemas.modules import SchemaModule
 class TestCaseSchemaModule:
     @pytest.fixture
     def module(self):
-        return SchemaModule(Flama())
+        return SchemaModule(Flama(), title="title", version="0.1.0", description="Foo")
 
     def test_init(self):
         app = Mock(spec=Flama)
         title = "title"
-        version = "1.0.0"
+        version = "0.1.0"
         description = "Foo"
 
-        module = SchemaModule(app, title, version, description)
+        module = SchemaModule(app, title, version, description, "/schema/", "/docs/")
 
         assert module.app == app
         assert module.title == title
@@ -31,17 +31,17 @@ class TestCaseSchemaModule:
 
         assert generator_mock.call_args_list == [
             call(
-                title="",
-                version="",
-                description="",
+                title="title",
+                version="0.1.0",
+                description="Foo",
                 schemas={**schemas.schemas.SCHEMAS, **pagination.paginator.schemas},
             )
         ]
 
     def test_schema(self, module):
         assert module.schema == {
-            "openapi": "3.0.3",
-            "info": {"title": "", "version": "", "description": ""},
+            "openapi": "3.1.0",
+            "info": {"title": "title", "version": "0.1.0", "description": "Foo"},
             "paths": {},
             "components": {
                 "schemas": {},
