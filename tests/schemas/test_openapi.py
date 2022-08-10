@@ -193,7 +193,7 @@ class TestCaseOpenAPISpec:
 
     def test_asdict(self, spec):
         expected_result = {
-            "openapi": "3.0.3",
+            "openapi": "3.1.0",
             "info": {
                 "title": "Title",
                 "version": "1.0.0",

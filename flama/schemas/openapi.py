@@ -245,7 +245,7 @@ class OpenAPI:
 
 
 class OpenAPISpec:
-    OPENAPI_VERSION = "3.0.3"
+    OPENAPI_VERSION = "3.1.0"
 
     def __init__(
         self,
