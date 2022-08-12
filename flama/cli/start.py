@@ -24,7 +24,9 @@ class AppConfig:
     schema: str = "/schema/"
     docs: str = "/docs/"
     redoc: str = "/redoc/"
-    models: typing.List[Model] = dataclasses.field(default_factory=list)
+    models: typing.List[Model] = dataclasses.field(default_factory=lambda: [
+        Model(url="/model-url/", path="model-path.flm", name="model-name")
+    ])
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AppConfig":
@@ -34,7 +36,9 @@ class AppConfig:
 @dataclasses.dataclass(frozen=True)
 class Config:
     dev: bool = False
-    app: typing.Union[AppConfig, str] = dataclasses.field(default_factory=AppConfig)
+    app: typing.Union[AppConfig, str] = dataclasses.field(
+        default_factory=lambda: AppConfig(title="API title", version="0.1.0", description="API description")
+    )
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "Config":
