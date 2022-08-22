@@ -1,165 +1,114 @@
 <p align="center">
-  <a href="https://flama.perdy.io"><img src="https://raw.githubusercontent.com/perdy/flama/master/docs/images/logo.png" alt='Flama'></a>
+    <a href="https://flama.dev"><img src="https://raw.githubusercontent.com/perdy/flama/master/docs/images/logo.png" alt='Flama'></a>
 </p>
 <p align="center">
-    &#128293; <em>Fire up your API.</em>
+    <em>Fire up your models with the flame</em> &#128293;
 </p>
 <p align="center">
-<a href="https://github.com/perdy/flama/actions">
-    <img src="https://github.com/perdy/flama/workflows/Continuous%20Integration/badge.svg" alt="CI Status">
-</a>
-<a href="https://github.com/perdy/flama/actions">
-    <img src="https://github.com/perdy/flama/workflows/Publish%20Docs/badge.svg" alt="Docs Status">
-</a>
-<a href="https://codecov.io/gh/perdy/flama">
-    <img src="https://codecov.io/gh/perdy/flama/branch/master/graph/badge.svg" alt="Coverage">
-</a>
-<a href="https://pypi.org/project/flama/">
-    <img src="https://img.shields.io/pypi/v/flama?logo=PyPI&logoColor=white" alt="Package version">
-</a>
-<a href="https://pypi.org/project/flama/">
-    <img src="https://img.shields.io/pypi/pyversions/flama?logo=Python&logoColor=white" alt="PyPI - Python Version">
-</a>
+    <a href="https://github.com/perdy/flama/actions">
+        <img src="https://github.com/perdy/flama/workflows/Continuous%20Integration/badge.svg" alt="CI Status">
+    </a>
+    <a href="https://codecov.io/gh/perdy/flama">
+        <img src="https://codecov.io/gh/perdy/flama/branch/master/graph/badge.svg" alt="Coverage">
+    </a>
+    <a href="https://pypi.org/project/flama/">
+        <img src="https://img.shields.io/pypi/v/flama?logo=PyPI&logoColor=white" alt="Package version">
+    </a>
+    <a href="https://pypi.org/project/flama/">
+        <img src="https://img.shields.io/pypi/pyversions/flama?logo=Python&logoColor=white" alt="PyPI - Python Version">
+    </a>
 </p>
-
----
-
-**Documentation**: [https://flama.perdy.io](https://flama.perdy.io)
 
 ---
 
 # Flama
 
-Flama aims to bring a layer on top of [Starlette] to provide an **easy to learn** and **fast to develop** approach for 
-building **highly performant** GraphQL and REST APIs. In the same way of Starlette is, Flama is a perfect option for 
-developing **asynchronous** and **production-ready** services. 
+Flama is a python library which establishes a standard framework for
+development and deployment of APIs with special focus on machine learning (ML).
+The main aim of the framework is to make ridiculously simple the deployment of
+ML APIs, simplifying (when possible) the entire process to a single line of
+code.
 
-Among other characteristics it provides the following:
+The library builds on Starlette, and provides an easy-to-learn
+philosophy to speed up the building of highly performant GraphQL, REST and ML APIs.
+Besides, it comprises an ideal solution for the development of asynchronous
+and production-ready services, offering automatic deployment for ML models.
 
-* **Generic classes** for API resources that provides standard CRUD methods over SQLAlchemy tables.
-* **Schema system** based on [Marshmallow] that allows to **declare** the inputs and outputs of endpoints and provides 
-a reliable way of **validate** data against those schemas.
-* **Dependency Injection** that ease the process of managing parameters needed in endpoints. Flama ASGI objects 
-like `Request`, `Response`, `Session` and so on are defined as components and ready to be injected in your endpoints.
-* **Components** as the base of the plugin ecosystem, allowing you to create custom or use those already defined in 
-your endpoints, injected as parameters.
-* **Auto generated API schema** using OpenAPI standard. It uses the schema system of your endpoints to extract all the 
-necessary information to generate your API Schema.
-* **Auto generated docs** providing a [Swagger UI] or [ReDoc] endpoint.
-* **Pagination** automatically handled using multiple methods such as limit and offset, page numbers...
+Some remarkable characteristics:
 
-## Requirements
-
-* [Python] 3.6+
-* [Starlette] 0.14.0+
+* Generic classes for API resources with the convenience of standard CRUD methods over SQLAlchemy tables.
+* A schema system (based on Marshmallow or Typesystem) which allows the declaration of inputs and outputs of endpoints
+  very easily, with the convenience of reliable and automatic data-type validation.
+* Dependency injection to make ease the process of managing parameters needed in endpoints via the use of `Component`s.
+  Flama ASGI objects like `Request`, `Response`, `Session` and so on are defined as `Component`s ready to be injected in
+  your endpoints.
+* `Component`s as the base of the plugin ecosystem, allowing you to create custom or use those already defined in your
+  endpoints, injected as parameters.
+* Auto generated API schema using OpenAPI standard.
+* Auto generated `docs`, and provides a Swagger UI and ReDoc endpoints.
+* Automatic handling of pagination, with several methods at your disposal such as `limit-offset` and `page numbering`,
+  to name a few.
 
 ## Installation
 
-```console
-$ pip install flama
-```
+Flama is fully compatible with all [supported versions](https://devguide.python.org/versions/) of Python. We recommend
+you to use the latest version available.
+
+For a detailed explanation on how to install flama
+visit:  [https://flama.dev/docs/getting-started/installation](https://flama.dev/docs/getting-started/installation).
+
+## Getting Started
+
+Visit [https://flama.dev/docs/getting-started/quickstart](https://flama.dev/docs/getting-started/quickstart) to get
+started with Flama.
+
+## Documentation
+
+Visit [https://flama.dev/docs/](https://flama.dev/docs/) to view the full documentation.
 
 ## Example
 
 ```python
-from marshmallow import Schema, fields, validate
-from flama.applications import Flama
-import uvicorn
+from flama import Flama
 
-# Data Schema
-class Puppy(Schema):
-    id = fields.Integer()
-    name = fields.String()
-    age = fields.Integer(validate=validate.Range(min=0))
-
-
-# Database
-puppies = [
-    {"id": 1, "name": "Canna", "age": 6},
-    {"id": 2, "name": "Sandy", "age": 12},
-]
-
-
-# Application
 app = Flama(
-    components=[],      # Without custom components
-    title="Foo",        # API title
-    version="0.1",      # API version
-    description="Bar",  # API description
-    schema="/schema/",  # Path to expose OpenAPI schema
-    docs="/docs/",      # Path to expose Swagger UI docs
-    redoc="/redoc/",    # Path to expose ReDoc docs
+    title="Hello-🔥",
+    version="1.0",
+    description="My first API",
 )
 
 
-# Views
-@app.route("/", methods=["GET"])
-def list_puppies(name: str = None) -> Puppy(many=True):
+@app.route("/")
+def home():
     """
+    tags:
+        - Salute
+    summary:
+        Returns a warming message.
     description:
-        List the puppies collection. There is an optional query parameter that 
-        specifies a name for filtering the collection based on it.
+        This is a more detailed description of the method itself.
+        Here we can give all the details required and they will appear
+        automatically in the auto-generated docs.
     responses:
         200:
-            description: List puppies.
+            description: Warming hello message!
     """
-    return [puppy for puppy in puppies if name in (puppy["name"], None)]
-    
-
-@app.route("/", methods=["POST"])
-def create_puppy(puppy: Puppy) -> Puppy:
-    """
-    description:
-        Create a new puppy using data validated from request body and add it 
-        to the collection.
-    responses:
-        200:
-            description: Puppy created successfully.
-    """
-    puppies.append(puppy)
-    
-    return puppy
-
-
-if __name__ == '__main__':
-    uvicorn.run(app, host='0.0.0.0', port=8000)
+    return {"message": "Hello 🔥"}
 ```
 
-## Dependencies
+This example will build and run a `Hello 🔥` API. To run it:
 
-Following Starlette philosophy Flama doesn't have any hard dependency (other than [Starlette]), but some of them are 
-necessaries to enable some features:
+```commandline
+flama run examples.hello_flama:app
+```
 
-### Marshmallow Data Schemas and Validation
-* [`marshmallow`][Marshmallow]
-* [`apispec`][apispec]
-  
-### Pagination
-* [`python-forge`][python-forge]
-  
-### Generic API Resources
-* [`sqlalchemy`][SQLAlchemy]
-* [`databases`][databases]
+## Authors
 
-You can install all of these with `pip3 install flama[full]`.
-
-## Credits
-
-That library is heavily inspired by [APIStar] server in an attempt to bring a good amount of it essence to work with 
-[Starlette] as the ASGI framework and [Marshmallow] as the schema system.
+* José Antonio Perdiguero López ([@perdy](https://github.com/perdy/))
+* Miguel Durán-Olivencia ([@migduroli](https://github.com/migduroli/))
 
 ## Contributing
 
-This project is absolutely open to contributions so if you have a nice idea, create an issue to let the community 
-discuss it.
-
-[Python]: https://www.python.org
-[Starlette]: https://www.starlette.io
-[APIStar]: https://github.com/encode/apistar/tree/version-0.5.x
-[Marshmallow]: https://marshmallow.readthedocs.io/
-[Swagger UI]: https://swagger.io/tools/swagger-ui/
-[ReDoc]: https://rebilly.github.io/ReDoc/
-[apispec]: https://apispec.readthedocs.io/
-[python-forge]: https://python-forge.readthedocs.io/
-[SQLAlchemy]: https://www.sqlalchemy.org/
-[databases]: https://github.com/encode/databases
+This project is absolutely open to contributions so if you have a nice idea, please read
+our [contributing docs](https://github.com/perdy/flama/blob/master/.github/CONTRIBUTING.md) **before submitting a pull
+request**.
