@@ -14,20 +14,15 @@ The steps are quite standard in the GitHub community:
    the [issue tracker](https://github.com/perdy/flama/issues) of this project.
 2. Before submitting the issue where the new change is explained, please make sure this change is not being already
    developed (or listed). You can always ask team members in case of doubt.
-3. Please don't mix more than one logical change per issue. This would make the repository history hard to follow.
-4. Coordinate with team members that are listed on the issue in question. This will remove any potential redundancy,
+3. Coordinate with team members that are listed on the issue in question. This will remove any potential redundancy,
    besides allowing for a better planning which should result in better code.
-5. If your proposed change is accepted, fork the repo, develop and test your code changes.
-6. Ensure that your code adheres to the existing style in the sample to which you are contributing.
-7. Ensure that your code has an appropriate set of unit tests which all pass. This is quite important to us, so please
+4. If your proposed change is accepted, fork the repo, develop and test your code changes. Ensure that your code has an
+   appropriate set of unit tests which all pass. This is quite important to us, so please
    make your maximum effort in writing a 100% unit-tested code.
-8. Create an example script where the new feature is used, and place the
-   code [here](examples).
-9. Submit a well documented pull request.
+5. Submit a well documented pull request linked to the issue being addressed.
 
 It's never a fun experience to have your pull request declined after investing a lot of time and effort into a new
-feature,
-which is why we encourage you to follow the procedure depicted above as closely as possible.
+feature, which is why we encourage you to follow the procedure depicted above as closely as possible.
 
 ## Coding standards
 
@@ -41,9 +36,10 @@ make lint
 This is a meta-rule that runs all the utilities used for checking and applying Flama coding standards, but it can be
 done individually as follows:
 
-### Code Format
+### Code formatting
 
-Flama uses Black for formatting the code in a standard way:
+Flama uses Black for formatting the code to adhere to the Black code style ([PEP 8](https://peps.python.org/pep-0008/)
+compliant):
 
 ```commandline
 make black
@@ -51,23 +47,23 @@ make black
 
 ### Imports ordering
 
-Isort is used to reorganize the imports:
+Isort is used to reorganize library imports:
 
 ```commandline
 make isort
 ```
 
-### Code quality
+### Code quality checking
 
-Flake8 is used to determine if the code quality is high enough:
+Flake8 is used to determine if the code quality is high enough as required to be accepted:
 
 ```commandline
 make flake8
 ```
 
-### Static typing
+### Static type checking
 
-Flama is completely static typed and it can be checked using mypy:
+Flama is completely static typed. To make sure your code fulfils this constraint, you can check it using mypy:
 
 ```commandline
 make mypy
