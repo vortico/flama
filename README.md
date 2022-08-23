@@ -110,5 +110,5 @@ flama run examples.hello_flama:app
 ## Contributing
 
 This project is absolutely open to contributions so if you have a nice idea, please read
-our [contributing docs](https://github.com/perdy/flama/blob/master/.github/CONTRIBUTING.md) **before submitting a pull
-request**.
+our [contributing docs](.github/CONTRIBUTING.md) **before submitting** a pull
+request.
