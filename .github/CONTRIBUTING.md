@@ -22,7 +22,7 @@ The steps are quite standard in the GitHub community:
 7. Ensure that your code has an appropriate set of unit tests which all pass. This is quite important to us, so please
    make your maximum effort in writing a 100% unit-tested code.
 8. Create an example script where the new feature is used, and place the
-   code [here](https://github.com/perdy/flama/tree/master/examples).
+   code [here](examples).
 9. Submit a well documented pull request.
 
 It's never a fun experience to have your pull request declined after investing a lot of time and effort into a new
