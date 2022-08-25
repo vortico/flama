@@ -24,7 +24,7 @@ if typing.TYPE_CHECKING:
     from flama.components import Component, Components
     from flama.http import Request, Response
     from flama.modules import Module
-    from flama.routing import BaseRoute, Mount
+    from flama.routing import BaseRoute, Mount, WebSocketRoute
 
 __all__ = ["Flama"]
 
@@ -50,6 +50,7 @@ class Flama(Starlette):
         schema: typing.Optional[str] = "/schema/",
         docs: typing.Optional[str] = "/docs/",
         redoc: typing.Optional[str] = None,
+        schema_library: typing.Optional[str] = None,
         *args,
         **kwargs
     ) -> None:
@@ -93,6 +94,9 @@ class Flama(Starlette):
             },
         )
 
+        # Setup schema library
+        self.modules.schema.set_schema_library(schema_library)  # type: ignore[attr-defined]
+
         # Reference to paginator from within app
         self.paginator = paginator
 
@@ -101,6 +105,28 @@ class Flama(Starlette):
             return self.modules.__getattr__(item)
         except KeyError:
             return None  # type: ignore[return-value]
+
+    def add_route(  # type: ignore[override]
+        self,
+        path: typing.Optional[str] = None,
+        endpoint: typing.Optional[typing.Callable] = None,
+        methods: typing.Optional[typing.List[str]] = None,
+        name: typing.Optional[str] = None,
+        include_in_schema: bool = True,
+        route: typing.Optional["BaseRoute"] = None,
+    ) -> None:  # pragma: no cover
+        self.router.add_route(
+            path, endpoint, methods=methods, name=name, include_in_schema=include_in_schema, route=route
+        )
+
+    def add_websocket_route(  # type: ignore[override]
+        self,
+        path: typing.Optional[str] = None,
+        endpoint: typing.Optional[typing.Callable] = None,
+        name: typing.Optional[str] = None,
+        route: typing.Optional["WebSocketRoute"] = None,
+    ) -> None:  # pragma: no cover
+        self.router.add_websocket_route(path, endpoint, name=name, route=route)
 
     @property
     def injector(self) -> Injector:

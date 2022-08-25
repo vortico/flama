@@ -8,7 +8,7 @@ import sqlalchemy
 import typesystem
 from faker import Faker
 
-from flama import Flama, schemas
+from flama import Flama
 from flama.sqlalchemy import metadata
 from flama.testclient import TestClient
 
@@ -88,8 +88,6 @@ def clear_metadata():
     params=[pytest.param("typesystem", id="typesystem"), pytest.param("marshmallow", id="marshmallow")],
 )
 def app(request):
-    schemas._module.setup(request.param)
-
     return Flama(
         components=[],
         title="Foo",
@@ -99,6 +97,7 @@ def app(request):
         docs="/docs/",
         redoc="/redoc/",
         sqlalchemy_database="sqlite+aiosqlite://",
+        schema_library=request.param,
     )
 
 

@@ -46,7 +46,7 @@ class SchemaModule(Module):
             def schema_view():
                 return OpenAPIResponse(self.schema)
 
-            self.app.add_route(path=schema_url, route=schema_view, methods=["GET"], include_in_schema=False)
+            self.app.add_route(schema_url, schema_view, methods=["GET"], include_in_schema=False)
 
         # Adds swagger ui endpoint
         if docs:
@@ -58,7 +58,7 @@ class SchemaModule(Module):
 
                 return HTMLResponse(content)
 
-            self.app.add_route(path=docs_url, route=swagger_ui, methods=["GET"], include_in_schema=False)
+            self.app.add_route(docs_url, swagger_ui, methods=["GET"], include_in_schema=False)
 
         # Adds redoc endpoint
         if redoc:
@@ -70,7 +70,7 @@ class SchemaModule(Module):
 
                 return HTMLResponse(content)
 
-            self.app.add_route(path=redoc_url, route=redoc_view, methods=["GET"], include_in_schema=False)
+            self.app.add_route(redoc_url, redoc_view, methods=["GET"], include_in_schema=False)
 
     def register_schema(self, name: str, schema):
         self.schemas[name] = schema
@@ -85,3 +85,6 @@ class SchemaModule(Module):
     @property
     def schema(self) -> typing.Dict[str, typing.Any]:
         return self.schema_generator.get_api_schema(self.app.routes)
+
+    def set_schema_library(self, library: str):
+        schemas._module.setup(library)
