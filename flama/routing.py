@@ -276,19 +276,20 @@ class Router(starlette.routing.Router):
 
     def add_route(
         self,
-        path: str,
-        endpoint: typing.Callable,
+        path: typing.Optional[str] = None,
+        endpoint: typing.Optional[typing.Callable] = None,
         methods: typing.List[str] = None,
         name: str = None,
         include_in_schema: bool = True,
+        route: BaseRoute = None,
     ):
         try:
             main_app = self.main_app
         except AttributeError:
             main_app = None
 
-        self.routes.append(
-            Route(
+        if path is not None and endpoint is not None:
+            route = Route(
                 path,
                 endpoint=endpoint,
                 methods=methods,
@@ -296,7 +297,12 @@ class Router(starlette.routing.Router):
                 include_in_schema=include_in_schema,
                 main_app=main_app,
             )
-        )
+        elif route is not None:
+            route.main_app = main_app
+        else:
+            raise ValueError("Either 'path' and 'endpoint' or 'route' variables are needed")
+
+        self.routes.append(route)
 
     def route(
         self, path: str, methods: typing.List[str] = None, name: str = None, include_in_schema: bool = True
@@ -307,13 +313,26 @@ class Router(starlette.routing.Router):
 
         return decorator
 
-    def add_websocket_route(self, path: str, endpoint: typing.Callable, name: str = None):
+    def add_websocket_route(
+        self,
+        path: typing.Optional[str] = None,
+        endpoint: typing.Optional[typing.Callable] = None,
+        name: str = None,
+        route: typing.Optional[WebSocketRoute] = None,
+    ):
         try:
             main_app = self.main_app
         except AttributeError:
             main_app = None
 
-        self.routes.append(WebSocketRoute(path, endpoint=endpoint, name=name, main_app=main_app))
+        if path is not None and endpoint is not None:
+            route = WebSocketRoute(path, endpoint=endpoint, name=name, main_app=main_app)
+        elif route is not None:
+            route.main_app = main_app
+        else:
+            raise ValueError("Either 'path' and 'endpoint' or 'route' variables are needed")
+
+        self.routes.append(route)
 
     def websocket_route(self, path: str, name: str = None) -> typing.Callable:
         def decorator(func: typing.Callable) -> typing.Callable:
