@@ -2,8 +2,8 @@ import functools
 import typing
 
 from starlette.applications import Starlette
-from starlette.exceptions import ExceptionMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
+from starlette.middleware.exceptions import ExceptionMiddleware
 
 from flama.exceptions import HTTPException
 from flama.injection import Injector

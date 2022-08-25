@@ -2,7 +2,8 @@ import pytest
 import sqlalchemy
 
 from flama.applications import Flama
-from flama.resources import RESTResource, RESTResourceType, types
+from flama.resources import types
+from flama.resources.rest import RESTResource, RESTResourceType
 from flama.sqlalchemy import metadata
 
 
