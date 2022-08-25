@@ -24,9 +24,9 @@ class AppConfig:
     schema: str = "/schema/"
     docs: str = "/docs/"
     redoc: str = "/redoc/"
-    models: typing.List[Model] = dataclasses.field(default_factory=lambda: [
-        Model(url="/model-url/", path="model-path.flm", name="model-name")
-    ])
+    models: typing.List[Model] = dataclasses.field(
+        default_factory=lambda: [Model(url="/model-url/", path="model-path.flm", name="model-name")]
+    )
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AppConfig":

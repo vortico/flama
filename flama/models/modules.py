@@ -17,6 +17,7 @@ class ModelsModule(Module):
         :param model: Model path.
         :param name: Model name.
         """
+
         name_ = name
         model_ = model
 
