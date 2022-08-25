@@ -3,7 +3,7 @@ import typing
 try:
     import sqlalchemy
 except Exception:  # pragma: no cover
-    raise AssertionError("sqlalchemy[asyncio] must be installed to use CRUD resources")
+    raise AssertionError("`sqlalchemy[asyncio]` must be installed to use crud resources") from None
 
 import flama.schemas
 from flama.exceptions import HTTPException

@@ -298,7 +298,7 @@ class Router(starlette.routing.Router):
                 main_app=main_app,
             )
         elif route is not None:
-            route.main_app = main_app
+            route.main_app = main_app  # type: ignore[assignment]
         else:
             raise ValueError("Either 'path' and 'endpoint' or 'route' variables are needed")
 
@@ -328,7 +328,7 @@ class Router(starlette.routing.Router):
         if path is not None and endpoint is not None:
             route = WebSocketRoute(path, endpoint=endpoint, name=name, main_app=main_app)
         elif route is not None:
-            route.main_app = main_app
+            route.main_app = main_app  # type: ignore[assignment]
         else:
             raise ValueError("Either 'path' and 'endpoint' or 'route' variables are needed")
 

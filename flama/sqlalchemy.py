@@ -24,16 +24,16 @@ class SQLAlchemyModule(Module):
         super().__init__(app, *args, **kwargs)
 
         self.database = sqlalchemy_database
-        self._engine: typing.Optional[AsyncEngine] = None
+        self._engine: typing.Optional["AsyncEngine"] = None
         self._metadata: typing.Optional["sqlalchemy.MetaData"] = metadata
 
     @property
-    def engine(self) -> AsyncEngine:
+    def engine(self) -> "AsyncEngine":
         assert sqlalchemy is not None, "sqlalchemy[asyncio] must be installed to use SQLAlchemyModule."
         return self._engine
 
     @engine.setter
-    def engine(self, value: AsyncEngine):
+    def engine(self, value: "AsyncEngine"):
         self._engine = value
 
     @engine.deleter

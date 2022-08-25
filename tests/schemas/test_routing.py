@@ -4,7 +4,7 @@ import marshmallow
 import pytest
 import typesystem
 
-from flama import Component, Flama, HTTPEndpoint, Route, Router, WebSocketEndpoint, WebSocketRoute, websockets
+from flama import Component, HTTPEndpoint, Route, Router, WebSocketEndpoint, WebSocketRoute, websockets
 from flama.schemas.types import Parameter, ParameterLocation
 
 

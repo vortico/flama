@@ -10,7 +10,7 @@ try:
     import sqlalchemy
     from sqlalchemy.dialects import postgresql
 except Exception:  # pragma: no cover
-    raise AssertionError("`sqlalchemy` must be installed to use rest resources") from None
+    raise AssertionError("`sqlalchemy[asyncio]` must be installed to use rest resources") from None
 
 __all__ = ["RESTResource", "RESTResourceType"]
 
