@@ -47,8 +47,14 @@ class Module:
                 pass
 
     def setup(self, library: typing.Optional[str] = None):
-        if library is None:
-            library = next(self.available)
+        try:
+            if library is None:
+                library = next(self.available)
+        except StopIteration:
+            raise AssertionError(
+                "No schema library is installed. Install one of your preference following instructions from: "
+                "https://flama.dev/docs/getting-started/installation#extras"
+            )
         self.lib = importlib.import_module(f"flama.schemas._libs.{library}")
 
         global schemas, lib, fields, adapter, Field, Schema
