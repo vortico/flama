@@ -29,8 +29,8 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "python make version ${nextRelease.version}",
-        "publishCmd": "python make publish --build"
+        "prepareCmd": "./scripts/version ${nextRelease.version}",
+        "publishCmd": "./scripts/publish --build"
       }
     ],
     [
