@@ -10,7 +10,7 @@ authors = [
     "José Antonio Perdiguero López <perdy@perdy.io>",
     "Miguel A. Durán Olivencia"
 ]
-license = "GPL-3.0+"
+license = "MIT"
 readme = "README.md"
 repository = "https://github.com/perdy/flama"
 keywords = ["starlette", "api", "components", "schema", "openapi", "async"]
