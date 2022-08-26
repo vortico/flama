@@ -1,17 +1,20 @@
-name: Continuous Integration
+name: Test And Publish
 
 on:
   push:
     branches:
       - master
 
+env:
+  DEFAULT_PYTHON: "3.10"
+
 jobs:
   test:
-    name: Test (Python ${{ matrix.python }})
+    name: Test (${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: ["3.7", "3.8", "3.9", "3.10"]
+        python: [ "3.7", "3.8", "3.9", "3.10" ]
     container:
       image: python:${{ matrix.python }}
     steps:
@@ -23,7 +26,7 @@ jobs:
       - id: install
         name: Install requirements
         run: |
-          pip install clinner pip poetry --upgrade
+          pip install pip poetry --upgrade
           ./scripts/install
       - id: black
         name: Code format checking
@@ -44,7 +47,7 @@ jobs:
         name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1.0.2
         # Run on a specific python version and only master branch commits
-        if: matrix.python == 3.9 && github.event_name == 'push' && github.ref == 'refs/heads/master'
+        if: matrix.python == env.DEFAULT_PYTHON && github.event_name == 'push' && github.ref == 'refs/heads/master'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: test-results/coverage.xml
@@ -53,13 +56,16 @@ jobs:
     name: Release a new version
     runs-on: ubuntu-latest
     container:
-      image: perdy/github-actions-builder:latest
+      image: python:slim
     steps:
-      - uses: actions/checkout@master
+      - name: Check out the repo
+        uses: actions/checkout@master
       - name: Setup node
         uses: actions/setup-node@v1
         with:
-          node-version: 12
+          node-version: 16
+      - name: Setup poetry
+        run: pip install pip poetry --upgrade
       - id: publish
         name: Publish version
         run: npx semantic-release
