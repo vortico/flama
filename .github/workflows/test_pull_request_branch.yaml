@@ -1,4 +1,4 @@
-name: Continuous Integration (Branch)
+name: Test Pull Request Branch
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    name: Test (Python ${{ matrix.python }})
+    name: Test (${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,7 +22,7 @@ jobs:
       - id: install
         name: Install requirements
         run: |
-          pip install clinner pip poetry --upgrade
+          pip install depoetry --upgrade
           ./scripts/install
       - id: black
         name: Code format checking
