@@ -6,7 +6,10 @@
 </p>
 <p align="center">
     <a href="https://github.com/perdy/flama/actions">
-        <img src="https://github.com/perdy/flama/workflows/Continuous%20Integration/badge.svg" alt="CI Status">
+        <img src="https://github.com/perdy/flama/workflows/Test%20And%20Publish/badge.svg" alt="Test And Publish workflow status">
+    </a>
+    <a href="https://github.com/perdy/flama/actions">
+        <img src="https://github.com/perdy/flama/workflows/Docker%20Push/badge.svg" alt="Docker Push workflow status">
     </a>
     <a href="https://codecov.io/gh/perdy/flama">
         <img src="https://codecov.io/gh/perdy/flama/branch/master/graph/badge.svg" alt="Coverage">
