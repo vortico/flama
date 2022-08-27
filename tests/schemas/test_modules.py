@@ -70,7 +70,8 @@ class TestCaseSchemaModule:
 
         assert response.status_code == 200
         assert file_mock.call_count == 1
-        assert file_mock.call_args_list[0][0][0].endswith("flama/templates/swagger_ui.html")
+        template = file_mock.call_args_list[0][0][0]
+        assert template.name == "swagger_ui.html"
         assert mock_template.call_args_list == [call("foo")]
         assert response.content == b"bar"
 
@@ -83,6 +84,7 @@ class TestCaseSchemaModule:
 
         assert response.status_code == 200
         assert file_mock.call_count == 1
-        assert file_mock.call_args_list[0][0][0].endswith("flama/templates/redoc.html")
+        template = file_mock.call_args_list[0][0][0]
+        assert template.name == "redoc.html"
         assert mock_template.call_args_list == [call("foo")]
         assert response.content == b"bar"
