@@ -1,10 +1,10 @@
-import os
 import typing
+from pathlib import Path
 from string import Template
 
 from starlette.responses import HTMLResponse
 
-from flama import pagination, schemas, templates
+from flama import pagination, schemas
 from flama.modules import Module
 from flama.responses import OpenAPIResponse
 from flama.schemas.generator import SchemaGenerator
@@ -13,6 +13,8 @@ if typing.TYPE_CHECKING:
     from flama import Flama
 
 __all__ = ["SchemaModule"]
+
+TEMPLATES_PATH = Path(__file__).parent.resolve() / "templates"
 
 
 class SchemaModule(Module):
@@ -53,7 +55,7 @@ class SchemaModule(Module):
             docs_url = docs
 
             def swagger_ui() -> HTMLResponse:
-                with open(os.path.join(templates.PATH, "swagger_ui.html")) as f:
+                with open(TEMPLATES_PATH / "swagger_ui.html") as f:
                     content = Template(f.read()).substitute(title=self.title, schema_url=schema_url)
 
                 return HTMLResponse(content)
@@ -65,7 +67,7 @@ class SchemaModule(Module):
             redoc_url = redoc
 
             def redoc_view() -> HTMLResponse:
-                with open(os.path.join(templates.PATH, "redoc.html")) as f:
+                with open(TEMPLATES_PATH / "redoc.html") as f:
                     content = Template(f.read()).substitute(title=self.title, schema_url=schema_url)
 
                 return HTMLResponse(content)
