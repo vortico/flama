@@ -1,6 +1,8 @@
 import typing
 
-from starlette.websockets import Message, WebSocket
+from starlette.websockets import WebSocket
+
+from flama.asgi import Message
 
 __all__ = ["WebSocket", "Message", "Code", "Encoding", "Data"]
 

@@ -7,9 +7,8 @@ from functools import wraps
 import starlette.routing
 from starlette.concurrency import run_in_threadpool
 from starlette.routing import Match
-from starlette.types import ASGIApp, Receive, Scope, Send
 
-from flama import http, websockets
+from flama import asgi, http, websockets
 from flama.components import Component, Components
 from flama.responses import APIResponse, Response
 from flama.schemas import adapter
@@ -120,13 +119,13 @@ class Route(BaseRoute, starlette.routing.Route):
         if self.methods is None:
             self.methods = {m for m in HTTPMethod.__members__.keys() if hasattr(self.endpoint, m.lower())}
 
-    def endpoint_wrapper(self, endpoint: typing.Callable) -> ASGIApp:
+    def endpoint_wrapper(self, endpoint: typing.Callable) -> asgi.App:
         """
         Wraps a http function into ASGI application.
         """
 
         @wraps(endpoint)
-        async def _app(scope: Scope, receive: Receive, send: Send) -> None:
+        async def _app(scope: asgi.Scope, receive: asgi.Receive, send: asgi.Send) -> None:
             app = scope["app"]
             route, route_scope = app.router.get_route_from_scope(scope)
             state = {
@@ -156,13 +155,13 @@ class WebSocketRoute(BaseRoute, starlette.routing.WebSocketRoute):
         if inspect.isfunction(endpoint):
             self.app = self.endpoint_wrapper(endpoint)
 
-    def endpoint_wrapper(self, endpoint: typing.Callable) -> ASGIApp:
+    def endpoint_wrapper(self, endpoint: typing.Callable) -> asgi.App:
         """
         Wraps websocket function into ASGI application.
         """
 
         @wraps(endpoint)
-        async def _app(scope: Scope, receive: Receive, send: Send) -> None:
+        async def _app(scope: asgi.Scope, receive: asgi.Receive, send: asgi.Send) -> None:
             app = scope["app"]
 
             route, route_scope = app.router.get_route_from_scope(scope)
@@ -195,7 +194,7 @@ class Mount(BaseRoute, starlette.routing.Mount):
         self,
         path: str,
         main_app: "Flama" = None,
-        app: ASGIApp = None,
+        app: asgi.App = None,
         routes: typing.Sequence[BaseRoute] = None,
         components: typing.Sequence[Component] = None,
         name: str = None,
@@ -266,7 +265,7 @@ class Router(starlette.routing.Router):
     def add_component(self, component: Component):
         self._components.append(component)
 
-    def mount(self, path: str, app: ASGIApp, name: str = None) -> None:
+    def mount(self, path: str, app: asgi.App, name: str = None) -> None:
         try:
             main_app = self.main_app
         except AttributeError:
@@ -343,7 +342,7 @@ class Router(starlette.routing.Router):
 
     def get_route_from_scope(
         self, scope, mounted=False
-    ) -> typing.Tuple[typing.Union[BaseRoute, ASGIApp], typing.Optional[typing.Dict]]:
+    ) -> typing.Tuple[typing.Union[BaseRoute, asgi.App], typing.Optional[typing.Dict]]:
         partial = None
 
         for route in self.routes:

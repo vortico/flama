@@ -3,8 +3,8 @@ import functools
 import inspect
 import typing
 
-from flama import http, websockets
-from flama.asgi import ASGI_COMPONENTS, ASGIReceive, ASGIScope, ASGISend
+from flama import asgi, http, websockets
+from flama.asgi import ASGI_COMPONENTS
 from flama.exceptions import ComponentNotFound
 from flama.routing import Route
 from flama.validation import VALIDATION_COMPONENTS
@@ -179,9 +179,9 @@ class Injector:
 
         self.resolver = ParametersResolver(
             state_types={
-                "scope": ASGIScope,
-                "receive": ASGIReceive,
-                "send": ASGISend,
+                "scope": asgi.Scope,
+                "receive": asgi.Receive,
+                "send": asgi.Send,
                 "exc": Exception,
                 "app": Flama,
                 "path_params": http.PathParams,
