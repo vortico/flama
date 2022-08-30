@@ -18,11 +18,10 @@ from flama.schemas.modules import SchemaModule
 from flama.sqlalchemy import SQLAlchemyModule
 
 if typing.TYPE_CHECKING:
-    from starlette.middleware import Middleware
-    from starlette.types import ASGIApp
-
+    from flama.asgi import App
     from flama.components import Component, Components
     from flama.http import Request, Response
+    from flama.middleware import Middleware
     from flama.modules import Module
     from flama.routing import BaseRoute, Mount, WebSocketRoute
 
@@ -143,7 +142,7 @@ class Flama(Starlette):
     def routes(self) -> typing.List["BaseRoute"]:  # type: ignore[override]
         return self.router.routes
 
-    def mount(self, path: str, app: "ASGIApp", name: str = None) -> None:
+    def mount(self, path: str, app: "App", name: str = None) -> None:  # type: ignore[override]
         self.router.mount(path, app=app, name=name)
 
     def api_http_exception_handler(self, request: "Request", exc: HTTPException) -> "Response":
