@@ -11,6 +11,8 @@ from flama.serialize.serializers.tensorflow import TensorFlowSerializer
 
 
 class ModelFormat(enum.Enum):
+    """ML formats available for Flama serialization."""
+
     sklearn = "sklearn"
     tensorflow = "tensorflow"
     pytorch = "pytorch"
@@ -25,6 +27,8 @@ SERIALIZERS = {
 
 @dataclasses.dataclass(frozen=True)
 class Model:
+    """ML Model wrapper to provide mechanisms for serialization and deserialization using Flama format."""
+
     lib: ModelFormat
     model: typing.Any
 
