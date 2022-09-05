@@ -40,22 +40,22 @@ class Model:
             raise ValueError("Wrong lib")
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> "Model":
+    def from_bytes(cls, data: bytes, **kwargs) -> "Model":
         try:
             serialized_data = json.loads(codecs.decode(data, "zlib"))
             lib = ModelFormat(serialized_data["lib"])
-            model = cls.serializer(lib).load(serialized_data["model"].encode())
+            model = cls.serializer(lib).load(serialized_data["model"].encode(), **kwargs)
         except KeyError:
             raise ValueError("Wrong data")
 
         return cls(lib, model)
 
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        pickled_model = self.serializer(self.lib).dump(self.model).decode()
+    def to_dict(self, **kwargs) -> typing.Dict[str, typing.Any]:
+        pickled_model = self.serializer(self.lib).dump(self.model, **kwargs).decode()
         return {"lib": self.lib.value, "model": pickled_model}
 
-    def to_json(self) -> str:
-        return json.dumps(self.to_dict())
+    def to_json(self, **kwargs) -> str:
+        return json.dumps(self.to_dict(**kwargs))
 
-    def to_bytes(self) -> bytes:
-        return codecs.encode(self.to_json().encode(), "zlib")
+    def to_bytes(self, **kwargs) -> bytes:
+        return codecs.encode(self.to_json(**kwargs).encode(), "zlib")
