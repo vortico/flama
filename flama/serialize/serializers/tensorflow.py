@@ -5,7 +5,7 @@ import typing
 from flama.serialize.base import Serializer
 
 
-class TensorflowSerializer(Serializer):
+class TensorFlowSerializer(Serializer):
     def dump(self, obj: typing.Any) -> bytes:
         return codecs.encode(pickle.dumps(obj), "base64")
 

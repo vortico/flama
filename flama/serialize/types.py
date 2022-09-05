@@ -5,28 +5,31 @@ import json
 import typing
 
 from flama.serialize.base import Serializer
+from flama.serialize.serializers.pytorch import PyTorchSerializer
 from flama.serialize.serializers.sklearn import SKLearnSerializer
-from flama.serialize.serializers.tensorflow import TensorflowSerializer
+from flama.serialize.serializers.tensorflow import TensorFlowSerializer
 
 
-class Format(enum.Enum):
+class ModelFormat(enum.Enum):
     sklearn = "sklearn"
     tensorflow = "tensorflow"
+    pytorch = "pytorch"
 
 
 SERIALIZERS = {
-    Format.sklearn: SKLearnSerializer(),
-    Format.tensorflow: TensorflowSerializer(),
+    ModelFormat.sklearn: SKLearnSerializer(),
+    ModelFormat.tensorflow: TensorFlowSerializer(),
+    ModelFormat.pytorch: PyTorchSerializer(),
 }
 
 
 @dataclasses.dataclass(frozen=True)
 class Model:
-    lib: Format
+    lib: ModelFormat
     model: typing.Any
 
     @classmethod
-    def serializer(cls, lib: Format) -> Serializer:
+    def serializer(cls, lib: ModelFormat) -> Serializer:
         try:
             return SERIALIZERS[lib]
         except ValueError:
@@ -36,7 +39,7 @@ class Model:
     def from_bytes(cls, data: bytes) -> "Model":
         try:
             serialized_data = json.loads(codecs.decode(data, "zlib"))
-            lib = Format(serialized_data["lib"])
+            lib = ModelFormat(serialized_data["lib"])
             model = cls.serializer(lib).load(serialized_data["model"].encode())
         except KeyError:
             raise ValueError("Wrong data")

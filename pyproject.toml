@@ -67,6 +67,7 @@ scikit-learn = [
 ]
 tensorflow-cpu = { version = "^2.9", python = ">=3.7,<3.11" }
 pre-commit = "^2.19.0"
+torch = "^1.12.1"
 
 [tool.poetry.extras]
 typesystem = ["typesystem"]

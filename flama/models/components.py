@@ -3,7 +3,7 @@ import json
 import typing
 
 from flama.components import Component
-from flama.serialize import Format, loads
+from flama.serialize import ModelFormat, loads
 
 __all__ = ["Model", "TensorFlowModel", "SKLearnModel", "ModelComponent", "ModelComponentBuilder"]
 
@@ -49,8 +49,8 @@ class ModelComponentBuilder:
     @classmethod
     def loads(cls, data: bytes) -> ModelComponent:
         load_model = loads(data)
-        name = {Format.tensorflow: "TensorFlowModel", Format.sklearn: "SKLearnModel"}[load_model.lib]
-        parent = {Format.tensorflow: TensorFlowModel, Format.sklearn: SKLearnModel}[load_model.lib]
+        name = {ModelFormat.tensorflow: "TensorFlowModel", ModelFormat.sklearn: "SKLearnModel"}[load_model.lib]
+        parent = {ModelFormat.tensorflow: TensorFlowModel, ModelFormat.sklearn: SKLearnModel}[load_model.lib]
         model_class = type(name, (parent,), {})
         model_obj = model_class(load_model.model)
 
