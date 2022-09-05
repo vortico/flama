@@ -3,16 +3,18 @@ from unittest.mock import Mock
 import pytest
 from pytest import param
 
-from flama.models import ModelComponent, ModelResource, ModelResourceType, SKLearnModel, TensorFlowModel
+from flama.models import ModelComponent, ModelResource, ModelResourceType, PyTorchModel, SKLearnModel, TensorFlowModel
 
 
 class TestCaseModelResource:
     @pytest.fixture(params=["tensorflow", "sklearn"])
     def model(self, request):
-        if request.param == "tensorflow":
-            return TensorFlowModel(Mock())
+        if request.param == "pytorch":
+            return PyTorchModel(Mock())
         elif request.param == "sklearn":
             return SKLearnModel(Mock())
+        elif request.param == "tensorflow":
+            return TensorFlowModel(Mock())
         else:
             raise AttributeError("Wrong lib")
 
@@ -37,10 +39,12 @@ class TestCaseModelResource:
 
     @pytest.fixture(params=["tensorflow", "sklearn"])
     def resource_using_model_path(self, request):
-        if request.param == "tensorflow":
-            model_path_ = "tests/models/tensorflow_model.flm"
+        if request.param == "pytorch":
+            model_path_ = "tests/models/pytorch_model.flm"
         elif request.param == "sklearn":
             model_path_ = "tests/models/sklearn_model.flm"
+        elif request.param == "tensorflow":
+            model_path_ = "tests/models/tensorflow_model.flm"
         else:
             raise AttributeError("Wrong lib")
 
@@ -83,12 +87,39 @@ class TestCaseModelResource:
 class TestCaseModelResourceMethods:
     @pytest.fixture(scope="function", autouse=True)
     def add_models(self, app):
-        app.models.add_model("/tensorflow/", model="tests/models/tensorflow_model.flm", name="tensorflow")
+        app.models.add_model("/pytorch/", model="tests/models/pytorch_model.flm", name="pytorch")
         app.models.add_model("/sklearn/", model="tests/models/sklearn_model.flm", name="sklearn")
+        app.models.add_model("/tensorflow/", model="tests/models/tensorflow_model.flm", name="tensorflow")
 
     @pytest.mark.parametrize(
         ("url", "output"),
         (
+            param(
+                "/pytorch/",
+                {"modules": ["RecursiveScriptModule(original_name=Model)"], "parameters": {}, "state": {}},
+                id="pytorch",
+            ),
+            param(
+                "/sklearn/",
+                {
+                    "C": 1.0,
+                    "class_weight": None,
+                    "dual": False,
+                    "fit_intercept": True,
+                    "intercept_scaling": 1,
+                    "l1_ratio": None,
+                    "max_iter": 100,
+                    "multi_class": "auto",
+                    "n_jobs": None,
+                    "penalty": "l2",
+                    "random_state": None,
+                    "solver": "lbfgs",
+                    "tol": 0.0001,
+                    "verbose": 0,
+                    "warm_start": False,
+                },
+                id="sklearn",
+            ),
             param(
                 "/tensorflow/",
                 {
@@ -186,27 +217,6 @@ class TestCaseModelResourceMethods:
                 },
                 id="tensorflow",
             ),
-            param(
-                "/sklearn/",
-                {
-                    "C": 1.0,
-                    "class_weight": None,
-                    "dual": False,
-                    "fit_intercept": True,
-                    "intercept_scaling": 1,
-                    "l1_ratio": None,
-                    "max_iter": 100,
-                    "multi_class": "auto",
-                    "n_jobs": None,
-                    "penalty": "l2",
-                    "random_state": None,
-                    "solver": "lbfgs",
-                    "tol": 0.0001,
-                    "verbose": 0,
-                    "warm_start": False,
-                },
-                id="sklearn",
-            ),
         ),
     )
     def test_inspect(self, client, url, output):
@@ -217,6 +227,29 @@ class TestCaseModelResourceMethods:
     @pytest.mark.parametrize(
         ("url", "x", "y"),
         (
+            param(
+                "/pytorch/predict/",
+                [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]],
+                [[10, 11, 12, 13, 14, 15, 16, 17, 18, 19]],
+                id="pytorch",
+            ),
+            param(
+                "/sklearn/predict/",
+                [
+                    [550.0, 2.3, 4.0],
+                    [620.0, 3.3, 2.0],
+                    [670.0, 3.3, 6.0],
+                    [680.0, 3.9, 4.0],
+                    [610.0, 2.7, 3.0],
+                    [610.0, 3.0, 1.0],
+                    [650.0, 3.7, 6.0],
+                    [690.0, 3.7, 5.0],
+                    [540.0, 2.7, 2.0],
+                    [660.0, 3.3, 5.0],
+                ],
+                [0, 0, 1, 1, 0, 0, 1, 1, 0, 1],
+                id="sklearn",
+            ),
             param(
                 "/tensorflow/predict/",
                 [
@@ -244,23 +277,6 @@ class TestCaseModelResourceMethods:
                     [0.4901178479194641],
                 ],
                 id="tensorflow",
-            ),
-            param(
-                "/sklearn/predict/",
-                [
-                    [550.0, 2.3, 4.0],
-                    [620.0, 3.3, 2.0],
-                    [670.0, 3.3, 6.0],
-                    [680.0, 3.9, 4.0],
-                    [610.0, 2.7, 3.0],
-                    [610.0, 3.0, 1.0],
-                    [650.0, 3.7, 6.0],
-                    [690.0, 3.7, 5.0],
-                    [540.0, 2.7, 2.0],
-                    [660.0, 3.3, 5.0],
-                ],
-                [0, 0, 1, 1, 0, 0, 1, 1, 0, 1],
-                id="sklearn",
             ),
         ),
     )

@@ -5,9 +5,6 @@ from pytest import param
 from sklearn.linear_model import LogisticRegression
 
 import flama
-import flama.serialize.dump
-import flama.serialize.load
-from flama.serialize import ModelFormat
 
 
 class TestCaseSerialize:
@@ -54,16 +51,16 @@ class TestCaseSerialize:
     @pytest.mark.parametrize(
         ("lib", "model", "model_class"),
         (
-            param(ModelFormat.tensorflow, "tensorflow", tf.keras.models.Sequential, id="tensorflow"),
-            param(ModelFormat.sklearn, "sklearn", LogisticRegression, id="sklearn"),
-            param(ModelFormat.pytorch, "pytorch", torch.jit.RecursiveScriptModule, id="pytorch"),
+            param(flama.ModelFormat.tensorflow, "tensorflow", tf.keras.models.Sequential, id="tensorflow"),
+            param(flama.ModelFormat.sklearn, "sklearn", LogisticRegression, id="sklearn"),
+            param(flama.ModelFormat.pytorch, "pytorch", torch.jit.RecursiveScriptModule, id="pytorch"),
         ),
         indirect=["model"],
     )
     def test_serialize(self, lib, model, model_class):
-        model_binary = flama.serialize.dump.dump.dumps(lib, model)
+        model_binary = flama.dumps(lib, model)
 
-        load_model = flama.serialize.load.loads(model_binary)
+        load_model = flama.loads(model_binary)
 
-        assert load_model.lib == ModelFormat(lib)
+        assert load_model.lib == flama.ModelFormat(lib)
         assert isinstance(load_model.model, model_class)

@@ -2,10 +2,12 @@ import abc
 import json
 import typing
 
+import torch
+
 from flama.components import Component
 from flama.serialize import ModelFormat, loads
 
-__all__ = ["Model", "TensorFlowModel", "SKLearnModel", "ModelComponent", "ModelComponentBuilder"]
+__all__ = ["Model", "PyTorchModel", "SKLearnModel", "TensorFlowModel", "ModelComponent", "ModelComponentBuilder"]
 
 
 class Model:
@@ -21,17 +23,29 @@ class Model:
         ...
 
 
-class TensorFlowModel(Model):
+class PyTorchModel(Model):
     def inspect(self) -> typing.Any:
-        return json.loads(self.model.to_json())
+        return {
+            "modules": [str(x) for x in self.model.modules()],
+            "parameters": {k: str(v) for k, v in self.model.named_parameters()},
+            "state": self.model.state_dict(),
+        }
 
     def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
-        return self.model.predict(x).tolist()
+        return self.model(torch.Tensor(x)).tolist()
 
 
 class SKLearnModel(Model):
     def inspect(self) -> typing.Any:
         return self.model.get_params()
+
+    def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
+        return self.model.predict(x).tolist()
+
+
+class TensorFlowModel(Model):
+    def inspect(self) -> typing.Any:
+        return json.loads(self.model.to_json())
 
     def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
         return self.model.predict(x).tolist()
@@ -46,11 +60,16 @@ class ModelComponent(Component):
 
 
 class ModelComponentBuilder:
+    MODELS = {
+        ModelFormat.pytorch: ("PyTorchModel", PyTorchModel),
+        ModelFormat.sklearn: ("SKLearnModel", SKLearnModel),
+        ModelFormat.tensorflow: ("TensorFlowModel", TensorFlowModel),
+    }
+
     @classmethod
     def loads(cls, data: bytes) -> ModelComponent:
         load_model = loads(data)
-        name = {ModelFormat.tensorflow: "TensorFlowModel", ModelFormat.sklearn: "SKLearnModel"}[load_model.lib]
-        parent = {ModelFormat.tensorflow: TensorFlowModel, ModelFormat.sklearn: SKLearnModel}[load_model.lib]
+        name, parent = cls.MODELS[load_model.lib]
         model_class = type(name, (parent,), {})
         model_obj = model_class(load_model.model)
 
