@@ -6,9 +6,9 @@ __all__ = ["Serializer"]
 
 class Serializer(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def dump(self, obj: typing.Any) -> bytes:
+    def dump(self, obj: typing.Any, **kwargs) -> bytes:
         ...
 
     @abc.abstractmethod
-    def load(self, model: bytes) -> typing.Any:
+    def load(self, model: bytes, **kwargs) -> typing.Any:
         ...
