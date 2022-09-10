@@ -1,6 +1,6 @@
 import typing
 
-from sklearn.linear_model import LogisticRegression
+import torch
 
 from flama import Flama
 from flama.models import Model, ModelComponent, ModelResource, ModelResourceType
@@ -9,19 +9,19 @@ from flama.resources.routing import resource_method
 app = Flama()
 
 
-# Adding a TensorFlow model:
+# Adding a model:
 app.models.add_model(
-    "/tf_model",
+    "/model",
     "path/to/your_model_file.flm",
-    "nn_model",
+    "model",
 )
 
 
-# Adding a Scikit-Learn model:
-@app.models.model("/sk_model")
-class MySKLearnModel(ModelResource, metaclass=ModelResourceType):
-    name = "sk_model"
-    verbose_name = "SK-Learn Logistic Regression"
+# Adding a model using a ModelResource:
+@app.models.model("/model_resource")
+class PyTorchModelResource(ModelResource, metaclass=ModelResourceType):
+    name = "pytorch_model"
+    verbose_name = "PyTorch Logistic Regression"
     model_path = "path/to/your_model_file.flm"
 
     @resource_method("/info", methods=["GET"], name="model-info")
@@ -30,15 +30,20 @@ class MySKLearnModel(ModelResource, metaclass=ModelResourceType):
 
 
 # Adding a model using a custom component:
-model = LogisticRegression()
+class PyTorchModel(torch.nn.Module):
+    def forward(self, x):
+        return x + 10
+
+
+model = PyTorchModel()
 
 
 class CustomModel(Model):
     def inspect(self) -> typing.Any:
-        ...
+        return self.model.__dict__
 
     def predict(self, x: typing.Any) -> typing.Any:
-        ...
+        return self.model(x)
 
 
 class CustomModelComponent(ModelComponent):
@@ -50,8 +55,8 @@ component = CustomModelComponent(model)
 
 
 class CustomModelResource(ModelResource, metaclass=ModelResourceType):
-    name = "custom"
-    verbose_name = "Custom"
+    name = "custom_model"
+    verbose_name = "Custom model"
     component = component
 
 
