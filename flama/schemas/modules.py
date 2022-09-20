@@ -1,12 +1,11 @@
 import typing
 from pathlib import Path
-from string import Template
 
 from starlette.responses import HTMLResponse
 
 from flama import pagination, schemas
 from flama.modules import Module
-from flama.responses import OpenAPIResponse
+from flama.responses import HTMLTemplateResponse, OpenAPIResponse
 from flama.schemas.generator import SchemaGenerator
 
 if typing.TYPE_CHECKING:
@@ -14,7 +13,7 @@ if typing.TYPE_CHECKING:
 
 __all__ = ["SchemaModule"]
 
-TEMPLATES_PATH = Path(__file__).parent.resolve() / "templates"
+TEMPLATES_PATH = Path(__file__).parents[1].resolve() / "templates"
 
 
 class SchemaModule(Module):
@@ -28,7 +27,6 @@ class SchemaModule(Module):
         description: str,
         schema: typing.Optional[str] = None,
         docs: typing.Optional[str] = None,
-        redoc: typing.Optional[str] = None,
         *args,
         **kwargs
     ):
@@ -50,29 +48,16 @@ class SchemaModule(Module):
 
             self.app.add_route(schema_url, schema_view, methods=["GET"], include_in_schema=False)
 
-        # Adds swagger ui endpoint
+        # Adds docs endpoint
         if docs:
             docs_url = docs
 
-            def swagger_ui() -> HTMLResponse:
-                with open(TEMPLATES_PATH / "swagger_ui.html") as f:
-                    content = Template(f.read()).substitute(title=self.title, schema_url=schema_url)
+            def docs_view() -> HTMLResponse:
+                return HTMLTemplateResponse(
+                    "schemas/docs.html", {"title": self.title, "schema_url": schema_url, "docs_url": docs_url}
+                )
 
-                return HTMLResponse(content)
-
-            self.app.add_route(docs_url, swagger_ui, methods=["GET"], include_in_schema=False)
-
-        # Adds redoc endpoint
-        if redoc:
-            redoc_url = redoc
-
-            def redoc_view() -> HTMLResponse:
-                with open(TEMPLATES_PATH / "redoc.html") as f:
-                    content = Template(f.read()).substitute(title=self.title, schema_url=schema_url)
-
-                return HTMLResponse(content)
-
-            self.app.add_route(redoc_url, redoc_view, methods=["GET"], include_in_schema=False)
+            self.app.add_route(docs_url, docs_view, methods=["GET"], include_in_schema=False)
 
     def register_schema(self, name: str, schema):
         self.schemas[name] = schema

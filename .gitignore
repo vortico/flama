@@ -56,3 +56,6 @@ node_modules
 ## Demo & Tests
 demo.db
 test.db
+
+# Templates
+flama/templates
