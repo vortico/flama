@@ -22,7 +22,7 @@ jobs:
       - id: install
         name: Install requirements
         run: |
-          pip install depoetry --upgrade
+          pip install pip poetry --upgrade
           ./scripts/install
       - id: black
         name: Code format checking

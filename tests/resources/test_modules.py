@@ -9,7 +9,7 @@ from flama.resources.routing import ResourceRoute
 class TestCaseResourcesModule:
     @pytest.fixture(scope="function")
     def app(self):
-        return Flama(schema=None, docs=None, redoc=None, sqlalchemy_database="sqlite+aiosqlite://")
+        return Flama(schema=None, docs=None, sqlalchemy_database="sqlite+aiosqlite://")
 
     def test_add_resource(self, app, puppy_model, puppy_schema):
         class PuppyResource(BaseResource, metaclass=CRUDResourceType):

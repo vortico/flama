@@ -95,7 +95,6 @@ def app(request):
         description="Bar",
         schema="/schema/",
         docs="/docs/",
-        redoc="/redoc/",
         sqlalchemy_database="sqlite+aiosqlite://",
         schema_library=request.param,
     )
