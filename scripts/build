@@ -5,12 +5,19 @@ C_RED1="\033[38;5;196m"
 
 build_pkg()
 {
-  echo "🔥 Build package:"
   local arg="$1"
   if [ -z "$arg" ]; then
+    cd templates
+    echo "🔥 Install js requirements..."
+    npm i
+    echo "🔥 Build templates..."
+    npm run build
+    cd ..
+    echo "🔥 Build package:"
     poetry build
   elif [[ "$arg" == "-c" || "$arg" == "--clean" ]]; then
     sh "${PWD}/scripts/clean.sh"
+    echo "🔥 Build package:"
     poetry build
   else
     printf "%b" "🚨 ${C_RED1}Unknown argument:${NO_FORMAT} ${arg}\n"

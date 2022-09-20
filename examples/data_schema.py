@@ -8,8 +8,7 @@ app = Flama(
     version="0.1",  # API version
     description="A register of puppies",  # API description
     schema="/schema/",  # Path to expose OpenAPI schema
-    docs="/docs/",  # Path to expose SwaggerUI application
-    redoc="/redoc/",  # Path to expose ReDoc application
+    docs="/docs/",  # Path to expose Docs application
 )
 
 Puppy = typesystem.Schema(

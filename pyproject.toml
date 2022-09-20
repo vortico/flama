@@ -8,12 +8,12 @@ version = "0.16.0"
 description = "Fire up your API"
 authors = [
     "José Antonio Perdiguero López <perdy@perdy.io>",
-    "Miguel A. Durán Olivencia"
+    "Miguel A. Durán Olivencia <migduroli@gmail.com>"
 ]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/perdy/flama"
-keywords = ["starlette", "api", "components", "schema", "openapi", "async"]
+keywords = ["machine-learning", "ml", "ml-ops", "mlops", "api", "rest", "restful", "openapi", "tensorflow", "pytorch", "sklearn"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Application Frameworks"
 ]
-include = ["flama/py.typed"]
+include = ["flama/py.typed", "flama/templates/**/*"]
 exclude = []
 
 [tool.poetry.dependencies]

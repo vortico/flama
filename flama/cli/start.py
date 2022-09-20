@@ -23,7 +23,6 @@ class AppConfig:
     description: str = ""
     schema: str = "/schema/"
     docs: str = "/docs/"
-    redoc: str = "/redoc/"
     models: typing.List[Model] = dataclasses.field(
         default_factory=lambda: [Model(url="/model-url/", path="model-path.flm", name="model-name")]
     )
@@ -69,7 +68,6 @@ class Config:
             description=self.app.description,
             schema=self.app.schema,
             docs=self.app.docs,
-            redoc=self.app.redoc,
             debug=self.dev,
         )
 
