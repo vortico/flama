@@ -18,7 +18,7 @@ from tests.conftest import DATABASE_URL
 @pytest.fixture
 def app(app):
     # Remove schema and docs endpoint from base fixture
-    return Flama(schema=None, docs=None, redoc=None, sqlalchemy_database="sqlite+aiosqlite://")
+    return Flama(schema=None, docs=None, sqlalchemy_database="sqlite+aiosqlite://")
 
 
 @pytest.fixture(scope="function", autouse=True)

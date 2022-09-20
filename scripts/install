@@ -2,8 +2,14 @@
 
 install_pkg()
 {
-  echo "🔥 Install requirements..."
+  echo "🔥 Install python requirements..."
   poetry install "$@"
+  cd templates
+  echo "🔥 Install js requirements..."
+  npm i
+  echo "🔥 Build templates..."
+  npm run build
+  cd ..
 }
 
 install_pkg "$@"

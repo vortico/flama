@@ -17,6 +17,7 @@ repos:
         args:
         - --autofix
         - --indent=2
+        exclude: "package-lock.json"
 -   repo: git@github.com:alessandrojcm/commitlint-pre-commit-hook
     rev: v8.0.0
     hooks:
