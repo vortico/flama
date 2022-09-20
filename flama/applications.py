@@ -2,12 +2,13 @@ import functools
 import typing
 
 from starlette.applications import Starlette
-from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
 
+from flama.debug.middleware import ServerErrorMiddleware
 from flama.exceptions import HTTPException
 from flama.injection import Injector
 from flama.lifespan import Lifespan
+from flama.middleware import Middleware
 from flama.models.modules import ModelsModule
 from flama.modules import Modules
 from flama.pagination import paginator
@@ -21,7 +22,6 @@ if typing.TYPE_CHECKING:
     from flama.asgi import App
     from flama.components import Component, Components
     from flama.http import Request, Response
-    from flama.middleware import Middleware
     from flama.modules import Module
     from flama.routing import BaseRoute, Mount, WebSocketRoute
 
@@ -48,7 +48,6 @@ class Flama(Starlette):
         description: typing.Optional[str] = "Firing up with the flame",
         schema: typing.Optional[str] = "/schema/",
         docs: typing.Optional[str] = "/docs/",
-        redoc: typing.Optional[str] = None,
         schema_library: typing.Optional[str] = None,
         *args,
         **kwargs
@@ -87,7 +86,6 @@ class Flama(Starlette):
                     "description": description,
                     "schema": schema,
                     "docs": docs,
-                    "redoc": redoc,
                 },
                 **kwargs,
             },
@@ -144,6 +142,20 @@ class Flama(Starlette):
 
     def mount(self, path: str, app: "App", name: str = None) -> None:  # type: ignore[override]
         self.router.mount(path, app=app, name=name)
+
+    def build_middleware_stack(self) -> "App":  # type: ignore[override]
+        debug = self.debug
+
+        middleware = (
+            [Middleware(ServerErrorMiddleware, debug=debug)]
+            + self.user_middleware
+            + [Middleware(ExceptionMiddleware, handlers=self.exception_handlers, debug=debug)]
+        )
+
+        app = self.router
+        for cls, options in reversed(middleware):
+            app = cls(app=app, **options)
+        return app
 
     def api_http_exception_handler(self, request: "Request", exc: HTTPException) -> "Response":
         return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)

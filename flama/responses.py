@@ -1,7 +1,10 @@
 import datetime
 import json
+import os
 import typing
+from pathlib import Path
 
+import jinja2
 from starlette import schemas as starlette_schemas
 from starlette.responses import FileResponse, HTMLResponse
 from starlette.responses import JSONResponse as StarletteJSONResponse
@@ -22,6 +25,7 @@ __all__ = [
     "APIResponse",
     "APIErrorResponse",
     "HTMLFileResponse",
+    "HTMLTemplateResponse",
     "OpenAPIResponse",
 ]
 
@@ -109,6 +113,24 @@ class HTMLFileResponse(HTMLResponse):
             raise HTTPException(status_code=500, detail=str(e))
 
         super().__init__(content, *args, **kwargs)
+
+
+class HTMLTemplateResponse(HTMLResponse):
+    templates = jinja2.Environment(
+        loader=jinja2.ChoiceLoader(
+            [jinja2.FileSystemLoader(Path(os.curdir) / "templates"), jinja2.PackageLoader("flama", "templates")]
+        ),
+        block_start_string="${%",
+        block_end_string="%}",
+        variable_start_string="${{",
+        variable_end_string="}}",
+    )
+
+    def __init__(self, template: str, context: typing.Dict[str, typing.Any] = None, *args, **kwargs):
+        if context is None:
+            context = {}
+
+        super().__init__(self.templates.get_template(template).render(**context), *args, **kwargs)
 
 
 class OpenAPIResponse(starlette_schemas.OpenAPIResponse):
