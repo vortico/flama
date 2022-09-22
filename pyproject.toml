@@ -37,7 +37,19 @@ typesystem = { version = "^0.4.1", optional = true }
 SQLAlchemy = { version = "^1.4", extras = ["asyncio"], optional = true }
 Jinja2 = "^3.1.2"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.extras]
+typesystem = ["typesystem"]
+marshmallow = ["marshmallow", "apispec"]
+pagination = ["python-forge"]
+database = ["sqlalchemy"]
+
+[tool.poetry.scripts]
+flama = 'flama.cli.__main__:cli'
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
 pytest-xdist = { version = "^2.5", extras = ["psutil"] }
 pytest-cov = "^3.0"
@@ -51,7 +63,7 @@ isort = "^5.1"
 python-multipart = "^0.0.5"
 flake8 = "^5.0"
 black = "^22.3"
-uvicorn = ">=0.10.0,<1.0.0"
+uvicorn = {version = ">=0.18.3,<1.0.0", extras = ["standard"]}
 aiosqlite = ">=0.11.0,<1.0.0"
 requests = "^2.22.0"
 Faker = "^8.2.0"
@@ -69,15 +81,6 @@ scikit-learn = [
 tensorflow-cpu = { version = "^2.9", python = ">=3.7,<3.11" }
 pre-commit = "^2.19.0"
 torch = "^1.12.1"
-
-[tool.poetry.extras]
-typesystem = ["typesystem"]
-marshmallow = ["marshmallow", "apispec"]
-pagination = ["python-forge"]
-database = ["sqlalchemy"]
-
-[tool.poetry.scripts]
-flama = 'flama.cli.__main__:cli'
 
 [tool.black]
 line-length = 120
