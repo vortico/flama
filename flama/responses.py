@@ -30,6 +30,10 @@ __all__ = [
 ]
 
 
+assert (Path(__file__).parent / "templates").exists(), \
+    "'flama/templates' was not found. Please run 'make install' to ensure correct installation."
+
+
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):

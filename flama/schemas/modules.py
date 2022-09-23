@@ -13,7 +13,7 @@ if typing.TYPE_CHECKING:
 
 __all__ = ["SchemaModule"]
 
-TEMPLATES_PATH = Path(__file__).parents[1].resolve() / "templates"
+TEMPLATES_PATH = Path(__file__).parents[1] / "templates"
 
 
 class SchemaModule(Module):
