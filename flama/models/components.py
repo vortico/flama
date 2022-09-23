@@ -4,6 +4,7 @@ import typing
 
 import torch
 
+from flama import exceptions
 from flama.components import Component
 from flama.serialize import ModelFormat, loads
 
@@ -32,7 +33,10 @@ class PyTorchModel(Model):
         }
 
     def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
-        return self.model(torch.Tensor(x)).tolist()
+        try:
+            return self.model(torch.Tensor(x)).tolist()
+        except ValueError as e:
+            raise exceptions.HTTPException(status_code=400, detail=str(e))
 
 
 class SKLearnModel(Model):
@@ -40,7 +44,10 @@ class SKLearnModel(Model):
         return self.model.get_params()
 
     def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
-        return self.model.predict(x).tolist()
+        try:
+            return self.model.predict(x).tolist()
+        except ValueError as e:
+            raise exceptions.HTTPException(status_code=400, detail=str(e))
 
 
 class TensorFlowModel(Model):
@@ -48,7 +55,10 @@ class TensorFlowModel(Model):
         return json.loads(self.model.to_json())
 
     def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
-        return self.model.predict(x).tolist()
+        try:
+            return self.model.predict(x).tolist()
+        except ValueError:
+            raise exceptions.HTTPException(status_code=400)
 
 
 class ModelComponent(Component):
