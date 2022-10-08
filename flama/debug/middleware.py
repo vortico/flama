@@ -1,6 +1,8 @@
+import dataclasses
 from pathlib import Path
 
 from flama.asgi import App, Message, Receive, Scope, Send
+from flama.debug.types import ErrorContext
 from flama.http import PlainTextResponse, Request, Response
 from flama.responses import HTMLTemplateResponse
 
@@ -43,7 +45,8 @@ class ServerErrorMiddleware:
         accept = request.headers.get("accept", "")
 
         if "text/html" in accept:
-            return HTMLTemplateResponse("debug/error_500.html")
+            context = dataclasses.asdict(ErrorContext.build(request, exc))
+            return HTMLTemplateResponse("debug/error_500.html", context)
         return PlainTextResponse("Internal Server Error", status_code=500)
 
     def error_response(self, request: Request, exc: Exception) -> Response:

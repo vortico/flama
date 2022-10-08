@@ -1,8 +1,13 @@
 import React, { useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
-import '../../css/schemas/docs.css'
+import '@/styles/schemas/docs.css'
 
-function DocsPage ({ specUrl, baseUrl }) {
+interface DocsPageProps {
+  specUrl: string
+  baseUrl: string
+}
+
+function DocsPage({ specUrl, baseUrl }: DocsPageProps) {
   useEffect(() => {
     const script = document.createElement('script')
     script.type = 'text/javascript'
@@ -14,21 +19,26 @@ function DocsPage ({ specUrl, baseUrl }) {
 
     const elements = document.createElement('elements-api')
     elements.setAttribute('apiDescriptionUrl', specUrl)
-    elements.setAttribute('logo', 'https://raw.githubusercontent.com/perdy/flama-site/master/public/favicon/icon-512x512.png')
+    elements.setAttribute(
+      'logo',
+      'https://raw.githubusercontent.com/perdy/flama-site/master/public/favicon/icon-512x512.png'
+    )
     elements.setAttribute('basePath', baseUrl)
 
     document.head.appendChild(script)
     document.head.appendChild(style)
-    document.getElementById('app').appendChild(elements)
+    document.getElementById('app')?.appendChild(elements)
 
     return () => {
-      document.getElementById('app').removeChild(elements)
+      document.getElementById('app')?.removeChild(elements)
       document.head.removeChild(style)
       document.head.removeChild(script)
     }
   }, [])
+
+  return <></>
 }
 
-createRoot(document.getElementById('app')).render(
-  <DocsPage specUrl="${{ schema_url }}" baseUrl="${{ docs_url }}"/>
+createRoot(document.getElementById('app')!).render(
+  <DocsPage specUrl="|@ schema_url @|" baseUrl="|@ docs_url @|" />
 )
