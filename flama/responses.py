@@ -1,4 +1,5 @@
 import datetime
+import html
 import json
 import os
 import typing
@@ -28,6 +29,8 @@ __all__ = [
     "HTMLTemplateResponse",
     "OpenAPIResponse",
 ]
+
+from flama.types import JSON
 
 
 assert (
@@ -120,16 +123,40 @@ class HTMLFileResponse(HTMLResponse):
         super().__init__(content, *args, **kwargs)
 
 
+class _TemplatesEnvironment(jinja2.Environment):
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            loader=jinja2.ChoiceLoader(
+                [jinja2.FileSystemLoader(Path(os.curdir) / "templates"), jinja2.PackageLoader("flama", "templates")]
+            ),
+            block_start_string="||%",
+            block_end_string="%||",
+            variable_start_string="||@",
+            variable_end_string="@||",
+            *args,
+            **kwargs,
+        )
+
+        self.filters["safe_json"] = self.safe_json
+
+    def _escape(self, value: JSON) -> JSON:
+        if isinstance(value, (list, tuple)):
+            return [self._escape(x) for x in value]
+
+        if isinstance(value, dict):
+            return {k: self._escape(v) for k, v in value.items()}
+
+        if isinstance(value, str):
+            return html.escape(value).replace("\n", "&#13;")
+
+        return value
+
+    def safe_json(self, value: JSON):
+        return json.dumps(self._escape(value)).replace('"', '\\"')
+
+
 class HTMLTemplateResponse(HTMLResponse):
-    templates = jinja2.Environment(
-        loader=jinja2.ChoiceLoader(
-            [jinja2.FileSystemLoader(Path(os.curdir) / "templates"), jinja2.PackageLoader("flama", "templates")]
-        ),
-        block_start_string="${%",
-        block_end_string="%}",
-        variable_start_string="${{",
-        variable_end_string="}}",
-    )
+    templates = _TemplatesEnvironment()
 
     def __init__(self, template: str, context: typing.Dict[str, typing.Any] = None, *args, **kwargs):
         if context is None:

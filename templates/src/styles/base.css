@@ -2,6 +2,4 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-    @apply bg-primary-100 text-primary-600;
-}
+
