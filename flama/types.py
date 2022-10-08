@@ -7,6 +7,8 @@ from flama import http
 
 __all__ = ["OptInt", "OptStr", "OptBool", "OptFloat", "OptUUID", "OptDate", "OptDateTime", "OptTime", "HTTPMethod"]
 
+JSON = typing.Union[str, int, float, bool, None, typing.Dict[str, typing.Any], typing.List[typing.Any]]
+
 OptInt = typing.Optional[int]
 OptStr = typing.Optional[str]
 OptBool = typing.Optional[bool]

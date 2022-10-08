@@ -1,0 +1,10 @@
+@import 'base.css';
+
+/*! purgecss start ignore */
+@import 'scrollbar.css';
+@import 'prism.css';
+/*! purgecss end ignore */
+
+body {
+    @apply bg-primary-100 text-primary-600;
+}

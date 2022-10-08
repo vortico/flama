@@ -31,6 +31,10 @@ def home():
 error_app = Router()
 
 
+class FooException(Exception):
+    ...
+
+
 @error_app.route("/500")
 def error_500(param: int):
     """
@@ -44,7 +48,7 @@ def error_500(param: int):
         500:
             description: Internal Server Error
     """
-    raise Exception
+    raise FooException("Foo")
 
 
 app.mount("/error", app=error_app)
