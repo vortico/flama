@@ -82,7 +82,7 @@ class Config:
 @click.option("--create-config", is_flag=True, help="Create minimal config file.")
 def start(flama_config: str, create_config: bool):
     """
-    Starts a Flama Application based on a config file.
+    Start a Flama Application based on a config file.
     """
     if create_config:
         with open(flama_config, "w") as fs:
