@@ -5,16 +5,16 @@ from flama import Flama
 
 
 @click.command()
-@click.argument("model-path", envvar="MODEL_PATH")
-@click.option("--model-url", envvar="MODEL_URL", default="/", show_default=True, help="Route of the model")
-@click.option("--model-name", envvar="MODEL_NAME", default="model", show_default=True, help="Name of the model")
-@click.option("--app-name", envvar="APP_NAME", default="Flama", show_default=True, help="Name of the application")
+@click.argument("model-path", envvar="FLAMA_MODEL_PATH")
+@click.option("--model-url", envvar="FLAMA_MODEL_URL", default="/", show_default=True, help="Route of the model")
+@click.option("--model-name", envvar="FLAMA_MODEL_NAME", default="model", show_default=True, help="Name of the model")
+@click.option("--app-name", envvar="FLAMA_APP_NAME", default="Flama", show_default=True, help="Name of the application")
 @click.option(
-    "--app-version", envvar="APP_VERSION", default="0.1.0", show_default=True, help="Version of the application"
+    "--app-version", envvar="FLAMA_APP_VERSION", default="0.1.0", show_default=True, help="Version of the application"
 )
 @click.option(
     "--app-description",
-    envvar="APP_DESCRIPTION",
+    envvar="FLAMA_APP_DESCRIPTION",
     default="Fire up with the flame",
     show_default=True,
     help="Description of the application",
