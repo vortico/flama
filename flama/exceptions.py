@@ -4,16 +4,15 @@ import typing
 import flama.schemas.exceptions
 
 __all__ = [
+    "ComponentNotFound",
+    "ConfigurationError",
     "DecodeError",
+    "HTTPException",
     "NoReverseMatch",
     "NoCodecAvailable",
-    "ConfigurationError",
-    "ComponentNotFound",
-    "WebSocketException",
-    "WebSocketConnectionException",
-    "HTTPException",
-    "ValidationError",
     "SerializationError",
+    "ValidationError",
+    "WebSocketException",
 ] + flama.schemas.exceptions.__all__
 
 
@@ -70,12 +69,13 @@ class ComponentNotFound(ConfigurationError):
 
 
 class WebSocketException(Exception):
-    def __init__(self, close_code: int):
-        self.close_code = close_code
+    def __init__(self, code: int, reason: typing.Optional[str] = None) -> None:
+        self.code = code
+        self.reason = reason or ""
 
-
-class WebSocketConnectionException(Exception):
-    ...
+    def __repr__(self) -> str:
+        class_name = self.__class__.__name__
+        return f"{class_name}(code={self.code!r}, reason={self.reason!r})"
 
 
 class HTTPException(Exception):
@@ -83,11 +83,13 @@ class HTTPException(Exception):
         self,
         status_code: int,
         detail: typing.Optional[typing.Union[str, typing.Dict[str, typing.List[str]]]] = None,
+        headers: typing.Optional[dict] = None,
     ) -> None:
         if detail is None:
             detail = http.HTTPStatus(status_code).phrase
         self.status_code = status_code
         self.detail = detail
+        self.headers = headers
 
     def __repr__(self) -> str:
         class_name = self.__class__.__name__

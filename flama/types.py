@@ -5,7 +5,18 @@ import uuid
 
 from flama import http
 
-__all__ = ["OptInt", "OptStr", "OptBool", "OptFloat", "OptUUID", "OptDate", "OptDateTime", "OptTime", "HTTPMethod"]
+__all__ = [
+    "OptInt",
+    "OptStr",
+    "OptBool",
+    "OptFloat",
+    "OptUUID",
+    "OptDate",
+    "OptDateTime",
+    "OptTime",
+    "HTTPMethod",
+    "JSON",
+]
 
 JSON = typing.Union[str, int, float, bool, None, typing.Dict[str, typing.Any], typing.List[typing.Any]]
 
