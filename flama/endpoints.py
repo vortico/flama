@@ -56,11 +56,8 @@ class WebSocketEndpoint(BaseWebSocketEndpoint):
             "websocket_message": None,
         }
 
-        try:
-            on_connect = await app.injector.inject(self.on_connect, state)
-            await on_connect()
-        except Exception as e:
-            raise exceptions.WebSocketConnectionException("Error connecting socket") from e
+        on_connect = await app.injector.inject(self.on_connect, state)
+        await on_connect()
 
         try:
             state["websocket_message"] = await websocket.receive()
@@ -72,7 +69,7 @@ class WebSocketEndpoint(BaseWebSocketEndpoint):
 
             state["websocket_code"] = int(state["websocket_message"].get("code", status.WS_1000_NORMAL_CLOSURE))
         except exceptions.WebSocketException as e:
-            state["websocket_code"] = e.close_code
+            state["websocket_code"] = e.code
         except Exception as e:
             state["websocket_code"] = status.WS_1011_INTERNAL_ERROR
             raise e from None

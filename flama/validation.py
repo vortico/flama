@@ -50,7 +50,7 @@ class WebSocketMessageDataComponent(Component):
             codec = self.negotiator.negotiate(websocket_encoding)
             return await codec.decode(message)
         except (exceptions.NoCodecAvailable, exceptions.DecodeError):
-            raise WebSocketException(close_code=status.WS_1003_UNSUPPORTED_DATA)
+            raise WebSocketException(code=status.WS_1003_UNSUPPORTED_DATA)
 
 
 class ValidatePathParamsComponent(Component):
