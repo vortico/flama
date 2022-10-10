@@ -3,7 +3,7 @@
 run_mypy()
 {
   echo "• Run MyPy code formatting:"
-  poetry run mypy flama "$@"
+  poetry run mypy "$@"
   echo "↳ MyPy done"
 }
 
