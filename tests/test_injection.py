@@ -127,44 +127,44 @@ class TestCaseComponentsInjection:
             return JSONResponse({"foo": "bar"})
 
     def test_injection_http_view(self, client):
-        with client.get("/http-view/") as response:
-            assert response.status_code == 200
-            assert response.json() == {"puppy": "Canna"}
+        response = client.request("get", "/http-view/")
+        assert response.status_code == 200
+        assert response.json() == {"puppy": "Canna"}
 
     def test_injection_http_endpoint(self, client):
-        with client.get("/http-endpoint/") as response:
-            assert response.status_code == 200
-            assert response.json() == {"puppy": "Canna"}
+        response = client.request("get", "/http-endpoint/")
+        assert response.status_code == 200
+        assert response.json() == {"puppy": "Canna"}
 
     def test_injection_websocket_view(self, client):
         with client.websocket_connect("/websocket-view/") as websocket:
             assert websocket.receive_json() == {"puppy": "Canna"}
 
     def test_nested_component(self, client):
-        with client.get("/nested-component/") as response:
-            assert response.status_code == 200
-            assert response.json() == {"name": "Perdy", "puppy": {"name": "Canna"}}
+        response = client.request("get", "/nested-component/")
+        assert response.status_code == 200
+        assert response.json() == {"name": "Perdy", "puppy": {"name": "Canna"}}
 
     def test_same_param_components_single_view(self, client):
-        with client.get("/same-param-components/", params={"param": "foo"}) as response:
-            assert response.status_code == 200
-            assert response.json() == {"param1": "foo", "param2": "foo"}
+        response = client.request("get", "/same-param-components/", params={"param": "foo"})
+        assert response.status_code == 200
+        assert response.json() == {"param1": "foo", "param2": "foo"}
 
     def test_same_param_components_multiple_views(self, client):
-        with client.get("/param-1-component/", params={"param": "foo"}) as response:
-            assert response.status_code == 200
-            assert response.json() == {"param": "foo"}
+        response = client.request("get", "/param-1-component/", params={"param": "foo"})
+        assert response.status_code == 200
+        assert response.json() == {"param": "foo"}
 
-        with client.get("/param-2-component/", params={"param": "foo"}) as response:
-            assert response.status_code == 200
-            assert response.json() == {"param": "foo"}
+        response = client.request("get", "/param-2-component/", params={"param": "foo"})
+        assert response.status_code == 200
+        assert response.json() == {"param": "foo"}
 
     def test_unknown_component(self, client):
         with pytest.raises(
             ComponentNotFound,
             match='No component able to handle parameter "unknown" for function "unknown_component_view"',
         ):
-            client.get("/unknown-component/")
+            client.request("get", "/unknown-component/")
 
     def test_unknown_param_in_component(self, client):
         with pytest.raises(
@@ -172,7 +172,7 @@ class TestCaseComponentsInjection:
             match='No component able to handle parameter "foo" in component "UnknownParamComponent" for function '
             '"unknown_param_in_component_view"',
         ):
-            client.get("/unknown-param-in-component/")
+            client.request("get", "/unknown-param-in-component/")
 
     def test_unhandled_component(self):
         class UnhandledComponent(Component):
@@ -190,4 +190,4 @@ class TestCaseComponentsInjection:
             match=r'Component "UnhandledComponent" must include a return annotation on the `resolve\(\)` method, '
             "or override `can_handle_parameter`",
         ), TestClient(app) as client:
-            client.get("/")
+            client.request("get", "/")

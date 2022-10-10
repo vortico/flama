@@ -212,7 +212,7 @@ class TestCaseModelResourceMethods:
                             },
                         ],
                     },
-                    "keras_version": "2.9.0",
+                    "keras_version": "2.10.0",
                     "backend": "tensorflow",
                 },
                 id="tensorflow",

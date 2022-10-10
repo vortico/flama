@@ -2,7 +2,7 @@ import marshmallow
 import pytest
 import typesystem
 
-from flama import Component, exceptions, websockets
+from flama import Component, websockets
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 
 
@@ -264,11 +264,9 @@ class TestCaseWebSocketEndpoint:
         @app.websocket_route("/")
         class FooWebSocketEndpoint(WebSocketEndpoint):
             async def on_connect(self, websocket: websockets.WebSocket):
-                raise Exception
+                raise Exception("Error connecting socket")
 
-        with pytest.raises(
-            exceptions.WebSocketConnectionException, match="Error connecting socket"
-        ), client.websocket_connect("/") as ws:
+        with pytest.raises(Exception, match="Error connecting socket"), client.websocket_connect("/") as ws:
             ws.send_bytes("foo")
 
     def test_fail_receiving(self, app, client):
