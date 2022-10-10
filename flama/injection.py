@@ -3,7 +3,7 @@ import functools
 import inspect
 import typing
 
-from flama import asgi, http, websockets
+from flama import asgi, concurrency, http, websockets
 from flama.asgi import ASGI_COMPONENTS
 from flama.exceptions import ComponentNotFound
 from flama.routing import Route
@@ -35,7 +35,7 @@ class Step:
 
     @property
     def is_async(self):
-        return inspect.iscoroutinefunction(self.resolver)
+        return concurrency.is_async(self.resolver)
 
 
 @dataclasses.dataclass(frozen=True)
