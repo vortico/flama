@@ -1,4 +1,4 @@
-from unittest.mock import Mock, call, mock_open, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 
@@ -57,10 +57,29 @@ class TestCaseSchemaModule:
         }
 
     def test_view_schema(self, client):
-        response = client.get("/schema/")
+        response = client.request("get", "/schema/")
         assert response.status_code == 200
         assert response.headers.get("content-type") == "application/vnd.oai.openapi"
 
     def test_view_docs(self, client):
-        response = client.get("/docs/")
+        response = client.request("get", "/docs/")
         assert response.status_code == 200
+        assert file_mock.call_count == 1
+        template = file_mock.call_args_list[0][0][0]
+        assert template.name == "swagger_ui.html"
+        assert mock_template.call_args_list == [call("foo")]
+        assert response.content == b"bar"
+
+    def test_view_redoc(self, client):
+        with patch("flama.schemas.modules.Template") as mock_template, patch(
+            "flama.schemas.modules.open", mock_open(read_data="foo")
+        ) as file_mock:
+            mock_template.return_value.substitute.return_value = "bar"
+            response = client.get("/redoc/")
+
+        assert response.status_code == 200
+        assert file_mock.call_count == 1
+        template = file_mock.call_args_list[0][0][0]
+        assert template.name == "redoc.html"
+        assert mock_template.call_args_list == [call("foo")]
+        assert response.content == b"bar"

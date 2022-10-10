@@ -57,5 +57,6 @@ repos:
         name: Pytest - Unit tests
         entry: ./scripts/test
         language: system
-        types: [file, python]
+        types: [python]
         exclude: "make"
+        pass_filenames: false

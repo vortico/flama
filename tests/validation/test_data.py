@@ -32,7 +32,7 @@ class TestCaseDataValidation:
             ),
             # Multipart
             param(
-                {"files": {"a": ("b", "123")}, "data": {"b": "42"}},
+                {"files": {"a": ("b", b"123")}, "data": {"b": "42"}},
                 200,
                 {"data": {"a": {"filename": "b", "content": "123"}, "b": "42"}},
                 id="multipart",
@@ -59,7 +59,7 @@ class TestCaseDataValidation:
 
             return {"data": data}
 
-        response = client.post("/request_data/", **request_params)
+        response = client.request("post", "/request_data/", **request_params)
         assert response.status_code == response_status, str(response.content)
         if response_json is not None:
             assert response.json() == response_json

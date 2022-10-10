@@ -1,5 +1,4 @@
 import dataclasses
-import html
 import inspect
 import sys
 import typing
@@ -28,7 +27,7 @@ class Request:
     params: RequestParams
     headers: typing.Dict[str, str]
     cookies: typing.Dict[str, str]
-    client: RequestClient
+    client: typing.Optional[RequestClient] = None
 
     @classmethod
     def from_request(cls, request: "http.Request") -> "Request":
@@ -38,7 +37,7 @@ class Request:
             params=RequestParams(query=dict(request.query_params), path=dict(request.path_params)),
             headers=dict(request.headers),
             cookies=dict(request.cookies),
-            client=RequestClient(host=request.client.host, port=request.client.port),
+            client=RequestClient(host=request.client.host, port=request.client.port) if request.client else None,
         )
 
 
@@ -115,7 +114,7 @@ class ErrorContext:
     environment: Environment
 
     @classmethod
-    def build(cls, request: Request, exc: Exception) -> "ErrorContext":
+    def build(cls, request: "http.Request", exc: Exception) -> "ErrorContext":
         return cls(
             request=Request.from_request(request),
             error=Error.from_exception(exc),
