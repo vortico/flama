@@ -1,14 +1,12 @@
-import asyncio
 import inspect
 import logging
 import typing
 from functools import wraps
 
 import starlette.routing
-from starlette.concurrency import run_in_threadpool
 from starlette.routing import Match
 
-from flama import asgi, http, websockets
+from flama import asgi, concurrency, http, websockets
 from flama.components import Component, Components
 from flama.responses import APIResponse, Response
 from flama.schemas import adapter
@@ -30,10 +28,7 @@ async def prepare_http_request(app: "Flama", handler: typing.Callable, state: ty
     try:
         injected_func = await app.injector.inject(handler, state)
 
-        if asyncio.iscoroutinefunction(handler):
-            response = await injected_func()
-        else:
-            response = await run_in_threadpool(injected_func)
+        response = await concurrency.run(injected_func)
 
         # Wrap response data with a proper response class
         if adapter.is_schema(response):
