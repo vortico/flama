@@ -3,23 +3,23 @@ import React from 'react'
 interface RequestProps {
   path: string
   method: string
-  clientHost: string
-  clientPort: string
   pathParams: Map<string, string>
   queryParams: Map<string, string>
   headers: Map<string, string>
   cookies: Map<string, string>
+  clientHost?: string
+  clientPort?: string
 }
 
 export default function Request({
   path,
   method,
-  clientHost,
-  clientPort,
   pathParams,
   queryParams,
   headers,
   cookies,
+  clientHost,
+  clientPort,
 }: RequestProps) {
   return (
     <table className="w-full table-fixed border-b-2 border-t-2 border-primary-400">
@@ -84,14 +84,14 @@ export default function Request({
             </ul>
           </td>
         </tr>
-        <tr className="border-b border-primary-400">
+        {clientHost && <tr className="border-b border-primary-400">
           <th className="p-2">Client host</th>
           <td className="p-2">{clientHost}</td>
-        </tr>
-        <tr className="border-b border-primary-400">
+        </tr>}
+        {clientPort && <tr className="border-b border-primary-400">
           <th className="p-2">Client port</th>
           <td className="p-2">{clientPort}</td>
-        </tr>
+        </tr>}
       </tbody>
     </table>
   )
