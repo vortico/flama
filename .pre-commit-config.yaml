@@ -53,3 +53,9 @@ repos:
         language: system
         types: [file, python]
         exclude: "(make|tests/|examples/)"
+    -   id: pytest
+        name: Pytest - Unit tests
+        entry: ./scripts/test
+        language: system
+        types: [file, python]
+        exclude: "make"
