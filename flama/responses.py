@@ -98,12 +98,19 @@ class APIResponse(JSONResponse):
 
 class APIErrorResponse(APIResponse):
     def __init__(
-        self, detail: typing.Any, status_code: int = 400, exception: typing.Optional[Exception] = None, *args, **kwargs
+        self,
+        detail: typing.Any,
+        status_code: int = 400,
+        exception: typing.Optional[Exception] = None,
+        headers: typing.Optional[typing.Dict[str, str]] = None,
+        *args,
+        **kwargs,
     ):
         content = {
             "detail": detail,
             "error": str(exception.__class__.__name__) if exception is not None else None,
             "status_code": status_code,
+            "headers": headers,
         }
 
         super().__init__(content, schemas.schemas.APIError, status_code=status_code, *args, **kwargs)
