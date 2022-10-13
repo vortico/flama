@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import ExitStack
 from time import sleep
+from unittest.mock import AsyncMock
 
 import marshmallow
 import pytest
@@ -8,7 +9,7 @@ import sqlalchemy
 import typesystem
 from faker import Faker
 
-from flama import Flama
+from flama import Flama, asgi
 from flama.sqlalchemy import metadata
 from flama.testclient import TestClient
 
@@ -104,6 +105,31 @@ def app(request):
 def client(app):
     with TestClient(app) as client:
         yield client
+
+
+@pytest.fixture(scope="function")
+def asgi_scope():
+    return asgi.Scope(
+        {
+            "type": "http",
+            "method": "GET",
+            "scheme": "https",
+            "path": "/",
+            "root_path": "/",
+            "query_string": b"",
+            "headers": [],
+        }
+    )
+
+
+@pytest.fixture(scope="function")
+def asgi_receive():
+    return AsyncMock(spec=asgi.Receive)
+
+
+@pytest.fixture(scope="function")
+def asgi_send():
+    return AsyncMock(spec=asgi.Send)
 
 
 def assert_recursive_contains(first, second):
