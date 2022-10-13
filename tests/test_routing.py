@@ -1,11 +1,51 @@
-from unittest.mock import MagicMock
+import json
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
 
 import pytest
 
 from flama.applications import Flama
 from flama.components import Component, Components
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
-from flama.routing import Mount, Route, Router, WebSocketRoute
+from flama.exceptions import HTTPException
+from flama.responses import APIResponse
+from flama.routing import Mount, Route, Router, WebSocketRoute, prepare_http_request
+
+
+class TestCasePrepareHTTPRequest:
+    @pytest.fixture
+    def handler(self):
+        def _handler():
+            ...
+
+        return _handler
+
+    @pytest.mark.parametrize(
+        ["content"],
+        (
+            pytest.param({"name": "Canna", "custom_id": 6}, id="dict"),
+            pytest.param("foo", id="str"),
+            pytest.param(None, id="none"),
+        ),
+    )
+    async def test_prepare_http_request(self, app, puppy_schema, handler, content):
+        with patch.object(type(app), "injector", new_callable=PropertyMock) as injector_mock, patch(
+            "flama.routing.concurrency"
+        ) as concurrency_mock, patch("flama.routing.get_output_schema", return_value=puppy_schema):
+            injector_mock().inject = AsyncMock()
+            concurrency_mock.run = AsyncMock(return_value=content)
+            response = await prepare_http_request(app, handler, {})
+
+            assert isinstance(response, APIResponse)
+            if response.body:
+                assert json.loads(response.body) == content
+
+    async def test_prepare_http_exception(self, app, handler):
+        with patch.object(type(app), "injector", new_callable=PropertyMock) as injector_mock, patch(
+            "flama.routing.concurrency"
+        ) as concurrency_mock, pytest.raises(ValueError):
+            injector_mock().inject = AsyncMock()
+            concurrency_mock.run = AsyncMock(side_effect=ValueError)
+            await prepare_http_request(app, handler, {})
 
 
 class TestCaseRouter:
@@ -83,6 +123,10 @@ class TestCaseRouter:
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == FooEndpoint
 
+    def test_add_route_wrong(self, router):
+        with pytest.raises(ValueError, match="Either 'path' and 'endpoint' or 'route' variables are needed"):
+            router.add_route()
+
     def test_add_websocket_route(self, router):
         async def foo():
             return "foo"
@@ -114,6 +158,10 @@ class TestCaseRouter:
         assert isinstance(router.routes[0], WebSocketRoute)
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == FooEndpoint
+
+    def test_add_websocket_route_wrong(self, router):
+        with pytest.raises(ValueError, match="Either 'path' and 'endpoint' or 'route' variables are needed"):
+            router.add_websocket_route()
 
     def test_mount_app(self, app, app_mock):
         app.mount("/app/", app=app_mock)
@@ -222,6 +270,37 @@ class TestCaseRouter:
         # Check app is deleted in second-level route
         with pytest.raises(AttributeError):
             app.routes[1].routes[0].main_app
+
+    async def test_not_found_websocket(self, router, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "websocket"
+
+        websocket_close_instance_mock = AsyncMock()
+        websocket_close_mock = MagicMock(return_value=websocket_close_instance_mock)
+        with patch("flama.routing.WebSocketClose", new=websocket_close_mock):
+            await router.not_found(asgi_scope, asgi_receive, asgi_send)
+            assert websocket_close_mock.call_args_list == [call()]
+            assert websocket_close_instance_mock.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
+
+    async def test_not_found_flama_app(self, router, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["app"] = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await router.not_found(asgi_scope, asgi_receive, asgi_send)
+
+            assert exc_info.type is HTTPException
+            assert exc_info.value.args == [400]
+
+    async def test_not_found_no_app(self, router, asgi_scope, asgi_receive, asgi_send):
+        if "app" in asgi_scope:
+            del asgi_scope["app"]
+
+        response_instance_mock = AsyncMock()
+        response_mock = MagicMock(return_value=response_instance_mock)
+        with patch("flama.routing.PlainTextResponse", new=response_mock):
+            await router.not_found(asgi_scope, asgi_receive, asgi_send)
+
+            assert response_mock.call_args_list == [call("Not Found", status_code=404)]
+            assert response_instance_mock.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
 
     def test_get_route_from_scope_route(self, app, scope):
         @app.route("/foo/")

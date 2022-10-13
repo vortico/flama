@@ -2,26 +2,22 @@ import functools
 import typing
 
 from starlette.applications import Starlette
-from starlette.middleware.exceptions import ExceptionMiddleware
+from starlette.datastructures import State
 
-from flama.debug.middleware import ServerErrorMiddleware
-from flama.exceptions import HTTPException
 from flama.injection import Injector
 from flama.lifespan import Lifespan
-from flama.middleware import Middleware
+from flama.middleware import Middleware, MiddlewareStack
 from flama.models.modules import ModelsModule
 from flama.modules import Modules
 from flama.pagination import paginator
 from flama.resources import ResourcesModule
-from flama.responses import APIErrorResponse
 from flama.routing import Router
 from flama.schemas.modules import SchemaModule
 from flama.sqlalchemy import SQLAlchemyModule
 
 if typing.TYPE_CHECKING:
-    from flama.asgi import App
+    from flama.asgi import App, Receive, Scope, Send
     from flama.components import Component, Components
-    from flama.http import Request, Response
     from flama.modules import Module
     from flama.routing import BaseRoute, Mount, WebSocketRoute
 
@@ -37,7 +33,7 @@ class Flama(Starlette):
         routes: typing.Sequence[typing.Union["BaseRoute", "Mount"]] = None,
         components: typing.Optional[typing.List["Component"]] = None,
         modules: typing.Optional[typing.List[typing.Type["Module"]]] = None,
-        middleware: typing.Sequence["Middleware"] = None,
+        middleware: typing.Optional[typing.Sequence["Middleware"]] = None,
         debug: bool = False,
         on_startup: typing.Sequence[typing.Callable] = None,
         on_shutdown: typing.Sequence[typing.Callable] = None,
@@ -52,7 +48,8 @@ class Flama(Starlette):
         *args,
         **kwargs
     ) -> None:
-        super().__init__(debug, *args, **kwargs)
+        self._debug = debug
+        self.state = State()
 
         # Initialize router and middleware stack
         self.router: Router = Router(
@@ -64,13 +61,8 @@ class Flama(Starlette):
             lifespan=Lifespan(self, lifespan),
         )
         self.app = self.router
-        self.exception_middleware = ExceptionMiddleware(self.router, debug=debug)
-        self.error_middleware = ServerErrorMiddleware(self.exception_middleware, debug=debug)
-        self.user_middleware = [] if middleware is None else list(middleware)
-        self.middleware_stack = self.build_middleware_stack()
 
-        # Add exception handler for API exceptions
-        self.add_exception_handler(HTTPException, self.api_http_exception_handler)
+        self.middleware = MiddlewareStack(app=self.app, middleware=middleware or [], debug=debug)
 
         # Initialize Modules
         self.modules = Modules(
@@ -98,10 +90,25 @@ class Flama(Starlette):
         self.paginator = paginator
 
     def __getattr__(self, item: str) -> "Module":
+        """Retrieve a module by its name.
+
+        :param item: Module name.
+        :return: Module.
+        """
         try:
             return self.modules.__getattr__(item)
         except KeyError:
             return None  # type: ignore[return-value]
+
+    async def __call__(self, scope: "Scope", receive: "Receive", send: "Send") -> None:
+        """Perform a request.
+
+        :param scope: ASGI scope.
+        :param receive: ASGI receive event.
+        :param send: ASGI send event.
+        """
+        scope["app"] = self
+        await self.middleware(scope, receive, send)
 
     def add_route(  # type: ignore[override]
         self,
@@ -112,6 +119,15 @@ class Flama(Starlette):
         include_in_schema: bool = True,
         route: typing.Optional["BaseRoute"] = None,
     ) -> None:  # pragma: no cover
+        """Register a new HTTP route or endpoint under given path.
+
+        :param path: URL path.
+        :param endpoint: HTTP endpoint.
+        :param methods: List of valid HTTP methods (only applies for routes).
+        :param name: Endpoint or route name.
+        :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
+        :param route: HTTP route.
+        """
         self.router.add_route(
             path, endpoint, methods=methods, name=name, include_in_schema=include_in_schema, route=route
         )
@@ -123,42 +139,72 @@ class Flama(Starlette):
         name: typing.Optional[str] = None,
         route: typing.Optional["WebSocketRoute"] = None,
     ) -> None:  # pragma: no cover
+        """Register a new websocket route or endpoint under given path.
+
+        :param path: URL path.
+        :param endpoint: Websocket endpoint.
+        :param name: Endpoint or route name.
+        :param route: Websocket route.
+        """
         self.router.add_websocket_route(path, endpoint, name=name, route=route)
 
     @property
     def injector(self) -> Injector:
+        """Components dependency injector.
+
+        :return: Injector instance.
+        """
         return Injector(self.components)
 
     @property
     def components(self) -> "Components":
+        """Components register.
+
+        :return: Components register.
+        """
         return self.router.components
 
     def add_component(self, component: "Component"):
+        """Add a new component to the register.
+
+        :param component: Component to include.
+        """
         self.router.add_component(component)
 
     @property
     def routes(self) -> typing.List["BaseRoute"]:  # type: ignore[override]
+        """List of registered routes.
+
+        :return: Routes.
+        """
         return self.router.routes
 
     def mount(self, path: str, app: "App", name: str = None) -> None:  # type: ignore[override]
+        """Mount a new ASGI application under given path.
+
+        :param path: URL path.
+        :param app: ASGI application.
+        :param name: Application name.
+        """
         self.router.mount(path, app=app, name=name)
 
-    def build_middleware_stack(self) -> "App":  # type: ignore[override]
-        debug = self.debug
+    def add_exception_handler(
+        self, exc_class_or_status_code: typing.Union[int, typing.Type[Exception]], handler: typing.Callable
+    ):
+        """Add a new exception handler for given status code or exception class.
 
-        middleware = (
-            [Middleware(ServerErrorMiddleware, debug=debug)]
-            + self.user_middleware
-            + [Middleware(ExceptionMiddleware, handlers=self.exception_handlers, debug=debug)]
-        )
+        :param exc_class_or_status_code: Status code or exception class.
+        :param handler: Exception handler.
+        """
+        self.middleware.add_exception_handler(exc_class_or_status_code, handler)
 
-        app = self.router
-        for cls, options in reversed(middleware):
-            app = cls(app=app, **options)
-        return app
+    def add_middleware(self, middleware_class: typing.Type, **options: typing.Any):
+        """Add a new middleware to the stack.
 
-    def api_http_exception_handler(self, request: "Request", exc: HTTPException) -> "Response":
-        return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
+        :param middleware_class: Middleware class.
+        :param options: Keyword arguments used to initialise middleware.
+        """
+        self.middleware.add_middleware(Middleware(middleware_class, **options))
 
     get = functools.partialmethod(Starlette.route, methods=["GET"])
     head = functools.partialmethod(Starlette.route, methods=["HEAD"])
