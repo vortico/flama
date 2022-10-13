@@ -1,11 +1,13 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
+from starlette.middleware import Middleware
 
 from flama import Component, Flama, Module, Mount, Route, Router
 from flama.applications import DEFAULT_MODULES
 from flama.components import Components
 from flama.injection import Injector
+from flama.middleware import MiddlewareStack
 
 
 class TestCaseFlama:
@@ -89,3 +91,36 @@ class TestCaseFlama:
         # Check modules are isolated for each app
         assert mount_app.modules == [*DEFAULT_MODULES, module_mock]
         assert root_app.modules == DEFAULT_MODULES
+
+    @pytest.mark.parametrize(
+        ["key", "handler"],
+        (pytest.param(400, MagicMock(), id="status_code"), pytest.param(ValueError, MagicMock(), id="exception_class")),
+    )
+    def test_add_exception_handler(self, app, key, handler):
+        expected_call = [call(key, handler)]
+
+        with patch.object(app, "middleware", spec=MiddlewareStack):
+            app.add_exception_handler(key, handler)
+            assert app.middleware.add_exception_handler.call_args_list == expected_call
+
+    def test_add_middleware(self, app):
+        class FooMiddleware:
+            def __call__(self, *args, **kwargs):
+                ...
+
+        options = {"foo": "bar"}
+
+        with patch.object(app, "middleware", spec=MiddlewareStack):
+            app.add_middleware(FooMiddleware, **options)
+            assert len(app.middleware.add_middleware.call_args_list) == 1
+            middleware = app.middleware.add_middleware.call_args[0][0]
+            assert isinstance(middleware, Middleware)
+            assert middleware.cls == FooMiddleware
+            assert middleware.options == options
+
+    async def test_call(self, app, asgi_scope, asgi_receive, asgi_send):
+        with patch.object(app, "middleware", new=AsyncMock(spec=MiddlewareStack)):
+            await app(asgi_scope, asgi_receive, asgi_send)
+            assert "app" in asgi_scope
+            assert asgi_scope["app"] == app
+            assert app.middleware.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
