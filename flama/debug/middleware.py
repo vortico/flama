@@ -1,7 +1,7 @@
 import abc
 import dataclasses
 import inspect
-import typing
+import typing as t
 from pathlib import Path
 
 from flama import concurrency
@@ -11,14 +11,13 @@ from flama.http import PlainTextResponse, Request, Response
 from flama.responses import APIErrorResponse, HTMLTemplateResponse
 from flama.websockets import WebSocket
 
-if typing.TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from flama.asgi import App, Message, Receive, Scope, Send
+    from flama.debug.types import Handler
 
 __all__ = ["ServerErrorMiddleware", "ExceptionMiddleware"]
 
 TEMPLATES_PATH = Path(__file__).parents[1].resolve() / "templates" / "debug"
-
-Handler = typing.NewType("Handler", typing.Callable[[Request, Exception], Response])
 
 
 class BaseErrorMiddleware(abc.ABC):
@@ -27,10 +26,6 @@ class BaseErrorMiddleware(abc.ABC):
         self.debug = debug
 
     async def __call__(self, scope: "Scope", receive: "Receive", send: "Send") -> None:
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
         response_started = False
 
         async def sender(message: "Message") -> None:
@@ -53,23 +48,27 @@ class BaseErrorMiddleware(abc.ABC):
 
 
 class ServerErrorMiddleware(BaseErrorMiddleware):
-    def _get_handler(self) -> Handler:
-        return self.debug_response if self.debug else self.error_response
+    def _get_handler(self, scope: "Scope") -> "Handler":
+        if scope["type"] == "http":
+            return self.debug_handler if self.debug else self.error_handler
+
+        return self.noop_handler
 
     async def process_exception(
         self, scope: "Scope", receive: "Receive", send: "Send", exc: Exception, response_started: bool
     ) -> None:
-        handler = self._get_handler()
-        response = handler(Request(scope), exc)
+        handler = self._get_handler(scope)
+        response = handler(scope, receive, send, exc)
 
-        if not response_started:
+        if response and not response_started:
             await response(scope, receive, send)
 
         # We always continue to raise the exception.
         # This allows servers to log the error, or test clients to optionally raise the error within the test case.
         raise exc
 
-    def debug_response(self, request: Request, exc: Exception) -> Response:
+    def debug_handler(self, scope: "Scope", receive: "Receive", send: "Send", exc: Exception) -> Response:
+        request = Request(scope)
         accept = request.headers.get("accept", "")
 
         if "text/html" in accept:
@@ -78,30 +77,31 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
             )
         return PlainTextResponse("Internal Server Error", status_code=500)
 
-    def error_response(self, request: Request, exc: Exception) -> Response:
+    def error_handler(self, scope: "Scope", receive: "Receive", send: "Send", exc: Exception) -> Response:
         return PlainTextResponse("Internal Server Error", status_code=500)
+
+    def noop_handler(self, scope: "Scope", receive: "Receive", send: "Send", exc: Exception) -> None:
+        ...
 
 
 class ExceptionMiddleware(BaseErrorMiddleware):
-    def __init__(
-        self, app: "App", handlers: typing.Optional[typing.Mapping[typing.Any, Handler]] = None, debug: bool = False
-    ):
+    def __init__(self, app: "App", handlers: t.Optional[t.Mapping[t.Any, "Handler"]] = None, debug: bool = False):
         super().__init__(app, debug)
         handlers = handlers or {}
-        self._status_handlers: typing.Dict[int, typing.Callable] = {
+        self._status_handlers: t.Dict[int, "Handler"] = {
             status_code: handler for status_code, handler in handlers.items() if isinstance(status_code, int)
         }
-        self._exception_handlers: typing.Dict[typing.Type[Exception], typing.Callable] = {
-            HTTPException: self.http_exception,
-            WebSocketException: self.websocket_exception,
+        self._exception_handlers: t.Dict[t.Type[Exception], "Handler"] = {
+            HTTPException: self.http_exception_handler,
+            WebSocketException: self.websocket_exception_handler,
             **{e: handler for e, handler in handlers.items() if inspect.isclass(e) and issubclass(e, Exception)},
         }
 
     def add_exception_handler(
         self,
-        handler: Handler,
-        status_code: typing.Optional[int] = None,
-        exc_class: typing.Optional[typing.Type[Exception]] = None,
+        handler: "Handler",
+        status_code: t.Optional[int] = None,
+        exc_class: t.Optional[t.Type[Exception]] = None,
     ) -> None:
         if status_code is None and exc_class is None:
             raise ValueError("Status code or exception class must be defined")
@@ -112,7 +112,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         if exc_class is not None:
             self._exception_handlers[exc_class] = handler
 
-    def _get_handler(self, exc: Exception) -> Handler:
+    def _get_handler(self, exc: Exception) -> "Handler":
         if isinstance(exc, HTTPException) and exc.status_code in self._status_handlers:
             return self._status_handlers[exc.status_code]
         else:
@@ -131,18 +131,16 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         if response_started:
             raise RuntimeError("Caught handled exception, but response already started.") from exc
 
-        if scope["type"] == "http":
-            request = Request(scope, receive=receive)
-            response = await concurrency.run(handler, request, exc)
-            await response(scope, receive, send)
-        elif scope["type"] == "websocket":
-            websocket = WebSocket(scope, receive=receive, send=send)
-            await concurrency.run(handler, websocket, exc)
+        response = await concurrency.run(handler, scope, receive, send, exc)
 
-    def http_exception(self, request: Request, exc: HTTPException) -> Response:
+        if response:
+            await response(scope, receive, send)
+
+    def http_exception_handler(self, scope: "Scope", receive: "Receive", send: "Send", exc: HTTPException) -> Response:
         if exc.status_code in {204, 304}:
             return Response(status_code=exc.status_code, headers=exc.headers)
 
+        request = Request(scope, receive=receive)
         accept = request.headers.get("accept", "")
 
         if self.debug and exc.status_code == 404 and "text/html" in accept:
@@ -150,5 +148,8 @@ class ExceptionMiddleware(BaseErrorMiddleware):
 
         return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
 
-    async def websocket_exception(self, websocket: WebSocket, exc: WebSocketException) -> None:
+    async def websocket_exception_handler(
+        self, scope: "Scope", receive: "Receive", send: "Send", exc: WebSocketException
+    ) -> None:
+        websocket = WebSocket(scope, receive=receive, send=send)
         await websocket.close(code=exc.code, reason=exc.reason)
