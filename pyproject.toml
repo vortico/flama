@@ -182,7 +182,7 @@ exclude_lines = [
     "def __str__",
     "if cls\\.debug",
     "if settings\\.DEBUG",
-    "if (typing\\.)?TYPE_CHECKING:",
+    "if (typing\\.|t\\.)?TYPE_CHECKING:",
 ]
 
 [tool.coverage.paths]

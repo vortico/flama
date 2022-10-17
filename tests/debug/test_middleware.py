@@ -29,24 +29,34 @@ class TestCaseBaseErrorMiddleware:
         assert middleware.debug
 
     async def test_call_http(self, middleware_cls, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "http"
         exc = ValueError()
         app = AsyncMock(side_effect=exc)
         middleware = middleware_cls(app=app, debug=True)
         with patch.object(middleware, "process_exception", new_callable=AsyncMock):
             await middleware(asgi_scope, asgi_receive, asgi_send)
             assert middleware.app.call_count == 1
+            scope, receive, send = middleware.app.call_args_list[0][0]
+            assert scope == asgi_scope
+            assert receive == asgi_receive
             assert middleware.process_exception.call_args_list == [
                 call(asgi_scope, asgi_receive, asgi_send, exc, False)
             ]
 
     async def test_call_websocket(self, middleware_cls, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "websocket"
-        app = AsyncMock()
+        exc = ValueError()
+        app = AsyncMock(side_effect=exc)
         middleware = middleware_cls(app=app, debug=True)
         with patch.object(middleware, "process_exception", new_callable=AsyncMock):
             await middleware(asgi_scope, asgi_receive, asgi_send)
-            assert middleware.app.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
-            assert middleware.process_exception.call_args_list == []
+            assert middleware.app.call_count == 1
+            scope, receive, send = middleware.app.call_args_list[0][0]
+            assert scope == asgi_scope
+            assert receive == asgi_receive
+            assert middleware.process_exception.call_args_list == [
+                call(asgi_scope, asgi_receive, asgi_send, exc, False)
+            ]
 
 
 class TestCaseServerErrorMiddleware:
@@ -55,19 +65,21 @@ class TestCaseServerErrorMiddleware:
         return ServerErrorMiddleware(app=AsyncMock())
 
     @pytest.mark.parametrize(
-        ["debug"],
+        ["request_type", "debug", "handler"],
         (
-            pytest.param(True, id="debug"),
-            pytest.param(False, id="no_debug"),
+            pytest.param("http", True, "debug_handler", id="http_debug"),
+            pytest.param("http", False, "error_handler", id="http_no_debug"),
+            pytest.param("websocket", True, "noop_handler", id="websocket_debug"),
+            pytest.param("websocket", False, "noop_handler", id="websocket_no_debug"),
         ),
     )
-    def test_get_handler(self, middleware, debug):
+    def test_get_handler(self, middleware, asgi_scope, request_type, debug, handler):
+        asgi_scope["type"] = request_type
         middleware.debug = debug
-        handler = middleware.debug_response if debug else middleware.error_response
 
-        result_handler = middleware._get_handler()
+        result_handler = middleware._get_handler(asgi_scope)
 
-        assert result_handler == handler
+        assert result_handler == getattr(middleware, handler)
 
     @pytest.mark.parametrize(
         ["debug", "response_started"],
@@ -80,7 +92,7 @@ class TestCaseServerErrorMiddleware:
     )
     async def test_process_exception(self, middleware, asgi_scope, asgi_receive, asgi_send, debug, response_started):
         middleware.debug = debug
-        response_method = "debug_response" if debug else "error_response"
+        response_method = "debug_handler" if debug else "error_handler"
         exc = ValueError("Foo")
         with patch.object(
             ServerErrorMiddleware, response_method, new=MagicMock(return_value=AsyncMock())
@@ -88,18 +100,17 @@ class TestCaseServerErrorMiddleware:
             await middleware.process_exception(asgi_scope, asgi_receive, asgi_send, exc, response_started)
 
             if debug:
-                assert ServerErrorMiddleware.debug_response.call_args_list == [call(Request(asgi_scope), exc)]
+                assert ServerErrorMiddleware.debug_handler.call_args_list == [call(asgi_scope, exc)]
             else:
-                assert ServerErrorMiddleware.error_response.call_args_list == [call(Request(asgi_scope), exc)]
+                assert ServerErrorMiddleware.error_handler.call_args_list == [call(asgi_scope, exc)]
 
             if response_started:
                 assert response.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
             else:
                 assert response.call_args_list == []
 
-    def test_debug_response_html(self, middleware, asgi_scope):
+    def test_debug_response_html(self, middleware, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["headers"].append((b"accept", b"text/html"))
-        request = Request(asgi_scope)
         exc = ValueError()
         error_context_mock, context_mock = MagicMock(), MagicMock()
         with patch(
@@ -107,25 +118,23 @@ class TestCaseServerErrorMiddleware:
         ) as dataclasses_dict, patch.object(ErrorContext, "build", return_value=error_context_mock), patch.object(
             HTMLTemplateResponse, "__init__", return_value=None
         ):
-            response = middleware.debug_response(request, exc)
-            assert ErrorContext.build.call_args_list == [call(request, exc)]
+            response = middleware.debug_handler(asgi_scope, asgi_receive, asgi_send, exc)
+            assert ErrorContext.build.call_count == 1
             assert dataclasses_dict.call_args_list == [call(error_context_mock)]
             assert isinstance(response, HTMLTemplateResponse)
             assert HTMLTemplateResponse.__init__.call_args_list == [call("debug/error_500.html", context=context_mock)]
 
-    def test_debug_response_text(self, middleware, asgi_scope):
-        request = Request(asgi_scope)
+    def test_debug_response_text(self, middleware, asgi_scope, asgi_receive, asgi_send):
         exc = ValueError()
         with patch.object(PlainTextResponse, "__init__", return_value=None):
-            response = middleware.debug_response(request, exc)
+            response = middleware.debug_handler(asgi_scope, asgi_receive, asgi_send, exc)
             assert isinstance(response, PlainTextResponse)
             assert PlainTextResponse.__init__.call_args_list == [call("Internal Server Error", status_code=500)]
 
-    def test_error_response(self, middleware, asgi_scope):
-        request = Request(asgi_scope)
+    def test_error_response(self, middleware, asgi_scope, asgi_receive, asgi_send):
         exc = ValueError()
         with patch.object(PlainTextResponse, "__init__", return_value=None):
-            response = middleware.error_response(request, exc)
+            response = middleware.error_handler(asgi_scope, asgi_receive, asgi_send, exc)
             assert isinstance(response, PlainTextResponse)
             assert PlainTextResponse.__init__.call_args_list == [call("Internal Server Error", status_code=500)]
 
@@ -153,8 +162,8 @@ class TestCaseExceptionMiddleware:
         assert middleware._status_handlers == {400: handler}
         assert middleware._exception_handlers == {
             ValueError: handler,
-            HTTPException: middleware.http_exception,
-            WebSocketException: middleware.websocket_exception,
+            HTTPException: middleware.http_exception_handler,
+            WebSocketException: middleware.websocket_exception_handler,
         }
 
     @pytest.mark.parametrize(
@@ -172,8 +181,8 @@ class TestCaseExceptionMiddleware:
         if status_code is not None:
             status_code_handlers[status_code] = handler
         exc_class_handlers = {
-            HTTPException: middleware.http_exception,
-            WebSocketException: middleware.websocket_exception,
+            HTTPException: middleware.http_exception_handler,
+            WebSocketException: middleware.websocket_exception_handler,
         }
         if exc_class is not None:
             exc_class_handlers[exc_class] = handler
@@ -234,19 +243,19 @@ class TestCaseExceptionMiddleware:
 
             if request_type == "http":
                 assert run_mock.call_count == 1
-                handler, request, exc = run_mock.call_args_list[0][0]
+                handler, scope, receive, send, exc = run_mock.call_args_list[0][0]
                 assert handler == handler_mock
-                assert isinstance(request, Request)
-                assert request.scope == asgi_scope
+                assert scope == asgi_scope
+                assert receive == asgi_receive
                 assert exc == expected_exc
                 assert response_mock.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
 
             elif request_type == "websocket":
                 assert run_mock.call_count == 1
-                handler, websocket, exc = run_mock.call_args_list[0][0]
+                handler, scope, receive, send, exc = run_mock.call_args_list[0][0]
                 assert handler == handler_mock
-                assert isinstance(websocket, WebSocket)
-                assert websocket.scope == asgi_scope
+                assert scope == asgi_scope
+                assert receive == asgi_receive
                 assert exc == expected_exc
 
     @pytest.mark.parametrize(
@@ -272,7 +281,10 @@ class TestCaseExceptionMiddleware:
             ),
         ),
     )
-    def test_http_exception(self, middleware, asgi_scope, debug, accept, exc, response_class, response_params):
+    def test_http_exception_handler(
+        self, middleware, asgi_scope, asgi_receive, asgi_send, debug, accept, exc, response_class, response_params
+    ):
+        asgi_scope["type"] = "http"
         middleware.debug = debug
 
         if accept:
@@ -281,16 +293,16 @@ class TestCaseExceptionMiddleware:
         if response_class == APIErrorResponse:
             response_params["exception"] = exc
 
-        request = Request(asgi_scope)
         with patch.object(response_class, "__init__", return_value=None):
-            middleware.http_exception(request, exc)
+            middleware.http_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
             assert response_class.__init__.call_args_list == [call(**response_params)]
 
-    async def test_websocket_exception(self, middleware):
-        websocket = AsyncMock()
+    async def test_websocket_exception_handler(self, middleware, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "websocket"
         exc = WebSocketException(1011, "Foo reason")
 
-        await middleware.websocket_exception(websocket, exc)
+        with patch.object(WebSocket, "close", new_callable=AsyncMock) as websocket_close_mock:
+            await middleware.websocket_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
-        assert websocket.close.call_args_list == [call(code=exc.code, reason=exc.reason)]
+            assert websocket_close_mock.call_args_list == [call(code=exc.code, reason=exc.reason)]

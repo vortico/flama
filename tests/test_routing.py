@@ -1,5 +1,4 @@
-import json
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
@@ -7,45 +6,7 @@ from flama.applications import Flama
 from flama.components import Component, Components
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 from flama.exceptions import HTTPException
-from flama.responses import APIResponse
-from flama.routing import Mount, Route, Router, WebSocketRoute, prepare_http_request
-
-
-class TestCasePrepareHTTPRequest:
-    @pytest.fixture
-    def handler(self):
-        def _handler():
-            ...
-
-        return _handler
-
-    @pytest.mark.parametrize(
-        ["content"],
-        (
-            pytest.param({"name": "Canna", "custom_id": 6}, id="dict"),
-            pytest.param("foo", id="str"),
-            pytest.param(None, id="none"),
-        ),
-    )
-    async def test_prepare_http_request(self, app, puppy_schema, handler, content):
-        with patch.object(type(app), "injector", new_callable=PropertyMock) as injector_mock, patch(
-            "flama.routing.concurrency"
-        ) as concurrency_mock, patch("flama.routing.get_output_schema", return_value=puppy_schema):
-            injector_mock().inject = AsyncMock()
-            concurrency_mock.run = AsyncMock(return_value=content)
-            response = await prepare_http_request(app, handler, {})
-
-            assert isinstance(response, APIResponse)
-            if response.body:
-                assert json.loads(response.body) == content
-
-    async def test_prepare_http_exception(self, app, handler):
-        with patch.object(type(app), "injector", new_callable=PropertyMock) as injector_mock, patch(
-            "flama.routing.concurrency"
-        ) as concurrency_mock, pytest.raises(ValueError):
-            injector_mock().inject = AsyncMock()
-            concurrency_mock.run = AsyncMock(side_effect=ValueError)
-            await prepare_http_request(app, handler, {})
+from flama.routing import Mount, Route, Router, WebSocketRoute
 
 
 class TestCaseRouter:
