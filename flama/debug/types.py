@@ -1,17 +1,23 @@
 import dataclasses
 import inspect
 import sys
-import typing
+import typing as t
 from pathlib import Path
 
-if typing.TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from flama import http
+
+
+HandlerException = t.TypeVar("HandlerException", bound=Exception)
+Handler = t.Callable[
+    ["Scope", "Receive", "Send", HandlerException], t.Union[t.Optional["http.Response"], t.Awaitable[None]]
+]
 
 
 @dataclasses.dataclass
 class RequestParams:
-    path: typing.Dict[str, typing.Any]
-    query: typing.Dict[str, typing.Any]
+    path: t.Dict[str, t.Any]
+    query: t.Dict[str, t.Any]
 
 
 @dataclasses.dataclass
@@ -25,9 +31,9 @@ class Request:
     path: str
     method: str
     params: RequestParams
-    headers: typing.Dict[str, str]
-    cookies: typing.Dict[str, str]
-    client: typing.Optional[RequestClient] = None
+    headers: t.Dict[str, str]
+    cookies: t.Dict[str, str]
+    client: t.Optional[RequestClient] = None
 
     @classmethod
     def from_request(cls, request: "http.Request") -> "Request":
@@ -46,7 +52,7 @@ class Frame:
     filename: str
     function: str
     line: int
-    vendor: typing.Optional[str]
+    vendor: t.Optional[str]
     code: str
 
     @classmethod
@@ -82,7 +88,7 @@ class Frame:
 class Error:
     error: str
     description: str
-    traceback: typing.List[Frame]
+    traceback: t.List[Frame]
 
     @classmethod
     def from_exception(cls, exc: Exception, context: int = 10) -> "Error":
@@ -100,7 +106,7 @@ class Environment:
     platform: str
     python: str
     python_version: str
-    path: typing.List[str]
+    path: t.List[str]
 
     @classmethod
     def from_system(cls) -> "Environment":
