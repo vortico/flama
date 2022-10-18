@@ -35,6 +35,8 @@ class AppConfig:
 @dataclasses.dataclass(frozen=True)
 class Config:
     dev: bool = False
+    host: str = "127.0.0.1"
+    port: int = 8000
     app: typing.Union[AppConfig, str] = dataclasses.field(
         default_factory=lambda: AppConfig(title="API title", version="0.1.0", description="API description")
     )
