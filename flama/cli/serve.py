@@ -35,21 +35,6 @@ from flama import Flama
     help="Bind socket to this port.",
     show_default=True,
 )
-@click.option(
-    "--dev",
-    envvar="DEV",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help="Development mode (enables auto-reload).",
-)
-@click.option(
-    "--workers",
-    default=None,
-    type=int,
-    help="Number of worker processes. Defaults to the $WEB_CONCURRENCY environment"
-    " variable if available, or 1. Not valid with --dev.",
-)
 def serve(
     model_path: str,
     model_url: str,
@@ -59,8 +44,6 @@ def serve(
     app_description: str,
     host: str,
     port: int,
-    dev: bool,
-    workers: int,
 ):
     """
     Serve the ML model file at <MODEL_PATH> within a Flama Application.
