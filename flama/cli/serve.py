@@ -69,10 +69,9 @@ def serve(
         **{k: v for k, v in {"title": app_title, "version": app_version, "description": app_description}.items() if v}
     )
     app.models.add_model(model_url, model=model_path, name=model_name)  # type: ignore[attr-defined]
+
     uvicorn.run(
         app,
         host=host,
         port=port,
-        workers=workers,
-        reload=dev,
     )
