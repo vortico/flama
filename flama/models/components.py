@@ -5,7 +5,7 @@ import typing
 import torch
 
 from flama import exceptions
-from flama.components import Component
+from flama.injection import Component
 from flama.serialize import ModelFormat, loads
 
 __all__ = ["Model", "PyTorchModel", "SKLearnModel", "TensorFlowModel", "ModelComponent", "ModelComponentBuilder"]

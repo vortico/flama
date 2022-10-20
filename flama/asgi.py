@@ -2,7 +2,7 @@ from inspect import Parameter
 from urllib.parse import parse_qsl
 
 from flama import types
-from flama.components import Component, Components
+from flama.injection.components import Component, Components
 
 __all__ = [
     "MethodComponent",
