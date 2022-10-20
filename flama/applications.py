@@ -4,7 +4,7 @@ import typing as t
 from starlette.applications import Starlette
 from starlette.datastructures import State
 
-from flama import types
+from flama import asgi, http, types, validation, websockets
 from flama.injection import Injector
 from flama.lifespan import Lifespan
 from flama.middleware import Middleware, MiddlewareStack
@@ -12,12 +12,12 @@ from flama.models.modules import ModelsModule
 from flama.modules import Modules
 from flama.pagination import paginator
 from flama.resources import ResourcesModule
-from flama.routing import Router
+from flama.routing import Route, Router
 from flama.schemas.modules import SchemaModule
 from flama.sqlalchemy import SQLAlchemyModule
 
 if t.TYPE_CHECKING:
-    from flama.components import Component, Components
+    from flama.injection import Component, Components
     from flama.modules import Module
     from flama.routing import BaseRoute, Mount, WebSocketRoute
 
@@ -88,6 +88,26 @@ class Flama(Starlette):
 
         # Reference to paginator from within app
         self.paginator = paginator
+
+        # Create Dependency Injector
+        self._injector = Injector(
+            context_types={
+                "scope": types.Scope,
+                "receive": types.Receive,
+                "send": types.Send,
+                "exc": Exception,
+                "app": Flama,
+                "path_params": types.PathParams,
+                "route": Route,
+                "request": http.Request,
+                "response": http.Response,
+                "websocket": websockets.WebSocket,
+                "websocket_message": types.Message,
+                "websocket_encoding": types.Encoding,
+                "websocket_code": types.Code,
+            },
+            components=self.components + asgi.ASGI_COMPONENTS + validation.VALIDATION_COMPONENTS,
+        )
 
     def __getattr__(self, item: str) -> "Module":
         """Retrieve a module by its name.
@@ -178,7 +198,10 @@ class Flama(Starlette):
 
         :return: Injector instance.
         """
-        return Injector(self.components)
+        components = self.components + asgi.ASGI_COMPONENTS + validation.VALIDATION_COMPONENTS
+        if self._injector.components != components:
+            self._injector.components = components
+        return self._injector
 
     @property
     def components(self) -> "Components":

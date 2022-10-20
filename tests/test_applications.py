@@ -5,8 +5,8 @@ from starlette.middleware import Middleware
 
 from flama import Component, Flama, Module, Mount, Route, Router
 from flama.applications import DEFAULT_MODULES
-from flama.components import Components
-from flama.injection import Injector
+from flama.injection.components import Components
+from flama.injection.injector import Injector
 from flama.middleware import MiddlewareStack
 
 

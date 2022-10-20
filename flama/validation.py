@@ -4,7 +4,7 @@ import typing
 from starlette import status
 
 from flama import codecs, exceptions, http, schemas, types
-from flama.components import Component, Components
+from flama.injection import Component, Components
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from flama.routing import Route
 

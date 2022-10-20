@@ -8,7 +8,7 @@ import starlette.routing
 from starlette.routing import Match
 
 from flama import concurrency, endpoints, exceptions, http, types, websockets
-from flama.components import Component, Components
+from flama.injection import Component, Components
 from flama.schemas.routing import RouteParametersMixin
 from flama.schemas.validation import get_output_schema
 
@@ -143,7 +143,7 @@ class Route(BaseRoute, starlette.routing.Route):
             }
 
             try:
-                injected_func = await app.injector.inject(handler, state)
+                injected_func = await app.injector.inject(handler, **state)
                 response = await concurrency.run(injected_func)
                 response = self._build_api_response(handler, response)
             except Exception:
@@ -225,7 +225,7 @@ class WebSocketRoute(BaseRoute, starlette.routing.WebSocketRoute):
                 "websocket_message": None,
             }
 
-            injected_func = await app.injector.inject(handler, state)
+            injected_func = await app.injector.inject(handler, **state)
             await injected_func(**scope.get("kwargs", {}))
 
         return _app
