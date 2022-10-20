@@ -7,8 +7,6 @@ if sys.version_info >= (3, 9):  # PORT: Remove when stop supporting 3.8 # pragma
 else:  # pragma: no cover
     from typing import MutableSequence
 
-from flama import exceptions
-
 __all__ = ["Component", "Components"]
 
 
@@ -49,13 +47,15 @@ class Component:
         :return: True if this component can handle the given parameter.
         """
         return_annotation = inspect.signature(self.resolve).return_annotation  # type: ignore[attr-defined]
-        if return_annotation is inspect.Signature.empty:
-            msg = (
-                f'Component "{self.__class__.__name__}" must include a return annotation on the `resolve()` method, or '
-                f"override `can_handle_parameter`"
-            )
-            raise exceptions.ConfigurationError(msg)
+        assert return_annotation is not inspect.Signature.empty, (
+            f"Component '{self.__class__.__name__}' must include a return annotation on the 'resolve' method, or "
+            f"override 'can_handle_parameter'"
+        )
+
         return parameter.annotation is return_annotation
+
+    def __str__(self):
+        return str(self.__class__.__name__)
 
 
 class Components(MutableSequence[Component]):

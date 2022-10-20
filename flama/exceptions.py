@@ -48,30 +48,6 @@ class ConfigurationError(Exception):
     ...
 
 
-class ComponentNotFound(ConfigurationError):
-    def __init__(
-        self,
-        parameter: str,
-        component: typing.Optional[str] = None,
-        function: typing.Optional[str] = None,
-        *args,
-        **kwargs,
-    ):
-        self.parameter = parameter
-        self.component = component
-        self.function = function
-        super().__init__(*args, **kwargs)
-
-    def __str__(self):
-        msg = f'No component able to handle parameter "{self.parameter}"'
-        if self.component:
-            msg += f' in component "{self.component}"'
-        if self.function:
-            msg += f' for function "{self.function}"'
-
-        return msg
-
-
 class WebSocketException(starlette.exceptions.WebSocketException):
     def __init__(self, code: int, reason: typing.Optional[str] = None) -> None:
         self.code = code
