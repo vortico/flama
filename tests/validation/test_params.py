@@ -3,7 +3,7 @@ import typing
 
 import pytest
 
-from flama.exceptions import ComponentNotFound
+from flama.injection.exceptions import ComponentNotFound
 
 
 class TestCaseParamsValidation:
@@ -238,5 +238,5 @@ class TestCaseParamsValidation:
         assert response.status_code == 400
 
     def test_no_type_param(self, client):
-        with pytest.raises(ComponentNotFound, match='No component able to handle parameter "foo" for function "empty"'):
+        with pytest.raises(ComponentNotFound, match="No component able to handle parameter 'foo' for function 'empty'"):
             client.post("/empty/")

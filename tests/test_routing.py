@@ -4,7 +4,7 @@ import pytest
 
 from flama import endpoints, exceptions, http
 from flama.applications import Flama
-from flama.components import Component, Components
+from flama.injection import Component, Components
 from flama.routing import Mount, NotFound, Route, Router, WebSocketRoute
 
 

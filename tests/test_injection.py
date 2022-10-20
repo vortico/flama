@@ -1,8 +1,7 @@
 import pytest
 
-from flama import endpoints, exceptions, http, websockets
+from flama import endpoints, http, injection, websockets
 from flama.applications import Flama
-from flama.components import Component
 from flama.testclient import TestClient
 
 
@@ -38,7 +37,7 @@ class ParamObject2:
 class TestCaseComponentsInjection:
     @pytest.fixture(scope="class")
     def puppy_component(self):
-        class PuppyComponent(Component):
+        class PuppyComponent(injection.Component):
             def resolve(self) -> Puppy:
                 return Puppy()
 
@@ -46,7 +45,7 @@ class TestCaseComponentsInjection:
 
     @pytest.fixture(scope="class")
     def unknown_param_component(self):
-        class UnknownParamComponent(Component):
+        class UnknownParamComponent(injection.Component):
             def resolve(self, foo: Unknown) -> Foo:
                 pass
 
@@ -54,7 +53,7 @@ class TestCaseComponentsInjection:
 
     @pytest.fixture(scope="class")
     def owner_component(self):
-        class OwnerComponent(Component):
+        class OwnerComponent(injection.Component):
             def resolve(self, puppy: Puppy) -> Owner:
                 return Owner(puppy=puppy)
 
@@ -62,7 +61,7 @@ class TestCaseComponentsInjection:
 
     @pytest.fixture(scope="class")
     def param_component_1(self):
-        class ParamComponent1(Component):
+        class ParamComponent1(injection.Component):
             def resolve(self, param: str) -> ParamObject1:
                 return ParamObject1(param=param)
 
@@ -70,7 +69,7 @@ class TestCaseComponentsInjection:
 
     @pytest.fixture(scope="class")
     def param_component_2(self):
-        class ParamComponent2(Component):
+        class ParamComponent2(injection.Component):
             def resolve(self, param: str) -> ParamObject2:
                 return ParamObject2(param=param)
 
@@ -158,21 +157,21 @@ class TestCaseComponentsInjection:
 
     def test_unknown_component(self, client):
         with pytest.raises(
-            exceptions.ComponentNotFound,
-            match='No component able to handle parameter "unknown" for function "unknown_component_view"',
+            injection.ComponentNotFound,
+            match="No component able to handle parameter 'unknown' for function 'unknown_component_view'",
         ):
             client.request("get", "/unknown-component/")
 
     def test_unknown_param_in_component(self, client):
         with pytest.raises(
-            exceptions.ComponentNotFound,
-            match='No component able to handle parameter "foo" in component "UnknownParamComponent" for function '
-            '"unknown_param_in_component_view"',
+            injection.ComponentNotFound,
+            match="No component able to handle parameter 'foo' in component 'UnknownParamComponent' for function "
+            "'unknown_param_in_component_view'",
         ):
             client.request("get", "/unknown-param-in-component/")
 
     def test_unhandled_component(self):
-        class UnhandledComponent(Component):
+        class UnhandledComponent(injection.Component):
             def resolve(self):
                 pass
 
@@ -183,8 +182,8 @@ class TestCaseComponentsInjection:
             return http.JSONResponse({"foo": "bar"})
 
         with pytest.raises(
-            exceptions.ConfigurationError,
-            match=r'Component "UnhandledComponent" must include a return annotation on the `resolve\(\)` method, '
-            "or override `can_handle_parameter`",
+            AssertionError,
+            match="Component 'UnhandledComponent' must include a return annotation on the 'resolve' method, "
+            "or override 'can_handle_parameter'",
         ), TestClient(app) as client:
             client.request("get", "/")

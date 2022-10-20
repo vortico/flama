@@ -2,7 +2,7 @@ from inspect import Parameter
 
 import pytest
 
-from flama.components import Component, Components
+from flama.injection.components import Component, Components
 
 
 class Foo:
