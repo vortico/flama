@@ -6,12 +6,11 @@ except Exception:  # pragma: no cover
     raise AssertionError("`sqlalchemy[asyncio]` must be installed to use crud resources") from None
 
 import flama.schemas
-from flama.exceptions import HTTPException
+from flama import exceptions, http
 from flama.pagination import paginator
 from flama.resources import types
 from flama.resources.rest import RESTResourceType
 from flama.resources.routing import resource_method
-from flama.responses import APIResponse
 
 __all__ = [
     "CreateMixin",
@@ -42,7 +41,7 @@ class CreateMixin:
                 query = self.model.insert().values(**element)
                 result = await connection.execute(query)
 
-            return APIResponse(
+            return http.APIResponse(
                 schema=rest_schemas.output.schema,
                 content={**element, **dict(result.inserted_primary_key)},
                 status_code=201,
@@ -79,7 +78,7 @@ class RetrieveMixin:
                 element = result.fetchone()
 
             if element is None:
-                raise HTTPException(status_code=404)
+                raise exceptions.HTTPException(status_code=404)
 
             return dict(element)
 
@@ -121,7 +120,7 @@ class UpdateMixin:
                 exists = result.scalar()
 
             if not exists:
-                raise HTTPException(status_code=404)
+                raise http.HTTPException(status_code=404)
 
             clean_element = {
                 k: v
@@ -173,13 +172,13 @@ class DeleteMixin:
                 exists = result.scalar()
 
             if not exists:
-                raise HTTPException(status_code=404)
+                raise exceptions.HTTPException(status_code=404)
 
             async with self.app.sqlalchemy.engine.begin() as connection:
                 query = self.model.delete().where(self.model.c[rest_model.primary_key.name] == element_id)
                 await connection.execute(query)
 
-            return APIResponse(status_code=204)
+            return http.APIResponse(status_code=204)
 
         delete.__doc__ = f"""
             tags:
@@ -246,7 +245,7 @@ class DropMixin:
                 query = self.model.delete()
                 result = await connection.execute(query)
 
-            return APIResponse(
+            return http.APIResponse(
                 schema=flama.schemas.schemas.DropCollection, content={"deleted": result.rowcount}, status_code=204
             )
 

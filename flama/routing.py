@@ -2,40 +2,35 @@ import inspect
 import logging
 import typing as t
 from functools import wraps
+from http import HTTPStatus
 
 import starlette.routing
 from starlette.routing import Match
 
-from flama import concurrency, http, websockets
+from flama import concurrency, endpoints, exceptions, http, types, websockets
 from flama.components import Component, Components
-from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
-from flama.exceptions import HTTPException
-from flama.responses import APIResponse, PlainTextResponse
 from flama.schemas.routing import RouteParametersMixin
 from flama.schemas.validation import get_output_schema
-from flama.types import HTTPMethod
-from flama.websockets import WebSocketClose
 
 if t.TYPE_CHECKING:
-    from flama import asgi
     from flama.applications import Flama
     from flama.lifespan import Lifespan
 
-__all__ = ["Mount", "Route", "Router", "WebSocketRoute"]
+__all__ = ["Mount", "Route", "Router", "WebSocketRoute", "NotFound"]
 
 logger = logging.getLogger(__name__)
 
 
 class BaseRoute(RouteParametersMixin, starlette.routing.BaseRoute):
     @property
-    def main_app(self) -> "Flama":
+    def main_app(self) -> "Flama":  # pragma: no cover
         try:
             return self._main_app
         except AttributeError:
             raise AttributeError(f"{self.__class__.__name__} is not initialized")
 
     @main_app.setter
-    def main_app(self, app: "Flama"):
+    def main_app(self, app: "Flama"):  # pragma: no cover
         self._main_app = app
 
         try:
@@ -55,7 +50,7 @@ class BaseRoute(RouteParametersMixin, starlette.routing.BaseRoute):
             ...
 
     @main_app.deleter
-    def main_app(self):
+    def main_app(self):  # pragma: no cover
         try:
             del self._main_app
         except AttributeError:
@@ -80,7 +75,11 @@ class BaseRoute(RouteParametersMixin, starlette.routing.BaseRoute):
 
 class Route(BaseRoute, starlette.routing.Route):
     def __init__(
-        self, path: str, endpoint: t.Union[t.Callable, HTTPEndpoint], main_app: t.Optional["Flama"] = None, **kwargs
+        self,
+        path: str,
+        endpoint: t.Union[t.Callable, t.Type[endpoints.HTTPEndpoint]],
+        main_app: t.Optional["Flama"] = None,
+        **kwargs,
     ):
         """A route definition of a http endpoint.
 
@@ -94,13 +93,14 @@ class Route(BaseRoute, starlette.routing.Route):
             self.main_app = main_app
 
         # Replace function with another wrapper that uses the injector
-        if inspect.isfunction(endpoint) or inspect.ismethod(endpoint):
+        if inspect.isclass(endpoint) and issubclass(endpoint, endpoints.HTTPEndpoint):
+            self.app = self._endpoint_wrapper(endpoint)  # type: ignore[assignment]
+            if self.methods is None:
+                self.methods = endpoint.allowed_methods()
+        elif callable(endpoint):
             self.app = self._function_wrapper(endpoint)  # type: ignore[assignment]
         else:
-            self.app = self._endpoint_wrapper(endpoint)  # type: ignore[assignment]
-
-        if self.methods is None:
-            self.methods = {m for m in HTTPMethod.__members__.keys() if hasattr(self.endpoint, m.lower())}
+            raise ValueError(f"Invalid endpoint: {endpoint!s}")
 
     def _build_api_response(self, handler: t.Callable, response: "http.Response") -> "http.Response":
         """Build an API response given a handler and the current response.
@@ -112,15 +112,15 @@ class Route(BaseRoute, starlette.routing.Route):
         :return: An API response.
         """
         if isinstance(response, (dict, list)):
-            response = APIResponse(content=response, schema=get_output_schema(handler))
+            response = http.APIResponse(content=response, schema=get_output_schema(handler))
         elif isinstance(response, str):
-            response = APIResponse(content=response)
+            response = http.APIResponse(content=response)
         elif response is None:
-            response = APIResponse(content="")
+            response = http.APIResponse(content="")
 
         return response
 
-    def _function_wrapper(self, handler: t.Callable) -> "asgi.App":
+    def _function_wrapper(self, handler: t.Callable) -> types.App:
         """Wraps an HTTP function into ASGI application.
 
         :param handler: HTTP function.
@@ -128,7 +128,7 @@ class Route(BaseRoute, starlette.routing.Route):
         """
 
         @wraps(handler)
-        async def _app(scope: "asgi.Scope", receive: "asgi.Receive", send: "asgi.Send") -> None:
+        async def _app(scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
             app = scope["app"]
             route, route_scope = app.router.get_route_from_scope(scope)
             state = {
@@ -154,7 +154,7 @@ class Route(BaseRoute, starlette.routing.Route):
 
         return _app
 
-    def _endpoint_wrapper(self, endpoint_class: t.Type[HTTPEndpoint]) -> "asgi.App":
+    def _endpoint_wrapper(self, endpoint_class: t.Type[endpoints.HTTPEndpoint]) -> types.App:
         """Wraps an HTTP endpoint into ASGI application.
 
         :param endpoint_class: HTTP endpoint.
@@ -162,7 +162,7 @@ class Route(BaseRoute, starlette.routing.Route):
         """
 
         @wraps(endpoint_class)
-        async def _app(scope: "asgi.Scope", receive: "asgi.Receive", send: "asgi.Send") -> None:
+        async def _app(scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
             endpoint = endpoint_class(scope, receive, send)
 
             response = await endpoint
@@ -174,7 +174,13 @@ class Route(BaseRoute, starlette.routing.Route):
 
 
 class WebSocketRoute(BaseRoute, starlette.routing.WebSocketRoute):
-    def __init__(self, path: str, endpoint: t.Union[t.Callable, WebSocketEndpoint], main_app: "Flama" = None, **kwargs):
+    def __init__(
+        self,
+        path: str,
+        endpoint: t.Union[t.Callable, t.Type[endpoints.WebSocketEndpoint]],
+        main_app: "Flama" = None,
+        **kwargs,
+    ):
         """A route definition of a websocket endpoint.
 
         :param path: URL path.
@@ -187,12 +193,14 @@ class WebSocketRoute(BaseRoute, starlette.routing.WebSocketRoute):
             self.main_app = main_app
 
         # Replace function with another wrapper that uses the injector
-        if inspect.isfunction(endpoint) or inspect.ismethod(endpoint):
+        if inspect.isclass(endpoint) and issubclass(endpoint, endpoints.WebSocketEndpoint):
+            self.app = self._endpoint_wrapper(endpoint)  # type: ignore[assignment]
+        elif callable(endpoint):
             self.app = self._function_wrapper(endpoint)  # type: ignore[assignment]
         else:
-            self.app = self._endpoint_wrapper(endpoint)  # type: ignore[assignment]
+            raise ValueError(f"Invalid endpoint: {endpoint!s}")
 
-    def _function_wrapper(self, handler: t.Callable) -> "asgi.App":
+    def _function_wrapper(self, handler: t.Callable) -> types.App:
         """Wraps a websocket function into ASGI application.
 
         :param handler: Websocket function.
@@ -200,7 +208,7 @@ class WebSocketRoute(BaseRoute, starlette.routing.WebSocketRoute):
         """
 
         @wraps(handler)
-        async def _app(scope: "asgi.Scope", receive: "asgi.Receive", send: "asgi.Send") -> None:
+        async def _app(scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
             app = scope["app"]
             route, route_scope = app.router.get_route_from_scope(scope)
             state = {
@@ -212,6 +220,9 @@ class WebSocketRoute(BaseRoute, starlette.routing.WebSocketRoute):
                 "path_params": route_scope["path_params"],
                 "route": route,
                 "websocket": websockets.WebSocket(scope, receive, send),
+                "websocket_encoding": None,
+                "websocket_code": None,
+                "websocket_message": None,
             }
 
             injected_func = await app.injector.inject(handler, state)
@@ -219,7 +230,7 @@ class WebSocketRoute(BaseRoute, starlette.routing.WebSocketRoute):
 
         return _app
 
-    def _endpoint_wrapper(self, endpoint_class: t.Type[WebSocketEndpoint]) -> "asgi.App":
+    def _endpoint_wrapper(self, endpoint_class: t.Type[endpoints.WebSocketEndpoint]) -> types.App:
         """Wraps a Websocket endpoint into ASGI application.
 
         :param endpoint_class: Websocket endpoint.
@@ -227,7 +238,7 @@ class WebSocketRoute(BaseRoute, starlette.routing.WebSocketRoute):
         """
 
         @wraps(endpoint_class)
-        async def _app(scope: "asgi.Scope", receive: "asgi.Receive", send: "asgi.Send") -> None:
+        async def _app(scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
             await endpoint_class(scope, receive, send)
 
         return _app
@@ -238,7 +249,7 @@ class Mount(BaseRoute, starlette.routing.Mount):
         self,
         path: str,
         main_app: "Flama" = None,
-        app: "asgi.App" = None,
+        app: types.App = None,
         routes: t.Sequence[BaseRoute] = None,
         components: t.Sequence[Component] = None,
         name: str = None,
@@ -246,7 +257,7 @@ class Mount(BaseRoute, starlette.routing.Mount):
         if app is None:
             app = Router(routes=routes, components=components)  # type: ignore[assignment]
 
-        super().__init__(path, app, routes, name)
+        super().__init__(path, app, routes, name)  # type: ignore[arg-type]
 
         if main_app is not None:
             self.main_app = main_app
@@ -273,6 +284,11 @@ class Router(starlette.routing.Router):
 
         if main_app is not None:
             self.main_app = main_app
+
+    async def __call__(  # type: ignore[override]
+        self, scope: types.Scope, receive: types.Receive, send: types.Send
+    ) -> None:
+        await super().__call__(scope, receive, send)  # type: ignore[arg-type]
 
     @property
     def main_app(self) -> "Flama":
@@ -309,7 +325,7 @@ class Router(starlette.routing.Router):
     def add_component(self, component: Component):
         self._components.append(component)
 
-    def mount(self, path: str, app: "asgi.App", name: str = None) -> None:
+    def mount(self, path: str, app: types.App, name: str = None) -> None:  # type: ignore[override]
         try:
             main_app = self.main_app
         except AttributeError:
@@ -326,6 +342,15 @@ class Router(starlette.routing.Router):
         include_in_schema: bool = True,
         route: BaseRoute = None,
     ):
+        """Register a new HTTP route in this router under given path.
+
+        :param path: URL path.
+        :param endpoint: HTTP endpoint.
+        :param methods: List of valid HTTP methods (only applies for routes).
+        :param name: Endpoint or route name.
+        :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
+        :param route: HTTP route.
+        """
         try:
             main_app = self.main_app
         except AttributeError:
@@ -350,6 +375,15 @@ class Router(starlette.routing.Router):
     def route(
         self, path: str, methods: t.List[str] = None, name: str = None, include_in_schema: bool = True
     ) -> t.Callable:
+        """Decorator version for registering a new HTTP route in this router under given path.
+
+        :param path: URL path.
+        :param methods: List of valid HTTP methods (only applies for routes).
+        :param name: Endpoint or route name.
+        :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
+        :return: Decorated route.
+        """
+
         def decorator(func: t.Callable) -> t.Callable:
             self.add_route(path, func, methods=methods, name=name, include_in_schema=include_in_schema)
             return func
@@ -363,6 +397,13 @@ class Router(starlette.routing.Router):
         name: str = None,
         route: t.Optional[WebSocketRoute] = None,
     ):
+        """Register a new websocket route in this router under given path.
+
+        :param path: URL path.
+        :param endpoint: Websocket function or endpoint.
+        :param name: Websocket route name.
+        :param route: Specific route class.
+        """
         try:
             main_app = self.main_app
         except AttributeError:
@@ -378,27 +419,20 @@ class Router(starlette.routing.Router):
         self.routes.append(route)
 
     def websocket_route(self, path: str, name: str = None) -> t.Callable:
+        """Decorator version for registering a new websocket route in this router under given path.
+
+        :param path: URL path.
+        :param name: Websocket route name.
+        :return: Decorated route.
+        """
+
         def decorator(func: t.Callable) -> t.Callable:
             self.add_websocket_route(path, func, name=name)
             return func
 
         return decorator
 
-    async def not_found(self, scope: "asgi.Scope", receive: "asgi.Receive", send: "asgi.Send") -> None:
-        if scope["type"] == "websocket":
-            websocket_close = WebSocketClose()
-            await websocket_close(scope, receive, send)
-            return
-
-        # If we're running inside a starlette application then raise an exception, so that the configurable exception
-        # handler can deal with returning the response. For plain ASGI apps, just return the response.
-        if "app" in scope:
-            raise HTTPException(status_code=404)
-
-        response = PlainTextResponse("Not Found", status_code=404)
-        await response(scope, receive, send)
-
-    def get_route_from_scope(self, scope, mounted=False) -> t.Tuple[t.Union[BaseRoute, "asgi.App"], t.Optional[t.Dict]]:
+    def get_route_from_scope(self, scope, mounted=False) -> t.Tuple[t.Union[BaseRoute, types.App], t.Optional[t.Dict]]:
         partial = None
 
         for route in self.routes:
@@ -427,4 +461,20 @@ class Router(starlette.routing.Router):
             scope.update(partial_scope)
             return partial, scope
 
-        return self.not_found, None
+        return NotFound(), None
+
+
+class NotFound(types.App):
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        if scope["type"] == "websocket":
+            websocket_close = websockets.Close()
+            await websocket_close(scope, receive, send)
+            return
+
+        # If we're running inside a starlette application then raise an exception, so that the configurable exception
+        # handler can deal with returning the response. For plain ASGI apps, just return the response.
+        if "app" in scope:
+            raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
+
+        response = http.PlainTextResponse("Not Found", status_code=HTTPStatus.NOT_FOUND)
+        await response(scope, receive, send)

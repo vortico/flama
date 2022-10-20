@@ -1,14 +1,11 @@
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
+import starlette.exceptions
 
-from flama.asgi import Receive, Scope, Send
+from flama import exceptions, http, types, websockets
 from flama.debug.middleware import BaseErrorMiddleware, ExceptionMiddleware, ServerErrorMiddleware
 from flama.debug.types import ErrorContext
-from flama.exceptions import HTTPException, WebSocketException
-from flama.http import Request
-from flama.responses import APIErrorResponse, HTMLTemplateResponse, PlainTextResponse, Response
-from flama.websockets import WebSocket
 
 
 class TestCaseBaseErrorMiddleware:
@@ -16,7 +13,12 @@ class TestCaseBaseErrorMiddleware:
     def middleware_cls(self):
         class FooMiddleware(BaseErrorMiddleware):
             async def process_exception(
-                self, scope: Scope, receive: Receive, send: Send, exc: Exception, response_started: bool
+                self,
+                scope: types.Scope,
+                receive: types.Receive,
+                send: types.Send,
+                exc: Exception,
+                response_started: bool,
             ) -> None:
                 ...
 
@@ -116,27 +118,27 @@ class TestCaseServerErrorMiddleware:
         with patch(
             "flama.debug.middleware.dataclasses.asdict", return_value=context_mock
         ) as dataclasses_dict, patch.object(ErrorContext, "build", return_value=error_context_mock), patch.object(
-            HTMLTemplateResponse, "__init__", return_value=None
-        ):
+            http._ReactTemplateResponse, "__init__", return_value=None
+        ) as response_mock:
             response = middleware.debug_handler(asgi_scope, asgi_receive, asgi_send, exc)
             assert ErrorContext.build.call_count == 1
             assert dataclasses_dict.call_args_list == [call(error_context_mock)]
-            assert isinstance(response, HTMLTemplateResponse)
-            assert HTMLTemplateResponse.__init__.call_args_list == [call("debug/error_500.html", context=context_mock)]
+            assert isinstance(response, http._ReactTemplateResponse)
+            assert response_mock.call_args_list == [call("debug/error_500.html", context=context_mock)]
 
     def test_debug_response_text(self, middleware, asgi_scope, asgi_receive, asgi_send):
         exc = ValueError()
-        with patch.object(PlainTextResponse, "__init__", return_value=None):
+        with patch.object(http.PlainTextResponse, "__init__", return_value=None) as response_mock:
             response = middleware.debug_handler(asgi_scope, asgi_receive, asgi_send, exc)
-            assert isinstance(response, PlainTextResponse)
-            assert PlainTextResponse.__init__.call_args_list == [call("Internal Server Error", status_code=500)]
+            assert isinstance(response, http.PlainTextResponse)
+            assert response_mock.call_args_list == [call("Internal Server Error", status_code=500)]
 
     def test_error_response(self, middleware, asgi_scope, asgi_receive, asgi_send):
         exc = ValueError()
-        with patch.object(PlainTextResponse, "__init__", return_value=None):
+        with patch.object(http.PlainTextResponse, "__init__", return_value=None) as response_mock:
             response = middleware.error_handler(asgi_scope, asgi_receive, asgi_send, exc)
-            assert isinstance(response, PlainTextResponse)
-            assert PlainTextResponse.__init__.call_args_list == [call("Internal Server Error", status_code=500)]
+            assert isinstance(response, http.PlainTextResponse)
+            assert response_mock.call_args_list == [call("Internal Server Error", status_code=500)]
 
 
 class TestCaseExceptionMiddleware:
@@ -162,8 +164,8 @@ class TestCaseExceptionMiddleware:
         assert middleware._status_handlers == {400: handler}
         assert middleware._exception_handlers == {
             ValueError: handler,
-            HTTPException: middleware.http_exception_handler,
-            WebSocketException: middleware.websocket_exception_handler,
+            starlette.exceptions.HTTPException: middleware.http_exception_handler,
+            starlette.exceptions.WebSocketException: middleware.websocket_exception_handler,
         }
 
     @pytest.mark.parametrize(
@@ -181,8 +183,8 @@ class TestCaseExceptionMiddleware:
         if status_code is not None:
             status_code_handlers[status_code] = handler
         exc_class_handlers = {
-            HTTPException: middleware.http_exception_handler,
-            WebSocketException: middleware.websocket_exception_handler,
+            starlette.exceptions.HTTPException: middleware.http_exception_handler,
+            starlette.exceptions.WebSocketException: middleware.websocket_exception_handler,
         }
         if exc_class is not None:
             exc_class_handlers[exc_class] = handler
@@ -196,11 +198,13 @@ class TestCaseExceptionMiddleware:
     @pytest.mark.parametrize(
         ["status_code", "exc_class", "key", "exception"],
         (
-            pytest.param(400, None, HTTPException(400), None, id="status_code"),
+            pytest.param(400, None, exceptions.HTTPException(400), None, id="status_code"),
             pytest.param(None, ValueError, ValueError("Foo"), None, id="exc_class"),
             pytest.param(400, ValueError, ValueError("Foo"), None, id="status_code_and_exc_class"),
             pytest.param(None, Exception, ValueError("Foo"), None, id="child_exc_class"),
-            pytest.param(400, None, HTTPException(401), HTTPException(401), id="handler_not_found"),
+            pytest.param(
+                400, None, exceptions.HTTPException(401), exceptions.HTTPException(401), id="handler_not_found"
+            ),
         ),
         indirect=["exception"],
     )
@@ -235,7 +239,7 @@ class TestCaseExceptionMiddleware:
         expected_exc = ValueError()
         asgi_scope["type"] = request_type
         handler_mock = MagicMock()
-        response_mock = AsyncMock()
+        response_mock = AsyncMock() if request_type == "http" else None
         with exception, patch.object(middleware, "_get_handler", return_value=handler_mock), patch(
             "flama.debug.middleware.concurrency.run", new=AsyncMock(return_value=response_mock)
         ) as run_mock:
@@ -261,21 +265,35 @@ class TestCaseExceptionMiddleware:
     @pytest.mark.parametrize(
         ["debug", "accept", "exc", "response_class", "response_params"],
         (
-            pytest.param(False, None, HTTPException(204), Response, {"status_code": 204, "headers": None}, id="204"),
-            pytest.param(False, None, HTTPException(304), Response, {"status_code": 304, "headers": None}, id="304"),
+            pytest.param(
+                False,
+                None,
+                exceptions.HTTPException(204),
+                http.Response,
+                {"status_code": 204, "headers": None},
+                id="204",
+            ),
+            pytest.param(
+                False,
+                None,
+                exceptions.HTTPException(304),
+                http.Response,
+                {"status_code": 304, "headers": None},
+                id="304",
+            ),
             pytest.param(
                 True,
                 b"text/html",
-                HTTPException(404, "Foo"),
-                PlainTextResponse,
+                exceptions.HTTPException(404, "Foo"),
+                http.PlainTextResponse,
                 {"content": "Foo", "status_code": 404},
                 id="debug_404",
             ),
             pytest.param(
                 False,
                 None,
-                HTTPException(400, "Foo"),
-                APIErrorResponse,
+                exceptions.HTTPException(400, "Foo"),
+                http.APIErrorResponse,
                 {"detail": "Foo", "status_code": 400},
                 id="other",
             ),
@@ -290,19 +308,20 @@ class TestCaseExceptionMiddleware:
         if accept:
             asgi_scope["headers"].append((b"accept", accept))
 
-        if response_class == APIErrorResponse:
+        if response_class == http.APIErrorResponse:
             response_params["exception"] = exc
 
-        with patch.object(response_class, "__init__", return_value=None):
-            middleware.http_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
+        with patch(f"flama.debug.middleware.http.{response_class.__name__}", spec=response_class) as response_mock:
+            response = middleware.http_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
-            assert response_class.__init__.call_args_list == [call(**response_params)]
+            assert isinstance(response, response_class)
+            assert response_mock.call_args_list == [call(**response_params)]
 
     async def test_websocket_exception_handler(self, middleware, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "websocket"
-        exc = WebSocketException(1011, "Foo reason")
+        exc = exceptions.WebSocketException(1011, "Foo reason")
 
-        with patch.object(WebSocket, "close", new_callable=AsyncMock) as websocket_close_mock:
+        with patch.object(websockets.WebSocket, "close", new_callable=AsyncMock) as websocket_close_mock:
             await middleware.websocket_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
             assert websocket_close_mock.call_args_list == [call(code=exc.code, reason=exc.reason)]

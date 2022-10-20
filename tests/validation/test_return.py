@@ -1,13 +1,9 @@
 import marshmallow
 import pytest
-from starlette.responses import HTMLResponse
 
-from flama import Component, http
+from flama import Component, endpoints, http, types
 from flama.applications import Flama
-from flama.endpoints import HTTPEndpoint
 from flama.testclient import TestClient
-
-# flake8: noqa
 
 
 class Puppy:
@@ -27,33 +23,33 @@ class TestCaseReturnValidation:
     @pytest.fixture(
         scope="class", params=[pytest.param(True, id="endpoints"), pytest.param(False, id="function views")]
     )
-    def app(self, request):
+    def app(self, request):  # noqa: C901
         app_ = Flama(components=[PuppyComponent()], schema=None, docs=None)
 
         if request.param:
 
             @app_.route("/return_string/")
-            class FooEndpoint(HTTPEndpoint):
-                def get(self, data: http.RequestData) -> str:
+            class StrEndpoint(endpoints.HTTPEndpoint):
+                def get(self, data: types.RequestData) -> str:
                     return "example content"
 
             @app_.route("/return_html/")
-            class FooEndpoint(HTTPEndpoint):
-                def get(self, data: http.RequestData) -> HTMLResponse:
-                    return HTMLResponse("<html><body>example content</body></html>")
+            class HTMLEndpoint(endpoints.HTTPEndpoint):
+                def get(self, data: types.RequestData) -> http.HTMLResponse:
+                    return http.HTMLResponse("<html><body>example content</body></html>")
 
             @app_.route("/return_data/")
-            class FooEndpoint(HTTPEndpoint):
-                def get(self, data: http.RequestData) -> dict:
+            class DictEndpoint(endpoints.HTTPEndpoint):
+                def get(self, data: types.RequestData) -> dict:
                     return {"example": "content"}
 
             @app_.route("/return_response/")
-            class FooEndpoint(HTTPEndpoint):
-                def get(self, data: http.RequestData) -> http.Response:
+            class JSONEndpoint(endpoints.HTTPEndpoint):
+                def get(self, data: types.RequestData) -> http.JSONResponse:
                     return http.JSONResponse({"example": "content"})
 
             @app_.route("/return_unserializable_json/")
-            class FooEndpoint(HTTPEndpoint):
+            class UnserializableEndpoint(endpoints.HTTPEndpoint):
                 def get(self) -> dict:
                     class Dummy:
                         pass
@@ -61,36 +57,36 @@ class TestCaseReturnValidation:
                     return {"dummy": Dummy()}
 
             @app_.route("/return-schema/", methods=["GET"])
-            class ReturnSchemaHTTPEndpoint(HTTPEndpoint):
+            class ReturnSchemaHTTPEndpoint(endpoints.HTTPEndpoint):
                 async def get(self) -> BodyParam:
                     return {"name": "Canna"}
 
             @app_.route("/return-schema-many/", methods=["GET"])
-            class ReturnSchemaManyHTTPEndpoint(HTTPEndpoint):
+            class ReturnSchemaManyHTTPEndpoint(endpoints.HTTPEndpoint):
                 async def get(self) -> BodyParam(many=True):
                     return [{"name": "Canna"}, {"name": "Sandy"}]
 
             @app_.route("/return-schema-empty/", methods=["GET"])
-            class ReturnSchemaEmptyHTTPEndpoint(HTTPEndpoint):
+            class ReturnSchemaEmptyHTTPEndpoint(endpoints.HTTPEndpoint):
                 async def get(self) -> BodyParam:
                     return None
 
         else:
 
             @app_.route("/return_string/")
-            def return_string(data: http.RequestData) -> str:
+            def return_string(data: types.RequestData) -> str:
                 return "example content"
 
             @app_.route("/return_html/")
-            def return_html(data: http.RequestData) -> HTMLResponse:
-                return HTMLResponse("<html><body>example content</body></html>")
+            def return_html(data: types.RequestData) -> http.HTMLResponse:
+                return http.HTMLResponse("<html><body>example content</body></html>")
 
             @app_.route("/return_data/")
-            def return_data(data: http.RequestData) -> dict:
+            def return_data(data: types.RequestData) -> dict:
                 return {"example": "content"}
 
             @app_.route("/return_response/")
-            def return_response(data: http.RequestData) -> http.Response:
+            def return_response(data: types.RequestData) -> http.Response:
                 return http.JSONResponse({"example": "content"})
 
             @app_.route("/return_unserializable_json/")

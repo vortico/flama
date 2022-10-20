@@ -1,76 +1,13 @@
 import pytest
 
-from flama import http, websockets
-
-
-class TestCaseASGI:
-    @pytest.fixture(autouse=True)
-    def add_endpoints(self, app):
-        @app.route("/request/")
-        async def get_request(request: http.Request):
-            return {
-                "method": str(request.method),
-                "url": str(request.url),
-                "headers": dict(request.headers),
-                "body": (await request.body()).decode("utf-8"),
-            }
-
-        @app.websocket_route("/websocket/")
-        async def get_websocket(websocket: websockets.WebSocket):
-            await websocket.accept()
-            await websocket.send_json(
-                {
-                    "url": str(websocket.url),
-                    "headers": dict(websocket.headers),
-                    "state": str(websocket.client_state.name),
-                }
-            )
-            await websocket.close()
-
-    def test_request(self, client):
-        expected_response = {
-            "method": "GET",
-            "url": "http://testserver/request/",
-            "headers": {
-                "accept": "*/*",
-                "accept-encoding": "gzip, deflate",
-                "connection": "keep-alive",
-                "host": "testserver",
-                "user-agent": "testclient",
-            },
-            "body": "",
-        }
-
-        response = client.get("/request/")
-
-        assert response.json() == expected_response, response.content
-
-    def test_websocket(self, client):
-        expected_response = {
-            "headers": {
-                "accept": "*/*",
-                "accept-encoding": "gzip, deflate",
-                "connection": "upgrade",
-                "host": "testserver",
-                "sec-websocket-key": "testserver==",
-                "sec-websocket-version": "13",
-                "user-agent": "testclient",
-            },
-            "state": "CONNECTED",
-            "url": "ws://testserver/websocket/",
-        }
-
-        with client.websocket_connect("/websocket/") as ws:
-            response = ws.receive_json()
-
-        assert response == expected_response, response
+from flama import types
 
 
 class TestCaseMethodComponent:
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
         @app.route("/method/", methods=["GET", "POST"])
-        def get_method(method: http.Method):
+        def get_method(method: types.Method):
             return {"method": str(method)}
 
     @pytest.mark.parametrize(
@@ -89,7 +26,7 @@ class TestCaseURLComponent:
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
         @app.route("/url/")
-        def get_url(url: http.URL):
+        def get_url(url: types.URL):
             return {"url": str(url), "components": url.components}
 
     @pytest.mark.parametrize(
@@ -151,7 +88,7 @@ class TestCaseSchemeComponent:
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
         @app.route("/scheme/")
-        def get_scheme(scheme: http.Scheme):
+        def get_scheme(scheme: types.Scheme):
             return {"scheme": scheme}
 
     @pytest.mark.parametrize(
@@ -170,7 +107,7 @@ class TestCaseHostComponent:
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
         @app.route("/host/")
-        def get_host(host: http.Host):
+        def get_host(host: types.Host):
             return {"host": host}
 
     @pytest.mark.parametrize(
@@ -189,7 +126,7 @@ class TestCasePortComponent:
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
         @app.route("/port/")
-        def get_port(port: http.Port):
+        def get_port(port: types.Port):
             return {"port": port}
 
     @pytest.mark.parametrize(
@@ -210,7 +147,7 @@ class TestCasePathComponent:
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
         @app.route("/path/")
-        def get_path(path: http.Path):
+        def get_path(path: types.Path):
             return {"path": path}
 
     @pytest.mark.parametrize(
@@ -228,7 +165,7 @@ class TestCaseQueryStringComponent:
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
         @app.route("/query_string/")
-        def get_query_string(query_string: http.QueryString):
+        def get_query_string(query_string: types.QueryString):
             return {"query_string": query_string}
 
     @pytest.mark.parametrize(
@@ -247,7 +184,7 @@ class TestCaseQueryParamsComponent:
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
         @app.route("/query_params/")
-        def get_query_params(query_string: http.QueryString, query_params: http.QueryParams):
+        def get_query_params(query_string: types.QueryString, query_params: types.QueryParams):
             return {"query_params": dict(query_params)}
 
     @pytest.mark.parametrize(
@@ -266,7 +203,7 @@ class TestCaseQueryParamComponent:
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
         @app.route("/page_query_param/")
-        def get_page_query_param(page: http.QueryParam):
+        def get_page_query_param(page: types.QueryParam):
             return {"page": page}
 
     @pytest.mark.parametrize(
@@ -286,7 +223,7 @@ class TestCaseHeadersComponent:
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
         @app.route("/headers/", methods=["GET", "POST"])
-        def get_headers(headers: http.Headers):
+        def get_headers(headers: types.Headers):
             return {"headers": dict(headers)}
 
     @pytest.mark.parametrize(
@@ -351,11 +288,11 @@ class TestCaseHeaderComponent:
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
         @app.route("/accept_header/")
-        def get_accept_header(accept: http.Header):
+        def get_accept_header(accept: types.Header):
             return {"accept": accept}
 
         @app.route("/missing_header/")
-        def get_missing_header(missing: http.Header):
+        def get_missing_header(missing: types.Header):
             return {"missing": missing}
 
     @pytest.mark.parametrize(
@@ -374,7 +311,7 @@ class TestCaseBodyComponent:
     @pytest.fixture(autouse=True)
     def add_endpoints(self, app):
         @app.route("/body/", methods=["GET", "POST"])
-        def get_body(body: http.Body):
+        def get_body(body: types.Body):
             return {"body": body.decode("utf-8")}
 
     @pytest.mark.parametrize(
@@ -383,6 +320,6 @@ class TestCaseBodyComponent:
             pytest.param("/body/", "post", {"data": "content"}, {"body": "content"}),
         ],
     )
-    def test_header(self, client, path, method, request_kwargs, expected):
+    def test_body(self, client, path, method, request_kwargs, expected):
         response = client.request(method, path, **dict(request_kwargs))
         assert response.json() == expected
