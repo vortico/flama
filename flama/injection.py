@@ -3,9 +3,8 @@ import functools
 import inspect
 import typing
 
-from flama import asgi, concurrency, http, websockets
+from flama import concurrency, exceptions, http, types, websockets
 from flama.asgi import ASGI_COMPONENTS
-from flama.exceptions import ComponentNotFound
 from flama.routing import Route
 from flama.validation import VALIDATION_COMPONENTS
 
@@ -71,7 +70,7 @@ class ParametersResolver:
             if component.can_handle_parameter(parameter):
                 return component
         else:
-            raise ComponentNotFound(parameter.name)
+            raise exceptions.ComponentNotFound(parameter.name)
 
     def _resolve_parameter(
         self,
@@ -97,7 +96,7 @@ class ParametersResolver:
             return steps, context
 
         # The 'Parameter' annotation can be used to get the parameter itself. Used for example in 'Header' components
-        # that need the parameter name in order to lookup a particular value.
+        # that need the parameter name in order to look up for a particular value.
         if parameter.annotation is inspect.Parameter:
             context.constants[parameter.name] = parent_parameter
             return steps, context
@@ -115,7 +114,7 @@ class ParametersResolver:
                     seen_state=seen_state,
                     parent_parameter=parameter,
                 )
-            except ComponentNotFound as e:
+            except exceptions.ComponentNotFound as e:
                 e.component = component.__class__.__name__
                 raise e
 
@@ -166,7 +165,7 @@ class ParametersResolver:
                 steps = self._resolve_function(func, seen_state=set(self.state_types.values()))
                 parameters_builder = ParametersBuilder(steps)
                 self.cache[hash(func)] = parameters_builder
-            except ComponentNotFound as e:
+            except exceptions.ComponentNotFound as e:
                 e.function = func.__name__
                 raise e
 
@@ -179,29 +178,29 @@ class Injector:
 
         self.resolver = ParametersResolver(
             state_types={
-                "scope": asgi.Scope,
-                "receive": asgi.Receive,
-                "send": asgi.Send,
+                "scope": types.Scope,
+                "receive": types.Receive,
+                "send": types.Send,
                 "exc": Exception,
                 "app": Flama,
-                "path_params": http.PathParams,
+                "path_params": types.PathParams,
                 "route": Route,
                 "request": http.Request,
                 "response": http.Response,
                 "websocket": websockets.WebSocket,
-                "websocket_message": websockets.Message,
-                "websocket_encoding": websockets.Encoding,
-                "websocket_code": websockets.Code,
+                "websocket_message": types.Message,
+                "websocket_encoding": types.Encoding,
+                "websocket_code": types.Code,
             },
             components=components + ASGI_COMPONENTS + VALIDATION_COMPONENTS,
         )
 
     async def inject(self, func: typing.Callable, state: typing.Dict[str, typing.Any]) -> typing.Callable:
         """
-        Given a function, injects all components defined in its signature and returns the partialized function.
+        Given a function, injects all components defined in its signature and returns the partialised function.
 
-        :param func: function to be partialized.
+        :param func: function to be partialised.
         :param state: mapping of current application state to infer components state.
-        :return: partialized function.
+        :return: partialised function.
         """
         return functools.partial(func, **(await self.resolver.resolve(func, state)))

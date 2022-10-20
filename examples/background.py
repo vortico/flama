@@ -3,7 +3,7 @@ import asyncio
 import uvicorn
 
 from flama import BackgroundThreadTask, Flama
-from flama.responses import JSONResponse
+from flama.http import JSONResponse
 
 app = Flama()
 

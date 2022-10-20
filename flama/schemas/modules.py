@@ -3,9 +3,8 @@ from pathlib import Path
 
 from starlette.responses import HTMLResponse
 
-from flama import pagination, schemas
+from flama import http, pagination, schemas
 from flama.modules import Module
-from flama.responses import HTMLTemplateResponse, OpenAPIResponse
 from flama.schemas.generator import SchemaGenerator
 
 if typing.TYPE_CHECKING:
@@ -44,7 +43,7 @@ class SchemaModule(Module):
             schema_url = schema
 
             def schema_view():
-                return OpenAPIResponse(self.schema)
+                return http.OpenAPIResponse(self.schema)
 
             self.app.add_route(schema_url, schema_view, methods=["GET"], include_in_schema=False)
 
@@ -53,7 +52,7 @@ class SchemaModule(Module):
             docs_url = docs
 
             def docs_view() -> HTMLResponse:
-                return HTMLTemplateResponse(
+                return http._ReactTemplateResponse(
                     "schemas/docs.html", {"title": self.title, "schema_url": schema_url, "docs_url": docs_url}
                 )
 

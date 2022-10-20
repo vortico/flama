@@ -1,7 +1,11 @@
 import http
 import typing
 
+import starlette.exceptions
+import starlette.websockets
+
 import flama.schemas.exceptions
+from flama.schemas.exceptions import *  # noqa
 
 __all__ = [
     "ComponentNotFound",
@@ -68,7 +72,7 @@ class ComponentNotFound(ConfigurationError):
         return msg
 
 
-class WebSocketException(Exception):
+class WebSocketException(starlette.exceptions.WebSocketException):
     def __init__(self, code: int, reason: typing.Optional[str] = None) -> None:
         self.code = code
         self.reason = reason or ""
@@ -78,7 +82,7 @@ class WebSocketException(Exception):
         return f"{class_name}(code={self.code!r}, reason={self.reason!r})"
 
 
-class HTTPException(Exception):
+class HTTPException(starlette.exceptions.HTTPException):
     def __init__(
         self,
         status_code: int,
@@ -88,7 +92,7 @@ class HTTPException(Exception):
         if detail is None:
             detail = http.HTTPStatus(status_code).phrase
         self.status_code = status_code
-        self.detail = detail
+        self.detail = detail  # type: ignore[assignment]
         self.headers = headers
 
     def __repr__(self) -> str:
