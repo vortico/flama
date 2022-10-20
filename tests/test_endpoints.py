@@ -1,8 +1,12 @@
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
+
 import marshmallow
 import pytest
+import starlette.websockets
 import typesystem
 
-from flama import Component, websockets
+from flama import Component, exceptions, types, websockets
+from flama.applications import Flama
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 
 
@@ -17,7 +21,7 @@ class PuppyComponent(Component):
 
 @pytest.fixture(scope="class")
 def app(app):
-    app.router._components.append(PuppyComponent())
+    app.add_component(PuppyComponent())
     return app
 
 
@@ -42,203 +46,172 @@ def puppy_schema(app):
     return schema
 
 
+@pytest.fixture
+def app_mock():
+    app = MagicMock(spec=Flama)
+    app.router = MagicMock()
+    app.router.get_route_from_scope.return_value = ("/", {"path_params": None})
+    app.injector = MagicMock()
+
+    return app
+
+
 class TestCaseHTTPEndpoint:
-    def test_custom_component(self, app, client):
-        @app.route("/custom-component/", methods=["GET"])
-        class PuppyHTTPEndpoint(HTTPEndpoint):
-            def get(self, puppy: Puppy):
-                return puppy.name
+    @pytest.fixture
+    def endpoint(self, app_mock, asgi_scope, asgi_receive, asgi_send):
+        class FooEndpoint(HTTPEndpoint):
+            def get(self):
+                ...
 
-        response = client.get("/custom-component/")
+        asgi_scope["app"] = app_mock
+        asgi_scope["type"] = "http"
+        return FooEndpoint(asgi_scope, asgi_receive, asgi_send)
 
-        assert response.status_code == 200
-        assert response.json() == "Canna"
+    @pytest.fixture(scope="class")
+    def puppy_endpoint(self, app, puppy_schema):
+        @app.route("/puppy/")
+        class PuppyEndpoint(HTTPEndpoint):
+            def get(self, puppy: Puppy) -> puppy_schema:
+                return {"name": puppy.name}
 
-    def test_query_param(self, app, client, puppy_schema):
-        @app.route("/query-param/", methods=["GET"])
-        class QueryParamHTTPEndpoint(HTTPEndpoint):
-            async def get(self, param: str) -> puppy_schema:
-                return {"name": param}
+            async def post(self, puppy: puppy_schema) -> puppy_schema:
+                return puppy
 
-        response = client.get("/query-param/", params={"param": "Canna"})
+        return PuppyEndpoint
 
-        assert response.status_code == 200
-        assert response.json() == {"name": "Canna"}
+    @pytest.mark.parametrize(
+        ["method", "params", "status_code", "expected_response"],
+        (
+            pytest.param("get", {}, 200, {"name": "Canna"}, id="get"),
+            pytest.param("post", {"json": {"name": "Canna"}}, 200, {"name": "Canna"}, id="post"),
+            pytest.param(
+                "patch",
+                {},
+                405,
+                {"detail": "Method Not Allowed", "error": "HTTPException", "status_code": 405},
+                id="method_not_allowed",
+            ),
+        ),
+    )
+    def test_request(self, app, client, puppy_endpoint, method, params, status_code, expected_response):
+        response = client.request(method, "/puppy/", **params)
 
-    def test_path_param(self, app, client, puppy_schema):
-        @app.route("/path-param/{param}/", methods=["GET"])
-        class PathParamHTTPEndpoint(HTTPEndpoint):
-            async def get(self, param: str) -> puppy_schema:
-                return {"name": param}
+        assert response.status_code == status_code
+        assert response.json() == expected_response
 
-        response = client.get("/path-param/Canna/")
+    def test_init(self, app_mock, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["app"] = app_mock
+        asgi_scope["type"] = "http"
+        with patch("flama.endpoints.http.Request") as request_mock:
+            endpoint = HTTPEndpoint(asgi_scope, asgi_receive, asgi_send)
+            assert endpoint.state == {
+                "scope": asgi_scope,
+                "receive": asgi_receive,
+                "send": asgi_send,
+                "exc": None,
+                "app": app_mock,
+                "path_params": None,
+                "route": "/",
+                "request": request_mock(),
+            }
 
-        assert response.status_code == 200
-        assert response.json() == {"name": "Canna"}
+    def test_await(self, endpoint):
+        with patch.object(endpoint, "dispatch"):
+            endpoint.__await__()
 
-    def test_body_param(self, app, client, puppy_schema):
-        @app.route("/body-param/", methods=["POST"])
-        class BodyParamHTTPEndpoint(HTTPEndpoint):
-            async def post(self, param: puppy_schema) -> puppy_schema:
-                return {"name": param["name"]}
+            assert endpoint.dispatch.call_args_list == [call()]
 
-        response = client.post("/body-param/", json={"name": "Canna"})
+    def test_allowed_methods(self, endpoint):
+        assert endpoint.allowed_methods() == {"GET"}
 
-        assert response.status_code == 200
-        assert response.json() == {"name": "Canna"}
+    def test_handler(self, endpoint):
+        endpoint.state["request"].scope["method"] = "GET"
+        assert endpoint.handler == endpoint.get
 
-    def test_not_found(self, app, client):
-        response = client.get("/not-found")
-        assert response.status_code == 404
+    async def test_dispatch(self, app_mock, endpoint):
+        injected_mock = MagicMock()
+        app_mock.injector.inject = AsyncMock(return_value=injected_mock)
+        with patch("flama.endpoints.concurrency.run") as run_mock:
+            await endpoint.dispatch()
+
+            assert app_mock.injector.inject.call_args_list == [call(endpoint.get, endpoint.state)]
+            assert run_mock.call_args_list == [call(injected_mock)]
 
 
 class TestCaseWebSocketEndpoint:
-    def test_bytes(self, app, client):
+    @pytest.fixture
+    def endpoint(self, app_mock, asgi_scope, asgi_receive, asgi_send):
+        class FooEndpoint(WebSocketEndpoint):
+            def get(self):
+                ...
+
+        asgi_scope["app"] = app_mock
+        asgi_scope["type"] = "websocket"
+        with patch("flama.endpoints.websockets.WebSocket", spec=websockets.WebSocket):
+            return FooEndpoint(asgi_scope, asgi_receive, asgi_send)
+
+    @pytest.mark.parametrize(
+        ["encoding", "send_method", "data", "expected_result"],
+        (
+            pytest.param("bytes", "send_bytes", b"foo", {"bytes": b"foo", "type": "websocket.send"}, id="bytes"),
+            pytest.param(
+                "bytes", "send_text", "foo", {"code": 1003, "type": "websocket.close", "reason": ""}, id="bytes_wrong"
+            ),
+            pytest.param("text", "send_text", "foo", {"text": "foo", "type": "websocket.send"}, id="text"),
+            pytest.param(
+                "text", "send_bytes", b"foo", {"code": 1003, "type": "websocket.close", "reason": ""}, id="text_wrong"
+            ),
+            pytest.param(
+                "json", "send_json", {"foo": "bar"}, {"text": '{"foo": "bar"}', "type": "websocket.send"}, id="json"
+            ),
+            pytest.param(
+                "json",
+                "send_bytes",
+                b'{"foo": "bar"}',
+                {"text": '{"foo": "bar"}', "type": "websocket.send"},
+                id="json_using_bytes",
+            ),
+            pytest.param(
+                "json",
+                "send_text",
+                b'{"foo": "bar"}',
+                {"text": '{"foo": "bar"}', "type": "websocket.send"},
+                id="json_using_text",
+            ),
+            pytest.param(
+                "json", "send_bytes", b"foo", {"code": 1003, "type": "websocket.close", "reason": ""}, id="json_wrong"
+            ),
+            pytest.param(
+                None,
+                "send_bytes",
+                b"foo",
+                {"bytes": b"foo", "type": "websocket.send"},
+                id="default_encoding",
+            ),
+            pytest.param(
+                "unknown",
+                "send_bytes",
+                b"foo",
+                {"code": 1003, "type": "websocket.close", "reason": ""},
+                id="unknown_encoding",
+            ),
+        ),
+    )
+    def test_receive(self, app, client, encoding, send_method, data, expected_result):
+        encoding_ = encoding
+
         @app.websocket_route("/")
         class FooWebSocketEndpoint(WebSocketEndpoint):
-            encoding = "bytes"
+            encoding = encoding_
 
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data):
-                await websocket.send_bytes(data)
-
-        with client.websocket_connect("/") as ws:
-            ws.send_bytes(b"foo")
-            result = ws.receive_bytes()
-
-        assert result == b"foo"
-
-    def test_bytes_wrong_format(self, app, client):
-        @app.websocket_route("/")
-        class FooWebSocketEndpoint(WebSocketEndpoint):
-            encoding = "bytes"
-
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data):
-                if data:
-                    await websocket.send_bytes(data)
+            async def on_receive(self, websocket: websockets.WebSocket, data: types.Data):
+                await getattr(websocket, f"send_{encoding_ or 'bytes'}")(data)
 
         with client.websocket_connect("/") as ws:
-            ws.send_text("foo")
+            getattr(ws, send_method)(data)
             result = ws.receive()
 
-        assert result["code"] == 1003
-        assert result["type"] == "websocket.close"
-
-    def test_text(self, app, client):
-        @app.websocket_route("/")
-        class FooWebSocketEndpoint(WebSocketEndpoint):
-            encoding = "text"
-
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data):
-                await websocket.send_text(data)
-
-        with client.websocket_connect("/") as ws:
-            ws.send_text("foo")
-            result = ws.receive_text()
-
-        assert result == "foo"
-
-    def test_text_wrong_format(self, app, client):
-        @app.websocket_route("/")
-        class FooWebSocketEndpoint(WebSocketEndpoint):
-            encoding = "text"
-
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data):
-                if data:
-                    await websocket.send_text(data)
-
-        with client.websocket_connect("/") as ws:
-            ws.send_bytes(b"foo")
-            result = ws.receive()
-
-        assert result["code"] == 1003
-        assert result["type"] == "websocket.close"
-
-    def test_json(self, app, client):
-        @app.websocket_route("/")
-        class FooWebSocketEndpoint(WebSocketEndpoint):
-            encoding = "json"
-
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data):
-                await websocket.send_json(data)
-
-        with client.websocket_connect("/") as ws:
-            ws.send_json({"foo": "bar"})
-            result = ws.receive_json()
-
-        assert result == {"foo": "bar"}
-
-    def test_json_using_bytes(self, app, client):
-        @app.websocket_route("/")
-        class FooWebSocketEndpoint(WebSocketEndpoint):
-            encoding = "json"
-
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data):
-                await websocket.send_json(data)
-
-        with client.websocket_connect("/") as ws:
-            ws.send_bytes(b'{"foo": "bar"}')
-            result = ws.receive_json()
-
-        assert result == {"foo": "bar"}
-
-    def test_json_using_text(self, app, client):
-        @app.websocket_route("/")
-        class FooWebSocketEndpoint(WebSocketEndpoint):
-            encoding = "json"
-
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data):
-                await websocket.send_json(data)
-
-        with client.websocket_connect("/") as ws:
-            ws.send_text('{"foo": "bar"}')
-            result = ws.receive_json()
-
-        assert result == {"foo": "bar"}
-
-    def test_json_wrong_format(self, app, client):
-        @app.websocket_route("/")
-        class FooWebSocketEndpoint(WebSocketEndpoint):
-            encoding = "json"
-
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data):
-                if data:
-                    await websocket.send_json(data)
-
-        with client.websocket_connect("/") as ws:
-            ws.send_text("foo")
-            result = ws.receive()
-
-        assert result["code"] == 1003
-        assert result["type"] == "websocket.close"
-
-    def test_unknown_encoding(self, app, client):
-        @app.websocket_route("/")
-        class FooWebSocketEndpoint(WebSocketEndpoint):
-            encoding = "unknown"
-
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data):
-                if data:
-                    await websocket.send_json(data)
-
-        with client.websocket_connect("/") as ws:
-            ws.send_text("foo")
-            result = ws.receive()
-
-        assert result["code"] == 1003
-        assert result["type"] == "websocket.close"
-
-    def test_default_encoding(self, app, client):
-        @app.websocket_route("/")
-        class FooWebSocketEndpoint(WebSocketEndpoint):
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data):
-                if data:
-                    await websocket.send_bytes(data)
-
-        with client.websocket_connect("/") as ws:
-            ws.send_bytes(b"foo")
-            result = ws.receive_bytes()
-
-        assert result == b"foo"
+        assert result == expected_result
 
     def test_injecting_component(self, app, client):
         @app.websocket_route("/")
@@ -248,10 +221,10 @@ class TestCaseWebSocketEndpoint:
             async def on_connect(self, websocket: websockets.WebSocket):
                 await websocket.accept()
 
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data, puppy: Puppy):
+            async def on_receive(self, websocket: websockets.WebSocket, data: types.Data, puppy: Puppy):
                 await websocket.send_json({"puppy": puppy.name})
 
-            async def on_disconnect(self, websocket: websockets.WebSocket, websocket_code: websockets.Code):
+            async def on_disconnect(self, websocket: websockets.WebSocket, websocket_code: types.Code):
                 pass
 
         with client.websocket_connect("/") as ws:
@@ -272,12 +245,112 @@ class TestCaseWebSocketEndpoint:
     def test_fail_receiving(self, app, client):
         @app.websocket_route("/")
         class FooWebSocketEndpoint(WebSocketEndpoint):
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data):
-                raise Exception
+            async def on_receive(self, websocket: websockets.WebSocket, data: types.Data):
+                raise ValueError("Foo")
 
-        with pytest.raises(Exception), client.websocket_connect("/") as ws:
+        with pytest.raises(ValueError, match="Foo"), client.websocket_connect("/") as ws:
             ws.send_bytes("foo")
             result = ws.receive()
 
-        assert result["code"] == 1011
-        assert result["type"] == "websocket.close"
+        assert result == {"code": 1011, "type": "websocket.close", "reason": ""}
+
+    def test_init(self, app_mock, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["app"] = app_mock
+        asgi_scope["type"] = "websocket"
+        with patch("flama.endpoints.websockets.WebSocket") as websocket_mock:
+            endpoint = WebSocketEndpoint(asgi_scope, asgi_receive, asgi_send)
+            assert endpoint.state == {
+                "scope": asgi_scope,
+                "receive": asgi_receive,
+                "send": asgi_send,
+                "exc": None,
+                "app": app_mock,
+                "path_params": None,
+                "route": "/",
+                "websocket": websocket_mock(),
+                "websocket_code": None,
+                "websocket_encoding": None,
+                "websocket_message": None,
+            }
+
+    def test_await(self, endpoint):
+        with patch.object(endpoint, "dispatch"):
+            endpoint.__await__()
+
+            assert endpoint.dispatch.call_args_list == [call()]
+
+    @pytest.mark.parametrize(
+        ["endpoint_receive", "websocket_receive", "exception", "result_code", "result_message"],
+        (
+            pytest.param(
+                [None, None, None],
+                [
+                    {"type": "websocket.receive", "code": 1000, "bytes": "foo"},
+                    {"type": "websocket.disconnect", "code": 1000},
+                ],
+                None,
+                1000,
+                {"type": "websocket.disconnect", "code": 1000},
+                id="ok",
+            ),
+            pytest.param(
+                [None, None, None],
+                [
+                    {"type": "websocket.receive", "code": 1000, "bytes": "foo"},
+                    starlette.websockets.WebSocketDisconnect(1006, "Abnormal Closure"),
+                ],
+                exceptions.WebSocketException(1006, "Abnormal Closure"),
+                1006,
+                {"type": "websocket.receive", "code": 1000, "bytes": "foo"},
+                id="disconnect",
+            ),
+            pytest.param(
+                [None, exceptions.WebSocketException(1003, "Unsupported Data"), None],
+                [{"type": "websocket.receive", "code": 1000, "bytes": "foo"}],
+                exceptions.WebSocketException(1003, "Unsupported Data"),
+                1003,
+                {"type": "websocket.receive", "code": 1000, "bytes": "foo"},
+                id="websocket_exception",
+            ),
+            pytest.param(
+                [None, ValueError("Foo"), None],
+                [{"type": "websocket.receive", "code": 1000, "bytes": "foo"}],
+                ValueError("Foo"),
+                1011,
+                {"type": "websocket.receive", "code": 1000, "bytes": "foo"},
+                id="exception",
+            ),
+        ),
+        indirect=["exception"],
+    )
+    async def test_dispatch(
+        self, app_mock, endpoint, endpoint_receive, websocket_receive, exception, result_code, result_message
+    ):
+        app_mock.injector.inject = AsyncMock(side_effect=[AsyncMock(side_effect=x) for x in endpoint_receive])
+        endpoint.state["websocket"].receive = AsyncMock(side_effect=websocket_receive)
+        type(endpoint.state["websocket"]).is_connected = PropertyMock(side_effect=[True, False])
+
+        with exception:
+            await endpoint.dispatch()
+
+        assert endpoint.state["websocket_code"] == result_code
+        assert endpoint.state["websocket_message"] == result_message
+
+    async def test_on_connect(self, endpoint):
+        websocket = MagicMock(websockets.WebSocket)
+
+        await endpoint.on_connect(websocket)
+
+        assert websocket.accept.call_args_list == [call()]
+
+    async def test_on_receive(self, endpoint):
+        websocket = MagicMock(websockets.WebSocket)
+
+        await endpoint.on_receive(websocket, b"foo")
+
+    async def test_on_disconnect(self, endpoint):
+        websocket = MagicMock(websockets.WebSocket)
+
+        await endpoint.on_disconnect(websocket, types.Code(1000))
+
+        assert websocket.close.call_args_list == [call(types.Code(1000))]

@@ -16,7 +16,7 @@ except Exception:
     SessionMiddleware = None  # type: ignore
 
 if typing.TYPE_CHECKING:
-    from flama.asgi import App, Receive, Scope, Send
+    from flama import types
     from flama.http import Request, Response
 
 __all__ = [
@@ -34,17 +34,17 @@ __all__ = [
 
 
 class MiddlewareStack:
-    def __init__(self, app: "App", middleware: typing.Sequence[Middleware], debug: bool):
+    def __init__(self, app: "types.App", middleware: typing.Sequence[Middleware], debug: bool):
         self.app = app
         self.middleware = list(middleware)
         self.debug = debug
         self._exception_handlers: typing.Dict[
             typing.Union[int, typing.Type[Exception]], typing.Callable[["Request", Exception], "Response"]
         ] = {}
-        self._stack: typing.Optional["App"] = None
+        self._stack: typing.Optional["types.App"] = None
 
     @property
-    def stack(self) -> "App":
+    def stack(self) -> "types.App":
         if self._stack is None:
             app = self.app
             for cls, options in reversed(
@@ -84,5 +84,5 @@ class MiddlewareStack:
         self.middleware.insert(0, middleware)
         del self.stack
 
-    async def __call__(self, scope: "Scope", receive: "Receive", send: "Send") -> None:
+    async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
         await self.stack(scope, receive, send)

@@ -4,7 +4,7 @@ import typing
 
 if sys.version_info >= (3, 9):  # PORT: Remove when stop supporting 3.8 # pragma: no cover
     from collections.abc import MutableSequence
-else:
+else:  # pragma: no cover
     from typing import MutableSequence
 
 from flama import exceptions
@@ -59,8 +59,8 @@ class Component:
 
 
 class Components(MutableSequence[Component]):
-    def __init__(self, components: typing.Optional[typing.List[Component]]):
-        self._components: typing.List[Component] = components or []
+    def __init__(self, components: typing.Optional[typing.Sequence[Component]] = None):
+        self._components: typing.List[Component] = list(components) if components is not None else []
 
     def __setitem__(self, i: int, o: Component) -> None:  # type: ignore[override]
         self._components.__setitem__(i, o)

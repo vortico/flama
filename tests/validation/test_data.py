@@ -1,9 +1,8 @@
 import pytest
 from _pytest.mark import param
 
-from flama import http, websockets
+from flama import endpoints, types, websockets
 from flama.applications import Flama
-from flama.endpoints import WebSocketEndpoint
 from flama.testclient import TestClient
 
 
@@ -46,7 +45,7 @@ class TestCaseDataValidation:
     )
     def test_request_data(self, request_params, response_status, response_json, app, client):
         @app.route("/request_data/", methods=["POST"])
-        async def get_request_data(data: http.RequestData):
+        async def get_request_data(data: types.RequestData):
             try:
                 data = {
                     key: value
@@ -116,10 +115,10 @@ class TestCaseDataValidation:
         encoding_ = encoding
 
         @app.websocket_route("/websocket/")
-        class Endpoint(WebSocketEndpoint):
+        class Endpoint(endpoints.WebSocketEndpoint):
             encoding = encoding_
 
-            async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data):
+            async def on_receive(self, websocket: websockets.WebSocket, data: types.Data):
                 await getattr(websocket, f"send_{encoding}")(data)
 
         with client.websocket_connect("/websocket/") as ws:
