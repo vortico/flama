@@ -3,7 +3,7 @@ import functools
 import typing
 
 import flama.schemas
-from flama.responses import APIResponse
+from flama import http
 from flama.schemas.types import Schema
 from flama.schemas.validation import get_output_schema
 
@@ -15,7 +15,7 @@ except Exception:  # pragma: no cover
 __all__ = ["LimitOffsetMixin", "LimitOffsetResponse"]
 
 
-class LimitOffsetResponse(APIResponse):
+class LimitOffsetResponse(http.APIResponse):
     """
     Response paginated based on a limit of elements and an offset.
 

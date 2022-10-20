@@ -55,12 +55,14 @@ A complete example of an application with a single function based view that rela
 from the request.
 
 ```python
+import flama.types.websockets
 from flama import Flama, websockets
 
 app = Flama()
 
+
 @app.websocket_route("/foo/")
-async def foo_websocket(websocket: websockets.WebSocket, data: websockets.Data):
+async def foo_websocket(websocket: websockets.WebSocket, data: flama.types.websockets.Data):
     await websocket.send_bytes(data)
 ```
 
@@ -73,19 +75,21 @@ are already defined, so they can be used as they are.
 A complete example of an application with a class based endpoint including all websocket methods.
 
 ```python
+import flama.types.websockets
 from flama import Flama, websockets
 from flama.endpoints import WebSocketEndpoint
 
 app = Flama()
+
 
 @app.websocket_route("/foo/")
 class FooWebsocketEndpoint(WebSocketEndpoint):
     async def on_connect(self, websocket: websockets.WebSocket) -> None:
         await websocket.accept()
 
-    async def on_disconnect(self, websocket: websockets.WebSocket, websocket_code: websockets.Code) -> None:
+    async def on_disconnect(self, websocket: websockets.WebSocket, websocket_code: flama.types.websockets.Code) -> None:
         await websocket.close(websocket_code)
 
-    async def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data) -> None:
+    async def on_receive(self, websocket: websockets.WebSocket, data: flama.types.websockets.Data) -> None:
         await websocket.send_bytes(data)
 ```

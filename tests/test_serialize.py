@@ -1,3 +1,5 @@
+from io import BytesIO
+
 import pytest
 import tensorflow as tf
 import torch
@@ -57,10 +59,30 @@ class TestCaseSerialize:
         ),
         indirect=["model"],
     )
-    def test_serialize(self, lib, model, model_class):
+    def test_serialize_bytes(self, lib, model, model_class):
         model_binary = flama.dumps(lib, model)
 
         load_model = flama.loads(model_binary)
+
+        assert load_model.lib == flama.ModelFormat(lib)
+        assert isinstance(load_model.model, model_class)
+
+    @pytest.mark.parametrize(
+        ("lib", "model", "model_class"),
+        (
+            param(flama.ModelFormat.tensorflow, "tensorflow", tf.keras.models.Sequential, id="tensorflow"),
+            param(flama.ModelFormat.sklearn, "sklearn", LogisticRegression, id="sklearn"),
+            param(flama.ModelFormat.pytorch, "pytorch", torch.jit.RecursiveScriptModule, id="pytorch"),
+        ),
+        indirect=["model"],
+    )
+    def test_serialize_stream(self, lib, model, model_class):
+        model_binary = BytesIO()
+        flama.dump(lib, model, model_binary)
+
+        model_binary.seek(0)
+
+        load_model = flama.load(model_binary)
 
         assert load_model.lib == flama.ModelFormat(lib)
         assert isinstance(load_model.model, model_class)

@@ -1,9 +1,10 @@
 import functools
-import typing
+import typing as t
 
 from starlette.applications import Starlette
 from starlette.datastructures import State
 
+from flama import types
 from flama.injection import Injector
 from flama.lifespan import Lifespan
 from flama.middleware import Middleware, MiddlewareStack
@@ -15,8 +16,7 @@ from flama.routing import Router
 from flama.schemas.modules import SchemaModule
 from flama.sqlalchemy import SQLAlchemyModule
 
-if typing.TYPE_CHECKING:
-    from flama.asgi import App, Receive, Scope, Send
+if t.TYPE_CHECKING:
     from flama.components import Component, Components
     from flama.modules import Module
     from flama.routing import BaseRoute, Mount, WebSocketRoute
@@ -24,27 +24,27 @@ if typing.TYPE_CHECKING:
 __all__ = ["Flama"]
 
 
-DEFAULT_MODULES: typing.List[typing.Type["Module"]] = [SQLAlchemyModule, ResourcesModule, SchemaModule, ModelsModule]
+DEFAULT_MODULES: t.List[t.Type["Module"]] = [SQLAlchemyModule, ResourcesModule, SchemaModule, ModelsModule]
 
 
 class Flama(Starlette):
     def __init__(
         self,
-        routes: typing.Sequence[typing.Union["BaseRoute", "Mount"]] = None,
-        components: typing.Optional[typing.List["Component"]] = None,
-        modules: typing.Optional[typing.List[typing.Type["Module"]]] = None,
-        middleware: typing.Optional[typing.Sequence["Middleware"]] = None,
+        routes: t.Sequence[t.Union["BaseRoute", "Mount"]] = None,
+        components: t.Optional[t.List["Component"]] = None,
+        modules: t.Optional[t.List[t.Type["Module"]]] = None,
+        middleware: t.Optional[t.Sequence["Middleware"]] = None,
         debug: bool = False,
-        on_startup: typing.Sequence[typing.Callable] = None,
-        on_shutdown: typing.Sequence[typing.Callable] = None,
-        lifespan: typing.Callable[["Flama"], typing.AsyncContextManager] = None,
-        sqlalchemy_database: typing.Optional[str] = None,
-        title: typing.Optional[str] = "Flama",
-        version: typing.Optional[str] = "0.1.0",
-        description: typing.Optional[str] = "Firing up with the flame",
-        schema: typing.Optional[str] = "/schema/",
-        docs: typing.Optional[str] = "/docs/",
-        schema_library: typing.Optional[str] = None,
+        on_startup: t.Sequence[t.Callable] = None,
+        on_shutdown: t.Sequence[t.Callable] = None,
+        lifespan: t.Callable[["Flama"], t.AsyncContextManager] = None,
+        sqlalchemy_database: t.Optional[str] = None,
+        title: t.Optional[str] = "Flama",
+        version: t.Optional[str] = "0.1.0",
+        description: t.Optional[str] = "Firing up with the flame",
+        schema: t.Optional[str] = "/schema/",
+        docs: t.Optional[str] = "/docs/",
+        schema_library: t.Optional[str] = None,
         *args,
         **kwargs
     ) -> None:
@@ -62,7 +62,7 @@ class Flama(Starlette):
         )
         self.app = self.router
 
-        self.middleware = MiddlewareStack(app=self.app, middleware=middleware or [], debug=debug)
+        self.middlewares = MiddlewareStack(app=self.app, middleware=middleware or [], debug=debug)
 
         # Initialize Modules
         self.modules = Modules(
@@ -100,7 +100,9 @@ class Flama(Starlette):
         except KeyError:
             return None  # type: ignore[return-value]
 
-    async def __call__(self, scope: "Scope", receive: "Receive", send: "Send") -> None:
+    async def __call__(  # type: ignore[override]
+        self, scope: types.Scope, receive: types.Receive, send: types.Send
+    ) -> None:
         """Perform a request.
 
         :param scope: ASGI scope.
@@ -108,16 +110,16 @@ class Flama(Starlette):
         :param send: ASGI send event.
         """
         scope["app"] = self
-        await self.middleware(scope, receive, send)
+        await self.middlewares(scope, receive, send)
 
     def add_route(  # type: ignore[override]
         self,
-        path: typing.Optional[str] = None,
-        endpoint: typing.Optional[typing.Callable] = None,
-        methods: typing.Optional[typing.List[str]] = None,
-        name: typing.Optional[str] = None,
+        path: t.Optional[str] = None,
+        endpoint: t.Optional[t.Callable] = None,
+        methods: t.Optional[t.List[str]] = None,
+        name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        route: typing.Optional["BaseRoute"] = None,
+        route: t.Optional["BaseRoute"] = None,
     ) -> None:  # pragma: no cover
         """Register a new HTTP route or endpoint under given path.
 
@@ -132,12 +134,25 @@ class Flama(Starlette):
             path, endpoint, methods=methods, name=name, include_in_schema=include_in_schema, route=route
         )
 
+    def route(  # type: ignore[override]
+        self, path: str, methods: t.List[str] = None, name: str = None, include_in_schema: bool = True
+    ) -> t.Callable:  # pragma: no cover
+        """Decorator version for registering a new HTTP route in this router under given path.
+
+        :param path: URL path.
+        :param methods: List of valid HTTP methods (only applies for routes).
+        :param name: Endpoint or route name.
+        :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
+        :return: Decorated route.
+        """
+        return self.router.route(path, methods=methods, name=name, include_in_schema=include_in_schema)
+
     def add_websocket_route(  # type: ignore[override]
         self,
-        path: typing.Optional[str] = None,
-        endpoint: typing.Optional[typing.Callable] = None,
-        name: typing.Optional[str] = None,
-        route: typing.Optional["WebSocketRoute"] = None,
+        path: t.Optional[str] = None,
+        endpoint: t.Optional[t.Callable] = None,
+        name: t.Optional[str] = None,
+        route: t.Optional["WebSocketRoute"] = None,
     ) -> None:  # pragma: no cover
         """Register a new websocket route or endpoint under given path.
 
@@ -146,7 +161,16 @@ class Flama(Starlette):
         :param name: Endpoint or route name.
         :param route: Websocket route.
         """
-        self.router.add_websocket_route(path, endpoint, name=name, route=route)
+        self.router.add_websocket_route(path=path, endpoint=endpoint, name=name, route=route)
+
+    def websocket_route(self, path: str, name: str = None) -> t.Callable:  # type: ignore[override]  # pragma: no cover
+        """Decorator version for registering a new websocket route in this router under given path.
+
+        :param path: URL path.
+        :param name: Websocket route name.
+        :return: Decorated route.
+        """
+        return self.router.websocket_route(path, name=name)
 
     @property
     def injector(self) -> Injector:
@@ -172,14 +196,14 @@ class Flama(Starlette):
         self.router.add_component(component)
 
     @property
-    def routes(self) -> typing.List["BaseRoute"]:  # type: ignore[override]
+    def routes(self) -> t.List["BaseRoute"]:  # type: ignore[override]
         """List of registered routes.
 
         :return: Routes.
         """
         return self.router.routes
 
-    def mount(self, path: str, app: "App", name: str = None) -> None:  # type: ignore[override]
+    def mount(self, path: str, app: types.App, name: str = None) -> None:  # type: ignore[override]
         """Mount a new ASGI application under given path.
 
         :param path: URL path.
@@ -188,39 +212,37 @@ class Flama(Starlette):
         """
         self.router.mount(path, app=app, name=name)
 
-    def add_exception_handler(
-        self, exc_class_or_status_code: typing.Union[int, typing.Type[Exception]], handler: typing.Callable
-    ):
+    def add_exception_handler(self, exc_class_or_status_code: t.Union[int, t.Type[Exception]], handler: t.Callable):
         """Add a new exception handler for given status code or exception class.
 
         :param exc_class_or_status_code: Status code or exception class.
         :param handler: Exception handler.
         """
-        self.middleware.add_exception_handler(exc_class_or_status_code, handler)
+        self.middlewares.add_exception_handler(exc_class_or_status_code, handler)
 
-    def add_middleware(self, middleware_class: typing.Type, **options: typing.Any):
+    def add_middleware(self, middleware_class: t.Type, **options: t.Any):
         """Add a new middleware to the stack.
 
         :param middleware_class: Middleware class.
         :param options: Keyword arguments used to initialise middleware.
         """
-        self.middleware.add_middleware(Middleware(middleware_class, **options))
+        self.middlewares.add_middleware(Middleware(middleware_class, **options))
 
-    get = functools.partialmethod(Starlette.route, methods=["GET"])
-    head = functools.partialmethod(Starlette.route, methods=["HEAD"])
-    post = functools.partialmethod(Starlette.route, methods=["POST"])
-    put = functools.partialmethod(Starlette.route, methods=["PUT"])
-    delete = functools.partialmethod(Starlette.route, methods=["DELETE"])
-    connect = functools.partialmethod(Starlette.route, methods=["CONNECT"])
-    options = functools.partialmethod(Starlette.route, methods=["OPTIONS"])
-    trace = functools.partialmethod(Starlette.route, methods=["TRACE"])
-    patch = functools.partialmethod(Starlette.route, methods=["PATCH"])
-    add_get = functools.partialmethod(Starlette.add_route, methods=["GET"])
-    add_head = functools.partialmethod(Starlette.add_route, methods=["HEAD"])
-    add_post = functools.partialmethod(Starlette.add_route, methods=["POST"])
-    add_put = functools.partialmethod(Starlette.add_route, methods=["PUT"])
-    add_delete = functools.partialmethod(Starlette.add_route, methods=["DELETE"])
-    add_connect = functools.partialmethod(Starlette.add_route, methods=["CONNECT"])
-    add_options = functools.partialmethod(Starlette.add_route, methods=["OPTIONS"])
-    add_trace = functools.partialmethod(Starlette.add_route, methods=["TRACE"])
-    add_patch = functools.partialmethod(Starlette.add_route, methods=["PATCH"])
+    get = functools.partialmethod(route, methods=["GET"])
+    head = functools.partialmethod(route, methods=["HEAD"])
+    post = functools.partialmethod(route, methods=["POST"])
+    put = functools.partialmethod(route, methods=["PUT"])
+    delete = functools.partialmethod(route, methods=["DELETE"])
+    connect = functools.partialmethod(route, methods=["CONNECT"])
+    options = functools.partialmethod(route, methods=["OPTIONS"])
+    trace = functools.partialmethod(route, methods=["TRACE"])
+    patch = functools.partialmethod(route, methods=["PATCH"])
+    add_get = functools.partialmethod(add_route, methods=["GET"])
+    add_head = functools.partialmethod(add_route, methods=["HEAD"])
+    add_post = functools.partialmethod(add_route, methods=["POST"])
+    add_put = functools.partialmethod(add_route, methods=["PUT"])
+    add_delete = functools.partialmethod(add_route, methods=["DELETE"])
+    add_connect = functools.partialmethod(add_route, methods=["CONNECT"])
+    add_options = functools.partialmethod(add_route, methods=["OPTIONS"])
+    add_trace = functools.partialmethod(add_route, methods=["TRACE"])
+    add_patch = functools.partialmethod(add_route, methods=["PATCH"])

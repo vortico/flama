@@ -1,21 +1,50 @@
-import typing
+import typing as t
 
-from starlette.websockets import WebSocket, WebSocketClose, WebSocketDisconnect, WebSocketState
+import starlette.websockets
 
-from flama.asgi import Message
+if t.TYPE_CHECKING:
+    from flama import types
 
 __all__ = [
     "WebSocket",
-    "WebSocketClose",
-    "WebSocketState",
-    "WebSocketDisconnect",
-    "Message",
-    "Code",
-    "Encoding",
-    "Data",
+    "Close",
+    "State",
 ]
 
+State = starlette.websockets.WebSocketState
 
-Code = typing.NewType("Code", int)
-Encoding = typing.NewType("Encoding", str)
-Data = typing.TypeVar("Data")
+
+class WebSocket(starlette.websockets.WebSocket):
+    def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send"):  # type: ignore[override]
+        super().__init__(scope, receive, send)  # type: ignore[arg-type]
+
+    @property
+    def is_connecting(self) -> bool:
+        """Check if websocket is connecting.
+
+        :return: True if connecting.
+        """
+        return self.client_state == starlette.websockets.WebSocketState.CONNECTING
+
+    @property
+    def is_connected(self) -> bool:
+        """Check if websocket is connected.
+
+        :return: True if connected.
+        """
+        return self.client_state == starlette.websockets.WebSocketState.CONNECTED
+
+    @property
+    def is_disconnected(self) -> bool:
+        """Check if websocket is disconnected.
+
+        :return: True if disconnected.
+        """
+        return self.client_state == starlette.websockets.WebSocketState.DISCONNECTED
+
+
+class Close(starlette.websockets.WebSocketClose):
+    async def __call__(  # type: ignore[override]
+        self, scope: "types.Scope", receive: "types.Receive", send: "types.Send"
+    ) -> None:
+        await super().__call__(scope, receive, send)  # type: ignore[arg-type]

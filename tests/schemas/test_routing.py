@@ -4,6 +4,7 @@ import marshmallow
 import pytest
 import typesystem
 
+import flama.types.websockets
 from flama import Component, HTTPEndpoint, Route, Router, WebSocketEndpoint, WebSocketRoute, websockets
 from flama.schemas.types import Parameter, ParameterLocation
 
@@ -61,7 +62,7 @@ class TestCaseRouteFieldsMixin:
     @pytest.fixture()
     def websocket(self, foo_schema):
         class FooWebsocket(WebSocketEndpoint):
-            def on_receive(self, websocket: websockets.WebSocket, data: websockets.Data) -> None:
+            def on_receive(self, websocket: websockets.WebSocket, data: flama.types.websockets.Data) -> None:
                 ...
 
         return WebSocketRoute("/foo", endpoint=FooWebsocket)

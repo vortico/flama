@@ -1,4 +1,5 @@
 import asyncio
+import typing
 from contextlib import ExitStack
 from time import sleep
 from unittest.mock import AsyncMock
@@ -9,7 +10,7 @@ import sqlalchemy
 import typesystem
 from faker import Faker
 
-from flama import Flama, asgi
+from flama import Flama
 from flama.sqlalchemy import metadata
 from flama.testclient import TestClient
 
@@ -24,15 +25,29 @@ def event_loop():
     loop.close()
 
 
+class ExceptionContext:
+    def __init__(self, context, exception: typing.Optional[Exception] = None):
+        self.context = context
+        self.exception = exception
+
+    def __enter__(self):
+        return self.context.__enter__()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return self.context.__exit__(exc_type, exc_val, exc_tb)
+
+
 @pytest.fixture(scope="function")
 def exception(request):
     if request.param is None:
-        return ExitStack()
-
-    if isinstance(request.param, Exception):
-        return pytest.raises(request.param.__class__, match=getattr(request.param, "message", None))
-
-    return pytest.raises(request.param)
+        context = ExceptionContext(ExitStack())
+    elif isinstance(request.param, Exception):
+        context = ExceptionContext(
+            pytest.raises(request.param.__class__, match=getattr(request.param, "message", None)), request.param
+        )
+    else:
+        context = ExceptionContext(pytest.raises(request.param), request.param)
+    return context
 
 
 @pytest.fixture(scope="function")
@@ -109,27 +124,25 @@ def client(app):
 
 @pytest.fixture(scope="function")
 def asgi_scope():
-    return asgi.Scope(
-        {
-            "type": "http",
-            "method": "GET",
-            "scheme": "https",
-            "path": "/",
-            "root_path": "/",
-            "query_string": b"",
-            "headers": [],
-        }
-    )
+    return {
+        "type": "http",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/",
+        "root_path": "/",
+        "query_string": b"",
+        "headers": [],
+    }
 
 
 @pytest.fixture(scope="function")
 def asgi_receive():
-    return AsyncMock(spec=asgi.Receive)
+    return AsyncMock()
 
 
 @pytest.fixture(scope="function")
 def asgi_send():
-    return AsyncMock(spec=asgi.Send)
+    return AsyncMock()
 
 
 def assert_recursive_contains(first, second):

@@ -1,11 +1,8 @@
 import pytest
-from starlette.responses import JSONResponse
-from starlette.websockets import WebSocket
 
-from flama import Component
+from flama import endpoints, exceptions, http, websockets
 from flama.applications import Flama
-from flama.endpoints import HTTPEndpoint
-from flama.exceptions import ComponentNotFound, ConfigurationError
+from flama.components import Component
 from flama.testclient import TestClient
 
 
@@ -89,15 +86,15 @@ class TestCaseComponentsInjection:
     def add_endpoints(self, app):
         @app.route("/http-view/")
         async def puppy_http_view(puppy: Puppy):
-            return JSONResponse({"puppy": puppy.name})
+            return http.JSONResponse({"puppy": puppy.name})
 
         @app.route("/http-endpoint/", methods=["GET"])
-        class PuppyHTTPEndpoint(HTTPEndpoint):
+        class PuppyHTTPEndpoint(endpoints.HTTPEndpoint):
             async def get(self, puppy: Puppy):
-                return JSONResponse({"puppy": puppy.name})
+                return http.JSONResponse({"puppy": puppy.name})
 
         @app.websocket_route("/websocket-view/")
-        async def puppy_websocket_view(session: WebSocket, puppy: Puppy):
+        async def puppy_websocket_view(session: websockets.WebSocket, puppy: Puppy):
             await session.accept()
             await session.send_json({"puppy": puppy.name})
             await session.close()
@@ -120,11 +117,11 @@ class TestCaseComponentsInjection:
 
         @app.route("/unknown-component/")
         def unknown_component_view(unknown: Unknown):
-            return JSONResponse({"foo": "bar"})
+            return http.JSONResponse({"foo": "bar"})
 
         @app.route("/unknown-param-in-component/")
         def unknown_param_in_component_view(foo: Foo):
-            return JSONResponse({"foo": "bar"})
+            return http.JSONResponse({"foo": "bar"})
 
     def test_injection_http_view(self, client):
         response = client.request("get", "/http-view/")
@@ -161,14 +158,14 @@ class TestCaseComponentsInjection:
 
     def test_unknown_component(self, client):
         with pytest.raises(
-            ComponentNotFound,
+            exceptions.ComponentNotFound,
             match='No component able to handle parameter "unknown" for function "unknown_component_view"',
         ):
             client.request("get", "/unknown-component/")
 
     def test_unknown_param_in_component(self, client):
         with pytest.raises(
-            ComponentNotFound,
+            exceptions.ComponentNotFound,
             match='No component able to handle parameter "foo" in component "UnknownParamComponent" for function '
             '"unknown_param_in_component_view"',
         ):
@@ -183,10 +180,10 @@ class TestCaseComponentsInjection:
 
         @app.route("/")
         def foo(unknown: Unknown):
-            return JSONResponse({"foo": "bar"})
+            return http.JSONResponse({"foo": "bar"})
 
         with pytest.raises(
-            ConfigurationError,
+            exceptions.ConfigurationError,
             match=r'Component "UnhandledComponent" must include a return annotation on the `resolve\(\)` method, '
             "or override `can_handle_parameter`",
         ), TestClient(app) as client:

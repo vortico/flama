@@ -5,12 +5,13 @@ import typing as t
 from pathlib import Path
 
 if t.TYPE_CHECKING:
-    from flama import http
+    from flama import http, types
 
 
 HandlerException = t.TypeVar("HandlerException", bound=Exception)
 Handler = t.Callable[
-    ["Scope", "Receive", "Send", HandlerException], t.Union[t.Optional["http.Response"], t.Awaitable[None]]
+    ["types.Scope", "types.Receive", "types.Send", HandlerException],
+    t.Union[t.Optional["http.Response"], t.Awaitable[None]],
 ]
 
 

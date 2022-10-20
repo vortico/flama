@@ -99,9 +99,9 @@ class TestCaseFlama:
     def test_add_exception_handler(self, app, key, handler):
         expected_call = [call(key, handler)]
 
-        with patch.object(app, "middleware", spec=MiddlewareStack):
+        with patch.object(app, "middlewares", spec=MiddlewareStack):
             app.add_exception_handler(key, handler)
-            assert app.middleware.add_exception_handler.call_args_list == expected_call
+            assert app.middlewares.add_exception_handler.call_args_list == expected_call
 
     def test_add_middleware(self, app):
         class FooMiddleware:
@@ -110,17 +110,17 @@ class TestCaseFlama:
 
         options = {"foo": "bar"}
 
-        with patch.object(app, "middleware", spec=MiddlewareStack):
+        with patch.object(app, "middlewares", spec=MiddlewareStack):
             app.add_middleware(FooMiddleware, **options)
-            assert len(app.middleware.add_middleware.call_args_list) == 1
-            middleware = app.middleware.add_middleware.call_args[0][0]
+            assert len(app.middlewares.add_middleware.call_args_list) == 1
+            middleware = app.middlewares.add_middleware.call_args[0][0]
             assert isinstance(middleware, Middleware)
             assert middleware.cls == FooMiddleware
             assert middleware.options == options
 
     async def test_call(self, app, asgi_scope, asgi_receive, asgi_send):
-        with patch.object(app, "middleware", new=AsyncMock(spec=MiddlewareStack)):
+        with patch.object(app, "middlewares", new=AsyncMock(spec=MiddlewareStack)):
             await app(asgi_scope, asgi_receive, asgi_send)
             assert "app" in asgi_scope
             assert asgi_scope["app"] == app
-            assert app.middleware.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
+            assert app.middlewares.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
