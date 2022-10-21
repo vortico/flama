@@ -84,14 +84,18 @@ export default function Request({
             </ul>
           </td>
         </tr>
-        {clientHost && <tr className="border-b border-primary-400">
-          <th className="p-2">Client host</th>
-          <td className="p-2">{clientHost}</td>
-        </tr>}
-        {clientPort && <tr className="border-b border-primary-400">
-          <th className="p-2">Client port</th>
-          <td className="p-2">{clientPort}</td>
-        </tr>}
+        {clientHost && (
+          <tr className="border-b border-primary-400">
+            <th className="p-2">Client host</th>
+            <td className="p-2">{clientHost}</td>
+          </tr>
+        )}
+        {clientPort && (
+          <tr className="border-b border-primary-400">
+            <th className="p-2">Client port</th>
+            <td className="p-2">{clientPort}</td>
+          </tr>
+        )}
       </tbody>
     </table>
   )

@@ -7,12 +7,7 @@ interface EnvironmentProps {
   path: string[]
 }
 
-export default function Environment({
-  pythonVersion,
-  python,
-  platform,
-  path,
-}: EnvironmentProps) {
+export default function Environment({ pythonVersion, python, platform, path }: EnvironmentProps) {
   return (
     <table className="w-full table-fixed border-b-2 border-t-2 border-primary-400">
       <tbody className="text-left">

@@ -17,26 +17,16 @@ interface TracebackListItemProps {
 function TracebackListItem({ frame, isActive }: TracebackListItemProps) {
   const filename =
     frame.filename.length > 35 && frame.filename.split('/').length > 2
-      ? frame.filename
-          .split('/', 1)
-          .concat(['...', frame.filename.split('/').slice(-1)[0]])
+      ? frame.filename.split('/', 1).concat(['...', frame.filename.split('/').slice(-1)[0]])
       : frame.filename.split('/')
 
   return (
     <div
       className={`-ml-px flex h-12 w-full cursor-pointer items-center justify-start gap-4 border-l-4 border-transparent pl-4 ${
-        isActive
-          ? 'border-brand-400 bg-brand-50'
-          : 'hover:border-primary-400 hover:bg-primary-200'
+        isActive ? 'border-brand-400 bg-brand-50' : 'hover:border-primary-400 hover:bg-primary-200'
       }`}
     >
-      <div
-        className={`text-5xl ${
-          frame.vendor ? 'text-brand-400' : 'text-primary-500'
-        }`}
-      >
-        &#8226;
-      </div>
+      <div className={`text-5xl ${frame.vendor ? 'text-brand-400' : 'text-primary-500'}`}>&#8226;</div>
       <div
         className={`overflow-hidden font-mono text-sm text-primary-600 ${
           isActive ? 'border-current font-semibold' : 'hover:text-primary-800'
@@ -46,9 +36,7 @@ function TracebackListItem({ frame, isActive }: TracebackListItemProps) {
           {filename.map((value, i) => (
             <React.Fragment key={`filename-${i}`}>
               {i > 0 && <span>/</span>}
-              <span className={i === 0 && frame.vendor ? 'text-brand-500' : ''}>
-                {value}
-              </span>
+              <span className={i === 0 && frame.vendor ? 'text-brand-500' : ''}>{value}</span>
             </React.Fragment>
           ))}
           <span>:</span>
@@ -71,9 +59,7 @@ export default function Traceback({ traceback }: TracebackProps) {
   const [selected, setSelected] = useState(traceback.length - 1)
 
   const code = useMemo(
-    () =>
-      parser.parseFromString(traceback[selected].code, 'text/html').body
-        .textContent || '',
+    () => parser.parseFromString(traceback[selected].code, 'text/html').body.textContent || '',
     [selected]
   )
 
