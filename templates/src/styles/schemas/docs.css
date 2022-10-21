@@ -4,6 +4,7 @@
     min-height: 100vh;
 
     /* Sidebar */
+
     > div:first-child {
         @apply border-r border-brand-500/50;
 

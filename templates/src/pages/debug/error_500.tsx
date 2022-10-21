@@ -17,8 +17,7 @@ function ErrorTitle({ error, method, path, description }: ErrorTitleProps) {
   return (
     <>
       <div className="text-2xl">
-        <span className="font-bold text-brand-500">{error}</span> raised at{' '}
-        <span className="font-bold">{method}</span>{' '}
+        <span className="font-bold text-brand-500">{error}</span> raised at <span className="font-bold">{method}</span>{' '}
         <span className="font-mono">{path}</span>
       </div>
       <div className="text-xl font-medium">{description}</div>
@@ -72,9 +71,7 @@ function ServerErrorPage() {
         <section id="traceback">
           <div className="mt-10 py-8">
             <div className="mx-auto max-w-8xl px-10">
-              <h2 className="text-2xl font-semibold text-primary-700">
-                Traceback
-              </h2>
+              <h2 className="text-2xl font-semibold text-primary-700">Traceback</h2>
               <div className="mt-10 w-full">
                 <Traceback traceback={error.traceback} />
               </div>
@@ -84,9 +81,7 @@ function ServerErrorPage() {
         <section id="request">
           <div className="mt-16 border-t border-brand-500/50 bg-gradient-to-b from-brand-500/10 py-8">
             <div className="mx-auto max-w-8xl px-10">
-              <h2 className="text-2xl font-semibold text-primary-700">
-                Request
-              </h2>
+              <h2 className="text-2xl font-semibold text-primary-700">Request</h2>
             </div>
           </div>
           <div className="mx-auto mt-10 w-full max-w-8xl px-10">
@@ -105,9 +100,7 @@ function ServerErrorPage() {
         <section id="environment">
           <div className="mt-16 border-t border-brand-500/50 bg-gradient-to-b from-brand-500/10 py-8">
             <div className="mx-auto max-w-8xl px-10">
-              <h2 className="w-full text-2xl font-semibold text-primary-700">
-                Environment
-              </h2>
+              <h2 className="w-full text-2xl font-semibold text-primary-700">Environment</h2>
             </div>
           </div>
           <div className="mx-auto my-10 w-full max-w-8xl px-10">

@@ -41,6 +41,15 @@
     "webpack": "^5.74",
     "webpack-cli": "^4.10.0"
   },
+  "homepage": "https://flama.dev",
+  "license": "MIT",
+  "name": "flama-templates",
+  "prettier": {
+    "singleQuote": true,
+    "semi": false,
+    "proseWrap": "always",
+    "printWidth": 120
+  },
   "eslintConfig": {
     "extends": [
       "eslint:recommended",
@@ -57,13 +66,6 @@
         }
       ]
     }
-  },
-  "homepage": "https://flama.dev",
-  "license": "MIT",
-  "name": "flama-templates",
-  "prettier": {
-    "semi": false,
-    "singleQuote": true
   },
   "private": true,
   "scripts": {
