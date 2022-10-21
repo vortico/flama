@@ -1,12 +1,13 @@
 import inspect
-import typing
+import typing as t
 
 from flama import schemas
-from flama.schemas.types import Methods, Parameter, ParameterLocation, Parameters
+from flama.schemas.data_structures import Parameter, Parameters
+from flama.schemas.types import ParameterLocation
 from flama.types import FIELDS_TYPE_MAPPING, OPTIONAL_FIELD_TYPE_MAPPING
 
-if typing.TYPE_CHECKING:
-    from flama.components import Components
+if t.TYPE_CHECKING:
+    from flama.injection import Components
     from flama.routing import Route, WebSocketRoute
 
 __all__ = ["RouteParametersMixin"]
@@ -22,24 +23,24 @@ class ParametersDescriptor:
         return self
 
     @property
-    def query(self) -> typing.Dict[str, Parameters]:
+    def query(self) -> t.Dict[str, Parameters]:
         return self._get_parameters(self._route)[0]
 
     @property
-    def path(self) -> typing.Dict[str, Parameters]:
+    def path(self) -> t.Dict[str, Parameters]:
         return self._get_parameters(self._route)[1]
 
     @property
-    def body(self) -> typing.Dict[str, typing.Optional[Parameter]]:
+    def body(self) -> t.Dict[str, t.Optional[Parameter]]:
         return self._get_parameters(self._route)[2]
 
     @property
-    def output(self) -> typing.Dict[str, Parameter]:
+    def output(self) -> t.Dict[str, Parameter]:
         return self._get_parameters(self._route)[3]
 
     def _inspect_parameters_from_handler(
-        self, handler: typing.Callable, components: "Components"
-    ) -> typing.Dict[str, inspect.Parameter]:
+        self, handler: t.Callable, components: "Components"
+    ) -> t.Dict[str, inspect.Parameter]:
         parameters = {}
 
         for name, parameter in inspect.signature(handler).parameters.items():
@@ -57,11 +58,11 @@ class ParametersDescriptor:
         return parameters
 
     def _get_parameters_from_handler(
-        self, handler: typing.Callable, path_params: typing.Sequence[str], components: "Components"
-    ) -> typing.Tuple[Parameters, Parameters, typing.Optional[Parameter], Parameter]:
+        self, handler: t.Callable, path_params: t.Sequence[str], components: "Components"
+    ) -> t.Tuple[Parameters, Parameters, t.Optional[Parameter], Parameter]:
         query_parameters: Parameters = {}
         path_parameters: Parameters = {}
-        body_parameter: typing.Optional[Parameter] = None
+        body_parameter: t.Optional[Parameter] = None
 
         # Iterate over all params
         for name, param in self._inspect_parameters_from_handler(handler, components).items():
@@ -106,12 +107,14 @@ class ParametersDescriptor:
         return query_parameters, path_parameters, body_parameter, output_parameter
 
     def _get_parameters(
-        self, route: typing.Union["Route", "WebSocketRoute"]
-    ) -> typing.Tuple[Methods, Methods, typing.Dict[str, typing.Optional[Parameter]], typing.Dict[str, Parameter]]:
-        query_parameters: Methods = {}
-        path_parameters: Methods = {}
-        body_parameter: typing.Dict[str, typing.Optional[Parameter]] = {}
-        output_parameter: typing.Dict[str, Parameter] = {}
+        self, route: t.Union["Route", "WebSocketRoute"]
+    ) -> t.Tuple[
+        t.Dict[str, Parameters], t.Dict[str, Parameters], t.Dict[str, t.Optional[Parameter]], t.Dict[str, Parameter]
+    ]:
+        query_parameters: t.Dict[str, Parameters] = {}
+        path_parameters: t.Dict[str, Parameters] = {}
+        body_parameter: t.Dict[str, t.Optional[Parameter]] = {}
+        output_parameter: t.Dict[str, Parameter] = {}
 
         route_methods = getattr(route, "methods", None)
         if route_methods is not None:

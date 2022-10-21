@@ -1,10 +1,10 @@
 import inspect
-import typing
+import typing as t
 
-from flama.resources import types
+from flama.resources import data_structures
 from flama.routing import BaseRoute, Mount, Route
 
-if typing.TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from flama import Flama
     from flama.resources import BaseResource
 
@@ -12,9 +12,7 @@ __all__ = ["ResourceRoute", "resource_method"]
 
 
 class ResourceRoute(Mount):
-    def __init__(
-        self, path: str, resource: typing.Union["BaseResource", typing.Type["BaseResource"]], main_app: "Flama" = None
-    ):
+    def __init__(self, path: str, resource: t.Union["BaseResource", t.Type["BaseResource"]], main_app: "Flama" = None):
         # Handle class or instance objects
         self.resource = resource(app=main_app) if inspect.isclass(resource) else resource
 
@@ -45,7 +43,7 @@ class ResourceRoute(Mount):
         del self.resource.app
 
 
-def resource_method(path: str, methods: typing.Sequence[str] = None, name: str = None, **kwargs) -> typing.Callable:
+def resource_method(path: str, methods: t.Sequence[str] = None, name: str = None, **kwargs) -> t.Callable:
     """Decorator for adding useful info needed for generating resource routes.
 
     :param path: Route path.
@@ -56,7 +54,7 @@ def resource_method(path: str, methods: typing.Sequence[str] = None, name: str =
     """
 
     def wrapper(func):
-        func._meta = types.MethodMetadata(
+        func._meta = data_structures.MethodMetadata(
             path=path, methods=tuple(methods if methods is not None else ("GET",)), name=name, kwargs=kwargs
         )
 

@@ -1,6 +1,6 @@
 import typing
 
-from flama.serialize.types import Model
+from flama.serialize.model import Model
 
 
 def loads(data: bytes, **kwargs) -> Model:
