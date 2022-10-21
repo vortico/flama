@@ -4,6 +4,7 @@ import pytest
 import starlette.exceptions
 
 from flama import exceptions, http, types, websockets
+from flama.applications import Flama
 from flama.debug.data_structures import ErrorContext
 from flama.debug.middleware import BaseErrorMiddleware, ExceptionMiddleware, ServerErrorMiddleware
 
@@ -124,7 +125,7 @@ class TestCaseServerErrorMiddleware:
             assert ErrorContext.build.call_count == 1
             assert dataclasses_dict.call_args_list == [call(error_context_mock)]
             assert isinstance(response, http._ReactTemplateResponse)
-            assert response_mock.call_args_list == [call("debug/error_500.html", context=context_mock)]
+            assert response_mock.call_args_list == [call("debug/error_500.html", context=context_mock, status_code=500)]
 
     def test_debug_response_text(self, middleware, asgi_scope, asgi_receive, asgi_send):
         exc = ValueError()
@@ -285,8 +286,8 @@ class TestCaseExceptionMiddleware:
                 True,
                 b"text/html",
                 exceptions.HTTPException(404, "Foo"),
-                http.PlainTextResponse,
-                {"content": "Foo", "status_code": 404},
+                http._ReactTemplateResponse,
+                {"template": "debug/error_404.html", "context": {}, "status_code": 404},
                 id="debug_404",
             ),
             pytest.param(
@@ -303,6 +304,7 @@ class TestCaseExceptionMiddleware:
         self, middleware, asgi_scope, asgi_receive, asgi_send, debug, accept, exc, response_class, response_params
     ):
         asgi_scope["type"] = "http"
+        asgi_scope["app"] = MagicMock(Flama)
         middleware.debug = debug
 
         if accept:
@@ -311,7 +313,9 @@ class TestCaseExceptionMiddleware:
         if response_class == http.APIErrorResponse:
             response_params["exception"] = exc
 
-        with patch(f"flama.debug.middleware.http.{response_class.__name__}", spec=response_class) as response_mock:
+        with patch(
+            f"flama.debug.middleware.http.{response_class.__name__}", spec=response_class
+        ) as response_mock, patch("flama.debug.middleware.dataclasses.asdict", return_value={}):
             response = middleware.http_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
             assert isinstance(response, response_class)
