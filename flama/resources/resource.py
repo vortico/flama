@@ -1,10 +1,10 @@
 import re
-import typing
+import typing as t
 
-from flama.resources import types
+from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
 
-if typing.TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from flama.applications import Flama
 
 __all__ = ["BaseResource", "ResourceType"]
@@ -14,7 +14,7 @@ class BaseResource:
     name: str
     verbose_name: str
 
-    def __init__(self, app: typing.Optional["Flama"] = None, *args, **kwargs):
+    def __init__(self, app: t.Optional["Flama"] = None, *args, **kwargs):
         if app is not None:
             self.app = app
 
@@ -35,9 +35,9 @@ class BaseResource:
 
 
 class ResourceType(type):
-    METHODS: typing.Sequence[str] = ()
+    METHODS: t.Sequence[str] = ()
 
-    def __new__(mcs, name: str, bases: typing.Tuple[type], namespace: typing.Dict[str, typing.Any]):
+    def __new__(mcs, name: str, bases: t.Tuple[type], namespace: t.Dict[str, t.Any]):
         """Resource metaclass for defining basic behavior:
         * Create _meta attribute containing some metadata (name, verbose name...).
         * Adds methods related to resource (create, retrieve...) listed in METHODS class attribute.
@@ -57,7 +57,7 @@ class ResourceType(type):
             namespace["_meta"].name = resource_name
             namespace["_meta"].verbose_name = verbose_name
         else:
-            namespace["_meta"] = types.Metadata(name=resource_name, verbose_name=verbose_name)
+            namespace["_meta"] = data_structures.Metadata(name=resource_name, verbose_name=verbose_name)
 
         # Create methods and routes
         namespace.update(mcs._build_methods(namespace))
@@ -66,7 +66,7 @@ class ResourceType(type):
         return super().__new__(mcs, name, bases, namespace)
 
     @classmethod
-    def _get_mro(mcs, *classes: type) -> typing.List[typing.Type]:
+    def _get_mro(mcs, *classes: type) -> t.List[t.Type]:
         """Generate the MRO list for given base class or list of base classes.
 
         :param classes: Base classes.
@@ -79,9 +79,7 @@ class ResourceType(type):
         )
 
     @classmethod
-    def _get_attribute(
-        mcs, attribute: str, bases: typing.Sequence[typing.Any], namespace: typing.Dict[str, typing.Any]
-    ) -> typing.Any:
+    def _get_attribute(mcs, attribute: str, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> t.Any:
         """Look for an attribute given his name on namespace or parent classes namespace.
 
         :param attribute: Attribute name.
@@ -101,7 +99,7 @@ class ResourceType(type):
         raise AttributeError(ResourceAttributeError.ATTRIBUTE_NOT_FOUND.format(attribute=attribute))
 
     @classmethod
-    def _get_resource_name(mcs, name: str, namespace: typing.Dict[str, typing.Any]) -> typing.Tuple[str, str]:
+    def _get_resource_name(mcs, name: str, namespace: t.Dict[str, t.Any]) -> t.Tuple[str, str]:
         """Look for a resource name in namespace and check it's a valid name.
 
         :param name: Class name.
@@ -117,7 +115,7 @@ class ResourceType(type):
         return resource_name, namespace.pop("verbose_name", resource_name)
 
     @classmethod
-    def _build_routes(mcs, namespace: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Callable]:
+    def _build_routes(mcs, namespace: t.Dict[str, t.Any]) -> t.Dict[str, t.Callable]:
         """Builds the routes' descriptor.
 
         :param namespace: Variables namespace used to create the class.
@@ -125,11 +123,11 @@ class ResourceType(type):
         return {
             name: m
             for name, m in namespace.items()
-            if hasattr(m, "_meta") and isinstance(m._meta, types.MethodMetadata) and not name.startswith("_")
+            if hasattr(m, "_meta") and isinstance(m._meta, data_structures.MethodMetadata) and not name.startswith("_")
         }
 
     @classmethod
-    def _build_methods(mcs, namespace: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Callable]:
+    def _build_methods(mcs, namespace: t.Dict[str, t.Any]) -> t.Dict[str, t.Callable]:
         """Builds a namespace containing all resource methods. Look for all methods listed in METHODS attribute and
         named '_add_[method]'.
 

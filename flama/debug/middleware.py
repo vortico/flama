@@ -7,7 +7,7 @@ from pathlib import Path
 import starlette.exceptions
 
 from flama import concurrency, exceptions, http, websockets
-from flama.debug.types import ErrorContext
+from flama.debug.data_structures import ErrorContext
 
 if t.TYPE_CHECKING:
     from flama import types

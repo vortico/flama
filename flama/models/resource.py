@@ -1,14 +1,14 @@
 import os
-import typing
+import typing as t
 
 import flama.schemas
 from flama.models.components import ModelComponentBuilder
-from flama.resources import BaseResource, types
+from flama.resources import BaseResource, data_structures
 from flama.resources.exceptions import ResourceAttributeError
 from flama.resources.resource import ResourceType
 from flama.resources.routing import resource_method
 
-if typing.TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from flama.models.components import Model, ModelComponent
 
 __all__ = ["ModelResource", "InspectMixin", "PredictMixin", "ModelResourceType"]
@@ -16,9 +16,7 @@ __all__ = ["ModelResource", "InspectMixin", "PredictMixin", "ModelResourceType"]
 
 class InspectMixin:
     @classmethod
-    def _add_inspect(
-        mcs, name: str, verbose_name: str, model_model_type: "Model", **kwargs
-    ) -> typing.Dict[str, typing.Any]:
+    def _add_inspect(mcs, name: str, verbose_name: str, model_model_type: "Model", **kwargs) -> t.Dict[str, t.Any]:
         @resource_method("/", methods=["GET"], name=f"{name}-inspect")
         async def inspect(self, model: model_model_type):  # type: ignore[valid-type]
             return model.inspect()  # type: ignore[attr-defined]
@@ -41,9 +39,7 @@ class InspectMixin:
 
 class PredictMixin:
     @classmethod
-    def _add_predict(
-        mcs, name: str, verbose_name: str, model_model_type: "Model", **kwargs
-    ) -> typing.Dict[str, typing.Any]:
+    def _add_predict(mcs, name: str, verbose_name: str, model_model_type: "Model", **kwargs) -> t.Dict[str, t.Any]:
         @resource_method("/predict/", methods=["POST"], name=f"{name}-predict")
         async def predict(
             self, model: model_model_type, data: flama.schemas.schemas.MLModelInput  # type: ignore[valid-type]
@@ -68,13 +64,13 @@ class PredictMixin:
 
 class ModelResource(BaseResource):
     component: "ModelComponent"
-    model_path: typing.Union[str, os.PathLike]
+    model_path: t.Union[str, os.PathLike]
 
 
 class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
     METHODS = ("inspect", "predict")
 
-    def __new__(mcs, name: str, bases: typing.Tuple[type], namespace: typing.Dict[str, typing.Any]):
+    def __new__(mcs, name: str, bases: t.Tuple[type], namespace: t.Dict[str, t.Any]):
         """Resource metaclass for defining basic behavior for ML resources:
         * Create _meta attribute containing some metadata (model...).
         * Adds methods related to ML resource (inspect, predict...) listed in METHODS class attribute.
@@ -99,14 +95,12 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
         if "_meta" in namespace:
             namespace["_meta"].namespaces["model"] = metadata_namespace
         else:
-            namespace["_meta"] = types.Metadata(namespaces={"model": metadata_namespace})
+            namespace["_meta"] = data_structures.Metadata(namespaces={"model": metadata_namespace})
 
         return super().__new__(mcs, name, bases, namespace)
 
     @classmethod
-    def _get_model_component(
-        mcs, bases: typing.Sequence[typing.Any], namespace: typing.Dict[str, typing.Any]
-    ) -> "ModelComponent":
+    def _get_model_component(mcs, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> "ModelComponent":
         try:
             component: "ModelComponent" = mcs._get_attribute("component", bases, namespace)
             return component
