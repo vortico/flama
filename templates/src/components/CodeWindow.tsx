@@ -22,9 +22,7 @@ export default function CodeWindow({
   useEffect(() => {
     if (autoScroll && scrollContainerRef.current && scrollTargetRef.current)
       scrollContainerRef.current.scrollTo({
-        top:
-          scrollTargetRef.current.offsetTop -
-          scrollContainerRef.current.clientHeight / 2,
+        top: scrollTargetRef.current.offsetTop - scrollContainerRef.current.clientHeight / 2,
         left: 0,
         behavior: 'smooth',
       })

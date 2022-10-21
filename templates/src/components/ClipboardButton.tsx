@@ -16,7 +16,7 @@ export default function ClipboardButton({ code }: ClipboardButtonProps) {
 
   return (
     <div
-      className={`absolute right-4 top-11 flex h-8 w-8 items-center justify-center rounded bg-primary-500/30 opacity-0 ring-1 ring-inset backdrop-blur transition-opacity duration-500 group-hover:opacity-100 ${
+      className={`absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded bg-primary-500/30 opacity-0 ring-1 ring-inset backdrop-blur transition-opacity duration-500 group-hover:opacity-100 ${
         copied ? 'ring-brand-500/50' : 'ring-primary-500/50'
       }`}
     >

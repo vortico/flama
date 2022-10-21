@@ -10,10 +10,7 @@ interface LineNumbersProps {
 
 function LineNumbers({ lines, token }: LineNumbersProps) {
   return (
-    <div
-      className="hidden flex-none select-none py-4 pl-4 text-right text-primary-500 md:block"
-      aria-hidden="true"
-    >
+    <div className="hidden flex-none select-none py-4 pl-4 text-right text-primary-500 md:block" aria-hidden="true">
       {Array.from(Array(lines).keys()).map((line) => (
         <div key={`line-number-${line + 1}`} className="line-number">
           {token ? token : line + 1}
@@ -30,27 +27,13 @@ interface CodeWrapperProps extends React.ComponentProps<'pre'> {
   copyButton?: boolean
 }
 
-function CodeWrapper({
-  lines,
-  token,
-  code,
-  copyButton,
-  children,
-  className,
-}: CodeWrapperProps) {
+function CodeWrapper({ lines, token, code, copyButton, children, className }: CodeWrapperProps) {
   return (
     <pre
       className={`group relative flex h-fit w-full overflow-hidden whitespace-pre text-left text-sm leading-6 ${className}`}
     >
-      {token && (
-        <LineNumbers
-          lines={lines}
-          token={typeof token === 'string' ? token : undefined}
-        />
-      )}
-      <code className="relative block h-fit w-fit flex-auto overflow-auto p-4 text-primary-200">
-        {children}
-      </code>
+      {token && <LineNumbers lines={lines} token={typeof token === 'string' ? token : undefined} />}
+      <code className="relative block h-fit w-fit flex-auto overflow-auto p-4 text-primary-200">{children}</code>
       {copyButton && <ClipboardButton code={code} />}
     </pre>
   )
@@ -98,9 +81,7 @@ export default function CodeBlock({
               <div
                 key={lineKey}
                 ref={selectedLine === i + 1 ? selectedLineRef : undefined}
-                className={`${lineClassName} ${
-                  selectedLine === i + 1 ? 'token-line-selected' : ''
-                }`}
+                className={`${lineClassName} ${selectedLine === i + 1 ? 'token-line-selected' : ''}`}
                 {...lineProps}
               >
                 {line.map((token, j) => {
@@ -117,12 +98,7 @@ export default function CodeBlock({
       )}
     </Highlight>
   ) : (
-    <CodeWrapper
-      lines={code.split('\n').length}
-      token={lineNumbers}
-      code={code}
-      copyButton={copyButton}
-    >
+    <CodeWrapper lines={code.split('\n').length} token={lineNumbers} code={code} copyButton={copyButton}>
       {code}
     </CodeWrapper>
   )
