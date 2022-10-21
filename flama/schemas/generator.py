@@ -1,7 +1,9 @@
+import dataclasses
 import inspect
 import itertools
 import logging
 import typing
+import typing as t
 from collections import defaultdict
 
 import starlette.routing
@@ -9,11 +11,37 @@ from starlette import schemas as starlette_schemas
 
 from flama import routing, schemas
 from flama.schemas import openapi
-from flama.schemas.types import EndpointInfo, Schema, SchemaInfo
+from flama.schemas.data_structures import Parameter
+from flama.schemas.types import Schema
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["SchemaRegistry", "SchemaGenerator"]
+
+
+@dataclasses.dataclass(frozen=True)
+class EndpointInfo:
+    path: str
+    method: str
+    func: t.Callable
+    query_parameters: t.Dict[str, Parameter]
+    path_parameters: t.Dict[str, Parameter]
+    body_parameter: Parameter
+    output_parameter: Parameter
+
+
+@dataclasses.dataclass(frozen=True)
+class SchemaInfo:
+    name: str
+    schema: schemas.Schema
+
+    @property
+    def ref(self) -> str:
+        return f"#/components/schemas/{self.name}"
+
+    @property
+    def json_schema(self) -> t.Dict[str, t.Any]:
+        return schemas.adapter.to_json_schema(self.schema)
 
 
 class SchemaRegistry(typing.Dict[int, SchemaInfo]):

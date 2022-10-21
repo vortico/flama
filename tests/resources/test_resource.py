@@ -2,7 +2,7 @@ import pytest
 import sqlalchemy
 
 from flama.applications import Flama
-from flama.resources import types
+from flama.resources import data_structures
 from flama.resources.crud import CRUDListDropResourceType, CRUDListResourceType, CRUDResourceType
 from flama.resources.resource import BaseResource
 from flama.resources.routing import ResourceRoute, resource_method
@@ -37,10 +37,12 @@ class TestCaseBaseResource:
         assert resource._meta.verbose_name == "Puppy"
         assert resource._meta.namespaces == {
             "rest": {
-                "model": types.Model(table=puppy_model, primary_key=types.PrimaryKey(name="custom_id", type=int)),
-                "schemas": types.Schemas(
-                    input=types.Schema(name="PuppyResource", schema=puppy_schema),
-                    output=types.Schema(name="PuppyResource", schema=puppy_schema),
+                "model": data_structures.Model(
+                    table=puppy_model, primary_key=data_structures.PrimaryKey(name="custom_id", type=int)
+                ),
+                "schemas": data_structures.Schemas(
+                    input=data_structures.Schema(name="PuppyResource", schema=puppy_schema),
+                    output=data_structures.Schema(name="PuppyResource", schema=puppy_schema),
                 ),
             }
         }
