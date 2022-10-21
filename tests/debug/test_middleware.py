@@ -4,8 +4,8 @@ import pytest
 import starlette.exceptions
 
 from flama import exceptions, http, types, websockets
+from flama.debug.data_structures import ErrorContext
 from flama.debug.middleware import BaseErrorMiddleware, ExceptionMiddleware, ServerErrorMiddleware
-from flama.debug.types import ErrorContext
 
 
 class TestCaseBaseErrorMiddleware:

@@ -6,7 +6,8 @@ import typesystem
 
 import flama.types.websockets
 from flama import Component, HTTPEndpoint, Route, Router, WebSocketEndpoint, WebSocketRoute, websockets
-from flama.schemas.types import Parameter, ParameterLocation
+from flama.schemas.data_structures import Parameter
+from flama.schemas.types import ParameterLocation
 
 
 class Custom:

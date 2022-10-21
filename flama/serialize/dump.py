@@ -1,6 +1,6 @@
 import typing
 
-from flama.serialize.types import Model, ModelFormat
+from flama.serialize.model import Model, ModelFormat
 
 
 def dumps(lib: typing.Union[str, ModelFormat], model: typing.Any, **kwargs) -> bytes:

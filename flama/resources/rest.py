@@ -1,8 +1,8 @@
 import datetime
-import typing
+import typing as t
 import uuid
 
-from flama.resources import types
+from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
 from flama.resources.resource import BaseResource, ResourceType
 
@@ -26,13 +26,13 @@ PK_MAPPING = {
 
 class RESTResource(BaseResource):
     model: sqlalchemy.Table
-    schema: typing.Any
-    input_schema: typing.Any
-    output_schema: typing.Any
+    schema: t.Any
+    input_schema: t.Any
+    output_schema: t.Any
 
 
 class RESTResourceType(ResourceType):
-    def __new__(mcs, name: str, bases: typing.Tuple[type], namespace: typing.Dict[str, typing.Any]):
+    def __new__(mcs, name: str, bases: t.Tuple[type], namespace: t.Dict[str, t.Any]):
         """Resource metaclass for defining basic behavior for REST resources:
         * Create _meta attribute containing some metadata (model, schemas...).
         * Adds methods related to REST resource (create, retrieve, update, delete...) listed in METHODS class attribute.
@@ -56,12 +56,12 @@ class RESTResourceType(ResourceType):
         if "_meta" in namespace:
             namespace["_meta"].namespaces["rest"] = metadata_namespace
         else:
-            namespace["_meta"] = types.Metadata(namespaces={"rest": metadata_namespace})
+            namespace["_meta"] = data_structures.Metadata(namespaces={"rest": metadata_namespace})
 
         return super().__new__(mcs, name, bases, namespace)
 
     @classmethod
-    def _get_model(mcs, bases: typing.Sequence[typing.Any], namespace: typing.Dict[str, typing.Any]) -> types.Model:
+    def _get_model(mcs, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> data_structures.Model:
         """Look for the resource model and checks if a primary key is defined with a valid type.
 
         :param bases: List of superclasses.
@@ -71,7 +71,7 @@ class RESTResourceType(ResourceType):
         model = mcs._get_attribute("model", bases, namespace)
 
         # Already defined model probably because resource inheritance, so no need to create it
-        if isinstance(model, types.Model):
+        if isinstance(model, data_structures.Model):
             return model
 
         # Resource define model as a sqlalchemy Table, so extract necessary info from it
@@ -92,14 +92,16 @@ class RESTResourceType(ResourceType):
             except KeyError:
                 raise AttributeError(ResourceAttributeError.PK_WRONG_TYPE)
 
-            return types.Model(table=model, primary_key=types.PrimaryKey(model_pk_name, model_pk_type))
+            return data_structures.Model(
+                table=model, primary_key=data_structures.PrimaryKey(model_pk_name, model_pk_type)
+            )
 
         raise AttributeError(ResourceAttributeError.MODEL_INVALID)
 
     @classmethod
     def _get_schemas(
-        mcs, name: str, bases: typing.Sequence[typing.Any], namespace: typing.Dict[str, typing.Any]
-    ) -> types.Schemas:
+        mcs, name: str, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]
+    ) -> data_structures.Schemas:
         """Look for the resource schema or the pair of input and output schemas.
 
         :param name: Class name.
@@ -108,12 +110,12 @@ class RESTResourceType(ResourceType):
         :return: Resource schemas.
         """
         try:
-            return types.Schemas(
-                input=types.Schema(
+            return data_structures.Schemas(
+                input=data_structures.Schema(
                     name="Input" + name,
                     schema=mcs._get_attribute("input_schema", bases, namespace),
                 ),
-                output=types.Schema(
+                output=data_structures.Schema(
                     name="Output" + name,
                     schema=mcs._get_attribute("output_schema", bases, namespace),
                 ),
@@ -122,13 +124,13 @@ class RESTResourceType(ResourceType):
             ...
 
         try:
-            schema = types.Schema(name=name, schema=mcs._get_attribute("schema", bases, namespace))
-            return types.Schemas(input=schema, output=schema)
+            schema = data_structures.Schema(name=name, schema=mcs._get_attribute("schema", bases, namespace))
+            return data_structures.Schemas(input=schema, output=schema)
         except AttributeError:
             ...
 
         try:
-            schemas: types.Schemas = mcs._get_attribute("schemas", bases, namespace)
+            schemas: data_structures.Schemas = mcs._get_attribute("schemas", bases, namespace)
             return schemas
         except AttributeError:
             ...
