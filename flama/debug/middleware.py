@@ -7,7 +7,7 @@ from pathlib import Path
 import starlette.exceptions
 
 from flama import concurrency, exceptions, http, websockets
-from flama.debug.data_structures import ErrorContext
+from flama.debug.data_structures import ErrorContext, NotFoundContext
 
 if t.TYPE_CHECKING:
     from flama import types
@@ -73,7 +73,7 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
 
         if "text/html" in accept:
             return http._ReactTemplateResponse(
-                "debug/error_500.html", context=dataclasses.asdict(ErrorContext.build(request, exc))
+                "debug/error_500.html", context=dataclasses.asdict(ErrorContext.build(request, exc)), status_code=500
             )
         return http.PlainTextResponse("Internal Server Error", status_code=500)
 
@@ -148,7 +148,11 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         accept = request.headers.get("accept", "")
 
         if self.debug and exc.status_code == 404 and "text/html" in accept:
-            return http.PlainTextResponse(content=exc.detail, status_code=exc.status_code)
+            return http._ReactTemplateResponse(
+                template="debug/error_404.html",
+                context=dataclasses.asdict(NotFoundContext.build(request, scope["app"])),
+                status_code=404,
+            )
 
         return http.APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
 

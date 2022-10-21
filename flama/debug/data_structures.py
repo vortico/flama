@@ -6,21 +6,22 @@ from pathlib import Path
 
 if t.TYPE_CHECKING:
     from flama import http
+    from flama.applications import Flama
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class RequestParams:
     path: t.Dict[str, t.Any]
     query: t.Dict[str, t.Any]
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class RequestClient:
     host: str
     port: int
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Request:
     path: str
     method: str
@@ -41,7 +42,7 @@ class Request:
         )
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Frame:
     filename: str
     function: str
@@ -78,7 +79,7 @@ class Frame:
         )
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Error:
     error: str
     description: str
@@ -95,7 +96,7 @@ class Error:
         )
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Environment:
     platform: str
     python: str
@@ -107,16 +108,52 @@ class Environment:
         return cls(platform=sys.platform, python=sys.executable, python_version=sys.version, path=sys.path)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
+class Endpoint:
+    path: str
+    endpoint: str
+    name: t.Optional[str] = None
+
+
+@dataclasses.dataclass(frozen=True)
+class App:
+    urls: t.List[t.Union[Endpoint, "App"]]
+    path: str
+    name: t.Optional[str] = None
+
+    @classmethod
+    def from_app(cls, app: t.Any, path: str = "/", name: t.Optional[str] = None) -> "App":
+        urls: t.List[t.Union[Endpoint, "App"]] = []
+        for route in app.routes:
+            try:
+                urls.append(App.from_app(route, path=route.path, name=route.name))
+            except AttributeError:
+                urls.append(Endpoint(route.path, route.app, route.name))
+
+        return cls(urls=urls, path=path, name=name)
+
+
+@dataclasses.dataclass(frozen=True)
 class ErrorContext:
     request: Request
-    error: Error
     environment: Environment
+    error: Error
 
     @classmethod
     def build(cls, request: "http.Request", exc: Exception) -> "ErrorContext":
         return cls(
             request=Request.from_request(request),
-            error=Error.from_exception(exc),
             environment=Environment.from_system(),
+            error=Error.from_exception(exc),
         )
+
+
+@dataclasses.dataclass(frozen=True)
+class NotFoundContext:
+    request: Request
+    environment: Environment
+    urls: App
+
+    @classmethod
+    def build(cls, request: "http.Request", app: "Flama") -> "NotFoundContext":
+        return cls(request=Request.from_request(request), environment=Environment.from_system(), urls=App.from_app(app))
