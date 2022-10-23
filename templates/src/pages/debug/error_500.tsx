@@ -5,25 +5,7 @@ import FlamaLogo from '@/components/FlamaLogo'
 import '@/styles/main.css'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-
-interface ErrorTitleProps {
-  error: string
-  method: string
-  path: string
-  description: string
-}
-
-function ErrorTitle({ error, method, path, description }: ErrorTitleProps) {
-  return (
-    <>
-      <div className="text-2xl">
-        <span className="font-bold text-brand-500">{error}</span> raised at <span className="font-bold">{method}</span>{' '}
-        <span className="font-mono">{path}</span>
-      </div>
-      <div className="text-xl font-medium">{description}</div>
-    </>
-  )
-}
+import ErrorTitle from '@/components/debug/ErrorTitle'
 
 function ServerErrorPage() {
   const error = {

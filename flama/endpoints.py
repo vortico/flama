@@ -38,7 +38,12 @@ class HTTPEndpoint:
 
         :return: List of allowed methods.
         """
-        return {method for method in http.Method.__members__.keys() if getattr(cls, method.lower(), None) is not None}
+        methods = {
+            method for method in http.Method.__members__.keys() if getattr(cls, method.lower(), None) is not None
+        }
+        if "GET" in methods:
+            methods.add("HEAD")
+        return methods
 
     @property
     def handler(self) -> t.Callable:

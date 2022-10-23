@@ -7,6 +7,7 @@ from pathlib import Path
 if t.TYPE_CHECKING:
     from flama import http
     from flama.applications import Flama
+    from flama.routing import Route, WebSocketRoute
 
 
 @dataclasses.dataclass(frozen=True)
@@ -57,9 +58,9 @@ class Frame:
             try:
                 relative_filename = filename.relative_to(sys_path)
                 break
-            except ValueError:
+            except ValueError:  # pragma: no cover # Just a safety mechanism
                 ...
-        else:
+        else:  # pragma: no cover # Just a safety mechanism
             raise ValueError(f"Filename '{filename}' not found in sys.path")
 
         try:
@@ -112,7 +113,33 @@ class Environment:
 class Endpoint:
     path: str
     endpoint: str
+    module: t.Optional[str]
+    file: str
+    line: int
     name: t.Optional[str] = None
+
+    @classmethod
+    def from_route(cls, route: t.Union["Route", "WebSocketRoute"]) -> "Endpoint":
+        handler = route.app.handler
+        module = inspect.getmodule(route.app.handler)
+        filename = Path(inspect.getfile(route.app.handler)).resolve()
+        for sys_path in sys.path:
+            try:
+                relative_filename = filename.relative_to(sys_path)
+                break
+            except ValueError:  # pragma: no cover # Just a safety mechanism
+                ...
+        else:  # pragma: no cover # Just a safety mechanism
+            raise ValueError(f"Filename '{filename}' not found in sys.path")
+
+        return cls(
+            path=route.path,
+            endpoint=handler.__name__,
+            module=module.__name__ if module else None,
+            file=str(relative_filename),
+            line=inspect.getsourcelines(route.app.handler)[1],
+            name=route.name,
+        )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -126,9 +153,9 @@ class App:
         urls: t.List[t.Union[Endpoint, "App"]] = []
         for route in app.routes:
             try:
-                urls.append(App.from_app(route, path=route.path, name=route.name))
+                urls.append(App.from_app(route.app, path=route.path, name=route.name))
             except AttributeError:
-                urls.append(Endpoint(route.path, route.app, route.name))
+                urls.append(Endpoint.from_route(route))
 
         return cls(urls=urls, path=path, name=name)
 

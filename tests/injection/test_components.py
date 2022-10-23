@@ -2,7 +2,7 @@ from inspect import Parameter
 
 import pytest
 
-from flama.injection.components import Component, Components
+from flama.injection.components import Component
 
 
 class Foo:
@@ -44,66 +44,3 @@ class TestCaseComponent:
     )
     def test_can_handle_parameter(self, foo_component, parameter, expected):
         assert foo_component.can_handle_parameter(parameter) == expected
-
-
-class TestCaseComponents:
-    @pytest.fixture
-    def components(self):
-        return Components()
-
-    def test_init(self, foo_component):
-        empty_components = Components()
-        components = Components([foo_component])
-
-        assert empty_components._components == []
-        assert components._components == [foo_component]
-
-    def test_get_set_del(self, components, foo_component, bar_component):
-        assert components._components == []
-        components.append(foo_component)
-        assert components._components == [foo_component]
-
-        components.__setitem__(0, bar_component)
-
-        assert components._components == [bar_component]
-        assert components.__getitem__(0) == bar_component
-
-        components.__delitem__(0)
-
-        assert components._components == []
-
-    def test_len(self, components, foo_component):
-        assert components.__len__() == 0
-
-        components.append(foo_component)
-
-        assert components.__len__() == 1
-
-    def test_add(self, components, foo_component, bar_component):
-        components.append(foo_component)
-
-        result = components + Components([bar_component])
-
-        assert result._components == [foo_component, bar_component]
-
-    def test_eq(self, components, foo_component):
-        components.append(foo_component)
-
-        assert components == Components([foo_component])
-        assert components == [foo_component]
-        assert components != foo_component
-
-    def test_repr(self, components, foo_component):
-        assert components.__repr__() == "Components([])"
-
-        components.append(foo_component)
-
-        assert components.__repr__() == f"Components({components._components})"
-
-    def test_insert(self, components, foo_component, bar_component):
-        assert components._components == []
-
-        components.insert(0, foo_component)
-        components.insert(0, bar_component)
-
-        assert components._components == [bar_component, foo_component]

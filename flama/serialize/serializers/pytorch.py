@@ -7,7 +7,7 @@ from flama.serialize.base import Serializer
 try:
     import torch
 except Exception:  # pragma: no cover
-    torch = None  # type: ignore
+    torch = None  # type: ignore[misc, assignment]
 
 
 class PyTorchSerializer(Serializer):

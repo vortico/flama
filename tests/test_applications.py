@@ -27,7 +27,7 @@ class TestCaseFlama:
 
     def test_components(self, app):
         assert isinstance(app.components, Components)
-        assert app.components == []
+        assert app.components == set()
 
     def test_recursion(self, component_mock, module_mock):
         root_app = Flama(schema=None, docs=None)
@@ -35,10 +35,10 @@ class TestCaseFlama:
 
         assert len(root_app.router.routes) == 1
         assert root_app.router.main_app == root_app
-        assert root_app.components == []
+        assert root_app.components == set()
         assert root_app.modules == DEFAULT_MODULES
 
-        leaf_app = Flama(schema=None, docs=None, components=[component_mock], modules=[module_mock])
+        leaf_app = Flama(schema=None, docs=None, components={component_mock}, modules={module_mock})
         leaf_app.add_get("/bar", lambda: {})
 
         assert len(leaf_app.router.routes) == 1
@@ -69,7 +69,7 @@ class TestCaseFlama:
 
     def test_declarative_recursion(self, component_mock, module_mock):
         leaf_routes = [Route("/bar", lambda: {})]
-        leaf_app = Flama(routes=leaf_routes, schema=None, docs=None, components=[component_mock], modules=[module_mock])
+        leaf_app = Flama(routes=leaf_routes, schema=None, docs=None, components={component_mock}, modules={module_mock})
         root_routes = [Route("/foo", lambda: {}), Mount("/app", app=leaf_app)]
         root_app = Flama(routes=root_routes, schema=None, docs=None)
 
