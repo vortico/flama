@@ -62,7 +62,7 @@ ipython = [
 isort = "^5.1"
 python-multipart = "^0.0.5"
 flake8 = "^5.0"
-black = "^22.3"
+black = { version = "^22.3", extras = ["d"]}
 uvicorn = {version = ">=0.18.3,<1.0.0", extras = ["standard"]}
 httpx = "^0.23.0"
 aiosqlite = ">=0.11.0,<1.0.0"
@@ -109,7 +109,7 @@ skip_glob = [
 ]
 
 [tool.mypy]
-python_version = "3.7"
+python_version = 3.7
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true

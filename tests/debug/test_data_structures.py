@@ -67,10 +67,17 @@ class TestCaseEnvironment:
 
 class TestCaseApp:
     def test_from_app(self):
-        foo_route = Route("/", lambda: None, name="foo")
-        bar_route = Route("/", lambda: None, name="bar")
+        def foo_handler():
+            ...
+
+        def bar_handler():
+            ...
+
         app = Flama(
-            routes=[foo_route, Mount("/subapp/", routes=[bar_route], name="subapp")],
+            routes=[
+                Route("/", foo_handler, name="foo"),
+                Mount("/subapp/", routes=[Route("/", bar_handler, name="bar")], name="subapp"),
+            ],
             schema=None,
             docs=None,
         )
@@ -81,11 +88,27 @@ class TestCaseApp:
             "name": None,
             "path": "/",
             "urls": [
-                {"path": "/", "endpoint": foo_route.app, "name": "foo"},
+                {
+                    "path": "/",
+                    "endpoint": "foo_handler",
+                    "module": "tests.debug.test_data_structures",
+                    "file": "tests/debug/test_data_structures.py",
+                    "line": 70,
+                    "name": "foo",
+                },
                 {
                     "name": "subapp",
                     "path": "/subapp",
-                    "urls": [{"path": "/", "endpoint": bar_route.app, "name": "bar"}],
+                    "urls": [
+                        {
+                            "path": "/",
+                            "module": "tests.debug.test_data_structures",
+                            "file": "tests/debug/test_data_structures.py",
+                            "line": 73,
+                            "endpoint": "bar_handler",
+                            "name": "bar",
+                        }
+                    ],
                 },
             ],
         }

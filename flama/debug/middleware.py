@@ -115,7 +115,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
             self._exception_handlers[exc_class] = handler
 
     def _get_handler(self, exc: Exception) -> "Handler":
-        if isinstance(exc, exceptions.HTTPException) and exc.status_code in self._status_handlers:
+        if isinstance(exc, starlette.exceptions.HTTPException) and exc.status_code in self._status_handlers:
             return self._status_handlers[exc.status_code]
         else:
             try:

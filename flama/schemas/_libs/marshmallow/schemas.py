@@ -34,7 +34,7 @@ class LimitOffsetMeta(marshmallow.Schema):
 
 
 class LimitOffset(marshmallow.Schema):
-    meta = marshmallow.fields.Nested(LimitOffsetMeta, required=True)
+    meta = marshmallow.fields.Nested(LimitOffsetMeta(), required=True)
     data = marshmallow.fields.List(marshmallow.fields.Dict(), required=True)
 
 
@@ -47,7 +47,7 @@ class PageNumberMeta(marshmallow.Schema):
 
 
 class PageNumber(marshmallow.Schema):
-    meta = marshmallow.fields.Nested(PageNumberMeta, required=True)
+    meta = marshmallow.fields.Nested(PageNumberMeta(), required=True)
     data = marshmallow.fields.List(marshmallow.fields.Dict(), required=True)
 
 

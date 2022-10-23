@@ -44,14 +44,14 @@ class TestCaseModule:
 class TestCaseModules:
     @pytest.fixture
     def foo_module(self):
-        mock = MagicMock(spec=Module)
+        mock = MagicMock(Module)
         mock.name = "foo"
         mock.__name__ = "FooModule"
         return mock
 
     @pytest.fixture
     def bar_module(self):
-        mock = MagicMock(spec=Module)
+        mock = MagicMock(Module)
         mock.name = "bar"
         mock.__name__ = "BarModule"
         return mock
@@ -65,7 +65,8 @@ class TestCaseModules:
 
         assert foo_module.call_args_list == [call(app, "foo", debug=True)]
         assert bar_module.call_args_list == [call(app, "foo", debug=True)]
-        assert modules._modules == {"foo": foo_module(), "bar": bar_module()}
+        assert modules == {"foo": foo_module(), "bar": bar_module()}
+        assert modules == [foo_module().__class__, bar_module().__class__]
 
     def test_init_collision(self, foo_module, app):
         class FooModule2(Module):
@@ -75,15 +76,3 @@ class TestCaseModules:
             ConfigurationError, match=r"Module name 'foo' is used by multiple modules \(FooModule, FooModule2\)"
         ):
             Modules([foo_module, FooModule2], app)
-
-    def test_len(self, modules):
-        assert len(modules) == 2
-
-    def test_getitem(self, modules, foo_module):
-        assert modules["foo"] == foo_module()
-
-    def test_iter(self, modules):
-        assert set(modules) == set(modules._modules)
-
-    def test_getattr(self, modules, foo_module):
-        assert modules.foo == foo_module()
