@@ -105,7 +105,6 @@ def clear_metadata():
 )
 def app(request):
     return Flama(
-        components=[],
         title="Foo",
         version="0.1",
         description="Bar",

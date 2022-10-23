@@ -122,7 +122,7 @@ class TestCaseHTTPEndpoint:
             assert endpoint.dispatch.call_args_list == [call()]
 
     def test_allowed_methods(self, endpoint):
-        assert endpoint.allowed_methods() == {"GET"}
+        assert endpoint.allowed_methods() == {"GET", "HEAD"}
 
     def test_handler(self, endpoint):
         endpoint.state["request"].scope["method"] = "GET"

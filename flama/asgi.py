@@ -66,7 +66,7 @@ class QueryParamComponent(Component):
     def resolve(self, parameter: Parameter, query_params: types.QueryParams) -> types.QueryParam:
         name = parameter.name
         if name not in query_params:
-            return None  # type: ignore[return-value]
+            return None  # type: ignore[return-value]  # Cannot change signature because of dependency injection
         return types.QueryParam(query_params[name])
 
 
@@ -79,7 +79,7 @@ class HeaderComponent(Component):
     def resolve(self, parameter: Parameter, headers: types.Headers) -> types.Header:
         name = parameter.name.replace("_", "-")
         if name not in headers:
-            return None  # type: ignore[return-value]
+            return None  # type: ignore[return-value]  # Cannot change signature because of dependency injection
         return types.Header(headers[name])
 
 
