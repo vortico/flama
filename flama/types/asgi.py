@@ -1,6 +1,9 @@
 import typing as t
 
-__all__ = ["Scope", "Message", "Receive", "Send", "App"]
+if t.TYPE_CHECKING:
+    from flama import endpoints
+
+__all__ = ["Scope", "Message", "Receive", "Send", "AppClass", "AppFunction", "App", "HTTPHandler", "WebSocketHandler"]
 
 
 Scope = t.NewType("Scope", t.MutableMapping[str, t.Any])
@@ -17,6 +20,13 @@ class Send(t.Protocol):
         ...
 
 
-class App(t.Protocol):
+class AppClass(t.Protocol):
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         ...
+
+
+AppFunction = t.Callable
+App = t.Union[AppClass, AppFunction]
+
+HTTPHandler = t.Union[AppFunction, "endpoints.HTTPEndpoint", t.Type["endpoints.HTTPEndpoint"]]
+WebSocketHandler = t.Union[AppFunction, "endpoints.WebSocketEndpoint", t.Type["endpoints.WebSocketEndpoint"]]

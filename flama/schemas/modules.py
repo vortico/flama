@@ -8,7 +8,7 @@ from flama.modules import Module
 from flama.schemas.generator import SchemaGenerator
 
 if typing.TYPE_CHECKING:
-    from flama import Flama
+    from flama.applications import Flama
 
 __all__ = ["SchemaModule"]
 

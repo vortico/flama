@@ -1,11 +1,11 @@
 import inspect
 import sys
-import typing
+import typing as t
 
 if sys.version_info >= (3, 9):  # PORT: Remove when stop supporting 3.8 # pragma: no cover
-    from collections.abc import MutableSequence
+    List = list
 else:  # pragma: no cover
-    from typing import MutableSequence
+    from typing import List
 
 __all__ = ["Component", "Components"]
 
@@ -58,36 +58,12 @@ class Component:
         return str(self.__class__.__name__)
 
 
-class Components(MutableSequence[Component]):
-    def __init__(self, components: typing.Optional[typing.Sequence[Component]] = None):
-        self._components: typing.List[Component] = list(components) if components is not None else []
-
-    def __setitem__(self, i: int, o: Component) -> None:  # type: ignore[override]
-        self._components.__setitem__(i, o)
-
-    def __delitem__(self, i: int) -> None:  # type: ignore[override]
-        self._components.__delitem__(i)
-
-    def __getitem__(self, i: int) -> Component:  # type: ignore[override]
-        return self._components.__getitem__(i)
-
-    def __len__(self) -> int:
-        return self._components.__len__()
-
-    def __add__(self, other: "Components") -> "Components":
-        return Components(list(dict.fromkeys(self._components + list(other))))
+class Components(List[Component]):
+    def __init__(self, components: t.Optional[t.Iterable[Component]] = None):
+        super().__init__(components or [])
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, Components):
-            return self._components == other._components
-
         try:
-            return self._components == list(other)  # type: ignore
+            return super().__eq__(list(other))  # type: ignore[arg-type]
         except TypeError:
             return False
-
-    def __repr__(self):
-        return f"Components({self._components})"
-
-    def insert(self, index: int, value: Component) -> None:
-        self._components.insert(index, value)

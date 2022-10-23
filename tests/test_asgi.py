@@ -11,7 +11,7 @@ class TestCaseMethodComponent:
             return {"method": str(method)}
 
     @pytest.mark.parametrize(
-        "path,method,expected",
+        ["path", "method", "expected"],
         [
             pytest.param("/method/", "get", {"method": "GET"}, id="get"),
             pytest.param("/method/", "post", {"method": "POST"}, id="post"),
@@ -30,7 +30,7 @@ class TestCaseURLComponent:
             return {"url": str(url), "components": url.components}
 
     @pytest.mark.parametrize(
-        "path,method,expected",
+        ["path", "method", "expected"],
         [
             pytest.param(
                 "http://example.com/url/",
@@ -92,7 +92,7 @@ class TestCaseSchemeComponent:
             return {"scheme": scheme}
 
     @pytest.mark.parametrize(
-        "path,method,expected",
+        ["path", "method", "expected"],
         [
             pytest.param("http://example.com/scheme/", "get", {"scheme": "http"}, id="http"),
             pytest.param("https://example.com/scheme/", "get", {"scheme": "https"}, id="https"),
@@ -111,7 +111,7 @@ class TestCaseHostComponent:
             return {"host": host}
 
     @pytest.mark.parametrize(
-        "path,method,expected",
+        ["path", "method", "expected"],
         [
             pytest.param("http://example.com/host/", "get", {"host": "example.com"}, id="host"),
             pytest.param("http://example.com:123/host/", "get", {"host": "example.com"}, id="host_and_port"),
@@ -130,7 +130,7 @@ class TestCasePortComponent:
             return {"port": port}
 
     @pytest.mark.parametrize(
-        "path,method,expected",
+        ["path", "method", "expected"],
         [
             pytest.param("http://example.com/port/", "get", {"port": 80}, id="http"),
             pytest.param("https://example.com/port/", "get", {"port": 443}, id="https"),
@@ -151,7 +151,7 @@ class TestCasePathComponent:
             return {"path": path}
 
     @pytest.mark.parametrize(
-        "path,method,expected",
+        ["path", "method", "expected"],
         [
             pytest.param("/path/", "get", {"path": "/path/"}),
         ],
@@ -169,7 +169,7 @@ class TestCaseQueryStringComponent:
             return {"query_string": query_string}
 
     @pytest.mark.parametrize(
-        "path,method,expected",
+        ["path", "method", "expected"],
         [
             pytest.param("/query_string/", "get", {"query_string": ""}, id="empty"),
             pytest.param("/query_string/?a=1&a=2&b=3", "get", {"query_string": "a=1&a=2&b=3"}, id="params"),
@@ -188,7 +188,7 @@ class TestCaseQueryParamsComponent:
             return {"query_params": dict(query_params)}
 
     @pytest.mark.parametrize(
-        "path,method,expected",
+        ["path", "method", "expected"],
         [
             pytest.param("/query_params/", "get", {"query_params": {}}, id="empty"),
             pytest.param("/query_params/?a=1&a=2&b=3", "get", {"query_params": {"a": "2", "b": "3"}}, id="params"),
@@ -207,7 +207,7 @@ class TestCaseQueryParamComponent:
             return {"page": page}
 
     @pytest.mark.parametrize(
-        "path,method,expected",
+        ["path", "method", "expected"],
         [
             pytest.param("/page_query_param/", "get", {"page": None}, id="empty"),
             pytest.param("/page_query_param/?page=123", "get", {"page": "123"}, id="once"),
@@ -296,7 +296,7 @@ class TestCaseHeaderComponent:
             return {"missing": missing}
 
     @pytest.mark.parametrize(
-        "path,method,expected",
+        ["path", "method", "expected"],
         [
             pytest.param("/accept_header/", "get", {"accept": "*/*"}, id="accept_header"),
             pytest.param("/missing_header/", "get", {"missing": None}, id="missing_header"),
@@ -315,7 +315,7 @@ class TestCaseBodyComponent:
             return {"body": body.decode("utf-8")}
 
     @pytest.mark.parametrize(
-        "path,method,request_kwargs,expected",
+        ["path", "method", "request_kwargs", "expected"],
         [
             pytest.param("/body/", "post", {"data": "content"}, {"body": "content"}),
         ],

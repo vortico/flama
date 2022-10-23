@@ -1,5 +1,5 @@
 import inspect
-import typing
+import typing as t
 
 import marshmallow
 from apispec import APISpec
@@ -9,51 +9,60 @@ from flama.schemas._libs.marshmallow.fields import MAPPING
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 
-if typing.TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from apispec.ext.marshmallow import OpenAPIConverter
 
 __all__ = ["MarshmallowAdapter"]
 
 
 class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
-    def build_field(self, field_type: typing.Type, required: bool, default: typing.Any) -> marshmallow.fields.Field:
-        kwargs: typing.Dict[str, typing.Any] = {"required": required} if required else {"load_default": default}
-        return MAPPING[field_type](**kwargs)
+    def build_field(self, field_type: t.Type, required: bool, default: t.Any) -> marshmallow.fields.Field:
+        field_class = MAPPING[field_type]
 
-    def build_schema(  # type: ignore[override]
+        if required:
+            return field_class(required=required)
+
+        return field_class(load_default=default)
+
+    def build_schema(
         self,
-        schema: typing.Type[marshmallow.Schema] = None,
-        pagination: typing.Type[marshmallow.Schema] = None,
+        schema: t.Optional[t.Union[marshmallow.Schema, t.Type[marshmallow.Schema]]] = None,
+        pagination: t.Optional[t.Union[marshmallow.Schema, t.Type[marshmallow.Schema]]] = None,
         paginated_schema_name: str = None,
         name: str = "Schema",
-        fields: typing.Dict[str, marshmallow.fields.Field] = None,
-    ) -> typing.Type[marshmallow.Schema]:
-        if schema and not pagination:
-            return type(name, (schema.__class__ if isinstance(schema, marshmallow.Schema) else schema,), {})
+        fields: t.Optional[t.Dict[str, marshmallow.fields.Field]] = None,
+    ) -> t.Type[marshmallow.Schema]:
+        schema_fields: t.Dict[str, t.Union[marshmallow.fields.Field, t.Type]]
+        parent_schema: t.Optional[marshmallow.Schema] = None
+        if inspect.isclass(schema):
+            parent_schema = schema()
 
         if pagination:
             assert paginated_schema_name, "Parameter 'pagination_schema_name' must be given to create a paginated field"
-            data_item_schema = marshmallow.fields.Nested(schema) if schema else marshmallow.fields.Raw()
-            return type(
-                paginated_schema_name,
-                (pagination,),
-                {"data": marshmallow.fields.List(data_item_schema, required=True)},
-            )
+            pagination_schema = pagination() if inspect.isclass(pagination) else pagination
+            data_field = marshmallow.fields.Nested(parent_schema) if parent_schema else marshmallow.fields.Raw()
+            schema_fields = {
+                **pagination_schema.fields,
+                "data": marshmallow.fields.List(data_field, required=True),
+            }
+            name = paginated_schema_name
+        else:
+            schema_fields = {
+                **(parent_schema.fields if parent_schema else {}),
+                **(fields or {}),
+            }
 
-        if fields is None:
-            fields = {}
-
-        return type(name, (marshmallow.Schema,), fields.copy())
+        return marshmallow.Schema.from_dict(schema_fields, name=name)
 
     def validate(
         self,
-        schema: typing.Union[typing.Type[marshmallow.Schema], marshmallow.Schema],
-        values: typing.Dict[str, typing.Any],
-    ) -> typing.Dict[str, typing.Any]:
+        schema: t.Union[t.Type[marshmallow.Schema], marshmallow.Schema],
+        values: t.Dict[str, t.Any],
+    ) -> t.Dict[str, t.Any]:
         schema_instance = schema() if inspect.isclass(schema) else schema
 
         try:
-            data: typing.Dict[str, typing.Any] = schema_instance.load(values, unknown=marshmallow.EXCLUDE)
+            data: t.Dict[str, t.Any] = schema_instance.load(values, unknown=marshmallow.EXCLUDE)
         except marshmallow.ValidationError as exc:
             raise SchemaValidationError(errors=exc.normalized_messages())
 
@@ -61,8 +70,8 @@ class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
 
     def load(
         self,
-        schema: typing.Union[typing.Type[marshmallow.Schema], marshmallow.Schema],
-        value: typing.Dict[str, typing.Any],
+        schema: t.Union[t.Type[marshmallow.Schema], marshmallow.Schema],
+        value: t.Dict[str, t.Any],
     ) -> marshmallow.Schema:
         schema_instance = schema() if inspect.isclass(schema) else schema
 
@@ -72,13 +81,13 @@ class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
 
     def dump(
         self,
-        schema: typing.Union[typing.Type[marshmallow.Schema], marshmallow.Schema],
-        value: typing.Dict[str, typing.Any],
-    ) -> typing.Dict[str, typing.Any]:
+        schema: t.Union[t.Type[marshmallow.Schema], marshmallow.Schema],
+        value: t.Dict[str, t.Any],
+    ) -> t.Dict[str, t.Any]:
         schema_instance = schema() if inspect.isclass(schema) else schema
 
         try:
-            data: typing.Dict[str, typing.Any] = schema_instance.dump(value)
+            data: t.Dict[str, t.Any] = schema_instance.dump(value)
         except Exception as exc:
             raise SchemaValidationError(errors=str(exc))
 
@@ -86,14 +95,14 @@ class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
 
     def to_json_schema(
         self,
-        schema: typing.Union[
-            typing.Type[marshmallow.Schema],
-            typing.Type[marshmallow.fields.Field],
+        schema: t.Union[
+            t.Type[marshmallow.Schema],
+            t.Type[marshmallow.fields.Field],
             marshmallow.Schema,
             marshmallow.fields.Field,
         ],
-    ) -> typing.Dict[str, typing.Any]:
-        json_schema: typing.Dict[str, typing.Any]
+    ) -> t.Dict[str, t.Any]:
+        json_schema: t.Dict[str, t.Any]
         try:
             plugin = MarshmallowPlugin(
                 schema_name_resolver=lambda x: resolve_schema_cls(x).__name__  # type: ignore[no-any-return]
@@ -123,20 +132,20 @@ class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
 
         return json_schema
 
-    def unique_schema(  # type: ignore[override]
-        self, schema: typing.Union[typing.Type[marshmallow.Schema], marshmallow.Schema]
-    ) -> typing.Type[marshmallow.Schema]:
+    def unique_schema(
+        self, schema: t.Union[marshmallow.Schema, t.Type[marshmallow.Schema]]
+    ) -> t.Type[marshmallow.Schema]:
         if isinstance(schema, marshmallow.Schema):
             return schema.__class__
 
         return schema
 
-    def is_schema(self, schema: typing.Union[marshmallow.Schema, typing.Type[marshmallow.Schema]]) -> bool:
+    def is_schema(self, schema: t.Union[marshmallow.Schema, t.Type[marshmallow.Schema]]) -> bool:
         return isinstance(schema, marshmallow.Schema) or (
             inspect.isclass(schema) and issubclass(schema, marshmallow.Schema)
         )
 
-    def is_field(self, obj: typing.Union[marshmallow.fields.Field, typing.Type[marshmallow.fields.Field]]) -> bool:
+    def is_field(self, obj: t.Union[marshmallow.fields.Field, t.Type[marshmallow.fields.Field]]) -> bool:
         return isinstance(obj, marshmallow.fields.Field) or (
             inspect.isclass(obj) and issubclass(obj, marshmallow.fields.Field)
         )

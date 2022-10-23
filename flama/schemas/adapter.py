@@ -12,12 +12,12 @@ class Adapter(t.Generic[Schema, Field], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def build_schema(
         self,
-        schema: t.Optional[Schema] = None,
-        pagination: t.Optional[Schema] = None,
+        schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
+        pagination: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
         paginated_schema_name: t.Optional[str] = None,
         name: str = "Schema",
         fields: t.Optional[t.Dict[str, Field]] = None,
-    ) -> Schema:
+    ) -> t.Union[Schema, t.Type[Schema]]:
         ...
 
     @abc.abstractmethod
@@ -37,7 +37,7 @@ class Adapter(t.Generic[Schema, Field], metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def unique_schema(self, schema: Schema) -> Schema:
+    def unique_schema(self, schema: Schema) -> t.Union[Schema, t.Type[Schema]]:
         ...
 
     @abc.abstractmethod

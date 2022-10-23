@@ -13,7 +13,7 @@ from flama.debug.middleware import ExceptionMiddleware, ServerErrorMiddleware
 try:
     from starlette.middleware.sessions import SessionMiddleware
 except Exception:
-    SessionMiddleware = None  # type: ignore
+    SessionMiddleware = None  # type: ignore[misc, assignment]
 
 if typing.TYPE_CHECKING:
     from flama import types

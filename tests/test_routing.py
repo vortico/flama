@@ -93,7 +93,7 @@ class TestCaseRouter:
 
         endpoint = Foo()
 
-        with pytest.raises(ValueError, match=f"Invalid endpoint: {endpoint!s}"):
+        with pytest.raises(AssertionError, match="Endpoint must be a callable or an HTTPEndpoint subclass"):
             router.add_route(path="/", endpoint=endpoint)
 
     def test_add_websocket_route(self, router):
@@ -138,7 +138,7 @@ class TestCaseRouter:
 
         endpoint = Foo()
 
-        with pytest.raises(ValueError, match=f"Invalid endpoint: {endpoint!s}"):
+        with pytest.raises(AssertionError, match="Endpoint must be a callable or a WebSocketEndpoint subclass"):
             router.add_websocket_route(path="/", endpoint=endpoint)
 
     def test_mount_app(self, app, app_mock):
@@ -208,7 +208,8 @@ class TestCaseRouter:
         mount_with_routes_router = mount_with_routes_route.app
         assert mount_with_routes_router.main_app == app
         assert mount_with_routes_router.components == Components([component_mock])
-        assert app.components == Components([component_mock])
+        # As the component is repeated, it should appear twice
+        assert app.components == Components([component_mock, component_mock])
         # Check second-level routes are created an initialized
         assert len(mount_with_routes_route.routes) == 2
         assert mount_with_routes_route.routes[0].path == "/"
@@ -225,7 +226,8 @@ class TestCaseRouter:
         mount_with_app_router = mount_with_app_route.app
         assert mount_with_app_router.main_app == app
         assert mount_with_app_router.components == Components([component_mock])
-        assert app.components == Components([component_mock])
+        # As the component is repeated, it should appear twice
+        assert app.components == Components([component_mock, component_mock])
         # Check second-level routes are created an initialized
         assert len(mount_with_app_route.routes) == 2
         assert mount_with_app_route.routes[0].path == "/"

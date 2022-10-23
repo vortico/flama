@@ -1,16 +1,16 @@
 import abc
 import sys
-import typing
+import typing as t
 from collections import defaultdict
 
 if sys.version_info >= (3, 9):  # PORT: Remove when stop supporting 3.8 # pragma: no cover
-    from collections.abc import Mapping
+    Dict = dict
 else:
-    from typing import Mapping
+    from typing import Dict
 
 from flama.exceptions import ConfigurationError
 
-if typing.TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from flama import Flama
 
 __all__ = ["Module", "Modules"]
@@ -20,7 +20,7 @@ class _BaseModule:
     name: str
 
     def __init__(self, app: "Flama", *args, **kwargs):
-        self.app = app
+        self.app: "Flama" = app
 
     async def on_startup(self):
         ...
@@ -40,9 +40,9 @@ class Module(_BaseModule, metaclass=_ModuleMeta):
     ...
 
 
-class Modules(Mapping[str, Module]):
-    def __init__(self, modules: typing.Optional[typing.List[typing.Type[Module]]], app: "Flama", *args, **kwargs):
-        modules_map: typing.Dict[str, typing.List[typing.Type[Module]]] = defaultdict(list)
+class Modules(Dict[str, Module]):
+    def __init__(self, modules: t.Optional[t.List[t.Type[Module]]], app: "Flama", *args, **kwargs):
+        modules_map: t.Dict[str, t.List[t.Type[Module]]] = defaultdict(list)
         for module in modules or []:
             modules_map[module.name].append(module)
 
@@ -51,30 +51,10 @@ class Modules(Mapping[str, Module]):
                 f"Module name '{name}' is used by multiple modules ({', '.join([x.__name__ for x in mods])})"
             )
 
-        self._modules: typing.Dict[str, Module] = {
-            name: mods[0](app, *args, **kwargs) for name, mods in modules_map.items()
-        }
-
-    def __len__(self) -> int:
-        return self._modules.__len__()
-
-    def __getitem__(self, k: str) -> Module:
-        return self._modules.__getitem__(k)
-
-    def __iter__(self):
-        return self._modules.__iter__()
-
-    def __getattr__(self, item: str) -> Module:
-        return self.__getitem__(item)
+        super().__init__({name: mods[0](app, *args, **kwargs) for name, mods in modules_map.items()})
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, Modules):
-            return self._modules == other._modules
+        if isinstance(other, (list, tuple, set)):
+            return {module.__class__ for module in self.values()} == set(other)  # type: ignore
 
-        try:
-            return [module.__class__ for module in self._modules.values()] == list(other)  # type: ignore
-        except TypeError:
-            return False
-
-    def __repr__(self) -> str:
-        return f"Modules({self._modules})"
+        return super().__eq__(other)

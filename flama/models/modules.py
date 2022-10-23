@@ -27,7 +27,7 @@ class ModelsModule(Module):
 
         resource = Resource()
         self.app.resources.add_resource(path, resource)  # type: ignore[attr-defined]
-        self.app.add_component(resource.component)  # type: ignore[arg-type]
+        self.app.add_component(resource.component)
 
     def model(self, path: str, *args, **kwargs) -> typing.Callable:
         """Decorator for ModelResource classes for adding them to the application.
@@ -38,7 +38,7 @@ class ModelsModule(Module):
 
         def decorator(resource: typing.Type[ModelResource]) -> typing.Type[ModelResource]:
             self.app.resources.add_resource(path, resource, *args, **kwargs)  # type: ignore[attr-defined]
-            self.app.add_component(resource.component)  # type: ignore[arg-type]
+            self.app.add_component(resource.component)
             return resource
 
         return decorator

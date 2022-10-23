@@ -5,7 +5,7 @@ from starlette.applications import Starlette
 from starlette.datastructures import State
 
 from flama import asgi, http, types, validation, websockets
-from flama.injection import Injector
+from flama.injection import Components, Injector
 from flama.lifespan import Lifespan
 from flama.middleware import Middleware, MiddlewareStack
 from flama.models.modules import ModelsModule
@@ -17,12 +17,11 @@ from flama.schemas.modules import SchemaModule
 from flama.sqlalchemy import SQLAlchemyModule
 
 if t.TYPE_CHECKING:
-    from flama.injection import Component, Components
+    from flama.injection import Component
     from flama.modules import Module
     from flama.routing import BaseRoute, Mount, WebSocketRoute
 
 __all__ = ["Flama"]
-
 
 DEFAULT_MODULES: t.List[t.Type["Module"]] = [SQLAlchemyModule, ResourcesModule, SchemaModule, ModelsModule]
 
@@ -31,8 +30,8 @@ class Flama(Starlette):
     def __init__(
         self,
         routes: t.Sequence[t.Union["BaseRoute", "Mount"]] = None,
-        components: t.Optional[t.List["Component"]] = None,
-        modules: t.Optional[t.List[t.Type["Module"]]] = None,
+        components: t.Optional[t.Set["Component"]] = None,
+        modules: t.Optional[t.Set[t.Type["Module"]]] = None,
         middleware: t.Optional[t.Sequence["Middleware"]] = None,
         debug: bool = False,
         on_startup: t.Sequence[t.Callable] = None,
@@ -84,7 +83,7 @@ class Flama(Starlette):
         )
 
         # Setup schema library
-        self.modules.schema.set_schema_library(schema_library)  # type: ignore[attr-defined]
+        self.schema.set_schema_library(schema_library)
 
         # Reference to paginator from within app
         self.paginator = paginator
@@ -105,18 +104,17 @@ class Flama(Starlette):
                 "websocket_message": types.Message,
                 "websocket_encoding": types.Encoding,
                 "websocket_code": types.Code,
-            },
-            components=self.components + asgi.ASGI_COMPONENTS + validation.VALIDATION_COMPONENTS,
+            }
         )
 
-    def __getattr__(self, item: str) -> "Module":
+    def __getattr__(self, item: str) -> t.Any:
         """Retrieve a module by its name.
 
         :param item: Module name.
         :return: Module.
         """
         try:
-            return self.modules.__getattr__(item)
+            return self.modules.__getitem__(item)
         except KeyError:
             return None  # type: ignore[return-value]
 
@@ -135,7 +133,7 @@ class Flama(Starlette):
     def add_route(  # type: ignore[override]
         self,
         path: t.Optional[str] = None,
-        endpoint: t.Optional[t.Callable] = None,
+        endpoint: t.Optional[types.HTTPHandler] = None,
         methods: t.Optional[t.List[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
@@ -156,7 +154,7 @@ class Flama(Starlette):
 
     def route(  # type: ignore[override]
         self, path: str, methods: t.List[str] = None, name: str = None, include_in_schema: bool = True
-    ) -> t.Callable:  # pragma: no cover
+    ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:  # pragma: no cover
         """Decorator version for registering a new HTTP route in this router under given path.
 
         :param path: URL path.
@@ -170,7 +168,7 @@ class Flama(Starlette):
     def add_websocket_route(  # type: ignore[override]
         self,
         path: t.Optional[str] = None,
-        endpoint: t.Optional[t.Callable] = None,
+        endpoint: t.Optional[types.WebSocketHandler] = None,
         name: t.Optional[str] = None,
         route: t.Optional["WebSocketRoute"] = None,
     ) -> None:  # pragma: no cover
@@ -183,7 +181,9 @@ class Flama(Starlette):
         """
         self.router.add_websocket_route(path=path, endpoint=endpoint, name=name, route=route)
 
-    def websocket_route(self, path: str, name: str = None) -> t.Callable:  # type: ignore[override]  # pragma: no cover
+    def websocket_route(  # type: ignore[override]
+        self, path: str, name: str = None
+    ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:  # pragma: no cover
         """Decorator version for registering a new websocket route in this router under given path.
 
         :param path: URL path.
@@ -198,13 +198,13 @@ class Flama(Starlette):
 
         :return: Injector instance.
         """
-        components = self.components + asgi.ASGI_COMPONENTS + validation.VALIDATION_COMPONENTS
+        components = Components(self.components + asgi.ASGI_COMPONENTS + validation.VALIDATION_COMPONENTS)
         if self._injector.components != components:
             self._injector.components = components
         return self._injector
 
     @property
-    def components(self) -> "Components":
+    def components(self) -> Components:
         """Components register.
 
         :return: Components register.

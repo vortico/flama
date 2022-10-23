@@ -8,8 +8,8 @@ try:
 
     metadata = sqlalchemy.MetaData()
 except Exception:  # pragma: no cover
-    sqlalchemy = None  # type: ignore
-    metadata = None  # type: ignore
+    sqlalchemy = None
+    metadata = None
 
 if typing.TYPE_CHECKING:
     from flama.applications import Flama

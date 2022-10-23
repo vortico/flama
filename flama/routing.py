@@ -1,7 +1,8 @@
+import enum
+import functools
 import inspect
 import logging
 import typing as t
-from functools import wraps
 from http import HTTPStatus
 
 import starlette.routing
@@ -19,6 +20,136 @@ if t.TYPE_CHECKING:
 __all__ = ["Mount", "Route", "Router", "WebSocketRoute", "NotFound"]
 
 logger = logging.getLogger(__name__)
+
+EndpointType = enum.Enum("EndpointType", ["http", "websocket"])
+
+
+class EndpointWrapper(types.AppClass):
+    def __init__(
+        self,
+        handler: t.Union[t.Callable, t.Type[endpoints.HTTPEndpoint], t.Type[endpoints.WebSocketEndpoint]],
+        endpoint_type: EndpointType,
+    ):
+        """Wraps a function or endpoint into ASGI application.
+
+        :param handler: Function or endpoint.
+        """
+
+        self.handler = handler
+        functools.update_wrapper(self, self.handler)
+        self.call_function: types.App = {
+            (EndpointType.http, False): self._http_function,
+            (EndpointType.http, True): self._http_endpoint,
+            (EndpointType.websocket, False): self._websocket_function,
+            (EndpointType.websocket, True): self._websocket_endpoint,
+        }[(endpoint_type, inspect.isclass(self.handler))]
+
+    def __get__(self, instance, owner):
+        return functools.partial(self.__call__, instance)
+
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        await self.call_function(scope, receive, send)
+
+    async def _http_function(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        """Performs an HTTP request.
+
+        :param scope: ASGI scope.
+        :param receive: ASGI receive.
+        :param send: ASGI send.
+        :return: None.
+        """
+        app = scope["app"]
+        route, route_scope = app.router.get_route_from_scope(scope)
+        state = {
+            "scope": scope,
+            "receive": receive,
+            "send": send,
+            "exc": None,
+            "app": app,
+            "path_params": route_scope["path_params"],
+            "route": route,
+            "request": http.Request(scope, receive=receive),
+        }
+
+        try:
+            injected_func = await app.injector.inject(self.handler, **state)
+            response = await concurrency.run(injected_func)
+            response = self._build_api_response(self.handler, response)
+        except Exception:
+            logger.exception("Error performing request")
+            raise
+
+        await response(scope, receive, send)
+
+    async def _http_endpoint(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        """Performs an HTTP request.
+
+        :param scope: ASGI scope.
+        :param receive: ASGI receive.
+        :param send: ASGI send.
+        :return: None.
+        """
+        endpoint = self.handler(scope, receive, send)
+
+        response = await endpoint
+        response = self._build_api_response(self.handler, response)
+
+        await response(scope, receive, send)
+
+    async def _websocket_function(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        """Performs a websocket request.
+
+        :param scope: ASGI scope.
+        :param receive: ASGI receive.
+        :param send: ASGI send.
+        :return: None.
+        """
+        app = scope["app"]
+        route, route_scope = app.router.get_route_from_scope(scope)
+        state = {
+            "scope": scope,
+            "receive": receive,
+            "send": send,
+            "exc": None,
+            "app": app,
+            "path_params": route_scope["path_params"],
+            "route": route,
+            "websocket": websockets.WebSocket(scope, receive, send),
+            "websocket_encoding": None,
+            "websocket_code": None,
+            "websocket_message": None,
+        }
+
+        injected_func = await app.injector.inject(self.handler, **state)
+        await injected_func(**scope.get("kwargs", {}))
+
+    async def _websocket_endpoint(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        """Performs a websocket request.
+
+        :param scope: ASGI scope.
+        :param receive: ASGI receive.
+        :param send: ASGI send.
+        :return: None.
+        """
+        await self.handler(scope, receive, send)
+
+    def _build_api_response(self, handler: t.Callable, response: http.Response) -> http.Response:
+        """Build an API response given a handler and the current response.
+
+        It infers the output schema from the handler signature or just wraps the response in a APIResponse object.
+
+        :param handler: The handler in charge of the request.
+        :param response: The current response.
+        :return: An API response.
+        """
+        if isinstance(response, (dict, list)):
+            response = http.APIResponse(content=response, schema=get_output_schema(handler))
+        elif isinstance(response, str):
+            response = http.APIResponse(content=response)
+        elif response is None:
+            response = http.APIResponse(content="")
+
+        return response
 
 
 class BaseRoute(RouteParametersMixin, starlette.routing.BaseRoute):
@@ -77,7 +208,7 @@ class Route(BaseRoute, starlette.routing.Route):
     def __init__(
         self,
         path: str,
-        endpoint: t.Union[t.Callable, t.Type[endpoints.HTTPEndpoint]],
+        endpoint: t.Union[types.AppFunction, endpoints.HTTPEndpoint, t.Type[endpoints.HTTPEndpoint]],
         main_app: t.Optional["Flama"] = None,
         **kwargs,
     ):
@@ -87,97 +218,29 @@ class Route(BaseRoute, starlette.routing.Route):
         :param endpoint: HTTP endpoint or function.
         :param main_app: Flama app.
         """
+        assert (inspect.isclass(endpoint) and issubclass(endpoint, endpoints.HTTPEndpoint)) or callable(
+            endpoint
+        ), "Endpoint must be a callable or an HTTPEndpoint subclass"
+
         super().__init__(path, endpoint=endpoint, **kwargs)
 
         if main_app is not None:
             self.main_app = main_app
 
-        # Replace function with another wrapper that uses the injector
-        if inspect.isclass(endpoint) and issubclass(endpoint, endpoints.HTTPEndpoint):
-            self.app = self._endpoint_wrapper(endpoint)  # type: ignore[assignment]
-            if self.methods is None:
-                self.methods = endpoint.allowed_methods()
-        elif callable(endpoint):
-            self.app = self._function_wrapper(endpoint)  # type: ignore[assignment]
-        else:
-            raise ValueError(f"Invalid endpoint: {endpoint!s}")
-
-    def _build_api_response(self, handler: t.Callable, response: "http.Response") -> "http.Response":
-        """Build an API response given a handler and the current response.
-
-        It infers the output schema from the handler signature or just wraps the response in a APIResponse object.
-
-        :param handler: The handler in charge of the request.
-        :param response: The current response.
-        :return: An API response.
-        """
-        if isinstance(response, (dict, list)):
-            response = http.APIResponse(content=response, schema=get_output_schema(handler))
-        elif isinstance(response, str):
-            response = http.APIResponse(content=response)
-        elif response is None:
-            response = http.APIResponse(content="")
-
-        return response
-
-    def _function_wrapper(self, handler: t.Callable) -> types.App:
-        """Wraps an HTTP function into ASGI application.
-
-        :param handler: HTTP function.
-        :return: ASGI application.
-        """
-
-        @wraps(handler)
-        async def _app(scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-            app = scope["app"]
-            route, route_scope = app.router.get_route_from_scope(scope)
-            state = {
-                "scope": scope,
-                "receive": receive,
-                "send": send,
-                "exc": None,
-                "app": app,
-                "path_params": route_scope["path_params"],
-                "route": route,
-                "request": http.Request(scope, receive=receive),
-            }
-
+        if self.methods is None:
             try:
-                injected_func = await app.injector.inject(handler, **state)
-                response = await concurrency.run(injected_func)
-                response = self._build_api_response(handler, response)
-            except Exception:
-                logger.exception("Error performing request")
-                raise
+                self.methods = endpoint.allowed_methods()  # type: ignore[union-attr]
+            except AttributeError:
+                raise AssertionError("Must define valid http methods")
 
-            await response(scope, receive, send)
-
-        return _app
-
-    def _endpoint_wrapper(self, endpoint_class: t.Type[endpoints.HTTPEndpoint]) -> types.App:
-        """Wraps an HTTP endpoint into ASGI application.
-
-        :param endpoint_class: HTTP endpoint.
-        :return: ASGI application.
-        """
-
-        @wraps(endpoint_class)
-        async def _app(scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-            endpoint = endpoint_class(scope, receive, send)
-
-            response = await endpoint
-            response = self._build_api_response(endpoint.handler, response)
-
-            await response(scope, receive, send)
-
-        return _app
+        self.app: EndpointWrapper = EndpointWrapper(endpoint, EndpointType.http)  # type: ignore[assignment]
 
 
 class WebSocketRoute(BaseRoute, starlette.routing.WebSocketRoute):
     def __init__(
         self,
         path: str,
-        endpoint: t.Union[t.Callable, t.Type[endpoints.WebSocketEndpoint]],
+        endpoint: t.Union[t.Callable, endpoints.WebSocketEndpoint, t.Type[endpoints.WebSocketEndpoint]],
         main_app: "Flama" = None,
         **kwargs,
     ):
@@ -187,61 +250,16 @@ class WebSocketRoute(BaseRoute, starlette.routing.WebSocketRoute):
         :param endpoint: Websocket endpoint or function.
         :param main_app: Flama app.
         """
+        assert (inspect.isclass(endpoint) and issubclass(endpoint, endpoints.WebSocketEndpoint)) or callable(
+            endpoint
+        ), "Endpoint must be a callable or a WebSocketEndpoint subclass"
+
         super().__init__(path, endpoint=endpoint, **kwargs)
 
         if main_app is not None:
             self.main_app = main_app
 
-        # Replace function with another wrapper that uses the injector
-        if inspect.isclass(endpoint) and issubclass(endpoint, endpoints.WebSocketEndpoint):
-            self.app = self._endpoint_wrapper(endpoint)  # type: ignore[assignment]
-        elif callable(endpoint):
-            self.app = self._function_wrapper(endpoint)  # type: ignore[assignment]
-        else:
-            raise ValueError(f"Invalid endpoint: {endpoint!s}")
-
-    def _function_wrapper(self, handler: t.Callable) -> types.App:
-        """Wraps a websocket function into ASGI application.
-
-        :param handler: Websocket function.
-        :return: ASGI application.
-        """
-
-        @wraps(handler)
-        async def _app(scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-            app = scope["app"]
-            route, route_scope = app.router.get_route_from_scope(scope)
-            state = {
-                "scope": scope,
-                "receive": receive,
-                "send": send,
-                "exc": None,
-                "app": app,
-                "path_params": route_scope["path_params"],
-                "route": route,
-                "websocket": websockets.WebSocket(scope, receive, send),
-                "websocket_encoding": None,
-                "websocket_code": None,
-                "websocket_message": None,
-            }
-
-            injected_func = await app.injector.inject(handler, **state)
-            await injected_func(**scope.get("kwargs", {}))
-
-        return _app
-
-    def _endpoint_wrapper(self, endpoint_class: t.Type[endpoints.WebSocketEndpoint]) -> types.App:
-        """Wraps a Websocket endpoint into ASGI application.
-
-        :param endpoint_class: Websocket endpoint.
-        :return: ASGI application.
-        """
-
-        @wraps(endpoint_class)
-        async def _app(scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-            await endpoint_class(scope, receive, send)
-
-        return _app
+        self.app: EndpointWrapper = EndpointWrapper(endpoint, EndpointType.websocket)  # type: ignore[assignment]
 
 
 class Mount(BaseRoute, starlette.routing.Mount):
@@ -251,7 +269,7 @@ class Mount(BaseRoute, starlette.routing.Mount):
         main_app: "Flama" = None,
         app: types.App = None,
         routes: t.Sequence[BaseRoute] = None,
-        components: t.Sequence[Component] = None,
+        components: t.Optional[t.Set[Component]] = None,
         name: str = None,
     ):
         if app is None:
@@ -271,13 +289,13 @@ class Router(starlette.routing.Router):
     def __init__(
         self,
         main_app: "Flama" = None,
-        components: t.Sequence["Component"] = None,
+        components: t.Optional[t.Set["Component"]] = None,
         routes: t.Sequence[BaseRoute] = None,
         lifespan: t.Optional["Lifespan"] = None,
         *args,
         **kwargs,
     ):
-        self._components = Components([*(components or [])])
+        self._components = Components(components.copy() if components else set())
         super().__init__(routes=routes, lifespan=lifespan, *args, **kwargs)  # type: ignore[misc]
         self.lifespan: t.Optional["Lifespan"]  # type: ignore[assignment]
         self.routes: t.List[BaseRoute] = list(self.routes)  # type: ignore[assignment]
@@ -313,8 +331,9 @@ class Router(starlette.routing.Router):
 
     @property
     def components(self) -> Components:
-        return self._components + Components(
-            [
+        return Components(
+            self._components
+            + [
                 component
                 for route in self.routes
                 if hasattr(route, "app") and hasattr(route.app, "components")  # type: ignore[attr-defined]
@@ -336,7 +355,7 @@ class Router(starlette.routing.Router):
     def add_route(
         self,
         path: t.Optional[str] = None,
-        endpoint: t.Optional[t.Callable] = None,
+        endpoint: t.Optional[types.HTTPHandler] = None,
         methods: t.List[str] = None,
         name: str = None,
         include_in_schema: bool = True,
@@ -374,7 +393,7 @@ class Router(starlette.routing.Router):
 
     def route(
         self, path: str, methods: t.List[str] = None, name: str = None, include_in_schema: bool = True
-    ) -> t.Callable:
+    ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
         :param path: URL path.
@@ -384,7 +403,7 @@ class Router(starlette.routing.Router):
         :return: Decorated route.
         """
 
-        def decorator(func: t.Callable) -> t.Callable:
+        def decorator(func: types.HTTPHandler) -> types.HTTPHandler:
             self.add_route(path, func, methods=methods, name=name, include_in_schema=include_in_schema)
             return func
 
@@ -393,7 +412,7 @@ class Router(starlette.routing.Router):
     def add_websocket_route(
         self,
         path: t.Optional[str] = None,
-        endpoint: t.Optional[t.Callable] = None,
+        endpoint: t.Optional[types.WebSocketHandler] = None,
         name: str = None,
         route: t.Optional[WebSocketRoute] = None,
     ):
@@ -418,7 +437,9 @@ class Router(starlette.routing.Router):
 
         self.routes.append(route)
 
-    def websocket_route(self, path: str, name: str = None) -> t.Callable:
+    def websocket_route(
+        self, path: str, name: str = None
+    ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
         :param path: URL path.
@@ -426,7 +447,7 @@ class Router(starlette.routing.Router):
         :return: Decorated route.
         """
 
-        def decorator(func: t.Callable) -> t.Callable:
+        def decorator(func: types.WebSocketHandler) -> types.WebSocketHandler:
             self.add_websocket_route(path, func, name=name)
             return func
 
@@ -464,7 +485,7 @@ class Router(starlette.routing.Router):
         return NotFound(), None
 
 
-class NotFound(types.App):
+class NotFound(types.AppClass):
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if scope["type"] == "websocket":
             websocket_close = websockets.Close()
