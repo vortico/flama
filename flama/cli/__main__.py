@@ -1,8 +1,8 @@
 import click
 
-from flama.cli.run import run
-from flama.cli.serve import serve
-from flama.cli.start import start
+from flama.cli.commands.run import command as run_command
+from flama.cli.commands.serve import command as serve_command
+from flama.cli.commands.start import command as start_command
 
 
 @click.group()
@@ -18,9 +18,9 @@ def cli():
     ...
 
 
-cli.add_command(run)
-cli.add_command(serve)
-cli.add_command(start)
+cli.add_command(run_command)
+cli.add_command(serve_command)
+cli.add_command(start_command)
 
 
 if __name__ == "__main__":

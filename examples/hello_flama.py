@@ -1,11 +1,9 @@
-import uvicorn
+import flama
 
-from flama import Flama
-
-app = Flama(
+app = flama.Flama(
     title="Hello-🔥",
     version="1.0",
-    description="My first API",
+    description="My first API"
 )
 
 
@@ -28,4 +26,4 @@ def home():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    flama.run(flama_app=app, server_host="0.0.0.0", server_port=8080)
