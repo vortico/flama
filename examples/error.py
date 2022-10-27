@@ -1,8 +1,8 @@
 import uvicorn
 
-from flama import Flama, Router
+import flama
 
-app = Flama(
+app = flama.Flama(
     title="Hello-🔥",
     version="1.0",
     description="My first API",
@@ -28,7 +28,7 @@ def home():
     return {"message": "Hello 🔥"}
 
 
-error_app = Router()
+error_app = flama.Router()
 
 
 class FooException(Exception):
@@ -36,7 +36,7 @@ class FooException(Exception):
 
 
 @error_app.route("/500")
-def error_500(param: int):
+def error_500():
     """
     tags:
         - Error
@@ -53,6 +53,24 @@ def error_500(param: int):
 
 app.mount("/error", app=error_app)
 
+# Mount a complex urls tree to illustrate in 404 error page
+bar_app = flama.Router()
+
+
+@bar_app.route("/foobar/")
+def foobar():
+    ...
+
+
+@bar_app.route("/barfoo/")
+def barfoo():
+    ...
+
+
+foo_app = flama.Router()
+foo_app.mount("/bar/", bar_app)
+
+app.mount("/foo/", foo_app)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

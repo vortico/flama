@@ -179,8 +179,8 @@ class ErrorContext:
 class NotFoundContext:
     request: Request
     environment: Environment
-    urls: App
+    app: App
 
     @classmethod
     def build(cls, request: "http.Request", app: "Flama") -> "NotFoundContext":
-        return cls(request=Request.from_request(request), environment=Environment.from_system(), urls=App.from_app(app))
+        return cls(request=Request.from_request(request), environment=Environment.from_system(), app=App.from_app(app))

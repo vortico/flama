@@ -1,10 +1,9 @@
-const path = require('path');
-const fg = require('fast-glob');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-const InlineChunkHtmlPlugin = require('react-dev-utils/InlineChunkHtmlPlugin');
-const HTMLInlineCSSWebpackPlugin =
-  require('html-inline-css-webpack-plugin').default;
-const RemovePlugin = require('remove-files-webpack-plugin');
+const path = require('path')
+const fg = require('fast-glob')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
+const InlineChunkHtmlPlugin = require('react-dev-utils/InlineChunkHtmlPlugin')
+const HTMLInlineCSSWebpackPlugin = require('html-inline-css-webpack-plugin').default
+const RemovePlugin = require('remove-files-webpack-plugin')
 
 const files = fg
   .sync('src/pages/**/*.ts?(x)', {
@@ -15,13 +14,12 @@ const files = fg
   .map((x) => ({
     name: x.replace('src/pages/', '').replace(/\.tsx?/, ''),
     path: path.resolve(__dirname, x),
-  }));
+  }))
 
-const output = path.resolve(__dirname, '..', 'flama', 'templates');
+const output = path.resolve(__dirname, '..', 'flama', 'templates')
 
 module.exports = {
-  mode:
-    process.env.NODE_ENV !== undefined ? process.env.NODE_ENV : 'production',
+  mode: process.env.NODE_ENV !== undefined ? process.env.NODE_ENV : 'production',
   entry: files.reduce(
     (a, { name, path }) => ({
       ...a,
@@ -62,7 +60,7 @@ module.exports = {
           scriptLoading: 'module',
           publicPath: '',
           cache: false,
-        });
+        })
       })
     )
     .concat([
@@ -75,7 +73,7 @@ module.exports = {
             {
               folder: output,
               method: (x) => {
-                return new RegExp(/.*\.runtime.js/).test(x);
+                return new RegExp(/.*\.runtime.js/).test(x)
               },
               recursive: true,
             },
@@ -86,4 +84,4 @@ module.exports = {
   watchOptions: {
     ignored: /node_modules/,
   },
-};
+}
