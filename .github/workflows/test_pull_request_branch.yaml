@@ -19,6 +19,10 @@ jobs:
           fetch-depth: 0
       - name: Commit Linter
         uses: wagoid/commitlint-github-action@v4
+      - name: Setup node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16
       - id: install
         name: Install requirements
         run: |
