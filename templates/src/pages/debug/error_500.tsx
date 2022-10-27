@@ -1,36 +1,16 @@
-import Environment from '@/components/debug/Environment'
-import Request from '@/components/debug/Request'
-import Traceback from '@/components/debug/Traceback'
+import EnvironmentTable, { Environment } from '@/components/debug/EnvironmentTable'
+import ErrorTitle from '@/components/debug/ErrorTitle'
+import ErrorTraceback, { Error } from '@/components/debug/ErrorTraceback'
+import RequestTable, { Request } from '@/components/debug/RequestTable'
 import FlamaLogo from '@/components/FlamaLogo'
 import '@/styles/main.css'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import ErrorTitle from '@/components/debug/ErrorTitle'
 
 function ServerErrorPage() {
-  const error = {
-    error: '||@ error.error @||',
-    description: '||@ error.description @||',
-    traceback: JSON.parse('||@ error.traceback|safe_json @||'),
-  }
-
-  const request = {
-    path: '||@ request.path @||',
-    method: '||@ request.method @||',
-    clientHost: '||@ request.client.host @||',
-    clientPort: '||@ request.client.port @||',
-    pathParams: JSON.parse('||@ request.params.path|safe_json @||'),
-    queryParams: JSON.parse('||@ request.params.query|safe_json @||'),
-    headers: JSON.parse('||@ request.headers|safe_json @||'),
-    cookies: JSON.parse('||@ request.cookies|safe_json @||'),
-  }
-
-  const environment = {
-    pythonVersion: '||@ environment.python_version @||',
-    python: '||@ environment.python @||',
-    platform: '||@ environment.platform @||',
-    path: JSON.parse('||@ environment.path|safe_json @||'),
-  }
+  const error = new Error()
+  const request = new Request()
+  const environment = new Environment()
 
   return (
     <>
@@ -55,7 +35,7 @@ function ServerErrorPage() {
             <div className="mx-auto max-w-8xl px-10">
               <h2 className="text-2xl font-semibold text-primary-700">Traceback</h2>
               <div className="mt-10 w-full">
-                <Traceback traceback={error.traceback} />
+                <ErrorTraceback error={error} />
               </div>
             </div>
           </div>
@@ -67,16 +47,7 @@ function ServerErrorPage() {
             </div>
           </div>
           <div className="mx-auto mt-10 w-full max-w-8xl px-10">
-            <Request
-              path={request.path}
-              method={request.method}
-              clientHost={request.clientHost}
-              clientPort={request.clientPort}
-              queryParams={request.queryParams}
-              pathParams={request.pathParams}
-              headers={request.headers}
-              cookies={request.cookies}
-            />
+            <RequestTable request={request} />
           </div>
         </section>
         <section id="environment">
@@ -86,12 +57,7 @@ function ServerErrorPage() {
             </div>
           </div>
           <div className="mx-auto my-10 w-full max-w-8xl px-10">
-            <Environment
-              pythonVersion={environment.pythonVersion}
-              python={environment.python}
-              platform={environment.platform}
-              path={environment.path}
-            />
+            <EnvironmentTable environment={environment} />
           </div>
         </section>
       </main>
