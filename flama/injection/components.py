@@ -62,7 +62,7 @@ class Components(List[Component]):
     def __init__(self, components: t.Optional[t.Iterable[Component]] = None):
         super().__init__(components or [])
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: t.Any) -> bool:
         try:
             return super().__eq__(list(other))  # type: ignore[arg-type]
         except TypeError:

@@ -1,9 +1,15 @@
-from unittest.mock import AsyncMock, call, patch
+import sys
+from unittest.mock import call, patch
 
 import pytest
 import starlette.websockets
 
 from flama import websockets
+
+if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
+    from unittest.mock import AsyncMock
+else:  # pragma: no cover
+    from asyncmock import AsyncMock
 
 
 class TestCaseWebSocket:
@@ -93,6 +99,9 @@ class TestCaseClose:
     def close(self):
         return websockets.Close()
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     async def test_call(self, close, asgi_scope, asgi_receive, asgi_send):
         with patch.object(starlette.websockets.WebSocketClose, "__call__", new=AsyncMock()) as super_call_mock:
             await close(asgi_scope, asgi_receive, asgi_send)

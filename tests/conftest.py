@@ -1,8 +1,8 @@
 import asyncio
+import sys
 import typing
 from contextlib import ExitStack
 from time import sleep
-from unittest.mock import AsyncMock
 
 import marshmallow
 import pytest
@@ -13,6 +13,11 @@ from faker import Faker
 from flama import Flama
 from flama.sqlalchemy import metadata
 from flama.testclient import TestClient
+
+if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
+    from unittest.mock import AsyncMock
+else:  # pragma: no cover
+    from asyncmock import AsyncMock
 
 DATABASE_URL = "sqlite+aiosqlite://"
 

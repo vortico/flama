@@ -1,10 +1,6 @@
 import flama
 
-app = flama.Flama(
-    title="Hello-🔥",
-    version="1.0",
-    description="My first API"
-)
+app = flama.Flama(title="Hello-🔥", version="1.0", description="My first API")
 
 
 @app.route("/")
