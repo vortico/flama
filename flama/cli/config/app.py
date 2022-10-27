@@ -65,7 +65,7 @@ class _AppContext:
         return str(self._path.parent) if self._path else None
 
     @property
-    def app(self) -> str:
+    def app(self) -> t.Union[str, "Flama"]:
         return f"{self._module}:{self._app}" if isinstance(self._app, str) else self._app
 
 
@@ -77,10 +77,10 @@ class Model:
 
 
 class App(metaclass=abc.ABCMeta):
-    @property
+    @property  # type: ignore
     @abc.abstractmethod
     @contextlib.contextmanager
-    def context(self) -> _AppContext:
+    def context(self) -> t.Generator[_AppContext, None, None]:
         ...
 
     @classmethod
@@ -98,9 +98,9 @@ class App(metaclass=abc.ABCMeta):
 class FlamaApp(App):
     app: "Flama"
 
-    @property
+    @property  # type: ignore
     @contextlib.contextmanager
-    def context(self) -> _AppContext:
+    def context(self) -> t.Generator[_AppContext, None, None]:
         yield _AppContext(app=self.app)
 
 
@@ -121,9 +121,9 @@ class DictApp(App):
             data["models"] = [Model(**model) for model in data.pop("models")]
         return cls(**data)  # type: ignore[arg-type]
 
-    @property
+    @property  # type: ignore
     @contextlib.contextmanager
-    def context(self) -> _AppContext:
+    def context(self) -> t.Generator[_AppContext, None, None]:
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".py") as f:
             env = jinja2.Environment(loader=jinja2.PackageLoader("flama", "cli/templates"))
             f.write(env.get_template("app.py.j2").render(**dataclasses.asdict(self)))
@@ -132,9 +132,9 @@ class DictApp(App):
 
 
 class StrApp(str, App):
-    @property
+    @property  # type: ignore
     @contextlib.contextmanager
-    def context(self) -> _AppContext:
+    def context(self) -> t.Generator[_AppContext, None, None]:
         module, app = self.split(":")
         yield _AppContext(app=app, module=module)
 

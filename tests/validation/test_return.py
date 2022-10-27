@@ -20,7 +20,7 @@ class BodyParam(marshmallow.Schema):
 
 
 class TestCaseReturnValidation:
-    @pytest.fixture(
+    @pytest.fixture(  # noqa: C901
         scope="class", params=[pytest.param(True, id="endpoints"), pytest.param(False, id="function views")]
     )
     def app(self, request):  # noqa: C901

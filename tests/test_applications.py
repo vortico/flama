@@ -1,4 +1,5 @@
-from unittest.mock import AsyncMock, MagicMock, call, patch
+import sys
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from starlette.middleware import Middleware
@@ -8,6 +9,11 @@ from flama.applications import DEFAULT_MODULES
 from flama.injection.components import Components
 from flama.injection.injector import Injector
 from flama.middleware import MiddlewareStack
+
+if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
+    from unittest.mock import AsyncMock
+else:  # pragma: no cover
+    from asyncmock import AsyncMock
 
 
 class TestCaseFlama:
@@ -118,6 +124,9 @@ class TestCaseFlama:
             assert middleware.cls == FooMiddleware
             assert middleware.options == options
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     async def test_call(self, app, asgi_scope, asgi_receive, asgi_send):
         with patch.object(app, "middlewares", new=AsyncMock(spec=MiddlewareStack)):
             await app(asgi_scope, asgi_receive, asgi_send)

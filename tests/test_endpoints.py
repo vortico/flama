@@ -1,13 +1,20 @@
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
+import sys
+from unittest.mock import MagicMock, PropertyMock, call, patch
 
 import marshmallow
 import pytest
 import starlette.websockets
 import typesystem
+import websockets.utils
 
 from flama import Component, exceptions, types, websockets
 from flama.applications import Flama
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
+
+if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
+    from unittest.mock import AsyncMock
+else:  # pragma: no cover
+    from asyncmock import AsyncMock
 
 
 class Puppy:
@@ -115,6 +122,9 @@ class TestCaseHTTPEndpoint:
                 "request": request_mock(),
             }
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     def test_await(self, endpoint):
         with patch.object(endpoint, "dispatch"):
             endpoint.__await__()
@@ -128,6 +138,9 @@ class TestCaseHTTPEndpoint:
         endpoint.state["request"].scope["method"] = "GET"
         assert endpoint.handler == endpoint.get
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     async def test_dispatch(self, app_mock, endpoint):
         injected_mock = MagicMock()
         app_mock.injector.inject = AsyncMock(return_value=injected_mock)
@@ -273,6 +286,9 @@ class TestCaseWebSocketEndpoint:
                 "websocket_message": None,
             }
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     def test_await(self, endpoint):
         with patch.object(endpoint, "dispatch"):
             endpoint.__await__()
@@ -336,6 +352,9 @@ class TestCaseWebSocketEndpoint:
         assert endpoint.state["websocket_code"] == result_code
         assert endpoint.state["websocket_message"] == result_message
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     async def test_on_connect(self, endpoint):
         websocket = MagicMock(websockets.WebSocket)
 
@@ -343,11 +362,17 @@ class TestCaseWebSocketEndpoint:
 
         assert websocket.accept.call_args_list == [call()]
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     async def test_on_receive(self, endpoint):
         websocket = MagicMock(websockets.WebSocket)
 
         await endpoint.on_receive(websocket, b"foo")
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     async def test_on_disconnect(self, endpoint):
         websocket = MagicMock(websockets.WebSocket)
 

@@ -1,4 +1,5 @@
 import dataclasses
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -31,6 +32,9 @@ class TestCaseRequest:
 
 
 class TestCaseError:
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     def test_from_exception(self):
         try:
             raise ValueError("Foo")
@@ -46,26 +50,28 @@ class TestCaseError:
         assert frame == {
             "filename": "tests/debug/test_data_structures.py",
             "function": "test_from_exception",
-            "line": 36,
+            "line": 40,
             "vendor": None,
         }
         assert result == {"description": "Foo", "error": "ValueError"}
 
 
 class TestCaseEnvironment:
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     def test_from_system(self):
         result = dataclasses.asdict(Environment.from_system())
 
         path = result.pop("path", None)
         assert path
-        assert result == {
-            "platform": "linux",
-            "python": "/home/perdy/Desarrollo/perdy/flama/.venv/bin/python",
-            "python_version": "3.10.8 (main, Oct 11 2022, 20:04:56) [GCC 12.2.0]",
-        }
+        assert list(result.keys()) == ["platform", "python", "python_version"]
 
 
 class TestCaseApp:
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     def test_from_app(self):
         def foo_handler():
             ...
@@ -93,7 +99,7 @@ class TestCaseApp:
                     "endpoint": "foo_handler",
                     "module": "tests.debug.test_data_structures",
                     "file": "tests/debug/test_data_structures.py",
-                    "line": 70,
+                    "line": 76,
                     "name": "foo",
                 },
                 {
@@ -104,7 +110,7 @@ class TestCaseApp:
                             "path": "/",
                             "module": "tests.debug.test_data_structures",
                             "file": "tests/debug/test_data_structures.py",
-                            "line": 73,
+                            "line": 79,
                             "endpoint": "bar_handler",
                             "name": "bar",
                         }
