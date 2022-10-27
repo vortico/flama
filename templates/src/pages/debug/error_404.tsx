@@ -1,32 +1,16 @@
-import Environment from '@/components/debug/Environment'
-import Request from '@/components/debug/Request'
+import EnvironmentTable, { Environment } from '@/components/debug/EnvironmentTable'
+import ErrorTitle from '@/components/debug/ErrorTitle'
+import RequestTable, { Request } from '@/components/debug/RequestTable'
+import AppURLTree, { RootApp } from '@/components/debug/URLTree'
 import FlamaLogo from '@/components/FlamaLogo'
 import '@/styles/main.css'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import URLTree from '@/components/debug/URLTree'
-import ErrorTitle from '@/components/debug/ErrorTitle'
 
 function ServerErrorPage() {
-  const urls = JSON.parse('||@ urls|safe_json @||')
-
-  const request = {
-    path: '||@ request.path @||',
-    method: '||@ request.method @||',
-    clientHost: '||@ request.client.host @||',
-    clientPort: '||@ request.client.port @||',
-    pathParams: JSON.parse('||@ request.params.path|safe_json @||'),
-    queryParams: JSON.parse('||@ request.params.query|safe_json @||'),
-    headers: JSON.parse('||@ request.headers|safe_json @||'),
-    cookies: JSON.parse('||@ request.cookies|safe_json @||'),
-  }
-
-  const environment = {
-    pythonVersion: '||@ environment.python_version @||',
-    python: '||@ environment.python @||',
-    platform: '||@ environment.platform @||',
-    path: JSON.parse('||@ environment.path|safe_json @||'),
-  }
+  const rootApp = new RootApp()
+  const request = new Request()
+  const environment = new Environment()
 
   return (
     <>
@@ -41,12 +25,12 @@ function ServerErrorPage() {
         </div>
       </header>
       <main>
-        <section id="traceback">
+        <section id="url-tree">
           <div className="mt-10 py-8">
             <div className="mx-auto max-w-8xl px-10">
               <h2 className="text-2xl font-semibold text-primary-700">Application URLs</h2>
               <div className="mt-10 w-full">
-                <URLTree urls={urls} />
+                <AppURLTree root={rootApp} />
               </div>
             </div>
           </div>
@@ -58,16 +42,7 @@ function ServerErrorPage() {
             </div>
           </div>
           <div className="mx-auto mt-10 w-full max-w-8xl px-10">
-            <Request
-              path={request.path}
-              method={request.method}
-              clientHost={request.clientHost}
-              clientPort={request.clientPort}
-              queryParams={request.queryParams}
-              pathParams={request.pathParams}
-              headers={request.headers}
-              cookies={request.cookies}
-            />
+            <RequestTable request={request} />
           </div>
         </section>
         <section id="environment">
@@ -77,12 +52,7 @@ function ServerErrorPage() {
             </div>
           </div>
           <div className="mx-auto my-10 w-full max-w-8xl px-10">
-            <Environment
-              pythonVersion={environment.pythonVersion}
-              python={environment.python}
-              platform={environment.platform}
-              path={environment.path}
-            />
+            <EnvironmentTable environment={environment} />
           </div>
         </section>
       </main>

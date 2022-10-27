@@ -19,22 +19,16 @@ export default function Window({ title, contentRef, className, children }: Windo
       {...(state === 'full' && { 'aria-modal': true, role: 'dialog' })}
     >
       {state === 'full' && (
-        <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm dark:bg-primary-900/80"
-          aria-hidden="true"
-          onClick={onMinimize}
-        />
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm" aria-hidden="true" onClick={onMinimize} />
       )}
       <div
         className={`h-full overflow-hidden rounded-xl bg-primary-800 shadow-xl ${
-          state === 'closed' ? 'relative max-h-[31px] dark:bg-primary-900/70' : ''
-        } ${
-          state === 'full'
-            ? 'fixed inset-x-4 inset-y-[5vh] max-h-[90vh] dark:bg-primary-900 sm:inset-x-6 md:inset-x-8'
-            : ''
-        } ${state === 'open' ? 'relative max-h-full dark:bg-primary-900/70' : ''} ${className || ''}`}
+          state === 'closed' ? 'relative max-h-[31px]' : ''
+        } ${state === 'full' ? 'fixed inset-x-4 inset-y-[5vh] max-h-[90vh] sm:inset-x-6 md:inset-x-8' : ''} ${
+          state === 'open' ? 'relative max-h-full' : ''
+        } ${className || ''}`}
       >
-        <div className="flex h-8 w-full items-center justify-between border-b border-primary-500 px-4 text-primary-400 dark:border-primary-500/30 dark:text-primary-500">
+        <div className="flex h-8 w-full items-center justify-between border-b border-primary-500 px-4 text-primary-400">
           <span className="truncate font-semibold text-primary-400">{title}</span>
           <div className="flex items-center justify-end gap-x-2">
             <button className="h-4 w-4" onClick={onMinimize} aria-label="Minimize Window">

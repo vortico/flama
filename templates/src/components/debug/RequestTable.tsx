@@ -1,28 +1,40 @@
 import React from 'react'
 
-interface RequestProps {
+export class Request {
   path: string
   method: string
+  clientHost: string
+  clientPort: number
   pathParams: Map<string, string>
   queryParams: Map<string, string>
   headers: Map<string, string>
   cookies: Map<string, string>
-  clientHost?: string
-  clientPort?: string
+
+  constructor() {
+    this.path = '||@ request.path @||'
+    this.method = '||@ request.method @||'
+    this.clientHost = '||@ request.client.host @||'
+    this.clientPort = parseInt('||@ request.client.port @||')
+    this.pathParams = new Map<string, string>(
+      Object.entries(JSON.parse('||@ request.params.path|safe_json @||') as object)
+    )
+    this.queryParams = new Map<string, string>(
+      Object.entries(JSON.parse('||@ request.params.query|safe_json @||') as object)
+    )
+    this.headers = new Map<string, string>(Object.entries(JSON.parse('||@ request.headers|safe_json @||') as object))
+    this.cookies = new Map<string, string>(Object.entries(JSON.parse('||@ request.cookies|safe_json @||') as object))
+  }
 }
 
-export default function Request({
-  path,
-  method,
-  pathParams,
-  queryParams,
-  headers,
-  cookies,
-  clientHost,
-  clientPort,
-}: RequestProps) {
+export interface RequestTableProps extends React.ComponentProps<'table'> {
+  request: Request
+}
+
+export default function RequestTable({ request, ...props }: RequestTableProps) {
+  const { path, method, pathParams, queryParams, headers, cookies, clientHost, clientPort } = request
+
   return (
-    <table className="w-full table-fixed border-b-2 border-t-2 border-primary-400">
+    <table className="w-full table-fixed border-b-2 border-t-2 border-primary-400" {...props}>
       <tbody className="text-left">
         <tr className="border-b border-primary-400">
           <th className="w-48 p-2">Path</th>

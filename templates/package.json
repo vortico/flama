@@ -1,6 +1,6 @@
 {
   "author": {
-    "name": "Jos\u00e9 Antonio Perdiguero L\u00f3pez",
+    "name": "José Antonio Perdiguero López",
     "url": "https://perdy.io"
   },
   "bugs": {
@@ -11,25 +11,27 @@
     "prism-react-renderer": "^1.3.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "tailwindcss": "^3.1"
+    "tailwindcss": "^3.2.1"
   },
   "devDependencies": {
-    "@babel/core": "^7.19.0",
-    "@babel/preset-env": "^7.19.0",
+    "@babel/core": "^7.19.6",
+    "@babel/preset-env": "^7.19.4",
     "@babel/preset-react": "^7.18.6",
     "@babel/preset-typescript": "^7.18.6",
     "@types/react": "^18.0.21",
     "@types/react-dom": "^18.0.6",
-    "@types/tailwindcss": "^3.1.0",
-    "@typescript-eslint/eslint-plugin": "^5.38.1",
-    "@typescript-eslint/parser": "^5.38.1",
+    "@typescript-eslint/eslint-plugin": "^5.40.1",
+    "@typescript-eslint/parser": "^5.40.1",
     "babel-loader": "^8.2.5",
     "css-loader": "^6.7.1",
-    "eslint-import-resolver-typescript": "^3.5.1",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-import-resolver-typescript": "^3.5.2",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-prettier": "^4.2.1",
     "fast-glob": "^3.2.12",
     "html-inline-css-webpack-plugin": "^1.11.1",
-    "html-webpack-plugin": "^5.5",
-    "postcss": "^8.4.16",
+    "html-webpack-plugin": "^5.5.0",
+    "postcss": "^8.4.18",
     "postcss-loader": "^7.0.1",
     "postcss-preset-env": "^7.8.2",
     "prettier-plugin-tailwindcss": "^0.1.13",
@@ -38,7 +40,7 @@
     "style-loader": "^3.3.1",
     "ts-loader": "^9.4.1",
     "typescript": "^4.8.4",
-    "webpack": "^5.74",
+    "webpack": "^5.74.0",
     "webpack-cli": "^4.10.0"
   },
   "homepage": "https://flama.dev",
@@ -51,11 +53,21 @@
     "printWidth": 120
   },
   "eslintConfig": {
+    "settings": {
+      "import/resolver": {
+        "typescript": {}
+      }
+    },
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "project": "./tsconfig.json",
+      "tsconfigRootDir": "./"
+    },
     "extends": [
       "eslint:recommended",
       "plugin:import/recommended",
       "plugin:@typescript-eslint/recommended",
-      "next/core-web-vitals",
+      "plugin:@typescript-eslint/recommended-requiring-type-checking",
       "prettier"
     ],
     "rules": {
