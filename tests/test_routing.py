@@ -1,4 +1,5 @@
-from unittest.mock import AsyncMock, MagicMock, call, patch
+import sys
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -6,6 +7,11 @@ from flama import endpoints, exceptions, http
 from flama.applications import Flama
 from flama.injection import Component, Components
 from flama.routing import Mount, NotFound, Route, Router, WebSocketRoute
+
+if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
+    from unittest.mock import AsyncMock
+else:  # pragma: no cover
+    from asyncmock import AsyncMock
 
 
 class TestCaseRouter:
@@ -334,6 +340,9 @@ class TestCaseRouter:
         assert route_scope is None
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+)  # PORT: Remove when stop supporting 3.7
 class TestCaseNotFound:
     @pytest.fixture
     def not_found(self):

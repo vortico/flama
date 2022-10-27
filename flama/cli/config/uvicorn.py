@@ -19,6 +19,9 @@ from uvicorn.config import (
 )
 from uvicorn.main import HTTP_CHOICES, INTERFACE_CHOICES, LEVEL_CHOICES, LIFESPAN_CHOICES, LOOP_CHOICES, WS_CHOICES
 
+if t.TYPE_CHECKING:
+    from flama.applications import Flama
+
 __all__ = ["options", "Uvicorn"]
 
 decorators = (
@@ -321,7 +324,9 @@ class Uvicorn:
     reload_delay: float = 0.25
     workers: t.Optional[int] = None
     env_file: t.Optional[t.Union[str, os.PathLike]] = None
-    log_config: t.Optional[t.Union[t.Dict[str, t.Any], str]] = dataclasses.field(default_factory=lambda: LOGGING_CONFIG)
+    log_config: t.Optional[t.Union[t.Dict[str, t.Any], str]] = dataclasses.field(
+        default_factory=lambda: LOGGING_CONFIG.copy()  # type: ignore[no-any-return]
+    )
     log_level: t.Optional[t.Union[str, int]] = None
     access_log: bool = True
     proxy_headers: bool = True
@@ -346,7 +351,7 @@ class Uvicorn:
     factory: bool = False
     h11_max_incomplete_event_size: int = DEFAULT_MAX_INCOMPLETE_EVENT_SIZE
 
-    def run(self, app: str):
+    def run(self, app: t.Union[str, "Flama"]):
         uvicorn.run(app, **dataclasses.asdict(self))
 
 

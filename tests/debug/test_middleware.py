@@ -1,4 +1,5 @@
-from unittest.mock import AsyncMock, MagicMock, call, patch
+import sys
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 import starlette.exceptions
@@ -7,6 +8,11 @@ from flama import exceptions, http, types, websockets
 from flama.applications import Flama
 from flama.debug.data_structures import ErrorContext
 from flama.debug.middleware import BaseErrorMiddleware, ExceptionMiddleware, ServerErrorMiddleware
+
+if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
+    from unittest.mock import AsyncMock
+else:  # pragma: no cover
+    from asyncmock import AsyncMock
 
 
 class TestCaseBaseErrorMiddleware:
@@ -31,6 +37,9 @@ class TestCaseBaseErrorMiddleware:
         assert middleware.app == app
         assert middleware.debug
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     async def test_call_http(self, middleware_cls, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "http"
         exc = ValueError()
@@ -46,6 +55,9 @@ class TestCaseBaseErrorMiddleware:
                 call(asgi_scope, asgi_receive, asgi_send, exc, False)
             ]
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     async def test_call_websocket(self, middleware_cls, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "websocket"
         exc = ValueError()
@@ -234,6 +246,9 @@ class TestCaseExceptionMiddleware:
         ),
         indirect=["exception"],
     )
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     async def test_process_exception(
         self, middleware, asgi_scope, asgi_receive, asgi_send, request_type, response_started, exception
     ):
@@ -300,6 +315,9 @@ class TestCaseExceptionMiddleware:
             ),
         ),
     )
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     def test_http_exception_handler(
         self, middleware, asgi_scope, asgi_receive, asgi_send, debug, accept, exc, response_class, response_params
     ):
@@ -321,6 +339,9 @@ class TestCaseExceptionMiddleware:
             assert isinstance(response, response_class)
             assert response_mock.call_args_list == [call(**response_params)]
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     async def test_websocket_exception_handler(self, middleware, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "websocket"
         exc = exceptions.WebSocketException(1011, "Foo reason")
