@@ -82,6 +82,7 @@ scikit-learn = [
 tensorflow-cpu = { version = "^2.9", python = ">=3.7,<3.11" }
 pre-commit = "^2.19.0"
 torch = "^1.12.1"
+asyncmock = { version = "^0.4.2", python = ">=3.7,<3.8" }
 
 [tool.black]
 line-length = 120

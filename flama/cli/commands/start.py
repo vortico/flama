@@ -1,8 +1,6 @@
-import json
-
 import click
 
-from flama.cli.config.config import ExampleConfig
+from flama.cli.config.config import Config, ExampleConfig
 
 __all__ = ["start", "command"]
 

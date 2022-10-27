@@ -10,6 +10,9 @@ import click
 from flama.cli.config.app import App
 from flama.cli.config.uvicorn import Uvicorn
 
+if t.TYPE_CHECKING:
+    from flama.cli.config.app import _AppContext
+
 __all__ = ["Config", "ExampleConfig", "options"]
 
 decorators = (
@@ -27,7 +30,9 @@ class Config:
 
     @classmethod
     def from_dict(cls, data: t.Dict[str, t.Any]) -> "Config":
-        return cls(**{**data, "app": App.build(data["app"]), "server": Uvicorn(**data["server"])})
+        return cls(
+            **{**data, "app": App.build(data["app"]), "server": Uvicorn(**data["server"])}  # type: ignore[arg-type]
+        )
 
     def to_dict(self) -> t.Dict[str, t.Any]:
         return dataclasses.asdict(self)
@@ -47,10 +52,7 @@ class Config:
         fs.write(self.dumps())
 
     @classmethod
-    def dump_example(
-        cls,
-        type: str,
-    ) -> None:
+    def dump_example(cls, type: str) -> t.Dict[str, t.Any]:
         result = cls().to_dict()
         if type == "simple":
             result["server"] = {k: v for k, v in result["server"] if k in ("host", "port")}
@@ -59,7 +61,7 @@ class Config:
     def run(self) -> None:
         # TODO: Define 'dev' behavior
 
-        with self.app.context as app_context:
+        with self.app.context as app_context:  # type: _AppContext
             self.server.app_dir = app_context.dir
             self.server.run(app_context.app)
 
