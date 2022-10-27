@@ -139,4 +139,4 @@ class TestCaseNotFoundContext:
         ), patch.object(App, "from_app", return_value=app_mock):
             context = dataclasses.asdict(NotFoundContext.build(MagicMock(), MagicMock()))
 
-        assert context == {"request": request_mock, "environment": environment_mock, "urls": app_mock}
+        assert context == {"request": request_mock, "environment": environment_mock, "app": app_mock}
