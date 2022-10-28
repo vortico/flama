@@ -75,13 +75,20 @@ class TestCaseComponentsInjection:
 
         return ParamComponent2()
 
-    @pytest.fixture
-    def app(self, app, puppy_component, owner_component, param_component_1, param_component_2, unknown_param_component):
-        return Flama(
-            components=[puppy_component, owner_component, param_component_1, param_component_2, unknown_param_component]
-        )
+    @pytest.fixture(scope="function", autouse=True)
+    def add_components(
+        self, app, puppy_component, owner_component, param_component_1, param_component_2, unknown_param_component
+    ):
+        for component in [
+            puppy_component,
+            owner_component,
+            param_component_1,
+            param_component_2,
+            unknown_param_component,
+        ]:
+            app.add_component(component)
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/http-view/")
         async def puppy_http_view(puppy: Puppy):

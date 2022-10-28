@@ -4,7 +4,7 @@ import anyio
 import pytest
 
 from flama import background, http
-from tests.conftest import assert_read_from_file
+from tests.asserts import assert_read_from_file
 
 
 def sync_task(path: str, msg: str):
