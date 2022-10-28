@@ -1,22 +1,16 @@
 from unittest.mock import Mock
 
 import pytest
-from pytest import param
 
 from flama.models import ModelComponent, ModelResource, ModelResourceType, PyTorchModel, SKLearnModel, TensorFlowModel
 
 
 class TestCaseModelResource:
-    @pytest.fixture(params=["tensorflow", "sklearn"])
+    @pytest.fixture(params=["tensorflow", "sklearn", "torch"])
     def model(self, request):
-        if request.param == "pytorch":
-            return PyTorchModel(Mock())
-        elif request.param == "sklearn":
-            return SKLearnModel(Mock())
-        elif request.param == "tensorflow":
-            return TensorFlowModel(Mock())
-        else:
-            raise AttributeError("Wrong lib")
+        return {"sklearn": SKLearnModel(Mock()), "tensorflow": TensorFlowModel(Mock()), "torch": PyTorchModel(Mock())}[
+            request.param
+        ]
 
     @pytest.fixture
     def component(self, model):
@@ -26,8 +20,7 @@ class TestCaseModelResource:
 
         return SpecificModelComponent(model)
 
-    @pytest.fixture
-    def resource_using_component(self, component):
+    def test_resource_using_component(self, model, component):
         component_ = component
 
         class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
@@ -35,71 +28,68 @@ class TestCaseModelResource:
             verbose_name = "Puppy"
             component = component_
 
-        return PuppyModelResource()
+        resource = PuppyModelResource()
 
-    @pytest.fixture(params=["tensorflow", "sklearn"])
-    def resource_using_model_path(self, request):
-        if request.param == "pytorch":
-            model_path_ = "tests/models/pytorch_model.flm"
-        elif request.param == "sklearn":
-            model_path_ = "tests/models/sklearn_model.flm"
-        elif request.param == "tensorflow":
-            model_path_ = "tests/models/tensorflow_model.flm"
-        else:
-            raise AttributeError("Wrong lib")
+        assert not hasattr(resource, "name")
+        assert not hasattr(resource, "verbose_name")
+        assert hasattr(resource, "component")
+        assert resource.component == component
+        assert hasattr(resource, "model")
+        assert resource.model == model
+        assert hasattr(resource, "_meta")
+        assert resource._meta.name == "puppy"
+        assert resource._meta.verbose_name == "Puppy"
+        assert resource._meta.namespaces == {
+            "model": {"component": component, "model": model, "model_type": component.get_model_type()}
+        }
+
+    @pytest.mark.parametrize(
+        ["model_path"],
+        (
+            pytest.param("sklearn", id="sklearn"),
+            pytest.param("tensorflow", id="tensorflow"),
+            pytest.param("torch", id="torch"),
+        ),
+        indirect=["model_path"],
+    )
+    def test_resource_using_model_path(self, model_path):
+        model_path_ = model_path
 
         class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
             name = "puppy"
             verbose_name = "Puppy"
             model_path = model_path_
 
-        return PuppyModelResource()
+        resource = PuppyModelResource()
 
-    def test_resource_using_component(self, resource_using_component, model, component):
-        assert not hasattr(resource_using_component, "name")
-        assert not hasattr(resource_using_component, "verbose_name")
-        assert hasattr(resource_using_component, "component")
-        assert resource_using_component.component == component
-        assert hasattr(resource_using_component, "model")
-        assert resource_using_component.model == model
-        assert hasattr(resource_using_component, "_meta")
-        assert resource_using_component._meta.name == "puppy"
-        assert resource_using_component._meta.verbose_name == "Puppy"
-        assert resource_using_component._meta.namespaces == {
-            "model": {"component": component, "model": model, "model_type": component.get_model_type()}
-        }
-
-    def test_resource_using_model_path(self, resource_using_model_path):
-        assert not hasattr(resource_using_model_path, "name")
-        assert not hasattr(resource_using_model_path, "verbose_name")
-        assert hasattr(resource_using_model_path, "component")
-        component = resource_using_model_path.component
-        assert hasattr(resource_using_model_path, "model")
-        assert resource_using_model_path.model == component.model
-        assert hasattr(resource_using_model_path, "_meta")
-        assert resource_using_model_path._meta.name == "puppy"
-        assert resource_using_model_path._meta.verbose_name == "Puppy"
-        assert resource_using_model_path._meta.namespaces == {
+        assert not hasattr(resource, "name")
+        assert not hasattr(resource, "verbose_name")
+        assert hasattr(resource, "component")
+        component = resource.component
+        assert hasattr(resource, "model")
+        assert resource.model == component.model
+        assert hasattr(resource, "_meta")
+        assert resource._meta.name == "puppy"
+        assert resource._meta.verbose_name == "Puppy"
+        assert resource._meta.namespaces == {
             "model": {"component": component, "model": component.model, "model_type": component.get_model_type()}
         }
 
 
 class TestCaseModelResourceMethods:
-    @pytest.fixture(scope="function", autouse=True)
-    def add_models(self, app):
-        app.models.add_model("/pytorch/", model="tests/models/pytorch_model.flm", name="pytorch")
-        app.models.add_model("/sklearn/", model="tests/models/sklearn_model.flm", name="sklearn")
-        app.models.add_model("/tensorflow/", model="tests/models/tensorflow_model.flm", name="tensorflow")
-
     @pytest.mark.parametrize(
-        ("url", "output"),
+        ("lib", "model_path", "url", "output"),
         (
-            param(
-                "/pytorch/",
+            pytest.param(
+                "torch",
+                "torch",
+                "/torch/",
                 {"modules": ["RecursiveScriptModule(original_name=Model)"], "parameters": {}, "state": {}},
-                id="pytorch",
+                id="torch",
             ),
-            param(
+            pytest.param(
+                "sklearn",
+                "sklearn",
                 "/sklearn/",
                 {
                     "C": 1.0,
@@ -120,7 +110,9 @@ class TestCaseModelResourceMethods:
                 },
                 id="sklearn",
             ),
-            param(
+            pytest.param(
+                "tensorflow",
+                "tensorflow",
                 "/tensorflow/",
                 {
                     "class_name": "Sequential",
@@ -218,22 +210,29 @@ class TestCaseModelResourceMethods:
                 id="tensorflow",
             ),
         ),
+        indirect=["model_path"],
     )
-    def test_inspect(self, client, url, output):
+    def test_inspect(self, app, client, lib, model_path, url, output):
+        app.models.add_model(f"/{lib}/", model=model_path, name=lib)
+
         response = client.get(url)
         assert response.status_code == 200, response.json()
         assert response.json() == output
 
     @pytest.mark.parametrize(
-        ("url", "x", "y"),
+        ("lib", "model_path", "url", "x", "y"),
         (
-            param(
-                "/pytorch/predict/",
+            pytest.param(
+                "torch",
+                "torch",
+                "/torch/predict/",
                 [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]],
                 [[10, 11, 12, 13, 14, 15, 16, 17, 18, 19]],
-                id="pytorch",
+                id="torch",
             ),
-            param(
+            pytest.param(
+                "sklearn",
+                "sklearn",
                 "/sklearn/predict/",
                 [
                     [550.0, 2.3, 4.0],
@@ -250,7 +249,9 @@ class TestCaseModelResourceMethods:
                 [0, 0, 1, 1, 0, 0, 1, 1, 0, 1],
                 id="sklearn",
             ),
-            param(
+            pytest.param(
+                "tensorflow",
+                "tensorflow",
                 "/tensorflow/predict/",
                 [
                     [0.0],
@@ -279,9 +280,13 @@ class TestCaseModelResourceMethods:
                 id="tensorflow",
             ),
         ),
+        indirect=["model_path"],
     )
-    def test_predict(self, client, url, x, y):
+    def test_predict(self, app, client, lib, model_path, url, x, y):
+        app.models.add_model(f"/{lib}/", model=model_path, name=lib)
+
         response = client.post(url, json={"input": x})
+
         assert response.status_code == 200, response.json()
         for a, e in zip(response.json()["output"], y):
             assert a == pytest.approx(e)

@@ -68,13 +68,12 @@ class TestCaseRouteFieldsMixin:
 
         return WebSocketRoute("/foo", endpoint=FooWebsocket)
 
-    @pytest.fixture(autouse=True)
-    def app(self, app, component, route, endpoint, websocket):
+    @pytest.fixture(scope="function", autouse=True)
+    def prepare_app(self, app, component, route, endpoint, websocket):
         app.add_component(component())
         app.add_route(route=route)
         app.add_route(route=endpoint)
         app.add_websocket_route(route=websocket)
-        return app
 
     def test_inspect_parameters_from_handler(self, route, app, foo_schema):
         expected_parameters = {

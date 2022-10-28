@@ -1,23 +1,20 @@
 import pytest
-import tensorflow as tf
-import torch.jit
-from pytest import param
-from sklearn.linear_model import LogisticRegression
 
 from flama.models.components import ModelComponentBuilder, PyTorchModel, SKLearnModel, TensorFlowModel
 
 
 class TestCaseModelComponent:
     @pytest.mark.parametrize(
-        ("model_file", "component_model_class", "serialized_model_class"),
+        ("model_path", "component_model_class", "serialized_model_class"),
         (
-            param("tests/models/pytorch_model.flm", PyTorchModel, torch.jit.RecursiveScriptModule, id="pytorch"),
-            param("tests/models/sklearn_model.flm", SKLearnModel, LogisticRegression, id="sklearn"),
-            param("tests/models/tensorflow_model.flm", TensorFlowModel, tf.keras.models.Sequential, id="tensorflow"),
+            pytest.param("sklearn", SKLearnModel, "sklearn", id="sklearn"),
+            pytest.param("tensorflow", TensorFlowModel, "tensorflow", id="tensorflow"),
+            pytest.param("torch", PyTorchModel, "torch", id="torch"),
         ),
+        indirect=["model_path", "serialized_model_class"],
     )
-    def test_build(self, model_file, component_model_class, serialized_model_class):
-        with open(model_file, "rb") as f:
+    def test_build(self, model_path, component_model_class, serialized_model_class):
+        with open(model_path, "rb") as f:
             component = ModelComponentBuilder.loads(f.read())
 
         model = component.model
