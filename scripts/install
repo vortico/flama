@@ -3,7 +3,7 @@
 install_pkg()
 {
   echo "🔥 Install python requirements..."
-  poetry install --with dev "$@"
+  poetry install --with dev,schemas,ml "$@"
   cd templates
   echo "🔥 Install js requirements..."
   npm i

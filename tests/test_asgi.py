@@ -4,7 +4,7 @@ from flama import types
 
 
 class TestCaseMethodComponent:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/method/", methods=["GET", "POST"])
         def get_method(method: types.Method):
@@ -23,7 +23,7 @@ class TestCaseMethodComponent:
 
 
 class TestCaseURLComponent:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/url/")
         def get_url(url: types.URL):
@@ -85,7 +85,7 @@ class TestCaseURLComponent:
 
 
 class TestCaseSchemeComponent:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/scheme/")
         def get_scheme(scheme: types.Scheme):
@@ -104,7 +104,7 @@ class TestCaseSchemeComponent:
 
 
 class TestCaseHostComponent:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/host/")
         def get_host(host: types.Host):
@@ -123,7 +123,7 @@ class TestCaseHostComponent:
 
 
 class TestCasePortComponent:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/port/")
         def get_port(port: types.Port):
@@ -144,7 +144,7 @@ class TestCasePortComponent:
 
 
 class TestCasePathComponent:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/path/")
         def get_path(path: types.Path):
@@ -162,7 +162,7 @@ class TestCasePathComponent:
 
 
 class TestCaseQueryStringComponent:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/query_string/")
         def get_query_string(query_string: types.QueryString):
@@ -181,7 +181,7 @@ class TestCaseQueryStringComponent:
 
 
 class TestCaseQueryParamsComponent:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/query_params/")
         def get_query_params(query_string: types.QueryString, query_params: types.QueryParams):
@@ -200,7 +200,7 @@ class TestCaseQueryParamsComponent:
 
 
 class TestCaseQueryParamComponent:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/page_query_param/")
         def get_page_query_param(page: types.QueryParam):
@@ -220,7 +220,7 @@ class TestCaseQueryParamComponent:
 
 
 class TestCaseHeadersComponent:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/headers/", methods=["GET", "POST"])
         def get_headers(headers: types.Headers):
@@ -285,7 +285,7 @@ class TestCaseHeadersComponent:
 
 
 class TestCaseHeaderComponent:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/accept_header/")
         def get_accept_header(accept: types.Header):
@@ -308,7 +308,7 @@ class TestCaseHeaderComponent:
 
 
 class TestCaseBodyComponent:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/body/", methods=["GET", "POST"])
         def get_body(body: types.Body):

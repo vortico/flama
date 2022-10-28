@@ -2,11 +2,14 @@ import abc
 import json
 import typing
 
-import torch
-
 from flama import exceptions
 from flama.injection import Component
 from flama.serialize import ModelFormat, loads
+
+try:
+    import torch
+except Exception:  # pragma: no cover
+    torch = None  # type: ignore
 
 __all__ = ["Model", "PyTorchModel", "SKLearnModel", "TensorFlowModel", "ModelComponent", "ModelComponentBuilder"]
 
@@ -33,6 +36,8 @@ class PyTorchModel(Model):
         }
 
     def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
+        assert torch is not None, "`torch` must be installed to use PyTorchModel."
+
         try:
             return self.model(torch.Tensor(x)).tolist()
         except ValueError as e:
