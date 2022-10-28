@@ -6,7 +6,7 @@ from flama.endpoints import HTTPEndpoint
 from flama.routing import Router
 from flama.schemas import openapi
 from flama.schemas.generator import SchemaRegistry
-from tests.conftest import assert_recursive_contains
+from tests.asserts import assert_recursive_contains
 
 
 class TestCaseSchemaRegistry:

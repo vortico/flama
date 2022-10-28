@@ -26,6 +26,7 @@ var/
 *.egg
 *dist/
 pip-wheel-metadata/
+.python-version
 
 # Installer logs
 pip-log.txt

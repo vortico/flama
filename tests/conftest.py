@@ -1,8 +1,7 @@
 import asyncio
 import sys
-import typing
 from contextlib import ExitStack
-from time import sleep
+from pathlib import Path
 
 import marshmallow
 import pytest
@@ -13,11 +12,28 @@ from faker import Faker
 from flama import Flama
 from flama.sqlalchemy import metadata
 from flama.testclient import TestClient
+from tests.utils import ExceptionContext, check_param_lib_installed
 
 if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
     from unittest.mock import AsyncMock
 else:  # pragma: no cover
     from asyncmock import AsyncMock
+
+try:
+    import sklearn
+    from sklearn.linear_model import LogisticRegression
+except Exception:
+    sklearn = None
+
+try:
+    import tensorflow as tf
+except Exception:
+    tf = None
+
+try:
+    import torch
+except Exception:
+    torch = None
 
 DATABASE_URL = "sqlite+aiosqlite://"
 
@@ -28,18 +44,6 @@ def event_loop():
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
-
-
-class ExceptionContext:
-    def __init__(self, context, exception: typing.Optional[Exception] = None):
-        self.context = context
-        self.exception = exception
-
-    def __enter__(self):
-        return self.context.__enter__()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return self.context.__exit__(exc_type, exc_val, exc_tb)
 
 
 @pytest.fixture(scope="function")
@@ -149,28 +153,55 @@ def asgi_send():
     return AsyncMock()
 
 
-def assert_recursive_contains(first, second):
-    if isinstance(first, dict) and isinstance(second, dict):
-        assert first.keys() <= second.keys()
-
-        for k, v in first.items():
-            assert_recursive_contains(v, second[k])
-    elif isinstance(first, (list, set, tuple)) and isinstance(second, (list, set, tuple)):
-        assert len(first) <= len(second)
-
-        for i, _ in enumerate(first):
-            assert_recursive_contains(first[i], second[i])
-    else:
-        assert first == second
+def sklearn_model():
+    return LogisticRegression(), LogisticRegression
 
 
-def assert_read_from_file(file_path, value, max_tries=10):
-    read_value = None
-    i = 0
-    while not read_value and i < max_tries:
-        sleep(i)
-        with open(file_path) as f:
-            read_value = f.read()
-        i += 1
+def tensorflow_model():
+    tf_model = tf.keras.models.Sequential(
+        [
+            tf.keras.layers.Flatten(input_shape=(28, 28)),
+            tf.keras.layers.Dense(128, activation="relu"),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Dense(10, activation="softmax"),
+        ]
+    )
 
-    assert read_value == value
+    tf_model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+
+    return tf_model, tf.keras.models.Sequential
+
+
+def torch_model():
+    class Model(torch.nn.Module):
+        def forward(self, x):
+            return x + 10
+
+    return Model(), torch.jit.RecursiveScriptModule
+
+
+@pytest.fixture(scope="function")
+@check_param_lib_installed
+def model(request):
+    return {"sklearn": sklearn_model, "tensorflow": tensorflow_model, "torch": torch_model}[request.param]()[0]
+
+
+@pytest.fixture(scope="function")
+@check_param_lib_installed
+def serialized_model_class(request):
+    return {"sklearn": sklearn_model, "tensorflow": tensorflow_model, "torch": torch_model}[request.param]()[1]
+
+
+@pytest.fixture(scope="session")
+def model_paths():
+    return {
+        "sklearn": Path("tests/data/sklearn_model.flm"),
+        "tensorflow": Path("tests/data/tensorflow_model.flm"),
+        "torch": Path("tests/data/pytorch_model.flm"),
+    }
+
+
+@pytest.fixture(scope="function")
+@check_param_lib_installed
+def model_path(request, model_paths):
+    return model_paths[request.param]

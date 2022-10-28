@@ -9,7 +9,7 @@ from flama import exceptions, http, schemas
 
 
 class TestCaseRequest:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/request/")
         async def get_request(request: http.Request):

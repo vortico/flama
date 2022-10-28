@@ -7,7 +7,7 @@ from flama.injection.exceptions import ComponentNotFound
 
 
 class TestCaseParamsValidation:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_path_endpoints(self, app):
         @app.route("/str_path_param/{param}/")
         def str_path_param(param: str):
@@ -44,7 +44,7 @@ class TestCaseParamsValidation:
             assert isinstance(param, datetime.time)
             return {"param": param}
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_query_endpoints(self, app):
         @app.route("/str_query_param/")
         def str_query_param(param: str):
@@ -81,7 +81,7 @@ class TestCaseParamsValidation:
             assert isinstance(param, datetime.time)
             return {"param": param}
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_query_with_default_endpoints(self, app):
         @app.route("/str_query_param_with_default/")
         def str_query_param_with_default(param: str = "Foo"):
@@ -118,7 +118,7 @@ class TestCaseParamsValidation:
             assert isinstance(param, datetime.time)
             return {"param": param}
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_query_optional_endpoints(self, app):
         @app.route("/str_query_param_optional/")
         def str_query_param_optional(param: typing.Optional[str] = None):
@@ -155,7 +155,7 @@ class TestCaseParamsValidation:
             assert param is None
             return {"param": param}
 
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def add_other_endpoints(self, app):
         @app.route("/empty/", methods=["POST"])
         def empty(foo):

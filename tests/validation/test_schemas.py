@@ -5,7 +5,7 @@ import marshmallow.validate
 import pytest
 import typesystem
 
-from tests.conftest import assert_recursive_contains
+from tests.asserts import assert_recursive_contains
 
 utc = datetime.timezone.utc
 
