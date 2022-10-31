@@ -174,26 +174,33 @@ class TestCaseRouter:
         assert app.components == Components([component_mock])
 
     def test_mount_declarative(self, component_mock):
-        root_mock, foo_mock, foo_view_mock = MagicMock(), MagicMock(), MagicMock()
+        def root():
+            ...
+
+        def foo():
+            ...
+
+        def foo_view():
+            ...
+
         routes = [
-            Route("/", root_mock),
+            Route("/", root),
             Mount(
                 "/foo",
-                routes=[Route("/", foo_mock, methods=["GET"]), Route("/view", foo_view_mock, methods=["GET"])],
-                components=[component_mock],
+                routes=[Route("/", foo, methods=["GET"]), Route("/view", foo_view, methods=["GET"])],
+                components={component_mock},
             ),
             Mount(
                 "/bar",
                 app=Router(
-                    routes=[Route("/", foo_mock, methods=["GET"]), Route("/view", foo_view_mock, methods=["GET"])],
-                    components=[component_mock],
+                    routes=[Route("/", foo, methods=["GET"]), Route("/view", foo_view, methods=["GET"])],
+                    components={component_mock},
                 ),
             ),
         ]
 
         # Check app is not propagated yet
-        with pytest.raises(AttributeError):
-            routes[0].main_app
+        assert routes[0].main_app is None
 
         app = Flama(routes=routes, schema=None, docs=None)
 
@@ -265,7 +272,7 @@ class TestCaseRouter:
         scope["path"] = "/foo/"
         scope["method"] = "GET"
 
-        route, route_scope = app.router.get_route_from_scope(scope=scope)
+        route, route_scope = app.router.resolve_route(scope=scope)
 
         assert route.endpoint == foo
         assert route.path == "/foo/"
@@ -281,11 +288,10 @@ class TestCaseRouter:
 
         app.mount("/router", app=router)
 
-        scope["path"] = "/foo/"
-        scope["root_path"] = "/router"
+        scope["path"] = "/router/foo/"
         scope["method"] = "GET"
 
-        route, route_scope = app.router.get_route_from_scope(scope=scope)
+        route, route_scope = app.router.resolve_route(scope=scope)
 
         assert route.endpoint == foo
         assert route.path == "/foo/"
@@ -304,7 +310,7 @@ class TestCaseRouter:
         scope["path"] = "/router/nested/foo/"
         scope["method"] = "GET"
 
-        route, route_scope = app.router.get_route_from_scope(scope=scope)
+        route, route_scope = app.router.resolve_route(scope=scope)
 
         assert route_scope is not None
         assert route.endpoint == foo
@@ -321,7 +327,7 @@ class TestCaseRouter:
         scope["path"] = "/foo/"
         scope["method"] = "POST"
 
-        route, route_scope = app.router.get_route_from_scope(scope=scope)
+        route, route_scope = app.router.resolve_route(scope=scope)
 
         assert route.endpoint == foo
         assert route.path == "/foo/"
@@ -334,10 +340,10 @@ class TestCaseRouter:
         scope["path"] = "/foo/"
         scope["method"] = "GET"
 
-        route, route_scope = app.router.get_route_from_scope(scope=scope)
+        route, route_scope = app.router.resolve_route(scope=scope)
 
         assert isinstance(route, NotFound)
-        assert route_scope is None
+        assert route_scope == scope
 
 
 @pytest.mark.skipif(

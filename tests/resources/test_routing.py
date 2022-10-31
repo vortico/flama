@@ -46,6 +46,6 @@ class TestCaseResourceMethod:
 
         assert hasattr(foo, "_meta")
         assert foo._meta.path == "/"
-        assert foo._meta.methods == ("POST",)
+        assert foo._meta.methods == ["POST"]
         assert foo._meta.name == "foo"
         assert foo._meta.kwargs == {"additional": "bar"}

@@ -21,11 +21,8 @@ class ResourceRoute(Mount):
                 path=route._meta.path,
                 endpoint=getattr(self.resource, name),
                 methods=route._meta.methods,
-                name=route._meta.name
-                if route._meta.name is not None
-                else f"{self.resource._meta.name}-{route.__name__}",
+                name=route._meta.name or f"{self.resource._meta.name}-{route.__name__}",
                 main_app=main_app,
-                **route._meta.kwargs,
             )
             for name, route in self.resource.routes.items()
         ]
@@ -55,7 +52,7 @@ def resource_method(path: str, methods: t.Sequence[str] = None, name: str = None
 
     def wrapper(func):
         func._meta = data_structures.MethodMetadata(
-            path=path, methods=tuple(methods if methods is not None else ("GET",)), name=name, kwargs=kwargs
+            path=path, methods=methods if methods is not None else {"GET"}, name=name, kwargs=kwargs
         )
 
         return func

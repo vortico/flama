@@ -137,8 +137,8 @@ class Flama(Starlette):
         methods: t.Optional[t.List[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        route: t.Optional["BaseRoute"] = None,
-    ) -> None:  # pragma: no cover
+        route: t.Optional["Route"] = None,
+    ) -> "Route":  # pragma: no cover
         """Register a new HTTP route or endpoint under given path.
 
         :param path: URL path.
@@ -148,7 +148,7 @@ class Flama(Starlette):
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
         :param route: HTTP route.
         """
-        self.router.add_route(
+        return self.router.add_route(
             path, endpoint, methods=methods, name=name, include_in_schema=include_in_schema, route=route
         )
 
@@ -171,7 +171,7 @@ class Flama(Starlette):
         endpoint: t.Optional[types.WebSocketHandler] = None,
         name: t.Optional[str] = None,
         route: t.Optional["WebSocketRoute"] = None,
-    ) -> None:  # pragma: no cover
+    ) -> "WebSocketRoute":  # pragma: no cover
         """Register a new websocket route or endpoint under given path.
 
         :param path: URL path.
@@ -179,7 +179,7 @@ class Flama(Starlette):
         :param name: Endpoint or route name.
         :param route: Websocket route.
         """
-        self.router.add_websocket_route(path=path, endpoint=endpoint, name=name, route=route)
+        return self.router.add_websocket_route(path=path, endpoint=endpoint, name=name, route=route)
 
     def websocket_route(  # type: ignore[override]
         self, path: str, name: str = None

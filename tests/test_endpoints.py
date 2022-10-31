@@ -8,7 +8,6 @@ import typesystem
 import websockets.utils
 
 from flama import Component, exceptions, types, websockets
-from flama.applications import Flama
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 
 if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
@@ -53,24 +52,15 @@ def puppy_schema(app):
     return schema
 
 
-@pytest.fixture
-def app_mock():
-    app = MagicMock(spec=Flama)
-    app.router = MagicMock()
-    app.router.get_route_from_scope.return_value = ("/", {"path_params": None})
-    app.injector = MagicMock()
-
-    return app
-
-
 class TestCaseHTTPEndpoint:
     @pytest.fixture
-    def endpoint(self, app_mock, asgi_scope, asgi_receive, asgi_send):
+    def endpoint(self, app, asgi_scope, asgi_receive, asgi_send):
+        @app.route("/")
         class FooEndpoint(HTTPEndpoint):
             def get(self):
                 ...
 
-        asgi_scope["app"] = app_mock
+        asgi_scope["app"] = app
         asgi_scope["type"] = "http"
         return FooEndpoint(asgi_scope, asgi_receive, asgi_send)
 
@@ -106,19 +96,27 @@ class TestCaseHTTPEndpoint:
         assert response.status_code == status_code
         assert response.json() == expected_response
 
-    def test_init(self, app_mock, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["app"] = app_mock
-        asgi_scope["type"] = "http"
+    def test_init(self, app, asgi_scope, asgi_receive, asgi_send):
         with patch("flama.endpoints.http.Request") as request_mock:
+            route = app.add_route("/", HTTPEndpoint)
+            asgi_scope = {
+                **asgi_scope,
+                "app": app,
+                "type": "http",
+                "path": "/",
+                "path_params": {},
+                "endpoint": HTTPEndpoint,
+                "route": route,
+            }
             endpoint = HTTPEndpoint(asgi_scope, asgi_receive, asgi_send)
             assert endpoint.state == {
                 "scope": asgi_scope,
                 "receive": asgi_receive,
                 "send": asgi_send,
                 "exc": None,
-                "app": app_mock,
-                "path_params": None,
-                "route": "/",
+                "app": app,
+                "path_params": {},
+                "route": route,
                 "request": request_mock(),
             }
 
@@ -141,24 +139,25 @@ class TestCaseHTTPEndpoint:
     @pytest.mark.skipif(
         sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
     )  # PORT: Remove when stop supporting 3.7
-    async def test_dispatch(self, app_mock, endpoint):
+    async def test_dispatch(self, app, endpoint):
         injected_mock = MagicMock()
-        app_mock.injector.inject = AsyncMock(return_value=injected_mock)
+        app.injector.inject = AsyncMock(return_value=injected_mock)
         with patch("flama.endpoints.concurrency.run") as run_mock:
             await endpoint.dispatch()
 
-            assert app_mock.injector.inject.call_args_list == [call(endpoint.get, **endpoint.state)]
+            assert app.injector.inject.call_args_list == [call(endpoint.get, **endpoint.state)]
             assert run_mock.call_args_list == [call(injected_mock)]
 
 
 class TestCaseWebSocketEndpoint:
     @pytest.fixture
-    def endpoint(self, app_mock, asgi_scope, asgi_receive, asgi_send):
+    def endpoint(self, app, asgi_scope, asgi_receive, asgi_send):
+        @app.websocket_route("/")
         class FooEndpoint(WebSocketEndpoint):
             def get(self):
                 ...
 
-        asgi_scope["app"] = app_mock
+        asgi_scope["app"] = app
         asgi_scope["type"] = "websocket"
         with patch("flama.endpoints.websockets.WebSocket", spec=websockets.WebSocket):
             return FooEndpoint(asgi_scope, asgi_receive, asgi_send)
@@ -267,19 +266,27 @@ class TestCaseWebSocketEndpoint:
 
         assert result == {"code": 1011, "type": "websocket.close", "reason": ""}
 
-    def test_init(self, app_mock, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["app"] = app_mock
-        asgi_scope["type"] = "websocket"
+    def test_init(self, app, asgi_scope, asgi_receive, asgi_send):
         with patch("flama.endpoints.websockets.WebSocket") as websocket_mock:
+            route = app.add_websocket_route("/", WebSocketEndpoint)
+            asgi_scope = {
+                **asgi_scope,
+                "app": app,
+                "type": "websocket",
+                "path": "/",
+                "path_params": {},
+                "endpoint": WebSocketEndpoint,
+                "route": route,
+            }
             endpoint = WebSocketEndpoint(asgi_scope, asgi_receive, asgi_send)
             assert endpoint.state == {
                 "scope": asgi_scope,
                 "receive": asgi_receive,
                 "send": asgi_send,
                 "exc": None,
-                "app": app_mock,
-                "path_params": None,
-                "route": "/",
+                "app": app,
+                "path_params": {},
+                "route": route,
                 "websocket": websocket_mock(),
                 "websocket_code": None,
                 "websocket_encoding": None,
@@ -340,9 +347,9 @@ class TestCaseWebSocketEndpoint:
         indirect=["exception"],
     )
     async def test_dispatch(
-        self, app_mock, endpoint, endpoint_receive, websocket_receive, exception, result_code, result_message
+        self, app, endpoint, endpoint_receive, websocket_receive, exception, result_code, result_message
     ):
-        app_mock.injector.inject = AsyncMock(side_effect=[AsyncMock(side_effect=x) for x in endpoint_receive])
+        app.injector.inject = AsyncMock(side_effect=[AsyncMock(side_effect=x) for x in endpoint_receive])
         endpoint.state["websocket"].receive = AsyncMock(side_effect=websocket_receive)
         type(endpoint.state["websocket"]).is_connected = PropertyMock(side_effect=[True, False])
 
