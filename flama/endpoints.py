@@ -17,16 +17,18 @@ class HTTPEndpoint:
         """
         assert scope["type"] == "http"
         app = scope["app"]
-        route, route_scope = app.router.get_route_from_scope(scope)
+        scope["path"] = scope.get("root_path", "").rstrip("/") + scope["path"]
+        scope["root_path"] = ""
+        route, route_scope = app.router.resolve_route(scope)
         self.state = {
-            "scope": scope,
+            "scope": route_scope,
             "receive": receive,
             "send": send,
             "exc": None,
             "app": app,
-            "path_params": route_scope["path_params"],
+            "path_params": route_scope.get("path_params", {}),
             "route": route,
-            "request": http.Request(scope, receive=receive),
+            "request": http.Request(route_scope, receive=receive),
         }
 
     def __await__(self) -> t.Generator:
@@ -74,16 +76,18 @@ class WebSocketEndpoint:
         """
         assert scope["type"] == "websocket"
         app = scope["app"]
-        route, route_scope = app.router.get_route_from_scope(scope)
+        scope["path"] = scope.get("root_path", "").rstrip("/") + scope["path"]
+        scope["root_path"] = ""
+        route, route_scope = app.router.resolve_route(scope)
         self.state = {
-            "scope": scope,
+            "scope": route_scope,
             "receive": receive,
             "send": send,
             "exc": None,
             "app": app,
-            "path_params": route_scope["path_params"],
+            "path_params": route_scope.get("path_params", {}),
             "route": route,
-            "websocket": websockets.WebSocket(scope, receive, send),
+            "websocket": websockets.WebSocket(route_scope, receive, send),
             "websocket_encoding": self.encoding,
             "websocket_code": None,
             "websocket_message": None,

@@ -24,7 +24,7 @@ class ResourcesModule(Module):
         # Handle class or instance objects
         resource = resource(app=self.app, *args, **kwargs) if inspect.isclass(resource) else resource
 
-        self.app.routes.append(ResourceRoute(path, resource, main_app=self.app))
+        self.app.add_route(route=ResourceRoute(path, resource, main_app=self.app))
 
     def resource(self, path: str, *args, **kwargs) -> typing.Callable:
         """Decorator for Resources classes for adding them to the application.

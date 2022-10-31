@@ -6,10 +6,10 @@ import typing
 import typing as t
 from collections import defaultdict
 
-import starlette.routing
 from starlette import schemas as starlette_schemas
 
 from flama import routing, schemas
+from flama.routing import Path
 from flama.schemas import openapi
 from flama.schemas.data_structures import Parameter
 from flama.schemas.types import Schema
@@ -258,7 +258,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
         endpoints_info: typing.Dict[str, typing.List[EndpointInfo]] = defaultdict(list)
 
         for route in routes:
-            _, path, _ = starlette.routing.compile_path(base_path + route.path)  # type: ignore[attr-defined]
+            path = Path(base_path + route.path.path).format
 
             if isinstance(route, routing.Route) and route.include_in_schema:
                 if inspect.isfunction(route.endpoint) or inspect.ismethod(route.endpoint):
@@ -278,7 +278,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
                             )
                         )
                 else:
-                    for method in ["get", "post", "put", "patch", "delete", "options"]:
+                    for method in [x.lower() for x in route.methods]:
                         if not hasattr(route.endpoint, method):
                             continue
 
