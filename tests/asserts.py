@@ -1,19 +1,19 @@
 from time import sleep
 
 
-def assert_recursive_contains(first, second):
-    if isinstance(first, dict) and isinstance(second, dict):
-        assert first.keys() <= second.keys()
+def assert_recursive_contains(expected, value):
+    if isinstance(expected, dict) and isinstance(value, dict):
+        assert expected.keys() <= value.keys()
 
-        for k, v in first.items():
-            assert_recursive_contains(v, second[k])
-    elif isinstance(first, (list, set, tuple)) and isinstance(second, (list, set, tuple)):
-        assert len(first) <= len(second)
+        for k, v in expected.items():
+            assert_recursive_contains(v, value[k])
+    elif isinstance(expected, (list, set, tuple)) and isinstance(value, (list, set, tuple)):
+        assert len(expected) <= len(value)
 
-        for i, _ in enumerate(first):
-            assert_recursive_contains(first[i], second[i])
+        for i, _ in enumerate(expected):
+            assert_recursive_contains(expected[i], value[i])
     else:
-        assert first == second
+        assert expected == value
 
 
 def assert_read_from_file(file_path, value, max_sleep=10):

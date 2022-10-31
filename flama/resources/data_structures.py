@@ -50,6 +50,6 @@ class Metadata:
 @dataclasses.dataclass
 class MethodMetadata:
     path: str
-    methods: typing.Tuple[str] = ("GET",)
+    methods: typing.Set[str] = dataclasses.field(default_factory=lambda: {"GET"})
     name: typing.Optional[str] = None
     kwargs: typing.Dict[str, typing.Any] = dataclasses.field(default_factory=dict)

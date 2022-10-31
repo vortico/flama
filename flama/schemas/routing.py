@@ -134,7 +134,7 @@ class ParametersDescriptor:
                 body_parameter[method],
                 output_parameter[method],
             ) = self._get_parameters_from_handler(
-                handler, list(route.param_convertors.keys()), route.main_app.components
+                handler, list(route.path.convertors.keys()), route.main_app.components
             )
 
         return query_parameters, path_parameters, body_parameter, output_parameter
