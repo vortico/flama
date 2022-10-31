@@ -229,7 +229,7 @@ class TestCaseCRUDResource:
         assert response.json() == expected_puppy
 
         # List all the existing records
-        response = client.request("get", f"/puppy/{expected_puppy_id}")
+        response = client.request("get", f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 200, response.json()
         assert response.json() == expected_puppy
 

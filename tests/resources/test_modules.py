@@ -61,8 +61,7 @@ class TestCaseResourcesModule:
         route = ResourceRoute("/puppy/", PuppyResource)
 
         # Check app is None yet
-        with pytest.raises(AttributeError):
-            route.main_app
+        assert route.main_app is None
 
         app = Flama(routes=[route], schema=None, docs=None)
 
