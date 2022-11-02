@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
+set -e
 
 run_test()
 {
   echo "🧪 Run tests:"
-  poetry run pytest
+  poetry run pytest -n auto
 }
 
 run_test "$@"
