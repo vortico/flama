@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 NO_FORMAT="\033[0m"
 F_ITALIC="\e[3m"
