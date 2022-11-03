@@ -5,12 +5,13 @@ from flama.resources import BaseResource
 from flama.resources.crud import CRUDResourceType
 from flama.resources.routing import ResourceRoute, resource_method
 from flama.routing import Route
+from flama.sqlalchemy import SQLAlchemyModule
 
 
 class TestCaseRouter:
     @pytest.fixture(scope="function")
     def app(self):
-        return Flama(schema=None, docs=None, sqlalchemy_database="sqlite+aiosqlite://")
+        return Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
 
     def test_mount_resource_declarative(self, puppy_model, puppy_schema):
         class PuppyResource(BaseResource, metaclass=CRUDResourceType):

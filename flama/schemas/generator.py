@@ -9,10 +9,10 @@ from collections import defaultdict
 from starlette import schemas as starlette_schemas
 
 from flama import routing, schemas
-from flama.routing import Path
 from flama.schemas import openapi
 from flama.schemas.data_structures import Parameter
 from flama.schemas.types import Schema
+from flama.url import RegexPath
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +258,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
         endpoints_info: typing.Dict[str, typing.List[EndpointInfo]] = defaultdict(list)
 
         for route in routes:
-            path = Path(base_path + route.path.path).format
+            path = RegexPath(base_path + route.path.path).template
 
             if isinstance(route, routing.Route) and route.include_in_schema:
                 if inspect.isfunction(route.endpoint) or inspect.ismethod(route.endpoint):

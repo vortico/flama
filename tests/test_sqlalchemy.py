@@ -16,7 +16,7 @@ if sys.version_info >= (3, 8):  # PORT: Remove when Python3.7 EOL
 class TestCaseSQLAlchemyModule:
     @pytest.fixture
     def app(self):
-        app = Flama(sqlalchemy_database="sqlite+aiosqlite://")
+        app = Flama(modules={SQLAlchemyModule("sqlite+aiosqlite://")})
         with TestClient(app):  # Initialize app life-cycle
             yield app
 
@@ -25,7 +25,7 @@ class TestCaseSQLAlchemyModule:
         assert isinstance(app.sqlalchemy.metadata, sqlalchemy.MetaData)
 
     def test_on_startup_no_database(self):
-        app = Flama()
+        app = Flama(modules={SQLAlchemyModule()})
         with TestClient(app):  # Initialize app life-cycle
             assert app.sqlalchemy.database is None
             assert app.sqlalchemy.engine is None
@@ -35,7 +35,7 @@ class TestCaseSQLAlchemyModule:
         sys.version_info < (3, 8), reason="MagicMock cannot mock async methods until 3.8"
     )  # PORT: Remove when Python3.7 EOL
     async def test_shutdown(self, app):
-        module = SQLAlchemyModule(Mock(spec=Flama), "sqlite+aiosqlite://")
+        module = SQLAlchemyModule("sqlite+aiosqlite://")
 
         with patch.object(module, "engine", dispose=AsyncMock(), __bool__=Mock(return_value=True)) as engine_mock:
             await module.on_shutdown()
@@ -46,7 +46,7 @@ class TestCaseSQLAlchemyModule:
         sys.version_info < (3, 8), reason="MagicMock cannot mock async methods until 3.8"
     )  # PORT: Remove when Python3.7 EOL
     async def test_shutdown_no_database(self, app):
-        module = SQLAlchemyModule(Mock(spec=Flama))
+        module = SQLAlchemyModule()
 
         with patch.object(module, "engine", dispose=AsyncMock(), __bool__=Mock(return_value=False)) as engine_mock:
             await module.on_shutdown()

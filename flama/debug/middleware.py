@@ -94,9 +94,11 @@ class ExceptionMiddleware(BaseErrorMiddleware):
             status_code: handler for status_code, handler in handlers.items() if isinstance(status_code, int)
         }
         self._exception_handlers: t.Dict[t.Type[Exception], "Handler"] = {
+            **{e: handler for e, handler in handlers.items() if inspect.isclass(e) and issubclass(e, Exception)},
+            exceptions.NotFoundException: self.not_found_handler,
+            exceptions.MethodNotAllowedException: self.method_not_allowed_handler,
             starlette.exceptions.HTTPException: self.http_exception_handler,
             starlette.exceptions.WebSocketException: self.websocket_exception_handler,
-            **{e: handler for e, handler in handlers.items() if inspect.isclass(e) and issubclass(e, Exception)},
         }
 
     def add_exception_handler(
@@ -161,3 +163,33 @@ class ExceptionMiddleware(BaseErrorMiddleware):
     ) -> None:
         websocket = websockets.WebSocket(scope, receive=receive, send=send)
         await websocket.close(code=exc.code, reason=exc.reason)
+
+    async def not_found_handler(
+        self, scope: "types.Scope", receive: "types.Receive", send: "types.Send", exc: exceptions.NotFoundException
+    ) -> t.Optional[http.Response]:
+        if scope.get("type", "") == "websocket":
+            await self.websocket_exception_handler(scope, receive, send, exc=exceptions.WebSocketException(1000))
+            return None
+
+        if "app" in scope:
+            return self.http_exception_handler(scope, receive, send, exc=exceptions.HTTPException(status_code=404))
+
+        return http.PlainTextResponse("Not Found", status_code=404)
+
+    async def method_not_allowed_handler(
+        self,
+        scope: "types.Scope",
+        receive: "types.Receive",
+        send: "types.Send",
+        exc: exceptions.MethodNotAllowedException,
+    ) -> t.Optional[http.Response]:
+        if scope.get("type", "") == "websocket":
+            await self.websocket_exception_handler(scope, receive, send, exc=exceptions.WebSocketException(1000))
+            return None
+
+        return self.http_exception_handler(
+            scope,
+            receive,
+            send,
+            exc=exceptions.HTTPException(status_code=405, headers={"Allow": ", ".join(exc.allowed)}),
+        )

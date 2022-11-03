@@ -1,23 +1,22 @@
 import http
-import typing
+import typing as t
 
 import starlette.exceptions
-import starlette.websockets
 
 import flama.schemas.exceptions
-from flama.schemas.exceptions import *  # noqa
 
 __all__ = [
-    "ComponentNotFound",
-    "ConfigurationError",
     "DecodeError",
     "HTTPException",
-    "NoReverseMatch",
     "NoCodecAvailable",
     "SerializationError",
     "ValidationError",
     "WebSocketException",
-] + flama.schemas.exceptions.__all__
+    "NotFoundException",
+    "MethodNotAllowedException",
+]
+
+__all__ += flama.schemas.exceptions.__all__
 
 
 class DecodeError(Exception):
@@ -25,45 +24,34 @@ class DecodeError(Exception):
     Raised by a Codec when `decode` fails due to malformed syntax.
     """
 
-    def __init__(self, message, marker=None, base_format=None):
-        Exception.__init__(self, message)
+    def __init__(self, message, marker=None, base_format=None) -> None:
+        super().__init__(self, message)
         self.message = message
         self.marker = marker
         self.base_format = base_format
-
-
-class NoReverseMatch(Exception):
-    """
-    Raised by a Router when `reverse_url` is passed an invalid handler name.
-    """
-
-    ...
 
 
 class NoCodecAvailable(Exception):
     ...
 
 
-class ConfigurationError(Exception):
-    ...
-
-
 class WebSocketException(starlette.exceptions.WebSocketException):
-    def __init__(self, code: int, reason: typing.Optional[str] = None) -> None:
+    def __init__(self, code: int, reason: t.Optional[str] = None) -> None:
         self.code = code
         self.reason = reason or ""
 
     def __repr__(self) -> str:
-        class_name = self.__class__.__name__
-        return f"{class_name}(code={self.code!r}, reason={self.reason!r})"
+        params = ("code", "reason")
+        formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
+        return f"{self.__class__.__name__}({formatted_params})"
 
 
 class HTTPException(starlette.exceptions.HTTPException):
     def __init__(
         self,
         status_code: int,
-        detail: typing.Optional[typing.Union[str, typing.Dict[str, typing.List[str]]]] = None,
-        headers: typing.Optional[dict] = None,
+        detail: t.Optional[t.Union[str, t.Dict[str, t.List[str]]]] = None,
+        headers: t.Optional[dict] = None,
     ) -> None:
         if detail is None:
             detail = http.HTTPStatus(status_code).phrase
@@ -72,21 +60,49 @@ class HTTPException(starlette.exceptions.HTTPException):
         self.headers = headers
 
     def __repr__(self) -> str:
-        class_name = self.__class__.__name__
-        return f"{class_name}(status_code={self.status_code!r}, detail={self.detail!r})"
+        params = ("status_code", "detail", "headers")
+        formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
+        return f"{self.__class__.__name__}({formatted_params})"
 
 
 class ValidationError(HTTPException):
     def __init__(
         self,
-        detail: typing.Optional[typing.Union[str, typing.Dict[str, typing.List[str]]]] = None,
+        detail: t.Optional[t.Union[str, t.Dict[str, t.List[str]]]] = None,
         status_code: int = 400,
-    ):
+    ) -> None:
         super().__init__(status_code, detail=detail)
 
 
 class SerializationError(HTTPException):
-    def __init__(
-        self, detail: typing.Union[None, str, typing.Dict[str, typing.List[str]]] = None, status_code: int = 500
-    ):
+    def __init__(self, detail: t.Union[None, str, t.Dict[str, t.List[str]]] = None, status_code: int = 500) -> None:
         super().__init__(status_code, detail=detail)
+
+
+class NotFoundException(Exception):
+    def __init__(
+        self, path: t.Optional[str] = None, params: t.Optional[t.Dict[str, t.Any]] = None, name: t.Optional[str] = None
+    ) -> None:
+        self.path = path
+        self.params = params
+        self.name = name
+
+    def __str__(self) -> str:
+        params = ("path", "params", "name")
+        formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
+        return f"{self.__class__.__name__}({formatted_params})"
+
+
+class MethodNotAllowedException(Exception):
+    def __init__(
+        self, path: str, method: str, allowed: t.Set[str], params: t.Optional[t.Dict[str, t.Any]] = None
+    ) -> None:
+        self.path = path
+        self.params = params
+        self.method = method
+        self.allowed = allowed
+
+    def __str__(self) -> str:
+        params = ("path", "params", "method", "allowed")
+        formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
+        return f"{self.__class__.__name__}({formatted_params})"
