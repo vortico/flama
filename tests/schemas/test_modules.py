@@ -9,21 +9,20 @@ from flama.schemas.modules import SchemaModule
 class TestCaseSchemaModule:
     @pytest.fixture
     def module(self):
-        return SchemaModule(Flama(), title="title", version="0.1.0", description="Foo")
+        m = SchemaModule("title", "0.1.0", "Foo", schema="/schema/", docs="/docs/")
+        m.app = Flama()
+        return m
 
     def test_init(self):
-        app = Mock(spec=Flama)
         title = "title"
         version = "0.1.0"
         description = "Foo"
 
-        module = SchemaModule(app, title, version, description, "/schema/", "/docs/")
+        module = SchemaModule(title, version, description, "/schema/", "/docs/")
 
-        assert module.app == app
         assert module.title == title
         assert module.version == version
         assert module.description == description
-        assert app.add_route.call_count == 2
 
     def test_schema_generator(self, module):
         with patch("flama.schemas.modules.SchemaGenerator") as generator_mock:
@@ -55,6 +54,31 @@ class TestCaseSchemaModule:
                 "callbacks": {},
             },
         }
+
+    @pytest.mark.parametrize(
+        ["schema", "docs", "exception"],
+        (
+            pytest.param(False, False, None, id="no_schema_no_docs"),
+            pytest.param(True, False, None, id="schema_but_no_docs"),
+            pytest.param(
+                False, True, AssertionError("Schema path must be defined to use docs view"), id="no_schema_but_docs"
+            ),
+            pytest.param(True, True, None, id="schema_and_docs"),
+        ),
+        indirect=["exception"],
+    )
+    def test_add_routes(self, schema, docs, exception):
+        module = SchemaModule("", "", "", schema, docs)
+        module.app = Mock(Flama)
+        expected_calls = []
+        if schema:
+            expected_calls.append(call(schema, module.schema_view, methods=["GET"], include_in_schema=False))
+        if docs:
+            expected_calls.append(call(docs, module.docs_view, methods=["GET"], include_in_schema=False))
+
+        with exception:
+            module.add_routes()
+            assert module.app.add_route.call_args_list == expected_calls
 
     def test_view_schema(self, client):
         response = client.request("get", "/schema/")

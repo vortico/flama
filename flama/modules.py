@@ -1,14 +1,6 @@
 import abc
-import sys
 import typing as t
 from collections import defaultdict
-
-if sys.version_info >= (3, 9):  # PORT: Remove when stop supporting 3.8 # pragma: no cover
-    Dict = dict
-else:
-    from typing import Dict
-
-from flama.exceptions import ConfigurationError
 
 if t.TYPE_CHECKING:
     from flama import Flama
@@ -19,8 +11,8 @@ __all__ = ["Module", "Modules"]
 class _BaseModule:
     name: str
 
-    def __init__(self, app: "Flama", *args, **kwargs):
-        self.app: "Flama" = app
+    def __init__(self):
+        self.app: "Flama" = None
 
     async def on_startup(self):
         ...
@@ -40,18 +32,19 @@ class Module(_BaseModule, metaclass=_ModuleMeta):
     ...
 
 
-class Modules(Dict[str, Module]):
-    def __init__(self, modules: t.Optional[t.List[t.Type[Module]]], app: "Flama", *args, **kwargs):
-        modules_map: t.Dict[str, t.List[t.Type[Module]]] = defaultdict(list)
+class Modules(t.Dict[str, Module]):
+    def __init__(self, app: "Flama", modules: t.Optional[t.Set[Module]]):
+        modules_map: t.Dict[str, t.List[Module]] = defaultdict(list)
         for module in modules or []:
+            module.app = app
             modules_map[module.name].append(module)
 
-        for name, mods in {k: v for k, v in modules_map.items() if len(v) > 1}.items():
-            raise ConfigurationError(
-                f"Module name '{name}' is used by multiple modules ({', '.join([x.__name__ for x in mods])})"
-            )
+        collisions = {name: {x.__class__.__name__ for x in mods} for name, mods in modules_map.items() if len(mods) > 1}
+        assert not collisions, "Collision in module names: " + ", ".join(
+            f"{name} ({', '.join(sorted(mods))})" for name, mods in collisions.items()
+        )
 
-        super().__init__({name: mods[0](app, *args, **kwargs) for name, mods in modules_map.items()})
+        super().__init__({name: mods[0] for name, mods in modules_map.items()})
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, (list, tuple, set)):

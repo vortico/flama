@@ -1,15 +1,9 @@
-from unittest.mock import MagicMock, Mock, call
+from unittest.mock import Mock
 
 import pytest
 
 from flama import Flama
-from flama.exceptions import ConfigurationError
 from flama.modules import Module, Modules
-
-
-@pytest.fixture
-def app():
-    return Mock(spec=Flama)
 
 
 class TestCaseModule:
@@ -24,7 +18,7 @@ class TestCaseModule:
         class FooModule(Module):
             name = "foo"
 
-        module = FooModule(Mock())
+        module = FooModule()
 
         assert await module.on_startup() is None
         assert await module.on_shutdown() is None
@@ -35,44 +29,49 @@ class TestCaseModule:
             class FooModule(Module):
                 ...
 
-    def test_init(self, module, app):
-        m = module(app)
+    def test_init(self, module):
+        m = module()
 
-        assert m.app == app
+        assert m.app is None
 
 
 class TestCaseModules:
     @pytest.fixture
+    def app(self):
+        return Mock(spec=Flama)
+
+    @pytest.fixture
     def foo_module(self):
-        mock = MagicMock(Module)
-        mock.name = "foo"
-        mock.__name__ = "FooModule"
-        return mock
+        class FooModule(Module):
+            name = "foo"
+
+        return FooModule()
 
     @pytest.fixture
     def bar_module(self):
-        mock = MagicMock(Module)
-        mock.name = "bar"
-        mock.__name__ = "BarModule"
-        return mock
+        class BarModule(Module):
+            name = "bar"
+
+        return BarModule()
 
     @pytest.fixture
     def modules(self, app, foo_module, bar_module):
-        return Modules([foo_module, bar_module], app)
+        return Modules(app, {foo_module, bar_module})
 
     def test_init(self, app, foo_module, bar_module):
-        modules = Modules([foo_module, bar_module], app, "foo", debug=True)
+        assert foo_module.app is None
+        assert bar_module.app is None
 
-        assert foo_module.call_args_list == [call(app, "foo", debug=True)]
-        assert bar_module.call_args_list == [call(app, "foo", debug=True)]
-        assert modules == {"foo": foo_module(), "bar": bar_module()}
-        assert modules == [foo_module().__class__, bar_module().__class__]
+        modules = Modules(app, {foo_module, bar_module})
+
+        assert foo_module.app == app
+        assert bar_module.app == app
+        assert modules == {"foo": foo_module, "bar": bar_module}
+        assert modules == [foo_module.__class__, bar_module.__class__]
 
     def test_init_collision(self, foo_module, app):
         class FooModule2(Module):
             name = "foo"
 
-        with pytest.raises(
-            ConfigurationError, match=r"Module name 'foo' is used by multiple modules \(FooModule, FooModule2\)"
-        ):
-            Modules([foo_module, FooModule2], app)
+        with pytest.raises(AssertionError, match=r"Collision in module names: foo \(FooModule, FooModule2\)"):
+            Modules(app, {foo_module, FooModule2()})

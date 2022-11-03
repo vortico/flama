@@ -177,6 +177,8 @@ class TestCaseExceptionMiddleware:
         assert middleware._status_handlers == {400: handler}
         assert middleware._exception_handlers == {
             ValueError: handler,
+            exceptions.NotFoundException: middleware.not_found_handler,
+            exceptions.MethodNotAllowedException: middleware.method_not_allowed_handler,
             starlette.exceptions.HTTPException: middleware.http_exception_handler,
             starlette.exceptions.WebSocketException: middleware.websocket_exception_handler,
         }
@@ -196,6 +198,8 @@ class TestCaseExceptionMiddleware:
         if status_code is not None:
             status_code_handlers[status_code] = handler
         exc_class_handlers = {
+            exceptions.NotFoundException: middleware.not_found_handler,
+            exceptions.MethodNotAllowedException: middleware.method_not_allowed_handler,
             starlette.exceptions.HTTPException: middleware.http_exception_handler,
             starlette.exceptions.WebSocketException: middleware.websocket_exception_handler,
         }

@@ -6,7 +6,8 @@ import typing
 from multiprocessing import Process
 
 import starlette.background
-from starlette.concurrency import run_in_threadpool
+
+from flama import concurrency
 
 if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing import ParamSpec
@@ -47,7 +48,7 @@ class BackgroundTask(starlette.background.BackgroundTask):
 
             @functools.wraps(func)
             async def _inner(*args, **kwargs):
-                await run_in_threadpool(func, *args, **kwargs)
+                await concurrency.run(func, *args, **kwargs)
 
         return _inner
 
