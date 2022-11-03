@@ -1,12 +1,8 @@
 import functools
 import typing as t
 
-from starlette.applications import Starlette
-from starlette.datastructures import State
-
-from flama import asgi, http, types, validation, websockets
-from flama.injection import Components, Injector
-from flama.lifespan import Lifespan
+from flama import asgi, http, injection, types, url, validation, websockets
+from flama.events import Events
 from flama.middleware import Middleware, MiddlewareStack
 from flama.models.modules import ModelsModule
 from flama.modules import Modules
@@ -14,82 +10,68 @@ from flama.pagination import paginator
 from flama.resources import ResourcesModule
 from flama.routing import Route, Router
 from flama.schemas.modules import SchemaModule
-from flama.sqlalchemy import SQLAlchemyModule
 
 if t.TYPE_CHECKING:
-    from flama.injection import Component
     from flama.modules import Module
     from flama.routing import BaseRoute, Mount, WebSocketRoute
 
 __all__ = ["Flama"]
 
-DEFAULT_MODULES: t.List[t.Type["Module"]] = [SQLAlchemyModule, ResourcesModule, SchemaModule, ModelsModule]
 
-
-class Flama(Starlette):
+class Flama:
     def __init__(
         self,
         routes: t.Sequence[t.Union["BaseRoute", "Mount"]] = None,
-        components: t.Optional[t.Set["Component"]] = None,
-        modules: t.Optional[t.Set[t.Type["Module"]]] = None,
+        components: t.Optional[t.Sequence[injection.Component]] = None,
+        modules: t.Optional[t.Set["Module"]] = None,
         middleware: t.Optional[t.Sequence["Middleware"]] = None,
         debug: bool = False,
-        on_startup: t.Sequence[t.Callable] = None,
-        on_shutdown: t.Sequence[t.Callable] = None,
-        lifespan: t.Callable[["Flama"], t.AsyncContextManager] = None,
-        sqlalchemy_database: t.Optional[str] = None,
-        title: t.Optional[str] = "Flama",
-        version: t.Optional[str] = "0.1.0",
-        description: t.Optional[str] = "Firing up with the flame",
+        events: t.Optional[t.Union[t.Dict[str, t.List[t.Callable]], Events]] = None,
+        lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None,
+        title: str = "Flama",
+        version: str = "0.1.0",
+        description: str = "Firing up with the flame",
         schema: t.Optional[str] = "/schema/",
         docs: t.Optional[str] = "/docs/",
         schema_library: t.Optional[str] = None,
-        *args,
-        **kwargs
     ) -> None:
         self._debug = debug
-        self.state = State()
 
         # Initialize router and middleware stack
-        self.router: Router = Router(
-            main_app=self,
-            routes=routes,
-            components=components,
-            on_startup=on_startup,
-            on_shutdown=on_shutdown,
-            lifespan=Lifespan(self, lifespan),
-        )
-        self.app = self.router
+        self.app = self.router = Router(main_app=self, routes=routes, components=components, lifespan=lifespan)
 
-        self.middlewares = MiddlewareStack(app=self.app, middleware=middleware or [], debug=debug)
+        # Build middleware stack
+        self.middleware = MiddlewareStack(app=self.app, middleware=middleware or [], debug=debug)
 
         # Initialize Modules
         self.modules = Modules(
-            [*DEFAULT_MODULES, *(modules or [])],
-            self,
-            *args,
-            **{
-                **{
-                    "debug": debug,
-                    "sqlalchemy_database": sqlalchemy_database,
-                    "title": title,
-                    "version": version,
-                    "description": description,
-                    "schema": schema,
-                    "docs": docs,
-                },
-                **kwargs,
+            app=self,
+            modules={
+                *[
+                    ResourcesModule(),
+                    SchemaModule(title, version, description, schema=schema, docs=docs),
+                    ModelsModule(),
+                ],
+                *(modules or []),
             },
         )
 
         # Setup schema library
         self.schema.set_schema_library(schema_library)
 
+        # Add schema routes
+        self.schema.add_routes()
+
+        # Build events register including module events
+        self.events = events if isinstance(events, Events) else Events.build(**(events or {}))
+        self.events.startup += [m.on_startup for m in self.modules.values()]
+        self.events.shutdown += [m.on_shutdown for m in self.modules.values()]
+
         # Reference to paginator from within app
         self.paginator = paginator
 
         # Create Dependency Injector
-        self._injector = Injector(
+        self._injector = injection.Injector(
             context_types={
                 "scope": types.Scope,
                 "receive": types.Receive,
@@ -97,7 +79,7 @@ class Flama(Starlette):
                 "exc": Exception,
                 "app": Flama,
                 "path_params": types.PathParams,
-                "route": Route,
+                "route": Route,  # TODO: Is it needed?
                 "request": http.Request,
                 "response": http.Response,
                 "websocket": websockets.WebSocket,
@@ -118,9 +100,7 @@ class Flama(Starlette):
         except KeyError:
             return None  # type: ignore[return-value]
 
-    async def __call__(  # type: ignore[override]
-        self, scope: types.Scope, receive: types.Receive, send: types.Send
-    ) -> None:
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Perform a request.
 
         :param scope: ASGI scope.
@@ -128,9 +108,18 @@ class Flama(Starlette):
         :param send: ASGI send event.
         """
         scope["app"] = self
-        await self.middlewares(scope, receive, send)
+        await self.middleware(scope, receive, send)
 
-    def add_route(  # type: ignore[override]
+    def resolve_url(self, name: str, **path_params: t.Any) -> url.URL:
+        """Look for a route URL given the route name and path params.
+
+        :param name: Route name.
+        :param path_params: Path params.
+        :return: Route URL.
+        """
+        return self.router.resolve_url(name, **path_params)
+
+    def add_route(
         self,
         path: t.Optional[str] = None,
         endpoint: t.Optional[types.HTTPHandler] = None,
@@ -152,7 +141,7 @@ class Flama(Starlette):
             path, endpoint, methods=methods, name=name, include_in_schema=include_in_schema, route=route
         )
 
-    def route(  # type: ignore[override]
+    def route(
         self, path: str, methods: t.List[str] = None, name: str = None, include_in_schema: bool = True
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:  # pragma: no cover
         """Decorator version for registering a new HTTP route in this router under given path.
@@ -165,7 +154,7 @@ class Flama(Starlette):
         """
         return self.router.route(path, methods=methods, name=name, include_in_schema=include_in_schema)
 
-    def add_websocket_route(  # type: ignore[override]
+    def add_websocket_route(
         self,
         path: t.Optional[str] = None,
         endpoint: t.Optional[types.WebSocketHandler] = None,
@@ -181,7 +170,7 @@ class Flama(Starlette):
         """
         return self.router.add_websocket_route(path=path, endpoint=endpoint, name=name, route=route)
 
-    def websocket_route(  # type: ignore[override]
+    def websocket_route(
         self, path: str, name: str = None
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:  # pragma: no cover
         """Decorator version for registering a new websocket route in this router under given path.
@@ -193,25 +182,25 @@ class Flama(Starlette):
         return self.router.websocket_route(path, name=name)
 
     @property
-    def injector(self) -> Injector:
+    def injector(self) -> injection.Injector:
         """Components dependency injector.
 
         :return: Injector instance.
         """
-        components = Components(self.components + asgi.ASGI_COMPONENTS + validation.VALIDATION_COMPONENTS)
+        components = injection.Components(self.components + asgi.ASGI_COMPONENTS + validation.VALIDATION_COMPONENTS)
         if self._injector.components != components:
             self._injector.components = components
         return self._injector
 
     @property
-    def components(self) -> Components:
+    def components(self) -> injection.Components:
         """Components register.
 
         :return: Components register.
         """
         return self.router.components
 
-    def add_component(self, component: "Component"):
+    def add_component(self, component: injection.Component):
         """Add a new component to the register.
 
         :param component: Component to include.
@@ -219,21 +208,46 @@ class Flama(Starlette):
         self.router.add_component(component)
 
     @property
-    def routes(self) -> t.List["BaseRoute"]:  # type: ignore[override]
+    def routes(self) -> t.List["BaseRoute"]:
         """List of registered routes.
 
         :return: Routes.
         """
         return self.router.routes
 
-    def mount(self, path: str, app: types.App, name: str = None) -> None:  # type: ignore[override]
-        """Mount a new ASGI application under given path.
+    def mount(
+        self, path: t.Optional[str] = None, app: t.Optional[types.App] = None, name: str = None, mount: "Mount" = None
+    ) -> "Mount":
+        """Register a new mount point containing an ASGI app in this router under given path.
 
         :param path: URL path.
-        :param app: ASGI application.
+        :param app: ASGI app to mount.
         :param name: Application name.
+        :param mount: Mount.
+        :return: Mount.
         """
-        self.router.mount(path, app=app, name=name)
+        return self.router.mount(path=path, app=app, name=name, mount=mount)
+
+    def add_event_handler(self, event: str, func: t.Callable) -> None:
+        """Register a new event handler.
+
+        :param event: Event type.
+        :param func: Event handler.
+        """
+        self.events.register(event, func)
+
+    def on_event(self, event: str) -> t.Callable:
+        """Decorator version for registering a new event handler.
+
+        :param event: Event type.
+        :return: Decorated handler.
+        """
+
+        def decorator(func: t.Callable) -> t.Callable:
+            self.add_event_handler(event, func)
+            return func
+
+        return decorator
 
     def add_exception_handler(self, exc_class_or_status_code: t.Union[int, t.Type[Exception]], handler: t.Callable):
         """Add a new exception handler for given status code or exception class.
@@ -241,7 +255,7 @@ class Flama(Starlette):
         :param exc_class_or_status_code: Status code or exception class.
         :param handler: Exception handler.
         """
-        self.middlewares.add_exception_handler(exc_class_or_status_code, handler)
+        self.middleware.add_exception_handler(exc_class_or_status_code, handler)
 
     def add_middleware(self, middleware_class: t.Type, **options: t.Any):
         """Add a new middleware to the stack.
@@ -249,7 +263,7 @@ class Flama(Starlette):
         :param middleware_class: Middleware class.
         :param options: Keyword arguments used to initialise middleware.
         """
-        self.middlewares.add_middleware(Middleware(middleware_class, **options))
+        self.middleware.add_middleware(Middleware(middleware_class, **options))
 
     get = functools.partialmethod(route, methods=["GET"])
     head = functools.partialmethod(route, methods=["HEAD"])

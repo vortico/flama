@@ -133,7 +133,7 @@ class Endpoint:
             raise ValueError(f"Filename '{filename}' not found in sys.path")
 
         return cls(
-            path=route.path,
+            path=str(route.path),
             endpoint=handler.__name__,
             module=module.__name__ if module else None,
             file=str(relative_filename),
@@ -153,7 +153,7 @@ class App:
         urls: t.List[t.Union[Endpoint, "App"]] = []
         for route in app.routes:
             try:
-                urls.append(App.from_app(route.app, path=route.path, name=route.name))
+                urls.append(App.from_app(route.app, path=route.path.path, name=route.name))
             except AttributeError:
                 urls.append(Endpoint.from_route(route))
 

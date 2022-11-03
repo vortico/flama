@@ -98,7 +98,7 @@ class TestCaseRouteFieldsMixin:
         expected_output_field = Parameter("_output", ParameterLocation.output, schema_type=foo_schema, required=False)
 
         query_fields, path_fields, body_field, output_field = route.parameters._get_parameters_from_handler(
-            route.endpoint, route.path.convertors.keys(), app.components
+            route.endpoint, route.path.serializers.keys(), app.components
         )
 
         assert query_fields == expected_query_fields

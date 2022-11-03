@@ -28,7 +28,13 @@ class MethodComponent(Component):
 
 class URLComponent(Component):
     def resolve(self, scope: types.Scope) -> types.URL:
-        return types.URL(scope=scope)
+        host, port = scope.get("server", ["", ""])
+        scheme = scope.get("scheme", "")
+
+        if (scheme == "http" and port == 80) or (scheme == "https" and port == 443):
+            port = None
+
+        return types.URL(f"{scheme}://{host}{f':{port}' if port else ''}{scope.get('raw_path', b'').decode()}")
 
 
 class SchemeComponent(Component):

@@ -1,8 +1,6 @@
 import inspect
 import typing
 
-from starlette import status
-
 from flama import codecs, exceptions, http, schemas, types
 from flama.injection import Component, Components
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
@@ -48,7 +46,7 @@ class WebSocketMessageDataComponent(Component):
             codec = self.negotiator.negotiate(websocket_encoding)
             return await codec.decode(message)
         except (exceptions.NoCodecAvailable, exceptions.DecodeError):
-            raise exceptions.WebSocketException(code=status.WS_1003_UNSUPPORTED_DATA)
+            raise exceptions.WebSocketException(code=1003)
 
 
 class ValidatePathParamsComponent(Component):

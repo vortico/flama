@@ -6,12 +6,12 @@ from flama.resources import data_structures
 from flama.resources.crud import CRUDListDropResourceType, CRUDListResourceType, CRUDResourceType
 from flama.resources.resource import BaseResource
 from flama.resources.routing import ResourceRoute, resource_method
-from flama.sqlalchemy import metadata
+from flama.sqlalchemy import SQLAlchemyModule, metadata
 
 
 @pytest.fixture
 def app(app):
-    return Flama(schema=None, docs=None, sqlalchemy_database="sqlite+aiosqlite://")
+    return Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
 
 
 class TestCaseBaseResource:

@@ -98,14 +98,20 @@ class TestCaseHTTPEndpoint:
 
     def test_init(self, app, asgi_scope, asgi_receive, asgi_send):
         with patch("flama.endpoints.http.Request") as request_mock:
-            route = app.add_route("/", HTTPEndpoint)
+
+            class FooEndpoint(HTTPEndpoint):
+                def get(self):
+                    ...
+
+            route = app.add_route("/", FooEndpoint)
             asgi_scope = {
                 **asgi_scope,
                 "app": app,
                 "type": "http",
+                "method": "GET",
                 "path": "/",
                 "path_params": {},
-                "endpoint": HTTPEndpoint,
+                "endpoint": FooEndpoint,
                 "route": route,
             }
             endpoint = HTTPEndpoint(asgi_scope, asgi_receive, asgi_send)
@@ -136,9 +142,6 @@ class TestCaseHTTPEndpoint:
         endpoint.state["request"].scope["method"] = "GET"
         assert endpoint.handler == endpoint.get
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-    )  # PORT: Remove when stop supporting 3.7
     async def test_dispatch(self, app, endpoint):
         injected_mock = MagicMock()
         app.injector.inject = AsyncMock(return_value=injected_mock)
