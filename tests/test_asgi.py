@@ -27,7 +27,7 @@ class TestCaseURLComponent:
     def add_endpoints(self, app):
         @app.route("/url/")
         def get_url(url: types.URL):
-            return {"url": str(url), "components": url.components}
+            return {"url": url.url, "components": url.components}
 
     @pytest.mark.parametrize(
         ["path", "method", "expected"],
@@ -37,7 +37,14 @@ class TestCaseURLComponent:
                 "get",
                 {
                     "url": "http://example.com/url/",
-                    "components": ["http", "example.com", "/url/", "", ""],
+                    "components": {
+                        "scheme": "http",
+                        "netloc": "example.com",
+                        "path": "/url/",
+                        "query": "",
+                        "fragment": "",
+                        "params": "",
+                    },
                 },
                 id="http",
             ),
@@ -46,7 +53,14 @@ class TestCaseURLComponent:
                 "get",
                 {
                     "url": "https://example.com/url/",
-                    "components": ["https", "example.com", "/url/", "", ""],
+                    "components": {
+                        "scheme": "https",
+                        "netloc": "example.com",
+                        "path": "/url/",
+                        "query": "",
+                        "fragment": "",
+                        "params": "",
+                    },
                 },
                 id="https",
             ),
@@ -55,7 +69,14 @@ class TestCaseURLComponent:
                 "get",
                 {
                     "url": "http://example.com:123/url/",
-                    "components": ["http", "example.com:123", "/url/", "", ""],
+                    "components": {
+                        "scheme": "http",
+                        "netloc": "example.com:123",
+                        "path": "/url/",
+                        "query": "",
+                        "fragment": "",
+                        "params": "",
+                    },
                 },
                 id="http_port",
             ),
@@ -64,7 +85,14 @@ class TestCaseURLComponent:
                 "get",
                 {
                     "url": "https://example.com:123/url/",
-                    "components": ["https", "example.com:123", "/url/", "", ""],
+                    "components": {
+                        "scheme": "https",
+                        "netloc": "example.com:123",
+                        "path": "/url/",
+                        "query": "",
+                        "fragment": "",
+                        "params": "",
+                    },
                 },
                 id="https_port",
             ),
@@ -73,7 +101,14 @@ class TestCaseURLComponent:
                 "get",
                 {
                     "url": "http://example.com/url/?a=1",
-                    "components": ["http", "example.com", "/url/", "a=1", ""],
+                    "components": {
+                        "scheme": "http",
+                        "netloc": "example.com",
+                        "path": "/url/",
+                        "query": "a=1",
+                        "fragment": "",
+                        "params": "",
+                    },
                 },
                 id="query_param",
             ),

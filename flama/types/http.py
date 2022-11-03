@@ -1,7 +1,8 @@
 import typing as t
 
 import starlette.datastructures
-import starlette.requests
+
+from flama.url import URL
 
 __all__ = [
     "Method",
@@ -23,7 +24,6 @@ __all__ = [
     "QueryParams",
 ]
 
-
 Method = t.NewType("Method", str)
 Scheme = t.NewType("Scheme", str)
 Host = t.NewType("Host", str)
@@ -36,7 +36,6 @@ Body = t.NewType("Body", bytes)
 PathParams = t.NewType("PathParams", t.Dict[str, str])
 PathParam = t.NewType("PathParam", str)
 RequestData = t.NewType("RequestData", t.Dict[str, t.Any])
-URL = starlette.datastructures.URL
 Headers = starlette.datastructures.Headers
 MutableHeaders = starlette.datastructures.MutableHeaders
 QueryParams = starlette.datastructures.QueryParams

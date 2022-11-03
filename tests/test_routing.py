@@ -1,17 +1,11 @@
-import sys
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from flama import endpoints, exceptions, http
+from flama import endpoints, exceptions
 from flama.applications import Flama
 from flama.injection import Component, Components
-from flama.routing import Mount, NotFound, Route, Router, WebSocketRoute
-
-if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
-    from unittest.mock import AsyncMock
-else:  # pragma: no cover
-    from asyncmock import AsyncMock
+from flama.routing import Mount, Route, Router, WebSocketRoute
 
 
 class TestCaseRouter:
@@ -327,60 +321,12 @@ class TestCaseRouter:
         scope["path"] = "/foo/"
         scope["method"] = "POST"
 
-        route, route_scope = app.router.resolve_route(scope=scope)
-
-        assert route.endpoint == foo
-        assert route.path == "/foo/"
-        assert route_scope is not None
-        assert route_scope["path"] == "/foo/"
-        assert route_scope["root_path"] == ""
-        assert route_scope["endpoint"] == foo
+        with pytest.raises(exceptions.MethodNotAllowedException):
+            route, route_scope = app.router.resolve_route(scope=scope)
 
     def test_get_route_from_scope_not_found(self, app, scope):
         scope["path"] = "/foo/"
         scope["method"] = "GET"
 
-        route, route_scope = app.router.resolve_route(scope=scope)
-
-        assert isinstance(route, NotFound)
-        assert route_scope == scope
-
-
-@pytest.mark.skipif(
-    sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-)  # PORT: Remove when stop supporting 3.7
-class TestCaseNotFound:
-    @pytest.fixture
-    def not_found(self):
-        return NotFound()
-
-    async def test_not_found_websocket(self, not_found, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["type"] = "websocket"
-
-        websocket_close_instance_mock = AsyncMock()
-        websocket_close_mock = MagicMock(return_value=websocket_close_instance_mock)
-        with patch("flama.routing.websockets.Close", new=websocket_close_mock):
-            await not_found(asgi_scope, asgi_receive, asgi_send)
-            assert websocket_close_mock.call_args_list == [call()]
-            assert websocket_close_instance_mock.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
-
-    async def test_not_found_flama_app(self, not_found, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["app"] = MagicMock()
-
-        with pytest.raises(exceptions.HTTPException) as exc_info:
-            await not_found(asgi_scope, asgi_receive, asgi_send)
-
-            assert exc_info.type is exceptions.HTTPException
-            assert exc_info.value.args == [400]
-
-    async def test_not_found_no_app(self, not_found, asgi_scope, asgi_receive, asgi_send):
-        if "app" in asgi_scope:
-            del asgi_scope["app"]
-
-        response_instance_mock = AsyncMock()
-        response_mock = MagicMock(return_value=response_instance_mock, spec=http.PlainTextResponse)
-        with patch("flama.routing.http.PlainTextResponse", new=response_mock):
-            await not_found(asgi_scope, asgi_receive, asgi_send)
-
-            assert response_mock.call_args_list == [call("Not Found", status_code=404)]
-            assert response_instance_mock.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
+        with pytest.raises(exceptions.NotFoundException):
+            route, route_scope = app.router.resolve_route(scope=scope)

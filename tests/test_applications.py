@@ -5,15 +5,19 @@ import pytest
 from starlette.middleware import Middleware
 
 from flama import Component, Flama, Module, Mount, Route, Router
-from flama.applications import DEFAULT_MODULES
 from flama.injection.components import Components
 from flama.injection.injector import Injector
 from flama.middleware import MiddlewareStack
+from flama.models import ModelsModule
+from flama.resources import ResourcesModule
+from flama.schemas.modules import SchemaModule
 
 if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
     from unittest.mock import AsyncMock
 else:  # pragma: no cover
     from asyncmock import AsyncMock
+
+DEFAULT_MODULES = [ResourcesModule, SchemaModule, ModelsModule]
 
 
 class TestCaseFlama:
@@ -44,7 +48,7 @@ class TestCaseFlama:
         assert root_app.components == set()
         assert root_app.modules == DEFAULT_MODULES
 
-        leaf_app = Flama(schema=None, docs=None, components={component_mock}, modules={module_mock})
+        leaf_app = Flama(schema=None, docs=None, components=[component_mock], modules={module_mock()})
         leaf_app.add_get("/bar", lambda: {})
 
         assert len(leaf_app.router.routes) == 1
@@ -75,7 +79,9 @@ class TestCaseFlama:
 
     def test_declarative_recursion(self, component_mock, module_mock):
         leaf_routes = [Route("/bar", lambda: {})]
-        leaf_app = Flama(routes=leaf_routes, schema=None, docs=None, components={component_mock}, modules={module_mock})
+        leaf_app = Flama(
+            routes=leaf_routes, schema=None, docs=None, components=[component_mock], modules={module_mock()}
+        )
         root_routes = [Route("/foo", lambda: {}), Mount("/app", app=leaf_app)]
         root_app = Flama(routes=root_routes, schema=None, docs=None)
 
@@ -105,9 +111,9 @@ class TestCaseFlama:
     def test_add_exception_handler(self, app, key, handler):
         expected_call = [call(key, handler)]
 
-        with patch.object(app, "middlewares", spec=MiddlewareStack):
+        with patch.object(app, "middleware", spec=MiddlewareStack):
             app.add_exception_handler(key, handler)
-            assert app.middlewares.add_exception_handler.call_args_list == expected_call
+            assert app.middleware.add_exception_handler.call_args_list == expected_call
 
     def test_add_middleware(self, app):
         class FooMiddleware:
@@ -116,10 +122,10 @@ class TestCaseFlama:
 
         options = {"foo": "bar"}
 
-        with patch.object(app, "middlewares", spec=MiddlewareStack):
+        with patch.object(app, "middleware", spec=MiddlewareStack):
             app.add_middleware(FooMiddleware, **options)
-            assert len(app.middlewares.add_middleware.call_args_list) == 1
-            middleware = app.middlewares.add_middleware.call_args[0][0]
+            assert len(app.middleware.add_middleware.call_args_list) == 1
+            middleware = app.middleware.add_middleware.call_args[0][0]
             assert isinstance(middleware, Middleware)
             assert middleware.cls == FooMiddleware
             assert middleware.options == options
@@ -128,8 +134,8 @@ class TestCaseFlama:
         sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
     )  # PORT: Remove when stop supporting 3.7
     async def test_call(self, app, asgi_scope, asgi_receive, asgi_send):
-        with patch.object(app, "middlewares", new=AsyncMock(spec=MiddlewareStack)):
+        with patch.object(app, "middleware", new=AsyncMock(spec=MiddlewareStack)):
             await app(asgi_scope, asgi_receive, asgi_send)
             assert "app" in asgi_scope
             assert asgi_scope["app"] == app
-            assert app.middlewares.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
+            assert app.middleware.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]

@@ -11,19 +11,16 @@ except Exception:  # pragma: no cover
     sqlalchemy = None
     metadata = None
 
-if typing.TYPE_CHECKING:
-    from flama.applications import Flama
-
 __all__ = ["metadata", "SQLAlchemyModule"]
 
 
 class SQLAlchemyModule(Module):
     name = "sqlalchemy"
 
-    def __init__(self, app: "Flama", sqlalchemy_database: str = None, *args, **kwargs):
-        super().__init__(app, *args, **kwargs)
+    def __init__(self, database: str = None):
+        super().__init__()
 
-        self.database = sqlalchemy_database
+        self.database = database
         self._engine: typing.Optional["AsyncEngine"] = None
         self._metadata: typing.Optional["sqlalchemy.MetaData"] = metadata
 

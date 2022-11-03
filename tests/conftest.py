@@ -10,7 +10,7 @@ import typesystem
 from faker import Faker
 
 from flama import Flama
-from flama.sqlalchemy import metadata
+from flama.sqlalchemy import SQLAlchemyModule, metadata
 from flama.testclient import TestClient
 from tests.utils import ExceptionContext, check_param_lib_installed
 
@@ -119,7 +119,7 @@ def app(request):
         description="Bar",
         schema="/schema/",
         docs="/docs/",
-        sqlalchemy_database="sqlite+aiosqlite://",
+        modules={SQLAlchemyModule("sqlite+aiosqlite://")},
         schema_library=request.param,
     )
 

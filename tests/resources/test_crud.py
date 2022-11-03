@@ -12,13 +12,14 @@ from flama.pagination import paginator
 from flama.resources.crud import CRUDListDropResourceType, CRUDListResourceType, CRUDResourceType
 from flama.resources.rest import RESTResource
 from flama.resources.routing import ResourceRoute, resource_method
+from flama.sqlalchemy import SQLAlchemyModule
 from tests.conftest import DATABASE_URL
 
 
 @pytest.fixture
 def app(app):
     # Remove schema and docs endpoint from base fixture
-    return Flama(schema=None, docs=None, sqlalchemy_database="sqlite+aiosqlite://")
+    return Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
 
 
 @pytest.fixture(scope="function", autouse=True)

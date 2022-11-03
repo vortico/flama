@@ -2,25 +2,24 @@ import enum
 import functools
 import inspect
 import logging
-import re
+import sys
 import typing as t
-from http import HTTPStatus
 
-import starlette.routing
-from starlette.convertors import CONVERTOR_TYPES, Convertor
-from starlette.datastructures import URLPath
-from starlette.routing import NoMatchFound
-
-from flama import concurrency, endpoints, exceptions, http, types, websockets
+from flama import concurrency, endpoints, exceptions, http, types, url, websockets
 from flama.injection import Component, Components
+from flama.lifespan import Lifespan
 from flama.schemas.routing import RouteParametersMixin
 from flama.schemas.validation import get_output_schema
 
+if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
+    from typing import TypeGuard
+else:  # pragma: no cover
+    from typing_extensions import TypeGuard
+
 if t.TYPE_CHECKING:
     from flama.applications import Flama
-    from flama.lifespan import Lifespan
 
-__all__ = ["Mount", "Route", "Router", "WebSocketRoute", "NotFound"]
+__all__ = ["Route", "WebSocketRoute", "Mount", "Router"]
 
 logger = logging.getLogger(__name__)
 
@@ -36,68 +35,10 @@ class Match(enum.Enum):
     full = enum.auto()
 
 
-class Path:
-    param_regex = re.compile(r"{{(?P<name>[a-zA-Z_][a-zA-Z0-9_]*)(?::(?P<type>[a-zA-Z_][a-zA-Z0-9_]*)?)?}}")
-
-    def __init__(self, path: str, add_path_param: bool = False):
-        assert path.startswith("/"), "Routed paths must start with '/'"
-
-        self.path = path
-
-        if add_path_param:
-            self.path = self.path.rstrip("/")
-            path = f"{self.path}/{{path:path}}"
-
-        regex = self.param_regex.sub(lambda x: f"(?P<{x.group('name')}>{self._convertor(x.group('type')).regex})", path)
-        self.regex = re.compile(f"^{regex}$")
-        self.format = self.param_regex.sub(lambda x: f"{{{x.group('name')}}}", path)
-        self.convertors = {
-            param_name: self._convertor(param_type) for param_name, param_type in self.param_regex.findall(path)
-        }
-
-    def _convertor(self, convertor_type: t.Optional[str]) -> Convertor:
-        try:
-            return CONVERTOR_TYPES[convertor_type or "str"]
-        except KeyError:
-            raise ValueError(f"Unknown path convertor '{convertor_type}'")
-
-    def match(self, path: str) -> bool:
-        return self.regex.match(path) is not None
-
-    def params(self, path: str) -> t.Dict[str, t.Any]:
-        return {k: self.convertors[k].convert(v) for k, v in self.regex.match(path).groupdict().items()}
-
-    def build(self, **params: t.Any) -> t.Tuple[str, t.Dict[str, t.Any]]:
-        replace = {k: self.convertors[k].to_string(v) for k, v in params.items()}
-        path = re.sub(
-            pattern=r"|".join(rf"{{({x})}}" for x in replace),
-            repl=lambda x: replace.pop(x.group(1)),
-            string=self.format,
-        )
-        return path, replace
-
-    def __eq__(self, other) -> bool:
-        return self.path.__eq__(other)
-
-    def __str__(self) -> str:
-        return self.path.__str__()
-
-    def __repr__(self) -> str:
-        return self.path.__repr__()
-
-    def __add__(self, other) -> "Path":
-        if isinstance(other, Path):
-            return Path(self.path + other.path)
-        elif isinstance(other, str):
-            return Path(self.path + other)
-
-        raise TypeError("can only concatenate str or Path to Path")
-
-
 class EndpointWrapper(types.AppClass):
     def __init__(
         self,
-        handler: t.Union[t.Callable, t.Type[endpoints.HTTPEndpoint], t.Type[endpoints.WebSocketEndpoint]],
+        handler: t.Union[types.AppFunction, t.Type[endpoints.HTTPEndpoint], t.Type[endpoints.WebSocketEndpoint]],
         endpoint_type: EndpointType,
     ):
         """Wraps a function or endpoint into ASGI application.
@@ -227,19 +168,19 @@ class EndpointWrapper(types.AppClass):
 class BaseRoute(RouteParametersMixin):
     def __init__(
         self,
-        path: t.Union[str, Path],
+        path: t.Union[str, url.RegexPath],
         app: types.App,
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         main_app: t.Optional["Flama"] = None,
     ):
-        self.path = Path(path) if isinstance(path, str) else path
+        self.path = url.RegexPath(path) if isinstance(path, str) else path
         self.app = app
-        self.endpoint = app.__wrapped__ if isinstance(app, EndpointWrapper) else self.app
+        self.endpoint = app.handler if isinstance(app, EndpointWrapper) else app
         if name is None:
             self.name = (
-                app.__name__
+                app.__name__  # type: ignore[union-attr]
                 if inspect.isroutine(self.endpoint) or inspect.isclass(self.endpoint)
                 else self.endpoint.__class__.__name__
             )
@@ -249,7 +190,7 @@ class BaseRoute(RouteParametersMixin):
         self.main_app = main_app
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        await self.handle({**scope, **self.route_scope(scope)}, receive, send)
+        await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
 
     def __eq__(self, other: t.Any) -> bool:
         return isinstance(other, BaseRoute) and self.path == other.path and self.app == other.app
@@ -280,46 +221,48 @@ class BaseRoute(RouteParametersMixin):
         :param scope: ASGI scope.
         :return: Route scope.
         """
-        return {
-            "endpoint": self.endpoint,
-            "path_params": {**dict(scope.get("path_params", {})), **self.path.params(scope["path"])},
-        }
+        return types.Scope(
+            {
+                "endpoint": self.endpoint,
+                "path_params": {**dict(scope.get("path_params", {})), **self.path.params(scope["path"])},
+            }
+        )
 
-    def url_path_for(self, name: str, **params: t.Any) -> URLPath:
+    def resolve_url(self, name: str, **params: t.Any) -> url.URL:
         """Builds URL path for given name and params.
 
         :param name: Route name.
         :param params: Path params.
         :return: URL path.
         """
-        if name != self.name or set(params.keys()) != set(self.path.convertors.keys()):
-            raise NoMatchFound(name, params)
+        if name != self.name or set(params.keys()) != set(self.path.serializers.keys()):
+            raise exceptions.NotFoundException(params=params, name=name)
 
         path, remaining_params = self.path.build(**params)
         assert not remaining_params
 
-        return URLPath(path=path, protocol="http")
+        return url.URL(path=path, scheme="http")
 
     @property
-    def main_app(self) -> "Flama":  # pragma: no cover
+    def main_app(self) -> t.Optional["Flama"]:  # pragma: no cover
         return self._main_app
 
     @main_app.setter
-    def main_app(self, app: "Flama"):  # pragma: no cover
+    def main_app(self, app: t.Optional["Flama"]):  # pragma: no cover
         self._main_app = app
 
         try:
-            self.app.main_app = app  # type: ignore[attr-defined]
+            self.app.main_app = app  # type: ignore[union-attr]
         except AttributeError:
             ...
 
         try:
-            self.app.app.main_app = app  # type: ignore[attr-defined]
+            self.app.app.main_app = app  # type: ignore[union-attr]
         except AttributeError:
             ...
 
         try:
-            for route in self.routes:  # type: ignore[attr-defined]
+            for route in getattr(self, "routes"):
                 route.main_app = app
         except AttributeError:
             ...
@@ -332,17 +275,17 @@ class BaseRoute(RouteParametersMixin):
             ...
 
         try:
-            del self.app.main_app  # type: ignore[attr-defined]
+            del self.app.main_app
         except AttributeError:
             ...
 
         try:
-            del self.app.app.main_app  # type: ignore[attr-defined]
+            del self.app.app.main_app
         except AttributeError:
             ...
 
         try:
-            for route in self.routes:  # type: ignore[attr-defined]
+            for route in self.routes:
                 del route.main_app
         except AttributeError:
             ...
@@ -352,7 +295,7 @@ class Route(BaseRoute):
     def __init__(
         self,
         path: str,
-        endpoint: t.Union[types.AppFunction, endpoints.HTTPEndpoint, t.Type[endpoints.HTTPEndpoint]],
+        endpoint: t.Union[types.AppFunction, t.Type[endpoints.HTTPEndpoint]],
         *,
         methods: t.Optional[t.List[str]] = None,
         name: t.Optional[str] = None,
@@ -368,13 +311,16 @@ class Route(BaseRoute):
         :param include_in_schema: True if this route must be listed as part of the App schema.
         :param main_app: Flama app.
         """
-        is_endpoint = (inspect.isclass(endpoint) and issubclass(endpoint, endpoints.HTTPEndpoint)) or isinstance(
-            endpoint, endpoints.HTTPEndpoint
-        )
-        assert is_endpoint or callable(endpoint), "Endpoint must be a callable or an HTTPEndpoint subclass"
+
+        def is_endpoint(
+            x: t.Union[types.AppFunction, t.Type[endpoints.HTTPEndpoint]]
+        ) -> TypeGuard[t.Type[endpoints.HTTPEndpoint]]:
+            return inspect.isclass(x) and issubclass(x, endpoints.HTTPEndpoint)
+
+        assert is_endpoint(endpoint) or callable(endpoint), "Endpoint must be a callable or an HTTPEndpoint subclass"
 
         if methods is None:
-            self.methods = endpoint.allowed_methods() if is_endpoint else {"GET"}
+            self.methods = endpoint.allowed_methods() if is_endpoint(endpoint) else {"GET"}
         else:
             self.methods = set(methods)
 
@@ -389,24 +335,13 @@ class Route(BaseRoute):
             main_app=main_app,
         )
 
+        self.app: EndpointWrapper
+
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, Route) and self.methods == other.methods
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(path={self.path!r}, name={self.name!r}, methods={sorted(self.methods)!r})"
-
-    async def handle(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        """Performs a request by calling the app of this route.
-
-        :param scope: ASGI scope.
-        :param receive: ASGI receive event.
-        :param send: ASGI send event.
-        """
-        if self.methods and scope["method"] not in self.methods:
-            headers = {"Allow": ", ".join(self.methods)}
-            raise exceptions.HTTPException(status_code=405, headers=headers)
-
-        await self.app(scope, receive, send)
 
     def match(self, scope: types.Scope) -> Match:
         """Check if this route matches with given scope.
@@ -428,7 +363,7 @@ class WebSocketRoute(BaseRoute):
     def __init__(
         self,
         path: str,
-        endpoint: t.Union[types.AppFunction, endpoints.HTTPEndpoint, t.Type[endpoints.HTTPEndpoint]],
+        endpoint: t.Union[types.AppFunction, t.Type[endpoints.WebSocketEndpoint]],
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
@@ -442,10 +377,15 @@ class WebSocketRoute(BaseRoute):
         :param include_in_schema: True if this route must be listed as part of the App schema.
         :param main_app: Flama app.
         """
-        is_endpoint = (inspect.isclass(endpoint) and issubclass(endpoint, endpoints.WebSocketEndpoint)) or isinstance(
-            endpoint, endpoints.WebSocketEndpoint
-        )
-        assert is_endpoint or callable(endpoint), "Endpoint must be a callable or a WebSocketEndpoint subclass"
+
+        def is_endpoint(
+            x: t.Union[types.AppFunction, t.Type[endpoints.WebSocketEndpoint]]
+        ) -> TypeGuard[t.Type[endpoints.WebSocketEndpoint]]:
+            return inspect.isclass(x) and issubclass(x, endpoints.WebSocketEndpoint)
+
+        assert is_endpoint(endpoint) or callable(
+            endpoint
+        ), "Endpoint must be a callable or a WebSocketEndpoint subclass"
 
         super().__init__(
             path,
@@ -454,6 +394,8 @@ class WebSocketRoute(BaseRoute):
             include_in_schema=include_in_schema,
             main_app=main_app,
         )
+
+        self.app: EndpointWrapper
 
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, WebSocketRoute)
@@ -477,7 +419,7 @@ class Mount(BaseRoute):
         app: t.Optional[types.App] = None,
         *,
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
-        components: t.Optional[t.Set[Component]] = None,
+        components: t.Optional[t.Sequence[Component]] = None,
         name: str = None,
         main_app: t.Optional["Flama"] = None,
     ):
@@ -486,7 +428,7 @@ class Mount(BaseRoute):
         if app is None:
             app = Router(routes=routes, components=components)
 
-        super().__init__(Path(path, add_path_param=True), app, name=name, main_app=main_app)
+        super().__init__(url.RegexPath(path.rstrip("/") + "{path:path}"), app, name=name, main_app=main_app)
 
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, Mount)
@@ -520,16 +462,18 @@ class Mount(BaseRoute):
         path = scope["path"]
         root_path = scope.get("root_path", "")
         matched_params = self.path.params(path)
-        remaining_path = "/" + matched_params.pop("path")
+        remaining_path = matched_params.pop("path")
         matched_path = path[: -len(remaining_path)]
-        return {
-            "path_params": {**dict(scope.get("path_params", {})), **matched_params},
-            "endpoint": self.endpoint,
-            "root_path": root_path + matched_path,
-            "path": remaining_path,
-        }
+        return types.Scope(
+            {
+                "path_params": {**dict(scope.get("path_params", {})), **matched_params},
+                "endpoint": self.endpoint,
+                "root_path": root_path + matched_path,
+                "path": remaining_path,
+            }
+        )
 
-    def url_path_for(self, name: str, **params: t.Any) -> URLPath:
+    def resolve_url(self, name: str, **params: t.Any) -> url.URL:
         """Builds URL path for given name and params.
 
         :param name: Route name.
@@ -537,7 +481,7 @@ class Mount(BaseRoute):
         :return: URL path.
         """
         if self.name is not None and name == self.name and "path" in params:
-            return super().url_path_for(name, **{**params, "path": params["path"].lstrip("/")})
+            return super().resolve_url(name, **{**params, "path": params["path"].lstrip("/")})
         elif self.name is None or name.startswith(f"{self.name}:"):
             remaining_name = name if self.name is None else name.split(":", 1)[1]
             path, remaining_params = self.path.build(**{**params, "path": ""})
@@ -545,11 +489,11 @@ class Mount(BaseRoute):
                 remaining_params["path"] = params["path"]
             for route in self.routes:
                 try:
-                    url = route.url_path_for(remaining_name, **remaining_params)
-                    return URLPath(path=f"{path.rstrip('/')}{url!s}", protocol=url.protocol)
-                except NoMatchFound:
+                    route_url = route.resolve_url(remaining_name, **remaining_params)
+                    return url.URL(path=f"{path.rstrip('/')}{url!s}", scheme=route_url.scheme)
+                except exceptions.NotFoundException:
                     pass
-        raise NoMatchFound(name, params)
+        raise exceptions.NotFoundException(params=params, name=name)
 
     @property
     def routes(self) -> t.List[BaseRoute]:
@@ -560,29 +504,24 @@ class Mount(BaseRoute):
         return getattr(self.app, "routes", [])
 
 
-class Router(starlette.routing.Router):
+class Router(types.AsyncAppClass):
     def __init__(
         self,
-        main_app: "Flama" = None,
-        components: t.Optional[t.Set["Component"]] = None,
-        routes: t.Sequence[BaseRoute] = None,
-        lifespan: t.Optional["Lifespan"] = None,
-        *args,
-        **kwargs,
+        routes: t.Optional[t.Sequence[BaseRoute]] = None,
+        *,
+        components: t.Optional[t.Sequence["Component"]] = None,
+        lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None,
+        main_app: t.Optional["Flama"] = None,
     ):
-        self._components = Components(components.copy() if components else set())
-        super().__init__(routes=routes, lifespan=lifespan, *args, **kwargs)  # type: ignore[misc]
-        self.lifespan: t.Optional["Lifespan"]  # type: ignore[assignment]
-        self.routes: t.List[BaseRoute] = list(self.routes)  # type: ignore[assignment]
-
+        self.routes = [] if routes is None else list(routes)
+        self._components = Components(components if components else set())
+        self.lifespan = Lifespan(lifespan)
         self.main_app = main_app
 
     def __eq__(self, other: t.Any) -> bool:
         return isinstance(other, Router) and self.routes == other.routes
 
-    async def __call__(  # type: ignore[override]
-        self, scope: types.Scope, receive: types.Receive, send: types.Send
-    ) -> None:
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         assert scope["type"] in ("http", "websocket", "lifespan")
 
         if "router" not in scope:
@@ -596,7 +535,7 @@ class Router(starlette.routing.Router):
         await route(route_scope, receive, send)
 
     @property
-    def main_app(self) -> "Flama":
+    def main_app(self) -> t.Optional["Flama"]:
         return self._main_app
 
     @main_app.setter
@@ -621,16 +560,35 @@ class Router(starlette.routing.Router):
             + [
                 component
                 for route in self.routes
-                if hasattr(route, "app") and hasattr(route.app, "components")  # type: ignore[attr-defined]
-                for component in getattr(route.app, "components", [])  # type: ignore[attr-defined]
+                if hasattr(route, "app") and hasattr(route.app, "components")
+                for component in getattr(route.app, "components", [])
             ]
         )
 
     def add_component(self, component: Component):
+        """Register a new component.
+
+        :param component: Component to register.
+        """
         self._components.append(component)
 
-    def mount(self, path: str, app: types.App, name: str = None) -> Mount:
-        mount = Mount(path.rstrip("/"), app=app, name=name, main_app=self.main_app)
+    def mount(
+        self, path: t.Optional[str] = None, app: t.Optional[types.App] = None, name: str = None, mount: Mount = None
+    ) -> Mount:
+        """Register a new mount point containing an ASGI app in this router under given path.
+
+        :param path: URL path.
+        :param app: ASGI app to mount.
+        :param name: Route name.
+        :param mount: Mount.
+        :return: Mount.
+        """
+        if path is not None and app is not None:
+            mount = Mount(path, app=app, name=name, main_app=self.main_app)
+        elif mount is not None:
+            mount.main_app = self.main_app
+        else:
+            raise ValueError("Either 'path' and 'app' or 'mount' variables are needed")
 
         self.routes.append(mount)
 
@@ -643,7 +601,7 @@ class Router(starlette.routing.Router):
         methods: t.List[str] = None,
         name: str = None,
         include_in_schema: bool = True,
-        route: BaseRoute = None,
+        route: Route = None,
     ) -> Route:
         """Register a new HTTP route in this router under given path.
 
@@ -653,6 +611,7 @@ class Router(starlette.routing.Router):
         :param name: Endpoint or route name.
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
         :param route: HTTP route.
+        :return: Route.
         """
         if path is not None and endpoint is not None:
             route = Route(
@@ -703,6 +662,7 @@ class Router(starlette.routing.Router):
         :param endpoint: Websocket function or endpoint.
         :param name: Websocket route name.
         :param route: Specific route class.
+        :return: Websocket route.
         """
         if path is not None and endpoint is not None:
             route = WebSocketRoute(path, endpoint=endpoint, name=name, main_app=self.main_app)
@@ -722,7 +682,7 @@ class Router(starlette.routing.Router):
 
         :param path: URL path.
         :param name: Websocket route name.
-        :return: Decorated route.
+        :return: Decorated websocket route.
         """
 
         def decorator(func: types.WebSocketHandler) -> types.WebSocketHandler:
@@ -731,18 +691,19 @@ class Router(starlette.routing.Router):
 
         return decorator
 
-    def resolve_route(self, scope: types.Scope) -> t.Tuple[t.Union[BaseRoute, types.App], types.Scope]:
+    def resolve_route(self, scope: types.Scope) -> t.Tuple[BaseRoute, types.Scope]:
         """Look for a route that matches given ASGI scope.
 
         :param scope: ASGI scope.
         :return: Route and its scope.
         """
         partial = None
+        partial_allowed_methods: t.Set[str] = set()
 
         for route in self.routes:
             m = route.match(scope)
             if m == Match.full:
-                route_scope = {**scope, **route.route_scope(scope)}
+                route_scope = types.Scope({**scope, **route.route_scope(scope)})
 
                 if isinstance(route, Mount) and isinstance(route.app, Router):
                     return route.app.resolve_route(route_scope)
@@ -750,14 +711,23 @@ class Router(starlette.routing.Router):
                 return route, route_scope
             elif m == Match.partial:
                 partial = route
+                if isinstance(route, Route):
+                    partial_allowed_methods |= route.methods
 
         if partial:
-            route_scope = {**scope, **partial.route_scope(scope)}
-            return partial, route_scope
+            route_scope = types.Scope({**scope, **partial.route_scope(scope)})
+            raise exceptions.MethodNotAllowedException(
+                route_scope.get("root_path", "") + route_scope["path"],
+                route_scope["method"],
+                partial_allowed_methods,
+                params=route_scope.get("path_params"),
+            )
 
-        return NotFound(), scope
+        raise exceptions.NotFoundException(
+            path=scope.get("root_path", "") + scope["path"], params=scope.get("path_params")
+        )
 
-    def resolve_url(self, name: str, **path_params: t.Any) -> URLPath:
+    def resolve_url(self, name: str, **path_params: t.Any) -> url.URL:
         """Look for a route URL given the route name and path params.
 
         :param name: Route name.
@@ -766,23 +736,7 @@ class Router(starlette.routing.Router):
         """
         for route in self.routes:
             try:
-                return route.url_path_for(name, **path_params)
-            except NoMatchFound:
+                return route.resolve_url(name, **path_params)
+            except exceptions.NotFoundException:
                 pass
-        raise NoMatchFound(name, path_params)
-
-
-class NotFound(types.AppClass):
-    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        if scope.get("type", "") == "websocket":
-            websocket_close = websockets.Close()
-            await websocket_close(scope, receive, send)
-            return
-
-        # If we're running inside a starlette application then raise an exception, so that the configurable exception
-        # handler can deal with returning the response. For plain ASGI apps, just return the response.
-        if "app" in scope:
-            raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
-
-        response = http.PlainTextResponse("Not Found", status_code=HTTPStatus.NOT_FOUND)
-        await response(scope, receive, send)
+        raise exceptions.NotFoundException(params=path_params, name=name)
