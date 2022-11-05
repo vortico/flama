@@ -1,0 +1,720 @@
+
+
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <meta http-equiv="x-ua-compatible" content="ie=edge">
+      
+        <meta name="description" content="Fire up your API">
+      
+      
+        <link rel="canonical" href="https://flama.perdy.io/">
+      
+      
+        <meta name="author" content="José Antonio Perdiguero López">
+      
+      
+        <meta name="lang:clipboard.copy" content="Copy to clipboard">
+      
+        <meta name="lang:clipboard.copied" content="Copied to clipboard">
+      
+        <meta name="lang:search.language" content="en">
+      
+        <meta name="lang:search.pipeline.stopwords" content="True">
+      
+        <meta name="lang:search.pipeline.trimmer" content="True">
+      
+        <meta name="lang:search.result.none" content="No matching documents">
+      
+        <meta name="lang:search.result.one" content="1 matching document">
+      
+        <meta name="lang:search.result.other" content="# matching documents">
+      
+        <meta name="lang:search.tokenizer" content="[\s\-]+">
+      
+      <link rel="shortcut icon" href="images/favicon.png">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-4.6.3">
+    
+    
+      
+        <title>Flama</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/application.adb8469c.css">
+      
+        <link rel="stylesheet" href="assets/stylesheets/application-palette.a8b3c06d.css">
+      
+      
+        
+        
+        <meta name="theme-color" content="#ff7043">
+      
+    
+    
+      <script src="assets/javascripts/modernizr.86422ebf.js"></script>
+    
+    
+      
+        <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Fira+Sans:300,400,400i,700%7CFira+Mono&display=fallback">
+        <style>body,input{font-family:"Fira Sans","Helvetica Neue",Helvetica,Arial,sans-serif}code,kbd,pre{font-family:"Fira Mono","Courier New",Courier,monospace}</style>
+      
+    
+    <link rel="stylesheet" href="assets/fonts/material-icons.css">
+    
+    
+    
+      
+    
+    
+  </head>
+  
+    
+    
+    <body dir="ltr" data-md-color-primary="deep-orange" data-md-color-accent="blue">
+  
+    <svg class="md-svg">
+      <defs>
+        
+        
+          <svg xmlns="http://www.w3.org/2000/svg" width="416" height="448" viewBox="0 0 416 448" id="__github"><path fill="currentColor" d="M160 304q0 10-3.125 20.5t-10.75 19T128 352t-18.125-8.5-10.75-19T96 304t3.125-20.5 10.75-19T128 256t18.125 8.5 10.75 19T160 304zm160 0q0 10-3.125 20.5t-10.75 19T288 352t-18.125-8.5-10.75-19T256 304t3.125-20.5 10.75-19T288 256t18.125 8.5 10.75 19T320 304zm40 0q0-30-17.25-51T296 232q-10.25 0-48.75 5.25Q229.5 240 208 240t-39.25-2.75Q130.75 232 120 232q-29.5 0-46.75 21T56 304q0 22 8 38.375t20.25 25.75 30.5 15 35 7.375 37.25 1.75h42q20.5 0 37.25-1.75t35-7.375 30.5-15 20.25-25.75T360 304zm56-44q0 51.75-15.25 82.75-9.5 19.25-26.375 33.25t-35.25 21.5-42.5 11.875-42.875 5.5T212 416q-19.5 0-35.5-.75t-36.875-3.125-38.125-7.5-34.25-12.875T37 371.5t-21.5-28.75Q0 312 0 260q0-59.25 34-99-6.75-20.5-6.75-42.5 0-29 12.75-54.5 27 0 47.5 9.875t47.25 30.875Q171.5 96 212 96q37 0 70 8 26.25-20.5 46.75-30.25T376 64q12.75 25.5 12.75 54.5 0 21.75-6.75 42 34 40 34 99.5z"/></svg>
+        
+      </defs>
+    </svg>
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
+    
+      <a href="#flama" tabindex="0" class="md-skip">
+        Skip to content
+      </a>
+    
+    
+      <header class="md-header" data-md-component="header">
+  <nav class="md-header-nav md-grid">
+    <div class="md-flex">
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <a href="https://flama.perdy.io/" title="Flama" aria-label="Flama" class="md-header-nav__button md-logo">
+          
+            <img alt="logo" src="images/icon.png" width="24" height="24">
+          
+        </a>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
+      </div>
+      <div class="md-flex__cell md-flex__cell--stretch">
+        <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+          
+            <span class="md-header-nav__topic">
+              Flama
+            </span>
+            <span class="md-header-nav__topic">
+              
+                Home
+              
+            </span>
+          
+        </div>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        
+          <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
+          
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" aria-label="search" name="query" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="query" data-md-state="active">
+      <label class="md-icon md-search__icon" for="__search"></label>
+      <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
+        &#xE5CD;
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="result">
+          <div class="md-search-result__meta">
+            Type to start searching
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+        
+      </div>
+      
+        <div class="md-flex__cell md-flex__cell--shrink">
+          <div class="md-header-nav__source">
+            
+
+
+  
+
+<a href="https://github.com/perdy/flama" title="Go to repository" class="md-source" data-md-source="github">
+  
+    <div class="md-source__icon">
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+  
+  <div class="md-source__repository">
+    perdy/flama
+  </div>
+</a>
+          </div>
+        </div>
+      
+    </div>
+  </nav>
+</header>
+    
+    <div class="md-container">
+      
+        
+      
+      
+      <main class="md-main" role="main">
+        <div class="md-main__inner md-grid" data-md-component="container">
+          
+            
+              <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    <nav class="md-nav md-nav--primary" data-md-level="0">
+  <label class="md-nav__title md-nav__title--site" for="__drawer">
+    <a href="https://flama.perdy.io/" title="Flama" class="md-nav__button md-logo">
+      
+        <img alt="logo" src="images/icon.png" width="48" height="48">
+      
+    </a>
+    Flama
+  </label>
+  
+    <div class="md-nav__source">
+      
+
+
+  
+
+<a href="https://github.com/perdy/flama" title="Go to repository" class="md-source" data-md-source="github">
+  
+    <div class="md-source__icon">
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+  
+  <div class="md-source__repository">
+    perdy/flama
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+      
+    
+    
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        Home
+      </label>
+    
+    <a href="." title="Home" class="md-nav__link md-nav__link--active">
+      Home
+    </a>
+    
+      
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">Table of contents</label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#requirements" class="md-nav__link">
+    Requirements
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    Installation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    Example
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    Dependencies
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#credits" class="md-nav__link">
+    Credits
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing" class="md-nav__link">
+    Contributing
+  </a>
+  
+</li>
+      
+      
+      
+      
+      
+    </ul>
+  
+</nav>
+    
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="applications/" title="Applications" class="md-nav__link">
+      Applications
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="api_schema/" title="API Schema" class="md-nav__link">
+      API Schema
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="pagination/" title="Pagination" class="md-nav__link">
+      Pagination
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="models/" title="Models" class="md-nav__link">
+      Models
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="views/" title="Views" class="md-nav__link">
+      Views
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="templates/" title="Templates" class="md-nav__link">
+      Templates
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="examples/" title="Examples" class="md-nav__link">
+      Examples
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="components/" title="Components" class="md-nav__link">
+      Components
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="responses/" title="Responses" class="md-nav__link">
+      Responses
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="resources/" title="Resources" class="md-nav__link">
+      Resources
+    </a>
+  </li>
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">Table of contents</label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#requirements" class="md-nav__link">
+    Requirements
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    Installation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    Example
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependencies" class="md-nav__link">
+    Dependencies
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#credits" class="md-nav__link">
+    Credits
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing" class="md-nav__link">
+    Contributing
+  </a>
+  
+</li>
+      
+      
+      
+      
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          <div class="md-content">
+            <article class="md-content__inner md-typeset">
+              
+                
+                
+                <p align="center">
+  <a href="https://flama.perdy.io"><img src="https://raw.githubusercontent.com/perdy/flama/master/docs/images/logo.png" alt='Flama'></a>
+</p>
+<p align="center">
+    &#128293; <em>Fire up your API.</em>
+</p>
+<p align="center">
+<a href="https://github.com/perdy/flama/actions">
+    <img src="https://github.com/perdy/flama/workflows/Continuous%20Integration/badge.svg" alt="CI Status">
+</a>
+<a href="https://github.com/perdy/flama/actions">
+    <img src="https://github.com/perdy/flama/workflows/Publish%20Docs/badge.svg" alt="Docs Status">
+</a>
+<a href="https://codecov.io/gh/perdy/flama">
+    <img src="https://codecov.io/gh/perdy/flama/branch/master/graph/badge.svg" alt="Coverage">
+</a>
+<a href="https://pypi.org/project/flama/">
+    <img src="https://img.shields.io/pypi/v/flama?logo=PyPI&logoColor=white" alt="Package version">
+</a>
+<a href="https://pypi.org/project/flama/">
+    <img src="https://img.shields.io/pypi/pyversions/flama?logo=Python&logoColor=white" alt="PyPI - Python Version">
+</a>
+</p>
+
+<hr />
+<p><strong>Documentation</strong>: <a href="https://flama.perdy.io">https://flama.perdy.io</a></p>
+<hr />
+<h1 id="flama">Flama<a class="headerlink" href="#flama" title="Permanent link">&para;</a></h1>
+<p>Flama aims to bring a layer on top of <a href="https://www.starlette.io">Starlette</a> to provide an <strong>easy to learn</strong> and <strong>fast to develop</strong> approach for 
+building <strong>highly performant</strong> GraphQL and REST APIs. In the same way of Starlette is, Flama is a perfect option for 
+developing <strong>asynchronous</strong> and <strong>production-ready</strong> services. </p>
+<p>Among other characteristics it provides the following:</p>
+<ul>
+<li><strong>Generic classes</strong> for API resources that provides standard CRUD methods over SQLAlchemy tables.</li>
+<li><strong>Schema system</strong> based on <a href="https://marshmallow.readthedocs.io/">Marshmallow</a> that allows to <strong>declare</strong> the inputs and outputs of endpoints and provides 
+a reliable way of <strong>validate</strong> data against those schemas.</li>
+<li><strong>Dependency Injection</strong> that ease the process of managing parameters needed in endpoints. Flama ASGI objects 
+like <code>Request</code>, <code>Response</code>, <code>Session</code> and so on are defined as components and ready to be injected in your endpoints.</li>
+<li><strong>Components</strong> as the base of the plugin ecosystem, allowing you to create custom or use those already defined in 
+your endpoints, injected as parameters.</li>
+<li><strong>Auto generated API schema</strong> using OpenAPI standard. It uses the schema system of your endpoints to extract all the 
+necessary information to generate your API Schema.</li>
+<li><strong>Auto generated docs</strong> providing a <a href="https://swagger.io/tools/swagger-ui/">Swagger UI</a> or <a href="https://rebilly.github.io/ReDoc/">ReDoc</a> endpoint.</li>
+<li><strong>Pagination</strong> automatically handled using multiple methods such as limit and offset, page numbers...</li>
+</ul>
+<h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://www.python.org">Python</a> 3.6+</li>
+<li><a href="https://www.starlette.io">Starlette</a> 0.12.0+</li>
+<li><a href="https://marshmallow.readthedocs.io/">Marshmallow</a> 3.0.0+</li>
+</ul>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="gp">$</span> pip install flama
+</code></pre></div>
+
+<h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">marshmallow</span> <span class="kn">import</span> <span class="n">Schema</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">validate</span>
+<span class="kn">from</span> <span class="nn">flama.applications</span> <span class="kn">import</span> <span class="n">Flama</span>
+
+
+<span class="c1"># Data Schema</span>
+<span class="k">class</span> <span class="nc">Puppy</span><span class="p">(</span><span class="n">Schema</span><span class="p">):</span>
+    <span class="nb">id</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">Integer</span><span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">String</span><span class="p">()</span>
+    <span class="n">age</span> <span class="o">=</span> <span class="n">fields</span><span class="o">.</span><span class="n">Integer</span><span class="p">(</span><span class="n">validate</span><span class="o">=</span><span class="n">validate</span><span class="o">.</span><span class="n">Range</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+
+
+<span class="c1"># Database</span>
+<span class="n">puppies</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Canna&quot;</span><span class="p">,</span> <span class="s2">&quot;age&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">},</span>
+    <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;Sandy&quot;</span><span class="p">,</span> <span class="s2">&quot;age&quot;</span><span class="p">:</span> <span class="mi">12</span><span class="p">},</span>
+<span class="p">]</span>
+
+
+<span class="c1"># Application</span>
+<span class="n">app</span> <span class="o">=</span> <span class="n">Flama</span><span class="p">(</span>
+    <span class="n">components</span><span class="o">=</span><span class="p">[],</span>      <span class="c1"># Without custom components</span>
+    <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Foo&quot;</span><span class="p">,</span>        <span class="c1"># API title</span>
+    <span class="n">version</span><span class="o">=</span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span>      <span class="c1"># API version</span>
+    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Bar&quot;</span><span class="p">,</span>  <span class="c1"># API description</span>
+    <span class="n">schema</span><span class="o">=</span><span class="s2">&quot;/schema/&quot;</span><span class="p">,</span>  <span class="c1"># Path to expose OpenAPI schema</span>
+    <span class="n">docs</span><span class="o">=</span><span class="s2">&quot;/docs/&quot;</span><span class="p">,</span>      <span class="c1"># Path to expose Swagger UI docs</span>
+    <span class="n">redoc</span><span class="o">=</span><span class="s2">&quot;/redoc/&quot;</span><span class="p">,</span>    <span class="c1"># Path to expose ReDoc docs</span>
+<span class="p">)</span>
+
+
+<span class="c1"># Views</span>
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">list_puppies</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Puppy</span><span class="p">(</span><span class="n">many</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    description:</span>
+<span class="sd">        List the puppies collection. There is an optional query parameter that </span>
+<span class="sd">        specifies a name for filtering the collection based on it.</span>
+<span class="sd">    responses:</span>
+<span class="sd">        200:</span>
+<span class="sd">            description: List puppies.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">puppy</span> <span class="k">for</span> <span class="n">puppy</span> <span class="ow">in</span> <span class="n">puppies</span> <span class="k">if</span> <span class="n">puppy</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">name</span><span class="p">]</span>
+
+
+<span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">create_puppy</span><span class="p">(</span><span class="n">puppy</span><span class="p">:</span> <span class="n">Puppy</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Puppy</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    description:</span>
+<span class="sd">        Create a new puppy using data validated from request body and add it </span>
+<span class="sd">        to the collection.</span>
+<span class="sd">    responses:</span>
+<span class="sd">        200:</span>
+<span class="sd">            description: Puppy created successfully.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">puppies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">puppy</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">puppy</span>
+</code></pre></div>
+
+<h2 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">&para;</a></h2>
+<p>Following Starlette philosophy Flama reduce the number of hard dependencies to those that are used as the core:</p>
+<ul>
+<li><a href="https://www.starlette.io"><code>starlette</code></a> - Flama is a layer on top of it.</li>
+<li><a href="https://marshmallow.readthedocs.io/"><code>marshmallow</code></a> - Flama data schemas and validation.</li>
+</ul>
+<p>It does not have any more hard dependencies, but some of them are necessaries to use some features:</p>
+<ul>
+<li><a href="https://pyyaml.org/wiki/PyYAMLDocumentation"><code>pyyaml</code></a> - Required for API Schema and Docs auto generation.</li>
+<li><a href="https://apispec.readthedocs.io/"><code>apispec</code></a> - Required for API Schema and Docs auto generation.</li>
+<li><a href="https://python-forge.readthedocs.io/"><code>python-forge</code></a> - Required for pagination.</li>
+<li><a href="https://www.sqlalchemy.org/"><code>sqlalchemy</code></a> - Required for Generic API resources.</li>
+<li><a href="https://github.com/encode/databases"><code>databases</code></a> - Required for Generic API resources.</li>
+</ul>
+<p>You can install all of these with <code>pip3 install flama[full]</code>.</p>
+<h2 id="credits">Credits<a class="headerlink" href="#credits" title="Permanent link">&para;</a></h2>
+<p>That library is heavily inspired by <a href="https://github.com/encode/apistar/tree/version-0.5.x">APIStar</a> server in an attempt to bring a good amount of it essence to work with 
+<a href="https://www.starlette.io">Starlette</a> as the ASGI framework and <a href="https://marshmallow.readthedocs.io/">Marshmallow</a> as the schema system.</p>
+<h2 id="contributing">Contributing<a class="headerlink" href="#contributing" title="Permanent link">&para;</a></h2>
+<p>This project is absolutely open to contributions so if you have a nice idea, create an issue to let the community 
+discuss it.</p>
+                
+                  
+                
+                
+              
+              
+                
+
+
+              
+            </article>
+          </div>
+        </div>
+      </main>
+      
+        
+<footer class="md-footer">
+  
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid">
+        
+        
+          <a href="applications/" title="Applications" class="md-flex md-footer-nav__link md-footer-nav__link--next" rel="next">
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+              <span class="md-flex__ellipsis">
+                <span class="md-footer-nav__direction">
+                  Next
+                </span>
+                Applications
+              </span>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink">
+              <i class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+            </div>
+          </a>
+        
+      </nav>
+    </div>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-footer-copyright">
+        
+          <div class="md-footer-copyright__highlight">
+            GNU General Public License v3.0; 2018 - Present; José Antonio Perdiguero López
+          </div>
+        
+        powered by
+        <a href="https://www.mkdocs.org" target="_blank" rel="noopener">MkDocs</a>
+        and
+        <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+          Material for MkDocs</a>
+      </div>
+      
+  <div class="md-footer-social">
+    <link rel="stylesheet" href="assets/fonts/font-awesome.css">
+    
+      <a href="https://github.com/perdy" target="_blank" rel="noopener" title="github" class="md-footer-social__link fa fa-github"></a>
+    
+      <a href="https://linkedin.com/in/perdy" target="_blank" rel="noopener" title="linkedin" class="md-footer-social__link fa fa-linkedin"></a>
+    
+  </div>
+
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    
+      <script src="assets/javascripts/application.c33a9706.js"></script>
+      
+      <script>app.initialize({version:"1.1.2",url:{base:"."}})</script>
+      
+    
+  </body>
+</html>
