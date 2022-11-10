@@ -8,12 +8,12 @@ from flama.models.modules import ModelsModule
 from flama.modules import Modules
 from flama.pagination import paginator
 from flama.resources import ResourcesModule
-from flama.routing import Route, Router
+from flama.routing import BaseRoute, Router
 from flama.schemas.modules import SchemaModule
 
 if t.TYPE_CHECKING:
     from flama.modules import Module
-    from flama.routing import BaseRoute, Mount, WebSocketRoute
+    from flama.routing import Mount, Route, WebSocketRoute
 
 __all__ = ["Flama"]
 
@@ -79,7 +79,7 @@ class Flama:
                 "exc": Exception,
                 "app": Flama,
                 "path_params": types.PathParams,
-                "route": Route,  # TODO: Is it needed?
+                "route": BaseRoute,
                 "request": http.Request,
                 "response": http.Response,
                 "websocket": websockets.WebSocket,

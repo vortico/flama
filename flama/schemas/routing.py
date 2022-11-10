@@ -5,6 +5,7 @@ from flama import schemas
 from flama.schemas.data_structures import Parameter, Parameters
 from flama.schemas.types import ParameterLocation
 from flama.types import FIELDS_TYPE_MAPPING, OPTIONAL_FIELD_TYPE_MAPPING
+from flama.injection.data_structures import Parameter as InjectionParameter
 
 if t.TYPE_CHECKING:
     from flama.injection import Components
@@ -45,7 +46,7 @@ class ParametersDescriptor:
 
         for name, parameter in inspect.signature(handler).parameters.items():
             for component in components:
-                if component.can_handle_parameter(parameter):
+                if component.can_handle_parameter(InjectionParameter.from_parameter(parameter)):
                     parameters.update(
                         self._inspect_parameters_from_handler(
                             component.resolve, components  # type: ignore[attr-defined]
@@ -146,3 +147,6 @@ class RouteParametersMixin:
     """
 
     parameters = ParametersDescriptor()
+
+
+# TODO: Idea: Move this resolution into injection package and performs it in add_route and @route

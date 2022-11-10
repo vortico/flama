@@ -2,9 +2,9 @@ import inspect
 import typing
 
 from flama import codecs, exceptions, http, schemas, types
-from flama.injection import Component, Components
+from flama.injection import Component, Components, Parameter
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
-from flama.routing import Route
+from flama.routing import BaseRoute
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
@@ -17,10 +17,7 @@ class RequestDataComponent(Component):
             [codecs.JSONDataCodec(), codecs.URLEncodedCodec(), codecs.MultiPartCodec()]
         )
 
-    def can_handle_parameter(self, parameter: inspect.Parameter):
-        return parameter.annotation is types.RequestData
-
-    async def resolve(self, request: http.Request):
+    async def resolve(self, request: http.Request) -> types.RequestData:
         content_type = request.headers.get("Content-Type")
 
         try:
@@ -38,10 +35,7 @@ class WebSocketMessageDataComponent(Component):
     def __init__(self):
         self.negotiator = WebSocketEncodingNegotiator([codecs.BytesCodec(), codecs.TextCodec(), codecs.JSONCodec()])
 
-    def can_handle_parameter(self, parameter: inspect.Parameter):
-        return parameter.annotation is types.Data
-
-    async def resolve(self, message: types.Message, websocket_encoding: types.Encoding):
+    async def resolve(self, message: types.Message, websocket_encoding: types.Encoding) -> types.Data:
         try:
             codec = self.negotiator.negotiate(websocket_encoding)
             return await codec.decode(message)
@@ -50,7 +44,9 @@ class WebSocketMessageDataComponent(Component):
 
 
 class ValidatePathParamsComponent(Component):
-    async def resolve(self, request: http.Request, route: Route, path_params: types.PathParams) -> ValidatedPathParams:
+    async def resolve(
+        self, request: http.Request, route: BaseRoute, path_params: types.PathParams
+    ) -> ValidatedPathParams:
         fields = {f.name: f.schema for f in route.parameters.path[request.method].values()}
 
         try:
@@ -61,7 +57,7 @@ class ValidatePathParamsComponent(Component):
 
 
 class ValidateQueryParamsComponent(Component):
-    def resolve(self, request: http.Request, route: Route, query_params: types.QueryParams) -> ValidatedQueryParams:
+    def resolve(self, request: http.Request, route: BaseRoute, query_params: types.QueryParams) -> ValidatedQueryParams:
         fields = {f.name: f.schema for f in route.parameters.query[request.method].values()}
 
         try:
@@ -72,10 +68,7 @@ class ValidateQueryParamsComponent(Component):
 
 
 class ValidateRequestDataComponent(Component):
-    def can_handle_parameter(self, parameter: inspect.Parameter):
-        return parameter.annotation is ValidatedRequestData
-
-    def resolve(self, request: http.Request, route: Route, data: types.RequestData):
+    def resolve(self, request: http.Request, route: BaseRoute, data: types.RequestData) -> ValidatedRequestData:
         validator = route.parameters.body[request.method].schema
 
         try:
@@ -85,15 +78,13 @@ class ValidateRequestDataComponent(Component):
 
 
 class PrimitiveParamComponent(Component):
-    def can_handle_parameter(self, parameter: inspect.Parameter):
-        return parameter.annotation in types.FIELDS_TYPE_MAPPING
+    def can_handle_parameter(self, parameter: Parameter):
+        return parameter.type in types.FIELDS_TYPE_MAPPING
 
-    def resolve(
-        self, parameter: inspect.Parameter, path_params: ValidatedPathParams, query_params: ValidatedQueryParams
-    ):
+    def resolve(self, parameter: Parameter, path_params: ValidatedPathParams, query_params: ValidatedQueryParams):
         params = path_params if (parameter.name in path_params) else query_params
 
-        if parameter.annotation in types.OPTIONAL_FIELD_TYPE_MAPPING or parameter.default is not parameter.empty:
+        if parameter.type in types.OPTIONAL_FIELD_TYPE_MAPPING or parameter.default is not parameter.empty:
             required = False
             default = parameter.default if parameter.default is not parameter.empty else None
         else:
@@ -101,7 +92,7 @@ class PrimitiveParamComponent(Component):
             default = None
 
         param_validator: schemas.Field = schemas.adapter.build_field(
-            field_type=types.FIELDS_TYPE_MAPPING[parameter.annotation], required=required, default=default
+            field_type=types.FIELDS_TYPE_MAPPING[parameter.type], required=required, default=default
         )
 
         fields = {parameter.name: param_validator}
@@ -114,10 +105,10 @@ class PrimitiveParamComponent(Component):
 
 
 class CompositeParamComponent(Component):
-    def can_handle_parameter(self, parameter: inspect.Parameter):
-        return schemas.adapter.is_schema(parameter.annotation) or schemas.adapter.is_field(parameter.annotation)
+    def can_handle_parameter(self, parameter: Parameter):
+        return schemas.adapter.is_schema(parameter.type) or schemas.adapter.is_field(parameter.type)
 
-    def resolve(self, parameter: inspect.Parameter, data: ValidatedRequestData):
+    def resolve(self, data: ValidatedRequestData):
         return data
 
 

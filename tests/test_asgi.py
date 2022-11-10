@@ -234,26 +234,6 @@ class TestCaseQueryParamsComponent:
         assert response.json() == expected
 
 
-class TestCaseQueryParamComponent:
-    @pytest.fixture(scope="function", autouse=True)
-    def add_endpoints(self, app):
-        @app.route("/page_query_param/")
-        def get_page_query_param(page: types.QueryParam):
-            return {"page": page}
-
-    @pytest.mark.parametrize(
-        ["path", "method", "expected"],
-        [
-            pytest.param("/page_query_param/", "get", {"page": None}, id="empty"),
-            pytest.param("/page_query_param/?page=123", "get", {"page": "123"}, id="once"),
-            pytest.param("/page_query_param/?page=123&page=456", "get", {"page": "456"}, id="multiple"),
-        ],
-    )
-    def test_query_param(self, client, path, method, expected):
-        response = client.request(method, path)
-        assert response.json() == expected
-
-
 class TestCaseHeadersComponent:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
@@ -316,29 +296,6 @@ class TestCaseHeadersComponent:
     )
     def test_headers(self, client, path, method, request_kwargs, expected):
         response = client.request(method, path, **dict(request_kwargs))
-        assert response.json() == expected
-
-
-class TestCaseHeaderComponent:
-    @pytest.fixture(scope="function", autouse=True)
-    def add_endpoints(self, app):
-        @app.route("/accept_header/")
-        def get_accept_header(accept: types.Header):
-            return {"accept": accept}
-
-        @app.route("/missing_header/")
-        def get_missing_header(missing: types.Header):
-            return {"missing": missing}
-
-    @pytest.mark.parametrize(
-        ["path", "method", "expected"],
-        [
-            pytest.param("/accept_header/", "get", {"accept": "*/*"}, id="accept_header"),
-            pytest.param("/missing_header/", "get", {"missing": None}, id="missing_header"),
-        ],
-    )
-    def test_header(self, client, path, method, expected):
-        response = client.request(method, path)
         assert response.json() == expected
 
 

@@ -14,6 +14,7 @@ def get_output_schema(func):
     :param func: Annotated function.
     :returns: Output schema.
     """
+    # TODO: Shouldn't we use route.parameters.output here ?
     return_annotation = inspect.signature(func).return_annotation
 
     if schemas.adapter.is_schema(return_annotation) or schemas.adapter.is_field(return_annotation):
