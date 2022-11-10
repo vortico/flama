@@ -4,6 +4,9 @@ import typing as t
 from flama.injection.components import Component, Components
 from flama.injection.resolver import Resolver
 
+if t.TYPE_CHECKING:
+    from flama.injection.data_structures import ParametersBuilder
+
 
 class Injector:
     def __init__(
@@ -59,7 +62,16 @@ class Injector:
     def resolver(self):
         self._resolver = None
 
-    async def inject(self, func: t.Callable, **context: t.Dict[str, t.Any]) -> t.Callable:
+    def resolve(self, func: t.Callable) -> "ParametersBuilder":
+        """
+        Inspects a function and creates a resolution list of all components needed to run it.
+
+        :param func: Function to resolve.
+        :return: The parameters builder.
+        """
+        return self.resolver.resolve(func)
+
+    async def inject(self, func: t.Callable, **context: t.Any) -> t.Callable:
         """Given a function, injects all components and types defined in its signature and returns the partialised
         function.
 
@@ -67,4 +79,4 @@ class Injector:
         :param context: Mapping of names and values used to gather injection values.
         :return: Partialised function with all dependencies injected.
         """
-        return functools.partial(func, **(await self.resolver.resolve(func, **context)))
+        return functools.partial(func, **(await self.resolve(func).build(**context)))
