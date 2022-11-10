@@ -1,105 +1,20 @@
-import dataclasses
 import inspect
-import sys
 import typing as t
 
 from flama.injection.components import Component, Components
+from flama.injection.data_structures import Context, Parameter, ParametersBuilder, Root, Step
 from flama.injection.exceptions import ComponentNotFound
-
-if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing import TypeGuard
-else:  # pragma: no cover
-    from typing_extensions import TypeGuard
-
-
-@dataclasses.dataclass
-class StepContext:
-    constants: t.Dict[str, t.Any] = dataclasses.field(default_factory=dict)
-    kwargs: t.Dict[str, t.Any] = dataclasses.field(default_factory=dict)
-
-    def __iadd__(self, other):
-        self.constants.update(other.constants)
-        self.kwargs.update(other.kwargs)
-
-        return self
-
-    def build(self, **context: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
-        """Build the context needed to resolve a step.
-
-        The context is composed of some constant values and some keyword arguments that will be looked for in given
-        context.
-
-        :param context: Partial context.
-        :return: Step context.
-        """
-        return {**{key: context[val] for key, val in self.kwargs.items()}, **self.constants}
-
-
-@dataclasses.dataclass(frozen=True)
-class _BaseStep:
-    resolver: t.Union[t.Callable, t.Callable[..., t.Awaitable]]
-    context: StepContext
-
-    @property
-    def is_async(self) -> TypeGuard[t.Callable[..., t.Awaitable]]:
-        """Check if the step resolver is async.
-
-        :return: True if resolver is async.
-        """
-        return inspect.iscoroutinefunction(self.resolver)
-
-    async def build(self, **context: t.Dict[str, t.Any]) -> t.Any:
-        """Build a partial result by running the step resolver.
-
-        Each step represents an inner function that needs to be resolved because an upper function whose execution
-        depends on the result of it.
-
-        :param context: Partial context.
-        :return: Step result.
-        """
-        kwargs = self.context.build(**context)
-        if inspect.iscoroutinefunction(self.resolver):
-            return await self.resolver(**kwargs)
-
-        return self.resolver(**kwargs)
-
-
-@dataclasses.dataclass(frozen=True)
-class Root(_BaseStep):
-    ...
-
-
-@dataclasses.dataclass(frozen=True)
-class Step(_BaseStep):
-    id: str
-
-
-@dataclasses.dataclass(frozen=True)
-class ParametersBuilder:
-    root: Root
-    steps: t.List[Step]
-
-    async def build(self, **context: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
-        """Build a function's dependency injection context.
-
-        :param context: Initial context.
-        :return: Function's dependency injection context.
-        """
-        for step in self.steps:
-            context[step.id] = await step.build(**context)
-
-        return self.root.context.build(**context)
+from flama.injection.types import BUILTIN_TYPES
 
 
 class Resolver:
-    def __init__(self, types: t.Dict[str, t.Any], components: Components):
-        self.types = {v: k for k, v in types.items()}
+    def __init__(self, context_types: t.Dict[str, t.Type], components: Components):
+        self.context_types = {v: k for k, v in context_types.items()}
         self.components = components
         self.cache: t.Dict[int, ParametersBuilder] = {}
 
-    def _find_component_for_parameter(self, parameter: inspect.Parameter) -> Component:
-        """
-        Look for a component that can handles given parameter.
+    def _find_component_for_parameter(self, parameter: Parameter) -> Component:
+        """Look for a component that can handles given parameter.
 
         :param parameter: a parameter.
         :return: the component that handles the parameter.
@@ -111,10 +26,16 @@ class Resolver:
             raise ComponentNotFound(parameter)
 
     def _resolve_parameter(
-        self, parameter: inspect.Parameter, seen_state: t.Set[str], parent_parameter=None
-    ) -> t.Tuple[t.List[Step], StepContext]:
-        """
-        Resolve a parameter by inferring the component that suits it or by adding a value to kwargs or constants.
+        self, parameter: Parameter, seen_state: t.Set[str], parent_parameter: t.Optional[Parameter] = None
+    ) -> t.Tuple[t.List[Step], Context]:
+        """Resolve a parameter by inferring the component that suits it or by adding a value to kwargs or constants.
+
+        The algorithm consists of following steps to look for a resolver for a parameter based on its annotation:
+        1. Check if it exists in context types mapping to get its context name from it.
+        2. If the parameter annotation is an 'inspect.Parameter' then store it as a constant.
+        3. Look for a component that can handles it.
+
+        If none of those steps find a way to handle this parameter then a ComponentNotFound exception will be raised.
 
         :param parameter: parameter to be resolved.
         :param seen_state: cached state.
@@ -123,40 +44,48 @@ class Resolver:
         """
 
         steps: t.List[Step] = []
-        context = StepContext()
+        context = Context()
 
-        # Check if the parameter class exists in 'initial'.
-        if parameter.annotation in self.types:
-            context.kwargs[parameter.name] = self.types[parameter.annotation]
+        # Check if the parameter annotation exists in context types.
+        if parameter.type in self.context_types:
+            context.params[parameter.name] = Parameter(self.context_types[parameter.type], type=parameter.type)
             return steps, context
 
-        # The 'Parameter' annotation can be used to get the parameter itself. Used for example in 'Header' components
-        # that need the parameter name in order to look up for a particular value.
-        if parameter.annotation is inspect.Parameter:
+        # The 'Parameter' annotation can be used to get the parameter itself, so it is stored as a constant.
+        if parameter.type is Parameter:
             context.constants[parameter.name] = parent_parameter
             return steps, context
 
         # Look for a component that can handles the parameter.
-        component = self._find_component_for_parameter(parameter)
-        identity = component.identity(parameter)
-        context.kwargs[parameter.name] = identity
-        if identity not in seen_state:
-            seen_state.add(identity)
-            try:
-                steps = self._resolve_inner_function(
-                    func=component.resolve,  # type: ignore[attr-defined]
-                    func_id=identity,
-                    seen_state=seen_state,
-                    parent_parameter=parameter,
-                )
-            except ComponentNotFound as e:
-                raise ComponentNotFound(e.parameter, component=component) from None
+        try:
+            component = self._find_component_for_parameter(parameter)
+        except ComponentNotFound:
+            # The parameter is a builtin type, so it'll be expected as part of the building context values.
+            if parameter.type in BUILTIN_TYPES:
+                context.params[parameter.name] = Parameter(parameter.name, type=parameter.type)
+                return steps, context
+
+            raise
+        else:
+            identity = component.identity(parameter)
+            context.params[parameter.name] = Parameter(identity, type=parameter.type)
+            if identity not in seen_state:
+                seen_state.add(identity)
+                try:
+                    steps = self._resolve_inner_function(
+                        func=component.resolve,  # type: ignore[attr-defined]
+                        func_id=identity,
+                        seen_state=seen_state,
+                        parent_parameter=parameter,
+                    )
+                except ComponentNotFound as e:
+                    raise ComponentNotFound(e.parameter, component=component) from None
 
         return steps, context
 
     def _resolve_function_steps(
-        self, func: t.Callable, seen_state: t.Set[str], parent_parameter=None
-    ) -> t.Tuple[t.List[Step], StepContext]:
+        self, func: t.Callable, seen_state: t.Set[str], parent_parameter: t.Optional[Parameter] = None
+    ) -> t.Tuple[t.List[Step], Context]:
         """Inspects a function and generates a list of every step needed to build all parameters.
 
         :param func: The function to be inspected.
@@ -166,18 +95,20 @@ class Resolver:
         """
         signature = inspect.signature(func)
 
-        context = StepContext()
+        context = Context()
         steps = []
 
         for parameter in signature.parameters.values():
-            step, step_context = self._resolve_parameter(parameter, seen_state, parent_parameter)
-            steps += step
-            context += step_context
+            param_steps, param_context = self._resolve_parameter(
+                Parameter.from_parameter(parameter), seen_state, parent_parameter
+            )
+            steps += param_steps
+            context += param_context
 
         return steps, context
 
     def _resolve_inner_function(
-        self, func: t.Callable, seen_state: t.Set[str], func_id: str, parent_parameter=None
+        self, func: t.Callable, seen_state: t.Set[str], func_id: str, parent_parameter: t.Optional[Parameter] = None
     ) -> t.List[Step]:
         """Inspects an inner function and generates a list of every step needed to build all parameters.
 
@@ -201,20 +132,19 @@ class Resolver:
         steps, context = self._resolve_function_steps(func, seen_state)
         return Root(resolver=func, context=context), steps
 
-    async def resolve(self, func: t.Callable, **context: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    def resolve(self, func: t.Callable) -> ParametersBuilder:
         """
         Inspects a function and creates a resolution list of all components needed to run it.
 
         :param func: Function to resolve.
-        :param context: Mapping of names and values used to gather injection values.
-        :return: The keyword arguments for that function and the steps to resolve all components.
+        :return: The parameters builder.
         """
         key = hash(func)
         if key not in self.cache:
             try:
-                root, steps = self._resolve_root_function(func, seen_state=set(self.types.values()))
+                root, steps = self._resolve_root_function(func, seen_state=set(self.context_types.values()))
                 self.cache[key] = ParametersBuilder(steps=steps, root=root)
             except ComponentNotFound as e:
                 raise ComponentNotFound(e.parameter, component=e.component, function=func) from None
 
-        return await self.cache[key].build(**context)
+        return self.cache[key]
