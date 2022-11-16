@@ -46,9 +46,9 @@ class TestPageNumberResponse:
         parameters = schema.get("parameters", {})
 
         assert parameters == [
+            {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
             {"name": "page", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
             {"name": "page_size", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
-            {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
         ]
 
     def test_pagination_schema_return(self, app):
@@ -152,9 +152,9 @@ class TestLimitOffsetResponse:
         parameters = schema.get("parameters", {})
 
         assert parameters == [
+            {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
             {"name": "limit", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
             {"name": "offset", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
-            {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
         ]
 
     def test_pagination_schema_return(self, app):

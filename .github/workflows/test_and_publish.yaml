@@ -22,9 +22,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Commit Linter
-        uses: wagoid/commitlint-github-action@v4
+        uses: wagoid/commitlint-github-action@v5
       - name: Setup node
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v3
         with:
           node-version: 16
       - id: install
@@ -65,7 +65,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@master
       - name: Setup node
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v3
         with:
           node-version: 16
       - name: Setup poetry

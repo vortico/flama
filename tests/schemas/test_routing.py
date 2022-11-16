@@ -1,11 +1,9 @@
-import inspect
-
 import marshmallow
 import pytest
 import typesystem
 
 import flama.types.websockets
-from flama import Component, HTTPEndpoint, Route, Router, WebSocketEndpoint, WebSocketRoute, websockets
+from flama import Component, HTTPEndpoint, Route, WebSocketEndpoint, WebSocketRoute, websockets
 from flama.schemas.data_structures import Parameter
 from flama.schemas.types import ParameterLocation
 
@@ -21,7 +19,7 @@ class TestCaseRouteFieldsMixin:
             def resolve(self, ax: int) -> Custom:
                 return Custom()
 
-        return CustomComponent
+        return CustomComponent()
 
     @pytest.fixture
     def foo_schema(self, app):
@@ -42,155 +40,267 @@ class TestCaseRouteFieldsMixin:
         return schema
 
     @pytest.fixture
-    def router(self, app):
-        return Router(main_app=app)
+    def route(self, request, foo_schema):
+        if request.param == "http_function":
 
-    @pytest.fixture
-    def route(self, foo_schema):
-        def foo(w: int, a: Custom, z: foo_schema, x: int = 1, y: str = None) -> foo_schema:
-            ...
-
-        return Route("/foo/{w:int}/", endpoint=foo, methods=["GET"])
-
-    @pytest.fixture()
-    def endpoint(self, foo_schema):
-        class BarEndpoint(HTTPEndpoint):
-            def get(self, w: int, a: Custom, z: foo_schema, x: int = 1, y: str = None) -> foo_schema:
+            def foo(w: int, a: Custom, z: foo_schema, x: int = 1, y: str = None) -> foo_schema:
                 ...
 
-        return Route("/bar/{w:int}/", endpoint=BarEndpoint, methods=["GET"])
+            return Route("/foo/{w:int}/", endpoint=foo, methods=["GET"])
 
-    @pytest.fixture()
-    def websocket(self, foo_schema):
-        class FooWebsocket(WebSocketEndpoint):
-            def on_receive(self, websocket: websockets.WebSocket, data: flama.types.websockets.Data) -> None:
+        if request.param == "http_endpoint":
+
+            class BarEndpoint(HTTPEndpoint):
+                def get(self, w: int, a: Custom, z: foo_schema, x: int = 1, y: str = None) -> foo_schema:
+                    ...
+
+            return Route("/bar/{w:int}/", endpoint=BarEndpoint, methods=["GET"])
+
+        if request.param == "websocket_function":
+
+            def foo(
+                websocket: websockets.WebSocket,
+                data: flama.types.websockets.Data,
+                w: int,
+                a: Custom,
+                z: foo_schema,
+                x: int = 1,
+                y: str = None,
+            ) -> None:
                 ...
 
-        return WebSocketRoute("/foo", endpoint=FooWebsocket)
+            return WebSocketRoute("/foo/{w:int}/", endpoint=foo)
+
+        if request.param == "websocket_endpoint":
+
+            class FooWebsocket(WebSocketEndpoint):
+                def on_receive(
+                    self,
+                    websocket: websockets.WebSocket,
+                    data: flama.types.websockets.Data,
+                    w: int,
+                    a: Custom,
+                    z: foo_schema,
+                    x: int = 1,
+                    y: str = None,
+                ) -> None:
+                    ...
+
+            return WebSocketRoute("/foo/{w:int}/", endpoint=FooWebsocket)
 
     @pytest.fixture(scope="function", autouse=True)
-    def prepare_app(self, app, component, route, endpoint, websocket):
-        app.add_component(component())
-        app.add_route(route=route)
-        app.add_route(route=endpoint)
-        app.add_websocket_route(route=websocket)
+    def add_component(self, app, component):
+        app.add_component(component)
 
-    def test_inspect_parameters_from_handler(self, route, app, foo_schema):
-        expected_parameters = {
-            "x": inspect.Parameter("x", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int, default=1),
-            "y": inspect.Parameter("y", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=str, default=None),
-            "z": inspect.Parameter("z", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=foo_schema),
-            "ax": inspect.Parameter("ax", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int),
-            "w": inspect.Parameter("w", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=int),
+    @pytest.mark.parametrize(
+        ["route", "expected_params"],
+        (
+            pytest.param(
+                "http_function",
+                {
+                    "GET": {
+                        "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
+                        "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
+                        "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+                    },
+                    "HEAD": {
+                        "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
+                        "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
+                        "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+                    },
+                },
+                id="http_function",
+            ),
+            pytest.param(
+                "http_endpoint",
+                {
+                    "GET": {
+                        "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
+                        "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
+                        "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+                    },
+                    "HEAD": {
+                        "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
+                        "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
+                        "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+                    },
+                },
+                id="http_endpoint",
+            ),
+            pytest.param(
+                "websocket_function",
+                {
+                    "WEBSOCKET": {
+                        "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
+                        "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
+                        "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+                    }
+                },
+                id="websocket_function",
+            ),
+            pytest.param(
+                "websocket_endpoint",
+                {
+                    "WEBSOCKET_CONNECT": {},
+                    "WEBSOCKET_RECEIVE": {
+                        "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
+                        "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
+                        "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+                    },
+                    "WEBSOCKET_DISCONNECT": {},
+                },
+                id="websocket_endpoint",
+            ),
+        ),
+        indirect=["route"],
+    )
+    def test_query(self, route, expected_params):
+        assert route.parameters.query == expected_params
+
+    @pytest.mark.parametrize(
+        ["route", "expected_params"],
+        (
+            pytest.param(
+                "http_function",
+                {
+                    "GET": {
+                        "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
+                    },
+                    "HEAD": {
+                        "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
+                    },
+                },
+                id="http_function",
+            ),
+            pytest.param(
+                "http_endpoint",
+                {
+                    "GET": {
+                        "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
+                    },
+                    "HEAD": {
+                        "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
+                    },
+                },
+                id="http_endpoint",
+            ),
+            pytest.param(
+                "websocket_function",
+                {
+                    "WEBSOCKET": {
+                        "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
+                    }
+                },
+                id="websocket_function",
+            ),
+            pytest.param(
+                "websocket_endpoint",
+                {
+                    "WEBSOCKET_CONNECT": {},
+                    "WEBSOCKET_RECEIVE": {
+                        "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
+                    },
+                    "WEBSOCKET_DISCONNECT": {},
+                },
+                id="websocket_endpoint",
+            ),
+        ),
+        indirect=["route"],
+    )
+    def test_path(self, route, expected_params):
+        assert route.parameters.path == expected_params
+
+    @pytest.mark.parametrize(
+        ["route", "expected_params"],
+        (
+            pytest.param(
+                "http_function",
+                {
+                    "GET": Parameter("z", ParameterLocation.body, schema_type=None, required=False),
+                    "HEAD": Parameter("z", ParameterLocation.body, schema_type=None, required=False),
+                },
+                id="http_function",
+            ),
+            pytest.param(
+                "http_endpoint",
+                {
+                    "GET": Parameter("z", ParameterLocation.body, schema_type=None, required=False),
+                    "HEAD": Parameter("z", ParameterLocation.body, schema_type=None, required=False),
+                },
+                id="http_endpoint",
+            ),
+            pytest.param(
+                "websocket_function",
+                {
+                    "WEBSOCKET": Parameter("z", ParameterLocation.body, schema_type=None, required=False),
+                },
+                id="websocket_function",
+            ),
+            pytest.param(
+                "websocket_endpoint",
+                {
+                    "WEBSOCKET_CONNECT": None,
+                    "WEBSOCKET_RECEIVE": Parameter("z", ParameterLocation.body, schema_type=None, required=False),
+                    "WEBSOCKET_DISCONNECT": None,
+                },
+                id="websocket_endpoint",
+            ),
+        ),
+        indirect=["route"],
+    )
+    def test_body(self, route, expected_params, foo_schema):
+        expected_params = {
+            k: Parameter(v.name, v.location, foo_schema, v.required) if v else None for k, v in expected_params.items()
         }
-        assert route.parameters._inspect_parameters_from_handler(route.endpoint, app.components) == expected_parameters
+        assert route.parameters.body == expected_params
 
-    def test_get_parameters_from_handler(self, route, app, foo_schema):
-        expected_query_fields = {
-            "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
-            "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
-            "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+    @pytest.mark.parametrize(
+        ["route", "expected_params"],
+        (
+            pytest.param(
+                "http_function",
+                {
+                    "GET": Parameter("_return", ParameterLocation.response, schema_type=True, required=False),
+                    "HEAD": Parameter("_return", ParameterLocation.response, schema_type=True, required=False),
+                },
+                id="http_function",
+            ),
+            pytest.param(
+                "http_endpoint",
+                {
+                    "GET": Parameter("_return", ParameterLocation.response, schema_type=True, required=False),
+                    "HEAD": Parameter("_return", ParameterLocation.response, schema_type=True, required=False),
+                },
+                id="http_endpoint",
+            ),
+            pytest.param(
+                "websocket_function",
+                {
+                    "WEBSOCKET": Parameter("_return", ParameterLocation.response, schema_type=None, required=False),
+                },
+                id="websocket_function",
+            ),
+            pytest.param(
+                "websocket_endpoint",
+                {
+                    "WEBSOCKET_CONNECT": Parameter(
+                        "_return", ParameterLocation.response, schema_type=None, required=False
+                    ),
+                    "WEBSOCKET_RECEIVE": Parameter(
+                        "_return", ParameterLocation.response, schema_type=None, required=False
+                    ),
+                    "WEBSOCKET_DISCONNECT": Parameter(
+                        "_return", ParameterLocation.response, schema_type=None, required=False
+                    ),
+                },
+                id="websocket_endpoint",
+            ),
+        ),
+        indirect=["route"],
+    )
+    def test_response(self, route, expected_params, foo_schema):
+        expected_params = {
+            k: Parameter(v.name, v.location, foo_schema if v.schema_type else None, v.required)
+            for k, v in expected_params.items()
         }
-        expected_path_fields = {
-            "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
-        }
-        expected_body_field = Parameter("z", ParameterLocation.body, schema_type=foo_schema, required=False)
-        expected_output_field = Parameter("_output", ParameterLocation.output, schema_type=foo_schema, required=False)
-
-        query_fields, path_fields, body_field, output_field = route.parameters._get_parameters_from_handler(
-            route.endpoint, route.path.serializers.keys(), app.components
-        )
-
-        assert query_fields == expected_query_fields
-        assert path_fields == expected_path_fields
-        assert body_field == expected_body_field
-        assert output_field == expected_output_field
-
-    def test_get_parameters_function(self, route, app, foo_schema):
-        expected_query_fields = {
-            "GET": {
-                "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
-                "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
-                "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
-            },
-            "HEAD": {
-                "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
-                "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
-                "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
-            },
-        }
-        expected_path_fields = {
-            "GET": {
-                "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
-            },
-            "HEAD": {
-                "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
-            },
-        }
-        expected_body_field = {
-            "GET": Parameter("z", ParameterLocation.body, schema_type=foo_schema, required=False),
-            "HEAD": Parameter("z", ParameterLocation.body, schema_type=foo_schema, required=False),
-        }
-        expected_output_field = {
-            "GET": Parameter("_output", ParameterLocation.output, schema_type=foo_schema, required=False),
-            "HEAD": Parameter("_output", ParameterLocation.output, schema_type=foo_schema, required=False),
-        }
-
-        query_fields, path_fields, body_field, output_field = route.parameters._get_parameters(route)
-
-        assert query_fields == expected_query_fields
-        assert path_fields == expected_path_fields
-        assert body_field == expected_body_field
-        assert output_field == expected_output_field
-
-    def test_get_parameters_endpoint(self, endpoint, app, foo_schema):
-        expected_query_fields = {
-            "GET": {
-                "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
-                "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
-                "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
-            },
-            "HEAD": {
-                "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
-                "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
-                "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
-            },
-        }
-        expected_path_fields = {
-            "GET": {
-                "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
-            },
-            "HEAD": {
-                "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
-            },
-        }
-        expected_body_field = {
-            "GET": Parameter("z", ParameterLocation.body, schema_type=foo_schema, required=False),
-            "HEAD": Parameter("z", ParameterLocation.body, schema_type=foo_schema, required=False),
-        }
-        expected_output_field = {
-            "GET": Parameter("_output", ParameterLocation.output, schema_type=foo_schema, required=False),
-            "HEAD": Parameter("_output", ParameterLocation.output, schema_type=foo_schema, required=False),
-        }
-
-        query_fields, path_fields, body_field, output_field = endpoint.parameters._get_parameters(endpoint)
-
-        assert query_fields == expected_query_fields
-        assert path_fields == expected_path_fields
-        assert body_field == expected_body_field
-        assert output_field == expected_output_field
-
-    def test_get_parameters_websocket(self, websocket, app, foo_schema):
-        expected_query_fields = {"GET": {}}
-        expected_path_fields = {"GET": {}}
-        expected_body_field = {"GET": None}
-        expected_output_field = {
-            "GET": Parameter("_output", ParameterLocation.output, schema_type=None, required=False)
-        }
-
-        query_fields, path_fields, body_field, output_field = websocket.parameters._get_parameters(websocket)
-
-        assert query_fields == expected_query_fields
-        assert path_fields == expected_path_fields
-        assert body_field == expected_body_field
-        assert output_field == expected_output_field
+        assert route.parameters.response == expected_params

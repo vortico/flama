@@ -2,19 +2,18 @@ import inspect
 import typing as t
 
 from flama.resources import data_structures
-from flama.routing import BaseRoute, Mount, Route
+from flama.routing import Mount, Route
 
 if t.TYPE_CHECKING:
-    from flama import Flama
     from flama.resources import BaseResource
 
 __all__ = ["ResourceRoute", "resource_method"]
 
 
 class ResourceRoute(Mount):
-    def __init__(self, path: str, resource: t.Union["BaseResource", t.Type["BaseResource"]], main_app: "Flama" = None):
+    def __init__(self, path: str, resource: t.Union["BaseResource", t.Type["BaseResource"]]):
         # Handle class or instance objects
-        self.resource = resource(app=main_app) if inspect.isclass(resource) else resource
+        self.resource = resource() if inspect.isclass(resource) else resource
 
         routes = [
             Route(
@@ -22,22 +21,11 @@ class ResourceRoute(Mount):
                 endpoint=getattr(self.resource, name),
                 methods=route._meta.methods,
                 name=route._meta.name or f"{self.resource._meta.name}-{route.__name__}",
-                main_app=main_app,
             )
             for name, route in self.resource.routes.items()
         ]
 
-        super().__init__(path=path, routes=routes, main_app=main_app)
-
-    @BaseRoute.main_app.setter
-    def main_app(self, app: "Flama"):
-        BaseRoute.main_app.fset(self, app)
-        self.resource.app = app  # Inject app to resource
-
-    @main_app.deleter  # type: ignore[no-redef]
-    def main_app(self):
-        BaseRoute.main_app.fdel(self)
-        del self.resource.app
+        super().__init__(path=path, routes=routes)
 
 
 def resource_method(path: str, methods: t.Sequence[str] = None, name: str = None, **kwargs) -> t.Callable:

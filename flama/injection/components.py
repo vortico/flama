@@ -1,7 +1,9 @@
+import asyncio
 import inspect
 import typing as t
 
-from flama.injection.data_structures import Parameter
+from flama.injection.exceptions import ComponentNotFound
+from flama.injection.resolver import Parameter
 
 __all__ = ["Component", "Components"]
 
@@ -46,16 +48,50 @@ class Component:
 
         return parameter.type is return_annotation
 
-    def __str__(self):
+    def signature(self) -> t.Dict[str, Parameter]:
+        """Component resolver signature.
+
+        :return: Component resolver signature.
+        """
+        return {
+            k: Parameter.from_parameter(v)
+            for k, v in inspect.signature(self.resolve).parameters.items()  # type: ignore[attr-defined]
+        }
+
+    async def __call__(self, *args, **kwargs):
+        """Performs a resolution by calling this component's resolve method.
+
+        :param args: Resolve positional arguments.
+        :param kwargs: Resolve keyword arguments.
+        :return: Resolve result.
+        """
+        if asyncio.iscoroutinefunction(self.resolve):
+            return await self.resolve(*args, **kwargs)
+
+        return self.resolve(*args, **kwargs)
+
+    def __str__(self) -> str:
         return str(self.__class__.__name__)
 
 
-class Components(t.List[Component]):
-    def __init__(self, components: t.Optional[t.Iterable[Component]] = None):
-        super().__init__(components or [])
+class Components(t.Tuple[Component, ...]):
+    def __new__(cls, components=None):
+        return super().__new__(cls, components or [])
 
     def __eq__(self, other: t.Any) -> bool:
         try:
-            return super().__eq__(list(other))  # type: ignore[arg-type]
+            return super().__eq__(tuple(other))  # type: ignore[arg-type]
         except TypeError:
             return False
+
+    def find_handler(self, parameter: Parameter) -> Component:
+        """Look for a component that can handles given parameter.
+
+        :param parameter: a parameter.
+        :return: the component that handles the parameter.
+        """
+        for component in self:
+            if component.can_handle_parameter(parameter):
+                return component
+        else:
+            raise ComponentNotFound(parameter)

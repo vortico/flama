@@ -58,19 +58,28 @@ class TestCaseURL:
 
 class TestCaseRegexPath:
     @pytest.mark.parametrize(
-        ["path", "expected_path", "expected_template", "expected_regex", "expected_serializers", "exception"],
+        [
+            "path",
+            "expected_path",
+            "expected_template",
+            "expected_regex",
+            "expected_serializers",
+            "expected_parameters",
+            "exception",
+        ],
         (
             pytest.param(
-                "foo/bar", None, None, None, None, AssertionError("Routed paths must start with '/'"), id="wrong"
+                "foo/bar", None, None, None, None, None, AssertionError("Routed paths must start with '/'"), id="wrong"
             ),
-            pytest.param("", "", "", r"^$", {}, None, id="empty"),
-            pytest.param("/", "/", "/", r"^/$", {}, None, id="no_params"),
+            pytest.param("", "", "", r"^$", {}, [], None, id="empty"),
+            pytest.param("/", "/", "/", r"^/$", {}, [], None, id="no_params"),
             pytest.param(
                 "/{foo}/",
                 "/{foo}/",
                 "/{foo}/",
                 r"^/(?P<foo>[^/]+)/$",
                 {"foo": StringParamSerializer()},
+                ["foo"],
                 None,
                 id="no_type",
             ),
@@ -80,6 +89,7 @@ class TestCaseRegexPath:
                 "/{foo}/",
                 r"^/(?P<foo>[^/]+)/$",
                 {"foo": StringParamSerializer()},
+                ["foo"],
                 None,
                 id="str",
             ),
@@ -89,6 +99,7 @@ class TestCaseRegexPath:
                 "/{foo}/",
                 r"^/(?P<foo>-?[0-9]+)/$",
                 {"foo": IntegerParamSerializer()},
+                ["foo"],
                 None,
                 id="int",
             ),
@@ -98,6 +109,7 @@ class TestCaseRegexPath:
                 "/{foo}/",
                 r"^/(?P<foo>-?[0-9]+(.[0-9]+)?)/$",
                 {"foo": FloatParamSerializer()},
+                ["foo"],
                 None,
                 id="float",
             ),
@@ -107,24 +119,46 @@ class TestCaseRegexPath:
                 "/{foo}/",
                 r"^/(?P<foo>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/$",
                 {"foo": UUIDParamSerializer()},
+                ["foo"],
                 None,
                 id="uuid",
             ),
-            pytest.param("{foo:path}", "", "", r"^(?P<foo>.*)$", {"foo": PathParamSerializer()}, None, id="path_empty"),
-            pytest.param("/{foo:path}", "/", "/", r"^/(?P<foo>.*)$", {"foo": PathParamSerializer()}, None, id="path"),
+            pytest.param(
+                "{foo:path}", "", "", r"^(?P<foo>.*)$", {"foo": PathParamSerializer()}, ["foo"], None, id="path_empty"
+            ),
+            pytest.param(
+                "/{foo:path}",
+                "/",
+                "/",
+                r"^/(?P<foo>.*)$",
+                {"foo": PathParamSerializer()},
+                ["foo"],
+                None,
+                id="path_empty_with_slash",
+            ),
             pytest.param(
                 "/foo{bar:path}",
                 "/foo",
                 "/foo",
                 r"^/foo(?P<bar>.*)$",
                 {"bar": PathParamSerializer()},
+                ["bar"],
                 None,
-                id="path_empty",
+                id="path",
             ),
         ),
         indirect=["exception"],
     )
-    def test_init(self, path, expected_path, expected_template, expected_regex, expected_serializers, exception):
+    def test_init(
+        self,
+        path,
+        expected_path,
+        expected_template,
+        expected_regex,
+        expected_serializers,
+        expected_parameters,
+        exception,
+    ):
         with exception:
             result = RegexPath(path)
 
@@ -132,6 +166,7 @@ class TestCaseRegexPath:
             assert result.template == expected_template
             assert result.regex == re.compile(expected_regex)
             assert result.serializers == expected_serializers
+            assert result.parameters == expected_parameters
 
     @pytest.mark.parametrize(
         ["path", "match", "expected_result"],
@@ -193,7 +228,7 @@ class TestCaseRegexPath:
     )
     def test_params(self, path, match, expected_result, exception):
         with exception:
-            assert RegexPath(path).params(match) == expected_result
+            assert RegexPath(path).values(match) == expected_result
 
     @pytest.mark.parametrize(
         ["path", "params", "expected_result", "expected_remaining_params", "exception"],

@@ -165,6 +165,7 @@ class RegexPath:
         self.serializers = {
             param_name: self._serializer(param_type) for param_name, param_type in self.PARAM_REGEX.findall(path)
         }
+        self.parameters = list(self.serializers.keys())
 
     def _serializer(self, param_type: t.Optional[str]) -> ParamSerializer:
         try:
@@ -180,8 +181,8 @@ class RegexPath:
         """
         return self.regex.match(path) is not None
 
-    def params(self, path: str) -> t.Dict[str, t.Any]:
-        """Get serialized params from a matching path.
+    def values(self, path: str) -> t.Dict[str, t.Any]:
+        """Get serialized parameters from a matching path.
 
         :param path: Path to match.
         :return: Path param values.
