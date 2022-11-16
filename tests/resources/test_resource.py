@@ -55,7 +55,7 @@ class TestCaseBaseResource:
             model = puppy_model
             schema = puppy_schema
 
-        resource = PuppyResource(app=app)
+        resource = PuppyResource()
 
         expected_routes = [
             ("/", resource.create, {"POST"}, "puppy-create"),
@@ -79,7 +79,7 @@ class TestCaseBaseResource:
             model = puppy_model
             schema = puppy_schema
 
-        resource = PuppyResource(app=app)
+        resource = PuppyResource()
 
         expected_routes = [
             ("/", resource.create, {"POST"}, "puppy-create"),
@@ -109,7 +109,7 @@ class TestCaseBaseResource:
             model = puppy_model
             schema = puppy_schema
 
-        resource = PuppyResource(app=app)
+        resource = PuppyResource()
 
         expected_routes = [
             ("/", resource.create, {"POST"}, "puppy-create"),
@@ -146,7 +146,7 @@ class TestCaseBaseResource:
         assert hasattr(SpecializedPuppyResource, "list")
         assert len(SpecializedPuppyResource.routes) == 5
 
-        assert SpecializedPuppyResource(app=app).list() == ["foo", "bar"]
+        assert SpecializedPuppyResource().list() == ["foo", "bar"]
 
     def test_new_no_model(self, puppy_schema):
         with pytest.raises(AttributeError, match=r"PuppyResource needs to define attribute 'model'"):

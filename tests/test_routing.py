@@ -84,7 +84,7 @@ class TestCaseRouter:
         assert router.routes[0].endpoint == FooEndpoint
 
     def test_add_route_wrong_params(self, router):
-        with pytest.raises(ValueError, match="Either 'path' and 'endpoint' or 'route' variables are needed"):
+        with pytest.raises(AssertionError, match="Either 'path' and 'endpoint' or 'route' variables are needed"):
             router.add_route()
 
     def test_add_route_wrong_endpoint(self, router):
@@ -129,7 +129,7 @@ class TestCaseRouter:
         assert router.routes[0].endpoint == FooEndpoint
 
     def test_add_websocket_route_wrong_params(self, router):
-        with pytest.raises(ValueError, match="Either 'path' and 'endpoint' or 'route' variables are needed"):
+        with pytest.raises(AssertionError, match="Either 'path' and 'endpoint' or 'route' variables are needed"):
             router.add_websocket_route()
 
     def test_add_websocket_route_wrong_endpoint(self, router):
@@ -159,11 +159,9 @@ class TestCaseRouter:
         assert isinstance(app.routes[0], Mount)
         mount_route = app.router.routes[0]
         assert mount_route.path == "/app"
-        assert mount_route.main_app == app
         # Check router is created and initialized, also shares components and modules with main app
         assert isinstance(mount_route.app, Router)
         mount_router = mount_route.app
-        assert mount_router.main_app == app
         assert mount_router.components == Components([component_mock])
         assert app.components == Components([component_mock])
 
@@ -193,9 +191,6 @@ class TestCaseRouter:
             ),
         ]
 
-        # Check app is not propagated yet
-        assert routes[0].main_app is None
-
         app = Flama(routes=routes, schema=None, docs=None)
 
         assert len(app.router.routes) == 3
@@ -204,59 +199,34 @@ class TestCaseRouter:
         assert isinstance(app.router.routes[0], Route)
         root_route = app.router.routes[0]
         assert root_route.path == "/"
-        assert root_route.main_app == app
 
         # Check mount with routes is initialized
         assert isinstance(app.router.routes[1], Mount)
         mount_with_routes_route = app.router.routes[1]
-        assert mount_with_routes_route.main_app == app
         # Check router is created and initialized, also shares components and modules with main app
         assert isinstance(mount_with_routes_route.app, Router)
         mount_with_routes_router = mount_with_routes_route.app
-        assert mount_with_routes_router.main_app == app
         assert mount_with_routes_router.components == Components([component_mock])
         # As the component is repeated, it should appear twice
         assert app.components == Components([component_mock, component_mock])
         # Check second-level routes are created an initialized
         assert len(mount_with_routes_route.routes) == 2
         assert mount_with_routes_route.routes[0].path == "/"
-        assert mount_with_routes_route.routes[0].main_app == app
         assert mount_with_routes_route.routes[1].path == "/view"
-        assert mount_with_routes_route.routes[1].main_app == app
 
         # Check mount with app is initialized
         assert isinstance(app.router.routes[2], Mount)
         mount_with_app_route = app.router.routes[2]
-        assert mount_with_app_route.main_app == app
         # Check router is created and initialized, also shares components and modules with main app
         assert isinstance(mount_with_app_route.app, Router)
         mount_with_app_router = mount_with_app_route.app
-        assert mount_with_app_router.main_app == app
         assert mount_with_app_router.components == Components([component_mock])
         # As the component is repeated, it should appear twice
         assert app.components == Components([component_mock, component_mock])
         # Check second-level routes are created an initialized
         assert len(mount_with_app_route.routes) == 2
         assert mount_with_app_route.routes[0].path == "/"
-        assert mount_with_app_route.routes[0].main_app == app
         assert mount_with_app_route.routes[1].path == "/view"
-        assert mount_with_app_route.routes[1].main_app == app
-
-        # Check can delete app
-        del app.routes[0].main_app
-        del app.routes[1].main_app
-
-        # Check app is deleted in first-level route
-        with pytest.raises(AttributeError):
-            app.routes[0].main_app
-
-        # Check app is deleted in mount
-        with pytest.raises(AttributeError):
-            app.routes[1].main_app
-
-        # Check app is deleted in second-level route
-        with pytest.raises(AttributeError):
-            app.routes[1].routes[0].main_app
 
     def test_get_route_from_scope_route(self, app, scope):
         @app.route("/foo/")

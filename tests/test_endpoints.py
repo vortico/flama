@@ -142,6 +142,9 @@ class TestCaseHTTPEndpoint:
         endpoint.state["request"].scope["method"] = "GET"
         assert endpoint.handler == endpoint.get
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
     async def test_dispatch(self, app, endpoint):
         injected_mock = MagicMock()
         app.injector.inject = AsyncMock(return_value=injected_mock)
