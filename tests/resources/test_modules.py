@@ -61,9 +61,6 @@ class TestCaseResourcesModule:
 
         route = ResourceRoute("/puppy/", PuppyResource)
 
-        # Check app is None yet
-        assert route.main_app is None
-
         app = Flama(routes=[route], schema=None, docs=None)
 
         assert len(app.router.routes) == 1
@@ -71,7 +68,6 @@ class TestCaseResourcesModule:
         assert len(app.routes) == 1
         assert isinstance(app.routes[0], ResourceRoute)
         resource_route = app.routes[0]
-        assert resource_route.main_app == app
         assert len(resource_route.routes) == 4
         assert [(route.path, route.methods, route.endpoint) for route in resource_route.routes] == [
             ("/", {"POST"}, resource_route.resource.create),
@@ -80,11 +76,3 @@ class TestCaseResourcesModule:
             ("/{element_id}/", {"DELETE"}, resource_route.resource.delete),
         ]
         assert isinstance(resource_route.resource, PuppyResource)
-        assert resource_route.resource.app == app
-
-        # Check app can be deleted
-        del resource_route.main_app
-
-        # Check app is None again
-        with pytest.raises(AttributeError):
-            route.main_app

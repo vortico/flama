@@ -1,14 +1,14 @@
-import inspect
 import typing
 
 from flama import codecs, exceptions, http, schemas, types
-from flama.injection import Component, Components, Parameter
+from flama.injection import Component, Components
+from flama.injection.resolver import Parameter
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from flama.routing import BaseRoute
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
-ValidatedRequestData = typing.TypeVar("ValidatedRequestData")
+ValidatedRequestData = typing.NewType("ValidatedRequestData", dict)
 
 
 class RequestDataComponent(Component):
@@ -26,7 +26,7 @@ class RequestDataComponent(Component):
             raise exceptions.HTTPException(415)
 
         try:
-            return await codec.decode(request)
+            return types.RequestData(await codec.decode(request))
         except exceptions.DecodeError as exc:
             raise exceptions.HTTPException(400, detail=str(exc))
 
@@ -38,7 +38,7 @@ class WebSocketMessageDataComponent(Component):
     async def resolve(self, message: types.Message, websocket_encoding: types.Encoding) -> types.Data:
         try:
             codec = self.negotiator.negotiate(websocket_encoding)
-            return await codec.decode(message)
+            return types.Data(await codec.decode(message))
         except (exceptions.NoCodecAvailable, exceptions.DecodeError):
             raise exceptions.WebSocketException(code=1003)
 
@@ -69,10 +69,14 @@ class ValidateQueryParamsComponent(Component):
 
 class ValidateRequestDataComponent(Component):
     def resolve(self, request: http.Request, route: BaseRoute, data: types.RequestData) -> ValidatedRequestData:
-        validator = route.parameters.body[request.method].schema
+        body_param = route.parameters.body[request.method]
+
+        assert (
+            body_param is not None
+        ), f"Body schema parameter not defined for route '{route}' and method '{request.method}'"
 
         try:
-            return schemas.adapter.validate(validator, dict(data))
+            return ValidatedRequestData(schemas.adapter.validate(body_param.schema, dict(data)))
         except schemas.SchemaValidationError as exc:  # noqa: safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
 
@@ -108,7 +112,9 @@ class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: Parameter):
         return schemas.adapter.is_schema(parameter.type) or schemas.adapter.is_field(parameter.type)
 
-    def resolve(self, data: ValidatedRequestData):
+    def resolve(self, parameter: Parameter, data: ValidatedRequestData):
+        assert schemas.adapter.is_schema(parameter.type) or schemas.adapter.is_field(parameter.type)
+
         return data
 
 

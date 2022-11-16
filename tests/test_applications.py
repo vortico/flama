@@ -44,7 +44,6 @@ class TestCaseFlama:
         root_app.add_get("/foo", lambda: {})
 
         assert len(root_app.router.routes) == 1
-        assert root_app.router.main_app == root_app
         assert root_app.components == set()
         assert root_app.modules == DEFAULT_MODULES
 
@@ -52,7 +51,6 @@ class TestCaseFlama:
         leaf_app.add_get("/bar", lambda: {})
 
         assert len(leaf_app.router.routes) == 1
-        assert leaf_app.router.main_app == leaf_app
         assert leaf_app.components == [component_mock]
         assert leaf_app.modules == [*DEFAULT_MODULES, module_mock]
 
@@ -68,8 +66,6 @@ class TestCaseFlama:
         mount_app = mount_route.app
         assert isinstance(mount_app.app, Router)
         mount_router = mount_app.app
-        # Check main_app is propagated
-        assert mount_router.main_app == root_app
         # Check components are collected across the entire tree
         assert mount_router.components == [component_mock]
         assert root_app.components == [component_mock]
@@ -95,8 +91,6 @@ class TestCaseFlama:
         mount_app = mount_route.app
         assert isinstance(mount_app.app, Router)
         mount_router = mount_app.app
-        # Check main_app is propagated
-        assert mount_router.main_app == root_app
         # Check components are collected across the entire tree
         assert mount_router.components == [component_mock]
         assert root_app.components == [component_mock]

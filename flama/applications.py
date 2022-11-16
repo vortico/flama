@@ -35,10 +35,45 @@ class Flama:
         docs: t.Optional[str] = "/docs/",
         schema_library: t.Optional[str] = None,
     ) -> None:
+        """Flama application.
+
+        :param routes: Routes part of this application.
+        :param components: Components registered in this application.
+        :param modules: Modules for extending the application.
+        :param middleware: List of middlewares to include in call stack.
+        :param debug: Debug mode.
+        :param events: Handlers that will be triggered after certain events.
+        :param lifespan: Lifespan function.
+        :param title: API title.
+        :param version: API version.
+        :param description: API description.
+        :param schema: OpenAPI schema endpoint path.
+        :param docs: Docs endpoint path.
+        :param schema_library: Schema library to use.
+        """
         self._debug = debug
 
-        # Initialize router and middleware stack
-        self.app = self.router = Router(main_app=self, routes=routes, components=components, lifespan=lifespan)
+        # Create Dependency Injector
+        self._injector = injection.Injector(
+            context_types={
+                "scope": types.Scope,
+                "receive": types.Receive,
+                "send": types.Send,
+                "exc": Exception,
+                "app": Flama,
+                "path_params": types.PathParams,
+                "route": BaseRoute,
+                "request": http.Request,
+                "response": http.Response,
+                "websocket": websockets.WebSocket,
+                "websocket_message": types.Message,
+                "websocket_encoding": types.Encoding,
+                "websocket_code": types.Code,
+            }
+        )
+
+        # Initialize router
+        self.app = self.router = Router(routes=routes, components=components, lifespan=lifespan)
 
         # Build middleware stack
         self.middleware = MiddlewareStack(app=self.app, middleware=middleware or [], debug=debug)
@@ -70,25 +105,6 @@ class Flama:
         # Reference to paginator from within app
         self.paginator = paginator
 
-        # Create Dependency Injector
-        self._injector = injection.Injector(
-            context_types={
-                "scope": types.Scope,
-                "receive": types.Receive,
-                "send": types.Send,
-                "exc": Exception,
-                "app": Flama,
-                "path_params": types.PathParams,
-                "route": BaseRoute,
-                "request": http.Request,
-                "response": http.Response,
-                "websocket": websockets.WebSocket,
-                "websocket_message": types.Message,
-                "websocket_encoding": types.Encoding,
-                "websocket_code": types.Code,
-            }
-        )
-
     def __getattr__(self, item: str) -> t.Any:
         """Retrieve a module by its name.
 
@@ -110,14 +126,29 @@ class Flama:
         scope["app"] = self
         await self.middleware(scope, receive, send)
 
-    def resolve_url(self, name: str, **path_params: t.Any) -> url.URL:
-        """Look for a route URL given the route name and path params.
+    @property
+    def components(self) -> injection.Components:
+        """Components register.
 
-        :param name: Route name.
-        :param path_params: Path params.
-        :return: Route URL.
+        :return: Components register.
         """
-        return self.router.resolve_url(name, **path_params)
+        return self.router.components
+
+    def add_component(self, component: injection.Component):
+        """Add a new component to the register.
+
+        :param component: Component to include.
+        """
+        self.router.add_component(component)
+        self.router.build(self)
+
+    @property
+    def routes(self) -> t.List["BaseRoute"]:
+        """List of registered routes.
+
+        :return: Routes.
+        """
+        return self.router.routes
 
     def add_route(
         self,
@@ -138,7 +169,7 @@ class Flama:
         :param route: HTTP route.
         """
         return self.router.add_route(
-            path, endpoint, methods=methods, name=name, include_in_schema=include_in_schema, route=route
+            path, endpoint, methods=methods, name=name, include_in_schema=include_in_schema, route=route, root=self
         )
 
     def route(
@@ -152,7 +183,7 @@ class Flama:
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
         :return: Decorated route.
         """
-        return self.router.route(path, methods=methods, name=name, include_in_schema=include_in_schema)
+        return self.router.route(path, methods=methods, name=name, include_in_schema=include_in_schema, root=self)
 
     def add_websocket_route(
         self,
@@ -168,7 +199,7 @@ class Flama:
         :param name: Endpoint or route name.
         :param route: Websocket route.
         """
-        return self.router.add_websocket_route(path=path, endpoint=endpoint, name=name, route=route)
+        return self.router.add_websocket_route(path=path, endpoint=endpoint, name=name, route=route, root=self)
 
     def websocket_route(
         self, path: str, name: str = None
@@ -179,41 +210,7 @@ class Flama:
         :param name: Websocket route name.
         :return: Decorated route.
         """
-        return self.router.websocket_route(path, name=name)
-
-    @property
-    def injector(self) -> injection.Injector:
-        """Components dependency injector.
-
-        :return: Injector instance.
-        """
-        components = injection.Components(self.components + asgi.ASGI_COMPONENTS + validation.VALIDATION_COMPONENTS)
-        if self._injector.components != components:
-            self._injector.components = components
-        return self._injector
-
-    @property
-    def components(self) -> injection.Components:
-        """Components register.
-
-        :return: Components register.
-        """
-        return self.router.components
-
-    def add_component(self, component: injection.Component):
-        """Add a new component to the register.
-
-        :param component: Component to include.
-        """
-        self.router.add_component(component)
-
-    @property
-    def routes(self) -> t.List["BaseRoute"]:
-        """List of registered routes.
-
-        :return: Routes.
-        """
-        return self.router.routes
+        return self.router.websocket_route(path, name=name, root=self)
 
     def mount(
         self, path: t.Optional[str] = None, app: t.Optional[types.App] = None, name: str = None, mount: "Mount" = None
@@ -226,7 +223,18 @@ class Flama:
         :param mount: Mount.
         :return: Mount.
         """
-        return self.router.mount(path=path, app=app, name=name, mount=mount)
+        return self.router.mount(path=path, app=app, name=name, mount=mount, root=self)
+
+    @property
+    def injector(self) -> injection.Injector:
+        """Components dependency injector.
+
+        :return: Injector instance.
+        """
+        components = injection.Components(self.components + asgi.ASGI_COMPONENTS + validation.VALIDATION_COMPONENTS)
+        if self._injector.components != components:
+            self._injector.components = components
+        return self._injector
 
     def add_event_handler(self, event: str, func: t.Callable) -> None:
         """Register a new event handler.
@@ -264,6 +272,15 @@ class Flama:
         :param options: Keyword arguments used to initialise middleware.
         """
         self.middleware.add_middleware(Middleware(middleware_class, **options))
+
+    def resolve_url(self, name: str, **path_params: t.Any) -> url.URL:
+        """Look for a route URL given the route name and path params.
+
+        :param name: Route name.
+        :param path_params: Path params.
+        :return: Route URL.
+        """
+        return self.router.resolve_url(name, **path_params)
 
     get = functools.partialmethod(route, methods=["GET"])
     head = functools.partialmethod(route, methods=["HEAD"])

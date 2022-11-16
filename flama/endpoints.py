@@ -47,6 +47,14 @@ class HTTPEndpoint:
             methods.add("HEAD")
         return methods
 
+    @classmethod
+    def allowed_handlers(cls) -> t.Dict[str, t.Callable]:
+        """A mapping of handler related to each HTTP method.
+
+        :return: Handlers mapping.
+        """
+        return {method: getattr(cls, method.lower(), getattr(cls, "get")) for method in cls.allowed_methods()}
+
     @property
     def handler(self) -> t.Callable:
         """The handler used for dispatching this request.
@@ -95,6 +103,18 @@ class WebSocketEndpoint:
 
     def __await__(self) -> t.Generator:
         return self.dispatch().__await__()
+
+    @classmethod
+    def allowed_handlers(cls) -> t.Dict[str, t.Callable]:
+        """A mapping of handler related to each WS action.
+
+        :return: Handlers mapping.
+        """
+        return {
+            "WEBSOCKET_CONNECT": cls.on_connect,
+            "WEBSOCKET_RECEIVE": cls.on_receive,
+            "WEBSOCKET_DISCONNECT": cls.on_disconnect,
+        }
 
     async def dispatch(self) -> None:
         """Dispatch a request."""

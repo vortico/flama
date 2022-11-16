@@ -1,8 +1,8 @@
-import inspect
 import typing as t
 
 if t.TYPE_CHECKING:
     from flama.injection.components import Component
+    from flama.injection.resolver import Parameter
 
 __all__ = ["ComponentNotFound"]
 
@@ -10,7 +10,7 @@ __all__ = ["ComponentNotFound"]
 class ComponentNotFound(Exception):
     def __init__(
         self,
-        parameter: inspect.Parameter,
+        parameter: "Parameter",
         component: t.Optional["Component"] = None,
         function: t.Optional[t.Callable] = None,
     ):

@@ -1,30 +1,29 @@
-import inspect
 import typing as t
 
 import pytest
 
 from flama.injection.components import Component, Components
-from flama.injection.resolver import Resolver
-from flama.injection import Context, Root, Step, ParametersBuilder, Parameter
+from flama.injection.resolver import (
+    ComponentNode,
+    ContextNode,
+    Parameter,
+    ParameterNode,
+    ParametersTree,
+    Resolver,
+    Return,
+)
 
-Bar = t.NewType("Bar", str)
+Foo = t.NewType("Foo", int)
+Bar = t.NewType("Bar", int)
 
 
 @pytest.fixture
 def bar_component():
     class BarComponent(Component):
-        def resolve(self, y: str, z: int) -> Bar:
-            return Bar(y * z)
+        def resolve(self, parameter: Parameter, data: dict) -> Bar:
+            return Bar(data[parameter.name])
 
     return BarComponent()
-
-
-@pytest.fixture
-def function():
-    def foo(x: str, bar: Bar):
-        return f"{x} + {bar}"
-
-    return foo
 
 
 @pytest.fixture
@@ -32,96 +31,149 @@ def bar_parameter():
     return Parameter("bar", type=Bar)
 
 
-class TestCaseContext:
-    def test_iadd(self):
-        constants = {"foo": Parameter("foo", type=int, default=1)}
-        params = {"bar": Parameter("bar", type=str, default=None)}
-        context_1 = Context(constants=constants)
-        context_2 = Context(params=params)
+@pytest.fixture
+def function(request):
+    if request.param == "function":
 
-        context_1 += context_2
+        def foo(x: str, f: Foo, y: Bar, z: Bar):
+            return f"{x * f} + {x * y} + {x * z}"
 
-        assert context_1.params == params
-        assert context_1.constants == constants
+        return foo
 
+    if request.param == "method":
 
-class TestCaseStep:
-    @pytest.fixture
-    def sync_step(self):
-        def foo():
-            return "foo"
+        class FooClass:
+            def foo(self, x: str, f: Foo, y: Bar, z: Bar):
+                return f"{x * f} + {x * y} + {x * z}"
 
-        return Step(id="foo", resolver=foo)
+        return FooClass().foo
 
-    @pytest.fixture
-    def async_step(self):
-        async def bar():
-            return "bar"
+    if request.param == "classmethod":
 
-        return Step(id="bar", resolver=bar)
+        class FooClass:
+            def foo(self, x: str, f: Foo, y: Bar, z: Bar):
+                return f"{x * f} + {x * y} + {x * z}"
 
-    def test_is_async(self, sync_step, async_step):
-        assert not sync_step.is_async
-        assert async_step.is_async
-
-    async def test_resolve(self, sync_step, async_step):
-        assert await sync_step.build() == {"foo": "foo"}
-        assert await async_step.build() == {"bar": "bar"}
+        return FooClass.foo
 
 
-class TestCaseParametersBuilder:
-    @pytest.fixture
-    def parameters_builder(self, function, bar_parameter, bar_component):
-        return ParametersBuilder(
-            root=Root(
-                resolver=function,
-                context=Context(
-                    params={"x": Parameter("x", str), "bar": Parameter(bar_component.identity(bar_parameter), Bar)}
+class TestCaseParametersTree:
+    @pytest.mark.parametrize(
+        ["function"],
+        (
+            pytest.param("function", id="function"),
+            pytest.param("method", id="method"),
+            pytest.param("classmethod", id="classmethod"),
+        ),
+        indirect=["function"],
+    )
+    def test_build(self, function, bar_component):
+        context_types = {Foo: "foo"}
+        components = Components([bar_component])
+        tree = ParametersTree.build(function, context_types, components)
+
+        assert tree == ParametersTree(
+            function=function,
+            nodes=[
+                ContextNode(name="x", parameter=Parameter(name="x", type=str), nodes=[]),
+                ContextNode(name="f", parameter=Parameter(name="foo", type=Foo), nodes=[]),
+                ComponentNode(
+                    name="y",
+                    parameter=Parameter(name="y", type=Bar),
+                    nodes=[
+                        ParameterNode(name="parameter", parameter=Parameter(name="y", type=Bar), nodes=[]),
+                        ContextNode(name="data", parameter=Parameter(name="data", type=dict), nodes=[]),
+                    ],
+                    component=bar_component,
                 ),
-            ),
-            steps=[
-                Step(
-                    id=bar_component.identity(bar_parameter),
-                    resolver=bar_component.resolve,
-                    context=Context(params={"y": Parameter("y", str), "z": Parameter("z", int)}),
+                ComponentNode(
+                    name="z",
+                    parameter=Parameter(name="z", type=Bar),
+                    nodes=[
+                        ParameterNode(name="parameter", parameter=Parameter(name="z", type=Bar), nodes=[]),
+                        ContextNode(name="data", parameter=Parameter(name="data", type=dict), nodes=[]),
+                    ],
+                    component=bar_component,
                 ),
             ],
         )
 
-    async def test_build(self, parameters_builder):
-        assert await parameters_builder.build(x="a", y="b", z=2) == {"x": "a", "bar": "bb"}
+        assert tree.meta.context == [
+            ("data", Parameter(name="data", type=dict)),
+            ("f", Parameter(name="foo", type=Foo)),
+            ("x", Parameter(name="x", type=str)),
+        ]
+        assert tree.meta.response == Return(Parameter.empty)
+        assert tree.meta.parameters == [
+            Parameter(name="y", type=Bar),
+            Parameter(name="z", type=Bar),
+        ]
+        assert tree.meta.components == [
+            ("y", bar_component),
+            ("z", bar_component),
+        ]
 
-    def test_required_context(self, parameters_builder):
-        assert parameters_builder.required_context == {
-            "x": Parameter("x", type=str, default=Parameter.empty),
-            "y": Parameter("y", type=str, default=Parameter.empty),
-            "z": Parameter("z", type=int, default=Parameter.empty),
-        }
+    @pytest.mark.parametrize(
+        ["function"],
+        (
+            pytest.param("function", id="function"),
+            pytest.param("method", id="method"),
+            pytest.param("classmethod", id="classmethod"),
+        ),
+        indirect=["function"],
+    )
+    async def test_context(self, function, bar_component):
+        context_types = {Foo: "foo"}
+        components = Components([bar_component])
+        tree = ParametersTree.build(function, context_types, components)
+
+        context = await tree.context(x="x", foo=Foo(1), data={"y": Bar(2), "z": Bar(3)})
+
+        assert context == {"x": "x", "f": 1, "y": 2, "z": 3}
 
 
 class TestCaseResolver:
     @pytest.fixture
     def resolver(self, bar_component):
-        return Resolver({}, Components([bar_component]))
+        return Resolver({"foo": Foo}, Components([bar_component]))
 
-    def test_resolve(self, resolver, function, bar_parameter, bar_component):
-        expected_parameters_builder = ParametersBuilder(
-            root=Root(
-                resolver=function,
-                context=Context(
-                    params={"x": Parameter("x", str), "bar": Parameter(bar_component.identity(bar_parameter), Bar)}
+    @pytest.mark.parametrize(
+        ["function"],
+        (
+            pytest.param("function", id="function"),
+            pytest.param("method", id="method"),
+            pytest.param("classmethod", id="classmethod"),
+        ),
+        indirect=["function"],
+    )
+    def test_resolve_function(self, function, resolver, bar_parameter, bar_component):
+        expected_parameters_tree = ParametersTree(
+            function=function,
+            nodes=[
+                ContextNode(name="x", parameter=Parameter(name="x", type=str), nodes=[]),
+                ContextNode(name="f", parameter=Parameter(name="foo", type=Foo), nodes=[]),
+                ComponentNode(
+                    name="y",
+                    parameter=Parameter(name="y", type=Bar),
+                    nodes=[
+                        ParameterNode(name="parameter", parameter=Parameter(name="y", type=Bar), nodes=[]),
+                        ContextNode(name="data", parameter=Parameter(name="data", type=dict), nodes=[]),
+                    ],
+                    component=bar_component,
                 ),
-            ),
-            steps=[
-                Step(
-                    id=bar_component.identity(bar_parameter),
-                    resolver=bar_component.resolve,
-                    context=Context(params={"y": Parameter("y", str), "z": Parameter("z", int)}),
-                )
+                ComponentNode(
+                    name="z",
+                    parameter=Parameter(name="z", type=Bar),
+                    nodes=[
+                        ParameterNode(name="parameter", parameter=Parameter(name="z", type=Bar), nodes=[]),
+                        ContextNode(name="data", parameter=Parameter(name="data", type=dict), nodes=[]),
+                    ],
+                    component=bar_component,
+                ),
             ],
         )
 
         assert resolver.cache == {}
-        assert resolver.resolve(function) == expected_parameters_builder
+        assert resolver.resolve(function) == expected_parameters_tree
         assert hash(function) in resolver.cache
-        assert resolver.resolve(function) == expected_parameters_builder
+        assert resolver.resolve(function) == expected_parameters_tree

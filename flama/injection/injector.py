@@ -5,7 +5,7 @@ from flama.injection.components import Component, Components
 from flama.injection.resolver import Resolver
 
 if t.TYPE_CHECKING:
-    from flama.injection.data_structures import ParametersBuilder
+    from flama.injection.resolver import ParametersTree
 
 
 class Injector:
@@ -62,12 +62,12 @@ class Injector:
     def resolver(self):
         self._resolver = None
 
-    def resolve(self, func: t.Callable) -> "ParametersBuilder":
+    def resolve(self, func: t.Callable) -> "ParametersTree":
         """
         Inspects a function and creates a resolution list of all components needed to run it.
 
         :param func: Function to resolve.
-        :return: The parameters builder.
+        :return: The parameters resolution tree.
         """
         return self.resolver.resolve(func)
 
@@ -79,4 +79,4 @@ class Injector:
         :param context: Mapping of names and values used to gather injection values.
         :return: Partialised function with all dependencies injected.
         """
-        return functools.partial(func, **(await self.resolve(func).build(**context)))
+        return functools.partial(func, **(await self.resolve(func).context(**context)))

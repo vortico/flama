@@ -6,7 +6,7 @@ except Exception:  # pragma: no cover
     raise AssertionError("`sqlalchemy[asyncio]` must be installed to use crud resources") from None
 
 import flama.schemas
-from flama import exceptions, http
+from flama import exceptions, http, types
 from flama.pagination import paginator
 from flama.resources import data_structures
 from flama.resources.rest import RESTResourceType
@@ -37,12 +37,14 @@ class CreateMixin:
     ) -> t.Dict[str, t.Any]:
         @resource_method("/", methods=["POST"], name=f"{name}-create")
         async def create(
-            self, element: rest_schemas.input.schema  # type: ignore[name-defined]
+            self, scope: types.Scope, element: rest_schemas.input.schema  # type: ignore[name-defined]
         ) -> rest_schemas.output.schema:  # type: ignore[name-defined]
+            app = scope["app"]
+
             if element.get(rest_model.primary_key.name) is None:
                 element.pop(rest_model.primary_key.name, None)
 
-            async with self.app.sqlalchemy.engine.begin() as connection:
+            async with app.sqlalchemy.engine.begin() as connection:
                 query = self.model.insert().values(**element)
                 result = await connection.execute(query)
 
@@ -80,9 +82,11 @@ class RetrieveMixin:
     ) -> t.Dict[str, t.Any]:
         @resource_method("/{element_id}/", methods=["GET"], name=f"{name}-retrieve")
         async def retrieve(
-            self, element_id: rest_model.primary_key.type  # type: ignore[name-defined]
+            self, scope: types.Scope, element_id: rest_model.primary_key.type  # type: ignore[name-defined]
         ) -> rest_schemas.output.schema:  # type: ignore[name-defined]
-            async with self.app.sqlalchemy.engine.begin() as connection:
+            app = scope["app"]
+
+            async with app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select().where(self.model.c[rest_model.primary_key.name] == element_id)
                 result = await connection.execute(query)
                 element = result.fetchone()
@@ -124,10 +128,13 @@ class UpdateMixin:
         @resource_method("/{element_id}/", methods=["PUT"], name=f"{name}-update")
         async def update(
             self,
+            scope: types.Scope,
             element_id: rest_model.primary_key.type,  # type: ignore[name-defined]
             element: rest_schemas.input.schema,  # type: ignore[name-defined]
         ) -> rest_schemas.output.schema:  # type: ignore[name-defined]
-            async with self.app.sqlalchemy.engine.begin() as connection:
+            app = scope["app"]
+
+            async with app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select().where(
                     self.model.select().where(self.model.c[rest_model.primary_key.name] == element_id).exists()
                 )
@@ -143,7 +150,7 @@ class UpdateMixin:
                 if k != rest_model.primary_key.name
             }
 
-            async with self.app.sqlalchemy.engine.begin() as connection:
+            async with app.sqlalchemy.engine.begin() as connection:
                 query = (
                     self.model.update()
                     .where(self.model.c[rest_model.primary_key.name] == element_id)
@@ -178,8 +185,12 @@ class DeleteMixin:
         mcs, name: str, verbose_name: str, rest_model: data_structures.Model, **kwargs
     ) -> t.Dict[str, t.Any]:
         @resource_method("/{element_id}/", methods=["DELETE"], name=f"{name}-delete")
-        async def delete(self, element_id: rest_model.primary_key.type):  # type: ignore[name-defined]
-            async with self.app.sqlalchemy.engine.begin() as connection:
+        async def delete(
+            self, scope: types.Scope, element_id: rest_model.primary_key.type  # type: ignore[name-defined]
+        ):
+            app = scope["app"]
+
+            async with app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select().where(
                     self.model.select().where(self.model.c[rest_model.primary_key.name] == element_id).exists()
                 )
@@ -189,7 +200,7 @@ class DeleteMixin:
             if not exists:
                 raise exceptions.HTTPException(status_code=404)
 
-            async with self.app.sqlalchemy.engine.begin() as connection:
+            async with app.sqlalchemy.engine.begin() as connection:
                 query = self.model.delete().where(self.model.c[rest_model.primary_key.name] == element_id)
                 await connection.execute(query)
 
@@ -219,8 +230,8 @@ class ListMixin:
     def _add_list(
         mcs, name: str, verbose_name: str, rest_schemas: data_structures.Schemas, **kwargs
     ) -> t.Dict[str, t.Any]:
-        async def filter(self, *clauses, **filters) -> t.List[t.Dict]:
-            async with self.app.sqlalchemy.engine.begin() as connection:
+        async def filter(self, app, *clauses, **filters) -> t.List[t.Dict]:
+            async with app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select()
 
                 where_clauses = tuple(clauses) + tuple(self.model.c[k] == v for k, v in filters.items())
@@ -232,8 +243,10 @@ class ListMixin:
 
         @resource_method("/", methods=["GET"], name=f"{name}-list")
         @paginator.page_number(schema_name=rest_schemas.output.name)
-        async def list(self, **kwargs) -> rest_schemas.output.schema:  # type: ignore[name-defined]
-            return await self._filter()  # noqa
+        async def list(self, scope: types.Scope, **kwargs) -> rest_schemas.output.schema:  # type: ignore[name-defined]
+            app = scope["app"]
+
+            return await self._filter(app)  # noqa
 
         list.__doc__ = f"""
             tags:
@@ -255,8 +268,10 @@ class DropMixin:
     @classmethod
     def _add_drop(mcs, name: str, verbose_name: str, **kwargs) -> t.Dict[str, t.Any]:
         @resource_method("/", methods=["DELETE"], name=f"{name}-drop")
-        async def drop(self) -> flama.schemas.schemas.DropCollection:
-            async with self.app.sqlalchemy.engine.begin() as connection:
+        async def drop(self, scope: types.Scope) -> flama.schemas.schemas.DropCollection:
+            app = scope["app"]
+
+            async with app.sqlalchemy.engine.begin() as connection:
                 query = self.model.delete()
                 result = await connection.execute(query)
 
