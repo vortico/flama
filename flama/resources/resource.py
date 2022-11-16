@@ -4,34 +4,12 @@ import typing as t
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
 
-if t.TYPE_CHECKING:
-    from flama.applications import Flama
-
 __all__ = ["BaseResource", "ResourceType"]
 
 
 class BaseResource:
     name: str
     verbose_name: str
-
-    def __init__(self, app: t.Optional["Flama"] = None, *args, **kwargs):
-        if app is not None:
-            self.app = app
-
-    @property
-    def app(self) -> "Flama":
-        try:
-            return self._app
-        except AttributeError:
-            raise AttributeError(f"{self.__class__.__name__} is not initialized")
-
-    @app.setter
-    def app(self, app: "Flama"):
-        self._app = app
-
-    @app.deleter
-    def app(self):
-        del self._app
 
 
 class ResourceType(type):

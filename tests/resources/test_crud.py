@@ -7,6 +7,7 @@ import sqlalchemy
 import typesystem
 from sqlalchemy.dialects import postgresql
 
+from flama import types
 from flama.applications import Flama
 from flama.pagination import paginator
 from flama.resources.crud import CRUDListDropResourceType, CRUDListResourceType, CRUDResourceType
@@ -326,11 +327,17 @@ class TestCaseCRUDListResource:
             @resource_method("/", methods=["GET"], name="puppy-list")
             @paginator.page_number(schema_name="PuppyResource")
             async def list(
-                self, name: typing.Optional[str] = None, custom_id__le: typing.Optional[int] = None, **kwargs
+                self,
+                scope: types.Scope,
+                name: typing.Optional[str] = None,
+                custom_id__le: typing.Optional[int] = None,
+                **kwargs,
             ) -> puppy_schema:
                 """
                 description: Custom list method with filtering by name.
                 """
+                app = scope["app"]
+
                 clauses = []
 
                 if custom_id__le is not None:
@@ -341,7 +348,7 @@ class TestCaseCRUDListResource:
                 if name is not None:
                     filters["name"] = name
 
-                return await self._filter(*clauses, **filters)
+                return await self._filter(app, *clauses, **filters)
 
         return PuppyResource()
 
@@ -377,7 +384,7 @@ class TestCaseCRUDListResource:
         assert hasattr(SpecializedPuppyResource, "list")
         assert len(SpecializedPuppyResource.routes) == 5
 
-        assert SpecializedPuppyResource(app=app).list() == ["foo", "bar"]
+        assert SpecializedPuppyResource().list() == ["foo", "bar"]
 
     def test_list(self, client, puppy, another_puppy):
         expected_puppy_id = 1

@@ -1,138 +1,207 @@
+import abc
+import dataclasses
 import inspect
 import typing as t
 
-from flama.injection.components import Component, Components
-from flama.injection.data_structures import Context, Parameter, ParametersBuilder, Root, Step
 from flama.injection.exceptions import ComponentNotFound
 from flama.injection.types import BUILTIN_TYPES
 
+if t.TYPE_CHECKING:
+    from flama.injection.components import Component, Components
 
-class Resolver:
-    def __init__(self, context_types: t.Dict[str, t.Type], components: Components):
-        self.context_types = {v: k for k, v in context_types.items()}
-        self.components = components
-        self.cache: t.Dict[int, ParametersBuilder] = {}
+__all__ = ["Parameter", "Resolver"]
 
-    def _find_component_for_parameter(self, parameter: Parameter) -> Component:
-        """Look for a component that can handles given parameter.
 
-        :param parameter: a parameter.
-        :return: the component that handles the parameter.
-        """
-        for component in self.components:
-            if component.can_handle_parameter(parameter):
-                return component
-        else:
-            raise ComponentNotFound(parameter)
+class _empty:
+    ...
 
-    def _resolve_parameter(
-        self, parameter: Parameter, seen_state: t.Set[str], parent_parameter: t.Optional[Parameter] = None
-    ) -> t.Tuple[t.List[Step], Context]:
-        """Resolve a parameter by inferring the component that suits it or by adding a value to kwargs or constants.
 
-        The algorithm consists of following steps to look for a resolver for a parameter based on its annotation:
-        1. Check if it exists in context types mapping to get its context name from it.
-        2. If the parameter annotation is an 'inspect.Parameter' then store it as a constant.
-        3. Look for a component that can handles it.
+_return = "_return"
 
-        If none of those steps find a way to handle this parameter then a ComponentNotFound exception will be raised.
 
-        :param parameter: parameter to be resolved.
-        :param seen_state: cached state.
-        :param parent_parameter: a parent parameter, such as component.
-        :return: list of steps to resolve the parameter.
-        """
+@dataclasses.dataclass(frozen=True)
+class Parameter:
+    empty = _empty
 
-        steps: t.List[Step] = []
-        context = Context()
+    name: str
+    type: t.Any = _empty
+    default: t.Any = _empty
+
+    @classmethod
+    def from_parameter(cls, parameter: inspect.Parameter) -> "Parameter":
+        return cls(
+            name=parameter.name,
+            type=parameter.annotation if parameter.annotation is not parameter.empty else _empty,
+            default=parameter.default if parameter.default is not parameter.empty else _empty,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class Return(Parameter):
+    name: str = dataclasses.field(init=False, default=_return)
+    default: t.Any = dataclasses.field(init=False, default=_empty)
+
+    @classmethod
+    def from_return_annotation(cls, return_annotation: t.Any) -> "Return":
+        return Return(return_annotation if return_annotation is not inspect.Signature.empty else _empty)
+
+
+@dataclasses.dataclass(frozen=True)
+class Node(abc.ABC):
+    name: str
+    parameter: Parameter
+    nodes: t.List["Node"]
+
+    @abc.abstractmethod
+    async def value(self, **values: t.Any) -> t.Any:
+        ...
+
+    def components(self) -> t.List[t.Tuple[str, "Component"]]:
+        return []
+
+    def parameters(self) -> t.List[Parameter]:
+        return []
+
+    def context(self) -> t.List[t.Tuple[str, Parameter]]:
+        return []
+
+
+@dataclasses.dataclass(frozen=True)
+class ComponentNode(Node):
+    component: "Component"
+
+    async def value(self, **values: t.Any) -> t.Any:
+        kwargs = {node.name: await node.value(**values) for node in self.nodes}
+
+        return await self.component(**kwargs)
+
+    def components(self) -> t.List[t.Tuple[str, "Component"]]:
+        return [(self.name, self.component), *[x for node in self.nodes for x in node.components()]]
+
+    def context(self) -> t.List[t.Tuple[str, Parameter]]:
+        return [x for node in self.nodes for x in node.context()]
+
+    def parameters(self) -> t.List[Parameter]:
+        return [x for node in self.nodes for x in node.parameters()]
+
+
+@dataclasses.dataclass(frozen=True)
+class ContextNode(Node):
+    async def value(self, **values: t.Any) -> t.Any:
+        return values[self.parameter.name]
+
+    def context(self) -> t.List[t.Tuple[str, Parameter]]:
+        return [(self.name, self.parameter)]
+
+
+@dataclasses.dataclass(frozen=True)
+class ParameterNode(Node):
+    async def value(self, **values: t.Any) -> t.Any:
+        return self.parameter
+
+    def parameters(self) -> t.List[Parameter]:
+        return [self.parameter]
+
+
+@dataclasses.dataclass(frozen=True)
+class ParametersTreeMeta:
+    context: t.List[t.Tuple[str, Parameter]]
+    parameters: t.List[Parameter]
+    response: Return
+    components: t.List[t.Tuple[str, "Component"]]
+
+
+@dataclasses.dataclass(frozen=True)
+class ParametersTree:
+    nodes: t.List[Node]
+    function: t.Union[t.Callable, t.Callable[..., t.Awaitable]]
+    meta: ParametersTreeMeta = dataclasses.field(init=False)
+
+    def __post_init__(self):
+        object.__setattr__(
+            self,
+            "meta",
+            ParametersTreeMeta(
+                context=list(sorted({x for node in self.nodes for x in node.context()}, key=lambda x: x[0])),
+                parameters=list(sorted({x for node in self.nodes for x in node.parameters()}, key=lambda x: x.name)),
+                response=Return.from_return_annotation(inspect.signature(self.function).return_annotation),
+                components=list(sorted({x for node in self.nodes for x in node.components()}, key=lambda x: x[0])),
+            ),
+        )
+
+    @classmethod
+    def build(
+        cls,
+        function: t.Union[t.Callable, t.Callable[..., t.Awaitable]],
+        context_types: t.Dict[t.Any, str],
+        components: "Components",
+    ) -> "ParametersTree":
+        return cls(
+            nodes=[
+                cls._build_node(p.name, Parameter.from_parameter(p), context_types, components)
+                for p in inspect.signature(function).parameters.values()
+                if p.name not in ("self", "cls")
+            ],
+            function=function,
+        )
+
+    @classmethod
+    def _build_node(
+        cls,
+        name: str,
+        parameter: Parameter,
+        context_types: t.Dict[t.Any, str],
+        components: "Components",
+        parent: Parameter = None,
+    ) -> Node:
+        assert name not in ("self", "cls")
 
         # Check if the parameter annotation exists in context types.
-        if parameter.type in self.context_types:
-            context.params[parameter.name] = Parameter(self.context_types[parameter.type], type=parameter.type)
-            return steps, context
+        if parameter.type in context_types:
+            return ContextNode(name, Parameter(context_types[parameter.type], parameter.type), nodes=[])
 
         # The 'Parameter' annotation can be used to get the parameter itself, so it is stored as a constant.
         if parameter.type is Parameter:
-            context.constants[parameter.name] = parent_parameter
-            return steps, context
+            assert parent is not None, "A root function cannot define an argument with Parameter type"
+
+            return ParameterNode(name, parent, nodes=[])
 
         # Look for a component that can handles the parameter.
         try:
-            component = self._find_component_for_parameter(parameter)
+            component = components.find_handler(parameter)
         except ComponentNotFound:
-            # The parameter is a builtin type, so it'll be expected as part of the building context values.
+            # There is no component that can handles this parameter, and it is a builtin type, so it'll be expected as
+            # part of the building context values.
             if parameter.type in BUILTIN_TYPES:
-                context.params[parameter.name] = Parameter(parameter.name, type=parameter.type)
-                return steps, context
+                return ContextNode(name, parameter, nodes=[])
 
             raise
         else:
-            identity = component.identity(parameter)
-            context.params[parameter.name] = Parameter(identity, type=parameter.type)
-            if identity not in seen_state:
-                seen_state.add(identity)
-                try:
-                    steps = self._resolve_inner_function(
-                        func=component.resolve,  # type: ignore[attr-defined]
-                        func_id=identity,
-                        seen_state=seen_state,
-                        parent_parameter=parameter,
-                    )
-                except ComponentNotFound as e:
+            # There is a component that can handles the parameter
+            try:
+                nodes = [
+                    cls._build_node(p.name, p, context_types, components, parent=parameter)
+                    for p in component.signature().values()
+                    if p.name not in ("self", "cls")
+                ]
+                return ComponentNode(name, parameter, nodes, component)
+            except ComponentNotFound as e:
+                if e.component is None:
                     raise ComponentNotFound(e.parameter, component=component) from None
 
-        return steps, context
+                raise
 
-    def _resolve_function_steps(
-        self, func: t.Callable, seen_state: t.Set[str], parent_parameter: t.Optional[Parameter] = None
-    ) -> t.Tuple[t.List[Step], Context]:
-        """Inspects a function and generates a list of every step needed to build all parameters.
+    async def context(self, **values: t.Any) -> t.Any:
+        return {node.name: await node.value(**values) for node in self.nodes}
 
-        :param func: The function to be inspected.
-        :param seen_state: Cached state.
-        :param parent_parameter: A parent parameter, such as a component.
-        :return: A list of steps and the context needed to build the function.
-        """
-        signature = inspect.signature(func)
 
-        context = Context()
-        steps = []
+class Resolver:
+    def __init__(self, context_types: t.Dict[str, t.Type], components: "Components"):
+        self.context_types = {v: k for k, v in context_types.items()}
+        self.components = components
+        self.cache: t.Dict[int, ParametersTree] = {}
 
-        for parameter in signature.parameters.values():
-            param_steps, param_context = self._resolve_parameter(
-                Parameter.from_parameter(parameter), seen_state, parent_parameter
-            )
-            steps += param_steps
-            context += param_context
-
-        return steps, context
-
-    def _resolve_inner_function(
-        self, func: t.Callable, seen_state: t.Set[str], func_id: str, parent_parameter: t.Optional[Parameter] = None
-    ) -> t.List[Step]:
-        """Inspects an inner function and generates a list of every step needed to build all parameters.
-
-        :param func: The function to be inspected.
-        :param seen_state: Cached state.
-        :param func_id: An identifier for this function.
-        :param parent_parameter: A parent parameter, such as a component.
-        :return: A list of steps to build the function.
-        """
-        steps, context = self._resolve_function_steps(func, seen_state, parent_parameter)
-        steps.append(Step(id=func_id, resolver=func, context=context))
-        return steps
-
-    def _resolve_root_function(self, func: t.Callable, seen_state: t.Set[str]) -> t.Tuple[Root, t.List[Step]]:
-        """Inspects the root function and generates a list of every step needed to build all parameters.
-
-        :param func: The function to be inspected.
-        :param seen_state: Cached state.
-        :return: A list of steps to build the function.
-        """
-        steps, context = self._resolve_function_steps(func, seen_state)
-        return Root(resolver=func, context=context), steps
-
-    def resolve(self, func: t.Callable) -> ParametersBuilder:
+    def resolve(self, func: t.Callable) -> ParametersTree:
         """
         Inspects a function and creates a resolution list of all components needed to run it.
 
@@ -142,8 +211,7 @@ class Resolver:
         key = hash(func)
         if key not in self.cache:
             try:
-                root, steps = self._resolve_root_function(func, seen_state=set(self.context_types.values()))
-                self.cache[key] = ParametersBuilder(steps=steps, root=root)
+                self.cache[key] = ParametersTree.build(func, self.context_types, self.components)
             except ComponentNotFound as e:
                 raise ComponentNotFound(e.parameter, component=e.component, function=func) from None
 

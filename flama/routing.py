@@ -173,21 +173,20 @@ class BaseRoute(RouteParametersMixin):
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        main_app: t.Optional["Flama"] = None,
     ):
+        """A route definition of a http endpoint.
+
+        :param path: URL path.
+        :param app: ASGI application.
+        :param name: Route name.
+        :param include_in_schema: True if this route must be listed as part of the App schema.
+        """
         self.path = url.RegexPath(path) if isinstance(path, str) else path
         self.app = app
         self.endpoint = app.handler if isinstance(app, EndpointWrapper) else app
-        if name is None:
-            self.name = (
-                app.__name__  # type: ignore[union-attr]
-                if inspect.isroutine(self.endpoint) or inspect.isclass(self.endpoint)
-                else self.endpoint.__class__.__name__
-            )
-        else:
-            self.name = name
+        self.name = name
         self.include_in_schema = include_in_schema
-        self.main_app = main_app
+        super().__init__()
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
@@ -197,6 +196,25 @@ class BaseRoute(RouteParametersMixin):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(path={self.path!r}, name={(self.name or '')!r})"
+
+    def build(self, app: "Flama" = None) -> None:
+        """Build step for routes.
+
+        Just build the parameters' descriptor part of RouteParametersMixin.
+
+        :param app: Flama app.
+        """
+        if app:
+            self.parameters.build(app)
+
+    def endpoint_handlers(self) -> t.Dict[str, t.Callable]:
+        """Return a mapping of all possible endpoints of this route.
+
+        Useful to identify all endpoints by HTTP methods.
+
+        :return: Mapping of all endpoints.
+        """
+        ...
 
     async def handle(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs a request by calling the app of this route.
@@ -224,7 +242,7 @@ class BaseRoute(RouteParametersMixin):
         return types.Scope(
             {
                 "endpoint": self.endpoint,
-                "path_params": {**dict(scope.get("path_params", {})), **self.path.params(scope["path"])},
+                "path_params": {**dict(scope.get("path_params", {})), **self.path.values(scope["path"])},
             }
         )
 
@@ -243,53 +261,6 @@ class BaseRoute(RouteParametersMixin):
 
         return url.URL(path=path, scheme="http")
 
-    @property
-    def main_app(self) -> t.Optional["Flama"]:  # pragma: no cover
-        return self._main_app
-
-    @main_app.setter
-    def main_app(self, app: t.Optional["Flama"]):  # pragma: no cover
-        self._main_app = app
-
-        try:
-            self.app.main_app = app  # type: ignore[union-attr]
-        except AttributeError:
-            ...
-
-        try:
-            self.app.app.main_app = app  # type: ignore[union-attr]
-        except AttributeError:
-            ...
-
-        try:
-            for route in getattr(self, "routes"):
-                route.main_app = app
-        except AttributeError:
-            ...
-
-    @main_app.deleter
-    def main_app(self):  # pragma: no cover
-        try:
-            del self._main_app
-        except AttributeError:
-            ...
-
-        try:
-            del self.app.main_app
-        except AttributeError:
-            ...
-
-        try:
-            del self.app.app.main_app
-        except AttributeError:
-            ...
-
-        try:
-            for route in self.routes:
-                del route.main_app
-        except AttributeError:
-            ...
-
 
 class Route(BaseRoute):
     def __init__(
@@ -300,7 +271,6 @@ class Route(BaseRoute):
         methods: t.Optional[t.List[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        main_app: t.Optional["Flama"] = None,
     ) -> None:
         """A route definition of a http endpoint.
 
@@ -309,30 +279,23 @@ class Route(BaseRoute):
         :param methods: List of valid HTTP methods.
         :param name: Route name.
         :param include_in_schema: True if this route must be listed as part of the App schema.
-        :param main_app: Flama app.
         """
+        assert self._is_endpoint(endpoint) or callable(
+            endpoint
+        ), "Endpoint must be a callable or an HTTPEndpoint subclass"
 
-        def is_endpoint(
-            x: t.Union[types.AppFunction, t.Type[endpoints.HTTPEndpoint]]
-        ) -> TypeGuard[t.Type[endpoints.HTTPEndpoint]]:
-            return inspect.isclass(x) and issubclass(x, endpoints.HTTPEndpoint)
-
-        assert is_endpoint(endpoint) or callable(endpoint), "Endpoint must be a callable or an HTTPEndpoint subclass"
-
-        if methods is None:
-            self.methods = endpoint.allowed_methods() if is_endpoint(endpoint) else {"GET"}
+        if self._is_endpoint(endpoint):
+            self.methods = endpoint.allowed_methods() if methods is None else set(methods)
         else:
-            self.methods = set(methods)
+            self.methods = {"GET"} if methods is None else set(methods)
 
         if "GET" in self.methods:
             self.methods.add("HEAD")
 
+        name = endpoint.__name__ if name is None else name
+
         super().__init__(
-            path,
-            EndpointWrapper(endpoint, EndpointType.http),
-            name=name,
-            include_in_schema=include_in_schema,
-            main_app=main_app,
+            path, EndpointWrapper(endpoint, EndpointType.http), name=name, include_in_schema=include_in_schema
         )
 
         self.app: EndpointWrapper
@@ -342,6 +305,28 @@ class Route(BaseRoute):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(path={self.path!r}, name={self.name!r}, methods={sorted(self.methods)!r})"
+
+    @staticmethod
+    def _is_endpoint(
+        x: t.Union[types.AppFunction, t.Type[endpoints.HTTPEndpoint]]
+    ) -> TypeGuard[t.Type[endpoints.HTTPEndpoint]]:
+        return inspect.isclass(x) and issubclass(x, endpoints.HTTPEndpoint)
+
+    def endpoint_handlers(self) -> t.Dict[str, t.Callable]:
+        """Return a mapping of all possible endpoints of this route.
+
+        Useful to identify all endpoints by HTTP methods.
+
+        :return: Mapping of all endpoints.
+        """
+        if self._is_endpoint(self.endpoint):
+            return {
+                method: handler
+                for method, handler in self.endpoint.allowed_handlers().items()
+                if method in self.methods
+            }
+
+        return {method: self.endpoint for method in self.methods}
 
     def match(self, scope: types.Scope) -> Match:
         """Check if this route matches with given scope.
@@ -367,7 +352,6 @@ class WebSocketRoute(BaseRoute):
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        main_app: t.Optional["Flama"] = None,
     ):
         """A route definition of a websocket endpoint.
 
@@ -375,30 +359,40 @@ class WebSocketRoute(BaseRoute):
         :param endpoint: Websocket endpoint or function.
         :param name: Route name.
         :param include_in_schema: True if this route must be listed as part of the App schema.
-        :param main_app: Flama app.
         """
 
-        def is_endpoint(
-            x: t.Union[types.AppFunction, t.Type[endpoints.WebSocketEndpoint]]
-        ) -> TypeGuard[t.Type[endpoints.WebSocketEndpoint]]:
-            return inspect.isclass(x) and issubclass(x, endpoints.WebSocketEndpoint)
-
-        assert is_endpoint(endpoint) or callable(
+        assert self.is_endpoint(endpoint) or callable(
             endpoint
         ), "Endpoint must be a callable or a WebSocketEndpoint subclass"
 
+        name = endpoint.__name__ if name is None else name
+
         super().__init__(
-            path,
-            EndpointWrapper(endpoint, EndpointType.websocket),
-            name=name,
-            include_in_schema=include_in_schema,
-            main_app=main_app,
+            path, EndpointWrapper(endpoint, EndpointType.websocket), name=name, include_in_schema=include_in_schema
         )
 
         self.app: EndpointWrapper
 
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, WebSocketRoute)
+
+    @staticmethod
+    def is_endpoint(
+        x: t.Union[types.AppFunction, t.Type[endpoints.WebSocketEndpoint]]
+    ) -> TypeGuard[t.Type[endpoints.WebSocketEndpoint]]:
+        return inspect.isclass(x) and issubclass(x, endpoints.WebSocketEndpoint)
+
+    def endpoint_handlers(self) -> t.Dict[str, t.Callable]:
+        """Return a mapping of all possible endpoints of this route.
+
+        Useful to identify all endpoints by HTTP methods.
+
+        :return: Mapping of all endpoints.
+        """
+        if self.is_endpoint(self.endpoint):
+            return self.endpoint.allowed_handlers()
+
+        return {"WEBSOCKET": self.endpoint}
 
     def match(self, scope: types.Scope) -> Match:
         """Check if this route matches with given scope.
@@ -421,17 +415,35 @@ class Mount(BaseRoute):
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
         components: t.Optional[t.Sequence[Component]] = None,
         name: str = None,
-        main_app: t.Optional["Flama"] = None,
     ):
+        """A mount point for adding a nested ASGI application or a list of routes.
+
+        :param path: URL path.
+        :param app: ASGI application.
+        :param routes: List of routes.
+        :param components: Components registered under this mount point.
+        :param name: Mount name.
+        """
         assert app is not None or routes is not None, "Either 'app' or 'routes' must be specified"
 
         if app is None:
             app = Router(routes=routes, components=components)
 
-        super().__init__(url.RegexPath(path.rstrip("/") + "{path:path}"), app, name=name, main_app=main_app)
+        super().__init__(url.RegexPath(path.rstrip("/") + "{path:path}"), app, name=name)
 
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, Mount)
+
+    def build(self, app: "Flama" = None) -> None:
+        """Build step for routes.
+
+        Just build the parameters' descriptor part of RouteParametersMixin.
+
+        :param app: Flama app.
+        """
+        if app:
+            for route in self.routes:
+                route.build(app)
 
     def match(self, scope: types.Scope) -> Match:
         """Check if this route matches with given scope.
@@ -461,7 +473,7 @@ class Mount(BaseRoute):
         """
         path = scope["path"]
         root_path = scope.get("root_path", "")
-        matched_params = self.path.params(path)
+        matched_params = self.path.values(path)
         remaining_path = matched_params.pop("path")
         matched_path = path[: -len(remaining_path)]
         return types.Scope(
@@ -511,12 +523,21 @@ class Router(types.AsyncAppClass):
         *,
         components: t.Optional[t.Sequence["Component"]] = None,
         lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None,
-        main_app: t.Optional["Flama"] = None,
+        root: "Flama" = None,
     ):
+        """A router for containing all routes and mount points.
+
+        :param routes: Routes part of this router.
+        :param components: Components registered in this router.
+        :param lifespan: Lifespan function.
+        :param root: Flama application.
+        """
         self.routes = [] if routes is None else list(routes)
         self._components = Components(components if components else set())
         self.lifespan = Lifespan(lifespan)
-        self.main_app = main_app
+
+        for route in self.routes:
+            route.build(root)
 
     def __eq__(self, other: t.Any) -> bool:
         return isinstance(other, Router) and self.routes == other.routes
@@ -534,35 +555,28 @@ class Router(types.AsyncAppClass):
         route, route_scope = self.resolve_route(scope)
         await route(route_scope, receive, send)
 
-    @property
-    def main_app(self) -> t.Optional["Flama"]:
-        return self._main_app
+    def build(self, app: "Flama") -> None:
+        """Build step for routes.
 
-    @main_app.setter
-    def main_app(self, app: t.Optional["Flama"]):
-        self._main_app = app
+        Just build the parameters' descriptor part of RouteParametersMixin.
 
-        if app is not None:
-            for route in self.routes:
-                route.main_app = app
-
-    @main_app.deleter
-    def main_app(self):
-        del self._main_app
-
+        :param app: Flama app.
+        """
         for route in self.routes:
-            del route.main_app
+            route.build(app)
 
     @property
     def components(self) -> Components:
         return Components(
             self._components
-            + [
-                component
-                for route in self.routes
-                if hasattr(route, "app") and hasattr(route.app, "components")
-                for component in getattr(route.app, "components", [])
-            ]
+            + Components(
+                [
+                    component
+                    for route in self.routes
+                    if hasattr(route, "app") and hasattr(route.app, "components")
+                    for component in getattr(route.app, "components", [])
+                ]
+            )
         )
 
     def add_component(self, component: Component):
@@ -570,10 +584,15 @@ class Router(types.AsyncAppClass):
 
         :param component: Component to register.
         """
-        self._components.append(component)
+        self._components = Components(self._components + Components([component]))
 
     def mount(
-        self, path: t.Optional[str] = None, app: t.Optional[types.App] = None, name: str = None, mount: Mount = None
+        self,
+        path: t.Optional[str] = None,
+        app: t.Optional[types.App] = None,
+        name: str = None,
+        mount: Mount = None,
+        root: "Flama" = None,
     ) -> Mount:
         """Register a new mount point containing an ASGI app in this router under given path.
 
@@ -581,16 +600,17 @@ class Router(types.AsyncAppClass):
         :param app: ASGI app to mount.
         :param name: Route name.
         :param mount: Mount.
+        :param root: Flama application.
         :return: Mount.
         """
         if path is not None and app is not None:
-            mount = Mount(path, app=app, name=name, main_app=self.main_app)
-        elif mount is not None:
-            mount.main_app = self.main_app
-        else:
-            raise ValueError("Either 'path' and 'app' or 'mount' variables are needed")
+            mount = Mount(path, app=app, name=name)
+
+        assert mount is not None, "Either 'path' and 'app' or 'mount' variables are needed"
 
         self.routes.append(mount)
+
+        mount.build(root)
 
         return mount
 
@@ -602,6 +622,7 @@ class Router(types.AsyncAppClass):
         name: str = None,
         include_in_schema: bool = True,
         route: Route = None,
+        root: "Flama" = None,
     ) -> Route:
         """Register a new HTTP route in this router under given path.
 
@@ -611,28 +632,27 @@ class Router(types.AsyncAppClass):
         :param name: Endpoint or route name.
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
         :param route: HTTP route.
+        :param root: Flama application.
         :return: Route.
         """
         if path is not None and endpoint is not None:
-            route = Route(
-                path,
-                endpoint=endpoint,
-                methods=methods,
-                name=name,
-                include_in_schema=include_in_schema,
-                main_app=self.main_app,
-            )
-        elif route is not None:
-            route.main_app = self.main_app
-        else:
-            raise ValueError("Either 'path' and 'endpoint' or 'route' variables are needed")
+            route = Route(path, endpoint=endpoint, methods=methods, name=name, include_in_schema=include_in_schema)
+
+        assert route is not None, "Either 'path' and 'endpoint' or 'route' variables are needed"
 
         self.routes.append(route)
+
+        route.build(root)
 
         return route
 
     def route(
-        self, path: str, methods: t.List[str] = None, name: str = None, include_in_schema: bool = True
+        self,
+        path: str,
+        methods: t.List[str] = None,
+        name: str = None,
+        include_in_schema: bool = True,
+        root: "Flama" = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -640,11 +660,12 @@ class Router(types.AsyncAppClass):
         :param methods: List of valid HTTP methods (only applies for routes).
         :param name: Endpoint or route name.
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
+        :param root: Flama application.
         :return: Decorated route.
         """
 
         def decorator(func: types.HTTPHandler) -> types.HTTPHandler:
-            self.add_route(path, func, methods=methods, name=name, include_in_schema=include_in_schema)
+            self.add_route(path, func, methods=methods, name=name, include_in_schema=include_in_schema, root=root)
             return func
 
         return decorator
@@ -655,6 +676,7 @@ class Router(types.AsyncAppClass):
         endpoint: t.Optional[types.WebSocketHandler] = None,
         name: str = None,
         route: t.Optional[WebSocketRoute] = None,
+        root: "Flama" = None,
     ) -> WebSocketRoute:
         """Register a new websocket route in this router under given path.
 
@@ -662,31 +684,33 @@ class Router(types.AsyncAppClass):
         :param endpoint: Websocket function or endpoint.
         :param name: Websocket route name.
         :param route: Specific route class.
+        :param root: Flama application.
         :return: Websocket route.
         """
         if path is not None and endpoint is not None:
-            route = WebSocketRoute(path, endpoint=endpoint, name=name, main_app=self.main_app)
-        elif route is not None:
-            route.main_app = self.main_app
-        else:
-            raise ValueError("Either 'path' and 'endpoint' or 'route' variables are needed")
+            route = WebSocketRoute(path, endpoint=endpoint, name=name)
+
+        assert route is not None, "Either 'path' and 'endpoint' or 'route' variables are needed"
 
         self.routes.append(route)
+
+        route.build(root)
 
         return route
 
     def websocket_route(
-        self, path: str, name: str = None
+        self, path: str, name: str = None, root: "Flama" = None
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
         :param path: URL path.
         :param name: Websocket route name.
+        :param root: Flama application.
         :return: Decorated websocket route.
         """
 
         def decorator(func: types.WebSocketHandler) -> types.WebSocketHandler:
-            self.add_websocket_route(path, func, name=name)
+            self.add_websocket_route(path, func, name=name, root=root)
             return func
 
         return decorator

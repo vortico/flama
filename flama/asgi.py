@@ -1,4 +1,3 @@
-from inspect import Parameter
 from urllib.parse import parse_qsl
 
 from flama import types

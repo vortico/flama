@@ -26,8 +26,8 @@ class EndpointInfo:
     func: t.Callable
     query_parameters: t.Dict[str, Parameter]
     path_parameters: t.Dict[str, Parameter]
-    body_parameter: Parameter
-    output_parameter: Parameter
+    body_parameter: t.Optional[Parameter]
+    response_parameter: Parameter
 
 
 @dataclasses.dataclass(frozen=True)
@@ -274,7 +274,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
                                 query_parameters=route.parameters.query.get(method, {}),
                                 path_parameters=route.parameters.path.get(method, {}),
                                 body_parameter=route.parameters.body.get(method),
-                                output_parameter=route.parameters.output.get(method),
+                                response_parameter=route.parameters.response[method],
                             )
                         )
                 else:
@@ -291,7 +291,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
                                 query_parameters=route.parameters.query.get(method.upper(), {}),
                                 path_parameters=route.parameters.path.get(method.upper(), {}),
                                 body_parameter=route.parameters.body.get(method.upper()),
-                                output_parameter=route.parameters.output.get(method.upper()),
+                                response_parameter=route.parameters.response[method.upper()],
                             )
                         )
             elif isinstance(route, routing.Mount):
@@ -358,7 +358,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
                 'OpenAPI description not provided in docstring for main response in endpoint "%s"', endpoint.path
             )
 
-        schema = endpoint.output_parameter.schema
+        schema = endpoint.response_parameter.schema
         if schema is not None and (schemas.adapter.is_schema(schema) or schemas.adapter.is_field(schema)):
             if schema not in self.schemas:
                 self.schemas.register(schema=schema)

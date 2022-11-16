@@ -22,9 +22,9 @@ class ResourcesModule(Module):
         :param resource: Resource class.
         """
         # Handle class or instance objects
-        resource = resource(app=self.app, *args, **kwargs) if inspect.isclass(resource) else resource
+        resource = resource(*args, **kwargs) if inspect.isclass(resource) else resource
 
-        self.app.mount(mount=ResourceRoute(path, resource, main_app=self.app))
+        self.app.mount(mount=ResourceRoute(path, resource))
 
     def resource(self, path: str, *args, **kwargs) -> typing.Callable:
         """Decorator for Resources classes for adding them to the application.

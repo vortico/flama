@@ -3,19 +3,22 @@ import typing as t
 import pytest
 
 from flama.injection.components import Component
-from flama.injection import Parameter
+from flama.injection.resolver import Parameter
+
+Foo = t.NewType("Foo", int)
 
 
-class Foo:
-    ...
+class Bar:
+    def __init__(self, x=None):
+        self.x = x
 
 
 class TestCaseComponent:
     @pytest.fixture
     def foo_component(self):
         class FooComponent(Component):
-            def resolve(self, z: int) -> Foo:
-                return Foo()
+            def resolve(self, x: int) -> Foo:
+                return Foo(x)
 
         return FooComponent()
 
@@ -23,16 +26,16 @@ class TestCaseComponent:
         ["param_type", "param_name", "expected_id_suffix"],
         (
             pytest.param(int, "x", ":int", id="type_class"),
-            pytest.param(Foo(), "x", ":Foo", id="type_object"),
+            pytest.param(Bar(), "x", ":Bar", id="type_object"),
             pytest.param(Parameter, "x", ":Parameter:x", id="parameter"),
         ),
     )
     def test_identity(self, param_type, param_name, expected_id_suffix):
-        class FooComponent(Component):
-            def resolve(self, x: param_type) -> Foo:
-                return Foo()
+        class BarComponent(Component):
+            def resolve(self, x: param_type) -> Bar:
+                return Bar(x)
 
-        foo_component = FooComponent()
+        foo_component = BarComponent()
 
         assert foo_component.identity(Parameter(param_name, type=param_type)) == f"{id(param_type)}{expected_id_suffix}"
 
@@ -45,3 +48,9 @@ class TestCaseComponent:
     )
     def test_can_handle_parameter(self, foo_component, parameter, expected):
         assert foo_component.can_handle_parameter(parameter) == expected
+
+    def test_signature(self, foo_component):
+        assert foo_component.signature() == {"x": Parameter("x", int)}
+
+    async def test_call(self, foo_component):
+        assert await foo_component(1) == Foo(1)

@@ -12,4 +12,4 @@ class ParameterLocation(enum.Enum):
     query = enum.auto()
     path = enum.auto()
     body = enum.auto()
-    output = enum.auto()
+    response = enum.auto()
