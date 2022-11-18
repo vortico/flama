@@ -1,49 +1,43 @@
 all: check
 
-.PHONY: check
-check:
-	./scripts/check
+check: ## Checks the dependencies of the project and install those missing
+	@./scripts/check
 
-.PHONY: clean
-clean:
-	./scripts/clean
+clean: ## Removes artifact folders and files which are cached
+	@./scripts/clean
 
-.PHONY: install
-install:
-	./scripts/install
+install: ## Installs the package, JS requirements, and build templates needed
+	@./scripts/install
 
-.PHONY: build
-build:
-	./scripts/build
+build: ## Builds the package, and templates needed
+	@./scripts/build
 
-.PHONY: lint
-lint:
-	./scripts/lint
+lint: ## Runs a linting pipeline: black, isort, flake8, and mypy
+	@./scripts/lint
 
-.PHONY: tests
-test:
-	./scripts/test
+test: ## Runs all tests of the repository
+	@./scripts/test
 
-.PHONY: publish
-publish:
-	./scripts/publish
+publish: ## Publishes the package in PiPy if user and passwords are correct
+	@./scripts/publish
 
-.PHONY: version
-version:
-	./scripts/version
+version: ## Gets the current version of the package
+	@./scripts/version
 
-.PHONY: isort
-isort:
-	./scripts/isort .
+isort: ## Runs isort on Flama
+	@./scripts/isort .
 
-.PHONY: black
-black:
-	./scripts/black .
+black: ## Runs black on Flama
+	@./scripts/black .
 
-.PHONY: flake8
-flake8:
-	./scripts/flake8
+flake8: ## Runs flake8 on Flama
+	@./scripts/flake8
 
-.PHONY: mypy
-mypy:
-	./scripts/mypy .
+mypy: ## Runs mypy on Flama
+	@./scripts/mypy .
+
+.PHONY: help check clean install build lint tests publish version isort black flake8 mypy
+.DEFAULT_GOAL := help
+
+help:
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
