@@ -39,4 +39,4 @@ function DocsPage({ specUrl, baseUrl }: DocsPageProps) {
   return <></>
 }
 
-createRoot(document.getElementById('app')!).render(<DocsPage specUrl="|@ schema_url @|" baseUrl="|@ docs_url @|" />)
+createRoot(document.getElementById('app')!).render(<DocsPage specUrl="||@ schema_url @||" baseUrl="||@ docs_url @||" />)
