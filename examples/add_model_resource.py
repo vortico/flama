@@ -1,0 +1,53 @@
+import dataclasses
+from datetime import datetime
+
+import flama
+from flama import Flama
+from flama.models import ModelResource, ModelResourceType
+from flama.resources import resource_method
+
+app = Flama(
+    title="Flama ML",
+    version="0.1.0",
+    description="Machine learning API using Flama 🔥",
+)
+
+
+class MySKModel(ModelResource, metaclass=ModelResourceType):
+    # special names:
+    name = "sk_model"
+    verbose_name = "My ScikitLearn Model"
+    model_path = "sklearn_model.flm"
+
+    # custom attributes
+    info = {
+        "model_version": "1.0.0",
+        "library_version": "1.0.2",
+    }
+
+    @resource_method("/metadata", methods=["GET"], name="metadata-method")
+    def metadata(self):
+        """
+        tags:
+            - My ScikitLearn Model
+        summary:
+            Get metadata info.
+        description:
+            This is a more detailed description of the method itself.
+            Here we can give all the details required and they will appear
+            automatically in the auto-generated docs.
+        responses:
+            200:
+                description: Verbose name of the ML model.
+        """
+
+        return {
+            "metadata": {"built-in": self._meta.verbose_name},
+            "custom": {**self.info, "date": datetime.now().date(), "time": datetime.now().time()},
+        }
+
+
+app.models.add_model_resource(path="/model", resource=MySKModel)
+
+if __name__ == "__main__":
+    flama.run(flama_app="__main__:app", server_host="0.0.0.0", server_port=8080, server_reload=True)
