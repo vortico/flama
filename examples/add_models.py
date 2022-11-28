@@ -1,3 +1,5 @@
+import flama
+
 from flama import Flama, Route
 
 
@@ -75,3 +77,7 @@ app.models.add_model(
     model="examples/sklearn_model.flm",
     name="logistic-regression",
 )
+
+
+if __name__ == "__main__":
+    flama.run(flama_app="__main__:app", server_host="0.0.0.0", server_port=8080, server_reload=True)

@@ -1,4 +1,4 @@
-import uvicorn
+import flama
 
 import flama
 
@@ -73,4 +73,4 @@ foo_app.mount("/bar/", bar_app)
 app.mount("/foo/", foo_app)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    flama.run(app, host="0.0.0.0", port=8000)
