@@ -1,6 +1,6 @@
+import flama
 import string
 
-import uvicorn
 from marshmallow import Schema, fields, validate
 
 from flama import Flama, pagination
@@ -79,4 +79,4 @@ def puppies(name: str = None, **kwargs) -> Puppy(many=True):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    flama.run(app, host="0.0.0.0", port=8000)
