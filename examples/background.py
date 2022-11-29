@@ -1,7 +1,6 @@
 import asyncio
 
 import flama
-
 from flama import BackgroundThreadTask, Flama
 from flama.http import JSONResponse
 
