@@ -51,4 +51,5 @@ class ModelsModule(Module):
         :param path: Resource base path.
         :param resource: Resource class.
         """
+        self.app.add_component(resource.component)
         self.app.resources.add_resource(path, resource, *args, **kwargs)  # type: ignore[attr-defined]

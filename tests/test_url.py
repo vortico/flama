@@ -1,10 +1,12 @@
 import re
 import uuid
+from decimal import Decimal
 
 import pytest
 
 from flama.types import URL
 from flama.url import (
+    DecimalParamSerializer,
     FloatParamSerializer,
     IntegerParamSerializer,
     PathParamSerializer,
@@ -114,6 +116,16 @@ class TestCaseRegexPath:
                 id="float",
             ),
             pytest.param(
+                "/{foo:decimal}/",
+                "/{foo:decimal}/",
+                "/{foo}/",
+                r"^/(?P<foo>-?[0-9]+(.[0-9]+)?)/$",
+                {"foo": DecimalParamSerializer()},
+                ["foo"],
+                None,
+                id="decimal",
+            ),
+            pytest.param(
                 "/{foo:uuid}/",
                 "/{foo:uuid}/",
                 "/{foo}/",
@@ -146,6 +158,16 @@ class TestCaseRegexPath:
                 None,
                 id="path",
             ),
+            pytest.param(
+                "/{foo:bar}",
+                None,
+                None,
+                None,
+                None,
+                None,
+                ValueError("Unknown path param serializer 'bar'"),
+                id="unknown_type",
+            ),
         ),
         indirect=["exception"],
     )
@@ -162,6 +184,7 @@ class TestCaseRegexPath:
         with exception:
             result = RegexPath(path)
 
+            assert result == RegexPath(result)
             assert result.path == expected_path
             assert result.template == expected_template
             assert result.regex == re.compile(expected_regex)
@@ -182,6 +205,11 @@ class TestCaseRegexPath:
             pytest.param("/{foo:float}/", "/-1.0/", True, id="float_negative"),
             pytest.param("/{foo:float}/", "/-1/", True, id="float_negative_no_decimals"),
             pytest.param("/{foo:float}/", "/foo/", False, id="float_fail"),
+            pytest.param("/{foo:decimal}/", "/1.0/", True, id="decimal_positive"),
+            pytest.param("/{foo:decimal}/", "/1/", True, id="decimal_positive_no_decimals"),
+            pytest.param("/{foo:decimal}/", "/-1.0/", True, id="decimal_negative"),
+            pytest.param("/{foo:decimal}/", "/-1/", True, id="decimal_negative_no_decimals"),
+            pytest.param("/{foo:decimal}/", "/foo/", False, id="decimal_fail"),
             pytest.param("/{foo:uuid}/", "/83a8e611-525c-4d30-9bbf-f2c142606a3d/", True, id="uuid"),
             pytest.param("/{foo:uuid}/", "/f2c142606a3d/", False, id="uuid_fail"),
             pytest.param("/{foo:path}", "/", True, id="path_empty"),
@@ -206,6 +234,13 @@ class TestCaseRegexPath:
             pytest.param("/{foo:float}/", "/-1.0/", {"foo": -1.0}, None, id="float_negative"),
             pytest.param("/{foo:float}/", "/-1/", {"foo": -1.0}, None, id="float_negative_no_decimals"),
             pytest.param("/{foo:float}/", "/foo/", None, ValueError("Path '/foo' does not match."), id="float_fail"),
+            pytest.param("/{foo:decimal}/", "/1.0/", {"foo": Decimal("1.0")}, None, id="decimal_positive"),
+            pytest.param("/{foo:decimal}/", "/1/", {"foo": Decimal("1.0")}, None, id="decimal_positive_no_decimals"),
+            pytest.param("/{foo:decimal}/", "/-1.0/", {"foo": Decimal("-1.0")}, None, id="decimal_negative"),
+            pytest.param("/{foo:decimal}/", "/-1/", {"foo": Decimal("-1.0")}, None, id="decimal_negative_no_decimals"),
+            pytest.param(
+                "/{foo:decimal}/", "/foo/", None, ValueError("Path '/foo' does not match."), id="decimal_fail"
+            ),
             pytest.param(
                 "/{foo:uuid}/",
                 "/83a8e611-525c-4d30-9bbf-f2c142606a3d/",
@@ -234,7 +269,8 @@ class TestCaseRegexPath:
         ["path", "params", "expected_result", "expected_remaining_params", "exception"],
         (
             pytest.param("/", {}, "/", {}, None, id="no_params"),
-            pytest.param("/{foo}/", {}, None, None, ValueError("Wrong params, must be: 'foo'."), id="wrong_params"),
+            pytest.param("/{foo}/", {}, None, None, ValueError("Wrong params, expected: 'foo'."), id="wrong_params"),
+            pytest.param("/{foo:int}/", {"foo": 1, "bar": 1}, "/1/", {"bar": 1}, None, id="remaining_params"),
             pytest.param("/{foo}/", {"foo": "bar"}, "/bar/", {}, None, id="no_type"),
             pytest.param("/{foo:str}/", {"foo": "bar"}, "/bar/", {}, None, id="str"),
             pytest.param("/{foo:int}/", {"foo": 1}, "/1/", {}, None, id="int_positive"),
@@ -243,6 +279,14 @@ class TestCaseRegexPath:
             pytest.param("/{foo:float}/", {"foo": 1.0}, "/1/", {}, None, id="float_positive_no_decimals"),
             pytest.param("/{foo:float}/", {"foo": -1.1}, "/-1.1/", {}, None, id="float_negative"),
             pytest.param("/{foo:float}/", {"foo": -1.0}, "/-1/", {}, None, id="float_negative_no_decimals"),
+            pytest.param("/{foo:decimal}/", {"foo": Decimal("1.1")}, "/1.1/", {}, None, id="decimal_positive"),
+            pytest.param(
+                "/{foo:decimal}/", {"foo": Decimal("1.0")}, "/1.0/", {}, None, id="decimal_positive_no_decimals"
+            ),
+            pytest.param("/{foo:decimal}/", {"foo": Decimal("-1.1")}, "/-1.1/", {}, None, id="decimal_negative"),
+            pytest.param(
+                "/{foo:decimal}/", {"foo": Decimal("-1.0")}, "/-1.0/", {}, None, id="decimal_negative_no_decimals"
+            ),
             pytest.param(
                 "/{foo:uuid}/",
                 {"foo": uuid.UUID("83a8e611-525c-4d30-9bbf-f2c142606a3d")},
@@ -262,3 +306,16 @@ class TestCaseRegexPath:
             result, remaining_params = RegexPath(path).build(**params)
             assert result == expected_result
             assert remaining_params == expected_remaining_params
+
+    @pytest.mark.parametrize(
+        ["a", "b", "c", "exception"],
+        (
+            pytest.param(RegexPath("/foo"), "/bar", RegexPath("/foo/bar"), None, id="str"),
+            pytest.param(RegexPath("/foo"), RegexPath("/bar"), RegexPath("/foo/bar"), None, id="regexpath"),
+            pytest.param(RegexPath("/foo"), 1, None, TypeError("Can only concatenate str or Path to Path"), id="error"),
+        ),
+        indirect=["exception"],
+    )
+    def test_add(self, a, b, c, exception):
+        with exception:
+            assert a + b == c

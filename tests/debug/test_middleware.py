@@ -354,3 +354,78 @@ class TestCaseExceptionMiddleware:
             await middleware.websocket_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
             assert websocket_close_mock.call_args_list == [call(code=exc.code, reason=exc.reason)]
+
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
+    async def test_not_found_handler_http(self, middleware, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "http"
+        asgi_scope["app"] = MagicMock(Flama)
+        exc = exceptions.NotFoundException()
+
+        with patch("flama.debug.middleware.ExceptionMiddleware.http_exception_handler") as mock:
+            await middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
+
+        assert mock.call_args_list == [
+            call(asgi_scope, asgi_receive, asgi_send, exc=exceptions.HTTPException(status_code=404))
+        ]
+
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
+    async def test_not_found_handler_http_no_app(self, middleware, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "http"
+        exc = exceptions.NotFoundException()
+
+        with patch("flama.debug.middleware.http.PlainTextResponse") as mock:
+            await middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
+
+        assert mock.call_args_list == [call("Not Found", status_code=404)]
+
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
+    async def test_not_found_handler_websocket(self, middleware, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "websocket"
+        exc = exceptions.NotFoundException()
+
+        with patch("flama.debug.middleware.ExceptionMiddleware.websocket_exception_handler") as mock:
+            await middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
+
+        assert mock.call_args_list == [
+            call(asgi_scope, asgi_receive, asgi_send, exc=exceptions.WebSocketException(1000))
+        ]
+
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
+    async def test_method_not_allowed_handler_http(self, middleware, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "http"
+        asgi_scope["app"] = MagicMock(Flama)
+        exc = exceptions.MethodNotAllowedException("/", "POST", {"GET"})
+
+        with patch("flama.debug.middleware.ExceptionMiddleware.http_exception_handler") as mock:
+            await middleware.method_not_allowed_handler(asgi_scope, asgi_receive, asgi_send, exc)
+
+        assert mock.call_args_list == [
+            call(
+                asgi_scope,
+                asgi_receive,
+                asgi_send,
+                exc=exceptions.HTTPException(status_code=405, headers={"Allow": "GET"}),
+            )
+        ]
+
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
+    )  # PORT: Remove when stop supporting 3.7
+    async def test_method_not_allowed_handler_websocket(self, middleware, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "websocket"
+        exc = exceptions.MethodNotAllowedException("/", "POST", {"GET"})
+
+        with patch("flama.debug.middleware.ExceptionMiddleware.websocket_exception_handler") as mock:
+            await middleware.method_not_allowed_handler(asgi_scope, asgi_receive, asgi_send, exc)
+
+        assert mock.call_args_list == [
+            call(asgi_scope, asgi_receive, asgi_send, exc=exceptions.WebSocketException(1000))
+        ]

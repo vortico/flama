@@ -27,7 +27,7 @@ class TestCaseRequest:
             "headers": {},
             "method": "GET",
             "params": {"path": {}, "query": {}},
-            "path": "",
+            "path": "/",
         }
 
 

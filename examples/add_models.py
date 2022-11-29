@@ -7,13 +7,13 @@ class AppStatus:
     loaded = False
 
 
-def startup():
+async def startup():
     print("\nStarting up the ML API...\n")
     # Here, whatever action we want to be run at the startup of the application
     AppStatus.loaded = True
 
 
-def shutdown():
+async def shutdown():
     print("\nShutting down the ML API...\n")
     # Here, whatever action we want to be run at the shutdown of the application
 
@@ -67,8 +67,7 @@ app = Flama(
         Route("/user/me", user_me),
         Route("/user/{username}", user),
     ],
-    on_startup=[startup],
-    on_shutdown=[shutdown],
+    events={"startup": [startup], "shutdown": [shutdown]},
 )
 
 

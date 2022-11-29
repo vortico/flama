@@ -59,7 +59,7 @@ class ParamSerializer(t.Generic[T], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def dump(self, value: T) -> str:
-        return str(value)
+        ...
 
     def __eq__(self, other):
         return type(other) == type(self)
@@ -132,7 +132,7 @@ class RegexPath:
         "uuid": UUIDParamSerializer(),
     }
 
-    def __init__(self, path: str):
+    def __init__(self, path: t.Union[str, "RegexPath"]):
         """URL path with a regex to allow path params as placeholders.
 
         Given a path string like: "/foo/{bar:str}"
@@ -150,22 +150,30 @@ class RegexPath:
 
         :param path: URL path.
         """
-        self.raw_path = path
-        self.path = self.PARAM_REGEX.sub(lambda x: x.group(0) if x.group("type") != "path" else "", path)
+        if isinstance(path, RegexPath):
+            self.raw_path: str = path.raw_path
+            self.path: str = path.path
+            self.template: str = path.template
+            self.regex: re.Pattern = path.regex
+            self.serializers: t.Dict[str, ParamSerializer] = path.serializers
+            self.parameters: t.List[str] = path.parameters
+        else:
+            self.raw_path = path
+            self.path = self.PARAM_REGEX.sub(lambda x: x.group(0) if x.group("type") != "path" else "", path)
 
-        assert self.path == "" or self.path.startswith("/"), "Routed paths must start with '/'"
+            assert self.path == "" or self.path.startswith("/"), "Routed paths must start with '/'"
 
-        self.template = self.PARAM_REGEX.sub(
-            lambda x: f"{{{x.group('name')}}}" if x.group("type") != "path" else "", path
-        )
-        regex = self.PARAM_REGEX.sub(
-            lambda x: f"(?P<{x.group('name')}>{self._serializer(x.group('type')).regex})", path
-        )
-        self.regex = re.compile(rf"^{regex}$")
-        self.serializers = {
-            param_name: self._serializer(param_type) for param_name, param_type in self.PARAM_REGEX.findall(path)
-        }
-        self.parameters = list(self.serializers.keys())
+            self.template = self.PARAM_REGEX.sub(
+                lambda x: f"{{{x.group('name')}}}" if x.group("type") != "path" else "", path
+            )
+            regex = self.PARAM_REGEX.sub(
+                lambda x: f"(?P<{x.group('name')}>{self._serializer(x.group('type')).regex})", path
+            )
+            self.regex = re.compile(rf"^{regex}$")
+            self.serializers = {
+                param_name: self._serializer(param_type) for param_name, param_type in self.PARAM_REGEX.findall(path)
+            }
+            self.parameters = list(self.serializers.keys())
 
     def _serializer(self, param_type: t.Optional[str]) -> ParamSerializer:
         try:
@@ -200,23 +208,24 @@ class RegexPath:
         :param params: Param values.
         :return: Built path and unused params.
         """
-        if set(params.keys()) != set(self.serializers.keys()):
+        if not set(self.serializers.keys()) <= set(params.keys()):
             formatted_params = ", ".join(f"'{x}'" for x in self.serializers.keys())
-            raise ValueError(f"Wrong params, must be: {formatted_params}.")
+            raise ValueError(f"Wrong params, expected: {formatted_params}.")
 
-        if not params:
-            return self.template, {}
+        if not self.serializers:
+            return self.template, params
 
-        values = {k: self.serializers[k].dump(v) for k, v in params.items()}
+        remaining_params = {k: v for k, v in params.items() if k not in self.serializers}
+        values = {k: self.serializers[k].dump(v) for k, v in params.items() if k in self.serializers}
         path = re.sub(
-            pattern=r"|".join(rf"{{({x})}}" for x in values),
+            pattern=r"|".join(rf"{{({x})}}" for x in values.keys()),
             repl=lambda x: values.pop(x.group(1)),
             string=self.template,
         )
-        return path, values
+        return path, {**values, **remaining_params}
 
     def __eq__(self, other) -> bool:
-        return self.path.__eq__(other)
+        return isinstance(other, RegexPath) and self.path.__eq__(other.path) or self.path.__eq__(other)
 
     def __str__(self) -> str:
         return self.path.__str__()
@@ -230,4 +239,4 @@ class RegexPath:
         elif isinstance(other, str):
             return RegexPath(self.path + other)
 
-        raise TypeError("can only concatenate str or Path to Path")
+        raise TypeError("Can only concatenate str or Path to Path")
