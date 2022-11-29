@@ -207,7 +207,7 @@ class BaseRoute(RouteParametersMixin):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(path={self.path!r}, name={(self.name or '')!r})"
 
-    def build(self, app: "Flama" = None) -> None:
+    def build(self, app: t.Optional["Flama"] = None) -> None:
         """Build step for routes.
 
         Just build the parameters' descriptor part of RouteParametersMixin.
@@ -224,7 +224,7 @@ class BaseRoute(RouteParametersMixin):
 
         :return: Mapping of all endpoints.
         """
-        ...
+        return {}
 
     async def handle(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs a request by calling the app of this route.
@@ -430,7 +430,7 @@ class Mount(BaseRoute):
         *,
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
         components: t.Optional[t.Sequence[Component]] = None,
-        name: str = None,
+        name: t.Optional[str] = None,
     ):
         """A mount point for adding a nested ASGI application or a list of routes.
 
@@ -450,7 +450,7 @@ class Mount(BaseRoute):
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, Mount)
 
-    def build(self, app: "Flama" = None) -> None:
+    def build(self, app: t.Optional["Flama"] = None) -> None:
         """Build step for routes.
 
         Just build the parameters' descriptor part of RouteParametersMixin.
@@ -542,7 +542,7 @@ class Router(types.AppAsyncClass):
         *,
         components: t.Optional[t.Sequence["Component"]] = None,
         lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None,
-        root: "Flama" = None,
+        root: t.Optional["Flama"] = None,
     ):
         """A router for containing all routes and mount points.
 
@@ -609,11 +609,11 @@ class Router(types.AppAsyncClass):
         self,
         path: t.Optional[str] = None,
         endpoint: t.Optional[types.HTTPHandler] = None,
-        methods: t.List[str] = None,
-        name: str = None,
+        methods: t.Optional[t.List[str]] = None,
+        name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        route: Route = None,
-        root: "Flama" = None,
+        route: t.Optional[Route] = None,
+        root: t.Optional["Flama"] = None,
     ) -> Route:
         """Register a new HTTP route in this router under given path.
 
@@ -640,10 +640,10 @@ class Router(types.AppAsyncClass):
     def route(
         self,
         path: str,
-        methods: t.List[str] = None,
-        name: str = None,
+        methods: t.Optional[t.List[str]] = None,
+        name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        root: "Flama" = None,
+        root: t.Optional["Flama"] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -665,9 +665,9 @@ class Router(types.AppAsyncClass):
         self,
         path: t.Optional[str] = None,
         endpoint: t.Optional[types.WebSocketHandler] = None,
-        name: str = None,
+        name: t.Optional[str] = None,
         route: t.Optional[WebSocketRoute] = None,
-        root: "Flama" = None,
+        root: t.Optional["Flama"] = None,
     ) -> WebSocketRoute:
         """Register a new websocket route in this router under given path.
 
@@ -690,7 +690,7 @@ class Router(types.AppAsyncClass):
         return route
 
     def websocket_route(
-        self, path: str, name: str = None, root: "Flama" = None
+        self, path: str, name: t.Optional[str] = None, root: t.Optional["Flama"] = None
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
@@ -710,9 +710,9 @@ class Router(types.AppAsyncClass):
         self,
         path: t.Optional[str] = None,
         app: t.Optional[types.App] = None,
-        name: str = None,
-        mount: Mount = None,
-        root: "Flama" = None,
+        name: t.Optional[str] = None,
+        mount: t.Optional[Mount] = None,
+        root: t.Optional["Flama"] = None,
     ) -> Mount:
         """Register a new mount point containing an ASGI app in this router under given path.
 

@@ -28,7 +28,9 @@ class ResourceRoute(Mount):
         super().__init__(path=path, routes=routes, name=self.resource._meta.name)
 
 
-def resource_method(path: str, methods: t.Sequence[str] = None, name: str = None, **kwargs) -> t.Callable:
+def resource_method(
+    path: str, methods: t.Optional[t.Sequence[str]] = None, name: t.Optional[str] = None, **kwargs
+) -> t.Callable:
     """Decorator for adding useful info needed for generating resource routes.
 
     :param path: Route path.

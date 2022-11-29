@@ -32,7 +32,7 @@ class TestCaseModule:
     def test_init(self, module):
         m = module()
 
-        assert m.app is None
+        assert not hasattr(m, "app")
 
 
 class TestCaseModules:
@@ -59,8 +59,8 @@ class TestCaseModules:
         return Modules(app, {foo_module, bar_module})
 
     def test_init(self, app, foo_module, bar_module):
-        assert foo_module.app is None
-        assert bar_module.app is None
+        assert not hasattr(foo_module, "app")
+        assert not hasattr(bar_module, "app")
 
         modules = Modules(app, {foo_module, bar_module})
 

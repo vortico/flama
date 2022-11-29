@@ -28,7 +28,7 @@ class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
         self,
         schema: t.Optional[t.Union[marshmallow.Schema, t.Type[marshmallow.Schema]]] = None,
         pagination: t.Optional[t.Union[marshmallow.Schema, t.Type[marshmallow.Schema]]] = None,
-        paginated_schema_name: str = None,
+        paginated_schema_name: t.Optional[str] = None,
         name: str = "Schema",
         fields: t.Optional[t.Dict[str, marshmallow.fields.Field]] = None,
     ) -> t.Type[marshmallow.Schema]:
