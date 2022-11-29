@@ -11,8 +11,8 @@ __all__ = ["Module", "Modules"]
 class _BaseModule:
     name: str
 
-    def __init__(self):
-        self.app: "Flama" = None
+    def __init__(self) -> None:
+        self.app: "Flama"
 
     async def on_startup(self):
         ...

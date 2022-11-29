@@ -77,8 +77,8 @@ class MiddlewareAsyncClass(AppAsyncClass):
         ...
 
 
-MiddlewareFunction = t.Callable[Concatenate[App, P], App]  # type: ignore[misc]
-MiddlewareAsyncFunction = t.Callable[Concatenate[App, P], t.Awaitable[App]]  # type: ignore[misc]
+MiddlewareFunction = t.Callable[Concatenate[App, P], App]  # type: ignore[valid-type,misc]
+MiddlewareAsyncFunction = t.Callable[Concatenate[App, P], t.Awaitable[App]]  # type: ignore[valid-type,misc]
 Middleware = t.Union[MiddlewareClass, MiddlewareAsyncClass, MiddlewareFunction, MiddlewareAsyncFunction]
 
 HTTPHandler = t.Union[AppFunction, t.Type["endpoints.HTTPEndpoint"]]

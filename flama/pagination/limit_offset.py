@@ -1,6 +1,6 @@
 import asyncio
 import functools
-import typing
+import typing as t
 
 import flama.schemas
 from flama import http
@@ -30,9 +30,9 @@ class LimitOffsetResponse(http.APIResponse):
     def __init__(
         self,
         schema: Schema,
-        offset: typing.Optional[typing.Union[int, str]] = None,
-        limit: typing.Optional[typing.Union[int, str]] = None,
-        count: typing.Optional[bool] = True,
+        offset: t.Optional[t.Union[int, str]] = None,
+        limit: t.Optional[t.Union[int, str]] = None,
+        count: t.Optional[bool] = True,
         **kwargs
     ):
         self.offset = int(offset) if offset is not None else 0
@@ -40,7 +40,7 @@ class LimitOffsetResponse(http.APIResponse):
         self.count = count
         super().__init__(schema=schema, **kwargs)
 
-    def render(self, content: typing.Sequence):
+    def render(self, content: t.Sequence):
         init = self.offset
         end = self.offset + self.limit
         return super().render(
@@ -67,7 +67,7 @@ class LimitOffsetMixin:
         :return: Decorated view.
         """
 
-        def _inner(func: typing.Callable):
+        def _inner(func: t.Callable):
             assert forge is not None, "`python-forge` must be installed to use Paginator."
 
             resource_schema = flama.schemas.adapter.unique_schema(get_output_schema(func))
@@ -93,7 +93,13 @@ class LimitOffsetMixin:
 
                     @forge.compose(*forge_revision_list)
                     @functools.wraps(func)
-                    async def decorator(*args, limit: int = None, offset: int = None, count: bool = True, **kwargs):
+                    async def decorator(
+                        *args,
+                        limit: t.Optional[int] = None,
+                        offset: t.Optional[int] = None,
+                        count: bool = True,
+                        **kwargs
+                    ):
                         return LimitOffsetResponse(
                             schema=schema, limit=limit, offset=offset, count=count, content=await func(*args, **kwargs)
                         )
@@ -102,7 +108,13 @@ class LimitOffsetMixin:
 
                     @forge.compose(*forge_revision_list)
                     @functools.wraps(func)
-                    def decorator(*args, limit: int = None, offset: int = None, count: bool = True, **kwargs):
+                    def decorator(
+                        *args,
+                        limit: t.Optional[int] = None,
+                        offset: t.Optional[int] = None,
+                        count: bool = True,
+                        **kwargs
+                    ):
                         return LimitOffsetResponse(
                             schema=schema, limit=limit, offset=offset, count=count, content=func(*args, **kwargs)
                         )

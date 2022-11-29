@@ -45,7 +45,7 @@ class SchemaInfo:
 
 
 class SchemaRegistry(typing.Dict[int, SchemaInfo]):
-    def __init__(self, schemas: typing.Dict[str, Schema] = None):
+    def __init__(self, schemas: t.Optional[typing.Dict[str, Schema]] = None):
         if schemas is None:
             schemas = {}
 
@@ -165,7 +165,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
 
         return used_schemas
 
-    def register(self, schema: Schema, name: str = None):
+    def register(self, schema: Schema, name: t.Optional[str] = None):
         """
         Register a new Schema to this registry.
 
@@ -209,14 +209,14 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
         self,
         title: str,
         version: str,
-        description: str = None,
-        terms_of_service: str = None,
-        contact_name: str = None,
-        contact_url: str = None,
-        contact_email: str = None,
-        license_name: str = None,
-        license_url: str = None,
-        schemas: typing.Dict = None,
+        description: t.Optional[str] = None,
+        terms_of_service: t.Optional[str] = None,
+        contact_name: t.Optional[str] = None,
+        contact_url: t.Optional[str] = None,
+        contact_email: t.Optional[str] = None,
+        license_name: t.Optional[str] = None,
+        license_url: t.Optional[str] = None,
+        schemas: t.Optional[typing.Dict] = None,
     ):
         contact = (
             openapi.Contact(name=contact_name, url=contact_url, email=contact_email)
