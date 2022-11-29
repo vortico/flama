@@ -189,7 +189,7 @@ class ParametersTree:
                 if e.component is None:
                     raise ComponentNotFound(e.parameter, component=component) from None
 
-                raise
+                raise  # noqa: safety net
 
     async def context(self, **values: t.Any) -> t.Any:
         return {node.name: await node.value(**values) for node in self.nodes}

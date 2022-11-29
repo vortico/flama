@@ -57,7 +57,9 @@ class ResourceType(type):
         )
 
     @classmethod
-    def _get_attribute(mcs, attribute: str, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> t.Any:
+    def _get_attribute(
+        mcs, attribute: str, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any], metadata_namespace: str = None
+    ) -> t.Any:
         """Look for an attribute given his name on namespace or parent classes namespace.
 
         :param attribute: Attribute name.
@@ -69,9 +71,14 @@ class ResourceType(type):
             return namespace.pop(attribute)
         except KeyError:
             for base in mcs._get_mro(*bases):
-                if hasattr(base, "_meta") and hasattr(base._meta, attribute):
-                    return getattr(base._meta, attribute)
-                elif hasattr(base, attribute):
+                if hasattr(base, "_meta"):
+                    if attribute in base._meta.namespaces.get(metadata_namespace, {}):
+                        return base._meta.namespaces[metadata_namespace][attribute]
+
+                    if hasattr(base._meta, attribute):
+                        return getattr(base._meta, attribute)
+
+                if hasattr(base, attribute):
                     return getattr(base, attribute)
 
         raise AttributeError(ResourceAttributeError.ATTRIBUTE_NOT_FOUND.format(attribute=attribute))

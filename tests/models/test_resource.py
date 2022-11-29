@@ -3,6 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from flama.models import ModelComponent, ModelResource, ModelResourceType, PyTorchModel, SKLearnModel, TensorFlowModel
+from flama.resources.exceptions import ResourceAttributeError
 
 
 class TestCaseModelResource:
@@ -20,9 +21,10 @@ class TestCaseModelResource:
 
         return SpecificModelComponent(model)
 
-    def test_resource_using_component(self, model, component):
+    def test_resource_using_component(self, app, model, component):
         component_ = component
 
+        @app.models.model("/")
         class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
             name = "puppy"
             verbose_name = "Puppy"
@@ -52,7 +54,7 @@ class TestCaseModelResource:
         ),
         indirect=["model_path"],
     )
-    def test_resource_using_model_path(self, model_path):
+    def test_resource_using_model_path(self, app, model_path):
         model_path_ = model_path
 
         class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
@@ -61,6 +63,8 @@ class TestCaseModelResource:
             model_path = model_path_
 
         resource = PuppyModelResource()
+
+        app.models.add_model_resource("/", resource)
 
         assert not hasattr(resource, "name")
         assert not hasattr(resource, "verbose_name")
@@ -74,6 +78,13 @@ class TestCaseModelResource:
         assert resource._meta.namespaces == {
             "model": {"component": component, "model": component.model, "model_type": component.get_model_type()}
         }
+
+    def test_resource_wrong(self):
+        with pytest.raises(ResourceAttributeError):
+
+            class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
+                name = "puppy"
+                verbose_name = "Puppy"
 
 
 class TestCaseModelResourceMethods:
@@ -220,7 +231,7 @@ class TestCaseModelResourceMethods:
         assert response.json() == output
 
     @pytest.mark.parametrize(
-        ("lib", "model_path", "url", "x", "y"),
+        ("lib", "model_path", "url", "x", "y", "status_code"),
         (
             pytest.param(
                 "torch",
@@ -228,7 +239,17 @@ class TestCaseModelResourceMethods:
                 "/torch/predict/",
                 [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]],
                 [[10, 11, 12, 13, 14, 15, 16, 17, 18, 19]],
-                id="torch",
+                200,
+                id="torch-200",
+            ),
+            pytest.param(
+                "torch",
+                "torch",
+                "/torch/predict/",
+                [["wrong"]],
+                {"detail": "too many dimensions 'str'", "error": "HTTPException", "status_code": 400},
+                400,
+                id="torch-400",
             ),
             pytest.param(
                 "sklearn",
@@ -247,7 +268,22 @@ class TestCaseModelResourceMethods:
                     [660.0, 3.3, 5.0],
                 ],
                 [0, 0, 1, 1, 0, 0, 1, 1, 0, 1],
-                id="sklearn",
+                200,
+                id="sklearn-200",
+            ),
+            pytest.param(
+                "sklearn",
+                "sklearn",
+                "/sklearn/predict/",
+                [["wrong"]],
+                {
+                    "detail": "dtype='numeric' is not compatible with arrays of bytes/strings.Convert your data to "
+                    "numeric values explicitly instead.",
+                    "error": "HTTPException",
+                    "status_code": 400,
+                },
+                400,
+                id="sklearn-400",
             ),
             pytest.param(
                 "tensorflow",
@@ -277,16 +313,29 @@ class TestCaseModelResourceMethods:
                     [0.31375277042388916],
                     [0.4901178479194641],
                 ],
-                id="tensorflow",
+                200,
+                id="tensorflow-200",
+            ),
+            pytest.param(
+                "tensorflow",
+                "tensorflow",
+                "/tensorflow/predict/",
+                [["wrong"]],
+                {"detail": "Bad Request", "error": "HTTPException", "status_code": 400},
+                400,
+                id="tensorflow-400",
             ),
         ),
         indirect=["model_path"],
     )
-    def test_predict(self, app, client, lib, model_path, url, x, y):
+    def test_predict(self, app, client, lib, model_path, url, x, y, status_code):
         app.models.add_model(f"/{lib}/", model=model_path, name=lib)
 
         response = client.post(url, json={"input": x})
 
-        assert response.status_code == 200, response.json()
-        for a, e in zip(response.json()["output"], y):
-            assert a == pytest.approx(e)
+        assert response.status_code == status_code, response.json()
+        if status_code == 200:
+            for a, e in zip(response.json()["output"], y):
+                assert a == pytest.approx(e)
+        else:
+            assert response.json() == y

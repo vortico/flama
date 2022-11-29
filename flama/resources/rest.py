@@ -14,7 +14,6 @@ except Exception:  # pragma: no cover
 
 __all__ = ["RESTResource", "RESTResourceType"]
 
-
 PK_MAPPING = {
     sqlalchemy.Integer: int,
     sqlalchemy.String: str,
@@ -68,7 +67,7 @@ class RESTResourceType(ResourceType):
         :param namespace: Variables namespace used to create the class.
         :return: Resource model.
         """
-        model = mcs._get_attribute("model", bases, namespace)
+        model = mcs._get_attribute("model", bases, namespace, metadata_namespace="rest")
 
         # Already defined model probably because resource inheritance, so no need to create it
         if isinstance(model, data_structures.Model):
@@ -113,24 +112,28 @@ class RESTResourceType(ResourceType):
             return data_structures.Schemas(
                 input=data_structures.Schema(
                     name="Input" + name,
-                    schema=mcs._get_attribute("input_schema", bases, namespace),
+                    schema=mcs._get_attribute("input_schema", bases, namespace, metadata_namespace="rest"),
                 ),
                 output=data_structures.Schema(
                     name="Output" + name,
-                    schema=mcs._get_attribute("output_schema", bases, namespace),
+                    schema=mcs._get_attribute("output_schema", bases, namespace, metadata_namespace="rest"),
                 ),
             )
         except AttributeError:
             ...
 
         try:
-            schema = data_structures.Schema(name=name, schema=mcs._get_attribute("schema", bases, namespace))
+            schema = data_structures.Schema(
+                name=name, schema=mcs._get_attribute("schema", bases, namespace, metadata_namespace="rest")
+            )
             return data_structures.Schemas(input=schema, output=schema)
         except AttributeError:
             ...
 
         try:
-            schemas: data_structures.Schemas = mcs._get_attribute("schemas", bases, namespace)
+            schemas: data_structures.Schemas = mcs._get_attribute(
+                "schemas", bases, namespace, metadata_namespace="rest"
+            )
             return schemas
         except AttributeError:
             ...

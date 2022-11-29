@@ -1,10 +1,11 @@
 import importlib.util
 import sys
-import typing
+import typing as t
+from types import ModuleType
 
 from flama.schemas.exceptions import SchemaParseError, SchemaValidationError
 
-if typing.TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from flama.schemas.adapter import Adapter
     from flama.schemas.data_structures import Parameter
 
@@ -19,26 +20,26 @@ __all__ = [
     "schemas",
 ]
 
-Field: typing.Any = None
-Schema: typing.Any = None
+Field: t.Any = None
+Schema: t.Any = None
 adapter: "Adapter"
-fields: typing.Dict[typing.Any, "Parameter"] = {}
-lib: typing.Any = None
-schemas: typing.Any = None
+fields: t.Dict[t.Any, "Parameter"] = {}
+lib: t.Optional[ModuleType] = None
+schemas: t.Any = None
 
 
 class Module:
     SCHEMA_LIBS = ("typesystem", "marshmallow")
 
     def __init__(self):
-        self.lib = None
+        self.lib: ModuleType = None
 
     @property
-    def installed(self) -> typing.List[str]:
+    def installed(self) -> t.List[str]:
         return [x for x in self.SCHEMA_LIBS if x in sys.modules or importlib.util.find_spec(x) is not None]
 
     @property
-    def available(self) -> typing.Generator[str, None, None]:
+    def available(self) -> t.Generator[str, None, None]:
         for library in self.installed:
             try:
                 importlib.import_module(f"flama.schemas._libs.{library}")
@@ -46,7 +47,7 @@ class Module:
             except ModuleNotFoundError:
                 pass
 
-    def setup(self, library: typing.Optional[str] = None):
+    def setup(self, library: t.Optional[str] = None):
         try:
             if library is None:
                 library = next(self.available)
