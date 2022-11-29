@@ -1,9 +1,9 @@
-import flama
 import string
 
 from marshmallow import Schema, fields, validate
 
-from flama import Flama, pagination
+import flama
+from flama import Flama
 
 
 class Puppy(Schema):
@@ -23,7 +23,7 @@ app = Flama(
 
 
 @app.route("/number/", methods=["GET"])
-@pagination.page_number
+@app.paginator.page_number
 def numbers(**kwargs):
     """
     tags:
@@ -40,7 +40,7 @@ def numbers(**kwargs):
 
 
 @app.route("/alphabet/", methods=["GET"])
-@pagination.limit_offset
+@app.paginator.limit_offset
 def alphabet(**kwargs):
     """
     tags:
@@ -57,7 +57,7 @@ def alphabet(**kwargs):
 
 
 @app.route("/puppy/", methods=["GET"])
-@pagination.page_number
+@app.paginator.page_number
 def puppies(name: str = None, **kwargs) -> Puppy(many=True):
     """
     tags:

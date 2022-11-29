@@ -1,9 +1,9 @@
 import databases
 import marshmallow
 import sqlalchemy
-import flama
 from sqlalchemy import create_engine
 
+import flama
 from flama import Flama
 from flama.resources.crud import CRUDListResourceType
 

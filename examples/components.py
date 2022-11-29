@@ -1,5 +1,4 @@
 import flama
-
 from flama import Component, Flama
 
 
