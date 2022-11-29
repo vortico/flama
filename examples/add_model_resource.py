@@ -1,16 +1,26 @@
-import dataclasses
+import typesystem as ts
+
 from datetime import datetime
 
 import flama
 from flama import Flama
 from flama.models import ModelResource, ModelResourceType
 from flama.resources import resource_method
+from flama.exceptions import HTTPException
 
 app = Flama(
     title="Flama ML",
     version="0.1.0",
     description="Machine learning API using Flama 🔥",
+    docs="/docs/"
 )
+
+
+X = ts.Schema(fields={"input": ts.fields.Array()})
+Y = ts.Schema(fields={"output": ts.fields.Array()})
+
+app.schema.register_schema("X", X)
+app.schema.register_schema("Y", Y)
 
 
 class MySKModel(ModelResource, metaclass=ModelResourceType):
@@ -18,6 +28,26 @@ class MySKModel(ModelResource, metaclass=ModelResourceType):
     name = "sk_model"
     verbose_name = "My ScikitLearn Model"
     model_path = "sklearn_model.flm"
+
+    @resource_method("/predict", methods=["POST"], name="model-predict")
+    def predict(self, data: X) -> Y:
+        """
+        tags:
+            - My ScikitLearn Model
+        summary:
+            Run predict method.
+        description:
+            This is a more detailed description of the method itself.
+            Here we can give all the details required and they will appear
+            automatically in the auto-generated docs.
+        responses:
+            200:
+                description: ML model prediction.
+        """
+        try:
+            return {"output": self.model.predict(data["input"])}
+        except Exception as e:
+            raise HTTPException(status_code=404, detail=str(e))
 
     # custom attributes
     info = {
