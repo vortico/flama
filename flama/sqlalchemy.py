@@ -1,4 +1,4 @@
-import typing
+import typing as t
 
 from flama.modules import Module
 
@@ -17,12 +17,12 @@ __all__ = ["metadata", "SQLAlchemyModule"]
 class SQLAlchemyModule(Module):
     name = "sqlalchemy"
 
-    def __init__(self, database: str = None):
+    def __init__(self, database: t.Optional[str] = None):
         super().__init__()
 
         self.database = database
-        self._engine: typing.Optional["AsyncEngine"] = None
-        self._metadata: typing.Optional["sqlalchemy.MetaData"] = metadata
+        self._engine: t.Optional["AsyncEngine"] = None
+        self._metadata: t.Optional["sqlalchemy.MetaData"] = metadata
 
     @property
     def engine(self) -> "AsyncEngine":

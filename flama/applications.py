@@ -22,7 +22,7 @@ __all__ = ["Flama"]
 class Flama:
     def __init__(
         self,
-        routes: t.Sequence[t.Union["BaseRoute", "Mount"]] = None,
+        routes: t.Optional[t.Sequence[t.Union["BaseRoute", "Mount"]]] = None,
         components: t.Optional[t.Sequence[injection.Component]] = None,
         modules: t.Optional[t.Set["Module"]] = None,
         middleware: t.Optional[t.Sequence["Middleware"]] = None,
@@ -174,7 +174,11 @@ class Flama:
         )
 
     def route(
-        self, path: str, methods: t.List[str] = None, name: str = None, include_in_schema: bool = True
+        self,
+        path: str,
+        methods: t.Optional[t.List[str]] = None,
+        name: t.Optional[str] = None,
+        include_in_schema: bool = True,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -203,7 +207,7 @@ class Flama:
         return self.router.add_websocket_route(path, endpoint, name=name, route=route, root=self)
 
     def websocket_route(
-        self, path: str, name: str = None
+        self, path: str, name: t.Optional[str] = None
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
@@ -214,7 +218,11 @@ class Flama:
         return self.router.websocket_route(path, name=name, root=self)
 
     def mount(
-        self, path: t.Optional[str] = None, app: t.Optional[types.App] = None, name: str = None, mount: "Mount" = None
+        self,
+        path: t.Optional[str] = None,
+        app: t.Optional[types.App] = None,
+        name: t.Optional[str] = None,
+        mount: t.Optional["Mount"] = None,
     ) -> "Mount":
         """Register a new mount point containing an ASGI app in this router under given path.
 

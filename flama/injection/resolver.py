@@ -152,7 +152,7 @@ class ParametersTree:
         parameter: Parameter,
         context_types: t.Dict[t.Any, str],
         components: "Components",
-        parent: Parameter = None,
+        parent: t.Optional[Parameter] = None,
     ) -> Node:
         assert name not in ("self", "cls")
 
