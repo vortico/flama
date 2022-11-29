@@ -165,7 +165,7 @@ class HTMLTemplateResponse(HTMLResponse):
         )
     )
 
-    def __init__(self, template: str, context: t.Dict[str, t.Any] = None, *args, **kwargs):
+    def __init__(self, template: str, context: t.Optional[t.Dict[str, t.Any]] = None, *args, **kwargs):
         if context is None:
             context = {}
 

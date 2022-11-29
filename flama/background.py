@@ -2,7 +2,7 @@ import asyncio
 import enum
 import functools
 import sys
-import typing
+import typing as t
 from multiprocessing import Process
 
 import starlette.background
@@ -26,18 +26,14 @@ class Concurrency(enum.Enum):
 
 class BackgroundTask(starlette.background.BackgroundTask):
     def __init__(
-        self,
-        concurrency: typing.Union[Concurrency, str],
-        func: typing.Callable[P, typing.Any],
-        *args: P.args,
-        **kwargs: P.kwargs
+        self, concurrency: t.Union[Concurrency, str], func: t.Callable[P, t.Any], *args: P.args, **kwargs: P.kwargs
     ) -> None:
         self.func = self._create_task_function(func)
         self.args = args
         self.kwargs = kwargs
         self.concurrency = Concurrency(concurrency)
 
-    def _create_task_function(self, func: typing.Callable[P, typing.Any]) -> typing.Callable[P, typing.Any]:
+    def _create_task_function(self, func: t.Callable[P, t.Any]) -> t.Callable[P, t.Any]:
         if asyncio.iscoroutinefunction(func):
 
             @functools.wraps(func)
@@ -52,7 +48,7 @@ class BackgroundTask(starlette.background.BackgroundTask):
 
         return _inner
 
-    def _create_process_target(self, func: typing.Callable[P, typing.Any]):
+    def _create_process_target(self, func: t.Callable[P, t.Any]):
         @functools.wraps(func)
         def process_target(*args: P.args, **kwargs: P.kwargs):  # pragma: no cover
             policy = asyncio.get_event_loop_policy()
@@ -70,15 +66,11 @@ class BackgroundTask(starlette.background.BackgroundTask):
 
 
 class BackgroundTasks(BackgroundTask):
-    def __init__(self, tasks: typing.Sequence[BackgroundTask] = None):
+    def __init__(self, tasks: t.Optional[t.Sequence[BackgroundTask]] = None):
         self.tasks = list(tasks) if tasks else []
 
     def add_task(
-        self,
-        concurrency: typing.Union[Concurrency, str],
-        func: typing.Callable[P, typing.Any],
-        *args: P.args,
-        **kwargs: P.kwargs
+        self, concurrency: t.Union[Concurrency, str], func: t.Callable[P, t.Any], *args: P.args, **kwargs: P.kwargs
     ) -> None:
         task = BackgroundTask(concurrency, func, *args, **kwargs)
         self.tasks.append(task)
@@ -89,10 +81,10 @@ class BackgroundTasks(BackgroundTask):
 
 
 class BackgroundThreadTask(BackgroundTask):
-    def __init__(self, func: typing.Callable[P, typing.Any], *args: P.args, **kwargs: P.kwargs):
+    def __init__(self, func: t.Callable[P, t.Any], *args: P.args, **kwargs: P.kwargs):
         super().__init__(Concurrency.thread, func, *args, **kwargs)
 
 
 class BackgroundProcessTask(BackgroundTask):
-    def __init__(self, func: typing.Callable[P, typing.Any], *args: P.args, **kwargs: P.kwargs):
+    def __init__(self, func: t.Callable[P, t.Any], *args: P.args, **kwargs: P.kwargs):
         super().__init__(Concurrency.process, func, *args, **kwargs)

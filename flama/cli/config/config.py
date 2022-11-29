@@ -74,6 +74,7 @@ class ExampleConfig(metaclass=abc.ABCMeta):
         return {"simple": SimpleExample(), "full": FullExample()}[mode]
 
     @classmethod
+    @abc.abstractmethod
     def dumps(cls) -> str:
         ...
 

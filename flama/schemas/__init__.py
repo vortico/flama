@@ -31,8 +31,8 @@ schemas: t.Any = None
 class Module:
     SCHEMA_LIBS = ("typesystem", "marshmallow")
 
-    def __init__(self):
-        self.lib: ModuleType = None
+    def __init__(self) -> None:
+        self.lib: ModuleType
 
     @property
     def installed(self) -> t.List[str]:
