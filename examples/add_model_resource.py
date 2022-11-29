@@ -1,20 +1,19 @@
-import typesystem as ts
-
 from datetime import datetime
+
+import typesystem as ts
 
 import flama
 from flama import Flama
+from flama.exceptions import HTTPException
 from flama.models import ModelResource, ModelResourceType
 from flama.resources import resource_method
-from flama.exceptions import HTTPException
 
 app = Flama(
     title="Flama ML",
     version="0.1.0",
     description="Machine learning API using Flama 🔥",
-    docs="/docs/"
+    docs="/docs/",
 )
-
 
 X = ts.Schema(fields={"input": ts.fields.Array()})
 Y = ts.Schema(fields={"output": ts.fields.Array()})

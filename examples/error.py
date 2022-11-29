@@ -1,7 +1,5 @@
 import flama
 
-import flama
-
 app = flama.Flama(
     title="Hello-🔥",
     version="1.0",

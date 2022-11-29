@@ -1,6 +1,6 @@
 import typesystem
-import flama
 
+import flama
 from flama import Flama
 
 app = Flama(
