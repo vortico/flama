@@ -3,7 +3,7 @@ import typing as t
 
 from flama import asgi, http, injection, types, url, validation, websockets
 from flama.events import Events
-from flama.middleware import Middleware, MiddlewareStack
+from flama.middleware import MiddlewareStack
 from flama.models.modules import ModelsModule
 from flama.modules import Modules
 from flama.pagination import paginator
@@ -12,6 +12,7 @@ from flama.routing import BaseRoute, Router
 from flama.schemas.modules import SchemaModule
 
 if t.TYPE_CHECKING:
+    from flama.middleware import Middleware
     from flama.modules import Module
     from flama.routing import Mount, Route, WebSocketRoute
 
@@ -92,7 +93,7 @@ class Flama:
         )
 
         # Setup schema library
-        self.schema.set_schema_library(schema_library)
+        self.schema.schema_library = schema_library
 
         # Add schema routes
         self.schema.add_routes()
@@ -158,7 +159,7 @@ class Flama:
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         route: t.Optional["Route"] = None,
-    ) -> "Route":  # pragma: no cover
+    ) -> "Route":
         """Register a new HTTP route or endpoint under given path.
 
         :param path: URL path.
@@ -174,7 +175,7 @@ class Flama:
 
     def route(
         self, path: str, methods: t.List[str] = None, name: str = None, include_in_schema: bool = True
-    ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:  # pragma: no cover
+    ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
         :param path: URL path.
@@ -191,7 +192,7 @@ class Flama:
         endpoint: t.Optional[types.WebSocketHandler] = None,
         name: t.Optional[str] = None,
         route: t.Optional["WebSocketRoute"] = None,
-    ) -> "WebSocketRoute":  # pragma: no cover
+    ) -> "WebSocketRoute":
         """Register a new websocket route or endpoint under given path.
 
         :param path: URL path.
@@ -199,11 +200,11 @@ class Flama:
         :param name: Endpoint or route name.
         :param route: Websocket route.
         """
-        return self.router.add_websocket_route(path=path, endpoint=endpoint, name=name, route=route, root=self)
+        return self.router.add_websocket_route(path, endpoint, name=name, route=route, root=self)
 
     def websocket_route(
         self, path: str, name: str = None
-    ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:  # pragma: no cover
+    ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
         :param path: URL path.
@@ -223,7 +224,7 @@ class Flama:
         :param mount: Mount.
         :return: Mount.
         """
-        return self.router.mount(path=path, app=app, name=name, mount=mount, root=self)
+        return self.router.mount(path, app, name=name, mount=mount, root=self)
 
     @property
     def injector(self) -> injection.Injector:
@@ -265,13 +266,12 @@ class Flama:
         """
         self.middleware.add_exception_handler(exc_class_or_status_code, handler)
 
-    def add_middleware(self, middleware_class: t.Type, **options: t.Any):
+    def add_middleware(self, middleware: "Middleware"):
         """Add a new middleware to the stack.
 
-        :param middleware_class: Middleware class.
-        :param options: Keyword arguments used to initialise middleware.
+        :param middleware: Middleware instance.
         """
-        self.middleware.add_middleware(Middleware(middleware_class, **options))
+        self.middleware.add_middleware(middleware)
 
     def resolve_url(self, name: str, **path_params: t.Any) -> url.URL:
         """Look for a route URL given the route name and path params.

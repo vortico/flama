@@ -1,6 +1,7 @@
-import typing
+import functools
+import inspect
+import typing as t
 
-from starlette.middleware import Middleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
@@ -15,7 +16,7 @@ try:
 except Exception:
     SessionMiddleware = None  # type: ignore[misc, assignment]
 
-if typing.TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from flama import types
     from flama.http import Request, Response
 
@@ -33,29 +34,45 @@ __all__ = [
 ]
 
 
+class Middleware:
+    def __init__(self, middleware: "types.Middleware", **kwargs: t.Any) -> None:
+        self.middleware = middleware
+        self.kwargs = kwargs
+
+    def __call__(self, app: "types.App"):
+        return self.middleware(app=app, **self.kwargs)
+
+    def __repr__(self) -> str:
+        name = self.__class__.__name__
+        middleware_name = (
+            self.middleware.__name__ if inspect.isfunction(self.middleware) else self.middleware.__class__.__name__
+        )
+        args = ", ".join([middleware_name] + [f"{key}={value!r}" for key, value in self.kwargs.items()])
+        return f"{name}({args})"
+
+
 class MiddlewareStack:
-    def __init__(self, app: "types.App", middleware: typing.Sequence[Middleware], debug: bool):
+    def __init__(self, app: "types.App", middleware: t.Sequence[Middleware], debug: bool):
         self.app = app
-        self.middleware = list(middleware)
+        self.middleware = list(reversed(middleware))
         self.debug = debug
-        self._exception_handlers: typing.Dict[
-            typing.Union[int, typing.Type[Exception]], typing.Callable[["Request", Exception], "Response"]
+        self._exception_handlers: t.Dict[
+            t.Union[int, t.Type[Exception]], t.Callable[["Request", Exception], "Response"]
         ] = {}
-        self._stack: typing.Optional["types.App"] = None
+        self._stack: t.Optional["types.App"] = None
 
     @property
     def stack(self) -> "types.App":
         if self._stack is None:
-            app = self.app
-            for cls, options in reversed(
+            self._stack = functools.reduce(
+                lambda app, middleware: middleware(app=app),
                 [
-                    Middleware(ServerErrorMiddleware, debug=self.debug),
-                    *self.middleware,
                     Middleware(ExceptionMiddleware, handlers=self._exception_handlers, debug=self.debug),
-                ]
-            ):
-                app = cls(app=app, **options)
-            self._stack = app
+                    *self.middleware,
+                    Middleware(ServerErrorMiddleware, debug=self.debug),
+                ],
+                self.app,
+            )
 
         return self._stack
 
@@ -64,9 +81,7 @@ class MiddlewareStack:
         self._stack = None
 
     def add_exception_handler(
-        self,
-        key: typing.Union[int, typing.Type[Exception]],
-        handler: typing.Callable[["Request", Exception], "Response"],
+        self, key: t.Union[int, t.Type[Exception]], handler: t.Callable[["Request", Exception], "Response"]
     ):
         """Adds a new handler for an exception type or a HTTP status code.
 
@@ -81,7 +96,7 @@ class MiddlewareStack:
 
         :param middleware: Middleware.
         """
-        self.middleware.insert(0, middleware)
+        self.middleware.append(middleware)
         del self.stack
 
     async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:

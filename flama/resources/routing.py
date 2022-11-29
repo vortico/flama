@@ -20,12 +20,12 @@ class ResourceRoute(Mount):
                 path=route._meta.path,
                 endpoint=getattr(self.resource, name),
                 methods=route._meta.methods,
-                name=route._meta.name or f"{self.resource._meta.name}-{route.__name__}",
+                name=route._meta.name or route.__name__,
             )
             for name, route in self.resource.routes.items()
         ]
 
-        super().__init__(path=path, routes=routes)
+        super().__init__(path=path, routes=routes, name=self.resource._meta.name)
 
 
 def resource_method(path: str, methods: t.Sequence[str] = None, name: str = None, **kwargs) -> t.Callable:

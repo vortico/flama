@@ -45,6 +45,11 @@ class TestCaseBaseResource:
             }
         }
 
+    def test_inheritance(self, resource):
+        class PuppyChildResource(resource):
+            name = "puppy_child"
+            verbose_name = "Puppy child"
+
     def test_new_no_model(self, puppy_schema):
         with pytest.raises(AttributeError, match=r"PuppyResource needs to define attribute 'model'"):
 

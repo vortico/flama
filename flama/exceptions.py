@@ -40,10 +40,16 @@ class WebSocketException(starlette.exceptions.WebSocketException):
         self.code = code
         self.reason = reason or ""
 
+    def __str__(self) -> str:
+        return str(self.reason)
+
     def __repr__(self) -> str:
         params = ("code", "reason")
         formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
         return f"{self.__class__.__name__}({formatted_params})"
+
+    def __eq__(self, other):
+        return isinstance(other, WebSocketException) and self.code == other.code and self.reason == other.reason
 
 
 class HTTPException(starlette.exceptions.HTTPException):
@@ -59,10 +65,21 @@ class HTTPException(starlette.exceptions.HTTPException):
         self.detail = detail  # type: ignore[assignment]
         self.headers = headers
 
+    def __str__(self) -> str:
+        return str(self.detail)
+
     def __repr__(self) -> str:
         params = ("status_code", "detail", "headers")
         formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
         return f"{self.__class__.__name__}({formatted_params})"
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, HTTPException)
+            and self.status_code == other.status_code
+            and self.detail == other.detail
+            and self.headers == other.headers
+        )
 
 
 class ValidationError(HTTPException):

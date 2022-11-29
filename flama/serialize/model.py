@@ -36,7 +36,7 @@ class Model:
     def serializer(cls, lib: ModelFormat) -> Serializer:
         try:
             return SERIALIZERS[lib]
-        except ValueError:
+        except ValueError:  # pragma: no cover
             raise ValueError("Wrong lib")
 
     @classmethod
@@ -45,7 +45,7 @@ class Model:
             serialized_data = json.loads(codecs.decode(data, "zlib"))
             lib = ModelFormat(serialized_data["lib"])
             model = cls.serializer(lib).load(serialized_data["model"].encode(), **kwargs)
-        except KeyError:
+        except KeyError:  # pragma: no cover
             raise ValueError("Wrong data")
 
         return cls(lib, model)

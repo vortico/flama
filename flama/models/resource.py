@@ -102,13 +102,13 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
     @classmethod
     def _get_model_component(mcs, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> "ModelComponent":
         try:
-            component: "ModelComponent" = mcs._get_attribute("component", bases, namespace)
+            component: "ModelComponent" = mcs._get_attribute("component", bases, namespace, metadata_namespace="model")
             return component
         except AttributeError:
             ...
 
         try:
-            with open(mcs._get_attribute("model_path", bases, namespace), "rb") as f:
+            with open(mcs._get_attribute("model_path", bases, namespace, metadata_namespace="model"), "rb") as f:
                 return ModelComponentBuilder.loads(f.read())
         except AttributeError:
             ...
