@@ -11,6 +11,11 @@ try:
 except Exception:  # pragma: no cover
     torch = None  # type: ignore
 
+try:
+    import tensorflow
+except Exception:  # pragma: no cover
+    tensorflow = None  # type: ignore
+
 __all__ = ["Model", "PyTorchModel", "SKLearnModel", "TensorFlowModel", "ModelComponent", "ModelComponentBuilder"]
 
 
@@ -60,9 +65,11 @@ class TensorFlowModel(Model):
         return json.loads(self.model.to_json())
 
     def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
+        assert tensorflow is not None, "`tensorflow` must be installed to use TensorFlowModel."
+
         try:
             return self.model.predict(x).tolist()
-        except ValueError:
+        except (tensorflow.errors.OpError, ValueError):
             raise exceptions.HTTPException(status_code=400)
 
 

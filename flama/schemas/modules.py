@@ -1,5 +1,6 @@
 import typing as t
 from pathlib import Path
+from types import ModuleType
 
 from flama import http, pagination, schemas
 from flama.modules import Module
@@ -59,7 +60,16 @@ class SchemaModule(Module):
         """
         return self.schema_generator.get_api_schema(self.app.routes)
 
-    def set_schema_library(self, library: str) -> None:
+    @property
+    def schema_library(self) -> ModuleType:
+        """Global schema library.
+
+        :return: Schema library module.
+        """
+        return schemas._module.lib
+
+    @schema_library.setter
+    def schema_library(self, library: str) -> None:
         """Globally set the schema library.
 
         :param library: Schema library to be used.

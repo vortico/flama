@@ -137,7 +137,7 @@ def asgi_scope():
         "method": "GET",
         "scheme": "https",
         "path": "/",
-        "root_path": "/",
+        "root_path": "",
         "query_string": b"",
         "headers": [],
     }

@@ -2,6 +2,7 @@ import typing as t
 
 import pytest
 
+from flama.injection import ComponentNotFound
 from flama.injection.components import Component, Components
 from flama.injection.resolver import (
     ComponentNode,
@@ -15,6 +16,7 @@ from flama.injection.resolver import (
 
 Foo = t.NewType("Foo", int)
 Bar = t.NewType("Bar", int)
+Unhandled = t.NewType("Unhandled", int)
 
 
 @pytest.fixture
@@ -24,11 +26,6 @@ def bar_component():
             return Bar(data[parameter.name])
 
     return BarComponent()
-
-
-@pytest.fixture
-def bar_parameter():
-    return Parameter("bar", type=Bar)
 
 
 @pytest.fixture
@@ -56,62 +53,72 @@ def function(request):
 
         return FooClass.foo
 
+    if request.param == "unhandled":
+
+        def foo(x: Unhandled):
+            return x
+
+        return foo
+
 
 class TestCaseParametersTree:
     @pytest.mark.parametrize(
-        ["function"],
+        ["function", "exception"],
         (
-            pytest.param("function", id="function"),
-            pytest.param("method", id="method"),
-            pytest.param("classmethod", id="classmethod"),
+            pytest.param("function", None, id="function"),
+            pytest.param("method", None, id="method"),
+            pytest.param("classmethod", None, id="classmethod"),
+            pytest.param("unhandled", ComponentNotFound, id="unhandled"),
         ),
-        indirect=["function"],
+        indirect=["function", "exception"],
     )
-    def test_build(self, function, bar_component):
+    def test_build(self, function, exception, bar_component):
         context_types = {Foo: "foo"}
         components = Components([bar_component])
-        tree = ParametersTree.build(function, context_types, components)
 
-        assert tree == ParametersTree(
-            function=function,
-            nodes=[
-                ContextNode(name="x", parameter=Parameter(name="x", type=str), nodes=[]),
-                ContextNode(name="f", parameter=Parameter(name="foo", type=Foo), nodes=[]),
-                ComponentNode(
-                    name="y",
-                    parameter=Parameter(name="y", type=Bar),
-                    nodes=[
-                        ParameterNode(name="parameter", parameter=Parameter(name="y", type=Bar), nodes=[]),
-                        ContextNode(name="data", parameter=Parameter(name="data", type=dict), nodes=[]),
-                    ],
-                    component=bar_component,
-                ),
-                ComponentNode(
-                    name="z",
-                    parameter=Parameter(name="z", type=Bar),
-                    nodes=[
-                        ParameterNode(name="parameter", parameter=Parameter(name="z", type=Bar), nodes=[]),
-                        ContextNode(name="data", parameter=Parameter(name="data", type=dict), nodes=[]),
-                    ],
-                    component=bar_component,
-                ),
-            ],
-        )
+        with exception:
+            tree = ParametersTree.build(function, context_types, components)
 
-        assert tree.meta.context == [
-            ("data", Parameter(name="data", type=dict)),
-            ("f", Parameter(name="foo", type=Foo)),
-            ("x", Parameter(name="x", type=str)),
-        ]
-        assert tree.meta.response == Return(Parameter.empty)
-        assert tree.meta.parameters == [
-            Parameter(name="y", type=Bar),
-            Parameter(name="z", type=Bar),
-        ]
-        assert tree.meta.components == [
-            ("y", bar_component),
-            ("z", bar_component),
-        ]
+            assert tree == ParametersTree(
+                function=function,
+                nodes=[
+                    ContextNode(name="x", parameter=Parameter(name="x", type=str), nodes=[]),
+                    ContextNode(name="f", parameter=Parameter(name="foo", type=Foo), nodes=[]),
+                    ComponentNode(
+                        name="y",
+                        parameter=Parameter(name="y", type=Bar),
+                        nodes=[
+                            ParameterNode(name="parameter", parameter=Parameter(name="y", type=Bar), nodes=[]),
+                            ContextNode(name="data", parameter=Parameter(name="data", type=dict), nodes=[]),
+                        ],
+                        component=bar_component,
+                    ),
+                    ComponentNode(
+                        name="z",
+                        parameter=Parameter(name="z", type=Bar),
+                        nodes=[
+                            ParameterNode(name="parameter", parameter=Parameter(name="z", type=Bar), nodes=[]),
+                            ContextNode(name="data", parameter=Parameter(name="data", type=dict), nodes=[]),
+                        ],
+                        component=bar_component,
+                    ),
+                ],
+            )
+
+            assert tree.meta.context == [
+                ("data", Parameter(name="data", type=dict)),
+                ("f", Parameter(name="foo", type=Foo)),
+                ("x", Parameter(name="x", type=str)),
+            ]
+            assert tree.meta.response == Return(Parameter.empty)
+            assert tree.meta.parameters == [
+                Parameter(name="y", type=Bar),
+                Parameter(name="z", type=Bar),
+            ]
+            assert tree.meta.components == [
+                ("y", bar_component),
+                ("z", bar_component),
+            ]
 
     @pytest.mark.parametrize(
         ["function"],
@@ -146,7 +153,7 @@ class TestCaseResolver:
         ),
         indirect=["function"],
     )
-    def test_resolve_function(self, function, resolver, bar_parameter, bar_component):
+    def test_resolve_function(self, function, resolver, bar_component):
         expected_parameters_tree = ParametersTree(
             function=function,
             nodes=[

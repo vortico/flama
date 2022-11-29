@@ -24,7 +24,7 @@ __all__ = ["Route", "WebSocketRoute", "Mount", "Router"]
 logger = logging.getLogger(__name__)
 
 
-class EndpointType(enum.Enum):
+class _EndpointType(enum.Enum):
     http = enum.auto()
     websocket = enum.auto()
 
@@ -35,11 +35,13 @@ class Match(enum.Enum):
     full = enum.auto()
 
 
-class EndpointWrapper(types.AppClass):
+class EndpointWrapper(types.AppAsyncClass):
+    type = _EndpointType
+
     def __init__(
         self,
-        handler: t.Union[types.AppFunction, t.Type[endpoints.HTTPEndpoint], t.Type[endpoints.WebSocketEndpoint]],
-        endpoint_type: EndpointType,
+        handler: t.Union[t.Callable, t.Type[endpoints.HTTPEndpoint], t.Type[endpoints.WebSocketEndpoint]],
+        endpoint_type: _EndpointType,
     ):
         """Wraps a function or endpoint into ASGI application.
 
@@ -49,10 +51,10 @@ class EndpointWrapper(types.AppClass):
         self.handler = handler
         functools.update_wrapper(self, handler)
         self.call_function: types.App = {
-            (EndpointType.http, False): self._http_function,
-            (EndpointType.http, True): self._http_endpoint,
-            (EndpointType.websocket, False): self._websocket_function,
-            (EndpointType.websocket, True): self._websocket_endpoint,
+            (self.type.http, False): self._http_function,
+            (self.type.http, True): self._http_endpoint,
+            (self.type.websocket, False): self._websocket_function,
+            (self.type.websocket, True): self._websocket_endpoint,
         }[(endpoint_type, inspect.isclass(self.handler))]
 
     def __get__(self, instance, owner):
@@ -164,6 +166,9 @@ class EndpointWrapper(types.AppClass):
 
         return response
 
+    def __eq__(self, other) -> bool:
+        return isinstance(other, EndpointWrapper) and self.handler == other.handler
+
 
 class BaseRoute(RouteParametersMixin):
     def __init__(
@@ -181,7 +186,7 @@ class BaseRoute(RouteParametersMixin):
         :param name: Route name.
         :param include_in_schema: True if this route must be listed as part of the App schema.
         """
-        self.path = url.RegexPath(path) if isinstance(path, str) else path
+        self.path = url.RegexPath(path)
         self.app = app
         self.endpoint = app.handler if isinstance(app, EndpointWrapper) else app
         self.name = name
@@ -192,7 +197,12 @@ class BaseRoute(RouteParametersMixin):
         await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
 
     def __eq__(self, other: t.Any) -> bool:
-        return isinstance(other, BaseRoute) and self.path == other.path and self.app == other.app
+        return (
+            isinstance(other, BaseRoute)
+            and self.path == other.path
+            and self.app == other.app
+            and self.name == other.name
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(path={self.path!r}, name={(self.name or '')!r})"
@@ -253,11 +263,14 @@ class BaseRoute(RouteParametersMixin):
         :param params: Path params.
         :return: URL path.
         """
-        if name != self.name or set(params.keys()) != set(self.path.serializers.keys()):
+        if name != self.name:
             raise exceptions.NotFoundException(params=params, name=name)
 
-        path, remaining_params = self.path.build(**params)
-        assert not remaining_params
+        try:
+            path, remaining_params = self.path.build(**params)
+            assert not remaining_params or set(remaining_params.keys()) == {"path"}
+        except (ValueError, AssertionError):
+            raise exceptions.NotFoundException(params=params, name=name)
 
         return url.URL(path=path, scheme="http")
 
@@ -266,9 +279,9 @@ class Route(BaseRoute):
     def __init__(
         self,
         path: str,
-        endpoint: t.Union[types.AppFunction, t.Type[endpoints.HTTPEndpoint]],
+        endpoint: t.Union[t.Callable, t.Type[endpoints.HTTPEndpoint]],
         *,
-        methods: t.Optional[t.List[str]] = None,
+        methods: t.Optional[t.Union[t.Set[str], t.Sequence[str]]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
     ) -> None:
@@ -280,11 +293,11 @@ class Route(BaseRoute):
         :param name: Route name.
         :param include_in_schema: True if this route must be listed as part of the App schema.
         """
-        assert self._is_endpoint(endpoint) or callable(
-            endpoint
+        assert self.is_endpoint(endpoint) or (
+            not inspect.isclass(endpoint) and callable(endpoint)
         ), "Endpoint must be a callable or an HTTPEndpoint subclass"
 
-        if self._is_endpoint(endpoint):
+        if self.is_endpoint(endpoint):
             self.methods = endpoint.allowed_methods() if methods is None else set(methods)
         else:
             self.methods = {"GET"} if methods is None else set(methods)
@@ -295,7 +308,7 @@ class Route(BaseRoute):
         name = endpoint.__name__ if name is None else name
 
         super().__init__(
-            path, EndpointWrapper(endpoint, EndpointType.http), name=name, include_in_schema=include_in_schema
+            path, EndpointWrapper(endpoint, EndpointWrapper.type.http), name=name, include_in_schema=include_in_schema
         )
 
         self.app: EndpointWrapper
@@ -307,8 +320,8 @@ class Route(BaseRoute):
         return f"{self.__class__.__name__}(path={self.path!r}, name={self.name!r}, methods={sorted(self.methods)!r})"
 
     @staticmethod
-    def _is_endpoint(
-        x: t.Union[types.AppFunction, t.Type[endpoints.HTTPEndpoint]]
+    def is_endpoint(
+        x: t.Union[t.Callable, t.Type[endpoints.HTTPEndpoint]]
     ) -> TypeGuard[t.Type[endpoints.HTTPEndpoint]]:
         return inspect.isclass(x) and issubclass(x, endpoints.HTTPEndpoint)
 
@@ -319,7 +332,7 @@ class Route(BaseRoute):
 
         :return: Mapping of all endpoints.
         """
-        if self._is_endpoint(self.endpoint):
+        if self.is_endpoint(self.endpoint):
             return {
                 method: handler
                 for method, handler in self.endpoint.allowed_handlers().items()
@@ -348,7 +361,7 @@ class WebSocketRoute(BaseRoute):
     def __init__(
         self,
         path: str,
-        endpoint: t.Union[types.AppFunction, t.Type[endpoints.WebSocketEndpoint]],
+        endpoint: t.Union[t.Callable, t.Type[endpoints.WebSocketEndpoint]],
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
@@ -361,14 +374,17 @@ class WebSocketRoute(BaseRoute):
         :param include_in_schema: True if this route must be listed as part of the App schema.
         """
 
-        assert self.is_endpoint(endpoint) or callable(
-            endpoint
+        assert self.is_endpoint(endpoint) or (
+            not inspect.isclass(endpoint) and callable(endpoint)
         ), "Endpoint must be a callable or a WebSocketEndpoint subclass"
 
         name = endpoint.__name__ if name is None else name
 
         super().__init__(
-            path, EndpointWrapper(endpoint, EndpointType.websocket), name=name, include_in_schema=include_in_schema
+            path,
+            EndpointWrapper(endpoint, EndpointWrapper.type.websocket),
+            name=name,
+            include_in_schema=include_in_schema,
         )
 
         self.app: EndpointWrapper
@@ -378,7 +394,7 @@ class WebSocketRoute(BaseRoute):
 
     @staticmethod
     def is_endpoint(
-        x: t.Union[types.AppFunction, t.Type[endpoints.WebSocketEndpoint]]
+        x: t.Union[t.Callable, t.Type[endpoints.WebSocketEndpoint]]
     ) -> TypeGuard[t.Type[endpoints.WebSocketEndpoint]]:
         return inspect.isclass(x) and issubclass(x, endpoints.WebSocketEndpoint)
 
@@ -499,10 +515,13 @@ class Mount(BaseRoute):
             path, remaining_params = self.path.build(**{**params, "path": ""})
             if "path" in params:
                 remaining_params["path"] = params["path"]
+            else:
+                del remaining_params["path"]
             for route in self.routes:
                 try:
                     route_url = route.resolve_url(remaining_name, **remaining_params)
-                    return url.URL(path=f"{path.rstrip('/')}{url!s}", scheme=route_url.scheme)
+                    route_url.path = f"{path.rstrip('/')}{route_url.path}"
+                    return route_url
                 except exceptions.NotFoundException:
                     pass
         raise exceptions.NotFoundException(params=params, name=name)
@@ -516,7 +535,7 @@ class Mount(BaseRoute):
         return getattr(self.app, "routes", [])
 
 
-class Router(types.AsyncAppClass):
+class Router(types.AppAsyncClass):
     def __init__(
         self,
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
@@ -536,8 +555,8 @@ class Router(types.AsyncAppClass):
         self._components = Components(components if components else set())
         self.lifespan = Lifespan(lifespan)
 
-        for route in self.routes:
-            route.build(root)
+        if root:
+            self.build(root)
 
     def __eq__(self, other: t.Any) -> bool:
         return isinstance(other, Router) and self.routes == other.routes
@@ -585,34 +604,6 @@ class Router(types.AsyncAppClass):
         :param component: Component to register.
         """
         self._components = Components(self._components + Components([component]))
-
-    def mount(
-        self,
-        path: t.Optional[str] = None,
-        app: t.Optional[types.App] = None,
-        name: str = None,
-        mount: Mount = None,
-        root: "Flama" = None,
-    ) -> Mount:
-        """Register a new mount point containing an ASGI app in this router under given path.
-
-        :param path: URL path.
-        :param app: ASGI app to mount.
-        :param name: Route name.
-        :param mount: Mount.
-        :param root: Flama application.
-        :return: Mount.
-        """
-        if path is not None and app is not None:
-            mount = Mount(path, app=app, name=name)
-
-        assert mount is not None, "Either 'path' and 'app' or 'mount' variables are needed"
-
-        self.routes.append(mount)
-
-        mount.build(root)
-
-        return mount
 
     def add_route(
         self,
@@ -714,6 +705,34 @@ class Router(types.AsyncAppClass):
             return func
 
         return decorator
+
+    def mount(
+        self,
+        path: t.Optional[str] = None,
+        app: t.Optional[types.App] = None,
+        name: str = None,
+        mount: Mount = None,
+        root: "Flama" = None,
+    ) -> Mount:
+        """Register a new mount point containing an ASGI app in this router under given path.
+
+        :param path: URL path.
+        :param app: ASGI app to mount.
+        :param name: Route name.
+        :param mount: Mount.
+        :param root: Flama application.
+        :return: Mount.
+        """
+        if path is not None and app is not None:
+            mount = Mount(path, app=app, name=name)
+
+        assert mount is not None, "Either 'path' and 'app' or 'mount' variables are needed"
+
+        self.routes.append(mount)
+
+        mount.build(root)
+
+        return mount
 
     def resolve_route(self, scope: types.Scope) -> t.Tuple[BaseRoute, types.Scope]:
         """Look for a route that matches given ASGI scope.
