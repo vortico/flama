@@ -95,7 +95,7 @@ scikit-learn = [
     { version = "^1.0.0", python = ">=3.7,<3.8" },
     { version = "^1.1", python = ">=3.8" }
 ]
-tensorflow-cpu = { version = "^2.10", python = ">=3.7,<3.11" }
+tensorflow-cpu = { version = "^2.11", python = ">=3.7,<3.11" }
 torch = { version = "^1.12", python = ">=3.7,<3.11" }
 
 [tool.black]
