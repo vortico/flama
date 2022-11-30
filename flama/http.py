@@ -56,9 +56,11 @@ class PlainTextResponse(starlette.responses.PlainTextResponse, Response):
 
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, obj):
+        if isinstance(obj, (set, frozenset)):
+            return list(obj)
         if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
             return obj.isoformat()
-        elif isinstance(obj, datetime.timedelta):
+        if isinstance(obj, datetime.timedelta):
             # split seconds to larger units
             seconds = obj.total_seconds()
             minutes, seconds = divmod(seconds, 60)
@@ -75,7 +77,6 @@ class EnhancedJSONEncoder(json.JSONEncoder):
             )
 
             return "P" + "".join([formatted_value for value, formatted_value in formatted_units if value])
-
         return super().default(obj)
 
 
