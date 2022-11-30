@@ -2,6 +2,8 @@ from datetime import datetime
 
 import typesystem as ts
 
+import typing
+
 import flama
 from flama import Flama
 from flama.exceptions import HTTPException
@@ -28,7 +30,13 @@ class MySKModel(ModelResource, metaclass=ModelResourceType):
     verbose_name = "My ScikitLearn Model"
     model_path = "sklearn_model.flm"
 
-    @resource_method("/predict", methods=["POST"], name="model-predict")
+    # custom attributes
+    info = {
+        "model_version": "1.0.0",
+        "library_version": "1.0.2",
+    }
+
+    @resource_method("/predict/", methods=["POST"], name="model-predict")
     def predict(self, data: X) -> Y:
         """
         tags:
@@ -36,25 +44,29 @@ class MySKModel(ModelResource, metaclass=ModelResourceType):
         summary:
             Run predict method.
         description:
-            This is a more detailed description of the method itself.
-            Here we can give all the details required and they will appear
-            automatically in the auto-generated docs.
+            Runs a prediction using the model from this resource.
         responses:
             200:
                 description: ML model prediction.
         """
-        try:
-            return {"output": self.model.predict(data["input"])}
-        except Exception as e:
-            raise HTTPException(status_code=404, detail=str(e))
+        return {"output": self.model.predict(data["input"])}
 
-    # custom attributes
-    info = {
-        "model_version": "1.0.0",
-        "library_version": "1.0.2",
-    }
+    @resource_method("/inspect/", methods=["GET"], name="model-inspect-model")
+    def inspect_model(self):
+        """
+        tags:
+            - My ScikitLearn Model
+        summary:
+            Run model inspect method.
+        description:
+            Run the built-in inspect method of the model.
+        responses:
+            200:
+                description: Model inspection.
+        """
+        return {"params": self.model.inspect()}
 
-    @resource_method("/metadata", methods=["GET"], name="metadata-method")
+    @resource_method("/metadata/", methods=["GET"], name="metadata-method")
     def metadata(self):
         """
         tags:
@@ -62,17 +74,23 @@ class MySKModel(ModelResource, metaclass=ModelResourceType):
         summary:
             Get metadata info.
         description:
-            This is a more detailed description of the method itself.
-            Here we can give all the details required and they will appear
-            automatically in the auto-generated docs.
+            Return metadata info about the model, showing both the bui
         responses:
             200:
-                description: Verbose name of the ML model.
+                description: ML model metadata.
         """
-
         return {
-            "metadata": {"built-in": self._meta.verbose_name},
-            "custom": {**self.info, "date": datetime.now().date(), "time": datetime.now().time()},
+            "metadata": {
+                "built-in": {
+                    "verbose_name": self._meta.verbose_name,
+                    "name": self._meta.name,
+                },
+                "custom": {
+                    **self.info,
+                    "date": datetime.now().date(),
+                    "time": datetime.now().time()
+                },
+            }
         }
 
 
