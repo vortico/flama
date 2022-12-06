@@ -1,6 +1,7 @@
 from unittest.mock import PropertyMock, patch
 
 import marshmallow
+import pydantic
 import pytest
 import typesystem
 
@@ -13,7 +14,14 @@ class TestCaseSetup:
 
         from flama import schemas
 
-        assert schemas.lib == typesystem
+        assert schemas.lib == pydantic
+
+    def test_setup_pydantic(self):
+        Flama(schema_library="pydantic")
+
+        from flama import schemas
+
+        assert schemas.lib == pydantic
 
     def test_setup_typesystem(self):
         Flama(schema_library="typesystem")

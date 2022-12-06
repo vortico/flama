@@ -5,6 +5,7 @@ from flama.injection import Component, Components
 from flama.injection.resolver import Parameter
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from flama.routing import BaseRoute
+from flama.schemas.data_structures import Schema
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
@@ -47,10 +48,10 @@ class ValidatePathParamsComponent(Component):
     async def resolve(
         self, request: http.Request, route: BaseRoute, path_params: types.PathParams
     ) -> ValidatedPathParams:
-        fields = {f.name: f.schema for f in route.parameters.path[request.method].values()}
+        fields = {f.name: f.schema.schema for f in route.parameters.path[request.method].values()}
 
         try:
-            validated = schemas.adapter.validate(schemas.adapter.build_schema(fields=fields), path_params)
+            validated = Schema.from_fields(fields).validate(path_params)
             return ValidatedPathParams({k: v for k, v in path_params.items() if k in validated})
         except schemas.SchemaValidationError as exc:
             raise exceptions.ValidationError(detail=exc.errors)
@@ -58,10 +59,10 @@ class ValidatePathParamsComponent(Component):
 
 class ValidateQueryParamsComponent(Component):
     def resolve(self, request: http.Request, route: BaseRoute, query_params: types.QueryParams) -> ValidatedQueryParams:
-        fields = {f.name: f.schema for f in route.parameters.query[request.method].values()}
+        fields = {f.name: f.schema.schema for f in route.parameters.query[request.method].values()}
 
         try:
-            validated = schemas.adapter.validate(schemas.adapter.build_schema(fields=fields), dict(query_params))
+            validated = Schema.from_fields(fields).validate(dict(query_params))
             return ValidatedQueryParams({k: v for k, v in query_params.items() if k in validated})
         except schemas.SchemaValidationError as exc:
             raise exceptions.ValidationError(detail=exc.errors)
@@ -76,7 +77,7 @@ class ValidateRequestDataComponent(Component):
         ), f"Body schema parameter not defined for route '{route}' and method '{request.method}'"
 
         try:
-            return ValidatedRequestData(schemas.adapter.validate(body_param.schema, dict(data)))
+            return ValidatedRequestData(body_param.schema.validate(dict(data)))
         except schemas.SchemaValidationError as exc:  # noqa: safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
 
@@ -96,13 +97,13 @@ class PrimitiveParamComponent(Component):
             default = None
 
         param_validator: schemas.Field = schemas.adapter.build_field(
-            field_type=types.FIELDS_TYPE_MAPPING[parameter.type], required=required, default=default
+            name=parameter.name, type=types.FIELDS_TYPE_MAPPING[parameter.type], required=required, default=default
         )
 
         fields = {parameter.name: param_validator}
 
         try:
-            params = schemas.adapter.validate(schemas.adapter.build_schema(fields=fields), params)
+            params = Schema.from_fields(fields).validate(params)
         except schemas.SchemaValidationError as exc:  # noqa: safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
         return params.get(parameter.name, parameter.default)

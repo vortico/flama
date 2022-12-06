@@ -2,6 +2,7 @@ import sys
 from unittest.mock import MagicMock, PropertyMock, call, patch
 
 import marshmallow
+import pydantic
 import pytest
 import starlette.websockets
 import typesystem
@@ -35,7 +36,9 @@ def app(app):
 def puppy_schema(app):
     from flama import schemas
 
-    if schemas.lib == typesystem:
+    if schemas.lib == pydantic:
+        schema = pydantic.create_model("Puppy", name=(str, ...))
+    elif schemas.lib == typesystem:
         schema = typesystem.Schema(fields={"name": typesystem.fields.String()})
     elif schemas.lib == marshmallow:
         schema = type(

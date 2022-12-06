@@ -1,4 +1,7 @@
+import typing as t
+
 import marshmallow
+import pydantic
 import pytest
 import typesystem
 from pytest import param
@@ -10,7 +13,9 @@ from flama.pagination import paginator
 def output_schema(app):
     from flama import schemas
 
-    if schemas.lib == typesystem:
+    if schemas.lib == pydantic:
+        schema = pydantic.create_model("OutputSchema", value=(t.Optional[int], ...))
+    elif schemas.lib == typesystem:
         schema = typesystem.Schema(fields={"value": typesystem.fields.Integer(allow_null=True)})
     elif schemas.lib == marshmallow:
         schema = type("OutputSchema", (marshmallow.Schema,), {"value": marshmallow.fields.Integer(allow_none=True)})
@@ -34,8 +39,15 @@ class TestPageNumberResponse:
 
         assert set(schemas.keys()) == {"OutputSchema", "PageNumberPaginatedOutputSchema", "PageNumberMeta", "APIError"}
 
-    def test_invalid_view(self):
+    def test_invalid_view(self, output_schema):
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
+
+            @paginator.page_number(schema_name="OutputSchema")
+            def invalid() -> output_schema:
+                ...
+
+    def test_invalid_response(self):
+        with pytest.raises(ValueError, match=r"Wrong schema type"):
 
             @paginator.page_number(schema_name="OutputSchema")
             def invalid():
@@ -43,7 +55,10 @@ class TestPageNumberResponse:
 
     def test_pagination_schema_parameters(self, app):
         schema = app.schema.schema["paths"]["/page-number/"]["get"]
-        parameters = schema.get("parameters", {})
+        parameters = schema.get("parameters", [])
+
+        for parameter in parameters:
+            parameter["schema"] = {k: v for k, v in parameter["schema"].items() if k in ("type", "default")}
 
         assert parameters == [
             {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
@@ -140,8 +155,15 @@ class TestLimitOffsetResponse:
             "APIError",
         }
 
-    def test_invalid_view(self, app):
+    def test_invalid_view(self, app, output_schema):
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
+
+            @paginator.limit_offset(schema_name="Foo")
+            def invalid() -> output_schema:
+                ...
+
+    def test_invalid_response(self):
+        with pytest.raises(ValueError, match=r"Wrong schema type"):
 
             @paginator.limit_offset(schema_name="Foo")
             def invalid():
@@ -149,7 +171,10 @@ class TestLimitOffsetResponse:
 
     def test_pagination_schema_parameters(self, app):
         schema = app.schema.schema["paths"]["/limit-offset/"]["get"]
-        parameters = schema.get("parameters", {})
+        parameters = schema.get("parameters", [])
+
+        for parameter in parameters:
+            parameter["schema"] = {k: v for k, v in parameter["schema"].items() if k in ("type", "default")}
 
         assert parameters == [
             {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
