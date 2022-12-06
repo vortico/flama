@@ -1,4 +1,7 @@
+import typing as t
+
 import marshmallow
+import pydantic
 import pytest
 import typesystem
 
@@ -25,7 +28,9 @@ class TestCaseRouteFieldsMixin:
     def foo_schema(self, app):
         from flama import schemas
 
-        if schemas.lib == typesystem:
+        if schemas.lib == pydantic:
+            schema = pydantic.create_model("FooSchema", x=(int, ...), y=(str, ...))
+        elif schemas.lib == typesystem:
             schema = typesystem.Schema({"x": typesystem.fields.Integer(), "y": typesystem.fields.String()})
         elif schemas.lib == marshmallow:
             schema = type(
@@ -43,7 +48,7 @@ class TestCaseRouteFieldsMixin:
     def route(self, request, foo_schema):
         if request.param == "http_function":
 
-            def foo(w: int, a: Custom, z: foo_schema, x: int = 1, y: str = None) -> foo_schema:
+            def foo(w: int, a: Custom, z: foo_schema, x: int = 1, y: t.Optional[str] = None) -> foo_schema:
                 ...
 
             return Route("/foo/{w:int}/", endpoint=foo, methods=["GET"])
@@ -51,7 +56,7 @@ class TestCaseRouteFieldsMixin:
         if request.param == "http_endpoint":
 
             class BarEndpoint(HTTPEndpoint):
-                def get(self, w: int, a: Custom, z: foo_schema, x: int = 1, y: str = None) -> foo_schema:
+                def get(self, w: int, a: Custom, z: foo_schema, x: int = 1, y: t.Optional[str] = None) -> foo_schema:
                     ...
 
             return Route("/bar/{w:int}/", endpoint=BarEndpoint, methods=["GET"])
@@ -65,7 +70,7 @@ class TestCaseRouteFieldsMixin:
                 a: Custom,
                 z: foo_schema,
                 x: int = 1,
-                y: str = None,
+                y: t.Optional[str] = None,
             ) -> None:
                 ...
 
@@ -82,7 +87,7 @@ class TestCaseRouteFieldsMixin:
                     a: Custom,
                     z: foo_schema,
                     x: int = 1,
-                    y: str = None,
+                    y: t.Optional[str] = None,
                 ) -> None:
                     ...
 
@@ -99,14 +104,38 @@ class TestCaseRouteFieldsMixin:
                 "http_function",
                 {
                     "GET": {
-                        "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
-                        "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
-                        "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+                        "x": {
+                            "name": "x",
+                            "location": ParameterLocation.query,
+                            "type": int,
+                            "required": False,
+                            "default": 1,
+                        },
+                        "y": {
+                            "name": "y",
+                            "location": ParameterLocation.query,
+                            "type": t.Optional[str],
+                            "required": False,
+                            "default": None,
+                        },
+                        "ax": {"name": "ax", "location": ParameterLocation.query, "type": int, "required": True},
                     },
                     "HEAD": {
-                        "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
-                        "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
-                        "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+                        "x": {
+                            "name": "x",
+                            "location": ParameterLocation.query,
+                            "type": int,
+                            "required": False,
+                            "default": 1,
+                        },
+                        "y": {
+                            "name": "y",
+                            "location": ParameterLocation.query,
+                            "type": t.Optional[str],
+                            "required": False,
+                            "default": None,
+                        },
+                        "ax": {"name": "ax", "location": ParameterLocation.query, "type": int, "required": True},
                     },
                 },
                 id="http_function",
@@ -115,14 +144,38 @@ class TestCaseRouteFieldsMixin:
                 "http_endpoint",
                 {
                     "GET": {
-                        "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
-                        "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
-                        "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+                        "x": {
+                            "name": "x",
+                            "location": ParameterLocation.query,
+                            "type": int,
+                            "required": False,
+                            "default": 1,
+                        },
+                        "y": {
+                            "name": "y",
+                            "location": ParameterLocation.query,
+                            "type": t.Optional[str],
+                            "required": False,
+                            "default": None,
+                        },
+                        "ax": {"name": "ax", "location": ParameterLocation.query, "type": int, "required": True},
                     },
                     "HEAD": {
-                        "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
-                        "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
-                        "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+                        "x": {
+                            "name": "x",
+                            "location": ParameterLocation.query,
+                            "type": int,
+                            "required": False,
+                            "default": 1,
+                        },
+                        "y": {
+                            "name": "y",
+                            "location": ParameterLocation.query,
+                            "type": t.Optional[str],
+                            "required": False,
+                            "default": None,
+                        },
+                        "ax": {"name": "ax", "location": ParameterLocation.query, "type": int, "required": True},
                     },
                 },
                 id="http_endpoint",
@@ -131,9 +184,21 @@ class TestCaseRouteFieldsMixin:
                 "websocket_function",
                 {
                     "WEBSOCKET": {
-                        "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
-                        "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
-                        "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+                        "x": {
+                            "name": "x",
+                            "location": ParameterLocation.query,
+                            "type": int,
+                            "required": False,
+                            "default": 1,
+                        },
+                        "y": {
+                            "name": "y",
+                            "location": ParameterLocation.query,
+                            "type": t.Optional[str],
+                            "required": False,
+                            "default": None,
+                        },
+                        "ax": {"name": "ax", "location": ParameterLocation.query, "type": int, "required": True},
                     }
                 },
                 id="websocket_function",
@@ -143,9 +208,21 @@ class TestCaseRouteFieldsMixin:
                 {
                     "WEBSOCKET_CONNECT": {},
                     "WEBSOCKET_RECEIVE": {
-                        "x": Parameter("x", ParameterLocation.query, schema_type=int, required=False, default=1),
-                        "y": Parameter("y", ParameterLocation.query, schema_type=str, required=False, default=None),
-                        "ax": Parameter("ax", ParameterLocation.query, schema_type=int, required=True),
+                        "x": {
+                            "name": "x",
+                            "location": ParameterLocation.query,
+                            "type": int,
+                            "required": False,
+                            "default": 1,
+                        },
+                        "y": {
+                            "name": "y",
+                            "location": ParameterLocation.query,
+                            "type": t.Optional[str],
+                            "required": False,
+                            "default": None,
+                        },
+                        "ax": {"name": "ax", "location": ParameterLocation.query, "type": int, "required": True},
                     },
                     "WEBSOCKET_DISCONNECT": {},
                 },
@@ -155,7 +232,9 @@ class TestCaseRouteFieldsMixin:
         indirect=["route"],
     )
     def test_query(self, route, expected_params):
-        assert route.parameters.query == expected_params
+        assert route.parameters.query == {
+            method: {k: Parameter(**param) for k, param in params.items()} for method, params in expected_params.items()
+        }
 
     @pytest.mark.parametrize(
         ["route", "expected_params"],
@@ -164,10 +243,10 @@ class TestCaseRouteFieldsMixin:
                 "http_function",
                 {
                     "GET": {
-                        "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
+                        "w": {"name": "w", "location": ParameterLocation.path, "type": int, "required": True},
                     },
                     "HEAD": {
-                        "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
+                        "w": {"name": "w", "location": ParameterLocation.path, "type": int, "required": True},
                     },
                 },
                 id="http_function",
@@ -176,10 +255,10 @@ class TestCaseRouteFieldsMixin:
                 "http_endpoint",
                 {
                     "GET": {
-                        "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
+                        "w": {"name": "w", "location": ParameterLocation.path, "type": int, "required": True},
                     },
                     "HEAD": {
-                        "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
+                        "w": {"name": "w", "location": ParameterLocation.path, "type": int, "required": True},
                     },
                 },
                 id="http_endpoint",
@@ -188,7 +267,7 @@ class TestCaseRouteFieldsMixin:
                 "websocket_function",
                 {
                     "WEBSOCKET": {
-                        "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
+                        "w": {"name": "w", "location": ParameterLocation.path, "type": int, "required": True},
                     }
                 },
                 id="websocket_function",
@@ -198,7 +277,7 @@ class TestCaseRouteFieldsMixin:
                 {
                     "WEBSOCKET_CONNECT": {},
                     "WEBSOCKET_RECEIVE": {
-                        "w": Parameter("w", ParameterLocation.path, schema_type=int, required=True),
+                        "w": {"name": "w", "location": ParameterLocation.path, "type": int, "required": True},
                     },
                     "WEBSOCKET_DISCONNECT": {},
                 },
@@ -208,7 +287,9 @@ class TestCaseRouteFieldsMixin:
         indirect=["route"],
     )
     def test_path(self, route, expected_params):
-        assert route.parameters.path == expected_params
+        assert route.parameters.path == {
+            method: {k: Parameter(**param) for k, param in params.items()} for method, params in expected_params.items()
+        }
 
     @pytest.mark.parametrize(
         ["route", "expected_params"],
@@ -216,23 +297,23 @@ class TestCaseRouteFieldsMixin:
             pytest.param(
                 "http_function",
                 {
-                    "GET": Parameter("z", ParameterLocation.body, schema_type=None, required=False),
-                    "HEAD": Parameter("z", ParameterLocation.body, schema_type=None, required=False),
+                    "GET": {"name": "z", "location": ParameterLocation.body, "type": None},
+                    "HEAD": {"name": "z", "location": ParameterLocation.body, "type": None},
                 },
                 id="http_function",
             ),
             pytest.param(
                 "http_endpoint",
                 {
-                    "GET": Parameter("z", ParameterLocation.body, schema_type=None, required=False),
-                    "HEAD": Parameter("z", ParameterLocation.body, schema_type=None, required=False),
+                    "GET": {"name": "z", "location": ParameterLocation.body, "type": None},
+                    "HEAD": {"name": "z", "location": ParameterLocation.body, "type": None},
                 },
                 id="http_endpoint",
             ),
             pytest.param(
                 "websocket_function",
                 {
-                    "WEBSOCKET": Parameter("z", ParameterLocation.body, schema_type=None, required=False),
+                    "WEBSOCKET": {"name": "z", "location": ParameterLocation.body, "type": None},
                 },
                 id="websocket_function",
             ),
@@ -240,7 +321,7 @@ class TestCaseRouteFieldsMixin:
                 "websocket_endpoint",
                 {
                     "WEBSOCKET_CONNECT": None,
-                    "WEBSOCKET_RECEIVE": Parameter("z", ParameterLocation.body, schema_type=None, required=False),
+                    "WEBSOCKET_RECEIVE": {"name": "z", "location": ParameterLocation.body, "type": None},
                     "WEBSOCKET_DISCONNECT": None,
                 },
                 id="websocket_endpoint",
@@ -250,7 +331,7 @@ class TestCaseRouteFieldsMixin:
     )
     def test_body(self, route, expected_params, foo_schema):
         expected_params = {
-            k: Parameter(v.name, v.location, foo_schema, v.required) if v else None for k, v in expected_params.items()
+            k: Parameter(**{**param, "type": foo_schema}) if param else None for k, param in expected_params.items()
         }
         assert route.parameters.body == expected_params
 
@@ -260,38 +341,32 @@ class TestCaseRouteFieldsMixin:
             pytest.param(
                 "http_function",
                 {
-                    "GET": Parameter("_return", ParameterLocation.response, schema_type=True, required=False),
-                    "HEAD": Parameter("_return", ParameterLocation.response, schema_type=True, required=False),
+                    "GET": {"name": "_return", "location": ParameterLocation.response, "type": True},
+                    "HEAD": {"name": "_return", "location": ParameterLocation.response, "type": True},
                 },
                 id="http_function",
             ),
             pytest.param(
                 "http_endpoint",
                 {
-                    "GET": Parameter("_return", ParameterLocation.response, schema_type=True, required=False),
-                    "HEAD": Parameter("_return", ParameterLocation.response, schema_type=True, required=False),
+                    "GET": {"name": "_return", "location": ParameterLocation.response, "type": True},
+                    "HEAD": {"name": "_return", "location": ParameterLocation.response, "type": True},
                 },
                 id="http_endpoint",
             ),
             pytest.param(
                 "websocket_function",
                 {
-                    "WEBSOCKET": Parameter("_return", ParameterLocation.response, schema_type=None, required=False),
+                    "WEBSOCKET": {"name": "_return", "location": ParameterLocation.response, "type": None},
                 },
                 id="websocket_function",
             ),
             pytest.param(
                 "websocket_endpoint",
                 {
-                    "WEBSOCKET_CONNECT": Parameter(
-                        "_return", ParameterLocation.response, schema_type=None, required=False
-                    ),
-                    "WEBSOCKET_RECEIVE": Parameter(
-                        "_return", ParameterLocation.response, schema_type=None, required=False
-                    ),
-                    "WEBSOCKET_DISCONNECT": Parameter(
-                        "_return", ParameterLocation.response, schema_type=None, required=False
-                    ),
+                    "WEBSOCKET_CONNECT": {"name": "_return", "location": ParameterLocation.response, "type": None},
+                    "WEBSOCKET_RECEIVE": {"name": "_return", "location": ParameterLocation.response, "type": None},
+                    "WEBSOCKET_DISCONNECT": {"name": "_return", "location": ParameterLocation.response, "type": None},
                 },
                 id="websocket_endpoint",
             ),
@@ -300,7 +375,7 @@ class TestCaseRouteFieldsMixin:
     )
     def test_response(self, route, expected_params, foo_schema):
         expected_params = {
-            k: Parameter(v.name, v.location, foo_schema if v.schema_type else None, v.required)
-            for k, v in expected_params.items()
+            k: Parameter(**{**param, "type": foo_schema if param["type"] else None})
+            for k, param in expected_params.items()
         }
         assert route.parameters.response == expected_params

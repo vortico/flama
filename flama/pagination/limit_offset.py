@@ -1,11 +1,10 @@
 import asyncio
 import functools
+import inspect
 import typing as t
 
-import flama.schemas
-from flama import http
-from flama.schemas.types import Schema
-from flama.schemas.validation import get_output_schema
+from flama import http, schemas
+from flama.schemas.data_structures import Schema
 
 try:
     import forge
@@ -29,7 +28,7 @@ class LimitOffsetResponse(http.APIResponse):
 
     def __init__(
         self,
-        schema: Schema,
+        schema: "schemas.types.Schema",
         offset: t.Optional[t.Union[int, str]] = None,
         limit: t.Optional[t.Union[int, str]] = None,
         count: t.Optional[bool] = True,
@@ -70,13 +69,15 @@ class LimitOffsetMixin:
         def _inner(func: t.Callable):
             assert forge is not None, "`python-forge` must be installed to use Paginator."
 
-            resource_schema = flama.schemas.adapter.unique_schema(get_output_schema(func))
+            resource_schema = schemas.adapter.unique_schema(
+                Schema.from_type(inspect.signature(func).return_annotation).schema
+            )
             paginated_schema_name = "LimitOffsetPaginated" + schema_name
-            schema = flama.schemas.adapter.build_schema(
-                schema=resource_schema,
-                pagination=flama.schemas.schemas.LimitOffset,
-                paginated_schema_name=paginated_schema_name,
+            schema = schemas.adapter.build_schema(
                 name=schema_name,
+                schema=resource_schema,
+                pagination=schemas.schemas.LimitOffset,
+                paginated_schema_name=paginated_schema_name,
             )
 
             forge_revision_list = (

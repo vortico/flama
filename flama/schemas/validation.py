@@ -3,24 +3,9 @@ import inspect
 from functools import wraps
 
 from flama import exceptions, schemas
+from flama.schemas.data_structures import Schema
 
-__all__ = ["get_output_schema", "output_validation"]
-
-
-def get_output_schema(func):
-    """
-    Get output schema annotated as function's return. If there is no schema, return None.
-
-    :param func: Annotated function.
-    :returns: Output schema.
-    """
-    # TODO: Shouldn't we use route.parameters.output here ?
-    return_annotation = inspect.signature(func).return_annotation
-
-    if schemas.adapter.is_schema(return_annotation) or schemas.adapter.is_field(return_annotation):
-        return return_annotation
-
-    return None
+__all__ = ["output_validation"]
 
 
 def output_validation(error_cls=exceptions.ValidationError, error_status_code=500):
@@ -33,8 +18,10 @@ def output_validation(error_cls=exceptions.ValidationError, error_status_code=50
     """
 
     def outer_decorator(func):
-        schema = get_output_schema(func)
-        assert schema is not None, "Return annotation must be a valid schema"
+        try:
+            schema = Schema.from_type(inspect.signature(func).return_annotation)
+        except Exception as e:
+            raise TypeError(f"Invalid return signature for function '{func}'") from e
 
         @wraps(func)
         async def inner_decorator(*args, **kwargs):
@@ -42,7 +29,7 @@ def output_validation(error_cls=exceptions.ValidationError, error_status_code=50
 
             try:
                 # Use output schema to validate the data
-                schemas.adapter.validate(schema, schemas.adapter.dump(schema, response))
+                schema.validate(schema.dump(response))
             except schemas.SchemaValidationError as e:
                 raise error_cls(detail=e.errors, status_code=error_status_code)
             except Exception as e:

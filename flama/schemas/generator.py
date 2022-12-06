@@ -46,10 +46,10 @@ class SchemaInfo:
 
 class SchemaRegistry(typing.Dict[int, SchemaInfo]):
     def __init__(self, schemas: t.Optional[typing.Dict[str, Schema]] = None):
-        if schemas is None:
-            schemas = {}
+        super().__init__()
 
-        super().__init__({id(schema): SchemaInfo(name=name, schema=schema) for name, schema in schemas.items()})
+        for name, schema in (schemas or {}).items():
+            self.register(schema, name)
 
     def __contains__(self, item: Schema) -> bool:
         return super().__contains__(id(schemas.adapter.unique_schema(item)))
@@ -73,8 +73,17 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         for name, prop in schema.get("properties", {}).items():
             if "$ref" in prop:
                 result.append(prop["$ref"])
-            elif prop.get("type", "") == "array" and prop.get("items", {}).get("$ref"):
+
+            if prop.get("type", "") == "array" and prop.get("items", {}).get("$ref"):
                 result.append(prop["items"]["$ref"])
+
+            result += [
+                ref["$ref"]
+                for composer in ("allOf", "anyOf", "oneOff")
+                if composer in prop
+                for ref in prop[composer]
+                if "$ref" in ref
+            ]
 
         return result
 
@@ -165,12 +174,13 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
 
         return used_schemas
 
-    def register(self, schema: Schema, name: t.Optional[str] = None):
+    def register(self, schema: Schema, name: t.Optional[str] = None) -> int:
         """
         Register a new Schema to this registry.
 
         :param schema: Schema object or class.
         :param name: Schema name.
+        :return: Schema ID.
         """
         if schema in self:
             raise ValueError("Schema is already registered.")
@@ -185,21 +195,25 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
             except AttributeError:
                 raise ValueError("Cannot infer schema name.")
 
-        self[id(schema_instance)] = SchemaInfo(name=name, schema=schema_instance)
+        schema_id = id(schema_instance)
+        self[schema_id] = SchemaInfo(name=name, schema=schema_instance)
 
-    def get_openapi_ref(self, element: Schema) -> typing.Union[openapi.Schema, openapi.Reference]:
+        return schema_id
+
+    def get_openapi_ref(
+        self, element: Schema, multiple: bool = False
+    ) -> typing.Union[openapi.Schema, openapi.Reference]:
         """
         Builds the reference for a single schema or the array schema containing the reference.
 
         :param element: Schema to use as reference.
+        :param multiple: True for building a schema containing an array of references instead of a single reference.
         :return: Reference or array schema.
         """
         reference = openapi.Reference(ref=self[element].ref)
-        schema = schemas.adapter.to_json_schema(element)
-        if schema.get("type") == "array" and schema.get("items"):
-            schema["items"] = reference
-            schema.pop("definitions", None)
-            return openapi.Schema(schema)
+
+        if multiple:
+            return openapi.Schema({"items": reference, "type": "array"})
 
         return reference
 
@@ -307,7 +321,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
 
         return [
             openapi.Parameter(
-                schema=openapi.Schema(schemas.adapter.to_json_schema(field.schema)),
+                schema=openapi.Schema(field.schema.json_schema),
                 name=field.name,
                 in_=field.location.name,
                 required=field.required,
@@ -335,12 +349,17 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
         if not endpoint.body_parameter:
             return None
 
-        schema = endpoint.body_parameter.schema
-        if schema not in self.schemas:
-            self.schemas.register(schema=schema)
+        if endpoint.body_parameter.schema.schema not in self.schemas:
+            self.schemas.register(schema=endpoint.body_parameter.schema.schema)
 
         return openapi.RequestBody(
-            content={"application/json": openapi.MediaType(schema=self.schemas.get_openapi_ref(schema))},
+            content={
+                "application/json": openapi.MediaType(
+                    schema=self.schemas.get_openapi_ref(
+                        endpoint.body_parameter.schema.schema, multiple=endpoint.body_parameter.schema.multiple
+                    )
+                )
+            },
             **{
                 x: metadata.get("requestBody", {}).get("content", {}).get("application/json", {}).get(x)
                 for x in ("description", "required")
@@ -358,11 +377,17 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
                 'OpenAPI description not provided in docstring for main response in endpoint "%s"', endpoint.path
             )
 
-        schema = endpoint.response_parameter.schema
-        if schema is not None and (schemas.adapter.is_schema(schema) or schemas.adapter.is_field(schema)):
-            if schema not in self.schemas:
-                self.schemas.register(schema=schema)
-            content = {"application/json": openapi.MediaType(schema=self.schemas.get_openapi_ref(schema))}
+        if endpoint.response_parameter.schema.schema:
+            if endpoint.response_parameter.schema.schema not in self.schemas:
+                self.schemas.register(schema=endpoint.response_parameter.schema.schema)
+
+            content = {
+                "application/json": openapi.MediaType(
+                    schema=self.schemas.get_openapi_ref(
+                        endpoint.response_parameter.schema.schema, multiple=endpoint.response_parameter.schema.multiple
+                    )
+                )
+            }
         else:
             content = None
 

@@ -8,8 +8,8 @@ import typing as t
 from flama import concurrency, endpoints, exceptions, http, types, url, websockets
 from flama.injection import Component, Components
 from flama.lifespan import Lifespan
+from flama.schemas.data_structures import Schema
 from flama.schemas.routing import RouteParametersMixin
-from flama.schemas.validation import get_output_schema
 
 if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing import TypeGuard
@@ -158,7 +158,12 @@ class EndpointWrapper(types.AppAsyncClass):
         :return: An API response.
         """
         if isinstance(response, (dict, list)):
-            response = http.APIResponse(content=response, schema=get_output_schema(handler))
+            try:
+                schema = Schema.from_type(inspect.signature(handler).return_annotation).schema
+            except Exception:
+                schema = None
+
+            response = http.APIResponse(content=response, schema=schema)
         elif isinstance(response, str):
             response = http.APIResponse(content=response)
         elif response is None:

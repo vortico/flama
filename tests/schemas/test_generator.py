@@ -1,4 +1,7 @@
+import typing as t
+
 import marshmallow
+import pydantic
 import pytest
 import typesystem
 
@@ -10,15 +13,17 @@ from tests.asserts import assert_recursive_contains
 
 
 class TestCaseSchemaRegistry:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def registry(self):
         return SchemaRegistry()
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def foo_schema(self, registry):
         from flama import schemas
 
-        if schemas.lib == typesystem:
+        if schemas.lib == pydantic:
+            schema = pydantic.create_model("Foo", name=(str, ...))
+        elif schemas.lib == typesystem:
             schema = typesystem.Schema(fields={"name": typesystem.fields.String()})
         elif schemas.lib == marshmallow:
             schema = type("Foo", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
@@ -27,19 +32,11 @@ class TestCaseSchemaRegistry:
         registry.register(schema, "Foo")
         return schema
 
-    @pytest.fixture()
+    @pytest.fixture(scope="function")
     def foo_array_schema(self, foo_schema):
-        from flama import schemas
+        return t.List[foo_schema]
 
-        if schemas.lib == typesystem:
-            schema = typesystem.Array(typesystem.Reference(to="Foo", definitions={"Foo": foo_schema}))
-        elif schemas.lib == marshmallow:
-            schema = foo_schema(many=True)
-        else:
-            raise ValueError("Wrong schema lib")
-        return schema
-
-    @pytest.fixture()
+    @pytest.fixture(scope="function")
     def spec(self):
         return openapi.OpenAPISpec(title="Foo", version="1.0.0")
 
@@ -365,19 +362,19 @@ class TestCaseSchemaRegistry:
         with pytest.raises(ValueError, match="Schema is already registered."):
             registry.register(foo_schema, name="Foo")
 
-    def test_get_openapi_ref_single(self, registry, foo_schema):
-        expected_ref = openapi.Reference(ref="#/components/schemas/Foo")
-        schema_ref = registry.get_openapi_ref(foo_schema)
-        assert schema_ref == expected_ref
-
-    def test_get_openapi_ref_multiple(self, registry, foo_array_schema):
-        expected_ref = {
-            "type": "array",
-            "additionalItems": False,
-            "items": openapi.Reference(ref="#/components/schemas/Foo"),
-        }
-        schema_ref = registry.get_openapi_ref(foo_array_schema)
-        assert schema_ref == expected_ref
+    @pytest.mark.parametrize(
+        ["multiple", "result"],
+        (
+            pytest.param(False, openapi.Reference(ref="#/components/schemas/Foo"), id="single"),
+            pytest.param(
+                True,
+                openapi.Schema({"type": "array", "items": openapi.Reference(ref="#/components/schemas/Foo")}),
+                id="multiple",
+            ),
+        ),
+    )
+    def test_get_openapi_ref_single(self, multiple, result, registry, foo_schema):
+        assert registry.get_openapi_ref(foo_schema, multiple=multiple) == result
 
 
 class TestCaseSchemaGenerator:
@@ -385,7 +382,9 @@ class TestCaseSchemaGenerator:
     def owner_schema(self, app):
         from flama import schemas
 
-        if schemas.lib == typesystem:
+        if schemas.lib == pydantic:
+            schema = pydantic.create_model("Owner", name=(str, ...))
+        elif schemas.lib == typesystem:
             schema = typesystem.Schema(fields={"name": typesystem.fields.String()})
         elif schemas.lib == marshmallow:
             schema = type("Owner", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
@@ -398,7 +397,9 @@ class TestCaseSchemaGenerator:
     def puppy_schema(self, app, owner_schema):
         from flama import schemas
 
-        if schemas.lib == typesystem:
+        if schemas.lib == pydantic:
+            schema = pydantic.create_model("Puppy", name=(str, ...), owner=(owner_schema, ...))
+        elif schemas.lib == typesystem:
             schema = typesystem.Schema(
                 fields={
                     "name": typesystem.fields.String(),
@@ -421,21 +422,15 @@ class TestCaseSchemaGenerator:
 
     @pytest.fixture(scope="function")
     def puppy_array_schema(self, app, puppy_schema):
-        from flama import schemas
-
-        if schemas.lib == typesystem:
-            schema = typesystem.Array(typesystem.Reference(to="Puppy", definitions=app.schema.schemas))
-        elif schemas.lib == marshmallow:
-            schema = puppy_schema(many=True)
-        else:
-            raise ValueError("Wrong schema lib")
-        return schema
+        return t.List[puppy_schema]
 
     @pytest.fixture(scope="function")
     def body_param_schema(self, app):
         from flama import schemas
 
-        if schemas.lib == typesystem:
+        if schemas.lib == pydantic:
+            schema = pydantic.create_model("BodyParam", name=(str, ...))
+        elif schemas.lib == typesystem:
             schema = typesystem.Schema(fields={"name": typesystem.fields.String()})
         elif schemas.lib == marshmallow:
             schema = type("BodyParam", (marshmallow.Schema,), {"name": marshmallow.fields.String()})

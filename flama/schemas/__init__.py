@@ -29,7 +29,7 @@ schemas: t.Any = None
 
 
 class Module:
-    SCHEMA_LIBS = ("typesystem", "marshmallow")
+    SCHEMA_LIBS = ("pydantic", "typesystem", "marshmallow")
 
     def __init__(self) -> None:
         self.lib: ModuleType

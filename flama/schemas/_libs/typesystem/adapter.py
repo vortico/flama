@@ -1,32 +1,48 @@
 import inspect
+import sys
 import typing as t
 
 import typesystem
 
+from flama.injection import Parameter
 from flama.schemas._libs.typesystem.fields import MAPPING
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 
+if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
+    from typing import TypeGuard
+else:  # pragma: no cover
+    from typing_extensions import TypeGuard
+
 __all__ = ["TypesystemAdapter"]
 
+Schema = typesystem.Schema
+Field = typesystem.Field
 
-class TypesystemAdapter(Adapter[typesystem.Schema, typesystem.Field]):
-    def build_field(self, field_type: t.Type, required: bool, default: t.Any, **kwargs) -> typesystem.Field:
-        if required is False:
+
+class TypesystemAdapter(Adapter[Schema, Field]):
+    def build_field(
+        self,
+        name: str,
+        type: t.Type,
+        nullable: bool = False,
+        required: bool = True,
+        default: t.Any = None,
+        **kwargs: t.Any
+    ) -> Field:
+        if required is False and default is not Parameter.empty:
             kwargs["default"] = default
-            if default is None:
-                kwargs["allow_null"] = True
 
-        return MAPPING[field_type](**kwargs)
+        return MAPPING[type](**{**kwargs, "allow_null": nullable, "title": name})
 
     def build_schema(
         self,
-        schema: t.Optional[t.Union[typesystem.Schema, t.Type[typesystem.Schema]]] = None,
-        pagination: t.Optional[t.Union[typesystem.Schema, t.Type[typesystem.Schema]]] = None,
-        paginated_schema_name: t.Optional[str] = None,
         name: str = "Schema",
-        fields: t.Optional[t.Dict[str, typesystem.Field]] = None,
-    ) -> typesystem.Schema:
+        schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
+        pagination: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
+        paginated_schema_name: t.Optional[str] = None,
+        fields: t.Optional[t.Dict[str, Field]] = None,
+    ) -> Schema:
         if fields is None:
             fields = {}
 
@@ -37,7 +53,7 @@ class TypesystemAdapter(Adapter[typesystem.Schema, typesystem.Field]):
             fields.update(schema.fields)
 
         if pagination:
-            base_schema = typesystem.Schema(fields=fields)
+            base_schema = Schema(fields=fields)
             definitions = typesystem.Definitions()
             definitions[name] = base_schema
             data_schema = typesystem.Reference(to=name, definitions=definitions) if schema else typesystem.Object()
@@ -46,26 +62,22 @@ class TypesystemAdapter(Adapter[typesystem.Schema, typesystem.Field]):
                 **{"data": typesystem.Array(data_schema)},
             }
 
-        return typesystem.Schema(fields=fields)
+        return Schema(fields=fields)
 
-    def validate(self, schema: t.Union[typesystem.Schema, typesystem.Field], values: t.Dict[str, t.Any]) -> t.Any:
+    def validate(self, schema: t.Union[Schema, Field], values: t.Dict[str, t.Any]) -> t.Any:
         try:
             return schema.validate(values)
         except typesystem.ValidationError as errors:
             raise SchemaValidationError(errors={k: [v] for k, v in errors.items()})
 
-    def load(self, schema: typesystem.Schema, value: t.Dict[str, t.Any]) -> t.Any:
+    def load(self, schema: Schema, value: t.Dict[str, t.Any]) -> t.Any:
         return schema.validate(value)
 
-    def dump(
-        self,
-        schema: t.Union[typesystem.Field, typesystem.Schema],
-        value: t.Dict[str, t.Any],
-    ) -> t.Any:
+    def dump(self, schema: t.Union[Field, Schema], value: t.Dict[str, t.Any]) -> t.Any:
         return self._dump(self.validate(schema, value))
 
-    def _dump(self, value: t.Dict[str, t.Any]) -> t.Any:
-        if isinstance(value, typesystem.Schema):
+    def _dump(self, value: t.Any) -> t.Any:
+        if isinstance(value, Schema):
             return dict(value)
 
         if isinstance(value, list):
@@ -73,7 +85,7 @@ class TypesystemAdapter(Adapter[typesystem.Schema, typesystem.Field]):
 
         return value
 
-    def to_json_schema(self, schema: t.Union[typesystem.Schema, typesystem.Field]) -> t.Dict[str, t.Any]:
+    def to_json_schema(self, schema: t.Union[Schema, Field]) -> t.Dict[str, t.Any]:
         try:
             json_schema = typesystem.to_json_schema(schema)
 
@@ -86,18 +98,18 @@ class TypesystemAdapter(Adapter[typesystem.Schema, typesystem.Field]):
 
         return json_schema
 
-    def unique_schema(self, schema: t.Union[typesystem.Schema, typesystem.Array]) -> typesystem.Schema:
+    def unique_schema(self, schema: t.Union[Schema, typesystem.Array]) -> Schema:
         if isinstance(schema, typesystem.Array):
             if not isinstance(schema.items, typesystem.Reference):
                 raise ValueError("Schema cannot be resolved")
 
-            item_schema: typesystem.Schema = schema.items.target
+            item_schema: Schema = schema.items.target
             return item_schema
 
         return schema
 
-    def is_schema(self, obj: t.Union[typesystem.Schema, t.Type[typesystem.Schema]]) -> bool:
-        return isinstance(obj, typesystem.Schema) or (inspect.isclass(obj) and issubclass(obj, typesystem.Schema))
+    def is_schema(self, obj: t.Any) -> TypeGuard[t.Union[Schema, t.Type[Schema]]]:
+        return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
-    def is_field(self, obj: t.Union[typesystem.Field, t.Type[typesystem.Field]]) -> bool:
-        return isinstance(obj, typesystem.Field) or (inspect.isclass(obj) and issubclass(obj, typesystem.Field))
+    def is_field(self, obj: t.Any) -> TypeGuard[t.Union[Field, t.Type[Field]]]:
+        return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))
