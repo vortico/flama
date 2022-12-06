@@ -68,6 +68,9 @@ class TestCaseBaseRoute:
 
         assert parameters_mock.build.call_args_list == expected_calls
 
+    def test_endpoint_handlers(self, route):
+        assert route.endpoint_handlers() == {}
+
     @pytest.mark.skipif(
         sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
     )  # PORT: Remove when stop supporting 3.7
@@ -462,6 +465,12 @@ class TestCaseRouter:
     @pytest.fixture(scope="function")
     def component_mock(self):
         return MagicMock(spec=Component)
+
+    def test_init(self, app_mock):
+        with patch("flama.routing.Router.build") as method_mock:
+            Router([], root=app_mock)
+
+        assert method_mock.call_args_list == [call(app_mock)]
 
     def test_eq(self):
         route = MagicMock(Route)

@@ -12,7 +12,6 @@ __all__ = [
 
 SCHEMAS = typesystem.Definitions()
 
-
 APIError = typesystem.Schema(
     fields={
         "status_code": typesystem.fields.Integer(title="status_code", description="HTTP status code"),
@@ -24,14 +23,12 @@ APIError = typesystem.Schema(
 )
 SCHEMAS["APIError"] = APIError
 
-
 DropCollection = typesystem.Schema(
     fields={
         "deleted": typesystem.fields.Integer(title="deleted", description="Number of deleted elements"),
     }
 )
 SCHEMAS["DropCollection"] = DropCollection
-
 
 LimitOffsetMeta = typesystem.Schema(
     fields={
@@ -42,15 +39,15 @@ LimitOffsetMeta = typesystem.Schema(
 )
 SCHEMAS["LimitOffsetMeta"] = LimitOffsetMeta
 
-
 LimitOffset = typesystem.Schema(
     fields={
-        "meta": typesystem.Reference(to="LimitOffsetMeta", definitions=SCHEMAS),
-        "data": typesystem.fields.Array(),
+        "meta": typesystem.Reference(
+            to="LimitOffsetMeta", definitions=SCHEMAS, title="meta", description="Pagination metadata"
+        ),
+        "data": typesystem.fields.Array(title="data", description="Paginated data"),
     }
 )
 SCHEMAS["LimitOffset"] = LimitOffset
-
 
 PageNumberMeta = typesystem.Schema(
     fields={
@@ -61,11 +58,12 @@ PageNumberMeta = typesystem.Schema(
 )
 SCHEMAS["PageNumberMeta"] = PageNumberMeta
 
-
 PageNumber = typesystem.Schema(
     fields={
-        "meta": typesystem.Reference(to="PageNumberMeta", definitions=SCHEMAS),
-        "data": typesystem.fields.Array(),
+        "meta": typesystem.Reference(
+            to="PageNumberMeta", definitions=SCHEMAS, title="meta", description="Pagination metadata"
+        ),
+        "data": typesystem.fields.Array(title="data", description="Paginated data"),
     }
 )
 SCHEMAS["PageNumber"] = PageNumber

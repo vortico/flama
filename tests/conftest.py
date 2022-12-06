@@ -1,9 +1,11 @@
 import asyncio
 import sys
+import typing as t
 from contextlib import ExitStack
 from pathlib import Path
 
 import marshmallow
+import pydantic
 import pytest
 import sqlalchemy
 import typesystem
@@ -63,7 +65,9 @@ def exception(request):
 def puppy_schema(app):
     from flama import schemas
 
-    if schemas.lib == typesystem:
+    if schemas.lib == pydantic:
+        schema_ = pydantic.create_model("Puppy", custom_id=(t.Optional[int], None), name=(str, ...))
+    elif schemas.lib == typesystem:
         schema_ = typesystem.Schema(
             fields={"custom_id": typesystem.Integer(allow_null=True), "name": typesystem.String()}
         )
@@ -110,7 +114,11 @@ def clear_metadata():
 
 @pytest.fixture(
     scope="function",
-    params=[pytest.param("typesystem", id="typesystem"), pytest.param("marshmallow", id="marshmallow")],
+    params=[
+        pytest.param("pydantic", id="pydantic"),
+        pytest.param("typesystem", id="typesystem"),
+        pytest.param("marshmallow", id="marshmallow"),
+    ],
 )
 def app(request):
     return Flama(

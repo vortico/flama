@@ -1,39 +1,61 @@
 import inspect
+import sys
 import typing as t
 
 import marshmallow
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin, resolve_schema_cls
 
+from flama.injection import Parameter
 from flama.schemas._libs.marshmallow.fields import MAPPING
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
+
+if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
+    from typing import TypeGuard
+else:  # pragma: no cover
+    from typing_extensions import TypeGuard
 
 if t.TYPE_CHECKING:
     from apispec.ext.marshmallow import OpenAPIConverter
 
 __all__ = ["MarshmallowAdapter"]
 
+Schema = marshmallow.Schema
+Field = marshmallow.fields.Field
 
-class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
-    def build_field(self, field_type: t.Type, required: bool, default: t.Any) -> marshmallow.fields.Field:
-        field_class = MAPPING[field_type]
 
-        if required:
-            return field_class(required=required)
+class MarshmallowAdapter(Adapter[Schema, Field]):
+    def build_field(
+        self,
+        name: str,
+        type: t.Type,
+        nullable: bool = False,
+        required: bool = True,
+        default: t.Any = None,
+        **kwargs: t.Any
+    ) -> Field:
+        field_args = {
+            "required": required,
+            "allow_none": nullable,
+            "metadata": {**kwargs, "title": name},
+        }
 
-        return field_class(load_default=default)
+        if not required:
+            field_args["load_default"] = default if default is not Parameter.empty else None
+
+        return MAPPING[type](**field_args)  # type: ignore[arg-type]
 
     def build_schema(
         self,
-        schema: t.Optional[t.Union[marshmallow.Schema, t.Type[marshmallow.Schema]]] = None,
-        pagination: t.Optional[t.Union[marshmallow.Schema, t.Type[marshmallow.Schema]]] = None,
-        paginated_schema_name: t.Optional[str] = None,
         name: str = "Schema",
-        fields: t.Optional[t.Dict[str, marshmallow.fields.Field]] = None,
-    ) -> t.Type[marshmallow.Schema]:
-        schema_fields: t.Dict[str, t.Union[marshmallow.fields.Field, t.Type]]
-        parent_schema: t.Optional[marshmallow.Schema] = None
+        schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
+        pagination: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
+        paginated_schema_name: t.Optional[str] = None,
+        fields: t.Optional[t.Dict[str, Field]] = None,
+    ) -> t.Type[Schema]:
+        schema_fields: t.Dict[str, t.Union[Field, t.Type]]
+        parent_schema: t.Optional[Schema] = None
         if inspect.isclass(schema):
             parent_schema = schema()
 
@@ -52,13 +74,9 @@ class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
                 **(fields or {}),
             }
 
-        return marshmallow.Schema.from_dict(schema_fields, name=name)
+        return Schema.from_dict(schema_fields, name=name)
 
-    def validate(
-        self,
-        schema: t.Union[t.Type[marshmallow.Schema], marshmallow.Schema],
-        values: t.Dict[str, t.Any],
-    ) -> t.Dict[str, t.Any]:
+    def validate(self, schema: t.Union[t.Type[Schema], Schema], values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         schema_instance = schema() if inspect.isclass(schema) else schema
 
         try:
@@ -68,22 +86,14 @@ class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
 
         return data
 
-    def load(
-        self,
-        schema: t.Union[t.Type[marshmallow.Schema], marshmallow.Schema],
-        value: t.Dict[str, t.Any],
-    ) -> marshmallow.Schema:
+    def load(self, schema: t.Union[t.Type[Schema], Schema], value: t.Dict[str, t.Any]) -> Schema:
         schema_instance = schema() if inspect.isclass(schema) else schema
 
-        load_schema: marshmallow.Schema = schema_instance.load(value)
+        load_schema: Schema = schema_instance.load(value)
 
         return load_schema
 
-    def dump(
-        self,
-        schema: t.Union[t.Type[marshmallow.Schema], marshmallow.Schema],
-        value: t.Dict[str, t.Any],
-    ) -> t.Dict[str, t.Any]:
+    def dump(self, schema: t.Union[t.Type[Schema], Schema], value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         schema_instance = schema() if inspect.isclass(schema) else schema
 
         try:
@@ -93,15 +103,7 @@ class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
 
         return data
 
-    def to_json_schema(
-        self,
-        schema: t.Union[
-            t.Type[marshmallow.Schema],
-            t.Type[marshmallow.fields.Field],
-            marshmallow.Schema,
-            marshmallow.fields.Field,
-        ],
-    ) -> t.Dict[str, t.Any]:
+    def to_json_schema(self, schema: t.Union[t.Type[Schema], t.Type[Field], Schema, Field]) -> t.Dict[str, t.Any]:
         json_schema: t.Dict[str, t.Any]
         try:
             plugin = MarshmallowPlugin(
@@ -110,13 +112,11 @@ class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
             APISpec("", "", "3.1.0", [plugin])
             converter: "OpenAPIConverter" = plugin.converter  # type: ignore[assignment]
 
-            if (inspect.isclass(schema) and issubclass(schema, marshmallow.fields.Field)) or isinstance(
-                schema, marshmallow.fields.Field
-            ):
+            if (inspect.isclass(schema) and issubclass(schema, Field)) or isinstance(schema, Field):
                 json_schema = converter.field2property(schema)  # type: ignore[arg-type]
-            elif inspect.isclass(schema) and issubclass(schema, marshmallow.Schema):
+            elif inspect.isclass(schema) and issubclass(schema, Schema):
                 json_schema = converter.schema2jsonschema(schema)
-            elif isinstance(schema, marshmallow.Schema):
+            elif isinstance(schema, Schema):
                 if getattr(schema, "many", False):
                     json_schema = {
                         "type": "array",
@@ -132,20 +132,14 @@ class MarshmallowAdapter(Adapter[marshmallow.Schema, marshmallow.fields.Field]):
 
         return json_schema
 
-    def unique_schema(
-        self, schema: t.Union[marshmallow.Schema, t.Type[marshmallow.Schema]]
-    ) -> t.Type[marshmallow.Schema]:
-        if isinstance(schema, marshmallow.Schema):
+    def unique_schema(self, schema: t.Union[Schema, t.Type[Schema]]) -> t.Type[Schema]:
+        if isinstance(schema, Schema):
             return schema.__class__
 
         return schema
 
-    def is_schema(self, schema: t.Union[marshmallow.Schema, t.Type[marshmallow.Schema]]) -> bool:
-        return isinstance(schema, marshmallow.Schema) or (
-            inspect.isclass(schema) and issubclass(schema, marshmallow.Schema)
-        )
+    def is_schema(self, obj: t.Any) -> TypeGuard[t.Union[Schema, t.Type[Schema]]]:
+        return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
-    def is_field(self, obj: t.Union[marshmallow.fields.Field, t.Type[marshmallow.fields.Field]]) -> bool:
-        return isinstance(obj, marshmallow.fields.Field) or (
-            inspect.isclass(obj) and issubclass(obj, marshmallow.fields.Field)
-        )
+    def is_field(self, obj: t.Any) -> TypeGuard[t.Union[Field, t.Type[Field]]]:
+        return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))

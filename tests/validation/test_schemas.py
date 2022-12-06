@@ -1,7 +1,9 @@
 import datetime
+import typing as t
 
 import marshmallow
 import marshmallow.validate
+import pydantic
 import pytest
 import typesystem
 
@@ -15,7 +17,11 @@ class TestCaseSchemaValidation:
     def product_schema(self, app):
         from flama import schemas
 
-        if schemas.lib == typesystem:
+        if schemas.lib == pydantic:
+            schema = pydantic.create_model(
+                "Product", name=(str, ...), rating=(t.Optional[int], ...), created=(t.Optional[datetime.datetime], ...)
+            )
+        elif schemas.lib == typesystem:
             schema = typesystem.Schema(
                 fields={
                     "name": typesystem.fields.String(),
@@ -41,22 +47,15 @@ class TestCaseSchemaValidation:
 
     @pytest.fixture(scope="function")
     def product_array_schema(self, app, product_schema):
-        from flama import schemas
-
-        if schemas.lib == typesystem:
-            schema = typesystem.fields.Array(typesystem.Reference("Product", app.schema.schemas))
-        elif schemas.lib == marshmallow:
-            schema = product_schema(many=True)
-        else:
-            raise ValueError("Wrong schema lib")
-
-        return schema
+        return t.List[product_schema]
 
     @pytest.fixture(scope="function")
     def reviewed_product_schema(self, app, product_schema):
         from flama import schemas
 
-        if schemas.lib == typesystem:
+        if schemas.lib == pydantic:
+            schema = pydantic.create_model("ReviewedProduct", reviewer=(str, ...), __base__=product_schema)
+        elif schemas.lib == typesystem:
             schema = typesystem.Schema(fields={**product_schema.fields, **{"reviewer": typesystem.fields.String()}})
         elif schemas.lib == marshmallow:
             schema = type("ReviewedProduct", (product_schema,), {"reviewer": marshmallow.fields.String()})
@@ -70,7 +69,23 @@ class TestCaseSchemaValidation:
     def location_schema(self, app):
         from flama import schemas
 
-        if schemas.lib == typesystem:
+        if schemas.lib == pydantic:
+
+            def latitude_validator(cls, x):
+                assert -90 <= x <= 90
+                return x
+
+            def longitude_validator(cls, x):
+                assert -180 <= x <= 180
+                return x
+
+            schema = pydantic.create_model(
+                "Location",
+                latitude=(float, ...),
+                longitude=(float, ...),
+                __validators__={"latitude": latitude_validator, "longitude": longitude_validator},
+            )
+        elif schemas.lib == typesystem:
             schema = typesystem.Schema(
                 fields={
                     "latitude": typesystem.fields.Number(minimum=-90, maximum=90),
@@ -96,7 +111,9 @@ class TestCaseSchemaValidation:
     def place_schema(self, app, location_schema):
         from flama import schemas
 
-        if schemas.lib == typesystem:
+        if schemas.lib == pydantic:
+            schema = pydantic.create_model("Place", location=(location_schema, ...), name=(str, ...))
+        elif schemas.lib == typesystem:
             schema = typesystem.Schema(
                 fields={
                     "location": typesystem.Reference("Location", app.schema.schemas),

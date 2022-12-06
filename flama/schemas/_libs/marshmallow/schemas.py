@@ -34,8 +34,12 @@ class LimitOffsetMeta(marshmallow.Schema):
 
 
 class LimitOffset(marshmallow.Schema):
-    meta = marshmallow.fields.Nested(LimitOffsetMeta(), required=True)
-    data = marshmallow.fields.List(marshmallow.fields.Dict(), required=True)
+    meta = marshmallow.fields.Nested(
+        LimitOffsetMeta(), required=True, metadata={"title": "meta", "description": "Pagination metadata"}
+    )
+    data = marshmallow.fields.List(
+        marshmallow.fields.Dict(), required=True, metadata={"title": "data", "description": "Paginated data"}
+    )
 
 
 class PageNumberMeta(marshmallow.Schema):
@@ -47,8 +51,12 @@ class PageNumberMeta(marshmallow.Schema):
 
 
 class PageNumber(marshmallow.Schema):
-    meta = marshmallow.fields.Nested(PageNumberMeta(), required=True)
-    data = marshmallow.fields.List(marshmallow.fields.Dict(), required=True)
+    meta = marshmallow.fields.Nested(
+        PageNumberMeta(), required=True, metadata={"title": "meta", "description": "Pagination metadata"}
+    )
+    data = marshmallow.fields.List(
+        marshmallow.fields.Dict(), required=True, metadata={"title": "data", "description": "Paginated data"}
+    )
 
 
 class MLModelInput(marshmallow.Schema):

@@ -1,7 +1,9 @@
+import datetime
 import typing
 import uuid
 
 import marshmallow
+import pydantic
 import pytest
 import sqlalchemy
 import typesystem
@@ -72,7 +74,9 @@ class TestCaseCRUDResource:
     def custom_id_datetime_schema(self, app):
         from flama import schemas
 
-        if schemas.lib == typesystem:
+        if schemas.lib == pydantic:
+            schema_ = pydantic.create_model("CustomIDDatetime", custom_id=(datetime.datetime, ...), name=(str, ...))
+        elif schemas.lib == typesystem:
             schema_ = typesystem.Schema(
                 fields={
                     "custom_id": typesystem.fields.DateTime(),
