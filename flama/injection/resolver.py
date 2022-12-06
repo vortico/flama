@@ -9,7 +9,7 @@ from flama.injection.types import BUILTIN_TYPES
 if t.TYPE_CHECKING:
     from flama.injection.components import Component, Components
 
-__all__ = ["Parameter", "Resolver"]
+__all__ = ["Return", "Parameter", "Resolver"]
 
 
 class _empty:

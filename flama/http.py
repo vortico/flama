@@ -34,7 +34,6 @@ __all__ = [
     "OpenAPIResponse",
 ]
 
-
 Method = enum.Enum("Method", ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"])
 Request = starlette.requests.Request
 
@@ -111,13 +110,21 @@ class APIResponse(JSONResponse):
         self.schema = schema
         super().__init__(content, *args, **kwargs)
 
+    def _render_schema_item(self, content: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+        try:
+            content = schemas.adapter.dump(self.schema, content)
+            schemas.adapter.validate(self.schema, content)
+        except schemas.SchemaValidationError as e:
+            raise SerializationError(status_code=500, detail=e.errors)
+
+        return content
+
     def render(self, content: t.Any):
         if self.schema is not None:
-            try:
-                content = schemas.adapter.dump(self.schema, content)
-                schemas.adapter.validate(self.schema, content)
-            except schemas.SchemaValidationError as e:
-                raise SerializationError(status_code=500, detail=e.errors)
+            if isinstance(content, dict):
+                content = self._render_schema_item(content)
+            elif isinstance(content, list):
+                content = [self._render_schema_item(c) for c in content]
 
         if not content:
             return b""
