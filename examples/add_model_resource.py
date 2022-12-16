@@ -2,11 +2,8 @@ from datetime import datetime
 
 import typesystem as ts
 
-import typing
-
 import flama
 from flama import Flama
-from flama.exceptions import HTTPException
 from flama.models import ModelResource, ModelResourceType
 from flama.resources import resource_method
 
