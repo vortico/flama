@@ -7,7 +7,7 @@ from flama.models import Model, ModelResource, ModelResourceType, ModelComponent
 from flama.resources import resource_method
 
 
-class MySKModel(Model):
+class MyCustomModel(Model):
     def inspect(self) -> typing.Any:
         return self.model.get_params()
 
@@ -15,30 +15,32 @@ class MySKModel(Model):
         return self.model.predict(x)
 
 
-class MySKModelComponent(ModelComponent):
+class MyCustomModelComponent(ModelComponent):
 
     def __init__(self, model_path: str):
         self._model_path = model_path
-        self.model = MySKModel(None)
+        self.model = MyCustomModel(None)
 
     def load_model(self):
         with open(self._model_path, "rb") as f:
-            self.model = MySKModel(flama.load(f).model)
+            self.model = MyCustomModel(flama.load(f).model)
 
     def unload_model(self):
-        self.model = MySKModel(None)
+        self.model = MyCustomModel(None)
 
-    def resolve(self) -> MySKModel:
+    def resolve(self) -> MyCustomModel:
         if not self.model.model:
             self.load_model()
 
         return self.model
 
 
-component = MySKModelComponent("sklearn_model.flm")
+component = MyCustomModelComponent("sklearn_model.flm")
+# component = MyCustomModelComponent("pytorch_model.flm")
+# component = MyCustomModelComponent("tensorflow_model.flm")
 
 
-class MySKModelResource(ModelResource, metaclass=ModelResourceType):
+class MyCustomModelResource(ModelResource, metaclass=ModelResourceType):
     name = "custom_model"
     verbose_name = "Lazy-loaded ScikitLearn Model"
     component = component
@@ -94,7 +96,7 @@ app = Flama(
     components=[component],
 )
 
-app.models.add_model_resource(path="/model", resource=MySKModelResource)
+app.models.add_model_resource(path="/model", resource=MyCustomModelResource)
 
 
 if __name__ == "__main__":
