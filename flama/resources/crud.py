@@ -1,5 +1,7 @@
 import typing as t
 
+from flama import schemas
+
 try:
     import sqlalchemy
 except Exception:  # pragma: no cover
@@ -144,11 +146,8 @@ class UpdateMixin:
             if not exists:
                 raise http.HTTPException(status_code=404)
 
-            clean_element = {
-                k: v
-                for k, v in flama.schemas.adapter.dump(rest_schemas.input.schema, element).items()
-                if k != rest_model.primary_key.name
-            }
+            schema = schemas.Schema(rest_schemas.input.schema)
+            clean_element = {k: v for k, v in schema.dump(element).items() if k != rest_model.primary_key.name}
 
             async with app.sqlalchemy.engine.begin() as connection:
                 query = (

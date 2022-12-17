@@ -16,7 +16,7 @@ def output_schema(app):
     if schemas.lib == pydantic:
         schema = pydantic.create_model("OutputSchema", value=(t.Optional[int], ...))
     elif schemas.lib == typesystem:
-        schema = typesystem.Schema(fields={"value": typesystem.fields.Integer(allow_null=True)})
+        schema = typesystem.Schema(title="OutputSchema", fields={"value": typesystem.fields.Integer(allow_null=True)})
     elif schemas.lib == marshmallow:
         schema = type("OutputSchema", (marshmallow.Schema,), {"value": marshmallow.fields.Integer(allow_none=True)})
     else:

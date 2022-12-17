@@ -4,7 +4,6 @@ import inspect
 import typing as t
 
 from flama import http, schemas
-from flama.schemas.data_structures import Schema
 
 try:
     import forge
@@ -41,7 +40,7 @@ class PageNumberResponse(http.APIResponse):
         self.count = count
         super().__init__(schema=schema, **kwargs)
 
-    def render(self, content: t.Sequence):
+    def render(self, content: t.Sequence[t.Any]):
         init = (self.page_number - 1) * self.page_size
         end = self.page_number * self.page_size
 
@@ -76,21 +75,19 @@ class PageNumberMixin:
         def _inner(func: t.Callable):
             assert forge is not None, "`python-forge` must be installed to use Paginator."
 
-            resource_schema = schemas.adapter.unique_schema(
-                Schema.from_type(inspect.signature(func).return_annotation).schema
-            )
+            resource_schema = schemas.Schema.from_type(inspect.signature(func).return_annotation).unique_schema
             paginated_schema_name = "PageNumberPaginated" + schema_name
-            schema = schemas.adapter.build_schema(
-                name=schema_name,
-                schema=resource_schema,
-                pagination=schemas.schemas.PageNumber,
-                paginated_schema_name=paginated_schema_name,
-            )
+            schema = schemas.Schema.build(
+                paginated_schema_name,
+                schema=schemas.schemas.PageNumber,
+                fields=[schemas.Field("data", t.List[resource_schema])],  # type: ignore[valid-type]
+                multiple=False,
+            ).unique_schema
 
             forge_revision_list = (
                 forge.copy(func),
-                forge.insert(forge.arg("page", default=None, type=int), index=-1),
-                forge.insert(forge.arg("page_size", default=None, type=int), index=-1),
+                forge.insert(forge.arg("page", default=None, type=t.Optional[int]), index=-1),
+                forge.insert(forge.arg("page_size", default=None, type=t.Optional[int]), index=-1),
                 forge.insert(forge.arg("count", default=True, type=bool), index=-1),
                 forge.delete("kwargs"),
                 forge.returns(schema),

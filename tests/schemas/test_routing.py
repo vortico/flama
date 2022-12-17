@@ -31,7 +31,9 @@ class TestCaseRouteFieldsMixin:
         if schemas.lib == pydantic:
             schema = pydantic.create_model("FooSchema", x=(int, ...), y=(str, ...))
         elif schemas.lib == typesystem:
-            schema = typesystem.Schema({"x": typesystem.fields.Integer(), "y": typesystem.fields.String()})
+            schema = typesystem.Schema(
+                title="FooSchema", fields={"x": typesystem.fields.Integer(), "y": typesystem.fields.String()}
+            )
         elif schemas.lib == marshmallow:
             schema = type(
                 "FooSchema",
