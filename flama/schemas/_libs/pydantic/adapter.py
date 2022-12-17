@@ -9,6 +9,7 @@ from pydantic.schema import field_schema, model_schema
 from flama.injection import Parameter
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
+from flama.schemas.types import JSONSchema
 
 if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing import TypeGuard
@@ -25,18 +26,27 @@ class PydanticAdapter(Adapter[Schema, Field]):
     def build_field(
         self,
         name: str,
-        type: t.Type,
+        type_: t.Type,
         nullable: bool = False,
         required: bool = True,
         default: t.Any = None,
-        **kwargs: t.Any
+        multiple: bool = False,
+        **kwargs,
     ) -> Field:
         if not required:
             kwargs["default"] = None if default is Parameter.empty else default
 
+        annotation: t.Any = type_
+
+        if multiple:
+            annotation = t.List[annotation]
+
+        if nullable:
+            annotation = t.Optional[annotation]
+
         return ModelField.infer(
             name=name,
-            annotation=t.Optional[type] if nullable else type,
+            annotation=annotation,
             value=pydantic.Field(**kwargs),
             class_validators=None,
             config=pydantic.BaseConfig,
@@ -44,26 +54,25 @@ class PydanticAdapter(Adapter[Schema, Field]):
 
     def build_schema(
         self,
-        name: str = "Schema",
+        *,
+        name: t.Optional[str] = None,
         schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
-        pagination: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
-        paginated_schema_name: t.Optional[str] = None,
         fields: t.Optional[t.Dict[str, Field]] = None,
     ) -> t.Type[Schema]:
-        model_fields = {k: (v.type_, v.field_info) for k, v in (fields or {}).items()}
-
-        if schema:
-            model_fields.update({k: (v.type_, v.field_info) for k, v in self.unique_schema(schema).__fields__.items()})
-
-        if pagination and schema:
-            schema_cls = self.unique_schema(schema)
-            model_fields = {
-                **{k: (v.type_, v.field_info) for k, v in pagination.__fields__.items() if k != "data"},
-                **{"data": (t.List[schema_cls], pydantic.Field(...))},
-            }
-            name = paginated_schema_name
-
-        return pydantic.create_model(name, **model_fields)
+        return pydantic.create_model(  # type: ignore
+            name or self.DEFAULT_SCHEMA_NAME,
+            **{
+                **(
+                    {
+                        name: (field.annotation, field.field_info)
+                        for name, field in self.unique_schema(schema).__fields__.items()
+                    }
+                    if schema
+                    else {}
+                ),
+                **({name: (field.annotation, field.field_info) for name, field in fields.items()} if fields else {}),
+            },
+        )
 
     def validate(self, schema: t.Union[Schema, t.Type[Schema]], values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         schema_cls = self.unique_schema(schema)
@@ -83,7 +92,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
 
         return self.validate(schema_cls, value)
 
-    def to_json_schema(self, schema: t.Union[Schema, t.Type[Schema], Field]) -> t.Dict[str, t.Any]:
+    def to_json_schema(self, schema: t.Union[Schema, t.Type[Schema], Field]) -> JSONSchema:
         try:
             if self.is_schema(schema):
                 json_schema = model_schema(schema, ref_prefix="#/components/schemas/")

@@ -3,11 +3,11 @@ import sys
 import typing as t
 from types import ModuleType
 
+from flama.schemas.data_structures import Field, Parameter, Schema
 from flama.schemas.exceptions import SchemaParseError, SchemaValidationError
 
 if t.TYPE_CHECKING:
     from flama.schemas.adapter import Adapter
-    from flama.schemas.data_structures import Parameter
 
 __all__ = [
     "SchemaValidationError",
@@ -20,8 +20,6 @@ __all__ = [
     "schemas",
 ]
 
-Field: t.Any = None
-Schema: t.Any = None
 adapter: "Adapter"
 fields: t.Dict[t.Any, "Parameter"] = {}
 lib: t.Optional[ModuleType] = None
@@ -63,8 +61,6 @@ class Module:
         lib = self.lib.lib
         fields = self.lib.fields
         adapter = self.lib.adapter
-        Field = self.lib.Field
-        Schema = self.lib.Schema
 
 
 # Find the first schema lib available and setup the module using it

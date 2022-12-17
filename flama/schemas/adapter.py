@@ -2,7 +2,7 @@ import abc
 import sys
 import typing as t
 
-from flama.schemas.types import Field, Schema
+from flama.schemas.types import Field, JSONSchema, Schema
 
 if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing import TypeGuard
@@ -11,25 +11,49 @@ else:  # pragma: no cover
 
 
 class Adapter(t.Generic[Schema, Field], metaclass=abc.ABCMeta):
+    DEFAULT_SCHEMA_NAME = "Schema"
+
     @abc.abstractmethod
     def build_field(
         self,
         name: str,
-        type: t.Type,
+        type_: t.Type,
         nullable: bool = False,
         required: bool = True,
         default: t.Any = None,
-        **kwargs: t.Any
+        multiple: bool = False,
+        **kwargs: t.Any,
     ) -> Field:
+        ...
+
+    @t.overload
+    def build_schema(
+        self, *, name: t.Optional[str] = None, fields: t.Dict[str, Field]
+    ) -> t.Union[Schema, t.Type[Schema]]:
+        ...
+
+    @t.overload
+    def build_schema(
+        self, *, name: t.Optional[str] = None, schema: t.Union[Schema, t.Type[Schema]]
+    ) -> t.Union[Schema, t.Type[Schema]]:
+        ...
+
+    @t.overload
+    def build_schema(
+        self,
+        *,
+        name: t.Optional[str] = None,
+        schema: t.Union[Schema, t.Type[Schema]],
+        fields: t.Optional[t.Dict[str, Field]],
+    ) -> t.Union[Schema, t.Type[Schema]]:
         ...
 
     @abc.abstractmethod
     def build_schema(
         self,
-        name: str = "Schema",
+        *,
+        name: t.Optional[str] = None,
         schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
-        pagination: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
-        paginated_schema_name: t.Optional[str] = None,
         fields: t.Optional[t.Dict[str, Field]] = None,
     ) -> t.Union[Schema, t.Type[Schema]]:
         ...
@@ -47,11 +71,11 @@ class Adapter(t.Generic[Schema, Field], metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def to_json_schema(self, schema: t.Union[Schema, t.Type[Schema], Field]) -> t.Dict[str, t.Any]:
+    def to_json_schema(self, schema: t.Union[Schema, t.Type[Schema], Field]) -> JSONSchema:
         ...
 
     @abc.abstractmethod
-    def unique_schema(self, schema: Schema) -> t.Union[Schema, t.Type[Schema]]:
+    def unique_schema(self, schema: t.Union[Schema, t.Type[Schema]]) -> t.Union[Schema, t.Type[Schema]]:
         ...
 
     @abc.abstractmethod

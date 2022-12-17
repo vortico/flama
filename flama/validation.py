@@ -1,11 +1,11 @@
 import typing
 
-from flama import codecs, exceptions, http, schemas, types
+from flama import codecs, exceptions, http, types
 from flama.injection import Component, Components
 from flama.injection.resolver import Parameter
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from flama.routing import BaseRoute
-from flama.schemas.data_structures import Schema
+from flama.schemas import Field, Schema, SchemaValidationError
 
 ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
 ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
@@ -48,23 +48,23 @@ class ValidatePathParamsComponent(Component):
     async def resolve(
         self, request: http.Request, route: BaseRoute, path_params: types.PathParams
     ) -> ValidatedPathParams:
-        fields = {f.name: f.schema.schema for f in route.parameters.path[request.method].values()}
+        fields = [f.field for f in route.parameters.path[request.method].values()]
 
         try:
-            validated = Schema.from_fields(fields).validate(path_params)
+            validated = Schema.build(name="ValidationSchema", fields=fields).validate(path_params)
             return ValidatedPathParams({k: v for k, v in path_params.items() if k in validated})
-        except schemas.SchemaValidationError as exc:
+        except SchemaValidationError as exc:
             raise exceptions.ValidationError(detail=exc.errors)
 
 
 class ValidateQueryParamsComponent(Component):
     def resolve(self, request: http.Request, route: BaseRoute, query_params: types.QueryParams) -> ValidatedQueryParams:
-        fields = {f.name: f.schema.schema for f in route.parameters.query[request.method].values()}
+        fields = [f.field for f in route.parameters.query[request.method].values()]
 
         try:
-            validated = Schema.from_fields(fields).validate(dict(query_params))
+            validated = Schema.build(name="ValidationSchema", fields=fields).validate(dict(query_params))
             return ValidatedQueryParams({k: v for k, v in query_params.items() if k in validated})
-        except schemas.SchemaValidationError as exc:
+        except SchemaValidationError as exc:
             raise exceptions.ValidationError(detail=exc.errors)
 
 
@@ -78,43 +78,30 @@ class ValidateRequestDataComponent(Component):
 
         try:
             return ValidatedRequestData(body_param.schema.validate(dict(data)))
-        except schemas.SchemaValidationError as exc:  # noqa: safety net, just should not happen
+        except SchemaValidationError as exc:  # noqa: safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
 
 
 class PrimitiveParamComponent(Component):
     def can_handle_parameter(self, parameter: Parameter):
-        return parameter.type in types.FIELDS_TYPE_MAPPING
+        return Field.is_http_valid_type(parameter.type)
 
     def resolve(self, parameter: Parameter, path_params: ValidatedPathParams, query_params: ValidatedQueryParams):
         params = path_params if (parameter.name in path_params) else query_params
 
-        if parameter.type in types.OPTIONAL_FIELD_TYPE_MAPPING or parameter.default is not parameter.empty:
-            required = False
-            default = parameter.default if parameter.default is not parameter.empty else None
-        else:
-            required = True
-            default = None
-
-        param_validator: schemas.Field = schemas.adapter.build_field(
-            name=parameter.name, type=types.FIELDS_TYPE_MAPPING[parameter.type], required=required, default=default
-        )
-
-        fields = {parameter.name: param_validator}
-
         try:
-            params = Schema.from_fields(fields).validate(params)
-        except schemas.SchemaValidationError as exc:  # noqa: safety net, just should not happen
+            params = Schema.build(name="ValidationSchema", fields=[Field.from_parameter(parameter)]).validate(params)
+        except SchemaValidationError as exc:  # noqa: safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
         return params.get(parameter.name, parameter.default)
 
 
 class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: Parameter):
-        return schemas.adapter.is_schema(parameter.type) or schemas.adapter.is_field(parameter.type)
+        return Schema.is_schema(parameter.type) or Field.is_field(parameter.type)
 
     def resolve(self, parameter: Parameter, data: ValidatedRequestData):
-        assert schemas.adapter.is_schema(parameter.type) or schemas.adapter.is_field(parameter.type)
+        assert Schema.is_schema(parameter.type) or Field.is_field(parameter.type)
 
         return data
 

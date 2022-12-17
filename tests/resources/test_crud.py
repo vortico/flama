@@ -78,10 +78,11 @@ class TestCaseCRUDResource:
             schema_ = pydantic.create_model("CustomIDDatetime", custom_id=(datetime.datetime, ...), name=(str, ...))
         elif schemas.lib == typesystem:
             schema_ = typesystem.Schema(
+                title="CustomIDDatetime",
                 fields={
                     "custom_id": typesystem.fields.DateTime(),
                     "name": typesystem.fields.String(),
-                }
+                },
             )
         elif schemas.lib == marshmallow:
             schema_ = type(
@@ -129,12 +130,15 @@ class TestCaseCRUDResource:
     def custom_id_uuid_schema(self, app):
         from flama import schemas
 
-        if schemas.lib == typesystem:
+        if schemas.lib == pydantic:
+            schema_ = pydantic.create_model("CustomIDUUID", custom_id=(uuid.UUID, ...), name=(str, ...))
+        elif schemas.lib == typesystem:
             schema_ = typesystem.Schema(
+                title="CustomIDUUID",
                 fields={
                     "custom_id": typesystem.fields.UUID(),
                     "name": typesystem.fields.String(),
-                }
+                },
             )
         elif schemas.lib == marshmallow:
             schema_ = type(
