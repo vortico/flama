@@ -1,11 +1,13 @@
 import enum
-import typing
+import typing as t
 
-__all__ = ["Field", "Schema", "ParameterLocation"]
+from flama import types
 
+__all__ = ["Field", "Schema", "JSONSchema", "ParameterLocation"]
 
-Field = typing.TypeVar("Field")
-Schema = typing.TypeVar("Schema")
+Field = t.TypeVar("Field")
+Schema = t.TypeVar("Schema")
+JSONSchema = t.Dict[str, types.JSON]
 
 
 class ParameterLocation(enum.Enum):

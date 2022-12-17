@@ -1,8 +1,7 @@
 import typing as t
 
 from flama import schemas
-from flama.schemas.data_structures import Parameter, Parameters
-from flama.types import FIELDS_TYPE_MAPPING
+from flama.schemas.data_structures import Field, Parameter, Parameters
 
 if t.TYPE_CHECKING:
     from flama.applications import Flama
@@ -26,7 +25,7 @@ class ParametersDescriptor:
             method: {
                 p.name: Parameter.build("query", p)
                 for p in self._app.injector.resolve(handler).meta.parameters
-                if p.type in FIELDS_TYPE_MAPPING and p.name not in self._route.path.parameters
+                if Field.is_http_valid_type(p.type) and p.name not in self._route.path.parameters
             }
             for method, handler in self._route.endpoint_handlers().items()
         }

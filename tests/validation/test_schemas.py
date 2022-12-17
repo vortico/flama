@@ -23,11 +23,12 @@ class TestCaseSchemaValidation:
             )
         elif schemas.lib == typesystem:
             schema = typesystem.Schema(
+                title="Product",
                 fields={
                     "name": typesystem.fields.String(),
                     "rating": typesystem.fields.Integer(allow_null=True),
                     "created": typesystem.fields.DateTime(allow_null=True),
-                }
+                },
             )
         elif schemas.lib == marshmallow:
             schema = type(
@@ -56,7 +57,9 @@ class TestCaseSchemaValidation:
         if schemas.lib == pydantic:
             schema = pydantic.create_model("ReviewedProduct", reviewer=(str, ...), __base__=product_schema)
         elif schemas.lib == typesystem:
-            schema = typesystem.Schema(fields={**product_schema.fields, **{"reviewer": typesystem.fields.String()}})
+            schema = typesystem.Schema(
+                title="ReviewedProduct", fields={**product_schema.fields, **{"reviewer": typesystem.fields.String()}}
+            )
         elif schemas.lib == marshmallow:
             schema = type("ReviewedProduct", (product_schema,), {"reviewer": marshmallow.fields.String()})
         else:

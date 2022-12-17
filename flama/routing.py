@@ -5,10 +5,9 @@ import logging
 import sys
 import typing as t
 
-from flama import concurrency, endpoints, exceptions, http, types, url, websockets
+from flama import concurrency, endpoints, exceptions, http, schemas, types, url, websockets
 from flama.injection import Component, Components
 from flama.lifespan import Lifespan
-from flama.schemas.data_structures import Schema
 from flama.schemas.routing import RouteParametersMixin
 
 if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
@@ -159,7 +158,7 @@ class EndpointWrapper(types.AppAsyncClass):
         """
         if isinstance(response, (dict, list)):
             try:
-                schema = Schema.from_type(inspect.signature(handler).return_annotation).schema
+                schema = schemas.Schema.from_type(inspect.signature(handler).return_annotation).schema
             except Exception:
                 schema = None
 

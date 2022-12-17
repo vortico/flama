@@ -7,6 +7,8 @@ __all__ = [
     "LimitOffset",
     "PageNumberMeta",
     "PageNumber",
+    "MLModelInput",
+    "MLModelOutput",
     "SCHEMAS",
 ]
 

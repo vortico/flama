@@ -39,7 +39,7 @@ def puppy_schema(app):
     if schemas.lib == pydantic:
         schema = pydantic.create_model("Puppy", name=(str, ...))
     elif schemas.lib == typesystem:
-        schema = typesystem.Schema(fields={"name": typesystem.fields.String()})
+        schema = typesystem.Schema(title="Puppy", fields={"name": typesystem.fields.String()})
     elif schemas.lib == marshmallow:
         schema = type(
             "Puppy",

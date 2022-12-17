@@ -9,9 +9,8 @@ from collections import defaultdict
 from starlette import schemas as starlette_schemas
 
 from flama import routing, schemas
-from flama.schemas import openapi
+from flama.schemas import Schema, openapi
 from flama.schemas.data_structures import Parameter
-from flama.schemas.types import Schema
 from flama.url import RegexPath
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ class EndpointInfo:
 @dataclasses.dataclass(frozen=True)
 class SchemaInfo:
     name: str
-    schema: schemas.Schema
+    schema: t.Any
 
     @property
     def ref(self) -> str:
@@ -41,20 +40,20 @@ class SchemaInfo:
 
     @property
     def json_schema(self) -> t.Dict[str, t.Any]:
-        return schemas.adapter.to_json_schema(self.schema)
+        return Schema(self.schema).json_schema
 
 
 class SchemaRegistry(typing.Dict[int, SchemaInfo]):
-    def __init__(self, schemas: t.Optional[typing.Dict[str, Schema]] = None):
+    def __init__(self, schemas: t.Optional[typing.Dict[str, schemas.types.Schema]] = None):
         super().__init__()
 
         for name, schema in (schemas or {}).items():
             self.register(schema, name)
 
-    def __contains__(self, item: Schema) -> bool:
+    def __contains__(self, item: schemas.types.Schema) -> bool:
         return super().__contains__(id(schemas.adapter.unique_schema(item)))
 
-    def __getitem__(self, item: Schema) -> SchemaInfo:
+    def __getitem__(self, item: schemas.types.Schema) -> SchemaInfo:
         """
         Lookup method that allows using Schema classes or instances.
 
@@ -63,6 +62,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         """
         return super().__getitem__(id(schemas.adapter.unique_schema(item)))
 
+    @t.no_type_check
     def _get_schema_references_from_schema(
         self, schema: typing.Union[openapi.Schema, openapi.Reference]
     ) -> typing.List[str]:
@@ -174,7 +174,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
 
         return used_schemas
 
-    def register(self, schema: Schema, name: t.Optional[str] = None) -> int:
+    def register(self, schema: schemas.types.Schema, name: t.Optional[str] = None) -> int:
         """
         Register a new Schema to this registry.
 
@@ -201,7 +201,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         return schema_id
 
     def get_openapi_ref(
-        self, element: Schema, multiple: bool = False
+        self, element: schemas.types.Schema, multiple: bool = False
     ) -> typing.Union[openapi.Schema, openapi.Reference]:
         """
         Builds the reference for a single schema or the array schema containing the reference.
@@ -213,7 +213,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         reference = openapi.Reference(ref=self[element].ref)
 
         if multiple:
-            return openapi.Schema({"items": reference, "type": "array"})
+            return openapi.Schema({"items": dataclasses.asdict(reference), "type": "array"})
 
         return reference
 
@@ -321,7 +321,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
 
         return [
             openapi.Parameter(
-                schema=openapi.Schema(field.schema.json_schema),
+                schema=openapi.Schema(field.field.json_schema),
                 name=field.name,
                 in_=field.location.name,
                 required=field.required,

@@ -31,11 +31,12 @@ class TestCaseTypesystemSchemaValidateOutput:
             )
         elif schemas.lib == typesystem:
             schema = typesystem.Schema(
+                title="Product",
                 fields={
                     "name": typesystem.fields.String(title="name"),
                     "rating": typesystem.fields.Integer(title="rating", minimum=0),
                     "created": typesystem.fields.DateTime(title="created", allow_null=True),
-                }
+                },
             )
         elif schemas.lib == marshmallow:
             schema = type(

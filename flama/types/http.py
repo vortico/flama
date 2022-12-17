@@ -1,4 +1,6 @@
+import datetime
 import typing as t
+import uuid
 
 import starlette.datastructures
 
@@ -22,6 +24,7 @@ __all__ = [
     "Headers",
     "MutableHeaders",
     "QueryParams",
+    "PARAMETERS_TYPES",
 ]
 
 Method = t.NewType("Method", str)
@@ -39,3 +42,16 @@ RequestData = t.NewType("RequestData", t.Dict[str, t.Any])
 Headers = starlette.datastructures.Headers
 MutableHeaders = starlette.datastructures.MutableHeaders
 QueryParams = starlette.datastructures.QueryParams
+
+PARAMETERS_TYPES: t.Dict[t.Type, t.Type] = {
+    int: int,
+    float: float,
+    str: str,
+    bool: bool,
+    uuid.UUID: uuid.UUID,
+    datetime.date: datetime.date,
+    datetime.datetime: datetime.datetime,
+    datetime.time: datetime.time,
+    QueryParam: str,
+    PathParam: str,
+}
