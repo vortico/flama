@@ -15,7 +15,7 @@ from flama import schemas, types
 from flama.exceptions import HTTPException, SerializationError
 
 if t.TYPE_CHECKING:
-    from flama.schemas.types import Schema
+    import flama.schemas.types
 
 __all__ = [
     "Method",
@@ -106,25 +106,16 @@ class FileResponse(starlette.responses.FileResponse, Response):
 class APIResponse(JSONResponse):
     media_type = "application/json"
 
-    def __init__(self, content: t.Any = None, schema: t.Optional["Schema"] = None, *args, **kwargs):
+    def __init__(self, content: t.Any = None, schema: t.Optional["flama.schemas.types.Schema"] = None, *args, **kwargs):
         self.schema = schema
         super().__init__(content, *args, **kwargs)
 
-    def _render_schema_item(self, content: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
-        try:
-            content = schemas.adapter.dump(self.schema, content)
-            schemas.adapter.validate(self.schema, content)
-        except schemas.SchemaValidationError as e:
-            raise SerializationError(status_code=500, detail=e.errors)
-
-        return content
-
     def render(self, content: t.Any):
         if self.schema is not None:
-            if isinstance(content, dict):
-                content = self._render_schema_item(content)
-            elif isinstance(content, list):
-                content = [self._render_schema_item(c) for c in content]
+            try:
+                content = schemas.Schema(self.schema, multiple=isinstance(content, list)).dump(content)
+            except schemas.SchemaValidationError as e:
+                raise SerializationError(status_code=500, detail=e.errors)
 
         if not content:
             return b""

@@ -24,7 +24,7 @@ class TestCaseSchemaRegistry:
         if schemas.lib == pydantic:
             schema = pydantic.create_model("Foo", name=(str, ...))
         elif schemas.lib == typesystem:
-            schema = typesystem.Schema(fields={"name": typesystem.fields.String()})
+            schema = typesystem.Schema(title="Foo", fields={"name": typesystem.fields.String()})
         elif schemas.lib == marshmallow:
             schema = type("Foo", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         else:
@@ -342,9 +342,9 @@ class TestCaseSchemaRegistry:
     @pytest.mark.parametrize(
         "schema,name,exception",
         [
-            pytest.param(typesystem.Schema(fields={}), "Foo", None, id="typesystem_explicit_name"),
+            pytest.param(typesystem.Schema(title="Foo", fields={}), "Foo", None, id="typesystem_explicit_name"),
             pytest.param(
-                typesystem.Schema(fields={}),
+                typesystem.Schema(title="Foo", fields={}),
                 None,
                 ValueError("Cannot infer schema name."),
                 id="typesystem_cannot_infer_name",
@@ -367,9 +367,7 @@ class TestCaseSchemaRegistry:
         (
             pytest.param(False, openapi.Reference(ref="#/components/schemas/Foo"), id="single"),
             pytest.param(
-                True,
-                openapi.Schema({"type": "array", "items": openapi.Reference(ref="#/components/schemas/Foo")}),
-                id="multiple",
+                True, openapi.Schema({"type": "array", "items": {"ref": "#/components/schemas/Foo"}}), id="multiple"
             ),
         ),
     )
@@ -385,7 +383,7 @@ class TestCaseSchemaGenerator:
         if schemas.lib == pydantic:
             schema = pydantic.create_model("Owner", name=(str, ...))
         elif schemas.lib == typesystem:
-            schema = typesystem.Schema(fields={"name": typesystem.fields.String()})
+            schema = typesystem.Schema(title="Owner", fields={"name": typesystem.fields.String()})
         elif schemas.lib == marshmallow:
             schema = type("Owner", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         else:
@@ -401,10 +399,11 @@ class TestCaseSchemaGenerator:
             schema = pydantic.create_model("Puppy", name=(str, ...), owner=(owner_schema, ...))
         elif schemas.lib == typesystem:
             schema = typesystem.Schema(
+                title="Puppy",
                 fields={
                     "name": typesystem.fields.String(),
                     "owner": typesystem.Reference(to="Owner", definitions=app.schema.schemas),
-                }
+                },
             )
         elif schemas.lib == marshmallow:
             schema = type(

@@ -10,6 +10,7 @@ from flama.injection import Parameter
 from flama.schemas._libs.marshmallow.fields import MAPPING
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
+from flama.schemas.types import JSONSchema
 
 if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing import TypeGuard
@@ -29,11 +30,12 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
     def build_field(
         self,
         name: str,
-        type: t.Type,
+        type_: t.Type,
         nullable: bool = False,
         required: bool = True,
         default: t.Any = None,
-        **kwargs: t.Any
+        multiple: bool = False,
+        **kwargs
     ) -> Field:
         field_args = {
             "required": required,
@@ -44,37 +46,24 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         if not required:
             field_args["load_default"] = default if default is not Parameter.empty else None
 
-        return MAPPING[type](**field_args)  # type: ignore[arg-type]
+        if multiple:
+            return marshmallow.fields.List(
+                marshmallow.fields.Nested(type_) if self.is_schema(type_) else MAPPING[type_](),
+                **field_args,
+            )
+
+        return MAPPING[type_](**field_args)  # type: ignore[arg-type]
 
     def build_schema(
         self,
-        name: str = "Schema",
+        name: t.Optional[str] = None,
         schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
-        pagination: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
-        paginated_schema_name: t.Optional[str] = None,
         fields: t.Optional[t.Dict[str, Field]] = None,
     ) -> t.Type[Schema]:
-        schema_fields: t.Dict[str, t.Union[Field, t.Type]]
-        parent_schema: t.Optional[Schema] = None
-        if inspect.isclass(schema):
-            parent_schema = schema()
-
-        if pagination:
-            assert paginated_schema_name, "Parameter 'pagination_schema_name' must be given to create a paginated field"
-            pagination_schema = pagination() if inspect.isclass(pagination) else pagination
-            data_field = marshmallow.fields.Nested(parent_schema) if parent_schema else marshmallow.fields.Raw()
-            schema_fields = {
-                **pagination_schema.fields,
-                "data": marshmallow.fields.List(data_field, required=True),
-            }
-            name = paginated_schema_name
-        else:
-            schema_fields = {
-                **(parent_schema.fields if parent_schema else {}),
-                **(fields or {}),
-            }
-
-        return Schema.from_dict(schema_fields, name=name)
+        return Schema.from_dict(
+            fields={**(self.unique_schema(schema)().fields if schema else {}), **(fields or {})},
+            name=name or self.DEFAULT_SCHEMA_NAME,
+        )
 
     def validate(self, schema: t.Union[t.Type[Schema], Schema], values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         schema_instance = schema() if inspect.isclass(schema) else schema
@@ -103,7 +92,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
         return data
 
-    def to_json_schema(self, schema: t.Union[t.Type[Schema], t.Type[Field], Schema, Field]) -> t.Dict[str, t.Any]:
+    def to_json_schema(self, schema: t.Union[t.Type[Schema], t.Type[Field], Schema, Field]) -> JSONSchema:
         json_schema: t.Dict[str, t.Any]
         try:
             plugin = MarshmallowPlugin(

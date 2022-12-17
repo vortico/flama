@@ -1,6 +1,8 @@
 import dataclasses
 import typing as t
 
+from flama import schemas
+
 __all__ = [
     "Schema",
     "Reference",
@@ -30,7 +32,7 @@ __all__ = [
     "OpenAPISpec",
 ]
 
-Schema = t.NewType("Schema", t.Dict[str, t.Any])
+Schema = t.NewType("Schema", schemas.types.JSONSchema)
 
 
 @dataclasses.dataclass(frozen=True)
