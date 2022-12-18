@@ -1,6 +1,6 @@
 import typing
 
-import tf
+import tensorflow as tf
 
 from flama import Flama
 from flama.models import Model, ModelComponent, ModelResource, ModelResourceType

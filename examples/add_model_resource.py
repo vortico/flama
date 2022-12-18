@@ -1,6 +1,7 @@
+import typing
 from datetime import datetime
 
-import typesystem as ts
+from pydantic import BaseModel, Field
 
 import flama
 from flama import Flama
@@ -14,8 +15,14 @@ app = Flama(
     docs="/docs/",
 )
 
-X = ts.Schema(fields={"input": ts.fields.Array()})
-Y = ts.Schema(fields={"output": ts.fields.Array()})
+
+class X(BaseModel):
+    input: typing.List[typing.Any] = Field(title="input", description="Model input")
+
+
+class Y(BaseModel):
+    output: typing.List[typing.Any] = Field(title="output", description="Model output")
+
 
 app.schema.register_schema("X", X)
 app.schema.register_schema("Y", Y)
