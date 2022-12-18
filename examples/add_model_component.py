@@ -3,7 +3,7 @@ from datetime import datetime
 
 import flama
 from flama import Flama
-from flama.models import Model, ModelResource, ModelResourceType, ModelComponent
+from flama.models import Model, ModelComponent, ModelResource, ModelResourceType
 from flama.resources import resource_method
 
 
@@ -16,7 +16,6 @@ class MyCustomModel(Model):
 
 
 class MyCustomModelComponent(ModelComponent):
-
     def __init__(self, model_path: str):
         self._model_path = model_path
         self.model = MyCustomModel(None)
@@ -36,6 +35,8 @@ class MyCustomModelComponent(ModelComponent):
 
 
 component = MyCustomModelComponent("sklearn_model.flm")
+
+
 # component = MyCustomModelComponent("pytorch_model.flm")
 # component = MyCustomModelComponent("tensorflow_model.flm")
 
@@ -61,7 +62,7 @@ class MyCustomModelResource(ModelResource, metaclass=ModelResourceType):
                     **self.info,
                     "loaded": self.component.model.model is not None,
                     "date": datetime.now().date(),
-                    "time": datetime.now().time()
+                    "time": datetime.now().time(),
                 },
             }
         }
@@ -97,7 +98,6 @@ app = Flama(
 )
 
 app.models.add_model_resource(path="/model", resource=MyCustomModelResource)
-
 
 if __name__ == "__main__":
     flama.run(flama_app="__main__:app", server_host="0.0.0.0", server_port=8080, server_reload=True)
