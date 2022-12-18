@@ -85,7 +85,7 @@ class MySKModel(ModelResource, metaclass=ModelResourceType):
                 "custom": {
                     **self.info,
                     "date": datetime.now().date(),
-                    "time": datetime.now().time()
+                    "time": datetime.now().time(),
                 },
             }
         }

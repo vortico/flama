@@ -99,7 +99,7 @@ scikit-learn = [
     { version = "^1.1", python = ">=3.8" }
 ]
 tensorflow-cpu = { version = "^2.11", python = ">=3.7,<3.11" }
-torch = { version = "^1.12", python = ">=3.7,<3.11" }
+torch = { version = "^1.13", python = ">=3.7" }
 
 [tool.black]
 line-length = 120
