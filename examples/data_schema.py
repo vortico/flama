@@ -1,4 +1,6 @@
-import typesystem
+import typing
+
+from pydantic import BaseModel, validator
 
 import flama
 from flama import Flama
@@ -11,13 +13,19 @@ app = Flama(
     docs="/docs/",  # Path to expose Docs application
 )
 
-Puppy = typesystem.Schema(
-    fields={
-        "id": typesystem.fields.Integer(),
-        "name": typesystem.fields.String(),
-        "age": typesystem.fields.Integer(minimum=0),
-    }
-)
+
+class Puppy(BaseModel):
+    id: int
+    name: str
+    age: int
+
+    @validator("age")
+    def minimum_age_validation(cls, v):
+        if v < 0:
+            raise ValueError("Age must be positive")
+
+        return v
+
 
 app.schema.register_schema("Puppy", Puppy)
 
@@ -26,9 +34,7 @@ def home():
     return {"hello": "world"}
 
 
-def list_puppies(
-    name: str = None,
-) -> typesystem.fields.Array(typesystem.Reference("Puppy", definitions=app.schema.schemas)):
+def list_puppies(name: str = None) -> typing.List[Puppy]:
     """
     tags:
         - puppy
@@ -62,7 +68,6 @@ def create_puppy(puppy: Puppy) -> Puppy:
 
 app.add_route("/puppy/", list_puppies, methods=["GET"])
 app.add_route("/puppy/", create_puppy, methods=["POST"])
-
 
 if __name__ == "__main__":
     flama.run(app, host="0.0.0.0", port=8000)

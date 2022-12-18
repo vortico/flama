@@ -1,6 +1,6 @@
 import databases
-import marshmallow
 import sqlalchemy
+from pydantic import BaseModel
 from sqlalchemy import create_engine
 
 import flama
@@ -14,9 +14,9 @@ database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
 
 
-class PuppySchema(marshmallow.Schema):
-    custom_id = marshmallow.fields.Integer(dump_only=True)
-    name = marshmallow.fields.String()
+class PuppySchema(BaseModel):
+    custom_id: int
+    name: str
 
 
 PuppyModel = sqlalchemy.Table(

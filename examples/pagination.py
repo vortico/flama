@@ -1,15 +1,23 @@
 import string
+import typing
 
-from marshmallow import Schema, fields, validate
+from pydantic import BaseModel, validator
 
 import flama
 from flama import Flama
 
 
-class Puppy(Schema):
-    id = fields.Integer()
-    name = fields.String()
-    age = fields.Integer(validate=validate.Range(min=0))
+class Puppy(BaseModel):
+    id: int
+    name: str
+    age: int
+
+    @validator("age")
+    def minimum_age_validation(cls, v):
+        if v < 0:
+            raise ValueError("Age must be positive")
+
+        return v
 
 
 PUPPIES = [{"id": 1, "name": "Canna", "age": 7}, {"id": 2, "name": "Sandy", "age": 12}]
@@ -58,7 +66,7 @@ def alphabet(**kwargs):
 
 @app.route("/puppy/", methods=["GET"])
 @app.paginator.page_number
-def puppies(name: str = None, **kwargs) -> Puppy(many=True):
+def puppies(name: str = None, **kwargs) -> typing.List[Puppy]:
     """
     tags:
         - puppy
