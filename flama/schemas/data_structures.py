@@ -20,23 +20,28 @@ class Field:
     type: t.Type
     nullable: bool = dataclasses.field(init=False)
     field: t.Any = dataclasses.field(hash=False, init=False, compare=False)
-    multiple: bool = dataclasses.field(hash=False, init=False, compare=False)
+    multiple: t.Optional[bool] = dataclasses.field(hash=False, compare=False, default=None)
     required: bool = True
     default: t.Any = InjectionParameter.empty
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "nullable", type(None) in t.get_args(self.type) or self.default is None)
-        object.__setattr__(self, "multiple", t.get_origin(self.type) is list)
+
+        field_type = t.get_args(self.type)[0] if t.get_origin(self.type) in (list, t.Union) else self.type
+
+        if not Schema.is_schema(field_type) and self.multiple is None:
+            object.__setattr__(self, "multiple", t.get_origin(self.type) is list)
+
         object.__setattr__(
             self,
             "field",
             schemas.adapter.build_field(
                 self.name,
-                t.get_args(self.type)[0] if t.get_origin(self.type) in (list, t.Union) else self.type,
+                field_type,
                 nullable=self.nullable,
                 required=self.required,
                 default=self.default,
-                multiple=self.multiple,
+                multiple=bool(self.multiple),
             ),
         )
 
@@ -69,28 +74,21 @@ class Field:
 
     @property
     def json_schema(self) -> schemas.types.JSONSchema:
-        schema = schemas.adapter.to_json_schema(self.field)
-
-        if self.multiple:
-            schema = {"items": {"$ref": schema}, "type": "array"}
-
-        return schema
+        return schemas.adapter.to_json_schema(self.field)
 
 
 @dataclasses.dataclass(frozen=True)
 class Schema:
     schema: t.Any = dataclasses.field(hash=False, compare=False)
-    multiple: bool = dataclasses.field(hash=False, compare=False, default=False)
 
     @classmethod
-    def from_type(cls, type: t.Optional[t.Type]) -> "Schema":
-        multiple = t.get_origin(type) is list
-        schema = t.get_args(type)[0] if multiple else type
+    def from_type(cls, type_: t.Optional[t.Type]) -> "Schema":
+        schema = t.get_args(type_)[0] if t.get_origin(type_) is list else type_
 
         if not schemas.adapter.is_schema(schema):
             raise ValueError("Wrong schema type")
 
-        return cls(schema=schema, multiple=multiple)
+        return cls(schema=schema)
 
     @classmethod
     def build(
@@ -98,13 +96,11 @@ class Schema:
         name: t.Optional[str] = None,
         schema: t.Any = None,
         fields: t.Optional[t.List[Field]] = None,
-        multiple: bool = False,
     ) -> "Schema":
         return cls(
             schema=schemas.adapter.build_schema(
                 name=name, schema=schema, fields={f.name: f.field for f in (fields or [])}
             ),
-            multiple=multiple,
         )
 
     @classmethod
@@ -113,12 +109,7 @@ class Schema:
 
     @property
     def json_schema(self) -> t.Dict[str, t.Any]:
-        schema = schemas.adapter.to_json_schema(self.schema)
-
-        if self.multiple:
-            schema = {"items": {"$ref": schema}, "type": "array"}
-
-        return schema
+        return schemas.adapter.to_json_schema(self.schema)
 
     @property
     def unique_schema(self) -> t.Any:
@@ -133,7 +124,7 @@ class Schema:
         ...
 
     def validate(self, values):
-        if self.multiple and isinstance(values, (list, tuple)):
+        if isinstance(values, (list, tuple)):
             return [schemas.adapter.validate(self.schema, value) for value in values]
 
         return schemas.adapter.validate(self.schema, values)
@@ -147,7 +138,7 @@ class Schema:
         ...
 
     def load(self, values):
-        if self.multiple:
+        if isinstance(values, (list, tuple)):
             return [schemas.adapter.load(self.schema, value) for value in values]
 
         return schemas.adapter.load(self.schema, values)
@@ -161,7 +152,7 @@ class Schema:
         ...
 
     def dump(self, values):
-        if self.multiple and isinstance(values, (list, tuple)):
+        if isinstance(values, (list, tuple)):
             return [schemas.adapter.dump(self.schema, value) for value in values]
 
         return schemas.adapter.dump(self.schema, values)
@@ -186,7 +177,7 @@ class Parameter:
             field = None
         except ValueError:
             if self.type in (None, InjectionParameter.empty):
-                schema = Schema(schema=None, multiple=False)
+                schema = Schema(schema=None)
                 field = None
             else:
                 schema = None

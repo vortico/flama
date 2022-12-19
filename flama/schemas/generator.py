@@ -70,20 +70,25 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
             return [schema.ref]
 
         result = []
-        for name, prop in schema.get("properties", {}).items():
-            if "$ref" in prop:
-                result.append(prop["$ref"])
 
-            if prop.get("type", "") == "array" and prop.get("items", {}).get("$ref"):
-                result.append(prop["items"]["$ref"])
+        if "$ref" in schema:
+            result.append(schema["$ref"])
 
-            result += [
-                ref["$ref"]
-                for composer in ("allOf", "anyOf", "oneOff")
-                if composer in prop
-                for ref in prop[composer]
-                if "$ref" in ref
-            ]
+        if schema.get("type", "") == "array" and schema.get("items", {}).get("$ref"):
+            result.append(schema["items"]["$ref"])
+
+        result += [
+            ref
+            for composer in ("allOf", "anyOf", "oneOf")
+            for composer_schema in schema.get(composer, [])
+            for ref in self._get_schema_references_from_schema(composer_schema)
+        ]
+
+        result += [
+            ref
+            for prop in schema.get("properties", {}).values()
+            for ref in self._get_schema_references_from_schema(prop)
+        ]
 
         return result
 
@@ -201,7 +206,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         return schema_id
 
     def get_openapi_ref(
-        self, element: schemas.types.Schema, multiple: bool = False
+        self, element: schemas.types.Schema, multiple: t.Optional[bool] = None
     ) -> typing.Union[openapi.Schema, openapi.Reference]:
         """
         Builds the reference for a single schema or the array schema containing the reference.
@@ -210,12 +215,14 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         :param multiple: True for building a schema containing an array of references instead of a single reference.
         :return: Reference or array schema.
         """
-        reference = openapi.Reference(ref=self[element].ref)
+        reference = self[element].ref
 
-        if multiple:
-            return openapi.Schema({"items": dataclasses.asdict(reference), "type": "array"})
-
-        return reference
+        if multiple is True:
+            return openapi.Schema({"items": {"$ref": reference}, "type": "array"})
+        elif multiple is None:
+            return openapi.Schema({"oneOf": [{"$ref": reference}, {"items": {"$ref": reference}, "type": "array"}]})
+        else:
+            return openapi.Reference(ref=reference)
 
 
 class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
@@ -355,9 +362,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
         return openapi.RequestBody(
             content={
                 "application/json": openapi.MediaType(
-                    schema=self.schemas.get_openapi_ref(
-                        endpoint.body_parameter.schema.schema, multiple=endpoint.body_parameter.schema.multiple
-                    )
+                    schema=self.schemas.get_openapi_ref(endpoint.body_parameter.schema.schema, multiple=False),
                 )
             },
             **{
@@ -383,9 +388,7 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
 
             content = {
                 "application/json": openapi.MediaType(
-                    schema=self.schemas.get_openapi_ref(
-                        endpoint.response_parameter.schema.schema, multiple=endpoint.response_parameter.schema.multiple
-                    )
+                    schema=self.schemas.get_openapi_ref(endpoint.response_parameter.schema.schema)
                 )
             }
         else:
@@ -403,7 +406,9 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
         return openapi.Response(
             description=metadata.get("responses", {}).get("default", {}).get("description", "Unexpected error."),
             content={
-                "application/json": openapi.MediaType(schema=self.schemas.get_openapi_ref(schemas.schemas.APIError))
+                "application/json": openapi.MediaType(
+                    schema=self.schemas.get_openapi_ref(schemas.schemas.APIError, multiple=False)
+                )
             },
         )
 
