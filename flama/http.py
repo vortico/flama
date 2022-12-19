@@ -113,7 +113,7 @@ class APIResponse(JSONResponse):
     def render(self, content: t.Any):
         if self.schema is not None:
             try:
-                content = schemas.Schema(self.schema, multiple=isinstance(content, list)).dump(content)
+                content = schemas.Schema(self.schema).dump(content)
             except schemas.SchemaValidationError as e:
                 raise SerializationError(status_code=500, detail=e.errors)
 

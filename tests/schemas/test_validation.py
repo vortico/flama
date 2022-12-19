@@ -54,12 +54,8 @@ class TestCaseTypesystemSchemaValidateOutput:
         app.schema.schemas["Product"] = schema
         return schema
 
-    @pytest.fixture(scope="function")
-    def product_array_schema(self, product_schema):
-        return t.List[product_schema]
-
     @pytest.fixture(scope="function", autouse=True)
-    def add_endpoints(self, app, product_schema, product_array_schema):
+    def add_endpoints(self, app, product_schema):
         @app.route("/product", methods=["GET"])
         @output_validation()
         def validate_product() -> product_schema:
@@ -71,7 +67,7 @@ class TestCaseTypesystemSchemaValidateOutput:
 
         @app.route("/many-products", methods=["GET"])
         @output_validation()
-        def validate_many_products() -> product_array_schema:
+        def validate_many_products() -> product_schema:
             return [
                 {
                     "name": "foo",
