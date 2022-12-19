@@ -12,10 +12,10 @@ from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 from flama.schemas.types import JSONSchema
 
-if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing import TypeGuard
-else:  # pragma: no cover
+if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard
+
+    t.TypeGuard = TypeGuard
 
 if t.TYPE_CHECKING:
     from apispec.ext.marshmallow import OpenAPIConverter
@@ -127,8 +127,8 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
         return schema
 
-    def is_schema(self, obj: t.Any) -> TypeGuard[t.Union[Schema, t.Type[Schema]]]:
+    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[Schema, t.Type[Schema]]]:
         return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
-    def is_field(self, obj: t.Any) -> TypeGuard[t.Union[Field, t.Type[Field]]]:
+    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[Field, t.Type[Field]]]:
         return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))

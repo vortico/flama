@@ -4,10 +4,10 @@ import typing as t
 
 from flama.schemas.types import Field, JSONSchema, Schema
 
-if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing import TypeGuard
-else:  # pragma: no cover
+if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard
+
+    t.TypeGuard = TypeGuard
 
 
 class Adapter(t.Generic[Schema, Field], metaclass=abc.ABCMeta):
@@ -79,9 +79,9 @@ class Adapter(t.Generic[Schema, Field], metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def is_schema(self, obj: t.Any) -> TypeGuard[t.Union[Schema, t.Type[Schema]]]:
+    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[Schema, t.Type[Schema]]]:
         ...
 
     @abc.abstractmethod
-    def is_field(self, obj: t.Any) -> TypeGuard[t.Union[Field, t.Type[Field]]]:
+    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[Field, t.Type[Field]]]:
         ...

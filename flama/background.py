@@ -9,14 +9,14 @@ import starlette.background
 
 from flama import concurrency
 
-if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing import ParamSpec
-else:  # pragma: no cover
+if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import ParamSpec
+
+    t.ParamSpec = ParamSpec
 
 __all__ = ["BackgroundTask", "BackgroundTasks", "Concurrency", "BackgroundThreadTask", "BackgroundProcessTask"]
 
-P = ParamSpec("P")
+P = t.ParamSpec("P")
 
 
 class Concurrency(enum.Enum):

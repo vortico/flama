@@ -1,15 +1,16 @@
 import sys
 import typing as t
 
-if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.8 # pragma: no cover
-    from typing import Protocol
-else:  # pragma: no cover
+if sys.version_info < (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
     from typing_extensions import Protocol
 
-if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
-    from typing import Concatenate, ParamSpec
-else:  # pragma: no cover
+    t.Protocol = Protocol
+
+if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import Concatenate, ParamSpec
+
+    t.Concatenate = Concatenate
+    t.ParamSpec = ParamSpec
 
 if t.TYPE_CHECKING:
     from flama import endpoints  # noqa
@@ -33,30 +34,30 @@ __all__ = [
     "WebSocketHandler",
 ]
 
-P = ParamSpec("P")
+P = t.ParamSpec("P")
 R = t.TypeVar("R", covariant=True)
 
 Scope = t.NewType("Scope", t.MutableMapping[str, t.Any])
 Message = t.NewType("Message", t.MutableMapping[str, t.Any])
 
 
-class Receive(Protocol):
+class Receive(t.Protocol):
     async def __call__(self) -> Message:
         ...
 
 
-class Send(Protocol):
+class Send(t.Protocol):
     async def __call__(self, message: Message) -> None:
         ...
 
 
 # Applications
-class AppClass(Protocol[P, R]):
+class AppClass(t.Protocol[P, R]):
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
         ...
 
 
-class AppAsyncClass(Protocol[P, R]):
+class AppAsyncClass(t.Protocol[P, R]):
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
         ...
 
@@ -77,8 +78,8 @@ class MiddlewareAsyncClass(AppAsyncClass):
         ...
 
 
-MiddlewareFunction = t.Callable[Concatenate[App, P], App]  # type: ignore[valid-type,misc]
-MiddlewareAsyncFunction = t.Callable[Concatenate[App, P], t.Awaitable[App]]  # type: ignore[valid-type,misc]
+MiddlewareFunction = t.Callable[t.Concatenate[App, P], App]  # type: ignore[valid-type,misc]
+MiddlewareAsyncFunction = t.Callable[t.Concatenate[App, P], t.Awaitable[App]]  # type: ignore[valid-type,misc]
 Middleware = t.Union[MiddlewareClass, MiddlewareAsyncClass, MiddlewareFunction, MiddlewareAsyncFunction]
 
 HTTPHandler = t.Union[AppFunction, t.Type["endpoints.HTTPEndpoint"]]
