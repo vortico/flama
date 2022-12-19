@@ -367,11 +367,23 @@ class TestCaseSchemaRegistry:
         (
             pytest.param(False, openapi.Reference(ref="#/components/schemas/Foo"), id="single"),
             pytest.param(
-                True, openapi.Schema({"type": "array", "items": {"ref": "#/components/schemas/Foo"}}), id="multiple"
+                True, openapi.Schema({"type": "array", "items": {"$ref": "#/components/schemas/Foo"}}), id="multiple"
+            ),
+            pytest.param(
+                None,
+                openapi.Schema(
+                    {
+                        "oneOf": [
+                            {"$ref": "#/components/schemas/Foo"},
+                            {"type": "array", "items": {"$ref": "#/components/schemas/Foo"}},
+                        ]
+                    }
+                ),
+                id="multiple",
             ),
         ),
     )
-    def test_get_openapi_ref_single(self, multiple, result, registry, foo_schema):
+    def test_get_openapi_ref(self, multiple, result, registry, foo_schema):
         assert registry.get_openapi_ref(foo_schema, multiple=multiple) == result
 
 
@@ -420,10 +432,6 @@ class TestCaseSchemaGenerator:
         return schema
 
     @pytest.fixture(scope="function")
-    def puppy_array_schema(self, app, puppy_schema):
-        return t.List[puppy_schema]
-
-    @pytest.fixture(scope="function")
     def body_param_schema(self, app):
         from flama import schemas
 
@@ -440,7 +448,7 @@ class TestCaseSchemaGenerator:
         return schema
 
     @pytest.fixture(scope="function", autouse=True)
-    def add_endpoints(self, app, puppy_schema, puppy_array_schema, body_param_schema):
+    def add_endpoints(self, app, puppy_schema, body_param_schema):
         @app.route("/endpoint/", methods=["GET"])
         class PuppyEndpoint(HTTPEndpoint):
             async def get(self) -> puppy_schema:
@@ -463,7 +471,7 @@ class TestCaseSchemaGenerator:
             return {"name": "Canna"}
 
         @app.route("/many-components/", methods=["GET"])
-        async def many_components() -> puppy_array_schema:
+        async def many_components() -> puppy_schema:
             """
             description: Many custom components.
             responses:
@@ -601,7 +609,16 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Component.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "oneOf": [
+                                            {"$ref": "#/components/schemas/Puppy"},
+                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
+                                        ]
+                                    }
+                                }
+                            },
                         }
                     },
                 },
@@ -618,8 +635,10 @@ class TestCaseSchemaGenerator:
                             "content": {
                                 "application/json": {
                                     "schema": {
-                                        "items": {"$ref": "#/components/schemas/Puppy"},
-                                        "type": "array",
+                                        "oneOf": [
+                                            {"$ref": "#/components/schemas/Puppy"},
+                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
+                                        ]
                                     }
                                 }
                             },
@@ -636,7 +655,16 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Component.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "oneOf": [
+                                            {"$ref": "#/components/schemas/Puppy"},
+                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
+                                        ]
+                                    }
+                                }
+                            },
                         }
                     },
                 },
@@ -650,7 +678,16 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Component.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "oneOf": [
+                                            {"$ref": "#/components/schemas/Puppy"},
+                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
+                                        ]
+                                    }
+                                }
+                            },
                         }
                     },
                 },
@@ -664,7 +701,16 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Component.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "oneOf": [
+                                            {"$ref": "#/components/schemas/Puppy"},
+                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
+                                        ]
+                                    }
+                                }
+                            },
                         }
                     },
                 },

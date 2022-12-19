@@ -47,10 +47,6 @@ class TestCaseSchemaValidation:
         return schema
 
     @pytest.fixture(scope="function")
-    def product_array_schema(self, app, product_schema):
-        return t.List[product_schema]
-
-    @pytest.fixture(scope="function")
     def reviewed_product_schema(self, app, product_schema):
         from flama import schemas
 
@@ -135,9 +131,7 @@ class TestCaseSchemaValidation:
         return schema
 
     @pytest.fixture(scope="function", autouse=True)
-    def add_endpoints(
-        self, app, product_schema, product_array_schema, reviewed_product_schema, location_schema, place_schema
-    ):
+    def add_endpoints(self, app, product_schema, reviewed_product_schema, location_schema, place_schema):
         @app.route("/product", methods=["POST"])
         def product_identity(product: product_schema) -> product_schema:
             return product
@@ -151,7 +145,7 @@ class TestCaseSchemaValidation:
             return place
 
         @app.route("/many-products", methods=["GET"])
-        def many_products() -> product_array_schema:
+        def many_products() -> product_schema:
             return [
                 {
                     "name": "foo",
