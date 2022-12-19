@@ -79,7 +79,17 @@ class TestPageNumberResponse:
         assert response_schema == {
             "description": "Description not provided.",
             "content": {
-                "application/json": {"schema": {"$ref": "#/components/schemas/PageNumberPaginatedOutputSchema"}},
+                "application/json": {
+                    "schema": {
+                        "oneOf": [
+                            {"$ref": "#/components/schemas/PageNumberPaginatedOutputSchema"},
+                            {
+                                "items": {"$ref": "#/components/schemas/PageNumberPaginatedOutputSchema"},
+                                "type": "array",
+                            },
+                        ]
+                    }
+                }
             },
         }
 
@@ -195,7 +205,17 @@ class TestLimitOffsetResponse:
         assert response_schema == {
             "description": "Description not provided.",
             "content": {
-                "application/json": {"schema": {"$ref": "#/components/schemas/LimitOffsetPaginatedOutputSchema"}}
+                "application/json": {
+                    "schema": {
+                        "oneOf": [
+                            {"$ref": "#/components/schemas/LimitOffsetPaginatedOutputSchema"},
+                            {
+                                "items": {"$ref": "#/components/schemas/LimitOffsetPaginatedOutputSchema"},
+                                "type": "array",
+                            },
+                        ]
+                    }
+                }
             },
         }
 

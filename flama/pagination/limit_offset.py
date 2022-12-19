@@ -73,8 +73,7 @@ class LimitOffsetMixin:
             schema = schemas.Schema.build(
                 paginated_schema_name,
                 schema=schemas.schemas.LimitOffset,
-                fields=[schemas.Field("data", t.List[resource_schema])],  # type: ignore[valid-type]
-                multiple=False,
+                fields=[schemas.Field("data", resource_schema, multiple=True)],
             ).unique_schema
 
             forge_revision_list = (
