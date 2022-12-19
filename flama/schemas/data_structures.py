@@ -6,10 +6,16 @@ from flama import schemas, types
 from flama.injection.resolver import Parameter as InjectionParameter
 from flama.schemas.types import ParameterLocation
 
-if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing import TypeGuard
-else:  # pragma: no cover
+if sys.version_info < (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
+    from typing_extensions import get_args, get_origin
+
+    t.get_args = get_args
+    t.get_origin = get_origin
+
+if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard
+
+    t.TypeGuard = TypeGuard
 
 __all__ = ["Field", "Schema", "Parameter", "Parameters"]
 
@@ -187,11 +193,11 @@ class Parameter:
         object.__setattr__(self, "field", field)
 
     @property
-    def is_field(self) -> TypeGuard[Field]:
+    def is_field(self) -> t.TypeGuard[Field]:
         return isinstance(self.schema, Field)
 
     @property
-    def is_schema(self) -> TypeGuard[Schema]:
+    def is_schema(self) -> t.TypeGuard[Schema]:
         return isinstance(self.schema, Schema)
 
     @classmethod
