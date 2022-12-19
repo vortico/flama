@@ -10,10 +10,10 @@ from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 from flama.schemas.types import JSONSchema
 
-if sys.version_info >= (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing import TypeGuard
-else:  # pragma: no cover
+if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard
+
+    t.TypeGuard = TypeGuard
 
 __all__ = ["TypesystemAdapter"]
 
@@ -101,9 +101,9 @@ class TypesystemAdapter(Adapter[Schema, Field]):
         return schema
 
     @t.no_type_check
-    def is_schema(self, obj: t.Any) -> TypeGuard[Schema]:
+    def is_schema(self, obj: t.Any) -> t.TypeGuard[Schema]:
         return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
     @t.no_type_check
-    def is_field(self, obj: t.Any) -> TypeGuard[Field]:
+    def is_field(self, obj: t.Any) -> t.TypeGuard[Field]:
         return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))
