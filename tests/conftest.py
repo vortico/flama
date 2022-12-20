@@ -1,20 +1,23 @@
 import asyncio
 import sys
+import tempfile
 import typing as t
 from contextlib import ExitStack
 from pathlib import Path
 
 import marshmallow
+import numpy as np
 import pydantic
 import pytest
 import sqlalchemy
 import typesystem
 from faker import Faker
 
+import flama
 from flama import Flama
 from flama.sqlalchemy import SQLAlchemyModule, metadata
 from flama.testclient import TestClient
-from tests.utils import ExceptionContext, check_param_lib_installed
+from tests.utils import ExceptionContext, installed
 
 if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
     from unittest.mock import AsyncMock
@@ -22,8 +25,7 @@ else:  # pragma: no cover
     from asyncmock import AsyncMock
 
 try:
-    import sklearn
-    from sklearn.linear_model import LogisticRegression
+    import sklearn.neural_network
 except Exception:
     sklearn = None
 
@@ -161,55 +163,128 @@ def asgi_send():
     return AsyncMock()
 
 
-def sklearn_model():
-    return LogisticRegression(), LogisticRegression
+class ModelFactory:
+    def __init__(self):
+        self._factories = {
+            "sklearn": self._sklearn,
+            "tensorflow": self._tensorflow,
+            "torch": self._torch,
+        }
+
+        self._models = {}
+        self._models_cls = {}
+
+    def _build(self, framework: str):
+        if framework not in self._factories:
+            raise ValueError(f"Wrong framework: '{framework}'.")
+
+        if framework not in self._models:
+            self._models[framework], self._models_cls[framework] = self._factories[framework]()
+
+    def model(self, framework: str):
+        self._build(framework)
+        return self._models[framework]
+
+    def model_cls(self, framework: str):
+        self._build(framework)
+        return self._models_cls[framework]
+
+    def _sklearn(self):
+        model = sklearn.neural_network.MLPClassifier(activation="tanh", max_iter=2000, hidden_layer_sizes=(10,))
+        model.fit(
+            np.array([[0, 0], [0, 1], [1, 0], [1, 1]]),
+            np.array([0, 1, 1, 0]),
+        )
+        return model, sklearn.neural_network.MLPClassifier
+
+    def _tensorflow(self):
+        model = tf.keras.models.Sequential(
+            [
+                tf.keras.layers.Flatten(input_shape=(2,)),
+                tf.keras.layers.Dense(10, activation="tanh"),
+                tf.keras.layers.Dense(1, activation="sigmoid"),
+            ]
+        )
+
+        model.compile(optimizer="adam", loss="mse")
+        model.fit(
+            np.array([[0, 0], [0, 1], [1, 0], [1, 1]]),
+            np.array([[0], [1], [1], [0]]),
+            epochs=2000,
+            verbose=0,
+        )
+
+        return model, tf.keras.models.Sequential
+
+    def _torch(self):
+        class Model(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.l1 = torch.nn.Linear(2, 10)
+                self.l2 = torch.nn.Linear(10, 1)
+
+            def forward(self, x):
+                x = torch.tanh(self.l1(x))
+                x = torch.sigmoid(self.l2(x))
+                return x
+
+            def _train(self, X, Y, loss, optimizer):
+                for m in self.modules():
+                    if isinstance(m, torch.nn.Linear):
+                        m.weight.data.normal_(0, 1)
+
+                steps = X.size(0)
+                for i in range(2000):
+                    for j in range(steps):
+                        data_point = np.random.randint(steps)
+                        x_var = torch.autograd.Variable(X[data_point], requires_grad=False)
+                        y_var = torch.autograd.Variable(Y[data_point], requires_grad=False)
+
+                        optimizer.zero_grad()
+                        y_hat = model(x_var)
+                        loss_result = loss.forward(y_hat, y_var)
+                        loss_result.backward()
+                        optimizer.step()
+
+                return self
+
+        X = torch.Tensor([[0, 0], [0, 1], [1, 0], [1, 1]])
+        Y = torch.Tensor([0, 1, 1, 0]).view(-1, 1)
+        model = Model()
+        model._train(X, Y, loss=torch.nn.BCELoss(), optimizer=torch.optim.Adam(model.parameters()))
+
+        return model, torch.jit.RecursiveScriptModule
 
 
-def tensorflow_model():
-    tf_model = tf.keras.models.Sequential(
-        [
-            tf.keras.layers.Flatten(input_shape=(28, 28)),
-            tf.keras.layers.Dense(128, activation="relu"),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Dense(10, activation="softmax"),
-        ]
-    )
-
-    tf_model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-
-    return tf_model, tf.keras.models.Sequential
-
-
-def torch_model():
-    class Model(torch.nn.Module):
-        def forward(self, x):
-            return x + 10
-
-    return Model(), torch.jit.RecursiveScriptModule
+model_factory = ModelFactory()
 
 
 @pytest.fixture(scope="function")
-@check_param_lib_installed
 def model(request):
-    return {"sklearn": sklearn_model, "tensorflow": tensorflow_model, "torch": torch_model}[request.param]()[0]
+    if not installed(request.param):
+        pytest.skip(f"Lib '{request.param}' is not installed.")
+        return
+
+    return model_factory.model(request.param)
 
 
 @pytest.fixture(scope="function")
-@check_param_lib_installed
 def serialized_model_class(request):
-    return {"sklearn": sklearn_model, "tensorflow": tensorflow_model, "torch": torch_model}[request.param]()[1]
+    if not installed(request.param):
+        pytest.skip(f"Lib '{request.param}' is not installed.")
+        return
 
-
-@pytest.fixture(scope="session")
-def model_paths():
-    return {
-        "sklearn": Path("tests/data/sklearn_model.flm"),
-        "tensorflow": Path("tests/data/tensorflow_model.flm"),
-        "torch": Path("tests/data/pytorch_model.flm"),
-    }
+    return model_factory.model_cls(request.param)
 
 
 @pytest.fixture(scope="function")
-@check_param_lib_installed
-def model_path(request, model_paths):
-    return model_paths[request.param]
+def model_path(request):
+    if not installed(request.param):
+        pytest.skip(f"Lib '{request.param}' is not installed.")
+        return
+
+    with tempfile.NamedTemporaryFile(suffix=".flm") as f:
+        flama.dump(model_factory.model(request.param), f)
+        f.flush()
+
+        yield Path(f.name)
