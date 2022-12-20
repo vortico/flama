@@ -9,9 +9,11 @@ from flama.resources.exceptions import ResourceAttributeError
 class TestCaseModelResource:
     @pytest.fixture(params=["tensorflow", "sklearn", "torch"])
     def model(self, request):
-        return {"sklearn": SKLearnModel(Mock()), "tensorflow": TensorFlowModel(Mock()), "torch": PyTorchModel(Mock())}[
-            request.param
-        ]
+        return {
+            "sklearn": SKLearnModel(Mock(), Mock()),
+            "tensorflow": TensorFlowModel(Mock(), Mock()),
+            "torch": PyTorchModel(Mock(), Mock()),
+        }[request.param]
 
     @pytest.fixture
     def component(self, model):
@@ -89,146 +91,23 @@ class TestCaseModelResource:
 
 class TestCaseModelResourceMethods:
     @pytest.mark.parametrize(
-        ("lib", "model_path", "url", "output"),
+        ("lib", "model_path", "url"),
         (
-            pytest.param(
-                "torch",
-                "torch",
-                "/torch/",
-                {"modules": ["RecursiveScriptModule(original_name=Model)"], "parameters": {}, "state": {}},
-                id="torch",
-            ),
-            pytest.param(
-                "sklearn",
-                "sklearn",
-                "/sklearn/",
-                {
-                    "C": 1.0,
-                    "class_weight": None,
-                    "dual": False,
-                    "fit_intercept": True,
-                    "intercept_scaling": 1,
-                    "l1_ratio": None,
-                    "max_iter": 100,
-                    "multi_class": "auto",
-                    "n_jobs": None,
-                    "penalty": "l2",
-                    "random_state": None,
-                    "solver": "lbfgs",
-                    "tol": 0.0001,
-                    "verbose": 0,
-                    "warm_start": False,
-                },
-                id="sklearn",
-            ),
-            pytest.param(
-                "tensorflow",
-                "tensorflow",
-                "/tensorflow/",
-                {
-                    "class_name": "Sequential",
-                    "config": {
-                        "name": "sequential_1",
-                        "layers": [
-                            {
-                                "class_name": "InputLayer",
-                                "config": {
-                                    "batch_input_shape": [None, 1],
-                                    "dtype": "float32",
-                                    "sparse": False,
-                                    "ragged": False,
-                                    "name": "dense_3_input",
-                                },
-                            },
-                            {
-                                "class_name": "Dense",
-                                "config": {
-                                    "name": "dense_3",
-                                    "trainable": True,
-                                    "batch_input_shape": [None, 1],
-                                    "dtype": "float32",
-                                    "units": 200,
-                                    "activation": "linear",
-                                    "use_bias": True,
-                                    "kernel_initializer": {"class_name": "GlorotUniform", "config": {"seed": None}},
-                                    "bias_initializer": {"class_name": "Zeros", "config": {}},
-                                    "kernel_regularizer": None,
-                                    "bias_regularizer": None,
-                                    "activity_regularizer": None,
-                                    "kernel_constraint": None,
-                                    "bias_constraint": None,
-                                },
-                            },
-                            {
-                                "class_name": "Activation",
-                                "config": {
-                                    "name": "activation_2",
-                                    "trainable": True,
-                                    "dtype": "float32",
-                                    "activation": "relu",
-                                },
-                            },
-                            {
-                                "class_name": "Dense",
-                                "config": {
-                                    "name": "dense_4",
-                                    "trainable": True,
-                                    "dtype": "float32",
-                                    "units": 45,
-                                    "activation": "linear",
-                                    "use_bias": True,
-                                    "kernel_initializer": {"class_name": "GlorotUniform", "config": {"seed": None}},
-                                    "bias_initializer": {"class_name": "Zeros", "config": {}},
-                                    "kernel_regularizer": None,
-                                    "bias_regularizer": None,
-                                    "activity_regularizer": None,
-                                    "kernel_constraint": None,
-                                    "bias_constraint": None,
-                                },
-                            },
-                            {
-                                "class_name": "Activation",
-                                "config": {
-                                    "name": "activation_3",
-                                    "trainable": True,
-                                    "dtype": "float32",
-                                    "activation": "relu",
-                                },
-                            },
-                            {
-                                "class_name": "Dense",
-                                "config": {
-                                    "name": "dense_5",
-                                    "trainable": True,
-                                    "dtype": "float32",
-                                    "units": 1,
-                                    "activation": "linear",
-                                    "use_bias": True,
-                                    "kernel_initializer": {"class_name": "GlorotUniform", "config": {"seed": None}},
-                                    "bias_initializer": {"class_name": "Zeros", "config": {}},
-                                    "kernel_regularizer": None,
-                                    "bias_regularizer": None,
-                                    "activity_regularizer": None,
-                                    "kernel_constraint": None,
-                                    "bias_constraint": None,
-                                },
-                            },
-                        ],
-                    },
-                    "keras_version": "2.11.0",
-                    "backend": "tensorflow",
-                },
-                id="tensorflow",
-            ),
+            pytest.param("torch", "torch", "/torch/", id="torch"),
+            pytest.param("sklearn", "sklearn", "/sklearn/", id="sklearn"),
+            pytest.param("tensorflow", "tensorflow", "/tensorflow/", id="tensorflow"),
         ),
         indirect=["model_path"],
     )
-    def test_inspect(self, app, client, lib, model_path, url, output):
+    def test_inspect(self, app, client, lib, model_path, url):
         app.models.add_model(f"/{lib}/", model=model_path, name=lib)
 
         response = client.get(url)
         assert response.status_code == 200, response.json()
-        assert response.json() == output
+        inspect = response.json()
+        assert set(inspect.keys()) == {"id", "timestamp", "model", "framework", "extra"}
+        assert set(inspect["model"].keys()) == {"obj", "info", "params", "metrics"}
+        assert set(inspect["framework"].keys()) == {"lib", "version"}
 
     @pytest.mark.parametrize(
         ("lib", "model_path", "url", "x", "y", "status_code"),
@@ -237,8 +116,8 @@ class TestCaseModelResourceMethods:
                 "torch",
                 "torch",
                 "/torch/predict/",
-                [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]],
-                [[10, 11, 12, 13, 14, 15, 16, 17, 18, 19]],
+                [[0, 0], [0, 1], [1, 0], [1, 1]],
+                [[0], [1], [1], [0]],
                 200,
                 id="torch-200",
             ),
@@ -247,19 +126,8 @@ class TestCaseModelResourceMethods:
                 "sklearn",
                 "sklearn",
                 "/sklearn/predict/",
-                [
-                    [550.0, 2.3, 4.0],
-                    [620.0, 3.3, 2.0],
-                    [670.0, 3.3, 6.0],
-                    [680.0, 3.9, 4.0],
-                    [610.0, 2.7, 3.0],
-                    [610.0, 3.0, 1.0],
-                    [650.0, 3.7, 6.0],
-                    [690.0, 3.7, 5.0],
-                    [540.0, 2.7, 2.0],
-                    [660.0, 3.3, 5.0],
-                ],
-                [0, 0, 1, 1, 0, 0, 1, 1, 0, 1],
+                [[0, 0], [0, 1], [1, 0], [1, 1]],
+                [0, 1, 1, 0],
                 200,
                 id="sklearn-200",
             ),
@@ -268,30 +136,8 @@ class TestCaseModelResourceMethods:
                 "tensorflow",
                 "tensorflow",
                 "/tensorflow/predict/",
-                [
-                    [0.0],
-                    [0.1111111111111111],
-                    [0.2222222222222222],
-                    [0.3333333333333333],
-                    [0.4444444444444444],
-                    [0.5555555555555556],
-                    [0.6666666666666666],
-                    [0.7777777777777777],
-                    [0.8888888888888888],
-                    [1.0],
-                ],
-                [
-                    [-0.18502992391586304],
-                    [-0.19394135475158691],
-                    [-0.21624590456485748],
-                    [-0.23871256411075592],
-                    [-0.25075840950012207],
-                    [-0.21501532196998596],
-                    [-0.038977280259132385],
-                    [0.13738776743412018],
-                    [0.31375277042388916],
-                    [0.4901178479194641],
-                ],
+                [[0, 0], [0, 1], [1, 0], [1, 1]],
+                [[0], [1], [1], [0]],
                 200,
                 id="tensorflow-200",
             ),
@@ -309,4 +155,4 @@ class TestCaseModelResourceMethods:
         assert response.status_code == status_code, response.json()
         if status_code == 200:
             for a, e in zip(response.json()["output"], y):
-                assert a == pytest.approx(e)
+                assert a == pytest.approx(e, abs=3e-1)

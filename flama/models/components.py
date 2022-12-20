@@ -1,10 +1,13 @@
 import abc
-import json
-import typing
+import typing as t
 
 from flama import exceptions
 from flama.injection import Component
-from flama.serialize import ModelFormat, loads
+from flama.serialize import loads
+from flama.serialize.types import Framework
+
+if t.TYPE_CHECKING:
+    from flama.serialize.data_structures import Metadata
 
 try:
     import torch
@@ -20,27 +23,20 @@ __all__ = ["Model", "PyTorchModel", "SKLearnModel", "TensorFlowModel", "ModelCom
 
 
 class Model:
-    def __init__(self, model: typing.Any):
+    def __init__(self, model: t.Any, meta: "Metadata"):
         self.model = model
+        self.meta: "Metadata" = meta
+
+    def inspect(self) -> t.Any:
+        return self.meta.to_dict()
 
     @abc.abstractmethod
-    def inspect(self) -> typing.Any:
-        ...
-
-    @abc.abstractmethod
-    def predict(self, x: typing.Any) -> typing.Any:
+    def predict(self, x: t.Any) -> t.Any:
         ...
 
 
 class PyTorchModel(Model):
-    def inspect(self) -> typing.Any:
-        return {
-            "modules": [str(x) for x in self.model.modules()],
-            "parameters": {k: str(v) for k, v in self.model.named_parameters()},
-            "state": self.model.state_dict(),
-        }
-
-    def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
+    def predict(self, x: t.List[t.List[t.Any]]) -> t.Any:
         assert torch is not None, "`torch` must be installed to use PyTorchModel."
 
         try:
@@ -50,10 +46,7 @@ class PyTorchModel(Model):
 
 
 class SKLearnModel(Model):
-    def inspect(self) -> typing.Any:
-        return self.model.get_params()
-
-    def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
+    def predict(self, x: t.List[t.List[t.Any]]) -> t.Any:
         try:
             return self.model.predict(x).tolist()
         except ValueError as e:
@@ -61,10 +54,7 @@ class SKLearnModel(Model):
 
 
 class TensorFlowModel(Model):
-    def inspect(self) -> typing.Any:
-        return json.loads(self.model.to_json())
-
-    def predict(self, x: typing.List[typing.List[typing.Any]]) -> typing.Any:
+    def predict(self, x: t.List[t.List[t.Any]]) -> t.Any:
         assert tensorflow is not None, "`tensorflow` must be installed to use TensorFlowModel."
 
         try:
@@ -77,23 +67,23 @@ class ModelComponent(Component):
     def __init__(self, model):
         self.model = model
 
-    def get_model_type(self) -> typing.Type[Model]:
+    def get_model_type(self) -> t.Type[Model]:
         return self.model.__class__  # type: ignore[no-any-return]
 
 
 class ModelComponentBuilder:
     MODELS = {
-        ModelFormat.pytorch: ("PyTorchModel", PyTorchModel),
-        ModelFormat.sklearn: ("SKLearnModel", SKLearnModel),
-        ModelFormat.tensorflow: ("TensorFlowModel", TensorFlowModel),
+        Framework.torch: ("PyTorchModel", PyTorchModel),
+        Framework.sklearn: ("SKLearnModel", SKLearnModel),
+        Framework.tensorflow: ("TensorFlowModel", TensorFlowModel),
     }
 
     @classmethod
     def loads(cls, data: bytes) -> ModelComponent:
         load_model = loads(data)
-        name, parent = cls.MODELS[load_model.lib]
+        name, parent = cls.MODELS[load_model.meta.framework.lib]
         model_class = type(name, (parent,), {})
-        model_obj = model_class(load_model.model)
+        model_obj = model_class(load_model.model, load_model.meta)
 
         class SpecificModelComponent(ModelComponent):
             def resolve(self) -> model_class:  # type: ignore[valid-type]
