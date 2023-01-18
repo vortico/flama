@@ -3,6 +3,7 @@ import contextlib
 import dataclasses
 import functools
 import itertools
+import os
 import tempfile
 import typing as t
 from pathlib import Path
@@ -52,17 +53,14 @@ app_decorators = (
 
 
 class _AppContext:
-    def __init__(self, app: t.Union[str, "Flama"], module: t.Optional[str] = None, path: t.Optional[Path] = None):
+    def __init__(self, app: t.Union[str, "Flama"], path: Path, module: t.Optional[str] = None):
         self._app = app
         self._module = module
         self._path = path
 
-        if path:
-            self._module = path.stem
-
     @property
-    def dir(self) -> t.Optional[str]:
-        return str(self._path.parent) if self._path else None
+    def dir(self) -> str:
+        return str(self._path)
 
     @property
     def app(self) -> t.Union[str, "Flama"]:
@@ -101,7 +99,7 @@ class FlamaApp(App):
     @property  # type: ignore
     @contextlib.contextmanager
     def context(self) -> t.Generator[_AppContext, None, None]:
-        yield _AppContext(app=self.app)
+        yield _AppContext(app=self.app, path=Path(os.getcwd()))
 
 
 @dataclasses.dataclass
@@ -128,7 +126,8 @@ class DictApp(App):
             env = jinja2.Environment(loader=jinja2.PackageLoader("flama", "cli/templates"))
             f.write(env.get_template("app.py.j2").render(**dataclasses.asdict(self)))
             f.flush()
-            yield _AppContext(app="app", path=Path(f.name))
+            file_path = Path(f.name)
+            yield _AppContext(app="app", path=file_path.parent, module=file_path.stem)
 
 
 class StrApp(str, App):
@@ -136,7 +135,7 @@ class StrApp(str, App):
     @contextlib.contextmanager
     def context(self) -> t.Generator[_AppContext, None, None]:
         module, app = self.split(":")
-        yield _AppContext(app=app, module=module)
+        yield _AppContext(app=app, path=Path(os.getcwd()), module=module)
 
 
 def options(command: t.Callable) -> t.Callable:
