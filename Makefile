@@ -12,7 +12,7 @@ install: ## Installs the package, JS requirements, and build templates needed
 build: ## Builds the package, and templates needed
 	@./scripts/build
 
-lint: ## Runs a linting pipeline: black, isort, flake8, and mypy
+lint: ## Runs a linting pipeline: black, isort, ruff, and mypy
 	@./scripts/lint
 
 test: ## Runs all tests of the repository
@@ -30,13 +30,13 @@ isort: ## Runs isort on Flama
 black: ## Runs black on Flama
 	@./scripts/black .
 
-flake8: ## Runs flake8 on Flama
-	@./scripts/flake8
+ruff: ## Runs ruff on Flama
+	@./scripts/ruff .
 
 mypy: ## Runs mypy on Flama
 	@./scripts/mypy .
 
-.PHONY: help check clean install build lint tests publish version isort black flake8 mypy
+.PHONY: help check clean install build lint tests publish version isort black ruff mypy
 .DEFAULT_GOAL := help
 
 help:

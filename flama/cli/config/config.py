@@ -10,9 +10,6 @@ import click
 from flama.cli.config.app import App
 from flama.cli.config.uvicorn import Uvicorn
 
-if t.TYPE_CHECKING:
-    from flama.cli.config.app import _AppContext
-
 __all__ = ["Config", "ExampleConfig", "options"]
 
 decorators = (
@@ -61,7 +58,7 @@ class Config:
     def run(self) -> None:
         # TODO: Define 'dev' behavior
 
-        with self.app.context as app_context:  # type: _AppContext
+        with self.app.context as app_context:
             self.server.app_dir = app_context.dir
             self.server.run(app_context.app)
 

@@ -55,10 +55,10 @@ make isort
 
 ### Code quality checking
 
-Flake8 is used to determine if the code quality is high enough as required to be accepted:
+Ruff is used to determine if the code quality is high enough as required to be accepted:
 
 ```commandline
-make flake8
+make ruff
 ```
 
 ### Static type checking

@@ -38,9 +38,9 @@ jobs:
       - id: isort
         name: Imports order checking
         run: ./scripts/isort --check .
-      - id: flake8
-        name: Code style (flake8)
-        run: ./scripts/flake8
+      - id: ruff
+        name: Code style (ruff)
+        run: ./scripts/ruff .
       - id: mypy
         name: Static types check
         run: ./scripts/mypy .

@@ -8,11 +8,11 @@ run_black()
   printf "↳ Black done\n\n"
 }
 
-run_flake8()
+run_ruff()
 {
-  echo "• Run Flake8 code analysis:"
-  poetry run flake8
-  printf "↳ Flake8 done\n\n"
+  echo "• Run Ruff code analysis:"
+  poetry run ruff "$@"
+  printf "↳ Ruff done\n\n"
 }
 
 run_isort()
@@ -34,7 +34,7 @@ run_lint()
   echo "🧹 Code lint using multiple tools:"
   run_black --check .
   run_isort --check .
-  run_flake8
+  run_ruff .
   run_mypy .
 }
 
