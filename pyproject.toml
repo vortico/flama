@@ -145,7 +145,7 @@ exclude = [
 
 [tool.pytest.ini_options]
 minversion = 3
-addopts = "--junitxml=./test-results/pytest/results.xml --no-cov-on-fail --cov-report=html --cov-report=xml --cov-report=term-missing --cov-config=pyproject.toml --cov=. --pdbcls=IPython.terminal.debugger:TerminalPdb"
+addopts = "--dist=loadfile --junitxml=./test-results/pytest/results.xml --no-cov-on-fail --cov-report=html --cov-report=xml --cov-report=term-missing --cov-config=pyproject.toml --cov=. --pdbcls=IPython.terminal.debugger:TerminalPdb"
 norecursedirs = [
     "*settings*",
     "*urls*",
@@ -155,7 +155,7 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = [
-    "."
+    "flama"
 ]
 branch = true
 omit = [
@@ -163,10 +163,8 @@ omit = [
     "*settings*",
     "*__init__.py",
     "*__main__.py",
-    "*tests*",
-    "*/migrations/*",
-    "make",
-    "examples*",
+    "tests/*",
+    "examples/*",
     "flama/cli/*",
     "flama/types/*",
     "flama/*/types.py",
