@@ -42,9 +42,9 @@ repos:
         language: system
         types: [file, python]
         exclude: "make"
-    -   id: flake8
-        name: Flake8 - Code Linter
-        entry: ./scripts/flake8
+    -   id: ruff
+        name: Ruff - Code Linter
+        entry: ./scripts/ruff
         language: system
         types: [file, python]
         exclude: "make"

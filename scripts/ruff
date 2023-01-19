@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+run_ruff()
+{
+  echo "• Run Ruff code analysis:"
+  poetry run ruff "$@"
+  echo "↳ Ruff done"
+}
+
+run_ruff "$@"

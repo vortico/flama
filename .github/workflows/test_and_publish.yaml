@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - 'examples/**'
 
 env:
-  DEFAULT_PYTHON: "3.10"
+  DEFAULT_PYTHON: "3.11"
 
 jobs:
   test:
@@ -38,9 +40,9 @@ jobs:
       - id: isort
         name: Imports order checking
         run: ./scripts/isort --check .
-      - id: flake8
-        name: Code style (flake8)
-        run: ./scripts/flake8
+      - id: ruff
+        name: Code style (ruff)
+        run: ./scripts/ruff .
       - id: mypy
         name: Static types check
         run: ./scripts/mypy .
@@ -59,20 +61,24 @@ jobs:
     needs: test
     name: Release a new version
     runs-on: ubuntu-latest
-    container:
-      image: python:slim
     steps:
       - name: Check out the repo
         uses: actions/checkout@master
       - name: Setup node
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
       - name: Setup poetry
         run: pip install pip poetry --upgrade
       - id: publish
         name: Publish version
-        run: npx semantic-release
+        uses: cycjimmy/semantic-release-action@v3
+        with:
+          extra_plugins: |
+            semantic-release-gitmoji@1.5.0
+            @semantic-release/changelog
+            @semantic-release/exec
+            @semantic-release/git
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}

@@ -46,6 +46,7 @@ typesystem = ["typesystem"]
 marshmallow = ["marshmallow", "apispec"]
 pagination = ["python-forge"]
 database = ["sqlalchemy"]
+full = ["pydantic", "typesystem", "marshmallow", "apispec", "python-forge", "sqlalchemy"]
 
 [tool.poetry.scripts]
 flama = 'flama.cli.__main__:cli'
@@ -63,9 +64,11 @@ ipython = [
     { version = "^8.0", python = ">=3.8" }
 ]
 isort = "^5.10"
-python-multipart = "^0.0.5"
-flake8 = "^5.0"
+ruff = "^0.0.225"
+mypy = "^0.991"
 black = { version = "^22.3", extras = ["d"] }
+pre-commit = "^2.20"
+python-multipart = "^0.0.5"
 uvicorn = { version = ">=0.19.0,<1.0.0", extras = ["standard"] }
 httpx = ">=0.23,<1.0.0"
 aiosqlite = ">=0.11.0,<1.0.0"
@@ -74,8 +77,6 @@ Faker = "^8.2"
 python-forge = "^18.6"
 SQLAlchemy = { version = "^1.4", extras = ["asyncio"] }
 gevent = "^22.10"
-mypy = "^0.991"
-pre-commit = "^2.20"
 asyncmock = { version = "^0.4", python = ">=3.7,<3.8" }
 
 [tool.poetry.group.schemas]
@@ -127,6 +128,31 @@ skip_glob = [
     "*/dist/**",
 ]
 
+[tool.ruff]
+line-length = 120
+# Enable Pyflakes and pycodestyle rules.
+select = ["E", "F"]
+exclude = [
+    ".git",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+]
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["E402"]
+
+[tool.ruff.mccabe]
+# Unlike Flake8, default to a complexity level of 10.
+max-complexity = 10
+
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
@@ -172,7 +198,6 @@ omit = [
     "flama/middleware.py",
     "flama/testclient.py",
 ]
-concurrency = ["thread", "gevent"]
 
 [tool.coverage.report]
 show_missing = true

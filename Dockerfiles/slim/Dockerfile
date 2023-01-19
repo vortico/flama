@@ -2,7 +2,9 @@ ARG PYTHON_VERSION
 
 FROM python:${PYTHON_VERSION}-slim
 
-RUN python -m pip install --no-cache-dir --upgrade pip flama[typesystem,marshmallow,pagination,database]
+ARG SCHEMAS_LIB
+
+RUN python -m pip install --no-cache-dir --upgrade pip flama[${SCHEMAS_LIB},database,pagination]
 
 EXPOSE 8000
 

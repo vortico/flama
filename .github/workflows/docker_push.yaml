@@ -20,6 +20,7 @@ jobs:
       matrix:
         linux: ["slim"]
         python: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        schemas: ["pydantic", "marshmallow", "typesystem"]
     steps:
       - name: Check out the repo
         uses: actions/checkout@master
@@ -36,18 +37,19 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=semver,enable=true,pattern=${{ matrix.linux }}-{{version}}-python${{ matrix.python }}
-            type=semver,enable=true,pattern=${{ matrix.linux }}-latest-python${{ matrix.python }}
-            type=semver,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},pattern=${{ matrix.linux }}-{{version}}
-            type=semver,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},pattern=${{ matrix.linux }}-latest
-            type=semver,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},pattern={{version}}-python${{ matrix.python }}
-            type=semver,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},pattern=latest-python${{ matrix.python }}
-            type=semver,enable=${{ matrix.python == env.DEFAULT_PYTHON && (matrix.linux == env.DEFAULT_LINUX && 'true' || 'false') || 'false' }},pattern=latest
+            type=semver,enable=true,pattern=${{ matrix.linux }}-{{version}}-python${{ matrix.python }}-{{ matrix.schemas }}
+            type=semver,enable=true,pattern=${{ matrix.linux }}-latest-python${{ matrix.python }}-{{ matrix.schemas }}
+            type=semver,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},pattern=${{ matrix.linux }}-{{version}}-{{ matrix.schemas }}
+            type=semver,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},pattern=${{ matrix.linux }}-latest-{{ matrix.schemas }}
+            type=semver,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},pattern={{version}}-python${{ matrix.python }}-{{ matrix.schemas }}
+            type=semver,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},pattern=latest-python${{ matrix.python }}-{{ matrix.schemas }}
+            type=semver,enable=${{ matrix.python == env.DEFAULT_PYTHON && (matrix.linux == env.DEFAULT_LINUX && 'true' || 'false') || 'false' }},pattern=latest-{{ matrix.schemas }}
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
           build-args: |
             PYTHON_VERSION=${{ matrix.python }}
+            SCHEMAS_LIB=${{ matrix.schemas }}
           context: Dockerfiles/${{ matrix.linux }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}

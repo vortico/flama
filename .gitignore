@@ -45,6 +45,7 @@ coverage.xml
 *,cover
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
 .test_report/
 test-results/
 
