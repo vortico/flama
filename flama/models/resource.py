@@ -9,7 +9,8 @@ from flama.resources.resource import ResourceType
 from flama.resources.routing import resource_method
 
 if t.TYPE_CHECKING:
-    from flama.models.components import Model, ModelComponent
+    from flama.models.base import Model
+    from flama.models.components import ModelComponent
 
 __all__ = ["ModelResource", "InspectMixin", "PredictMixin", "ModelResourceType"]
 

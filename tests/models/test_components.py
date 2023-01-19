@@ -1,6 +1,9 @@
 import pytest
 
-from flama.models.components import ModelComponentBuilder, PyTorchModel, SKLearnModel, TensorFlowModel
+from flama.models.components import ModelComponentBuilder
+from flama.models.models.pytorch import PyTorchModel
+from flama.models.models.sklearn import SKLearnModel
+from flama.models.models.tensorflow import TensorFlowModel
 
 
 class TestCaseModelComponent:
