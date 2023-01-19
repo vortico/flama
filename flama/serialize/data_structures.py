@@ -1,32 +1,33 @@
 import codecs
 import dataclasses
 import datetime
+import importlib
 import inspect
 import json
 import typing as t
 import uuid
 
 from flama.serialize.base import Serializer
-from flama.serialize.serializers.pytorch import PyTorchSerializer
-from flama.serialize.serializers.sklearn import SKLearnSerializer
-from flama.serialize.serializers.tensorflow import TensorFlowSerializer
 from flama.serialize.types import Framework
 
 
 class FrameworkSerializers:
-    _SERIALIZERS = {
-        Framework.sklearn: SKLearnSerializer(),
-        Framework.tensorflow: TensorFlowSerializer(),
-        Framework.keras: TensorFlowSerializer(),
-        Framework.torch: PyTorchSerializer(),
-    }
-
     @classmethod
     def serializer(cls, framework: t.Union[str, Framework]) -> Serializer:
         try:
-            return cls._SERIALIZERS[Framework(framework)]
-        except ValueError:  # pragma: no cover
+            module, class_name = {
+                Framework.torch: ("pytorch", "PyTorchSerializer"),
+                Framework.sklearn: ("sklearn", "SKLearnSerializer"),
+                Framework.keras: ("tensorflow", "TensorFlowSerializer"),
+                Framework.tensorflow: ("tensorflow", "TensorFlowSerializer"),
+            }[Framework(framework)]
+        except KeyError:  # pragma: no cover
             raise ValueError("Wrong framework")
+
+        serializer_class: t.Type[Serializer] = getattr(
+            importlib.import_module(f"flama.serialize.serializers.{module}"), class_name
+        )
+        return serializer_class()
 
     @classmethod
     def from_model(cls, model: t.Any) -> Serializer:

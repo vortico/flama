@@ -2,7 +2,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from flama.models import ModelComponent, ModelResource, ModelResourceType, PyTorchModel, SKLearnModel, TensorFlowModel
+from flama.models import ModelComponent, ModelResource, ModelResourceType
+from flama.models.models.pytorch import PyTorchModel
+from flama.models.models.sklearn import SKLearnModel
+from flama.models.models.tensorflow import TensorFlowModel
 from flama.resources.exceptions import ResourceAttributeError
 
 

@@ -3,7 +3,8 @@ import typing
 import torch
 
 from flama import Flama
-from flama.models import Model, ModelComponent, ModelResource, ModelResourceType
+from flama.models import ModelComponent, ModelResource, ModelResourceType
+from flama.models.base import Model
 from flama.resources.routing import resource_method
 
 app = Flama()

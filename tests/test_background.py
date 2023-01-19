@@ -7,16 +7,6 @@ from flama import background, http
 from tests.asserts import assert_read_from_file
 
 
-def sync_task(path: str, msg: str):
-    with open(path, "w") as f:
-        f.write(msg)
-
-
-async def async_task(path: str, msg: str):
-    async with await anyio.open_file(path, "w") as f:
-        await f.write(msg)
-
-
 class TestCaseBackgroundTask:
     @pytest.fixture(params=["sync", "async"])
     def task(self, request):
@@ -64,6 +54,22 @@ class TestCaseBackgroundTask:
 
 class TestCaseBackgroundTasks:
     @pytest.fixture
+    def sync_task(self):
+        def foo(path: str, msg: str):
+            with open(path, "w") as f:
+                f.write(msg)
+
+        return foo
+
+    @pytest.fixture
+    def async_task(self):
+        async def foo(path: str, msg: str):
+            async with await anyio.open_file(path, "w") as f:
+                await f.write(msg)
+
+        return foo
+
+    @pytest.fixture
     def tmp_file(self):
         with NamedTemporaryFile() as tmp_file:
             yield tmp_file
@@ -73,7 +79,7 @@ class TestCaseBackgroundTasks:
         with NamedTemporaryFile() as tmp_file:
             yield tmp_file
 
-    def test_background_tasks(self, app, client, tmp_file, tmp_file_2):
+    def test_background_tasks(self, app, client, sync_task, async_task, tmp_file, tmp_file_2):
         @app.route("/")
         async def test(path_1: str, msg_1: str, path_2: str, msg_2: str):
             tasks = background.BackgroundTasks()
