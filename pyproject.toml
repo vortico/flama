@@ -10,9 +10,15 @@ authors = [
     "José Antonio Perdiguero López <perdy@perdy.io>",
     "Miguel A. Durán Olivencia <migduroli@gmail.com>"
 ]
+maintainers = [
+    "José Antonio Perdiguero López <perdy@perdy.io>",
+    "Miguel A. Durán Olivencia <migduroli@gmail.com>"
+]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/perdy/flama"
+homepage = "https://flama.dev"
+documentation = "https://flama.dev/docs/"
 keywords = ["machine-learning", "ml", "ml-ops", "mlops", "api", "rest", "restful", "openapi", "tensorflow", "pytorch", "sklearn"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",

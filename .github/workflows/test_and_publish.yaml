@@ -6,6 +6,9 @@ on:
       - master
     paths-ignore:
       - 'examples/**'
+      - '.github/**'
+      - 'docs/**'
+      - 'scripts/**'
 
 env:
   DEFAULT_PYTHON: "3.11"

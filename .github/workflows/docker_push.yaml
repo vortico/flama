@@ -1,9 +1,12 @@
 name: Docker Push
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Flama version"
+        required: true
+        type: string
 
 env:
   DEFAULT_LINUX: "slim"
@@ -11,7 +14,7 @@ env:
 
 jobs:
   docker_push:
-    name: Docker Push (${{ matrix.linux }}, ${{ matrix.python }})
+    name: Docker Push (${{ matrix.linux }}, ${{ matrix.python }}, ${{ matrix.schemas }})
     environment:
       name: dockerhub
       url: https://hub.docker.com/r/perdy/flama
@@ -37,13 +40,13 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=semver,enable=true,pattern=${{ matrix.linux }}-{{version}}-python${{ matrix.python }}-{{ matrix.schemas }}
-            type=semver,enable=true,pattern=${{ matrix.linux }}-latest-python${{ matrix.python }}-{{ matrix.schemas }}
-            type=semver,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},pattern=${{ matrix.linux }}-{{version}}-{{ matrix.schemas }}
-            type=semver,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},pattern=${{ matrix.linux }}-latest-{{ matrix.schemas }}
-            type=semver,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},pattern={{version}}-python${{ matrix.python }}-{{ matrix.schemas }}
-            type=semver,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},pattern=latest-python${{ matrix.python }}-{{ matrix.schemas }}
-            type=semver,enable=${{ matrix.python == env.DEFAULT_PYTHON && (matrix.linux == env.DEFAULT_LINUX && 'true' || 'false') || 'false' }},pattern=latest-{{ matrix.schemas }}
+            type=raw,enable=true,value=${{ matrix.linux }}-${{ inputs.version }}-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=true,value=${{ matrix.linux }}-latest-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},value=${{ matrix.linux }}-${{ inputs.version }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},value=${{ matrix.linux }}-latest-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=${{ inputs.version }}-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=latest-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && (matrix.linux == env.DEFAULT_LINUX && 'true' || 'false') || 'false' }},value=latest-${{ matrix.schemas }}
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
