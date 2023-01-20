@@ -1,41 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-run_black()
-{
-  printf "\n• Run Black code formatting: "
-  poetry run black "$@"
-  printf "↳ Black done\n\n"
-}
-
-run_ruff()
-{
-  echo "• Run Ruff code analysis:"
-  poetry run ruff "$@"
-  printf "↳ Ruff done\n\n"
-}
-
-run_isort()
-{
-  echo "• Run Isort imports formatting:"
-  poetry run isort "$@"
-  printf "↳ Isort done\n\n"
-}
-
-run_mypy()
-{
-  echo "• Run Mypy static type checking:"
-  poetry run mypy "$@"
-  printf "↳ Mypy done\n\n"
-}
-
-run_lint()
-{
-  echo "🧹 Code lint using multiple tools:"
-  run_black --check .
-  run_isort --check .
-  run_ruff .
-  run_mypy .
-}
+source scripts/functions.sh
 
 run_lint "$@"

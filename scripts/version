@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 
-run_version()
-{
-  echo "⬆️ Upgrade version:"
-  poetry version "$@"
-}
+source scripts/functions.sh
 
 run_version "$@"

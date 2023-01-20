@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-run_black()
-{
-  echo "• Run Black code formatting:"
-  poetry run black "$@"
-  echo "↳ Black done"
-}
+source scripts/functions.sh
 
 run_black "$@"

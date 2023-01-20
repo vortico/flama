@@ -1,16 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-install_pkg()
-{
-  echo "🔥 Install python requirements..."
-  poetry install --with dev,schemas,ml "$@"
-  cd templates
-  echo "🔥 Install js requirements..."
-  npm i
-  echo "🔥 Build templates..."
-  npm run build
-  cd ..
-}
+source scripts/functions.sh
 
 install_pkg "$@"

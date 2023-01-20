@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-run_mypy()
-{
-  echo "• Run MyPy code formatting:"
-  poetry run mypy "$@"
-  echo "↳ MyPy done"
-}
+source scripts/functions.sh
 
 run_mypy "$@"
