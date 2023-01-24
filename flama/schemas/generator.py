@@ -6,7 +6,7 @@ import typing
 import typing as t
 from collections import defaultdict
 
-from starlette import schemas as starlette_schemas
+import yaml
 
 from flama import routing, schemas
 from flama.schemas import Schema, openapi
@@ -225,7 +225,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
             return openapi.Reference(ref=reference)
 
 
-class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
+class SchemaGenerator:
     def __init__(
         self,
         title: str,
@@ -412,8 +412,29 @@ class SchemaGenerator(starlette_schemas.BaseSchemaGenerator):
             },
         )
 
+    def _parse_docstring(self, func: typing.Callable) -> t.Dict[t.Any, t.Any]:
+        """Given a function, parse the docstring as YAML and return a dictionary of info.
+
+        :param func: Function to analyze docstring.
+        :return: Schema extracted.
+        """
+        try:
+            # It's possible to define a standard docstring along with the schema definition, for doing so the schema
+            # should start with a line with three dashes "---" as it's the usual notation for starting a yaml file.
+            schema = yaml.safe_load(func.__doc__.split("---")[-1])  # type: ignore[union-attr]
+        except AttributeError:
+            schema = None
+
+        if not isinstance(schema, dict):
+            raise ValueError
+
+        return schema
+
     def get_operation_schema(self, endpoint: EndpointInfo) -> openapi.Operation:
-        docstring_info = self.parse_docstring(endpoint.func)
+        try:
+            docstring_info = self._parse_docstring(endpoint.func)
+        except ValueError:
+            docstring_info = {}
 
         # Query and Path parameters
         parameters = self._build_endpoint_parameters(endpoint, docstring_info)
