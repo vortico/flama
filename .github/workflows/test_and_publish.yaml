@@ -66,7 +66,10 @@ jobs:
     name: Release a new version
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.publish.outputs.new_release_version }}
+      version: ${{ steps.semantic.outputs.new_release_version }}
+      major_version: ${{ steps.semantic.outputs.new_release_major_version }}
+      minor_version: ${{ steps.semantic.outputs.new_release_minor_version }}
+      patch_version: ${{ steps.semantic.outputs.new_release_patch_version }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@master
@@ -76,8 +79,8 @@ jobs:
           node-version: 18
       - name: Setup poetry
         run: pip install pip poetry --upgrade
-      - id: publish
-        name: Publish version
+      - id: semantic
+        name: Semantic Release
         uses: cycjimmy/semantic-release-action@v3
         with:
           extra_plugins: |
@@ -89,6 +92,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
           PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      - name: New release published
+        if: steps.semantic.outputs.new_release_published == 'true'
+        run: |
+          echo ${{ steps.semantic.outputs.new_release_version }}
+          echo ${{ steps.semantic.outputs.new_release_notes }}
   docker_push:
     name: Docker Push (${{ matrix.linux }}, ${{ matrix.python }}, ${{ matrix.schemas }})
     needs: release
@@ -117,11 +125,11 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,enable=true,value=${{ matrix.linux }}-${{ needs.publish.outputs.version }}-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=true,value=${{ matrix.linux }}-${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-python${{ matrix.python }}-${{ matrix.schemas }}
             type=raw,enable=true,value=${{ matrix.linux }}-latest-python${{ matrix.python }}-${{ matrix.schemas }}
-            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},value=${{ matrix.linux }}-${{ needs.publish.outputs.version }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},value=${{ matrix.linux }}-${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-${{ matrix.schemas }}
             type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},value=${{ matrix.linux }}-latest-${{ matrix.schemas }}
-            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=${{ needs.publish.outputs.version }}-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-python${{ matrix.python }}-${{ matrix.schemas }}
             type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=latest-python${{ matrix.python }}-${{ matrix.schemas }}
             type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && (matrix.linux == env.DEFAULT_LINUX && 'true' || 'false') || 'false' }},value=latest-${{ matrix.schemas }}
       - name: Build and push Docker image

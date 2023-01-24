@@ -10,9 +10,11 @@ DEFAULT_PYTHON="3.11"
 
 docker_push() {
   version=$(poetry version -s)
+  version=${version%\.*}
 
+  cd "Dockerfiles"
   for linux in "${LINUX_VERSIONS[@]}"; do
-    cd "Dockerfiles/${linux}"
+    cd "${linux}"
     for python in "${PYTHON_VERSIONS[@]}"; do
       for schema in "${SCHEMA_LIBS[@]}"; do
         tags=("${linux}-${version}-python${python}-${schema}" "${linux}-latest-python${python}-${schema}")
@@ -29,12 +31,17 @@ docker_push() {
           tags=("${tags[@]}" "latest-${schema}")
         fi
 
+        tags=("${tags[@]/#/perdy/flama:}")
         docker build "--build-arg=PYTHON_VERSION=${python}" "--build-arg=SCHEMAS_LIB=${schema}" "${tags[@]/#/--tag=}" .
-        docker push "${tags[0]}" --all-tags
+
+        for tag in "${tags[@]}"; do
+          docker push "${tag}"
+        done
       done
     done
-    cd ../..
+    cd ..
   done
+  cd ..
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then

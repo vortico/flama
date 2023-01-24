@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.0.1](https://github.com/perdy/flama/compare/v1.0.0...v1.0.1) (2023-01-24)
+
+## 🐛 Bug Fixes
+- [`6e122f8`](https://github.com/perdy/flama/commit/6e122f8)  Parse yaml schema from functions docstrings
+
 # [v1.0.0](https://github.com/perdy/flama/compare/v0.16.0...v1.0.0) (2023-01-20)
 
 ## ✨ New Features
