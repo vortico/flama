@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-source scripts/functions.sh
+run_isort() {
+  echo "• Run Isort imports formatting:"
+  poetry run isort "$@"
+  echo "↳ Isort done"
+}
 
-run_isort "$@"
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  run_isort "$@"
+fi

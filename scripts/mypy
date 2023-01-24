@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-source scripts/functions.sh
+run_mypy() {
+  echo "• Run MyPy code formatting:"
+  poetry run mypy --install-types --non-interactive "$@"
+  echo "↳ MyPy done"
+}
 
-run_mypy "$@"
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  run_mypy "$@"
+fi

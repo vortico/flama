@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -e
 
-source scripts/functions.sh
+source scripts/black
+source scripts/isort
+source scripts/ruff
+source scripts/mypy
 
-run_lint "$@"
+run_lint() {
+  echo "🧹 Code lint using multiple tools:"
+  run_black --check .
+  run_isort --check .
+  run_ruff .
+  run_mypy .
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  run_lint "$@"
+fi

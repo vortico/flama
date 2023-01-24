@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-source scripts/functions.sh
+run_black() {
+  echo "• Run Black code formatting:"
+  poetry run black "$@"
+  echo "↳ Black done"
+}
 
-run_black "$@"
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  run_black "$@"
+fi

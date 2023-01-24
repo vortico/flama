@@ -36,7 +36,10 @@ ruff: ## Runs ruff on Flama
 mypy: ## Runs mypy on Flama
 	@./scripts/mypy .
 
-.PHONY: help check clean install build lint tests publish version isort black ruff mypy
+docker_push: ## Runs mypy on Flama
+	@./scripts/docker_push .
+
+.PHONY: help check clean install build lint tests publish version isort black ruff mypy docker_push
 .DEFAULT_GOAL := help
 
 help:

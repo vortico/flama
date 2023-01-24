@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
-source scripts/functions.sh
+run_version() {
+  echo "⬆️ Upgrade version:"
+  poetry version "$@"
+}
 
-run_version "$@"
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  run_version "$@"
+fi
