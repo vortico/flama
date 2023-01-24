@@ -45,6 +45,7 @@ python-forge = { version = "^18.6", optional = true }
 apispec = { version = "^6.0", optional = true }
 typesystem = { version = "^0.4.1", optional = true }
 SQLAlchemy = { version = "^1.4", extras = ["asyncio"], optional = true }
+pyyaml = "^6.0"
 
 [tool.poetry.extras]
 pydantic = ["pydantic"]
@@ -70,7 +71,7 @@ ipython = [
     { version = "^8.0", python = ">=3.8" }
 ]
 isort = "^5.10"
-ruff = "^0.0.225"
+ruff = "^0.0.231"
 mypy = "^0.991"
 black = { version = "^22.3", extras = ["d"] }
 pre-commit = "^2.20"
