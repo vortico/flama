@@ -1,6 +1,27 @@
 #!/usr/bin/env bash
 set -e
 
-source scripts/functions.sh
+source scripts/str_lib.sh
+source scripts/clean
 
-build_pkg "$@"
+build_pkg() {
+  local arg="$1"
+
+  if [[ "$arg" == "-c" || "$arg" == "--clean" ]]; then
+    clean_folder
+  fi
+
+  cd templates
+  echo "🔥 Install js requirements..."
+  npm i
+  echo "🔥 Build templates..."
+  npm run build
+  cd ..
+  echo "🔥 Build package:"
+  poetry build
+
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  build_pkg "$@"
+fi

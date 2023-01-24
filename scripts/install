@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -e
 
-source scripts/functions.sh
+install_pkg() {
+  echo "🔥 Install python requirements..."
+  poetry install --with dev,schemas,ml "$@"
+  cd templates
+  echo "🔥 Install js requirements..."
+  npm i
+  echo "🔥 Build templates..."
+  npm run build
+  cd ..
+}
 
-install_pkg "$@"
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  install_pkg "$@"
+fi

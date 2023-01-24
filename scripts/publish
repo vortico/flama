@@ -1,6 +1,30 @@
 #!/usr/bin/env bash
 set -e
 
-source scripts/functions.sh
+source scripts/str_lib.sh
+source scripts/clean
+source scripts/build
 
-publish_pkg "$@"
+publish_pkg() {
+  username=$PYPI_USERNAME
+  password=$PYPI_PASSWORD
+
+  if [[ (-z "$PYPI_USERNAME") || (-z "$PYPI_PASSWORD") ]]; then
+    printf "%b" "🆘 Error: Environment variables ${C_RED1}PYPI_USERNAME${NO_FORMAT} or ${C_RED1}PYPI_PASSWORD${NO_FORMAT} (or both) not found\n"
+    return
+  else
+    poetry config http-basic.pypi "$username" "$password"
+  fi
+
+  local arg="$1"
+  if [ "$arg" == "--build" ]; then
+    clean_folder
+    build_pkg
+  fi
+
+  poetry publish --skip-existing
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  publish_pkg "$@"
+fi

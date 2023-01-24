@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-source scripts/functions.sh
+run_test()
+{
+  echo "🧪 Run tests:"
+  poetry run pytest -n auto
+}
 
-run_test "$@"
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  run_test "$@"
+fi

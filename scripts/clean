@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 set -e
 
-source scripts/functions.sh
+source scripts/str_lib.sh
 
-clean_folder "$@"
+FOLDERS="dist flama.egg-info pip-wheel-metadata site test-results .coverage .pytest_cache .mypy_cache flama/templates"
+
+clean_folder() {
+  echo "🔥 Clean directory..."
+  for folder in $FOLDERS; do
+    if [[ ! -d $folder ]]; then
+      printf "%b" "${C_YELLOW1}- Folder not found${NO_FORMAT}: $folder\n"
+    else
+      printf "%b" "🧹 ${C_SPRINGGREEN2}Deleting folder${NO_FORMAT}: $folder\n"
+      rm -r "$folder" 2>/dev/null
+    fi
+  done
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  clean_folder "$@"
+fi

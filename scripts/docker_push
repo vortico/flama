@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -e
+
+LINUX_VERSIONS=("slim")
+PYTHON_VERSIONS=("3.7" "3.8" "3.9" "3.10" "3.11")
+SCHEMA_LIBS=("pydantic" "marshmallow" "typesystem")
+
+DEFAULT_LINUX="slim"
+DEFAULT_PYTHON="3.11"
+
+docker_push() {
+  version=$(poetry version -s)
+
+  for linux in "${LINUX_VERSIONS[@]}"; do
+    cd "Dockerfiles/${linux}"
+    for python in "${PYTHON_VERSIONS[@]}"; do
+      for schema in "${SCHEMA_LIBS[@]}"; do
+        tags=("${linux}-${version}-python${python}-${schema}" "${linux}-latest-python${python}-${schema}")
+
+        if [[ "${linux}" = "${DEFAULT_LINUX}" ]]; then
+          tags=("${tags[@]}" "${version}-python${python}-${schema}" "latest-python${python}-${schema}")
+        fi
+
+        if [[ "${python}" = "${DEFAULT_PYTHON}" ]]; then
+          tags=("${tags[@]}" "${linux}-${version}-${schema}" "${linux}-latest-${schema}")
+        fi
+
+        if [[ "${linux}" = "${DEFAULT_LINUX}" ]] && [[ "${python}" = "${DEFAULT_PYTHON}" ]]; then
+          tags=("${tags[@]}" "latest-${schema}")
+        fi
+
+        docker build "--build-arg=PYTHON_VERSION=${python}" "--build-arg=SCHEMAS_LIB=${schema}" "${tags[@]/#/--tag=}" .
+        docker push "${tags[0]}" --all-tags
+      done
+    done
+    cd ../..
+  done
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  docker_push "$@"
+fi
