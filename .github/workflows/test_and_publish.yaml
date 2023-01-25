@@ -13,6 +13,7 @@ on:
 env:
   DEFAULT_LINUX: "slim"
   DEFAULT_PYTHON: "3.11"
+  DEFAULT_SCHEMAS: "pydantic"
 
 jobs:
   test:
@@ -131,7 +132,12 @@ jobs:
             type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},value=${{ matrix.linux }}-latest-${{ matrix.schemas }}
             type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-python${{ matrix.python }}-${{ matrix.schemas }}
             type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=latest-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false' }},value=${{ matrix.linux }}-${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-python${{ matrix.python }}
+            type=raw,enable=${{ matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false' }},value=${{ matrix.linux }}-latest-python${{ matrix.python }}
             type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && (matrix.linux == env.DEFAULT_LINUX && 'true' || 'false') || 'false' }},value=latest-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false' }},value=latest-python${{ matrix.python }}
+            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false' }},value=${{ matrix.linux }}-latest
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && (matrix.python == env.DEFAULT_PYTHON && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false') || 'false' }},value=latest
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
