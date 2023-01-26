@@ -6,14 +6,13 @@ source scripts/clean
 source scripts/build
 
 publish_pkg() {
-  username=$PYPI_USERNAME
-  password=$PYPI_PASSWORD
-
-  if [[ (-z "$PYPI_USERNAME") || (-z "$PYPI_PASSWORD") ]]; then
-    printf "%b" "🆘 Error: Environment variables ${C_RED1}PYPI_USERNAME${NO_FORMAT} or ${C_RED1}PYPI_PASSWORD${NO_FORMAT} (or both) not found\n"
-    return
+  if [[ -n "${PYPI_TOKEN}" ]]; then
+    poetry config pypi-token.pypi "${PYPI_TOKEN}"
+  elif [[ -n "${PYPI_USERNAME}" ]] && [[ -n "${PYPI_PASSWORD}" ]]; then
+    poetry config http-basic.pypi "${PYPI_USERNAME}" "${PYPI_PASSWORD}"
   else
-    poetry config http-basic.pypi "$username" "$password"
+    printf "%b" "🆘 Error: Environment variable ${C_RED1}PYPI_TOKEN${NO_FORMAT} or the pair ${C_RED1}PYPI_USERNAME${NO_FORMAT} and ${C_RED1}PYPI_PASSWORD${NO_FORMAT} not found\n"
+    return
   fi
 
   local arg="$1"

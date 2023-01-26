@@ -21,7 +21,7 @@ function DocsPage({ specUrl, baseUrl }: DocsPageProps) {
     elements.setAttribute('apiDescriptionUrl', specUrl)
     elements.setAttribute(
       'logo',
-      'https://raw.githubusercontent.com/perdy/flama-site/master/public/favicon/icon-512x512.png'
+      'https://raw.githubusercontent.com/vortico/flama-site/master/public/favicon/icon-512x512.png'
     )
     elements.setAttribute('basePath', baseUrl)
 

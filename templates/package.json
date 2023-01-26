@@ -4,7 +4,7 @@
     "url": "https://perdy.io"
   },
   "bugs": {
-    "url": "https://github.com/perdy/flama/issues"
+    "url": "https://github.com/vortico/flama/issues"
   },
   "dependencies": {
     "@heroicons/react": "^2.0.12",

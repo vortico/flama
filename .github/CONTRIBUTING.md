@@ -11,7 +11,7 @@ development or request**.
 The steps are quite standard in the GitHub community:
 
 1. Submit an issue describing your proposed change or improvement to
-   the [issue tracker](https://github.com/perdy/flama/issues) of this project.
+   the [issue tracker](https://github.com/vortico/flama/issues) of this project.
 2. Before submitting the issue where the new change is explained, please make sure this change is not being already
    developed (or listed). You can always ask team members in case of doubt.
 3. Coordinate with team members that are listed on the issue in question. This will remove any potential redundancy,

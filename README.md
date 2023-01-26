@@ -1,18 +1,18 @@
 <p align="center">
-    <a href="https://flama.dev"><img src="https://raw.githubusercontent.com/perdy/flama/master/docs/images/logo.png" alt='Flama'></a>
+    <a href="https://flama.dev"><img src="https://raw.githubusercontent.com/vortico/flama/master/docs/images/logo.png" alt='Flama'></a>
 </p>
 <p align="center">
     <em>Fire up your models with the flame</em> &#128293;
 </p>
 <p align="center">
-    <a href="https://github.com/perdy/flama/actions">
-        <img src="https://github.com/perdy/flama/workflows/Test%20And%20Publish/badge.svg" alt="Test And Publish workflow status">
+    <a href="https://github.com/vortico/flama/actions">
+        <img src="https://github.com/vortico/flama/workflows/Test%20And%20Publish/badge.svg" alt="Test And Publish workflow status">
     </a>
-    <a href="https://github.com/perdy/flama/actions">
-        <img src="https://github.com/perdy/flama/workflows/Docker%20Push/badge.svg" alt="Docker Push workflow status">
+    <a href="https://github.com/vortico/flama/actions">
+        <img src="https://github.com/vortico/flama/workflows/Docker%20Push/badge.svg" alt="Docker Push workflow status">
     </a>
-    <a href="https://codecov.io/gh/perdy/flama">
-        <img src="https://codecov.io/gh/perdy/flama/branch/master/graph/badge.svg" alt="Coverage">
+    <a href="https://codecov.io/gh/vortico/flama">
+        <img src="https://codecov.io/gh/vortico/flama/branch/master/graph/badge.svg" alt="Coverage">
     </a>
     <a href="https://pypi.org/project/flama/">
         <img src="https://img.shields.io/pypi/v/flama?logo=PyPI&logoColor=white" alt="Package version">

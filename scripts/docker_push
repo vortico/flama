@@ -48,7 +48,7 @@ docker_push() {
           tags=("${tags[@]}" "latest")
         fi
 
-        tags=("${tags[@]/#/perdy/flama:}")
+        tags=("${tags[@]/#/vortico/flama:}")
         docker build "--build-arg=PYTHON_VERSION=${python}" "--build-arg=SCHEMAS_LIB=${schema}" "${tags[@]/#/--tag=}" .
 
         for tag in "${tags[@]}"; do

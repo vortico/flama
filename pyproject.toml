@@ -16,7 +16,7 @@ maintainers = [
 ]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/perdy/flama"
+repository = "https://github.com/vortico/flama"
 homepage = "https://flama.dev"
 documentation = "https://flama.dev/docs/"
 keywords = ["machine-learning", "ml", "ml-ops", "mlops", "api", "rest", "restful", "openapi", "tensorflow", "pytorch", "sklearn"]
