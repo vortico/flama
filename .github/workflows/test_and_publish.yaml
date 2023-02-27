@@ -54,19 +54,12 @@ jobs:
       - id: tests
         name: Tests
         run: ./scripts/test
-      - id: codecov
-        name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1.0.2
-        # Run on a specific python version and only master branch commits
-        if: matrix.python == env.DEFAULT_PYTHON && github.event_name == 'push' && github.ref == 'refs/heads/master'
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          file: test-results/coverage.xml
   release:
     needs: test
     name: Release a new version
     runs-on: ubuntu-latest
     outputs:
+      published: ${{ steps.semantic.outputs.new_release_published }}
       version: ${{ steps.semantic.outputs.new_release_version }}
       major_version: ${{ steps.semantic.outputs.new_release_major_version }}
       minor_version: ${{ steps.semantic.outputs.new_release_minor_version }}
@@ -100,6 +93,7 @@ jobs:
   docker_push:
     name: Docker Push (${{ matrix.linux }}, ${{ matrix.python }}, ${{ matrix.schemas }})
     needs: release
+    if: ${{ needs.release.outputs.published }} == 'true'
     environment:
       name: dockerhub
       url: https://hub.docker.com/r/vortico/flama

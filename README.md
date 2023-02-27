@@ -11,9 +11,6 @@
     <a href="https://github.com/vortico/flama/actions">
         <img src="https://github.com/vortico/flama/workflows/Docker%20Push/badge.svg" alt="Docker Push workflow status">
     </a>
-    <a href="https://codecov.io/gh/vortico/flama">
-        <img src="https://codecov.io/gh/vortico/flama/branch/master/graph/badge.svg" alt="Coverage">
-    </a>
     <a href="https://pypi.org/project/flama/">
         <img src="https://img.shields.io/pypi/v/flama?logo=PyPI&logoColor=white" alt="Package version">
     </a>
