@@ -8,8 +8,8 @@ try:
 
     metadata = sqlalchemy.MetaData()
 except Exception:  # pragma: no cover
-    sqlalchemy = None
-    metadata = None
+    sqlalchemy = None  # type: ignore[assignment]
+    metadata = None  # type: ignore[assignment]
 
 __all__ = ["metadata", "SQLAlchemyModule"]
 
@@ -25,7 +25,7 @@ class SQLAlchemyModule(Module):
         self._metadata: t.Optional["sqlalchemy.MetaData"] = metadata
 
     @property
-    def engine(self) -> "AsyncEngine":
+    def engine(self) -> t.Optional["AsyncEngine"]:
         assert sqlalchemy is not None, "sqlalchemy[asyncio] must be installed to use SQLAlchemyModule."
         return self._engine
 
@@ -38,7 +38,7 @@ class SQLAlchemyModule(Module):
         self._engine = None
 
     @property
-    def metadata(self) -> "sqlalchemy.MetaData":
+    def metadata(self) -> t.Optional["sqlalchemy.MetaData"]:
         assert sqlalchemy is not None, "sqlalchemy[asyncio] must be installed to use SQLAlchemyModule."
         return self._metadata
 
