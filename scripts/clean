@@ -3,7 +3,7 @@ set -e
 
 source scripts/str_lib.sh
 
-FOLDERS="dist flama.egg-info pip-wheel-metadata site test-results .coverage .pytest_cache .mypy_cache flama/templates"
+FOLDERS="dist flama.egg-info pip-wheel-metadata site test-results .coverage .pytest_cache .mypy_cache .ruff_cache flama/templates"
 
 clean_folder() {
   echo "🔥 Clean directory..."
@@ -15,6 +15,7 @@ clean_folder() {
       rm -r "$folder" 2>/dev/null
     fi
   done
+  find . | grep -E "(/__pycache__$|\.pyc$|\.pyo$)" | xargs rm -rf
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
