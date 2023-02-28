@@ -1,5 +1,5 @@
 <p align="center">
-    <a href="https://flama.dev"><img src="https://raw.githubusercontent.com/vortico/flama/master/docs/images/logo.png" alt='Flama'></a>
+    <a href="https://flama.dev"><img src="https://raw.githubusercontent.com/vortico/flama/master/.github/logo.png" alt='Flama'></a>
 </p>
 <p align="center">
     <em>Fire up your models with the flame</em> &#128293;
