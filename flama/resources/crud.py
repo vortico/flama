@@ -52,7 +52,7 @@ class CreateMixin:
 
             return http.APIResponse(
                 schema=rest_schemas.output.schema,
-                content={**element, **dict(result.inserted_primary_key)},
+                content={**element, **dict(zip([x.name for x in self.model.primary_key], result.inserted_primary_key))},
                 status_code=201,
             )
 
@@ -91,12 +91,12 @@ class RetrieveMixin:
             async with app.sqlalchemy.engine.begin() as connection:
                 query = self.model.select().where(self.model.c[rest_model.primary_key.name] == element_id)
                 result = await connection.execute(query)
-                element = result.fetchone()
+                element = result.first()
 
             if element is None:
                 raise exceptions.HTTPException(status_code=404)
 
-            return dict(element)
+            return element._asdict()
 
         retrieve.__doc__ = f"""
             tags:
@@ -238,7 +238,7 @@ class ListMixin:
                 if where_clauses:
                     query = query.where(sqlalchemy.and_(*where_clauses))
 
-                return [dict(row) async for row in await connection.stream(query)]
+                return [row._asdict() async for row in await connection.stream(query)]
 
         @resource_method("/", methods=["GET"], name=f"{name}-list")
         @paginator.page_number(schema_name=rest_schemas.output.name)
