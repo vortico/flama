@@ -284,7 +284,7 @@ def model_path(request):
         return
 
     with tempfile.NamedTemporaryFile(suffix=".flm") as f:
-        flama.dump(model_factory.model(request.param), f)
+        flama.dump(model_factory.model(request.param), f.name)
         f.flush()
 
         yield Path(f.name)
