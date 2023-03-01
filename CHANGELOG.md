@@ -1,5 +1,14 @@
 # Semantic Versioning Changelog
 
+# [v1.1.0](https://github.com/vortico/flama/compare/v1.0.2...v1.1.0) (2023-03-01)
+
+## ✨ New Features
+- [`e64765b`](https://github.com/vortico/flama/commit/e64765b)  SQLAlchemy 2.0 compatibility 
+- [`053cb7a`](https://github.com/vortico/flama/commit/053cb7a)  Artifacts in model files 
+
+## 🐛 Bug Fixes
+- [`2e770c2`](https://github.com/vortico/flama/commit/2e770c2)  Allow Flama applications to mount other Flama applications
+
 # [v1.0.2](https://github.com/vortico/flama/compare/v1.0.1...v1.0.2) (2023-02-28)
 
 ## 🐛 Bug Fixes
