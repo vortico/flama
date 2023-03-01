@@ -109,8 +109,9 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
             ...
 
         try:
-            with open(mcs._get_attribute("model_path", bases, namespace, metadata_namespace="model"), "rb") as f:
-                return ModelComponentBuilder.loads(f.read())
+            return ModelComponentBuilder.load(
+                mcs._get_attribute("model_path", bases, namespace, metadata_namespace="model")
+            )
         except AttributeError:
             ...
 

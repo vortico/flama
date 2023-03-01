@@ -1,14 +1,25 @@
 import codecs
 import dataclasses
 import datetime
+import enum
 import importlib
 import inspect
 import json
+import os
+import tarfile
+import tempfile
 import typing as t
 import uuid
+from pathlib import Path
 
 from flama.serialize.base import Serializer
 from flama.serialize.types import Framework
+
+
+class Compression(enum.Enum):
+    fast = "gz"
+    standard = "bz2"
+    high = "xz"
 
 
 class FrameworkSerializers:
@@ -161,6 +172,7 @@ class ModelArtifact:
 
     model: t.Any
     meta: Metadata
+    artifacts: t.Optional[t.Dict[str, t.Union[str, os.PathLike]]] = None
 
     @classmethod
     def from_model(
@@ -172,23 +184,26 @@ class ModelArtifact:
         params: t.Optional[t.Dict[str, t.Any]] = None,
         metrics: t.Optional[t.Dict[str, t.Any]] = None,
         extra: t.Optional[t.Dict[str, t.Any]] = None,
+        artifacts: t.Optional[t.Dict[str, t.Union[str, os.PathLike]]] = None,
     ) -> "ModelArtifact":
         return cls(
             model=model,
             meta=Metadata.from_model(
                 model, model_id=model_id, timestamp=timestamp, params=params, metrics=metrics, extra=extra
             ),
+            artifacts=artifacts,
         )
 
     @classmethod
     def from_dict(cls, data: t.Dict[str, t.Any], **kwargs) -> "ModelArtifact":
         try:
             metadata = Metadata.from_dict(data["meta"])
+            artifacts = data.get("artifacts")
             model = FrameworkSerializers.serializer(metadata.framework.lib).load(data["model"].encode(), **kwargs)
         except KeyError:  # pragma: no cover
             raise ValueError("Wrong data")
 
-        return cls(model=model, meta=metadata)
+        return cls(model=model, meta=metadata, artifacts=artifacts)
 
     @classmethod
     def from_json(cls, data: str, **kwargs) -> "ModelArtifact":
@@ -198,14 +213,63 @@ class ModelArtifact:
     def from_bytes(cls, data: bytes, **kwargs) -> "ModelArtifact":
         return cls.from_json(codecs.decode(data, "zlib"), **kwargs)  # type: ignore[arg-type]
 
-    def to_dict(self, **kwargs) -> t.Dict[str, t.Any]:
-        return {
+    def to_dict(self, *, artifacts: bool = True, **kwargs) -> t.Dict[str, t.Any]:
+        result: t.Dict[str, t.Any] = {
             "model": FrameworkSerializers.serializer(self.meta.framework.lib).dump(self.model, **kwargs).decode(),
             "meta": self.meta.to_dict(),
         }
 
-    def to_json(self, **kwargs) -> str:
-        return json.dumps(self.to_dict(**kwargs))
+        if artifacts:
+            result["artifacts"] = self.artifacts
 
-    def to_bytes(self, **kwargs) -> bytes:
-        return codecs.encode(self.to_json(**kwargs).encode(), "zlib")
+        return result
+
+    def to_json(self, *, artifacts: bool = True, **kwargs) -> str:
+        return json.dumps(self.to_dict(artifacts=artifacts, **kwargs))
+
+    def to_bytes(self, *, artifacts: bool = True, **kwargs) -> bytes:
+        return codecs.encode(self.to_json(artifacts=artifacts, **kwargs).encode(), "zlib")
+
+    def dump(
+        self,
+        path: t.Union[str, os.PathLike] = "model.flm",
+        compression: t.Union[str, Compression] = Compression.standard,
+        **kwargs,
+    ) -> None:
+        """Serialize model artifact into a file.
+
+        :param path: Model file path.
+        :param compression: Compression type.
+        :param kwargs: Keyword arguments passed to library dump method.
+        """
+        with tarfile.open(path, f"w:{Compression(compression).value}") as tar:
+            if self.artifacts:
+                for name, path in self.artifacts.items():
+                    tar.add(path, f"artifacts/{name}")
+
+            with tempfile.NamedTemporaryFile("wb") as model:
+                model.write(self.to_bytes(artifacts=False, **kwargs))
+                tar.add(model.name, "model")
+
+    @classmethod
+    def load(cls, path: t.Union[str, os.PathLike], **kwargs) -> "ModelArtifact":
+        """Deserialize model artifact from a file.
+
+        :param path: Model file path.
+        :param kwargs: Keyword arguments passed to library load method.
+        :return: Model artifact loaded.
+        """
+        tmp = tempfile.TemporaryDirectory()
+        tmp_path = Path(tmp.name)
+
+        with tarfile.open(path, "r") as tar:
+            tar.extractall(tmp_path)
+
+        with open(tmp_path / "model", "rb") as f:
+            model_artifact = cls.from_bytes(f.read(), **kwargs)
+
+        return cls(
+            model=model_artifact.model,
+            meta=model_artifact.meta,
+            artifacts={artifact.name: artifact for artifact in tmp_path.glob("artifacts/*")} or None,
+        )

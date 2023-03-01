@@ -1,9 +1,10 @@
 import importlib
+import os
 import typing as t
 
 from flama.injection import Component
 from flama.models.base import Model
-from flama.serialize import loads
+from flama.serialize import load
 from flama.serialize.types import Framework
 
 __all__ = ["ModelComponent", "ModelComponentBuilder"]
@@ -34,8 +35,8 @@ class ModelComponentBuilder:
         return model_class
 
     @classmethod
-    def loads(cls, data: bytes) -> ModelComponent:
-        load_model = loads(data)
+    def load(cls, path: t.Union[str, os.PathLike]) -> ModelComponent:
+        load_model = load(path)
         parent = cls._get_model_class(load_model.meta.framework.lib)
         model_class = type(parent.__name__, (parent,), {})
         model_obj = model_class(load_model.model, load_model.meta)

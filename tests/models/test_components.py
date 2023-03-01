@@ -17,8 +17,7 @@ class TestCaseModelComponent:
         indirect=["model_path", "serialized_model_class"],
     )
     def test_build(self, model_path, component_model_class, serialized_model_class):
-        with open(model_path, "rb") as f:
-            component = ModelComponentBuilder.loads(f.read())
+        component = ModelComponentBuilder.load(model_path)
 
         model = component.model
         model_instance = model.model
