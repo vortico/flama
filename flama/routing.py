@@ -752,8 +752,11 @@ class Router(types.AppAsyncClass):
             if m == Match.full:
                 route_scope = types.Scope({**scope, **route.route_scope(scope)})
 
-                if isinstance(route, Mount) and isinstance(route.app, Router):
-                    return route.app.resolve_route(route_scope)
+                if isinstance(route, Mount):
+                    try:
+                        return route.app.resolve_route(route_scope)  # type: ignore[no-any-return,union-attr]
+                    except AttributeError:
+                        ...
 
                 return route, route_scope
             elif m == Match.partial:

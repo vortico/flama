@@ -290,6 +290,14 @@ class Flama:
         """
         return self.router.resolve_url(name, **path_params)
 
+    def resolve_route(self, scope: types.Scope) -> t.Tuple[BaseRoute, types.Scope]:
+        """Look for a route that matches given ASGI scope.
+
+        :param scope: ASGI scope.
+        :return: Route and its scope.
+        """
+        return self.router.resolve_route(scope)
+
     get = functools.partialmethod(route, methods=["GET"])
     head = functools.partialmethod(route, methods=["HEAD"])
     post = functools.partialmethod(route, methods=["POST"])

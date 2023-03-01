@@ -757,7 +757,28 @@ class TestCaseRouter:
         assert route_scope["root_path"] == ""
         assert route_scope["endpoint"] == foo
 
-    def test_resolve_route_mount_view(self, app, router, asgi_scope):
+    def test_resolve_route_mount_app(self, app, asgi_scope):
+        nested = Flama()
+
+        @nested.route("/foo/")
+        async def foo():
+            return "foo"
+
+        app.mount("/router", app=nested)
+
+        asgi_scope["path"] = "/router/foo/"
+        asgi_scope["method"] = "GET"
+
+        route, route_scope = app.router.resolve_route(scope=asgi_scope)
+
+        assert route.endpoint == foo
+        assert route.path == "/foo/"
+        assert route_scope is not None
+        assert route_scope["path"] == "/foo/"
+        assert route_scope["root_path"] == "/router"
+        assert route_scope["endpoint"] == foo
+
+    def test_resolve_route_mount_router(self, app, router, asgi_scope):
         @router.route("/foo/")
         async def foo():
             return "foo"
@@ -776,7 +797,7 @@ class TestCaseRouter:
         assert route_scope["root_path"] == "/router"
         assert route_scope["endpoint"] == foo
 
-    def test_resolve_route_nested_mount_view(self, app, router, asgi_scope):
+    def test_resolve_route_nested_mount_router(self, app, router, asgi_scope):
         @router.route("/foo/")
         async def foo():
             return "foo"
