@@ -1,5 +1,14 @@
 # Semantic Versioning Changelog
 
+# [v1.2.0](https://github.com/vortico/flama/compare/v1.1.0...v1.2.0) (2023-03-02)
+
+## ✨ New Features
+- [`931d7d9`](https://github.com/vortico/flama/commit/931d7d9)  Flama start config handles debug mode 
+
+## 🐛 Bug Fixes
+- [`67a92af`](https://github.com/vortico/flama/commit/67a92af)  Encode uuid in json responses 
+- [`63a634c`](https://github.com/vortico/flama/commit/63a634c)  Minor types fix in HTTPException
+
 # [v1.1.0](https://github.com/vortico/flama/compare/v1.0.2...v1.1.0) (2023-03-01)
 
 ## ✨ New Features
