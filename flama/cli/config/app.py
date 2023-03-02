@@ -16,7 +16,6 @@ if t.TYPE_CHECKING:
 
 __all__ = ["Model", "App", "options"]
 
-
 model_decorators = (
     click.argument("model-path", envvar="FLAMA_MODEL_PATH"),
     click.option("--model-url", envvar="MODEL_URL", default="/", show_default=True, help="Route of the model"),
@@ -24,6 +23,7 @@ model_decorators = (
 )
 
 app_decorators = (
+    click.option("--app-debug", envvar="APP_DEBUG", default=False, show_default=True, help="Debug mode"),
     click.option("--app-title", envvar="APP_TITLE", default="Flama", show_default=True, help="Name of the application"),
     click.option(
         "--app-version", envvar="APP_VERSION", default="0.1.0", show_default=True, help="Version of the application"
@@ -104,6 +104,7 @@ class FlamaApp(App):
 
 @dataclasses.dataclass
 class DictApp(App):
+    debug: bool = False
     title: str = "Flama"
     version: str = "0.1.0"
     description: str = "Fire up with the flame"
@@ -147,6 +148,7 @@ def options(command: t.Callable) -> t.Callable:
 
     @functools.wraps(command)
     def _inner(
+        app_debug: bool,
         app_title: str,
         app_version: str,
         app_description: str,
@@ -160,6 +162,7 @@ def options(command: t.Callable) -> t.Callable:
     ):
         command(
             app=DictApp(
+                debug=app_debug,
                 title=app_title,
                 description=app_description,
                 version=app_version,

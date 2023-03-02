@@ -5,21 +5,14 @@ import io
 import json
 import typing as t
 
-import click
-
 from flama.cli.config.app import App
 from flama.cli.config.uvicorn import Uvicorn
 
 __all__ = ["Config", "ExampleConfig", "options"]
 
-decorators = (
-    click.option("--dev", envvar="DEV", is_flag=True, default=False, show_default=True, help="Development mode."),
-)
-
 
 @dataclasses.dataclass
 class Config:
-    dev: bool = False
     app: App = dataclasses.field(
         default_factory=lambda: App.build({"title": "API title", "version": "0.1.0", "description": "API description"})
     )
@@ -56,8 +49,6 @@ class Config:
         return result
 
     def run(self) -> None:
-        # TODO: Define 'dev' behavior
-
         with self.app.context as app_context:
             self.server.app_dir = app_context.dir
             self.server.run(app_context.app)
@@ -101,7 +92,7 @@ def options(command: t.Callable) -> t.Callable:
     """
 
     @functools.wraps(command)
-    def _inner(dev: bool = False, *args, **kwargs):
-        command(dev=dev, *args, **kwargs)
+    def _inner(*args, **kwargs):
+        command(*args, **kwargs)
 
-    return functools.reduce(lambda x, y: y(x), decorators, _inner)
+    return _inner
