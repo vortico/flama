@@ -4,6 +4,7 @@ import html
 import json
 import os
 import typing as t
+import uuid
 from pathlib import Path
 
 import jinja2
@@ -55,6 +56,8 @@ class PlainTextResponse(starlette.responses.PlainTextResponse, Response):
 
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, obj):
+        if isinstance(obj, uuid.UUID):
+            return str(obj)
         if isinstance(obj, (set, frozenset)):
             return list(obj)
         if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
