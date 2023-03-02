@@ -56,7 +56,7 @@ class HTTPException(starlette.exceptions.HTTPException):
     def __init__(
         self,
         status_code: int,
-        detail: t.Optional[t.Union[str, t.Dict[str, t.List[str]]]] = None,
+        detail: t.Optional[t.Union[str, t.Dict[str, t.Any]]] = None,
         headers: t.Optional[dict] = None,
     ) -> None:
         if detail is None:

@@ -85,12 +85,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 class JSONResponse(starlette.responses.JSONResponse, Response):
     def render(self, content: t.Any) -> bytes:
         return json.dumps(
-            content,
-            ensure_ascii=False,
-            allow_nan=False,
-            indent=None,
-            separators=(",", ":"),
-            cls=EnhancedJSONEncoder,
+            content, ensure_ascii=False, allow_nan=False, indent=None, separators=(",", ":"), cls=EnhancedJSONEncoder
         ).encode("utf-8")
 
 
