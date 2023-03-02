@@ -14,11 +14,11 @@ __all__ = ["serve", "command"]
 @config_options
 @app_options
 @uvicorn_options
-def command(dev: bool, app: App, uvicorn: Uvicorn):
+def command(app: App, uvicorn: Uvicorn):
     """
     Serve the ML model file <MODEL_PATH> within a Flama Application.
     """
-    Config(dev=dev, app=app, server=uvicorn).run()
+    Config(app=app, server=uvicorn).run()
 
 
 serve = command.callback
