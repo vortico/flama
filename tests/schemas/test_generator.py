@@ -517,6 +517,18 @@ class TestCaseSchemaGenerator:
             """
             return {"name": "Canna"}
 
+        @app.route("/multiple-responses/", methods=["GET"])
+        async def multiple_responses():
+            """
+            description: Multiple responses.
+            responses:
+              200:
+                description: OK.
+              400:
+                description: Bad Request.
+            """
+            return {}
+
         router = Router()
         router.add_route("/custom-component/", endpoint=get, methods=["GET"])
         app.mount("/mount", router)
@@ -548,7 +560,13 @@ class TestCaseSchemaGenerator:
                 "get",
                 {
                     "description": "Query param.",
-                    "responses": {"200": {"description": "Param."}},
+                    "responses": {
+                        "200": {"description": "Param."},
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                        },
+                    },
                     "parameters": [
                         {
                             "name": "param1",
@@ -577,7 +595,13 @@ class TestCaseSchemaGenerator:
                 "get",
                 {
                     "description": "Path param.",
-                    "responses": {"200": {"description": "Param."}},
+                    "responses": {
+                        "200": {"description": "Param."},
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                        },
+                    },
                     "parameters": [
                         {
                             "name": "param",
@@ -594,7 +618,13 @@ class TestCaseSchemaGenerator:
                 "post",
                 {
                     "description": "Body param.",
-                    "responses": {"200": {"description": "Param."}},
+                    "responses": {
+                        "200": {"description": "Param."},
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                        },
+                    },
                     "requestBody": {
                         "content": {"application/json": {"schema": {"$ref": "#/components/schemas/BodyParam"}}}
                     },
@@ -619,7 +649,11 @@ class TestCaseSchemaGenerator:
                                     }
                                 }
                             },
-                        }
+                        },
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                        },
                     },
                 },
                 id="response_schema_single",
@@ -642,7 +676,11 @@ class TestCaseSchemaGenerator:
                                     }
                                 }
                             },
-                        }
+                        },
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                        },
                     },
                 },
                 id="response_schema_multiple",
@@ -665,7 +703,11 @@ class TestCaseSchemaGenerator:
                                     }
                                 }
                             },
-                        }
+                        },
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                        },
                     },
                 },
                 id="response_schema_endpoint",
@@ -688,7 +730,11 @@ class TestCaseSchemaGenerator:
                                     }
                                 }
                             },
-                        }
+                        },
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                        },
                     },
                 },
                 id="response_schema_mount",
@@ -711,7 +757,11 @@ class TestCaseSchemaGenerator:
                                     }
                                 }
                             },
-                        }
+                        },
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                        },
                     },
                 },
                 id="response_schema_nested_mount",
@@ -729,6 +779,22 @@ class TestCaseSchemaGenerator:
                     },
                 },
                 id="default_response_schema",
+            ),
+            pytest.param(
+                "/multiple-responses/",
+                "get",
+                {
+                    "description": "Multiple responses.",
+                    "responses": {
+                        "200": {"description": "OK."},
+                        "400": {"description": "Bad Request."},
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                        },
+                    },
+                },
+                id="multiple_responses",
             ),
         ],
     )

@@ -412,6 +412,62 @@ class SchemaGenerator:
             },
         )
 
+    def _build_endpoint_responses(
+        self, endpoint: EndpointInfo, metadata: typing.Dict[str, typing.Any]
+    ) -> openapi.Responses:
+        responses = metadata.get("responses", {})
+        try:
+            main_response_code = next(iter(responses.keys()))
+            assert 100 <= int(main_response_code) < 600
+        except (ValueError, AssertionError, StopIteration):
+            main_response_code = 200
+            responses[main_response_code] = {
+                "description": "Description not provided.",
+            }
+            logger.warning(
+                'OpenAPI description not provided in docstring for main response in endpoint "%s", adding a standard '
+                '"%s" response',
+                main_response_code,
+                endpoint.path,
+            )
+
+        if endpoint.response_parameter.schema.schema:
+            if endpoint.response_parameter.schema.schema not in self.schemas:
+                self.schemas.register(schema=endpoint.response_parameter.schema.schema)
+
+            responses[main_response_code]["content"] = {
+                **responses[main_response_code].get("content", {}),
+                "application/json": {"schema": self.schemas.get_openapi_ref(endpoint.response_parameter.schema.schema)},
+            }
+
+        responses["default"] = {
+            "description": "Unexpected error.",
+            **responses.get("default", {}),
+            "content": {
+                "application/json": {"schema": self.schemas.get_openapi_ref(schemas.schemas.APIError, multiple=False)}
+            },
+        }
+
+        return openapi.Responses(
+            {
+                str(code): openapi.Response(
+                    description=response["description"],
+                    headers=response.get("headers"),
+                    content={
+                        mime: openapi.MediaType(
+                            schema=media_type.get("schema"),
+                            example=media_type.get("example"),
+                            examples=media_type.get("examples"),
+                            encoding=media_type.get("encoding"),
+                        )
+                        for mime, media_type in response.get("content", {}).items()
+                    },
+                    links=response.get("links"),
+                )
+                for code, response in responses.items()
+            }
+        )
+
     def _parse_docstring(self, func: typing.Callable) -> t.Dict[t.Any, t.Any]:
         """Given a function, parse the docstring as YAML and return a dictionary of info.
 
@@ -442,18 +498,11 @@ class SchemaGenerator:
         # Body
         request_body = self._build_endpoint_body(endpoint, docstring_info)
 
-        responses = {}
-
         # Response
-        response, response_code = self._build_endpoint_response(endpoint, docstring_info)
-        if response:
-            responses[response_code] = response
-
-        # Default response
-        responses["default"] = self._build_endpoint_default_response(docstring_info)
+        responses = self._build_endpoint_responses(endpoint, docstring_info)
 
         return openapi.Operation(
-            responses=openapi.Responses(responses),
+            responses=responses,
             parameters=parameters,  # type: ignore[arg-type]
             requestBody=request_body,
             **{
