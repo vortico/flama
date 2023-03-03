@@ -309,7 +309,7 @@ class TestCaseBodyComponent:
     @pytest.mark.parametrize(
         ["path", "method", "request_kwargs", "expected"],
         [
-            pytest.param("/body/", "post", {"data": "content"}, {"body": "content"}),
+            pytest.param("/body/", "post", {"content": "content"}, {"body": "content"}, id="default"),
         ],
     )
     def test_body(self, client, path, method, request_kwargs, expected):

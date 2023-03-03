@@ -37,9 +37,9 @@ class TestCaseDataValidation:
                 id="multipart",
             ),
             # Misc
-            param({"data": b"...", "headers": {"content-type": "unknown"}}, 415, None, id="unknown body type"),
+            param({"content": b"...", "headers": {"content-type": "unknown"}}, 415, None, id="unknown body type"),
             param(
-                {"data": b"...", "headers": {"content-type": "application/json"}}, 400, None, id="json parse failure"
+                {"content": b"...", "headers": {"content-type": "application/json"}}, 400, None, id="json parse failure"
             ),
         ],
     )
