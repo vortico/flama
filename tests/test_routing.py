@@ -27,13 +27,16 @@ class TestCaseBaseRoute:
             ...
 
         app = EndpointWrapper(foo, EndpointWrapper.type.http)
-        route = BaseRoute("/", app, name="foo", include_in_schema=False)
+        route = BaseRoute(
+            "/", app, name="foo", include_in_schema=False, tag="tag", list_tag=["foo", "bar"], dict_tag={"foo": "bar"}
+        )
 
         assert route.path == url.RegexPath("/")
         assert route.app == app
         assert route.endpoint == foo
         assert route.name == "foo"
         assert route.include_in_schema is False
+        assert route.tags == {"tag": "tag", "list_tag": ["foo", "bar"], "dict_tag": {"foo": "bar"}}
 
     @pytest.mark.skipif(
         sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
@@ -466,6 +469,10 @@ class TestCaseRouter:
     def component_mock(self):
         return MagicMock(spec=Component)
 
+    @pytest.fixture(scope="function")
+    def tags(self):
+        return {"tag": "foo", "list_tag": ["foo", "bar"], "dict_tag": {"foo": "bar"}}
+
     def test_init(self, app_mock):
         with patch("flama.routing.Router.build") as method_mock:
             Router([], root=app_mock)
@@ -529,28 +536,30 @@ class TestCaseRouter:
 
         assert router.components == [component_mock]
 
-    def test_add_route_function(self, router):
+    def test_add_route_function(self, router, tags):
         async def foo():
             return "foo"
 
-        router.add_route("/", foo)
+        router.add_route("/", foo, **tags)
 
         assert len(router.routes) == 1
         assert isinstance(router.routes[0], Route)
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == foo
+        assert router.routes[0].tags == tags
 
-    def test_add_route_endpoint(self, router):
+    def test_add_route_endpoint(self, router, tags):
         class FooEndpoint(endpoints.HTTPEndpoint):
             async def get(self):
                 return "foo"
 
-        router.add_route("/", FooEndpoint)
+        router.add_route("/", FooEndpoint, **tags)
 
         assert len(router.routes) == 1
         assert isinstance(router.routes[0], Route)
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == FooEndpoint
+        assert router.routes[0].tags == tags
 
     def test_add_route_wrong_params(self, router):
         with pytest.raises(AssertionError, match="Either 'path' and 'endpoint' or 'route' variables are needed"):
@@ -563,8 +572,8 @@ class TestCaseRouter:
         with pytest.raises(AssertionError, match="Endpoint must be a callable or an HTTPEndpoint subclass"):
             router.add_route(path="/", endpoint=Foo)
 
-    def test_route_function(self, router):
-        @router.route("/")
+    def test_route_function(self, router, tags):
+        @router.route("/", **tags)
         async def foo():
             return "foo"
 
@@ -572,9 +581,10 @@ class TestCaseRouter:
         assert isinstance(router.routes[0], Route)
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == foo
+        assert router.routes[0].tags == tags
 
-    def test_route_endpoint(self, router):
-        @router.route("/")
+    def test_route_endpoint(self, router, tags):
+        @router.route("/", **tags)
         class FooEndpoint(endpoints.HTTPEndpoint):
             async def get(self):
                 return "foo"
@@ -583,6 +593,7 @@ class TestCaseRouter:
         assert isinstance(router.routes[0], Route)
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == FooEndpoint
+        assert router.routes[0].tags == tags
 
     def test_route_wrong_endpoint(self, router):
         with pytest.raises(AssertionError, match="Endpoint must be a callable or an HTTPEndpoint subclass"):
@@ -591,28 +602,30 @@ class TestCaseRouter:
             class Foo:
                 ...
 
-    def test_add_websocket_route_function(self, router):
+    def test_add_websocket_route_function(self, router, tags):
         async def foo():
             return "foo"
 
-        router.add_websocket_route("/", foo)
+        router.add_websocket_route("/", foo, **tags)
 
         assert len(router.routes) == 1
         assert isinstance(router.routes[0], WebSocketRoute)
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == foo
+        assert router.routes[0].tags == tags
 
-    def test_add_websocket_route_endpoint(self, router):
+    def test_add_websocket_route_endpoint(self, router, tags):
         class FooEndpoint(endpoints.WebSocketEndpoint):
             async def on_receive(self, websocket):
                 return "foo"
 
-        router.add_websocket_route("/", FooEndpoint)
+        router.add_websocket_route("/", FooEndpoint, **tags)
 
         assert len(router.routes) == 1
         assert isinstance(router.routes[0], WebSocketRoute)
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == FooEndpoint
+        assert router.routes[0].tags == tags
 
     def test_add_websocket_route_wrong_params(self, router):
         with pytest.raises(AssertionError, match="Either 'path' and 'endpoint' or 'route' variables are needed"):
@@ -625,8 +638,8 @@ class TestCaseRouter:
         with pytest.raises(AssertionError, match="Endpoint must be a callable or a WebSocketEndpoint subclass"):
             router.add_websocket_route(path="/", endpoint=Foo)
 
-    def test_websocket_route_function(self, router):
-        @router.websocket_route("/")
+    def test_websocket_route_function(self, router, tags):
+        @router.websocket_route("/", **tags)
         async def foo():
             return "foo"
 
@@ -634,9 +647,10 @@ class TestCaseRouter:
         assert isinstance(router.routes[0], WebSocketRoute)
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == foo
+        assert router.routes[0].tags == tags
 
-    def test_websocket_route_endpoint(self, router):
-        @router.websocket_route("/")
+    def test_websocket_route_endpoint(self, router, tags):
+        @router.websocket_route("/", **tags)
         class FooEndpoint(endpoints.WebSocketEndpoint):
             async def on_receive(self, websocket):
                 return "foo"
@@ -645,6 +659,7 @@ class TestCaseRouter:
         assert isinstance(router.routes[0], WebSocketRoute)
         assert router.routes[0].path == "/"
         assert router.routes[0].endpoint == FooEndpoint
+        assert router.routes[0].tags == tags
 
     def test_websocket_route_wrong_endpoint(self, router):
         with pytest.raises(AssertionError, match="Endpoint must be a callable or a WebSocketEndpoint subclass"):
@@ -653,31 +668,33 @@ class TestCaseRouter:
             class Foo:
                 ...
 
-    def test_mount_app(self, app, app_mock):
-        app.mount("/app/", app=app_mock)
+    def test_mount_app(self, app, app_mock, tags):
+        app.mount("/app/", app=app_mock, **tags)
 
         assert len(app.routes) == 1
         assert isinstance(app.routes[0], Mount)
         assert app.routes[0].path == "/app"
         assert app.routes[0].app == app_mock
+        assert app.routes[0].tags == tags
 
-    def test_mount_router(self, app, component_mock):
+    def test_mount_router(self, app, component_mock, tags):
         router = Router(components=[component_mock])
 
-        app.mount("/app/", app=router)
+        app.mount("/app/", app=router, **tags)
 
         assert len(app.router.routes) == 1
         # Check mount is initialized
         assert isinstance(app.routes[0], Mount)
         mount_route = app.router.routes[0]
         assert mount_route.path == "/app"
+        assert mount_route.tags == tags
         # Check router is created and initialized, also shares components and modules with main app
         assert isinstance(mount_route.app, Router)
         mount_router = mount_route.app
         assert mount_router.components == Components([component_mock])
         assert app.components == Components([component_mock])
 
-    def test_mount_declarative(self, component_mock):
+    def test_mount_declarative(self, component_mock, tags):
         def root():
             ...
 
@@ -688,11 +705,12 @@ class TestCaseRouter:
             ...
 
         routes = [
-            Route("/", root),
+            Route("/", root, **tags),
             Mount(
                 "/foo",
                 routes=[Route("/", foo, methods=["GET"]), Route("/view", foo_view, methods=["GET"])],
                 components=[component_mock],
+                **tags
             ),
             Mount(
                 "/bar",
@@ -700,6 +718,7 @@ class TestCaseRouter:
                     routes=[Route("/", foo, methods=["GET"]), Route("/view", foo_view, methods=["GET"])],
                     components=[component_mock],
                 ),
+                **tags
             ),
         ]
 
@@ -711,10 +730,13 @@ class TestCaseRouter:
         assert isinstance(app.router.routes[0], Route)
         root_route = app.router.routes[0]
         assert root_route.path == "/"
+        assert root_route.tags == tags
 
         # Check mount with routes is initialized
         assert isinstance(app.router.routes[1], Mount)
         mount_with_routes_route = app.router.routes[1]
+        assert mount_with_routes_route.path == "/foo"
+        assert mount_with_routes_route.tags == tags
         # Check router is created and initialized, also shares components and modules with main app
         assert isinstance(mount_with_routes_route.app, Router)
         mount_with_routes_router = mount_with_routes_route.app
@@ -729,6 +751,8 @@ class TestCaseRouter:
         # Check mount with app is initialized
         assert isinstance(app.router.routes[2], Mount)
         mount_with_app_route = app.router.routes[2]
+        assert mount_with_app_route.path == "/bar"
+        assert mount_with_app_route.tags == tags
         # Check router is created and initialized, also shares components and modules with main app
         assert isinstance(mount_with_app_route.app, Router)
         mount_with_app_router = mount_with_app_route.app

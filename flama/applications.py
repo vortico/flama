@@ -159,6 +159,7 @@ class Flama:
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         route: t.Optional["Route"] = None,
+        **tags: t.Any,
     ) -> "Route":
         """Register a new HTTP route or endpoint under given path.
 
@@ -168,9 +169,17 @@ class Flama:
         :param name: Endpoint or route name.
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
         :param route: HTTP route.
+        :param tags: Tags to add to the route.
         """
         return self.router.add_route(
-            path, endpoint, methods=methods, name=name, include_in_schema=include_in_schema, route=route, root=self
+            path,
+            endpoint,
+            methods=methods,
+            name=name,
+            include_in_schema=include_in_schema,
+            route=route,
+            root=self,
+            **tags,
         )
 
     def route(
@@ -179,6 +188,7 @@ class Flama:
         methods: t.Optional[t.List[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
+        **tags: t.Any,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -186,9 +196,12 @@ class Flama:
         :param methods: List of valid HTTP methods (only applies for routes).
         :param name: Endpoint or route name.
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
+        :param tags: Tags to add to the route.
         :return: Decorated route.
         """
-        return self.router.route(path, methods=methods, name=name, include_in_schema=include_in_schema, root=self)
+        return self.router.route(
+            path, methods=methods, name=name, include_in_schema=include_in_schema, root=self, **tags
+        )
 
     def add_websocket_route(
         self,
@@ -196,6 +209,7 @@ class Flama:
         endpoint: t.Optional[types.WebSocketHandler] = None,
         name: t.Optional[str] = None,
         route: t.Optional["WebSocketRoute"] = None,
+        **tags: t.Any,
     ) -> "WebSocketRoute":
         """Register a new websocket route or endpoint under given path.
 
@@ -203,19 +217,21 @@ class Flama:
         :param endpoint: Websocket endpoint.
         :param name: Endpoint or route name.
         :param route: Websocket route.
+        :param tags: Tags to add to the websocket route.
         """
-        return self.router.add_websocket_route(path, endpoint, name=name, route=route, root=self)
+        return self.router.add_websocket_route(path, endpoint, name=name, route=route, root=self, **tags)
 
     def websocket_route(
-        self, path: str, name: t.Optional[str] = None
+        self, path: str, name: t.Optional[str] = None, **tags: t.Any
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
         :param path: URL path.
         :param name: Websocket route name.
+        :param tags: Tags to add to the websocket route.
         :return: Decorated route.
         """
-        return self.router.websocket_route(path, name=name, root=self)
+        return self.router.websocket_route(path, name=name, root=self, **tags)
 
     def mount(
         self,
@@ -223,6 +239,7 @@ class Flama:
         app: t.Optional[types.App] = None,
         name: t.Optional[str] = None,
         mount: t.Optional["Mount"] = None,
+        **tags: t.Any,
     ) -> "Mount":
         """Register a new mount point containing an ASGI app in this router under given path.
 
@@ -230,9 +247,10 @@ class Flama:
         :param app: ASGI app to mount.
         :param name: Application name.
         :param mount: Mount.
+        :param tags: Tags to add to the mount.
         :return: Mount.
         """
-        return self.router.mount(path, app, name=name, mount=mount, root=self)
+        return self.router.mount(path, app, name=name, mount=mount, root=self, **tags)
 
     @property
     def injector(self) -> injection.Injector:

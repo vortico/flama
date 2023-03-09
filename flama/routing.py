@@ -182,6 +182,7 @@ class BaseRoute(RouteParametersMixin):
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
+        **tags: t.Any,
     ):
         """A route definition of a http endpoint.
 
@@ -189,12 +190,14 @@ class BaseRoute(RouteParametersMixin):
         :param app: ASGI application.
         :param name: Route name.
         :param include_in_schema: True if this route must be listed as part of the App schema.
+        :param tags: Route tags.
         """
         self.path = url.RegexPath(path)
         self.app = app
         self.endpoint = app.handler if isinstance(app, EndpointWrapper) else app
         self.name = name
         self.include_in_schema = include_in_schema
+        self.tags = tags
         super().__init__()
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
@@ -288,6 +291,7 @@ class Route(BaseRoute):
         methods: t.Optional[t.Union[t.Set[str], t.Sequence[str]]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
+        **tags: t.Any,
     ) -> None:
         """A route definition of a http endpoint.
 
@@ -296,6 +300,7 @@ class Route(BaseRoute):
         :param methods: List of valid HTTP methods.
         :param name: Route name.
         :param include_in_schema: True if this route must be listed as part of the App schema.
+        :param tags: Route tags.
         """
         assert self.is_endpoint(endpoint) or (
             not inspect.isclass(endpoint) and callable(endpoint)
@@ -312,7 +317,11 @@ class Route(BaseRoute):
         name = endpoint.__name__ if name is None else name
 
         super().__init__(
-            path, EndpointWrapper(endpoint, EndpointWrapper.type.http), name=name, include_in_schema=include_in_schema
+            path,
+            EndpointWrapper(endpoint, EndpointWrapper.type.http),
+            name=name,
+            include_in_schema=include_in_schema,
+            **tags,
         )
 
         self.app: EndpointWrapper
@@ -369,6 +378,7 @@ class WebSocketRoute(BaseRoute):
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
+        **tags: t.Any,
     ):
         """A route definition of a websocket endpoint.
 
@@ -376,6 +386,7 @@ class WebSocketRoute(BaseRoute):
         :param endpoint: Websocket endpoint or function.
         :param name: Route name.
         :param include_in_schema: True if this route must be listed as part of the App schema.
+        :param tags: Route tags.
         """
 
         assert self.is_endpoint(endpoint) or (
@@ -389,6 +400,7 @@ class WebSocketRoute(BaseRoute):
             EndpointWrapper(endpoint, EndpointWrapper.type.websocket),
             name=name,
             include_in_schema=include_in_schema,
+            **tags,
         )
 
         self.app: EndpointWrapper
@@ -435,6 +447,7 @@ class Mount(BaseRoute):
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
         components: t.Optional[t.Sequence[Component]] = None,
         name: t.Optional[str] = None,
+        **tags: t.Any,
     ):
         """A mount point for adding a nested ASGI application or a list of routes.
 
@@ -443,13 +456,14 @@ class Mount(BaseRoute):
         :param routes: List of routes.
         :param components: Components registered under this mount point.
         :param name: Mount name.
+        :param tags: Mount tags.
         """
         assert app is not None or routes is not None, "Either 'app' or 'routes' must be specified"
 
         if app is None:
             app = Router(routes=routes, components=components)
 
-        super().__init__(url.RegexPath(path.rstrip("/") + "{path:path}"), app, name=name)
+        super().__init__(url.RegexPath(path.rstrip("/") + "{path:path}"), app, name=name, **tags)
 
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, Mount)
@@ -618,6 +632,7 @@ class Router(types.AppAsyncClass):
         include_in_schema: bool = True,
         route: t.Optional[Route] = None,
         root: t.Optional["Flama"] = None,
+        **tags: t.Any,
     ) -> Route:
         """Register a new HTTP route in this router under given path.
 
@@ -628,10 +643,13 @@ class Router(types.AppAsyncClass):
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
         :param route: HTTP route.
         :param root: Flama application.
+        :param tags: Tags to add to the route or endpoint.
         :return: Route.
         """
         if path is not None and endpoint is not None:
-            route = Route(path, endpoint=endpoint, methods=methods, name=name, include_in_schema=include_in_schema)
+            route = Route(
+                path, endpoint=endpoint, methods=methods, name=name, include_in_schema=include_in_schema, **tags
+            )
 
         assert route is not None, "Either 'path' and 'endpoint' or 'route' variables are needed"
 
@@ -648,6 +666,7 @@ class Router(types.AppAsyncClass):
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         root: t.Optional["Flama"] = None,
+        **tags: t.Any,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -656,11 +675,14 @@ class Router(types.AppAsyncClass):
         :param name: Endpoint or route name.
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
         :param root: Flama application.
+        :param tags: Tags to add to the endpoint.
         :return: Decorated route.
         """
 
         def decorator(func: types.HTTPHandler) -> types.HTTPHandler:
-            self.add_route(path, func, methods=methods, name=name, include_in_schema=include_in_schema, root=root)
+            self.add_route(
+                path, func, methods=methods, name=name, include_in_schema=include_in_schema, root=root, **tags
+            )
             return func
 
         return decorator
@@ -672,6 +694,7 @@ class Router(types.AppAsyncClass):
         name: t.Optional[str] = None,
         route: t.Optional[WebSocketRoute] = None,
         root: t.Optional["Flama"] = None,
+        **tags: t.Any,
     ) -> WebSocketRoute:
         """Register a new websocket route in this router under given path.
 
@@ -680,10 +703,11 @@ class Router(types.AppAsyncClass):
         :param name: Websocket route name.
         :param route: Specific route class.
         :param root: Flama application.
+        :param tags: Tags to add to the websocket route.
         :return: Websocket route.
         """
         if path is not None and endpoint is not None:
-            route = WebSocketRoute(path, endpoint=endpoint, name=name)
+            route = WebSocketRoute(path, endpoint=endpoint, name=name, **tags)
 
         assert route is not None, "Either 'path' and 'endpoint' or 'route' variables are needed"
 
@@ -694,18 +718,23 @@ class Router(types.AppAsyncClass):
         return route
 
     def websocket_route(
-        self, path: str, name: t.Optional[str] = None, root: t.Optional["Flama"] = None
+        self,
+        path: str,
+        name: t.Optional[str] = None,
+        root: t.Optional["Flama"] = None,
+        **tags: t.Any,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
         :param path: URL path.
         :param name: Websocket route name.
         :param root: Flama application.
+        :param tags: Tags to add to the websocket route.
         :return: Decorated websocket route.
         """
 
         def decorator(func: types.WebSocketHandler) -> types.WebSocketHandler:
-            self.add_websocket_route(path, func, name=name, root=root)
+            self.add_websocket_route(path, func, name=name, root=root, **tags)
             return func
 
         return decorator
@@ -717,6 +746,7 @@ class Router(types.AppAsyncClass):
         name: t.Optional[str] = None,
         mount: t.Optional[Mount] = None,
         root: t.Optional["Flama"] = None,
+        **tags: t.Any,
     ) -> Mount:
         """Register a new mount point containing an ASGI app in this router under given path.
 
@@ -725,10 +755,11 @@ class Router(types.AppAsyncClass):
         :param name: Route name.
         :param mount: Mount.
         :param root: Flama application.
+        :param tags: Tags to add to the mount.
         :return: Mount.
         """
         if path is not None and app is not None:
-            mount = Mount(path, app=app, name=name)
+            mount = Mount(path, app=app, name=name, **tags)
 
         assert mount is not None, "Either 'path' and 'app' or 'mount' variables are needed"
 
