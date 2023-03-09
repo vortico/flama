@@ -8,6 +8,7 @@ from collections import defaultdict
 
 import yaml
 
+import flama.types.schema
 from flama import routing, schemas
 from flama.schemas import Schema, openapi
 from flama.schemas.data_structures import Parameter
@@ -44,16 +45,16 @@ class SchemaInfo:
 
 
 class SchemaRegistry(typing.Dict[int, SchemaInfo]):
-    def __init__(self, schemas: t.Optional[typing.Dict[str, schemas.types.Schema]] = None):
+    def __init__(self, schemas: t.Optional[typing.Dict[str, flama.types.schema._T_Schema]] = None):
         super().__init__()
 
         for name, schema in (schemas or {}).items():
             self.register(schema, name)
 
-    def __contains__(self, item: schemas.types.Schema) -> bool:
+    def __contains__(self, item: flama.types.schema._T_Schema) -> bool:
         return super().__contains__(id(schemas.adapter.unique_schema(item)))
 
-    def __getitem__(self, item: schemas.types.Schema) -> SchemaInfo:
+    def __getitem__(self, item: flama.types.schema._T_Schema) -> SchemaInfo:
         """
         Lookup method that allows using Schema classes or instances.
 
@@ -179,7 +180,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
 
         return used_schemas
 
-    def register(self, schema: schemas.types.Schema, name: t.Optional[str] = None) -> int:
+    def register(self, schema: flama.types.schema._T_Schema, name: t.Optional[str] = None) -> int:
         """
         Register a new Schema to this registry.
 
@@ -206,7 +207,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         return schema_id
 
     def get_openapi_ref(
-        self, element: schemas.types.Schema, multiple: t.Optional[bool] = None
+        self, element: flama.types.schema._T_Schema, multiple: t.Optional[bool] = None
     ) -> typing.Union[openapi.Schema, openapi.Reference]:
         """
         Builds the reference for a single schema or the array schema containing the reference.

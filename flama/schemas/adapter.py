@@ -2,7 +2,7 @@ import abc
 import sys
 import typing as t
 
-from flama.schemas.types import Field, JSONSchema, Schema
+from flama.types.schema import JSONSchema, _T_Field, _T_Schema
 
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard
@@ -10,7 +10,7 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
     t.TypeGuard = TypeGuard
 
 
-class Adapter(t.Generic[Schema, Field], metaclass=abc.ABCMeta):
+class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
     DEFAULT_SCHEMA_NAME = "Schema"
 
     @abc.abstractmethod
@@ -23,19 +23,19 @@ class Adapter(t.Generic[Schema, Field], metaclass=abc.ABCMeta):
         default: t.Any = None,
         multiple: bool = False,
         **kwargs: t.Any,
-    ) -> Field:
+    ) -> _T_Field:
         ...
 
     @t.overload
     def build_schema(
-        self, *, name: t.Optional[str] = None, fields: t.Dict[str, Field]
-    ) -> t.Union[Schema, t.Type[Schema]]:
+        self, *, name: t.Optional[str] = None, fields: t.Dict[str, _T_Field]
+    ) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
         ...
 
     @t.overload
     def build_schema(
-        self, *, name: t.Optional[str] = None, schema: t.Union[Schema, t.Type[Schema]]
-    ) -> t.Union[Schema, t.Type[Schema]]:
+        self, *, name: t.Optional[str] = None, schema: t.Union[_T_Schema, t.Type[_T_Schema]]
+    ) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
         ...
 
     @t.overload
@@ -43,9 +43,9 @@ class Adapter(t.Generic[Schema, Field], metaclass=abc.ABCMeta):
         self,
         *,
         name: t.Optional[str] = None,
-        schema: t.Union[Schema, t.Type[Schema]],
-        fields: t.Optional[t.Dict[str, Field]],
-    ) -> t.Union[Schema, t.Type[Schema]]:
+        schema: t.Union[_T_Schema, t.Type[_T_Schema]],
+        fields: t.Optional[t.Dict[str, _T_Field]],
+    ) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
         ...
 
     @abc.abstractmethod
@@ -53,35 +53,35 @@ class Adapter(t.Generic[Schema, Field], metaclass=abc.ABCMeta):
         self,
         *,
         name: t.Optional[str] = None,
-        schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
-        fields: t.Optional[t.Dict[str, Field]] = None,
-    ) -> t.Union[Schema, t.Type[Schema]]:
+        schema: t.Optional[t.Union[_T_Schema, t.Type[_T_Schema]]] = None,
+        fields: t.Optional[t.Dict[str, _T_Field]] = None,
+    ) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
         ...
 
     @abc.abstractmethod
-    def validate(self, schema: t.Union[Schema, t.Type[Schema]], values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    def validate(self, schema: t.Union[_T_Schema, t.Type[_T_Schema]], values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         ...
 
     @abc.abstractmethod
-    def load(self, schema: t.Union[Schema, t.Type[Schema]], value: t.Dict[str, t.Any]) -> Schema:
+    def load(self, schema: t.Union[_T_Schema, t.Type[_T_Schema]], value: t.Dict[str, t.Any]) -> _T_Schema:
         ...
 
     @abc.abstractmethod
-    def dump(self, schema: t.Union[Schema, t.Type[Schema]], value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    def dump(self, schema: t.Union[_T_Schema, t.Type[_T_Schema]], value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         ...
 
     @abc.abstractmethod
-    def to_json_schema(self, schema: t.Union[Schema, t.Type[Schema], Field]) -> JSONSchema:
+    def to_json_schema(self, schema: t.Union[_T_Schema, t.Type[_T_Schema], _T_Field]) -> JSONSchema:
         ...
 
     @abc.abstractmethod
-    def unique_schema(self, schema: t.Union[Schema, t.Type[Schema]]) -> t.Union[Schema, t.Type[Schema]]:
+    def unique_schema(self, schema: t.Union[_T_Schema, t.Type[_T_Schema]]) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
         ...
 
     @abc.abstractmethod
-    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[Schema, t.Type[Schema]]]:
+    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[_T_Schema, t.Type[_T_Schema]]]:
         ...
 
     @abc.abstractmethod
-    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[Field, t.Type[Field]]]:
+    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[_T_Field, t.Type[_T_Field]]]:
         ...

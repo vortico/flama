@@ -2,6 +2,7 @@ import os
 import typing as t
 
 import flama.schemas
+from flama import types
 from flama.models.components import ModelComponentBuilder
 from flama.resources import BaseResource, data_structures
 from flama.resources.exceptions import ResourceAttributeError
@@ -17,7 +18,9 @@ __all__ = ["ModelResource", "InspectMixin", "PredictMixin", "ModelResourceType"]
 
 class InspectMixin:
     @classmethod
-    def _add_inspect(mcs, name: str, verbose_name: str, model_model_type: "Model", **kwargs) -> t.Dict[str, t.Any]:
+    def _add_inspect(
+        mcs, name: str, verbose_name: str, model_model_type: t.Type["Model"], **kwargs
+    ) -> t.Dict[str, t.Any]:
         @resource_method("/", methods=["GET"], name=f"{name}-inspect")
         async def inspect(self, model: model_model_type):  # type: ignore[valid-type]
             return model.inspect()  # type: ignore[attr-defined]
@@ -40,12 +43,16 @@ class InspectMixin:
 
 class PredictMixin:
     @classmethod
-    def _add_predict(mcs, name: str, verbose_name: str, model_model_type: "Model", **kwargs) -> t.Dict[str, t.Any]:
+    def _add_predict(
+        mcs, name: str, verbose_name: str, model_model_type: t.Type["Model"], **kwargs
+    ) -> t.Dict[str, t.Any]:
         @resource_method("/predict/", methods=["POST"], name=f"{name}-predict")
         async def predict(
-            self, model: model_model_type, data: flama.schemas.schemas.MLModelInput  # type: ignore[valid-type]
-        ) -> flama.schemas.schemas.MLModelOutput:
-            return {"output": model.predict(data["input"])}  # type: ignore[attr-defined]
+            self,
+            model: model_model_type,  # type: ignore[valid-type]
+            data: types.Schema[flama.schemas.schemas.MLModelInput],  # type: ignore[type-arg]
+        ) -> types.Schema[flama.schemas.schemas.MLModelOutput]:  # type: ignore[type-arg]
+            return types.Schema({"output": model.predict(data["input"])})  # type: ignore[attr-defined]
 
         predict.__doc__ = f"""
             tags:

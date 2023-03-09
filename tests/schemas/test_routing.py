@@ -6,9 +6,8 @@ import pytest
 import typesystem
 
 import flama.types.websockets
-from flama import Component, HTTPEndpoint, Route, WebSocketEndpoint, WebSocketRoute, websockets
-from flama.schemas.data_structures import Parameter
-from flama.schemas.types import ParameterLocation
+from flama import Component, HTTPEndpoint, Route, WebSocketEndpoint, WebSocketRoute, types, websockets
+from flama.schemas.data_structures import Parameter, ParameterLocation
 
 
 class Custom:
@@ -50,7 +49,9 @@ class TestCaseRouteFieldsMixin:
     def route(self, request, foo_schema):
         if request.param == "http_function":
 
-            def foo(w: int, a: Custom, z: foo_schema, x: int = 1, y: t.Optional[str] = None) -> foo_schema:
+            def foo(
+                w: int, a: Custom, z: types.Schema[foo_schema], x: int = 1, y: t.Optional[str] = None
+            ) -> types.Schema[foo_schema]:
                 ...
 
             return Route("/foo/{w:int}/", endpoint=foo, methods=["GET"])
@@ -58,7 +59,9 @@ class TestCaseRouteFieldsMixin:
         if request.param == "http_endpoint":
 
             class BarEndpoint(HTTPEndpoint):
-                def get(self, w: int, a: Custom, z: foo_schema, x: int = 1, y: t.Optional[str] = None) -> foo_schema:
+                def get(
+                    self, w: int, a: Custom, z: types.Schema[foo_schema], x: int = 1, y: t.Optional[str] = None
+                ) -> types.Schema[foo_schema]:
                     ...
 
             return Route("/bar/{w:int}/", endpoint=BarEndpoint, methods=["GET"])
@@ -70,7 +73,7 @@ class TestCaseRouteFieldsMixin:
                 data: flama.types.websockets.Data,
                 w: int,
                 a: Custom,
-                z: foo_schema,
+                z: types.Schema[foo_schema],
                 x: int = 1,
                 y: t.Optional[str] = None,
             ) -> None:
@@ -87,7 +90,7 @@ class TestCaseRouteFieldsMixin:
                     data: flama.types.websockets.Data,
                     w: int,
                     a: Custom,
-                    z: foo_schema,
+                    z: types.Schema[foo_schema],
                     x: int = 1,
                     y: t.Optional[str] = None,
                 ) -> None:
@@ -333,7 +336,8 @@ class TestCaseRouteFieldsMixin:
     )
     def test_body(self, route, expected_params, foo_schema):
         expected_params = {
-            k: Parameter(**{**param, "type": foo_schema}) if param else None for k, param in expected_params.items()
+            k: Parameter(**{**param, "type": types.Schema[foo_schema]}) if param else None
+            for k, param in expected_params.items()
         }
         assert route.parameters.body == expected_params
 
@@ -377,7 +381,7 @@ class TestCaseRouteFieldsMixin:
     )
     def test_response(self, route, expected_params, foo_schema):
         expected_params = {
-            k: Parameter(**{**param, "type": foo_schema if param["type"] else None})
+            k: Parameter(**{**param, "type": types.Schema[foo_schema] if param["type"] else None})
             for k, param in expected_params.items()
         }
         assert route.parameters.response == expected_params

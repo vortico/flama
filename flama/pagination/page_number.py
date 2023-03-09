@@ -3,7 +3,7 @@ import functools
 import inspect
 import typing as t
 
-from flama import http, schemas
+from flama import http, schemas, types
 
 try:
     import forge
@@ -29,7 +29,7 @@ class PageNumberResponse(http.APIResponse):
 
     def __init__(
         self,
-        schema: "schemas.types.Schema",
+        schema: types.schema._T_Schema,
         page: t.Optional[t.Union[int, str]] = None,
         page_size: t.Optional[t.Union[int, str]] = None,
         count: t.Optional[bool] = True,
@@ -89,7 +89,7 @@ class PageNumberMixin:
                 forge.insert(forge.arg("page_size", default=None, type=t.Optional[int]), index=-1),
                 forge.insert(forge.arg("count", default=True, type=bool), index=-1),
                 forge.delete("kwargs"),
-                forge.returns(schema),
+                forge.returns(types.Schema[schema]),  # type: ignore[index]
             )
 
             try:

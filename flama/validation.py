@@ -1,4 +1,4 @@
-import typing
+import typing as t
 
 from flama import codecs, exceptions, http, types
 from flama.injection import Component, Components
@@ -7,9 +7,9 @@ from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from flama.routing import BaseRoute
 from flama.schemas import Field, Schema, SchemaValidationError
 
-ValidatedPathParams = typing.NewType("ValidatedPathParams", dict)
-ValidatedQueryParams = typing.NewType("ValidatedQueryParams", dict)
-ValidatedRequestData = typing.NewType("ValidatedRequestData", dict)
+ValidatedPathParams = t.NewType("ValidatedPathParams", dict)
+ValidatedQueryParams = t.NewType("ValidatedQueryParams", dict)
+ValidatedRequestData = t.NewType("ValidatedRequestData", dict)
 
 
 class RequestDataComponent(Component):
@@ -98,12 +98,12 @@ class PrimitiveParamComponent(Component):
 
 class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: Parameter):
-        return Schema.is_schema(parameter.type) or Field.is_field(parameter.type)
+        return types.is_schema(parameter.type)
 
-    def resolve(self, parameter: Parameter, data: ValidatedRequestData):
-        assert Schema.is_schema(parameter.type) or Field.is_field(parameter.type)
+    def resolve(self, parameter: Parameter, data: ValidatedRequestData) -> types.Schema:
+        assert types.is_schema(parameter.type)
 
-        return data
+        return types.Schema(data)
 
 
 VALIDATION_COMPONENTS = Components(

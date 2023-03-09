@@ -5,6 +5,7 @@ import pydantic
 import pytest
 import typesystem
 
+from flama import types
 from flama.endpoints import HTTPEndpoint
 from flama.routing import Router
 from flama.schemas import openapi
@@ -471,7 +472,7 @@ class TestCaseSchemaGenerator:
             return {"name": "Canna"}
 
         @app.route("/many-components/", methods=["GET"])
-        async def many_components() -> puppy_schema:
+        async def many_components() -> types.Schema[puppy_schema]:
             """
             description: Many custom components.
             responses:
@@ -501,7 +502,7 @@ class TestCaseSchemaGenerator:
             return {"name": param}
 
         @app.route("/body-param/", methods=["POST"])
-        async def body_param(param: body_param_schema):
+        async def body_param(param: types.Schema[body_param_schema]):
             """
             description: Body param.
             responses:

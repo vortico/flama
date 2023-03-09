@@ -7,6 +7,7 @@ import pydantic
 import pytest
 import typesystem
 
+from flama import types
 from tests.asserts import assert_recursive_contains
 
 utc = datetime.timezone.utc
@@ -133,19 +134,21 @@ class TestCaseSchemaValidation:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app, product_schema, reviewed_product_schema, location_schema, place_schema):
         @app.route("/product", methods=["POST"])
-        def product_identity(product: product_schema) -> product_schema:
+        def product_identity(product: types.Schema[product_schema]) -> types.Schema[product_schema]:
             return product
 
         @app.route("/reviewed-product", methods=["POST"])
-        def reviewed_product_identity(reviewed_product: reviewed_product_schema) -> reviewed_product_schema:
+        def reviewed_product_identity(
+            reviewed_product: types.Schema[reviewed_product_schema],
+        ) -> types.Schema[reviewed_product_schema]:
             return reviewed_product
 
         @app.route("/place", methods=["POST"])
-        def place_identity(place: place_schema) -> place_schema:
+        def place_identity(place: types.Schema[place_schema]) -> types.Schema[place_schema]:
             return place
 
         @app.route("/many-products", methods=["GET"])
-        def many_products() -> product_schema:
+        def many_products() -> types.Schema[product_schema]:
             return [
                 {
                     "name": "foo",
@@ -160,7 +163,7 @@ class TestCaseSchemaValidation:
             ]
 
         @app.route("/serialization-error")
-        def serialization_error() -> product_schema:
+        def serialization_error() -> types.Schema[product_schema]:
             return {"rating": "foo", "created": "bar"}
 
     @pytest.mark.parametrize(

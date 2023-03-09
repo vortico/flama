@@ -71,11 +71,11 @@ class TestCaseHTTPEndpoint:
     def puppy_endpoint(self, app, puppy_schema):
         @app.route("/puppy/")
         class PuppyEndpoint(HTTPEndpoint):
-            def get(self, puppy: Puppy) -> puppy_schema:
-                return {"name": puppy.name}
+            def get(self, puppy: Puppy) -> types.Schema[puppy_schema]:
+                return types.Schema({"name": puppy.name})
 
-            async def post(self, puppy: puppy_schema) -> puppy_schema:
-                return puppy
+            async def post(self, puppy: types.Schema[puppy_schema]) -> types.Schema[puppy_schema]:
+                return types.Schema(puppy)
 
         return PuppyEndpoint
 
