@@ -15,6 +15,9 @@ build: ## Builds the package, and templates needed
 lint: ## Runs a linting pipeline: black, isort, ruff, and mypy
 	@./scripts/lint
 
+lint-fix: ## Runs a linting pipeline with auto fixing: black, isort, ruff, and mypy
+	@./scripts/lint --fix
+
 test: ## Runs all tests of the repository
 	@./scripts/test
 
