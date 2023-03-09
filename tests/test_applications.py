@@ -41,6 +41,10 @@ class TestCaseFlama:
     def app(self):
         return Flama(schema=None, docs=None)
 
+    @pytest.fixture(scope="function")
+    def tags(self):
+        return {"tag": "foo", "list_tag": ["foo", "bar"], "dict_tag": {"foo": "bar"}}
+
     def test_init(self, module, component):
         component_obj = component()
 
@@ -120,58 +124,60 @@ class TestCaseFlama:
 
         assert routes == expected_routes
 
-    def test_add_route(self, app):
+    def test_add_route(self, app, tags):
         def foo():
             ...
 
         with patch.object(app, "router", spec=Router) as router_mock:
             router_mock.add_route.return_value = foo
-            route = app.add_route("/", foo)
+            route = app.add_route("/", foo, **tags)
 
         assert router_mock.add_route.call_args_list == [
-            call("/", foo, methods=None, name=None, include_in_schema=True, route=None, root=app)
+            call("/", foo, methods=None, name=None, include_in_schema=True, route=None, root=app, **tags)
         ]
         assert route == foo
 
-    def test_route(self, app):
+    def test_route(self, app, tags):
         with patch.object(app, "router", spec=Router) as router_mock:
 
-            @app.route("/")
+            @app.route("/", **tags)
             def foo():
                 ...
 
         assert router_mock.route.call_args_list == [
-            call("/", methods=None, name=None, include_in_schema=True, root=app)
+            call("/", methods=None, name=None, include_in_schema=True, root=app, **tags)
         ]
 
-    def test_add_websocket_route(self, app):
+    def test_add_websocket_route(self, app, tags):
         def foo():
             ...
 
         with patch.object(app, "router", spec=Router) as router_mock:
             router_mock.add_websocket_route.return_value = foo
-            route = app.add_websocket_route("/", foo)
+            route = app.add_websocket_route("/", foo, **tags)
 
-        assert router_mock.add_websocket_route.call_args_list == [call("/", foo, name=None, route=None, root=app)]
+        assert router_mock.add_websocket_route.call_args_list == [
+            call("/", foo, name=None, route=None, root=app, **tags)
+        ]
         assert route == foo
 
-    def test_websocket_route(self, app):
+    def test_websocket_route(self, app, tags):
         with patch.object(app, "router", spec=Router) as router_mock:
 
-            @app.websocket_route("/")
+            @app.websocket_route("/", **tags)
             def foo():
                 ...
 
-        assert router_mock.websocket_route.call_args_list == [call("/", name=None, root=app)]
+        assert router_mock.websocket_route.call_args_list == [call("/", name=None, root=app, **tags)]
 
-    def test_mount(self, app):
+    def test_mount(self, app, tags):
         expected_mount = MagicMock()
 
         with patch.object(app, "router", spec=Router) as router_mock:
             router_mock.mount.return_value = expected_mount
-            mount = app.mount("/", expected_mount)
+            mount = app.mount("/", expected_mount, **tags)
 
-        assert router_mock.mount.call_args_list == [call("/", expected_mount, name=None, mount=None, root=app)]
+        assert router_mock.mount.call_args_list == [call("/", expected_mount, name=None, mount=None, root=app, **tags)]
         assert mount == expected_mount
 
     def test_injector(self, app):
