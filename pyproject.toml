@@ -139,6 +139,7 @@ skip_glob = [
 line-length = 120
 # Enable Pyflakes and pycodestyle rules.
 select = ["E", "F"]
+ignore = ["E721"]
 exclude = [
     ".git",
     ".pytest_cache",

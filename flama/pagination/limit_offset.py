@@ -3,7 +3,7 @@ import functools
 import inspect
 import typing as t
 
-from flama import http, schemas
+from flama import http, schemas, types
 
 try:
     import forge
@@ -27,7 +27,7 @@ class LimitOffsetResponse(http.APIResponse):
 
     def __init__(
         self,
-        schema: "schemas.types.Schema",
+        schema: types.schema._T_Schema,
         offset: t.Optional[t.Union[int, str]] = None,
         limit: t.Optional[t.Union[int, str]] = None,
         count: t.Optional[bool] = True,
@@ -82,7 +82,7 @@ class LimitOffsetMixin:
                 forge.insert(forge.arg("offset", default=None, type=t.Optional[int]), index=-1),
                 forge.insert(forge.arg("count", default=True, type=bool), index=-1),
                 forge.delete("kwargs"),
-                forge.returns(schema),
+                forge.returns(types.Schema[schema]),  # type: ignore[index]
             )
 
             try:

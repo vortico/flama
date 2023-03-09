@@ -1,6 +1,6 @@
 import typing as t
 
-from flama import schemas
+from flama import types
 from flama.schemas.data_structures import Field, Parameter, Parameters
 
 if t.TYPE_CHECKING:
@@ -48,7 +48,7 @@ class ParametersDescriptor:
                 (
                     Parameter.build("body", p)
                     for p in self._app.injector.resolve(handler).meta.parameters
-                    if schemas.adapter.is_schema(p.type) and p.name not in self._route.path.parameters
+                    if types.is_schema(p.type) and p.name not in self._route.path.parameters
                 ),
                 None,
             )

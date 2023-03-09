@@ -39,8 +39,10 @@ class CreateMixin:
     ) -> t.Dict[str, t.Any]:
         @resource_method("/", methods=["POST"], name=f"{name}-create")
         async def create(
-            self, scope: types.Scope, element: rest_schemas.input.schema  # type: ignore[name-defined]
-        ) -> rest_schemas.output.schema:  # type: ignore[name-defined]
+            self,
+            scope: types.Scope,
+            element: types.Schema[rest_schemas.input.schema],  # type: ignore[name-defined,type-arg]
+        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore[name-defined,type-arg]
             app = scope["app"]
 
             if element.get(rest_model.primary_key.name) is None:
@@ -50,7 +52,7 @@ class CreateMixin:
                 query = self.model.insert().values(**element)
                 result = await connection.execute(query)
 
-            return http.APIResponse(
+            return http.APIResponse(  # type: ignore[return-value]
                 schema=rest_schemas.output.schema,
                 content={**element, **dict(zip([x.name for x in self.model.primary_key], result.inserted_primary_key))},
                 status_code=201,
@@ -85,7 +87,7 @@ class RetrieveMixin:
         @resource_method("/{element_id}/", methods=["GET"], name=f"{name}-retrieve")
         async def retrieve(
             self, scope: types.Scope, element_id: rest_model.primary_key.type  # type: ignore[name-defined]
-        ) -> rest_schemas.output.schema:  # type: ignore[name-defined]
+        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore[name-defined,type-arg]
             app = scope["app"]
 
             async with app.sqlalchemy.engine.begin() as connection:
@@ -96,7 +98,7 @@ class RetrieveMixin:
             if element is None:
                 raise exceptions.HTTPException(status_code=404)
 
-            return element._asdict()
+            return types.Schema(element._asdict())
 
         retrieve.__doc__ = f"""
             tags:
@@ -132,8 +134,8 @@ class UpdateMixin:
             self,
             scope: types.Scope,
             element_id: rest_model.primary_key.type,  # type: ignore[name-defined]
-            element: rest_schemas.input.schema,  # type: ignore[name-defined]
-        ) -> rest_schemas.output.schema:  # type: ignore[name-defined]
+            element: types.Schema[rest_schemas.input.schema],  # type: ignore[name-defined,type-arg]
+        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore[name-defined,type-arg]
             app = scope["app"]
 
             async with app.sqlalchemy.engine.begin() as connection:
@@ -157,7 +159,7 @@ class UpdateMixin:
                 )
                 await connection.execute(query)
 
-            return {rest_model.primary_key.name: element_id, **clean_element}
+            return types.Schema({rest_model.primary_key.name: element_id, **clean_element})
 
         update.__doc__ = f"""
             tags:
@@ -242,10 +244,12 @@ class ListMixin:
 
         @resource_method("/", methods=["GET"], name=f"{name}-list")
         @paginator.page_number(schema_name=rest_schemas.output.name)
-        async def list(self, scope: types.Scope, **kwargs) -> rest_schemas.output.schema:  # type: ignore[name-defined]
+        async def list(
+            self, scope: types.Scope, **kwargs
+        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore[name-defined,type-arg]
             app = scope["app"]
 
-            return await self._filter(app)  # noqa
+            return await self._filter(app)  # type: ignore[no-any-return,return-value]
 
         list.__doc__ = f"""
             tags:
@@ -267,14 +271,16 @@ class DropMixin:
     @classmethod
     def _add_drop(mcs, name: str, verbose_name: str, **kwargs) -> t.Dict[str, t.Any]:
         @resource_method("/", methods=["DELETE"], name=f"{name}-drop")
-        async def drop(self, scope: types.Scope) -> flama.schemas.schemas.DropCollection:
+        async def drop(
+            self, scope: types.Scope
+        ) -> types.Schema[flama.schemas.schemas.DropCollection]:  # type: ignore[type-arg]
             app = scope["app"]
 
             async with app.sqlalchemy.engine.begin() as connection:
                 query = self.model.delete()
                 result = await connection.execute(query)
 
-            return http.APIResponse(
+            return http.APIResponse(  # type: ignore[return-value]
                 schema=flama.schemas.schemas.DropCollection, content={"deleted": result.rowcount}, status_code=204
             )
 

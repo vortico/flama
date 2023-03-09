@@ -16,7 +16,7 @@ from flama import schemas, types
 from flama.exceptions import HTTPException, SerializationError
 
 if t.TYPE_CHECKING:
-    import flama.schemas.types
+    from flama.types.schema import _T_Schema
 
 __all__ = [
     "Method",
@@ -56,6 +56,12 @@ class PlainTextResponse(starlette.responses.PlainTextResponse, Response):
 
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, obj):
+        if isinstance(obj, (Path, os.PathLike)):
+            return str(obj)
+        if isinstance(obj, (bytes, bytearray)):
+            return obj.decode("utf-8")
+        if isinstance(obj, enum.Enum):
+            return obj.value
         if isinstance(obj, uuid.UUID):
             return str(obj)
         if isinstance(obj, (set, frozenset)):
@@ -84,6 +90,9 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 class JSONResponse(starlette.responses.JSONResponse, Response):
     def render(self, content: t.Any) -> bytes:
+        if isinstance(content, types.Schema):
+            content = dict(content)
+
         return json.dumps(
             content, ensure_ascii=False, allow_nan=False, indent=None, separators=(",", ":"), cls=EnhancedJSONEncoder
         ).encode("utf-8")
@@ -104,7 +113,7 @@ class FileResponse(starlette.responses.FileResponse, Response):
 class APIResponse(JSONResponse):
     media_type = "application/json"
 
-    def __init__(self, content: t.Any = None, schema: t.Optional["flama.schemas.types.Schema"] = None, *args, **kwargs):
+    def __init__(self, content: t.Any = None, schema: t.Optional["_T_Schema"] = None, *args, **kwargs):
         self.schema = schema
         super().__init__(content, *args, **kwargs)
 
@@ -184,7 +193,7 @@ class _ReactTemplatesEnvironment(jinja2.Environment):
 
         self.filters["safe_json"] = self.safe_json
 
-    def _escape(self, value: types.JSON) -> types.JSON:
+    def _escape(self, value: types.JSONField) -> types.JSONField:
         if isinstance(value, (list, tuple)):
             return [self._escape(x) for x in value]
 
@@ -196,7 +205,7 @@ class _ReactTemplatesEnvironment(jinja2.Environment):
 
         return value
 
-    def safe_json(self, value: types.JSON):
+    def safe_json(self, value: types.JSONField):
         return json.dumps(self._escape(value)).replace('"', '\\"')
 
 

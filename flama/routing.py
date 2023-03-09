@@ -11,7 +11,7 @@ from flama.lifespan import Lifespan
 from flama.schemas.routing import RouteParametersMixin
 
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing import TypeGuard
+    from typing_extensions import TypeGuard
 
     t.TypeGuard = TypeGuard
 
@@ -156,9 +156,9 @@ class EndpointWrapper(types.AppAsyncClass):
         :param response: The current response.
         :return: An API response.
         """
-        if isinstance(response, (dict, list)):
+        if isinstance(response, (types.Schema, dict, list)):
             try:
-                schema = schemas.Schema.from_type(inspect.signature(handler).return_annotation).schema
+                schema = schemas.Schema.from_type(inspect.signature(handler).return_annotation).unique_schema
             except Exception:
                 schema = None
 

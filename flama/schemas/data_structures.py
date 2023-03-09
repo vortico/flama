@@ -1,10 +1,10 @@
 import dataclasses
+import enum
 import sys
 import typing as t
 
 from flama import schemas, types
 from flama.injection.resolver import Parameter as InjectionParameter
-from flama.schemas.types import ParameterLocation
 
 if sys.version_info < (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
     from typing_extensions import get_args, get_origin
@@ -18,6 +18,13 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
     t.TypeGuard = TypeGuard
 
 __all__ = ["Field", "Schema", "Parameter", "Parameters"]
+
+
+class ParameterLocation(enum.Enum):
+    query = enum.auto()
+    path = enum.auto()
+    body = enum.auto()
+    response = enum.auto()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -79,7 +86,7 @@ class Field:
         )
 
     @property
-    def json_schema(self) -> schemas.types.JSONSchema:
+    def json_schema(self) -> types.JSONSchema:
         return schemas.adapter.to_json_schema(self.field)
 
 
@@ -89,7 +96,12 @@ class Schema:
 
     @classmethod
     def from_type(cls, type_: t.Optional[t.Type]) -> "Schema":
-        schema = t.get_args(type_)[0] if t.get_origin(type_) is list else type_
+        if types.is_schema(type_):
+            schema = type_.schema
+        elif t.get_origin(type_) in (list, tuple, set):
+            schema = t.get_args(type_)[0]
+        else:
+            schema = type_
 
         if not schemas.adapter.is_schema(schema):
             raise ValueError("Wrong schema type")
@@ -172,8 +184,8 @@ class Parameter:
     required: bool = True
     default: t.Any = InjectionParameter.empty
     nullable: bool = dataclasses.field(init=False)
-    schema: Schema = dataclasses.field(hash=False, init=False, compare=False)
-    field: Field = dataclasses.field(hash=False, init=False, compare=False)
+    schema: "Schema" = dataclasses.field(hash=False, init=False, compare=False)
+    field: "Field" = dataclasses.field(hash=False, init=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "nullable", type(None) in t.get_args(self.type) or self.default is None)

@@ -8,7 +8,7 @@ from flama.injection import Parameter
 from flama.schemas._libs.typesystem.fields import MAPPING
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
-from flama.schemas.types import JSONSchema
+from flama.types.schema import JSONSchema
 
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard

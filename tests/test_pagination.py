@@ -6,6 +6,7 @@ import pytest
 import typesystem
 from pytest import param
 
+from flama import types
 from flama.pagination import paginator
 
 
@@ -31,7 +32,7 @@ class TestPageNumberResponse:
     def add_endpoints(self, app, output_schema):
         @app.route("/page-number/", methods=["GET"])
         @paginator.page_number(schema_name="OutputSchema")
-        def page_number(**kwargs) -> output_schema:
+        def page_number(**kwargs) -> types.Schema[output_schema]:
             return [{"value": i} for i in range(25)]
 
     def test_registered_schemas(self, app):
@@ -43,7 +44,7 @@ class TestPageNumberResponse:
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
             @paginator.page_number(schema_name="OutputSchema")
-            def invalid() -> output_schema:
+            def invalid() -> types.Schema[output_schema]:
                 ...
 
     def test_invalid_response(self):
@@ -96,7 +97,7 @@ class TestPageNumberResponse:
     def test_async_function(self, app, client, output_schema):
         @app.route("/page-number-async/", methods=["GET"])
         @paginator.page_number(schema_name="OutputSchema")
-        async def page_number_async(**kwargs) -> output_schema:
+        async def page_number_async(**kwargs) -> types.Schema[output_schema]:
             return [{"value": i} for i in range(25)]
 
         response = client.get("/page-number-async/")
@@ -152,7 +153,7 @@ class TestLimitOffsetResponse:
     def add_endpoints(self, app, output_schema):
         @app.route("/limit-offset/", methods=["GET"])
         @paginator.limit_offset(schema_name="OutputSchema")
-        def limit_offset(**kwargs) -> output_schema:
+        def limit_offset(**kwargs) -> types.Schema[output_schema]:
             return [{"value": i} for i in range(25)]
 
     def test_registered_schemas(self, app):
@@ -169,7 +170,7 @@ class TestLimitOffsetResponse:
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
             @paginator.limit_offset(schema_name="Foo")
-            def invalid() -> output_schema:
+            def invalid() -> types.Schema[output_schema]:
                 ...
 
     def test_invalid_response(self):
@@ -222,7 +223,7 @@ class TestLimitOffsetResponse:
     def test_async_function(self, app, client, output_schema):
         @app.route("/limit-offset-async/", methods=["GET"])
         @paginator.limit_offset(schema_name="OutputSchema")
-        async def limit_offset_async(**kwargs) -> output_schema:
+        async def limit_offset_async(**kwargs) -> types.Schema[output_schema]:
             return [{"value": i} for i in range(25)]
 
         response = client.get("/limit-offset-async/")
