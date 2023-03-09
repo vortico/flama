@@ -8,9 +8,17 @@ source scripts/mypy
 
 run_lint() {
   echo "🧹 Code lint using multiple tools:"
-  run_black --check .
-  run_isort --check .
-  run_ruff .
+
+  local fix="$1"
+  if [[ "$fix" == "-f" || "$fix" == "--fix" ]]; then
+    run_black .
+    run_isort .
+    run_ruff --fix .
+  else
+    run_black --check .
+    run_isort --check .
+    run_ruff .
+  fi
   run_mypy .
 }
 
