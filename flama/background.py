@@ -31,7 +31,7 @@ class BackgroundTask(starlette.background.BackgroundTask):
         self.func = self._create_task_function(func)
         self.args = args
         self.kwargs = kwargs
-        self.concurrency = Concurrency(concurrency)
+        self.concurrency = Concurrency[concurrency] if isinstance(concurrency, str) else concurrency
 
     def _create_task_function(self, func: t.Callable[P, t.Any]) -> t.Callable[P, t.Any]:
         if asyncio.iscoroutinefunction(func):
