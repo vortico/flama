@@ -1,5 +1,5 @@
-from flama.serialize.data_structures import ModelArtifact
-from flama.serialize.dump import dump
-from flama.serialize.load import load
+from flama.serialize.data_structures import *  # noqa
+from flama.serialize.dump import *  # noqa
+from flama.serialize.load import *  # noqa
 
-__all__ = ["dump", "load", "ModelArtifact"]
+__all__ = ["dump", "load"]  # noqa

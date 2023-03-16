@@ -15,6 +15,8 @@ from pathlib import Path
 from flama.serialize.base import Serializer
 from flama.serialize.types import Framework
 
+__all__ = ["ModelArtifact", "Compression"]
+
 
 class Compression(enum.Enum):
     fast = "gz"
@@ -31,7 +33,7 @@ class FrameworkSerializers:
                 Framework.sklearn: ("sklearn", "SKLearnSerializer"),
                 Framework.keras: ("tensorflow", "TensorFlowSerializer"),
                 Framework.tensorflow: ("tensorflow", "TensorFlowSerializer"),
-            }[Framework(framework)]
+            }[Framework[framework] if isinstance(framework, str) else framework]
         except KeyError:  # pragma: no cover
             raise ValueError("Wrong framework")
 
@@ -242,7 +244,8 @@ class ModelArtifact:
         :param compression: Compression type.
         :param kwargs: Keyword arguments passed to library dump method.
         """
-        with tarfile.open(path, f"w:{Compression(compression).value}") as tar:
+        compression = Compression[compression] if isinstance(compression, str) else compression
+        with tarfile.open(path, f"w:{compression.value}") as tar:
             if self.artifacts:
                 for name, path in self.artifacts.items():
                     tar.add(path, f"artifacts/{name}")
