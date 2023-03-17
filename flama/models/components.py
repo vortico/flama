@@ -39,7 +39,7 @@ class ModelComponentBuilder:
         load_model = load(path)
         parent = cls._get_model_class(load_model.meta.framework.lib)
         model_class = type(parent.__name__, (parent,), {})
-        model_obj = model_class(load_model.model, load_model.meta)
+        model_obj = model_class(load_model.model, load_model.meta, load_model.artifacts)
 
         class SpecificModelComponent(ModelComponent):
             def resolve(self) -> model_class:  # type: ignore[valid-type]

@@ -13,9 +13,9 @@ class TestCaseModelResource:
     @pytest.fixture(params=["tensorflow", "sklearn", "torch"])
     def model(self, request):
         return {
-            "sklearn": SKLearnModel(Mock(), Mock()),
-            "tensorflow": TensorFlowModel(Mock(), Mock()),
-            "torch": PyTorchModel(Mock(), Mock()),
+            "sklearn": SKLearnModel(Mock(), Mock(), Mock()),
+            "tensorflow": TensorFlowModel(Mock(), Mock(), Mock()),
+            "torch": PyTorchModel(Mock(), Mock(), Mock()),
         }[request.param]
 
     @pytest.fixture
@@ -108,9 +108,11 @@ class TestCaseModelResourceMethods:
         response = client.get(url)
         assert response.status_code == 200, response.json()
         inspect = response.json()
-        assert set(inspect.keys()) == {"id", "timestamp", "model", "framework", "extra"}
-        assert set(inspect["model"].keys()) == {"obj", "info", "params", "metrics"}
-        assert set(inspect["framework"].keys()) == {"lib", "version"}
+        assert set(inspect.keys()) == {"meta", "artifacts"}
+        meta = inspect["meta"]
+        assert set(meta.keys()) == {"id", "timestamp", "model", "framework", "extra"}
+        assert set(meta["model"].keys()) == {"obj", "info", "params", "metrics"}
+        assert set(meta["framework"].keys()) == {"lib", "version"}
 
     @pytest.mark.parametrize(
         ("lib", "model_path", "url", "x", "y", "status_code"),

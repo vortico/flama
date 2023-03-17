@@ -5,6 +5,9 @@ import uuid
 
 from flama.serialize.data_structures import Compression, ModelArtifact
 
+if t.TYPE_CHECKING:
+    from flama.serialize.data_structures import Artifacts
+
 __all__ = ["dump"]
 
 
@@ -18,10 +21,10 @@ def dump(
     params: t.Optional[t.Dict[str, t.Any]] = None,
     metrics: t.Optional[t.Dict[str, t.Any]] = None,
     extra: t.Optional[t.Dict[str, t.Any]] = None,
-    artifacts: t.Optional[t.Dict[str, t.Union[str, os.PathLike]]] = None,
+    artifacts: t.Optional["Artifacts"] = None,
     **kwargs
 ) -> None:
-    """Serialize a ML model using Flama format to bytes stream.
+    """Serialize an ML model using Flama format to bytes stream.
 
     :param model: The ML model.
     :param path: Model file path.
