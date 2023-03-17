@@ -2,6 +2,7 @@ import codecs
 import pickle
 import sys
 import typing as t
+import warnings
 
 from flama.serialize.base import Serializer
 from flama.serialize.types import Framework
@@ -23,7 +24,11 @@ class SKLearnSerializer(Serializer):
         return codecs.encode(pickle.dumps(obj), "base64")
 
     def load(self, model: bytes, **kwargs) -> t.Any:
-        return pickle.loads(codecs.decode(model, "base64"))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            model = pickle.loads(codecs.decode(model, "base64"))
+
+        return model
 
     def info(self, model: t.Any) -> t.Dict[str, t.Any]:
         model_info: t.Dict[str, t.Any] = model.get_params()
