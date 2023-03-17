@@ -191,7 +191,7 @@ class ModelArtifact:
         params: t.Optional[t.Dict[str, t.Any]] = None,
         metrics: t.Optional[t.Dict[str, t.Any]] = None,
         extra: t.Optional[t.Dict[str, t.Any]] = None,
-        artifacts: t.Optional[t.Dict[str, t.Union[str, os.PathLike]]] = None,
+        artifacts: t.Optional[Artifacts] = None,
     ) -> "ModelArtifact":
         return cls(
             model=model,
