@@ -1,5 +1,19 @@
 # Semantic Versioning Changelog
 
+# [v1.3.0](https://github.com/vortico/flama/compare/v1.2.0...v1.3.0) (2023-03-17)
+
+## ✨ New Features
+- [`d5715a7`](https://github.com/vortico/flama/commit/d5715a7)  Allow all endpoint responses in swagger schema (#88) (Issues: [`#88`](https://github.com/vortico/flama/issues/))
+- [`21292dc`](https://github.com/vortico/flama/commit/21292dc)  Schema type as annotation for input and ouput schemas (#91) (Issues: [`#91`](https://github.com/vortico/flama/issues/))
+- [`693fdf7`](https://github.com/vortico/flama/commit/693fdf7)  Script for fixing lint errors (#93) (Issues: [`#93`](https://github.com/vortico/flama/issues/))
+- [`cbd026f`](https://github.com/vortico/flama/commit/cbd026f)  Allow to tag routes (#92) (Issues: [`#92`](https://github.com/vortico/flama/issues/))
+- [`318b461`](https://github.com/vortico/flama/commit/318b461)  Warning loading a model with another framework version (#94) (Issues: [`#94`](https://github.com/vortico/flama/issues/))
+- [`ac82633`](https://github.com/vortico/flama/commit/ac82633)  Include artifacts in model inspect (#95) (Issues: [`#95`](https://github.com/vortico/flama/issues/))
+- [`056cd90`](https://github.com/vortico/flama/commit/056cd90)  CLI command to interact with an ML model without server (#96) (Issues: [`#96`](https://github.com/vortico/flama/issues/))
+
+## 🐛 Bug Fixes
+- [`18daa90`](https://github.com/vortico/flama/commit/18daa90)  Amend some Enum instantiations from strings
+
 # [v1.2.0](https://github.com/vortico/flama/compare/v1.1.0...v1.2.0) (2023-03-02)
 
 ## ✨ New Features
