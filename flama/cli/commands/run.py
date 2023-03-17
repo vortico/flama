@@ -14,12 +14,10 @@ __all__ = ["run", "command"]
 @config_options
 @uvicorn_options
 def command(flama_app: str, uvicorn: Uvicorn):
-    """
-    Run a Flama Application.
+    """Run a Flama Application based on a route.
 
     <FLAMA_APP> is the route to the Flama object to be served, e.g. 'examples.hello_flama:app'. This can be passed
-    directly as argument of the command line, or by environment variable.
-    """
+    directly as argument of the command line, or by environment variable."""
     Config(app=App.build(flama_app), server=uvicorn).run()
 
 
