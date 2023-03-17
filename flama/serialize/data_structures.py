@@ -10,9 +10,11 @@ import tarfile
 import tempfile
 import typing as t
 import uuid
+import warnings
 from pathlib import Path
 
 from flama.serialize.base import Serializer
+from flama.serialize.exceptions import FrameworkVersionWarning
 from flama.serialize.types import Framework
 
 __all__ = ["ModelArtifact", "Compression"]
@@ -168,13 +170,16 @@ class Metadata:
         }
 
 
+Artifacts = t.Dict[str, t.Union[str, os.PathLike]]
+
+
 @dataclasses.dataclass(frozen=True)
 class ModelArtifact:
     """ML Model wrapper to provide mechanisms for serialization and deserialization using Flama format."""
 
     model: t.Any
     meta: Metadata
-    artifacts: t.Optional[t.Dict[str, t.Union[str, os.PathLike]]] = None
+    artifacts: t.Optional[Artifacts] = None
 
     @classmethod
     def from_model(
@@ -201,9 +206,17 @@ class ModelArtifact:
         try:
             metadata = Metadata.from_dict(data["meta"])
             artifacts = data.get("artifacts")
-            model = FrameworkSerializers.serializer(metadata.framework.lib).load(data["model"].encode(), **kwargs)
+            serializer = FrameworkSerializers.serializer(metadata.framework.lib)
+            model = serializer.load(data["model"].encode(), **kwargs)
         except KeyError:  # pragma: no cover
             raise ValueError("Wrong data")
+
+        if serializer.version() != metadata.framework.version:
+            warnings.warn(
+                f"Model was built using {metadata.framework.lib.value} '{metadata.framework.version}' but detected "
+                f"version '{serializer.version()}' installed. This may cause unexpected behavior.",
+                FrameworkVersionWarning,
+            )
 
         return cls(model=model, meta=metadata, artifacts=artifacts)
 
