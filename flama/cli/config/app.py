@@ -23,7 +23,7 @@ model_decorators = (
 )
 
 app_decorators = (
-    click.option("--app-debug", envvar="APP_DEBUG", default=False, show_default=True, help="Debug mode"),
+    click.option("--app-debug", envvar="APP_DEBUG", is_flag=True, default=False, show_default=True, help="Debug mode"),
     click.option("--app-title", envvar="APP_TITLE", default="Flama", show_default=True, help="Name of the application"),
     click.option(
         "--app-version", envvar="APP_VERSION", default="0.1.0", show_default=True, help="Version of the application"

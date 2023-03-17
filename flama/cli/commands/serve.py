@@ -15,9 +15,9 @@ __all__ = ["serve", "command"]
 @app_options
 @uvicorn_options
 def command(app: App, uvicorn: Uvicorn):
-    """
-    Serve the ML model file <MODEL_PATH> within a Flama Application.
-    """
+    """Serve an ML model file within a Flama Application.
+
+    Serve the ML model file specified by <MODEL_PATH> within a Flama Application."""
     Config(app=app, server=uvicorn).run()
 
 

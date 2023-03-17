@@ -14,8 +14,10 @@ __all__ = ["start", "command"]
     "includes all the details of the webserver.",
 )
 def command(flama_config: str, create_config: str):
-    """
-    Start a Flama Application with the configuration specified in <FLAMA_CONFIG>
+    """Start a Flama Application based on a config file.
+
+    Start a Flama Application with the configuration specified in <FLAMA_CONFIG> file
+    (default: flama.json).
     """
     if create_config:
         with open(flama_config, "w") as fs:
