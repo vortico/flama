@@ -1,5 +1,6 @@
 import functools
 import json
+import typing as t
 
 import click
 
@@ -96,4 +97,4 @@ def predict(ctx: click.Context, input_file, output_file, pretty: bool):
     click.echo(dump_func(model.model.predict(data)), output_file)
 
 
-model = command.callback
+model: t.Callable = command.callback  # type: ignore[assignment]
