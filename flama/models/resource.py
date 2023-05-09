@@ -29,7 +29,7 @@ class InspectMixin:
             tags:
                 - {verbose_name}
             summary:
-                Retrieve the model.
+                Retrieve the model
             description:
                 Retrieve the model from this resource.
             responses:
@@ -58,7 +58,7 @@ class PredictMixin:
             tags:
                 - {verbose_name}
             summary:
-                Generate a prediction.
+                Generate a prediction
             description:
                 Generate a prediction using the model from this resource.
             responses:

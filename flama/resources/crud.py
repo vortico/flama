@@ -62,7 +62,7 @@ class CreateMixin:
             tags:
                 - {verbose_name}
             summary:
-                Create a new document.
+                Create a new document
             description:
                 Create a new document in this resource.
             responses:
@@ -104,7 +104,7 @@ class RetrieveMixin:
             tags:
                 - {verbose_name}
             summary:
-                Retrieve a document.
+                Retrieve a document
             description:
                 Retrieve a document from this resource.
             responses:
@@ -165,7 +165,7 @@ class UpdateMixin:
             tags:
                 - {verbose_name}
             summary:
-                Update a document.
+                Update a document
             description:
                 Update a document in this resource.
             responses:
@@ -211,7 +211,7 @@ class DeleteMixin:
             tags:
                 - {verbose_name}
             summary:
-                Delete a document.
+                Delete a document
             description:
                 Delete a document in this resource.
             responses:
@@ -255,7 +255,7 @@ class ListMixin:
             tags:
                 - {verbose_name}
             summary:
-                List collection.
+                List collection
             description:
                 List resource collection.
             responses:
@@ -288,7 +288,7 @@ class DropMixin:
             tags:
                 - {verbose_name}
             summary:
-                Drop collection.
+                Drop collection
             description:
                 Drop resource collection.
             responses:
