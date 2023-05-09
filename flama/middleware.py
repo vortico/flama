@@ -40,7 +40,7 @@ class Middleware:
         self.kwargs = kwargs
 
     def __call__(self, app: "types.App"):
-        return self.middleware(app=app, **self.kwargs)
+        return self.middleware(app, **self.kwargs)
 
     def __repr__(self) -> str:
         name = self.__class__.__name__

@@ -6,7 +6,6 @@ from contextlib import ExitStack
 from pathlib import Path
 
 import marshmallow
-import numpy as np
 import pydantic
 import pytest
 import sqlalchemy
@@ -23,6 +22,11 @@ if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma
     from unittest.mock import AsyncMock
 else:  # pragma: no cover
     from asyncmock import AsyncMock
+
+try:
+    import numpy as np
+except Exception:
+    np = None
 
 try:
     import sklearn.neural_network

@@ -89,7 +89,7 @@ class PageNumberMixin:
                 forge.insert(forge.arg("page_size", default=None, type=t.Optional[int]), index=-1),
                 forge.insert(forge.arg("count", default=True, type=bool), index=-1),
                 forge.delete("kwargs"),
-                forge.returns(types.Schema[schema]),  # type: ignore[index]
+                forge.returns(types.Schema[schema]),  # type: ignore[index,valid-type]
             )
 
             try:

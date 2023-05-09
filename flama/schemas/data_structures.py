@@ -204,14 +204,6 @@ class Parameter:
         object.__setattr__(self, "schema", schema)
         object.__setattr__(self, "field", field)
 
-    @property
-    def is_field(self) -> t.TypeGuard[Field]:
-        return isinstance(self.schema, Field)
-
-    @property
-    def is_schema(self) -> t.TypeGuard[Schema]:
-        return isinstance(self.schema, Schema)
-
     @classmethod
     def build(cls, type_: str, parameter: InjectionParameter):
         return {

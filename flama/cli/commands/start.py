@@ -1,3 +1,5 @@
+import typing as t
+
 import click
 
 from flama.cli.config.config import Config, ExampleConfig
@@ -30,4 +32,4 @@ def command(flama_config: str, create_config: str):
     config.run()
 
 
-start = command.callback
+start: t.Callable = command.callback  # type: ignore[assignment]

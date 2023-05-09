@@ -6,11 +6,10 @@ from pathlib import Path
 
 import starlette.exceptions
 
-from flama import concurrency, exceptions, http, websockets
+from flama import concurrency, exceptions, http, types, websockets
 from flama.debug.data_structures import ErrorContext, NotFoundContext
 
 if t.TYPE_CHECKING:
-    from flama import types
     from flama.debug.types import Handler
 
 __all__ = ["ServerErrorMiddleware", "ExceptionMiddleware"]
@@ -18,7 +17,7 @@ __all__ = ["ServerErrorMiddleware", "ExceptionMiddleware"]
 TEMPLATES_PATH = Path(__file__).parents[1].resolve() / "templates" / "debug"
 
 
-class BaseErrorMiddleware(abc.ABC):
+class BaseErrorMiddleware(types.MiddlewareAsyncClass):
     def __init__(self, app: "types.App", debug: bool = False) -> None:
         self.app = app
         self.debug = debug

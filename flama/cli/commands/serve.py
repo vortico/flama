@@ -1,3 +1,5 @@
+import typing as t
+
 import click
 
 from flama.cli.config.app import App
@@ -21,4 +23,4 @@ def command(app: App, uvicorn: Uvicorn):
     Config(app=app, server=uvicorn).run()
 
 
-serve = command.callback
+serve: t.Callable = command.callback  # type: ignore[assignment]
