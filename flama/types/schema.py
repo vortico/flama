@@ -7,7 +7,7 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
 
     t.TypeGuard = TypeGuard
 
-__all__ = ["JSONField", "JSONSchema", "Schema", "is_schema"]
+__all__ = ["Schema", "is_schema"]
 
 _T_Field = t.TypeVar("_T_Field")
 _T_Schema = t.TypeVar("_T_Schema")
@@ -30,7 +30,3 @@ class Schema(dict, t.Generic[_T_Schema], metaclass=_SchemaMeta):  # type: ignore
 
     def __class_getitem__(cls, schema_cls: _T_Schema):  # type: ignore[override]
         return _SchemaMeta("_SchemaAlias", (Schema,), {"schema": schema_cls})  # type: ignore[return-value]
-
-
-JSONField = t.Union[str, int, float, bool, None, t.List["JSONField"], t.Dict[str, "JSONField"]]
-JSONSchema = t.Dict[str, JSONField]

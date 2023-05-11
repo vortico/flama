@@ -3,6 +3,7 @@ import enum
 import sys
 import typing as t
 
+import flama.types
 from flama import schemas, types
 from flama.injection.resolver import Parameter as InjectionParameter
 
@@ -86,7 +87,7 @@ class Field:
         )
 
     @property
-    def json_schema(self) -> types.JSONSchema:
+    def json_schema(self) -> flama.types.JSONSchema:
         return schemas.adapter.to_json_schema(self.field)
 
 

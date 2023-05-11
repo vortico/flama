@@ -84,7 +84,7 @@ def home():
     tags:
         - Salute
     summary:
-        Returns a warming message.
+        Returns a warming message
     description:
         This is a more detailed description of the method itself.
         Here we can give all the details required and they will appear

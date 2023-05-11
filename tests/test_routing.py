@@ -28,7 +28,11 @@ class TestCaseBaseRoute:
 
         app = EndpointWrapper(foo, EndpointWrapper.type.http)
         route = BaseRoute(
-            "/", app, name="foo", include_in_schema=False, tag="tag", list_tag=["foo", "bar"], dict_tag={"foo": "bar"}
+            "/",
+            app,
+            name="foo",
+            include_in_schema=False,
+            tags={"tag": "tag", "list_tag": ["foo", "bar"], "dict_tag": {"foo": "bar"}},
         )
 
         assert route.path == url.RegexPath("/")
@@ -540,7 +544,7 @@ class TestCaseRouter:
         async def foo():
             return "foo"
 
-        router.add_route("/", foo, **tags)
+        router.add_route("/", foo, tags=tags)
 
         assert len(router.routes) == 1
         assert isinstance(router.routes[0], Route)
@@ -553,7 +557,7 @@ class TestCaseRouter:
             async def get(self):
                 return "foo"
 
-        router.add_route("/", FooEndpoint, **tags)
+        router.add_route("/", FooEndpoint, tags=tags)
 
         assert len(router.routes) == 1
         assert isinstance(router.routes[0], Route)
@@ -573,7 +577,7 @@ class TestCaseRouter:
             router.add_route(path="/", endpoint=Foo)
 
     def test_route_function(self, router, tags):
-        @router.route("/", **tags)
+        @router.route("/", tags=tags)
         async def foo():
             return "foo"
 
@@ -584,7 +588,7 @@ class TestCaseRouter:
         assert router.routes[0].tags == tags
 
     def test_route_endpoint(self, router, tags):
-        @router.route("/", **tags)
+        @router.route("/", tags=tags)
         class FooEndpoint(endpoints.HTTPEndpoint):
             async def get(self):
                 return "foo"
@@ -606,7 +610,7 @@ class TestCaseRouter:
         async def foo():
             return "foo"
 
-        router.add_websocket_route("/", foo, **tags)
+        router.add_websocket_route("/", foo, tags=tags)
 
         assert len(router.routes) == 1
         assert isinstance(router.routes[0], WebSocketRoute)
@@ -619,7 +623,7 @@ class TestCaseRouter:
             async def on_receive(self, websocket):
                 return "foo"
 
-        router.add_websocket_route("/", FooEndpoint, **tags)
+        router.add_websocket_route("/", FooEndpoint, tags=tags)
 
         assert len(router.routes) == 1
         assert isinstance(router.routes[0], WebSocketRoute)
@@ -639,7 +643,7 @@ class TestCaseRouter:
             router.add_websocket_route(path="/", endpoint=Foo)
 
     def test_websocket_route_function(self, router, tags):
-        @router.websocket_route("/", **tags)
+        @router.websocket_route("/", tags=tags)
         async def foo():
             return "foo"
 
@@ -650,7 +654,7 @@ class TestCaseRouter:
         assert router.routes[0].tags == tags
 
     def test_websocket_route_endpoint(self, router, tags):
-        @router.websocket_route("/", **tags)
+        @router.websocket_route("/", tags=tags)
         class FooEndpoint(endpoints.WebSocketEndpoint):
             async def on_receive(self, websocket):
                 return "foo"
@@ -669,7 +673,7 @@ class TestCaseRouter:
                 ...
 
     def test_mount_app(self, app, app_mock, tags):
-        app.mount("/app/", app=app_mock, **tags)
+        app.mount("/app/", app=app_mock, tags=tags)
 
         assert len(app.routes) == 1
         assert isinstance(app.routes[0], Mount)
@@ -680,7 +684,7 @@ class TestCaseRouter:
     def test_mount_router(self, app, component_mock, tags):
         router = Router(components=[component_mock])
 
-        app.mount("/app/", app=router, **tags)
+        app.mount("/app/", app=router, tags=tags)
 
         assert len(app.router.routes) == 1
         # Check mount is initialized
@@ -705,12 +709,12 @@ class TestCaseRouter:
             ...
 
         routes = [
-            Route("/", root, **tags),
+            Route("/", root, tags=tags),
             Mount(
                 "/foo",
                 routes=[Route("/", foo, methods=["GET"]), Route("/view", foo_view, methods=["GET"])],
                 components=[component_mock],
-                **tags
+                tags=tags,
             ),
             Mount(
                 "/bar",
@@ -718,7 +722,7 @@ class TestCaseRouter:
                     routes=[Route("/", foo, methods=["GET"]), Route("/view", foo_view, methods=["GET"])],
                     components=[component_mock],
                 ),
-                **tags
+                tags=tags,
             ),
         ]
 

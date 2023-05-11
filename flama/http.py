@@ -12,6 +12,7 @@ import starlette.requests
 import starlette.responses
 import starlette.schemas
 
+import flama.types
 from flama import schemas, types
 from flama.exceptions import HTTPException, SerializationError
 
@@ -193,7 +194,7 @@ class _ReactTemplatesEnvironment(jinja2.Environment):
 
         self.filters["safe_json"] = self.safe_json
 
-    def _escape(self, value: types.JSONField) -> types.JSONField:
+    def _escape(self, value: flama.types.JSONField) -> flama.types.JSONField:
         if isinstance(value, (list, tuple)):
             return [self._escape(x) for x in value]
 
@@ -205,7 +206,7 @@ class _ReactTemplatesEnvironment(jinja2.Environment):
 
         return value
 
-    def safe_json(self, value: types.JSONField):
+    def safe_json(self, value: flama.types.JSONField):
         return json.dumps(self._escape(value)).replace('"', '\\"')
 
 

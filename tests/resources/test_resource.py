@@ -245,7 +245,7 @@ class TestCaseBaseResource:
 
 class TestCaseResourceMethod:
     def test_resource_method(self):
-        @resource_method(path="/", methods=["POST"], name="foo", additional="bar")
+        @resource_method(path="/", methods=["POST"], name="foo", tags={"additional": "bar"})
         def foo(x: int):
             return x
 
@@ -253,4 +253,4 @@ class TestCaseResourceMethod:
         assert foo._meta.path == "/"
         assert foo._meta.methods == ["POST"]
         assert foo._meta.name == "foo"
-        assert foo._meta.kwargs == {"additional": "bar"}
+        assert foo._meta.tags == {"additional": "bar"}

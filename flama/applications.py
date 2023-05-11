@@ -159,7 +159,7 @@ class Flama:
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         route: t.Optional["Route"] = None,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> "Route":
         """Register a new HTTP route or endpoint under given path.
 
@@ -179,7 +179,7 @@ class Flama:
             include_in_schema=include_in_schema,
             route=route,
             root=self,
-            **tags,
+            tags=tags,
         )
 
     def route(
@@ -188,7 +188,7 @@ class Flama:
         methods: t.Optional[t.List[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -200,7 +200,7 @@ class Flama:
         :return: Decorated route.
         """
         return self.router.route(
-            path, methods=methods, name=name, include_in_schema=include_in_schema, root=self, **tags
+            path, methods=methods, name=name, include_in_schema=include_in_schema, root=self, tags=tags
         )
 
     def add_websocket_route(
@@ -209,7 +209,7 @@ class Flama:
         endpoint: t.Optional[types.WebSocketHandler] = None,
         name: t.Optional[str] = None,
         route: t.Optional["WebSocketRoute"] = None,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> "WebSocketRoute":
         """Register a new websocket route or endpoint under given path.
 
@@ -219,10 +219,10 @@ class Flama:
         :param route: Websocket route.
         :param tags: Tags to add to the websocket route.
         """
-        return self.router.add_websocket_route(path, endpoint, name=name, route=route, root=self, **tags)
+        return self.router.add_websocket_route(path, endpoint, name=name, route=route, root=self, tags=tags)
 
     def websocket_route(
-        self, path: str, name: t.Optional[str] = None, **tags: t.Any
+        self, path: str, name: t.Optional[str] = None, tags: t.Optional[t.Dict[str, types.Tag]] = None
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
@@ -231,7 +231,7 @@ class Flama:
         :param tags: Tags to add to the websocket route.
         :return: Decorated route.
         """
-        return self.router.websocket_route(path, name=name, root=self, **tags)
+        return self.router.websocket_route(path, name=name, root=self, tags=tags)
 
     def mount(
         self,
@@ -239,7 +239,7 @@ class Flama:
         app: t.Optional[types.App] = None,
         name: t.Optional[str] = None,
         mount: t.Optional["Mount"] = None,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> "Mount":
         """Register a new mount point containing an ASGI app in this router under given path.
 
@@ -250,7 +250,7 @@ class Flama:
         :param tags: Tags to add to the mount.
         :return: Mount.
         """
-        return self.router.mount(path, app, name=name, mount=mount, root=self, **tags)
+        return self.router.mount(path, app, name=name, mount=mount, root=self, tags=tags)
 
     @property
     def injector(self) -> injection.Injector:
