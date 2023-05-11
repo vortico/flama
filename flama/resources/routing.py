@@ -5,15 +5,25 @@ from flama.resources import data_structures
 from flama.routing import Mount, Route
 
 if t.TYPE_CHECKING:
+    from flama import types
     from flama.resources import BaseResource
 
 __all__ = ["ResourceRoute", "resource_method"]
 
 
 class ResourceRoute(Mount):
-    def __init__(self, path: str, resource: t.Union["BaseResource", t.Type["BaseResource"]]):
+    def __init__(
+        self,
+        path: str,
+        resource: t.Union["BaseResource", t.Type["BaseResource"]],
+        tags: t.Optional[t.Dict[str, t.Dict[str, "types.Tag"]]] = None,
+    ):
+        tags = tags or {}
+
         # Handle class or instance objects
         self.resource = resource() if inspect.isclass(resource) else resource
+
+        assert set(self.resource.routes.keys()) >= set(tags.keys()), "Tags must be defined only for existing routes."
 
         routes = [
             Route(
@@ -21,6 +31,7 @@ class ResourceRoute(Mount):
                 endpoint=getattr(self.resource, name),
                 methods=route._meta.methods,
                 name=route._meta.name or route.__name__,
+                tags=tags.get(name, route._meta.tags),
             )
             for name, route in self.resource.routes.items()
         ]
@@ -29,20 +40,23 @@ class ResourceRoute(Mount):
 
 
 def resource_method(
-    path: str, methods: t.Optional[t.Sequence[str]] = None, name: t.Optional[str] = None, **kwargs
+    path: str,
+    methods: t.Optional[t.Sequence[str]] = None,
+    name: t.Optional[str] = None,
+    tags: t.Optional[t.Dict[str, "types.Tag"]] = None,
 ) -> t.Callable:
     """Decorator for adding useful info needed for generating resource routes.
 
     :param path: Route path.
     :param methods: HTTP methods available.
     :param name: Route name.
-    :param kwargs: Additional args used for adding route.
+    :param tags: Tags to add to the method.
     :return: Decorated method.
     """
 
     def wrapper(func):
         func._meta = data_structures.MethodMetadata(
-            path=path, methods=methods if methods is not None else {"GET"}, name=name, kwargs=kwargs
+            path=path, methods=methods if methods is not None else {"GET"}, name=name, tags=tags or {}
         )
 
         return func

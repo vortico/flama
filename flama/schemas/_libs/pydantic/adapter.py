@@ -9,7 +9,7 @@ from pydantic.schema import field_schema, model_schema
 from flama.injection import Parameter
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
-from flama.types.schema import JSONSchema
+from flama.types import JSONSchema
 
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard

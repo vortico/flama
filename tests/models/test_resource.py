@@ -1,35 +1,14 @@
-from unittest.mock import Mock
-
 import pytest
 
-from flama.models import ModelComponent, ModelResource, ModelResourceType
-from flama.models.models.pytorch import PyTorchModel
-from flama.models.models.sklearn import SKLearnModel
-from flama.models.models.tensorflow import TensorFlowModel
+from flama.models import ModelResource, ModelResourceType
 from flama.resources.exceptions import ResourceAttributeError
 
 
 class TestCaseModelResource:
-    @pytest.fixture(params=["tensorflow", "sklearn", "torch"])
-    def model(self, request):
-        return {
-            "sklearn": SKLearnModel(Mock(), Mock(), Mock()),
-            "tensorflow": TensorFlowModel(Mock(), Mock(), Mock()),
-            "torch": PyTorchModel(Mock(), Mock(), Mock()),
-        }[request.param]
-
-    @pytest.fixture
-    def component(self, model):
-        class SpecificModelComponent(ModelComponent):
-            def resolve(self) -> type(model):
-                return self.model
-
-        return SpecificModelComponent(model)
-
     def test_resource_using_component(self, app, model, component):
         component_ = component
 
-        @app.models.model("/")
+        @app.models.model_resource("/")
         class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
             name = "puppy"
             verbose_name = "Puppy"

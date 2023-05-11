@@ -182,7 +182,7 @@ class BaseRoute(RouteParametersMixin):
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ):
         """A route definition of a http endpoint.
 
@@ -197,7 +197,7 @@ class BaseRoute(RouteParametersMixin):
         self.endpoint = app.handler if isinstance(app, EndpointWrapper) else app
         self.name = name
         self.include_in_schema = include_in_schema
-        self.tags = tags
+        self.tags = tags or {}
         super().__init__()
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
@@ -291,7 +291,7 @@ class Route(BaseRoute):
         methods: t.Optional[t.Union[t.Set[str], t.Sequence[str]]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> None:
         """A route definition of a http endpoint.
 
@@ -321,7 +321,7 @@ class Route(BaseRoute):
             EndpointWrapper(endpoint, EndpointWrapper.type.http),
             name=name,
             include_in_schema=include_in_schema,
-            **tags,
+            tags=tags,
         )
 
         self.app: EndpointWrapper
@@ -378,7 +378,7 @@ class WebSocketRoute(BaseRoute):
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ):
         """A route definition of a websocket endpoint.
 
@@ -400,7 +400,7 @@ class WebSocketRoute(BaseRoute):
             EndpointWrapper(endpoint, EndpointWrapper.type.websocket),
             name=name,
             include_in_schema=include_in_schema,
-            **tags,
+            tags=tags,
         )
 
         self.app: EndpointWrapper
@@ -447,7 +447,7 @@ class Mount(BaseRoute):
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
         components: t.Optional[t.Sequence[Component]] = None,
         name: t.Optional[str] = None,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ):
         """A mount point for adding a nested ASGI application or a list of routes.
 
@@ -463,7 +463,7 @@ class Mount(BaseRoute):
         if app is None:
             app = Router(routes=routes, components=components)
 
-        super().__init__(url.RegexPath(path.rstrip("/") + "{path:path}"), app, name=name, **tags)
+        super().__init__(url.RegexPath(path.rstrip("/") + "{path:path}"), app, name=name, tags=tags)
 
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, Mount)
@@ -632,7 +632,7 @@ class Router(types.AppAsyncClass):
         include_in_schema: bool = True,
         route: t.Optional[Route] = None,
         root: t.Optional["Flama"] = None,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> Route:
         """Register a new HTTP route in this router under given path.
 
@@ -648,7 +648,7 @@ class Router(types.AppAsyncClass):
         """
         if path is not None and endpoint is not None:
             route = Route(
-                path, endpoint=endpoint, methods=methods, name=name, include_in_schema=include_in_schema, **tags
+                path, endpoint=endpoint, methods=methods, name=name, include_in_schema=include_in_schema, tags=tags
             )
 
         assert route is not None, "Either 'path' and 'endpoint' or 'route' variables are needed"
@@ -666,7 +666,7 @@ class Router(types.AppAsyncClass):
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         root: t.Optional["Flama"] = None,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -681,7 +681,7 @@ class Router(types.AppAsyncClass):
 
         def decorator(func: types.HTTPHandler) -> types.HTTPHandler:
             self.add_route(
-                path, func, methods=methods, name=name, include_in_schema=include_in_schema, root=root, **tags
+                path, func, methods=methods, name=name, include_in_schema=include_in_schema, root=root, tags=tags
             )
             return func
 
@@ -694,7 +694,7 @@ class Router(types.AppAsyncClass):
         name: t.Optional[str] = None,
         route: t.Optional[WebSocketRoute] = None,
         root: t.Optional["Flama"] = None,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> WebSocketRoute:
         """Register a new websocket route in this router under given path.
 
@@ -707,7 +707,7 @@ class Router(types.AppAsyncClass):
         :return: Websocket route.
         """
         if path is not None and endpoint is not None:
-            route = WebSocketRoute(path, endpoint=endpoint, name=name, **tags)
+            route = WebSocketRoute(path, endpoint=endpoint, name=name, tags=tags)
 
         assert route is not None, "Either 'path' and 'endpoint' or 'route' variables are needed"
 
@@ -722,7 +722,7 @@ class Router(types.AppAsyncClass):
         path: str,
         name: t.Optional[str] = None,
         root: t.Optional["Flama"] = None,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
@@ -734,7 +734,7 @@ class Router(types.AppAsyncClass):
         """
 
         def decorator(func: types.WebSocketHandler) -> types.WebSocketHandler:
-            self.add_websocket_route(path, func, name=name, root=root, **tags)
+            self.add_websocket_route(path, func, name=name, root=root, tags=tags)
             return func
 
         return decorator
@@ -746,7 +746,7 @@ class Router(types.AppAsyncClass):
         name: t.Optional[str] = None,
         mount: t.Optional[Mount] = None,
         root: t.Optional["Flama"] = None,
-        **tags: t.Any,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> Mount:
         """Register a new mount point containing an ASGI app in this router under given path.
 
@@ -759,7 +759,7 @@ class Router(types.AppAsyncClass):
         :return: Mount.
         """
         if path is not None and app is not None:
-            mount = Mount(path, app=app, name=name, **tags)
+            mount = Mount(path, app=app, name=name, tags=tags)
 
         assert mount is not None, "Either 'path' and 'app' or 'mount' variables are needed"
 

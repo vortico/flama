@@ -52,4 +52,4 @@ class MethodMetadata:
     path: str
     methods: typing.Set[str] = dataclasses.field(default_factory=lambda: {"GET"})
     name: typing.Optional[str] = None
-    kwargs: typing.Dict[str, typing.Any] = dataclasses.field(default_factory=dict)
+    tags: typing.Dict[str, typing.Any] = dataclasses.field(default_factory=dict)

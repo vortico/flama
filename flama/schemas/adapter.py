@@ -2,7 +2,8 @@ import abc
 import sys
 import typing as t
 
-from flama.types.schema import JSONSchema, _T_Field, _T_Schema
+from flama.types import JSONSchema
+from flama.types.schema import _T_Field, _T_Schema
 
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard
