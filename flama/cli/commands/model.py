@@ -7,12 +7,16 @@ import click
 from flama.http import EnhancedJSONEncoder
 from flama.models import ModelComponentBuilder
 
+if t.TYPE_CHECKING:
+    from flama.models import ModelComponent
+
 __all__ = ["model", "command"]
 
 
 @click.group(name="model")
-@click.argument("model-path", envvar="FLAMA_MODEL_PATH")
-def command(model_path: str):
+@click.argument("flama-model-path", envvar="FLAMA_MODEL_PATH")
+@click.pass_context
+def command(ctx: click.Context, flama_model_path: str):
     """Interact with an ML model without server.
 
     This command is used to directly interact with an ML model without the need of a server. This command can be used
@@ -20,24 +24,22 @@ def command(model_path: str):
     <FLAMA_MODEL_PATH> is the path of the model to be used, e.g. 'path/to/model.flm'. This can be passed
     directly as argument of the command line, or by environment variable.
     """
-    ...
+    try:
+        ctx.obj = ModelComponentBuilder.load(flama_model_path)
+    except FileNotFoundError:
+        raise click.BadParameter("Model file not found.")
 
 
 @command.command(name="inspect", context_settings={"auto_envvar_prefix": "FLAMA"})
 @click.option("-p", "--pretty", is_flag=True, default=False, help="Pretty print the model inspection.")
-@click.pass_context
-def inspect(ctx: click.Context, pretty: bool):
+@click.pass_obj
+def inspect(model: "ModelComponent", pretty: bool):
     """Inspect an ML model.
 
     This command is used to inspect an ML model without the need of a server. This command can be used to extract the
     ML model metadata, including the ID, time when the model was created, information of the
     framework, and the model info; and the list of artifacts packaged with the model.
     """
-    try:
-        model = ModelComponentBuilder.load(ctx.parent.params["model_path"])  # type: ignore[union-attr]
-    except FileNotFoundError:
-        raise click.BadParameter("Model file not found.")
-
     dump_func = functools.partial(json.dumps, cls=EnhancedJSONEncoder)
     if pretty:
         dump_func = functools.partial(dump_func, sort_keys=True, indent=4)
@@ -62,9 +64,9 @@ def inspect(ctx: click.Context, pretty: bool):
     default="-",
     help="File to be used as output for the model prediction in JSON format. (default: stdout).",
 )
-@click.option("-p", "--pretty", is_flag=True, default=False, help="Pretty print the model inspection.")
-@click.pass_context
-def predict(ctx: click.Context, input_file, output_file, pretty: bool):
+@click.option("-p", "--pretty", is_flag=True, default=False, help="Pretty print the model prediction.")
+@click.pass_obj
+def predict(model: "ModelComponent", input_file, output_file, pretty: bool):
     """Make a prediction using an ML model.
 
     This command is used to make a prediction using an ML model without the need of a server. It can be used for
@@ -80,11 +82,6 @@ def predict(ctx: click.Context, input_file, output_file, pretty: bool):
     - output.json:
     [[0], [1], [1], [0]]
     """
-    try:
-        model = ModelComponentBuilder.load(ctx.parent.params["model_path"])  # type: ignore[union-attr]
-    except FileNotFoundError:
-        raise click.BadParameter("Model file not found.")
-
     try:
         data = json.load(input_file)
     except json.JSONDecodeError:
