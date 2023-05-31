@@ -36,22 +36,6 @@ app = flama.Flama(
 )
 
 
-@app.route("/")
-def home():
-    """
-    tags:
-        - home
-    summary:
-        Returns a warming message.
-    description:
-        Returns a warming message with the Flama emoji 🔥.
-    responses:
-        200:
-            description: Warming hello message!
-    """
-    return {"message": "Hello 🔥"}
-
-
 @app.route("/puppy/", methods=["GET"])
 def list_puppies(name: str = None):
     """
