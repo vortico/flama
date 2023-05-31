@@ -4,7 +4,6 @@ import typing
 from pydantic import BaseModel, validator
 
 import flama
-from flama import Flama
 
 
 class Puppy(BaseModel):
@@ -14,19 +13,28 @@ class Puppy(BaseModel):
 
     @validator("age")
     def minimum_age_validation(cls, v):
+        """Validates that the age is not negative."""
         if v < 0:
             raise ValueError("Age must be positive")
 
         return v
 
 
-PUPPIES = [{"id": 1, "name": "Canna", "age": 7}, {"id": 2, "name": "Sandy", "age": 12}]
+PUPPIES = [
+    {"id": 1, "name": "Canna", "age": 7},
+    {"id": 2, "name": "Sandy", "age": 12},
+    {"id": 3, "name": "Bobby", "age": 3},
+    {"id": 4, "name": "Rex", "age": 5},
+    {"id": 5, "name": "Toby", "age": 2},
+]
 
 
-app = Flama(
-    title="Puppy Register",  # API title
-    version="0.1",  # API version
-    description="A register of puppies",  # API description
+app = flama.Flama(
+    title="My 🔥 API",
+    version="1.0",
+    description="My API with pagination",
+    docs="/docs/",
+    schema="/schema/",
 )
 
 
@@ -87,4 +95,4 @@ def puppies(name: str = None, **kwargs) -> typing.List[Puppy]:
 
 
 if __name__ == "__main__":
-    flama.run(app, host="0.0.0.0", port=8000)
+    flama.run(flama_app=app, server_host="0.0.0.0", server_port=8000)
