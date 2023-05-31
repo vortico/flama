@@ -38,42 +38,8 @@ app = flama.Flama(
 )
 
 
-@app.route("/number/", methods=["GET"])
-@app.paginator.page_number
-def numbers(**kwargs):
-    """
-    tags:
-        - numbers.
-    summary:
-        A sequence of numbers.
-    description:
-        A sequence of numbers that uses page-number pagination.
-    responses:
-        200:
-            description: Sequence of numbers.
-    """
-    return list(range(100))
-
-
-@app.route("/alphabet/", methods=["GET"])
-@app.paginator.limit_offset
-def alphabet(**kwargs):
-    """
-    tags:
-        - alphabet.
-    summary:
-        A sequence of alphabet letters.
-    description:
-        A sequence of alphabet letters that uses limit-offset pagination.
-    responses:
-        200:
-            description: Sequence of alphabet letters.
-    """
-    return list(string.ascii_lowercase)
-
-
 @app.route("/puppy/", methods=["GET"])
-@app.paginator.page_number
+@app.paginator.page_number(schema_name="Puppy")
 def puppies(name: str = None, **kwargs) -> typing.List[Puppy]:
     """
     tags:
@@ -90,6 +56,30 @@ def puppies(name: str = None, **kwargs) -> typing.List[Puppy]:
     result = PUPPIES
     if name:
         result = filter(lambda x: x["name"] == name, result)
+
+    return result
+
+
+@app.route("/puppy-offset/", methods=["GET"])
+@app.paginator.limit_offset(schema_name="Puppy")
+def puppies_offset(name: str, **kwargs) -> typing.List[Puppy]:
+    """
+    tags:
+        - puppy
+    summary:
+        List puppies with offset pagination.
+    description:
+        List the puppies collection using offset pagination, so that
+        the client can specify the number of items to skip and the
+        number of items to return.
+
+    responses:
+        200:
+            description: List puppies.
+    """
+    result = PUPPIES
+    if name:
+        return filter(lambda x: x["name"] == name, result)
 
     return result
 
