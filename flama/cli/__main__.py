@@ -9,6 +9,7 @@ from flama.cli.commands.start import command as start_command
 @click.group()
 @click.version_option(
     package_name="Flama",
+    message="Flama %(version)s",
     help="Check the version of your locally installed Flama",
 )
 @click.help_option(help="Get help about how to use Flama CLI")
