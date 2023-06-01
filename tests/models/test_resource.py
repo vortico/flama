@@ -33,6 +33,7 @@ class TestCaseModelResource:
         ["model_path"],
         (
             pytest.param("sklearn", id="sklearn"),
+            pytest.param("sklearn-pipeline", id="sklearn-pipeline"),
             pytest.param("tensorflow", id="tensorflow"),
             pytest.param("torch", id="torch"),
         ),
@@ -77,6 +78,7 @@ class TestCaseModelResourceMethods:
         (
             pytest.param("torch", "torch", "/torch/", id="torch"),
             pytest.param("sklearn", "sklearn", "/sklearn/", id="sklearn"),
+            pytest.param("sklearn-pipeline", "sklearn-pipeline", "/sklearn-pipeline/", id="sklearn-pipeline"),
             pytest.param("tensorflow", "tensorflow", "/tensorflow/", id="tensorflow"),
         ),
         indirect=["model_path"],
@@ -116,6 +118,24 @@ class TestCaseModelResourceMethods:
                 id="sklearn-200",
             ),
             pytest.param("sklearn", "sklearn", "/sklearn/predict/", [["wrong"]], None, 400, id="sklearn-400"),
+            pytest.param(
+                "sklearn-pipeline",
+                "sklearn-pipeline",
+                "/sklearn-pipeline/predict/",
+                [[0, 0], [0, 1], [1, 0], [1, 1]],
+                [0, 1, 1, 0],
+                200,
+                id="sklearn-pipeline-200",
+            ),
+            pytest.param(
+                "sklearn-pipeline",
+                "sklearn-pipeline",
+                "/sklearn-pipeline/predict/",
+                [["wrong"]],
+                None,
+                400,
+                id="sklearn-pipeline-400",
+            ),
             pytest.param(
                 "tensorflow",
                 "tensorflow",

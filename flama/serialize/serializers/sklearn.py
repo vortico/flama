@@ -1,4 +1,5 @@
 import codecs
+import math
 import pickle
 import sys
 import typing as t
@@ -30,8 +31,26 @@ class SKLearnSerializer(Serializer):
 
         return model
 
+    def _info(self, data):
+        if isinstance(data, (int, bool, str)):
+            return data
+
+        if isinstance(data, float):
+            return None if math.isnan(data) else data
+
+        if isinstance(data, dict):
+            return {k: self._info(v) for k, v in data.items()}
+
+        if isinstance(data, (list, tuple, set)):
+            return [self._info(i) for i in data]
+
+        try:
+            return self._info(data.get_params())
+        except:  # noqa
+            return None
+
     def info(self, model: t.Any) -> t.Dict[str, t.Any]:
-        model_info: t.Dict[str, t.Any] = model.get_params()
+        model_info: t.Dict[str, t.Any] = self._info(model)
         return model_info
 
     def version(self) -> str:

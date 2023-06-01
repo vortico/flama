@@ -21,6 +21,7 @@ class TestCaseSerialize:
         ("lib", "model", "serialized_model_class"),
         (
             pytest.param(Framework.sklearn, "sklearn", "sklearn", id="sklearn"),
+            pytest.param(Framework.sklearn, "sklearn-pipeline", "sklearn-pipeline", id="sklearn-pipeline"),
             pytest.param(Framework.tensorflow, "tensorflow", "tensorflow", id="tensorflow"),
             pytest.param(Framework.torch, "torch", "torch", id="torch"),
             # TODO: Add keras

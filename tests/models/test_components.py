@@ -11,6 +11,7 @@ class TestCaseModelComponent:
         ("model_path", "component_model_class", "serialized_model_class"),
         (
             pytest.param("sklearn", SKLearnModel, "sklearn", id="sklearn"),
+            pytest.param("sklearn-pipeline", SKLearnModel, "sklearn-pipeline", id="sklearn-pipeline"),
             pytest.param("tensorflow", TensorFlowModel, "tensorflow", id="tensorflow"),
             pytest.param("torch", PyTorchModel, "torch", id="torch"),
         ),
