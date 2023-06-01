@@ -29,7 +29,10 @@ except Exception:
     np = None
 
 try:
+    import sklearn.compose
+    import sklearn.impute
     import sklearn.neural_network
+    import sklearn.pipeline
 except Exception:
     sklearn = None
 
@@ -171,6 +174,7 @@ class ModelFactory:
     def __init__(self):
         self._factories = {
             "sklearn": self._sklearn,
+            "sklearn-pipeline": self._sklearn_pipeline,
             "tensorflow": self._tensorflow,
             "torch": self._torch,
         }
@@ -200,6 +204,32 @@ class ModelFactory:
             np.array([0, 1, 1, 0]),
         )
         return model, sklearn.neural_network.MLPClassifier
+
+    def _sklearn_pipeline(self):
+        model = sklearn.neural_network.MLPClassifier(activation="tanh", max_iter=2000, hidden_layer_sizes=(10,))
+        numerical_transformer = sklearn.pipeline.Pipeline(
+            [
+                ("imputer", sklearn.impute.SimpleImputer(strategy="constant", fill_value=0)),
+            ]
+        )
+        preprocess = sklearn.compose.ColumnTransformer(
+            [
+                ("numerical", numerical_transformer[0, 1]),
+            ]
+        )
+        pipeline = sklearn.pipeline.Pipeline(
+            [
+                ("preprocess", preprocess),
+                ("model", model),
+            ]
+        )
+
+        pipeline.fit(
+            np.array([[0, np.nan], [np.nan, 1], [1, 0], [1, 1]]),  # NaN will be replaced with 0
+            np.array([0, 1, 1, 0]),
+        )
+
+        return pipeline, sklearn.pipeline.Pipeline
 
     def _tensorflow(self):
         model = tf.keras.models.Sequential(
