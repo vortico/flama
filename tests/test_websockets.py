@@ -43,7 +43,7 @@ class TestCaseWebSocket:
                 "json",
                 "send_json",
                 {"foo": "bar"},
-                {"text": '{"foo": "bar"}', "type": "websocket.send"},
+                {"text": '{"foo":"bar"}', "type": "websocket.send"},
                 None,
                 id="json",
             ),

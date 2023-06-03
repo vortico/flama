@@ -183,20 +183,20 @@ class TestCaseWebSocketEndpoint:
                 "text", "send_bytes", b"foo", {"code": 1003, "type": "websocket.close", "reason": ""}, id="text_wrong"
             ),
             pytest.param(
-                "json", "send_json", {"foo": "bar"}, {"text": '{"foo": "bar"}', "type": "websocket.send"}, id="json"
+                "json", "send_json", {"foo": "bar"}, {"text": '{"foo":"bar"}', "type": "websocket.send"}, id="json"
             ),
             pytest.param(
                 "json",
                 "send_bytes",
                 b'{"foo": "bar"}',
-                {"text": '{"foo": "bar"}', "type": "websocket.send"},
+                {"text": '{"foo":"bar"}', "type": "websocket.send"},
                 id="json_using_bytes",
             ),
             pytest.param(
                 "json",
                 "send_text",
-                b'{"foo": "bar"}',
-                {"text": '{"foo": "bar"}', "type": "websocket.send"},
+                b'{"foo":"bar"}',
+                {"text": '{"foo":"bar"}', "type": "websocket.send"},
                 id="json_using_text",
             ),
             pytest.param(
