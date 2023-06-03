@@ -5,12 +5,15 @@ import enum
 import importlib
 import inspect
 import json
+import logging
 import os
+import shutil
 import tarfile
 import tempfile
 import typing as t
 import uuid
 import warnings
+import weakref
 from pathlib import Path
 
 from flama.serialize.base import Serializer
@@ -18,6 +21,8 @@ from flama.serialize.exceptions import FrameworkVersionWarning
 from flama.serialize.types import Framework
 
 __all__ = ["ModelArtifact", "Compression"]
+
+logger = logging.getLogger(__name__)
 
 
 class Compression(enum.Enum):
@@ -173,6 +178,48 @@ class Metadata:
 Artifacts = t.Dict[str, t.Union[str, os.PathLike]]
 
 
+class _ModelDirectory:
+    def __init__(
+        self,
+        model_file: t.Union[str, os.PathLike],
+        path: t.Optional[t.Union[str, os.PathLike]] = None,
+        delete: bool = True,
+    ):
+        """Generate a model directory from a model file.
+
+        :param model_file: Model file path.
+        :param path: Directory path. Create a temporary directory if None.
+        :return: Model directory loaded.
+        """
+        self.directory = Path(path) if path else Path(tempfile.mkdtemp())
+
+        with tarfile.open(model_file, "r") as tar:
+            tar.extractall(self.directory)
+
+        self.model = self.directory / "model"
+        self.artifacts: Artifacts = {artifact.name: artifact for artifact in self.directory.glob("artifacts/*")}
+
+        logger.debug("Model '%s' extracted in directory '%s'", model_file, self.directory)
+
+        self._finalizer = weakref.finalize(self, self._cleanup) if delete else None
+
+    def _cleanup(self):
+        logger.debug("Model directory '%s' clean", self.directory)
+        shutil.rmtree(self.directory)
+
+    def exists(self) -> bool:
+        """Check if the model directory exists.
+
+        :return: True if the directory exists.
+        """
+        return os.path.exists(self.directory)
+
+    def cleanup(self):
+        """Clean the model directory by removing it."""
+        if (self._finalizer and self._finalizer.detach()) or self.exists():
+            self._cleanup()
+
+
 @dataclasses.dataclass(frozen=True)
 class ModelArtifact:
     """ML Model wrapper to provide mechanisms for serialization and deserialization using Flama format."""
@@ -180,6 +227,7 @@ class ModelArtifact:
     model: t.Any
     meta: Metadata
     artifacts: t.Optional[Artifacts] = None
+    _directory: t.Optional[_ModelDirectory] = dataclasses.field(default=None, repr=False, compare=False)
 
     @classmethod
     def from_model(
@@ -257,6 +305,7 @@ class ModelArtifact:
         :param compression: Compression type.
         :param kwargs: Keyword arguments passed to library dump method.
         """
+        logger.info("Dump model '%s'", path)
         compression = Compression[compression] if isinstance(compression, str) else compression
         with tarfile.open(path, f"w:{compression.value}") as tar:
             if self.artifacts:
@@ -275,17 +324,15 @@ class ModelArtifact:
         :param kwargs: Keyword arguments passed to library load method.
         :return: Model artifact loaded.
         """
-        tmp = tempfile.TemporaryDirectory()
-        tmp_path = Path(tmp.name)
+        logger.info("Load model '%s'", path)
+        model_directory = _ModelDirectory(path)
 
-        with tarfile.open(path, "r") as tar:
-            tar.extractall(tmp_path)
-
-        with open(tmp_path / "model", "rb") as f:
+        with open(model_directory.model, "rb") as f:
             model_artifact = cls.from_bytes(f.read(), **kwargs)
 
         return cls(
             model=model_artifact.model,
             meta=model_artifact.meta,
-            artifacts={artifact.name: artifact for artifact in tmp_path.glob("artifacts/*")} or None,
+            artifacts=model_directory.artifacts or None,
+            _directory=model_directory,
         )
