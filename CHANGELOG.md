@@ -1,5 +1,16 @@
 # Semantic Versioning Changelog
 
+# [v1.4.0](https://github.com/vortico/flama/compare/v1.3.0...v1.4.0) (2023-06-08)
+
+## ✨ New Features
+- [`037718b`](https://github.com/vortico/flama/commit/037718b)  Allow to add tags to resource methods (#102) (Issues: [`#102`](https://github.com/vortico/flama/issues/))
+- [`7c9628a`](https://github.com/vortico/flama/commit/7c9628a)  Sklearn pipelines compatibility (#103) (Issues: [`#103`](https://github.com/vortico/flama/issues/))
+- [`7969d21`](https://github.com/vortico/flama/commit/7969d21)  Remove model directory on exiting app (#104) (Issues: [`#104`](https://github.com/vortico/flama/issues/))
+
+## 🐛 Bug Fixes
+- [`5ee51a1`](https://github.com/vortico/flama/commit/5ee51a1)  Typing issues (#101) (Issues: [`#101`](https://github.com/vortico/flama/issues/))
+- [`3445e63`](https://github.com/vortico/flama/commit/3445e63)  Trailing dot from docstring of crud methods summary (#100) (Issues: [`#100`](https://github.com/vortico/flama/issues/))
+
 # [v1.3.0](https://github.com/vortico/flama/compare/v1.2.0...v1.3.0) (2023-03-17)
 
 ## ✨ New Features
