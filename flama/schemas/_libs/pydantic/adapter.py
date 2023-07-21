@@ -3,8 +3,8 @@ import sys
 import typing as t
 
 import pydantic
-from pydantic.fields import ModelField
-from pydantic.schema import field_schema, model_schema
+from pydantic.fields import FieldInfo
+from pydantic.json_schema import model_json_schema
 
 from flama.injection import Parameter
 from flama.schemas.adapter import Adapter
@@ -19,7 +19,7 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
 __all__ = ["PydanticAdapter"]
 
 Schema = pydantic.BaseModel
-Field = ModelField
+Field = FieldInfo
 
 
 class PydanticAdapter(Adapter[Schema, Field]):
@@ -44,13 +44,12 @@ class PydanticAdapter(Adapter[Schema, Field]):
         if nullable:
             annotation = t.Optional[annotation]
 
-        return ModelField.infer(
-            name=name,
-            annotation=annotation,
-            value=pydantic.Field(**kwargs),
-            class_validators=None,
-            config=pydantic.BaseConfig,
-        )
+        if default is Parameter.empty:
+            field = FieldInfo.from_annotation(annotation)
+        else:
+            field = FieldInfo.from_annotated_attribute(annotation, default)
+
+        return field
 
     def build_schema(
         self,
@@ -64,13 +63,13 @@ class PydanticAdapter(Adapter[Schema, Field]):
             **{
                 **(
                     {
-                        name: (field.annotation, field.field_info)
-                        for name, field in self.unique_schema(schema).__fields__.items()
+                        name: (field_info.annotation, field_info)
+                        for name, field_info in self.unique_schema(schema).model_fields.items()
                     }
                     if schema
                     else {}
                 ),
-                **({name: (field.annotation, field.field_info) for name, field in fields.items()} if fields else {}),
+                **({name: (field.annotation, field) for name, field in fields.items()} if fields else {}),
             },
         )
 
@@ -78,7 +77,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
         schema_cls = self.unique_schema(schema)
 
         try:
-            return schema_cls(**values).dict()
+            return schema_cls(**values).model_dump()
         except pydantic.ValidationError as errors:
             raise SchemaValidationError(errors={str(error["loc"][0]): error for error in errors.errors()})
 
@@ -95,12 +94,18 @@ class PydanticAdapter(Adapter[Schema, Field]):
     def to_json_schema(self, schema: t.Union[Schema, t.Type[Schema], Field]) -> JSONSchema:
         try:
             if self.is_schema(schema):
-                json_schema = model_schema(schema, ref_prefix="#/components/schemas/")
+                json_schema = model_json_schema(schema, ref_template="#/components/schemas/{model}")
+                if "$defs" in json_schema:
+                    del json_schema["$defs"]
             elif self.is_field(schema):
-                json_schema = field_schema(schema, ref_prefix="#/components/schemas/", model_name_map={})[0]
-                if schema.allow_none:
-                    types = [json_schema["type"]] if isinstance(json_schema["type"], str) else json_schema["type"]
-                    json_schema["type"] = list(dict.fromkeys(types + ["null"]))
+                json_schema = model_json_schema(
+                    self.build_schema(fields={"x": schema}), ref_template="#/components/schemas/{model}"
+                )["properties"]["x"]
+                if not schema.title:  # Pydantic is introducing a default title, so we drop it
+                    del json_schema["title"]
+                if "anyOf" in json_schema:  # Just simplifying type definition from anyOf to a list of types
+                    json_schema["type"] = [x["type"] for x in json_schema["anyOf"]]
+                    del json_schema["anyOf"]
             else:
                 raise TypeError("Not a valid schema class or field")
 
