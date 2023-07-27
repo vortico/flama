@@ -1,16 +1,12 @@
-import asyncio
 import functools
 import inspect
 import typing as t
 
-from flama import http, schemas, types
-
-try:
-    import forge
-except Exception:  # pragma: no cover
-    forge = None  # type: ignore
+from flama import http, schemas
 
 __all__ = ["LimitOffsetMixin", "LimitOffsetResponse"]
+
+from flama.pagination.decorators import PaginationDecoratorFactory
 
 
 class LimitOffsetResponse(http.APIResponse):
@@ -27,7 +23,7 @@ class LimitOffsetResponse(http.APIResponse):
 
     def __init__(
         self,
-        schema: types.schema._T_Schema,
+        schema: schemas.Schema,
         offset: t.Optional[t.Union[int, str]] = None,
         limit: t.Optional[t.Union[int, str]] = None,
         count: t.Optional[bool] = True,
@@ -49,6 +45,52 @@ class LimitOffsetResponse(http.APIResponse):
         )
 
 
+class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
+    PARAMETERS = [
+        inspect.Parameter(
+            name="limit", default=None, annotation=t.Optional[int], kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
+        ),
+        inspect.Parameter(
+            name="offset", default=None, annotation=t.Optional[int], kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
+        ),
+        inspect.Parameter(
+            name="count", default=False, annotation=t.Optional[bool], kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
+        ),
+    ]
+
+    @classmethod
+    def _decorate_async(cls, func: t.Callable, schema: schemas.Schema) -> t.Callable:
+        @functools.wraps(func)
+        async def decorator(
+            *args,
+            limit: t.Optional[int] = None,
+            offset: t.Optional[int] = None,
+            count: t.Optional[bool] = False,
+            **kwargs
+        ):
+            return LimitOffsetResponse(
+                schema=schema, limit=limit, offset=offset, count=count, content=await func(*args, **kwargs)
+            )
+
+        return decorator
+
+    @classmethod
+    def _decorate_sync(cls, func: t.Callable, schema: schemas.Schema) -> t.Callable:
+        @functools.wraps(func)
+        def decorator(
+            *args,
+            limit: t.Optional[int] = None,
+            offset: t.Optional[int] = None,
+            count: t.Optional[bool] = False,
+            **kwargs
+        ):
+            return LimitOffsetResponse(
+                schema=schema, limit=limit, offset=offset, count=count, content=func(*args, **kwargs)
+            )
+
+        return decorator
+
+
 class LimitOffsetMixin:
     def limit_offset(self, schema_name: str):
         """
@@ -66,8 +108,6 @@ class LimitOffsetMixin:
         """
 
         def _inner(func: t.Callable):
-            assert forge is not None, "`python-forge` must be installed to use Paginator."
-
             resource_schema = schemas.Schema.from_type(inspect.signature(func).return_annotation).unique_schema
             paginated_schema_name = "LimitOffsetPaginated" + schema_name
             schema = schemas.Schema.build(
@@ -76,52 +116,11 @@ class LimitOffsetMixin:
                 fields=[schemas.Field("data", resource_schema, multiple=True)],
             ).unique_schema
 
-            forge_revision_list = (
-                forge.copy(func),
-                forge.insert(forge.arg("limit", default=None, type=t.Optional[int]), index=-1),
-                forge.insert(forge.arg("offset", default=None, type=t.Optional[int]), index=-1),
-                forge.insert(forge.arg("count", default=True, type=bool), index=-1),
-                forge.delete("kwargs"),
-                forge.returns(types.Schema[schema]),  # type: ignore[index,valid-type]
+            decorator = LimitOffsetDecoratorFactory.decorate(func, schema)
+
+            self.schemas.update(  # type: ignore[attr-defined]
+                {schema_name: resource_schema, paginated_schema_name: schema}
             )
-
-            try:
-                if asyncio.iscoroutinefunction(func):
-
-                    @forge.compose(*forge_revision_list)
-                    @functools.wraps(func)
-                    async def decorator(
-                        *args,
-                        limit: t.Optional[int] = None,
-                        offset: t.Optional[int] = None,
-                        count: bool = True,
-                        **kwargs
-                    ):
-                        return LimitOffsetResponse(
-                            schema=schema, limit=limit, offset=offset, count=count, content=await func(*args, **kwargs)
-                        )
-
-                else:
-
-                    @forge.compose(*forge_revision_list)
-                    @functools.wraps(func)
-                    def decorator(
-                        *args,
-                        limit: t.Optional[int] = None,
-                        offset: t.Optional[int] = None,
-                        count: bool = True,
-                        **kwargs
-                    ):
-                        return LimitOffsetResponse(
-                            schema=schema, limit=limit, offset=offset, count=count, content=func(*args, **kwargs)
-                        )
-
-            except ValueError as e:
-                raise TypeError("Paginated views must define **kwargs param") from e
-            else:
-                self.schemas.update(  # type: ignore[attr-defined]
-                    {schema_name: resource_schema, paginated_schema_name: schema}
-                )
 
             return decorator
 
