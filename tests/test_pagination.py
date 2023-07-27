@@ -62,7 +62,12 @@ class TestPageNumberResponse:
             parameter["schema"] = {k: v for k, v in parameter["schema"].items() if k in ("type", "default")}
 
         assert parameters == [
-            {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
+            {
+                "name": "count",
+                "in": "query",
+                "required": False,
+                "schema": {"type": ["boolean", "null"], "default": False},
+            },
             {"name": "page", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
             {"name": "page_size", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
         ]
@@ -103,7 +108,7 @@ class TestPageNumberResponse:
         response = client.get("/page-number-async/")
         assert response.status_code == 200, response.json()
         assert response.json() == {
-            "meta": {"page": 1, "page_size": 10, "count": 25},
+            "meta": {"page": 1, "page_size": 10, "count": None},
             "data": [{"value": i} for i in range(10)],
         }
 
@@ -113,32 +118,32 @@ class TestPageNumberResponse:
             param(
                 {},
                 200,
-                {"meta": {"page_size": 10, "page": 1, "count": 25}, "data": [{"value": i} for i in range(10)]},
+                {"meta": {"page_size": 10, "page": 1, "count": None}, "data": [{"value": i} for i in range(10)]},
                 id="default_params",
             ),
             param(
                 {"page_size": 5},
                 200,
-                {"meta": {"page_size": 5, "page": 1, "count": 25}, "data": [{"value": i} for i in range(5)]},
+                {"meta": {"page_size": 5, "page": 1, "count": None}, "data": [{"value": i} for i in range(5)]},
                 id="explicit_page_size",
             ),
             param(
                 {"page": 2},
                 200,
-                {"meta": {"page_size": 10, "page": 2, "count": 25}, "data": [{"value": i} for i in range(10, 20)]},
+                {"meta": {"page_size": 10, "page": 2, "count": None}, "data": [{"value": i} for i in range(10, 20)]},
                 id="explicit_page",
             ),
             param(
                 {"page": 4, "page_size": 5},
                 200,
-                {"meta": {"page_size": 5, "page": 4, "count": 25}, "data": [{"value": i} for i in range(15, 20)]},
+                {"meta": {"page_size": 5, "page": 4, "count": None}, "data": [{"value": i} for i in range(15, 20)]},
                 id="explicit_page_and_page_size",
             ),
             param(
-                {"count": False},
+                {"count": True},
                 200,
-                {"meta": {"page_size": 10, "page": 1, "count": None}, "data": [{"value": i} for i in range(10)]},
-                id="no_count",
+                {"meta": {"page_size": 10, "page": 1, "count": 25}, "data": [{"value": i} for i in range(10)]},
+                id="count",
             ),
         ),
     )
@@ -188,7 +193,12 @@ class TestLimitOffsetResponse:
             parameter["schema"] = {k: v for k, v in parameter["schema"].items() if k in ("type", "default")}
 
         assert parameters == [
-            {"name": "count", "in": "query", "required": False, "schema": {"type": "boolean", "default": True}},
+            {
+                "name": "count",
+                "in": "query",
+                "required": False,
+                "schema": {"type": ["boolean", "null"], "default": False},
+            },
             {"name": "limit", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
             {"name": "offset", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
         ]
@@ -229,7 +239,7 @@ class TestLimitOffsetResponse:
         response = client.get("/limit-offset-async/")
         assert response.status_code == 200, response.json()
         assert response.json() == {
-            "meta": {"limit": 10, "offset": 0, "count": 25},
+            "meta": {"limit": 10, "offset": 0, "count": None},
             "data": [{"value": i} for i in range(10)],
         }
 
@@ -239,32 +249,32 @@ class TestLimitOffsetResponse:
             param(
                 {},
                 200,
-                {"meta": {"limit": 10, "offset": 0, "count": 25}, "data": [{"value": i} for i in range(10)]},
+                {"meta": {"limit": 10, "offset": 0, "count": None}, "data": [{"value": i} for i in range(10)]},
                 id="default_params",
             ),
             param(
                 {"limit": 5},
                 200,
-                {"meta": {"limit": 5, "offset": 0, "count": 25}, "data": [{"value": i} for i in range(5)]},
+                {"meta": {"limit": 5, "offset": 0, "count": None}, "data": [{"value": i} for i in range(5)]},
                 id="explicit_limit",
             ),
             param(
                 {"offset": 5},
                 200,
-                {"meta": {"limit": 10, "offset": 5, "count": 25}, "data": [{"value": i} for i in range(5, 15)]},
+                {"meta": {"limit": 10, "offset": 5, "count": None}, "data": [{"value": i} for i in range(5, 15)]},
                 id="explicit_offset",
             ),
             param(
                 {"offset": 5, "limit": 20},
                 200,
-                {"meta": {"limit": 20, "offset": 5, "count": 25}, "data": [{"value": i} for i in range(5, 25)]},
+                {"meta": {"limit": 20, "offset": 5, "count": None}, "data": [{"value": i} for i in range(5, 25)]},
                 id="explicit_offset_and_limit",
             ),
             param(
-                {"count": False},
+                {"count": True},
                 200,
-                {"meta": {"limit": 10, "offset": 0, "count": None}, "data": [{"value": i} for i in range(10)]},
-                id="no_count",
+                {"meta": {"limit": 10, "offset": 0, "count": 25}, "data": [{"value": i} for i in range(10)]},
+                id="count",
             ),
         ),
     )
