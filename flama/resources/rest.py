@@ -14,7 +14,7 @@ except Exception:  # pragma: no cover
 
 __all__ = ["RESTResource", "RESTResourceType"]
 
-PK_MAPPING = {
+PK_MAPPING: t.Dict[t.Any, t.Any] = {
     sqlalchemy.Integer: int,
     sqlalchemy.String: str,
     sqlalchemy.Date: datetime.date,
@@ -60,14 +60,14 @@ class RESTResourceType(ResourceType):
         return super().__new__(mcs, name, bases, namespace)
 
     @classmethod
-    def _get_model(mcs, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> data_structures.Model:
+    def _get_model(cls, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> data_structures.Model:
         """Look for the resource model and checks if a primary key is defined with a valid type.
 
         :param bases: List of superclasses.
         :param namespace: Variables namespace used to create the class.
         :return: Resource model.
         """
-        model = mcs._get_attribute("model", bases, namespace, metadata_namespace="rest")
+        model = cls._get_attribute("model", bases, namespace, metadata_namespace="rest")
 
         # Already defined model probably because resource inheritance, so no need to create it
         if isinstance(model, data_structures.Model):
@@ -99,7 +99,7 @@ class RESTResourceType(ResourceType):
 
     @classmethod
     def _get_schemas(
-        mcs, name: str, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]
+        cls, name: str, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]
     ) -> data_structures.Schemas:
         """Look for the resource schema or the pair of input and output schemas.
 
@@ -112,11 +112,11 @@ class RESTResourceType(ResourceType):
             return data_structures.Schemas(
                 input=data_structures.Schema(
                     name="Input" + name,
-                    schema=mcs._get_attribute("input_schema", bases, namespace, metadata_namespace="rest"),
+                    schema=cls._get_attribute("input_schema", bases, namespace, metadata_namespace="rest"),
                 ),
                 output=data_structures.Schema(
                     name="Output" + name,
-                    schema=mcs._get_attribute("output_schema", bases, namespace, metadata_namespace="rest"),
+                    schema=cls._get_attribute("output_schema", bases, namespace, metadata_namespace="rest"),
                 ),
             )
         except AttributeError:
@@ -124,14 +124,14 @@ class RESTResourceType(ResourceType):
 
         try:
             schema = data_structures.Schema(
-                name=name, schema=mcs._get_attribute("schema", bases, namespace, metadata_namespace="rest")
+                name=name, schema=cls._get_attribute("schema", bases, namespace, metadata_namespace="rest")
             )
             return data_structures.Schemas(input=schema, output=schema)
         except AttributeError:
             ...
 
         try:
-            schemas: data_structures.Schemas = mcs._get_attribute(
+            schemas: data_structures.Schemas = cls._get_attribute(
                 "schemas", bases, namespace, metadata_namespace="rest"
             )
             return schemas

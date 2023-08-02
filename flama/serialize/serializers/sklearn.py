@@ -1,10 +1,12 @@
 import codecs
+import logging
 import math
 import pickle
 import sys
 import typing as t
 import warnings
 
+from flama import types
 from flama.serialize.base import Serializer
 from flama.serialize.types import Framework
 
@@ -16,6 +18,8 @@ if sys.version_info < (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma:
     importlib.metadata = importlib_metadata
 else:
     import importlib.metadata
+
+logger = logging.getLogger(__name__)
 
 
 class SKLearnSerializer(Serializer):
@@ -31,7 +35,7 @@ class SKLearnSerializer(Serializer):
 
         return model
 
-    def _info(self, data):
+    def _info(self, data) -> types.JSONField:
         if isinstance(data, (int, bool, str)):
             return data
 
@@ -44,14 +48,14 @@ class SKLearnSerializer(Serializer):
         if isinstance(data, (list, tuple, set)):
             return [self._info(i) for i in data]
 
-        try:
-            return self._info(data.get_params())
-        except:  # noqa
-            return None
+        return None
 
-    def info(self, model: t.Any) -> t.Dict[str, t.Any]:
-        model_info: t.Dict[str, t.Any] = self._info(model)
-        return model_info
+    def info(self, model: t.Any) -> t.Optional[types.JSONSchema]:
+        try:
+            return self._info(model.get_params())  # type: ignore
+        except:  # noqa
+            logger.exception("Cannot collect info from model")
+            return None
 
     def version(self) -> str:
         return importlib.metadata.version("scikit-learn")

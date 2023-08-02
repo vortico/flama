@@ -16,9 +16,6 @@ import flama.types
 from flama import schemas, types
 from flama.exceptions import HTTPException, SerializationError
 
-if t.TYPE_CHECKING:
-    from flama.types.schema import _T_Schema
-
 __all__ = [
     "Method",
     "Request",
@@ -114,7 +111,7 @@ class FileResponse(starlette.responses.FileResponse, Response):
 class APIResponse(JSONResponse):
     media_type = "application/json"
 
-    def __init__(self, content: t.Any = None, schema: t.Optional["_T_Schema"] = None, *args, **kwargs):
+    def __init__(self, content: t.Any = None, schema: t.Optional["schemas.Schema"] = None, *args, **kwargs):
         self.schema = schema
         super().__init__(content, *args, **kwargs)
 

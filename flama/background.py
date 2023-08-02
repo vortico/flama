@@ -1,9 +1,7 @@
-import asyncio
 import enum
 import functools
 import sys
 import typing as t
-from multiprocessing import Process
 
 import starlette.background
 
@@ -19,6 +17,15 @@ __all__ = ["BackgroundTask", "BackgroundTasks", "Concurrency", "BackgroundThread
 P = t.ParamSpec("P")
 
 
+class task_wrapper:
+    def __init__(self, target: t.Callable[P, t.Union[None, t.Awaitable[None]]]):
+        self.target = target
+        functools.update_wrapper(self, target)
+
+    async def __call__(self, *args, **kwargs):
+        await concurrency.run(self.target, *args, **kwargs)
+
+
 class Concurrency(enum.Enum):
     thread = "thread"
     process = "process"
@@ -26,41 +33,20 @@ class Concurrency(enum.Enum):
 
 class BackgroundTask(starlette.background.BackgroundTask):
     def __init__(
-        self, concurrency: t.Union[Concurrency, str], func: t.Callable[P, t.Any], *args: P.args, **kwargs: P.kwargs
+        self,
+        concurrency: t.Union[Concurrency, str],
+        func: t.Callable[P, t.Union[None, t.Awaitable[None]]],
+        *args: P.args,
+        **kwargs: P.kwargs
     ) -> None:
-        self.func = self._create_task_function(func)
+        self.func = task_wrapper(func)
         self.args = args
         self.kwargs = kwargs
         self.concurrency = Concurrency[concurrency] if isinstance(concurrency, str) else concurrency
 
-    def _create_task_function(self, func: t.Callable[P, t.Any]) -> t.Callable[P, t.Any]:
-        if asyncio.iscoroutinefunction(func):
-
-            @functools.wraps(func)
-            async def _inner(*args, **kwargs):
-                await func(*args, **kwargs)
-
-        else:
-
-            @functools.wraps(func)
-            async def _inner(*args, **kwargs):
-                await concurrency.run(func, *args, **kwargs)
-
-        return _inner
-
-    def _create_process_target(self, func: t.Callable[P, t.Any]):
-        @functools.wraps(func)
-        def process_target(*args: P.args, **kwargs: P.kwargs):  # pragma: no cover
-            policy = asyncio.get_event_loop_policy()
-            loop = policy.new_event_loop()
-            policy.set_event_loop(loop)
-            loop.run_until_complete(func(*args, **kwargs))
-
-        return process_target
-
     async def __call__(self):
         if self.concurrency == Concurrency.process:
-            Process(target=self._create_process_target(self.func), args=self.args, kwargs=self.kwargs).start()
+            concurrency.AsyncProcess(target=self.func, args=self.args, kwargs=self.kwargs).start()
         else:
             await self.func(*self.args, **self.kwargs)
 
@@ -72,8 +58,7 @@ class BackgroundTasks(BackgroundTask):
     def add_task(
         self, concurrency: t.Union[Concurrency, str], func: t.Callable[P, t.Any], *args: P.args, **kwargs: P.kwargs
     ) -> None:
-        task = BackgroundTask(concurrency, func, *args, **kwargs)
-        self.tasks.append(task)
+        self.tasks.append(BackgroundTask(concurrency, func, *args, **kwargs))
 
     async def __call__(self) -> None:
         for task in self.tasks:

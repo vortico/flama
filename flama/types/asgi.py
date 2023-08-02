@@ -62,24 +62,24 @@ class AppAsyncClass(t.Protocol[P, R]):
         ...
 
 
-AppFunction = t.Callable[..., R]
-AppAsyncFunction = t.Callable[..., t.Awaitable[R]]
+AppFunction = t.Callable[P, R]
+AppAsyncFunction = t.Callable[P, t.Awaitable[R]]
 App = t.Union[AppClass, AppAsyncClass, AppFunction, AppAsyncFunction]
 
 
 # Middleware
-class MiddlewareClass(AppClass):
+class MiddlewareClass(AppClass, t.Protocol[P, R]):
     def __init__(self, app: App, *args: P.args, **kwargs: P.kwargs):
         ...
 
 
-class MiddlewareAsyncClass(AppAsyncClass):
+class MiddlewareAsyncClass(AppAsyncClass, t.Protocol[P, R]):
     def __init__(self, app: App, *args: P.args, **kwargs: P.kwargs):
         ...
 
 
-MiddlewareFunction = t.Callable[t.Concatenate[App, P], App]  # type: ignore[valid-type,misc]
-MiddlewareAsyncFunction = t.Callable[t.Concatenate[App, P], t.Awaitable[App]]  # type: ignore[valid-type,misc]
+MiddlewareFunction = t.Callable[t.Concatenate[App, P], App]
+MiddlewareAsyncFunction = t.Callable[t.Concatenate[App, P], t.Awaitable[App]]
 Middleware = t.Union[t.Type[MiddlewareClass], t.Type[MiddlewareAsyncClass], MiddlewareFunction, MiddlewareAsyncFunction]
 
 HTTPHandler = t.Union[AppFunction, t.Type["endpoints.HTTPEndpoint"]]

@@ -44,21 +44,19 @@ class ResourceType(type):
         return super().__new__(mcs, name, bases, namespace)
 
     @classmethod
-    def _get_mro(mcs, *classes: type) -> t.List[t.Type]:
+    def _get_mro(cls, *classes: type) -> t.List[t.Type]:
         """Generate the MRO list for given base class or list of base classes.
 
         :param classes: Base classes.
         :return: MRO list.
         """
         return list(
-            dict.fromkeys(
-                [y for x in [[cls.__mro__[0]] + mcs._get_mro(*cls.__mro__[1:]) for cls in classes] for y in x]
-            )
+            dict.fromkeys([y for x in [[c.__mro__[0]] + cls._get_mro(*c.__mro__[1:]) for c in classes] for y in x])
         )
 
     @classmethod
     def _get_attribute(
-        mcs,
+        cls,
         attribute: str,
         bases: t.Sequence[t.Any],
         namespace: t.Dict[str, t.Any],
@@ -74,7 +72,7 @@ class ResourceType(type):
         try:
             return namespace.pop(attribute)
         except KeyError:
-            for base in mcs._get_mro(*bases):
+            for base in cls._get_mro(*bases):
                 if hasattr(base, "_meta"):
                     if attribute in base._meta.namespaces.get(metadata_namespace, {}):
                         return base._meta.namespaces[metadata_namespace][attribute]
@@ -88,7 +86,7 @@ class ResourceType(type):
         raise AttributeError(ResourceAttributeError.ATTRIBUTE_NOT_FOUND.format(attribute=attribute))
 
     @classmethod
-    def _get_resource_name(mcs, name: str, namespace: t.Dict[str, t.Any]) -> t.Tuple[str, str]:
+    def _get_resource_name(cls, name: str, namespace: t.Dict[str, t.Any]) -> t.Tuple[str, str]:
         """Look for a resource name in namespace and check it's a valid name.
 
         :param name: Class name.
@@ -104,7 +102,7 @@ class ResourceType(type):
         return resource_name, namespace.pop("verbose_name", resource_name)
 
     @classmethod
-    def _build_routes(mcs, namespace: t.Dict[str, t.Any]) -> t.Dict[str, t.Callable]:
+    def _build_routes(cls, namespace: t.Dict[str, t.Any]) -> t.Dict[str, t.Callable]:
         """Builds the routes' descriptor.
 
         :param namespace: Variables namespace used to create the class.
@@ -116,7 +114,7 @@ class ResourceType(type):
         }
 
     @classmethod
-    def _build_methods(mcs, namespace: t.Dict[str, t.Any]) -> t.Dict[str, t.Callable]:
+    def _build_methods(cls, namespace: t.Dict[str, t.Any]) -> t.Dict[str, t.Callable]:
         """Builds a namespace containing all resource methods. Look for all methods listed in METHODS attribute and
         named '_add_[method]'.
 
@@ -124,7 +122,7 @@ class ResourceType(type):
         :return: Methods namespace.
         """
         # Get available methods
-        methods = [getattr(mcs, f"_add_{method}") for method in mcs.METHODS if hasattr(mcs, f"_add_{method}")]
+        methods = [getattr(cls, f"_add_{method}") for method in cls.METHODS if hasattr(cls, f"_add_{method}")]
 
         # Generate methods
         methods_namespace = {
@@ -135,7 +133,7 @@ class ResourceType(type):
 
         # Preserve already defined methods
         methods_namespace.update(
-            {method: methods_namespace[f"_{method}"] for method in mcs.METHODS if method not in namespace}
+            {method: methods_namespace[f"_{method}"] for method in cls.METHODS if method not in namespace}
         )
 
         return methods_namespace

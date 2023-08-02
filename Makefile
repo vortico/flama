@@ -36,13 +36,13 @@ black: ## Runs black on Flama
 ruff: ## Runs ruff on Flama
 	@./scripts/ruff .
 
-mypy: ## Runs mypy on Flama
-	@./scripts/mypy .
+pyright: ## Runs pyright on Flama
+	@./scripts/pyright
 
-docker_push: ## Runs mypy on Flama
+docker_push: ## Push docker images to registry
 	@./scripts/docker_push .
 
-.PHONY: help check clean install build lint tests publish version isort black ruff mypy docker_push
+.PHONY: help check clean install build lint tests publish version isort black ruff pyright docker_push
 .DEFAULT_GOAL := help
 
 help:

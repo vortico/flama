@@ -4,7 +4,7 @@ import typing
 try:
     from sqlalchemy import Table
 except Exception:  # pragma: no cover
-    Table = typing.Any  # type: ignore[assignment,misc]
+    Table = typing.Any
 
 __all__ = ["Model", "PrimaryKey", "Schema", "Metadata", "MethodMetadata"]
 
@@ -17,7 +17,7 @@ class PrimaryKey:
 
 @dataclasses.dataclass
 class Model:
-    table: Table
+    table: Table  # type: ignore
     primary_key: PrimaryKey
 
 

@@ -1,3 +1,4 @@
+import abc
 import asyncio
 import inspect
 import typing as t
@@ -8,7 +9,7 @@ from flama.injection.resolver import Parameter
 __all__ = ["Component", "Components"]
 
 
-class Component:
+class Component(metaclass=abc.ABCMeta):
     def identity(self, parameter: Parameter) -> str:
         """Each component needs a unique identifier string that we use for lookups from the `state` dictionary when we
         run the dependency injection.
@@ -22,8 +23,7 @@ class Component:
             parameter_type = parameter.type.__class__.__name__
         component_id = f"{id(parameter.type)}:{parameter_type}"
 
-        # If `resolve_parameter` includes `Parameter` then we use an identifier that is additionally parameterized by
-        # the parameter name.
+        # If `resolve` includes `Parameter` then use an id that is additionally parameterized by the parameter name.
         args = inspect.signature(self.resolve).parameters.values()  # type: ignore[attr-defined]
         if Parameter in [arg.annotation for arg in args]:
             component_id += f":{parameter.name.lower()}"
@@ -65,13 +65,17 @@ class Component:
         :param kwargs: Resolve keyword arguments.
         :return: Resolve result.
         """
-        if asyncio.iscoroutinefunction(self.resolve):
-            return await self.resolve(*args, **kwargs)
+        if asyncio.iscoroutinefunction(self.resolve):  # type: ignore[attr-defined]
+            return await self.resolve(*args, **kwargs)  # type: ignore[attr-defined]
 
-        return self.resolve(*args, **kwargs)
+        return self.resolve(*args, **kwargs)  # type: ignore[attr-defined]
 
     def __str__(self) -> str:
         return str(self.__class__.__name__)
+
+    @abc.abstractmethod
+    def resolve(self, *args, **kwargs) -> t.Any:
+        ...
 
 
 class Components(t.Tuple[Component, ...]):

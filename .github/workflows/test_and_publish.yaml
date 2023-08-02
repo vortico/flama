@@ -48,9 +48,9 @@ jobs:
       - id: ruff
         name: Code style (ruff)
         run: ./scripts/ruff .
-      - id: mypy
+      - id: pyright
         name: Static types check
-        run: ./scripts/mypy .
+        run: ./scripts/pyright
       - id: tests
         name: Tests
         run: ./scripts/test

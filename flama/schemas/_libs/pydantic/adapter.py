@@ -58,7 +58,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
         schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
         fields: t.Optional[t.Dict[str, Field]] = None,
     ) -> t.Type[Schema]:
-        return pydantic.create_model(  # type: ignore
+        return pydantic.create_model(
             name or self.DEFAULT_SCHEMA_NAME,
             **{
                 **(
@@ -66,11 +66,11 @@ class PydanticAdapter(Adapter[Schema, Field]):
                         name: (field_info.annotation, field_info)
                         for name, field_info in self.unique_schema(schema).model_fields.items()
                     }
-                    if schema
+                    if self.is_schema(schema)
                     else {}
                 ),
                 **({name: (field.annotation, field) for name, field in fields.items()} if fields else {}),
-            },
+            },  # type: ignore
         )
 
     def validate(self, schema: t.Union[Schema, t.Type[Schema]], values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:

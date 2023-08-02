@@ -4,9 +4,10 @@ from flama.modules import Module
 
 try:
     import sqlalchemy
+    from sqlalchemy import MetaData
     from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-    metadata = sqlalchemy.MetaData()
+    metadata = MetaData()
 except Exception:  # pragma: no cover
     sqlalchemy = None  # type: ignore[assignment]
     metadata = None  # type: ignore[assignment]
@@ -22,7 +23,7 @@ class SQLAlchemyModule(Module):
 
         self.database = database
         self._engine: t.Optional["AsyncEngine"] = None
-        self._metadata: t.Optional["sqlalchemy.MetaData"] = metadata
+        self._metadata: t.Optional["MetaData"] = metadata
 
     @property
     def engine(self) -> t.Optional["AsyncEngine"]:
@@ -38,7 +39,7 @@ class SQLAlchemyModule(Module):
         self._engine = None
 
     @property
-    def metadata(self) -> t.Optional["sqlalchemy.MetaData"]:
+    def metadata(self) -> t.Optional["MetaData"]:
         assert sqlalchemy is not None, "sqlalchemy[asyncio] must be installed to use SQLAlchemyModule."
         return self._metadata
 

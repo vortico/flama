@@ -49,12 +49,13 @@ class EndpointWrapper(types.AppAsyncClass):
 
         self.handler = handler
         functools.update_wrapper(self, handler)
-        self.call_function: types.App = {
+        decorator_select: t.Dict[t.Tuple[_EndpointType, bool], types.App] = {
             (self.type.http, False): self._http_function,
             (self.type.http, True): self._http_endpoint,
             (self.type.websocket, False): self._websocket_function,
             (self.type.websocket, True): self._websocket_endpoint,
-        }[(endpoint_type, inspect.isclass(self.handler))]
+        }
+        self.call_function: types.App = decorator_select[(endpoint_type, inspect.isclass(self.handler))]
 
     def __get__(self, instance, owner):
         return functools.partial(self.__call__, instance)

@@ -31,7 +31,7 @@ class TensorFlowSerializer(Serializer):
         assert tf is not None, "`tensorflow` must be installed to use TensorFlowSerializer."
         buffer = io.BytesIO()
         with TemporaryDirectory() as saved_model_dir, tarfile.open(fileobj=buffer, mode="w") as model_tar:
-            tf.keras.models.save_model(obj, saved_model_dir)
+            tf.keras.models.save_model(obj, saved_model_dir)  # type: ignore
             model_tar.add(saved_model_dir, arcname="")
         buffer.seek(0)
         return codecs.encode(buffer.read(), "base64")
@@ -42,7 +42,7 @@ class TensorFlowSerializer(Serializer):
             fileobj=io.BytesIO(codecs.decode(model, "base64")), mode="r:"
         ) as model_tar:
             model_tar.extractall(saved_model_dir)
-            return tf.keras.models.load_model(saved_model_dir)
+            return tf.keras.models.load_model(saved_model_dir)  # type: ignore
 
     def info(self, model: t.Any) -> t.Dict[str, t.Any]:
         model_info: t.Dict[str, t.Any] = json.loads(model.to_json())

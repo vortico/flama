@@ -58,7 +58,7 @@ class TypesystemAdapter(Adapter[Schema, Field]):
     ) -> Schema:
         return Schema(
             title=name or self.DEFAULT_SCHEMA_NAME,
-            fields={**(self.unique_schema(schema).fields if schema else {}), **(fields or {})},
+            fields={**(self.unique_schema(schema).fields if self.is_schema(schema) else {}), **(fields or {})},
         )
 
     @t.no_type_check
