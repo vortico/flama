@@ -30,7 +30,7 @@ __all__ = [
 class CreateMixin:
     @classmethod
     def _add_create(
-        mcs,
+        cls,
         name: str,
         verbose_name: str,
         rest_schemas: data_structures.Schemas,
@@ -77,7 +77,7 @@ class CreateMixin:
 class RetrieveMixin:
     @classmethod
     def _add_retrieve(
-        mcs,
+        cls,
         name: str,
         verbose_name: str,
         rest_schemas: data_structures.Schemas,
@@ -122,7 +122,7 @@ class RetrieveMixin:
 class UpdateMixin:
     @classmethod
     def _add_update(
-        mcs,
+        cls,
         name: str,
         verbose_name: str,
         rest_schemas: data_structures.Schemas,
@@ -183,7 +183,7 @@ class UpdateMixin:
 class DeleteMixin:
     @classmethod
     def _add_delete(
-        mcs, name: str, verbose_name: str, rest_model: data_structures.Model, **kwargs
+        cls, name: str, verbose_name: str, rest_model: data_structures.Model, **kwargs
     ) -> t.Dict[str, t.Any]:
         @resource_method("/{element_id}/", methods=["DELETE"], name=f"{name}-delete")
         async def delete(
@@ -229,7 +229,7 @@ class DeleteMixin:
 class ListMixin:
     @classmethod
     def _add_list(
-        mcs, name: str, verbose_name: str, rest_schemas: data_structures.Schemas, **kwargs
+        cls, name: str, verbose_name: str, rest_schemas: data_structures.Schemas, **kwargs
     ) -> t.Dict[str, t.Any]:
         async def filter(self, app, *clauses, **filters) -> t.List[t.Dict]:
             async with app.sqlalchemy.engine.begin() as connection:
@@ -269,7 +269,7 @@ class ListMixin:
 
 class DropMixin:
     @classmethod
-    def _add_drop(mcs, name: str, verbose_name: str, **kwargs) -> t.Dict[str, t.Any]:
+    def _add_drop(cls, name: str, verbose_name: str, **kwargs) -> t.Dict[str, t.Any]:
         @resource_method("/", methods=["DELETE"], name=f"{name}-drop")
         async def drop(
             self, scope: types.Scope

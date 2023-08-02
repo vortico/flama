@@ -136,7 +136,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
 
         response = await concurrency.run(handler, scope, receive, send, exc)
 
-        if response:
+        if response and concurrency.is_async(response):
             await response(scope, receive, send)
 
     def http_exception_handler(

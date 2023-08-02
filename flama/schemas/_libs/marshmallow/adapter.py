@@ -66,31 +66,19 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         )
 
     def validate(self, schema: t.Union[t.Type[Schema], Schema], values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
-        schema_instance = schema() if inspect.isclass(schema) else schema
-
         try:
-            data: t.Dict[str, t.Any] = schema_instance.load(values, unknown=marshmallow.EXCLUDE)
+            return self._schema_instance(schema).load(values, unknown=marshmallow.EXCLUDE)  # type: ignore
         except marshmallow.ValidationError as exc:
             raise SchemaValidationError(errors=exc.normalized_messages())
 
-        return data
-
     def load(self, schema: t.Union[t.Type[Schema], Schema], value: t.Dict[str, t.Any]) -> Schema:
-        schema_instance = schema() if inspect.isclass(schema) else schema
-
-        load_schema: Schema = schema_instance.load(value)
-
-        return load_schema
+        return self._schema_instance(schema).load(value)  # type: ignore
 
     def dump(self, schema: t.Union[t.Type[Schema], Schema], value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
-        schema_instance = schema() if inspect.isclass(schema) else schema
-
         try:
-            data: t.Dict[str, t.Any] = schema_instance.dump(value)
+            return self._schema_instance(schema).dump(value)  # type: ignore
         except Exception as exc:
             raise SchemaValidationError(errors=str(exc))
-
-        return data
 
     def to_json_schema(self, schema: t.Union[t.Type[Schema], t.Type[Field], Schema, Field]) -> JSONSchema:
         json_schema: t.Dict[str, t.Any]
@@ -132,3 +120,11 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
     def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[Field, t.Type[Field]]]:
         return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))
+
+    def _schema_instance(self, schema: t.Union[t.Type[Schema], Schema]) -> Schema:
+        if inspect.isclass(schema) and issubclass(schema, Schema):
+            return schema()
+        elif isinstance(schema, Schema):
+            return schema
+        else:
+            raise ValueError("Wrong schema")

@@ -44,13 +44,13 @@ repos:
         exclude: "make"
     -   id: ruff
         name: Ruff - Code Linter
-        entry: ./scripts/ruff
+        entry: ./scripts/ruff --fix
         language: system
         types: [file, python]
         exclude: "make"
-    -   id: mypy
-        name: Mypy - Static types check
-        entry: ./scripts/mypy
+    -   id: pyright
+        name: Pyright - Static types check
+        entry: ./scripts/pyright
         language: system
         types: [file, python]
         exclude: "(make|tests/|examples/)"

@@ -28,18 +28,21 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
         ...
 
     @t.overload
+    @abc.abstractmethod
     def build_schema(
         self, *, name: t.Optional[str] = None, fields: t.Dict[str, _T_Field]
     ) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
         ...
 
     @t.overload
+    @abc.abstractmethod
     def build_schema(
         self, *, name: t.Optional[str] = None, schema: t.Union[_T_Schema, t.Type[_T_Schema]]
     ) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
         ...
 
     @t.overload
+    @abc.abstractmethod
     def build_schema(
         self,
         *,

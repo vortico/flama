@@ -27,7 +27,8 @@ class RequestDataComponent(Component):
             raise exceptions.HTTPException(415)
 
         try:
-            return types.RequestData(await codec.decode(request))
+            data = await codec.decode(request)
+            return types.RequestData(data) if data else None  # type: ignore
         except exceptions.DecodeError as exc:
             raise exceptions.HTTPException(400, detail=str(exc))
 

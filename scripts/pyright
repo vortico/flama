@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-run_black() {
-  echo "• Run Black code formatting:"
-  poetry run black "$@"
-  echo "↳ Black done"
+run_pyright() {
+  echo "• Run Pyright static types check:"
+  poetry run pyright "$@"
+  echo "↳ Pyright done"
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  run_black "$@"
+  run_pyright "$@"
 fi

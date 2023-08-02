@@ -23,7 +23,9 @@ class ResourceRoute(Mount):
         # Handle class or instance objects
         self.resource = resource() if inspect.isclass(resource) else resource
 
-        assert set(self.resource.routes.keys()) >= set(tags.keys()), "Tags must be defined only for existing routes."
+        assert set(self.resource.routes.keys()) >= set(  # type: ignore
+            tags.keys()
+        ), "Tags must be defined only for existing routes."
 
         routes = [
             Route(
@@ -33,10 +35,10 @@ class ResourceRoute(Mount):
                 name=route._meta.name or route.__name__,
                 tags=tags.get(name, route._meta.tags),
             )
-            for name, route in self.resource.routes.items()
+            for name, route in self.resource.routes.items()  # type: ignore
         ]
 
-        super().__init__(path=path, routes=routes, name=self.resource._meta.name)
+        super().__init__(path=path, routes=routes, name=self.resource._meta.name)  # type: ignore
 
 
 def resource_method(
@@ -56,7 +58,7 @@ def resource_method(
 
     def wrapper(func):
         func._meta = data_structures.MethodMetadata(
-            path=path, methods=methods if methods is not None else {"GET"}, name=name, tags=tags or {}
+            path=path, methods=set(methods) if methods is not None else {"GET"}, name=name, tags=tags or {}
         )
 
         return func

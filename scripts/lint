@@ -4,7 +4,7 @@ set -e
 source scripts/black
 source scripts/isort
 source scripts/ruff
-source scripts/mypy
+source scripts/pyright
 
 run_lint() {
   echo "🧹 Code lint using multiple tools:"
@@ -19,7 +19,7 @@ run_lint() {
     run_isort --check .
     run_ruff .
   fi
-  run_mypy .
+  run_pyright
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then

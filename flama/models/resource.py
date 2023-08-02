@@ -19,7 +19,7 @@ __all__ = ["ModelResource", "InspectMixin", "PredictMixin", "ModelResourceType"]
 class InspectMixin:
     @classmethod
     def _add_inspect(
-        mcs, name: str, verbose_name: str, model_model_type: t.Type["Model"], **kwargs
+        cls, name: str, verbose_name: str, model_model_type: t.Type["Model"], **kwargs
     ) -> t.Dict[str, t.Any]:
         @resource_method("/", methods=["GET"], name=f"{name}-inspect")
         async def inspect(self, model: model_model_type):  # type: ignore[valid-type]
@@ -44,7 +44,7 @@ class InspectMixin:
 class PredictMixin:
     @classmethod
     def _add_predict(
-        mcs, name: str, verbose_name: str, model_model_type: t.Type["Model"], **kwargs
+        cls, name: str, verbose_name: str, model_model_type: t.Type["Model"], **kwargs
     ) -> t.Dict[str, t.Any]:
         @resource_method("/predict/", methods=["POST"], name=f"{name}-predict")
         async def predict(
@@ -108,16 +108,16 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
         return super().__new__(mcs, name, bases, namespace)
 
     @classmethod
-    def _get_model_component(mcs, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> "ModelComponent":
+    def _get_model_component(cls, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> "ModelComponent":
         try:
-            component: "ModelComponent" = mcs._get_attribute("component", bases, namespace, metadata_namespace="model")
+            component: "ModelComponent" = cls._get_attribute("component", bases, namespace, metadata_namespace="model")
             return component
         except AttributeError:
             ...
 
         try:
             return ModelComponentBuilder.load(
-                mcs._get_attribute("model_path", bases, namespace, metadata_namespace="model")
+                cls._get_attribute("model_path", bases, namespace, metadata_namespace="model")
             )
         except AttributeError:
             ...

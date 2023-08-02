@@ -3,8 +3,6 @@ import typing as t
 
 import starlette.exceptions
 
-import flama.schemas.exceptions
-
 __all__ = [
     "DecodeError",
     "HTTPException",
@@ -15,8 +13,6 @@ __all__ = [
     "NotFoundException",
     "MethodNotAllowedException",
 ]
-
-__all__ += flama.schemas.exceptions.__all__
 
 
 class DecodeError(Exception):

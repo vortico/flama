@@ -8,7 +8,7 @@ __all__ = ["Model"]
 
 
 class Model:
-    def __init__(self, model: t.Any, meta: "Metadata", artifacts: "Artifacts"):
+    def __init__(self, model: t.Any, meta: "Metadata", artifacts: t.Optional["Artifacts"]):
         self.model = model
         self.meta = meta
         self.artifacts = artifacts

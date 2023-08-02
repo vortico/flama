@@ -8,7 +8,6 @@ from collections import defaultdict
 
 import yaml
 
-import flama.types.schema
 from flama import routing, schemas
 from flama.schemas import Schema, openapi
 from flama.schemas.data_structures import Parameter
@@ -45,16 +44,16 @@ class SchemaInfo:
 
 
 class SchemaRegistry(typing.Dict[int, SchemaInfo]):
-    def __init__(self, schemas: t.Optional[typing.Dict[str, flama.types.schema._T_Schema]] = None):
+    def __init__(self, schemas: t.Optional[typing.Dict[str, schemas.Schema]] = None):
         super().__init__()
 
         for name, schema in (schemas or {}).items():
             self.register(schema, name)
 
-    def __contains__(self, item: flama.types.schema._T_Schema) -> bool:
+    def __contains__(self, item: schemas.Schema) -> bool:
         return super().__contains__(id(schemas.adapter.unique_schema(item)))
 
-    def __getitem__(self, item: flama.types.schema._T_Schema) -> SchemaInfo:
+    def __getitem__(self, item: schemas.Schema) -> SchemaInfo:
         """
         Lookup method that allows using Schema classes or instances.
 
@@ -75,21 +74,29 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         if "$ref" in schema:
             result.append(schema["$ref"])
 
-        if schema.get("type", "") == "array" and schema.get("items", {}).get("$ref"):
-            result.append(schema["items"]["$ref"])
+        if schema.get("type", "") == "array":
+            items = schema.get("items", {})
+            if isinstance(items, dict) and "$ref" in items:
+                result.append(items["$ref"])
 
-        result += [
-            ref
-            for composer in ("allOf", "anyOf", "oneOf")
-            for composer_schema in schema.get(composer, [])
-            for ref in self._get_schema_references_from_schema(composer_schema)
-        ]
+        for composer in ("allOf", "anyOf", "oneOf"):
+            composer_schemas = schema.get(composer, [])
+            if isinstance(composer_schemas, list):
+                result += [
+                    ref
+                    for x in composer_schemas
+                    if x and isinstance(x, dict)
+                    for ref in self._get_schema_references_from_schema(openapi.Schema(x))
+                ]
 
-        result += [
-            ref
-            for prop in schema.get("properties", {}).values()
-            for ref in self._get_schema_references_from_schema(prop)
-        ]
+        props = schema.get("properties", {})
+        if isinstance(props, dict):
+            result += [
+                ref
+                for x in props.values()
+                if x and isinstance(x, dict)
+                for ref in self._get_schema_references_from_schema(openapi.Schema(x))
+            ]
 
         return result
 
@@ -180,7 +187,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
 
         return used_schemas
 
-    def register(self, schema: flama.types.schema._T_Schema, name: t.Optional[str] = None) -> int:
+    def register(self, schema: schemas.Schema, name: t.Optional[str] = None) -> int:
         """
         Register a new Schema to this registry.
 
@@ -207,7 +214,7 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
         return schema_id
 
     def get_openapi_ref(
-        self, element: flama.types.schema._T_Schema, multiple: t.Optional[bool] = None
+        self, element: schemas.Schema, multiple: t.Optional[bool] = None
     ) -> typing.Union[openapi.Schema, openapi.Reference]:
         """
         Builds the reference for a single schema or the array schema containing the reference.

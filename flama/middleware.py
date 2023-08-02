@@ -9,6 +9,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from flama import concurrency
 from flama.debug.middleware import ExceptionMiddleware, ServerErrorMiddleware
 
 try:
@@ -39,7 +40,9 @@ class Middleware:
         self.middleware = middleware
         self.kwargs = kwargs
 
-    def __call__(self, app: "types.App"):
+    def __call__(
+        self, app: "types.App"
+    ) -> t.Union["types.App", t.Awaitable["types.App"], "types.MiddlewareClass", "types.MiddlewareAsyncClass"]:
         return self.middleware(app, **self.kwargs)
 
     def __repr__(self) -> str:
@@ -59,13 +62,17 @@ class MiddlewareStack:
         self._exception_handlers: t.Dict[
             t.Union[int, t.Type[Exception]], t.Callable[["Request", Exception], "Response"]
         ] = {}
-        self._stack: t.Optional["types.App"] = None
+        self._stack: t.Optional[
+            t.Union["types.App", t.Awaitable["types.App"], "types.MiddlewareClass", "types.MiddlewareAsyncClass"]
+        ] = None
 
     @property
-    def stack(self) -> "types.App":
+    def stack(
+        self,
+    ) -> t.Union["types.App", t.Awaitable["types.App"], "types.MiddlewareClass", "types.MiddlewareAsyncClass"]:
         if self._stack is None:
             self._stack = functools.reduce(
-                lambda app, middleware: middleware(app=app),
+                lambda app, middleware: middleware(app=app),  # type: ignore
                 [
                     Middleware(ExceptionMiddleware, handlers=self._exception_handlers, debug=self.debug),
                     *self.middleware,
@@ -100,4 +107,4 @@ class MiddlewareStack:
         del self.stack
 
     async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
-        await self.stack(scope, receive, send)
+        await concurrency.run(self.stack, scope, receive, send)  # type: ignore
