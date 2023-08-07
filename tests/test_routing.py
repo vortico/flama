@@ -1,5 +1,4 @@
-import sys
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
@@ -8,11 +7,6 @@ from flama.applications import Flama
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 from flama.injection import Component, Components
 from flama.routing import BaseRoute, EndpointWrapper, Match, Mount, Route, Router, WebSocketRoute
-
-if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
-    from unittest.mock import AsyncMock
-else:  # pragma: no cover
-    from asyncmock import AsyncMock
 
 
 class TestCaseBaseRoute:
@@ -42,9 +36,6 @@ class TestCaseBaseRoute:
         assert route.include_in_schema is False
         assert route.tags == {"tag": "tag", "list_tag": ["foo", "bar"], "dict_tag": {"foo": "bar"}}
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-    )  # PORT: Remove when stop supporting 3.7
     async def test_call(self, route, asgi_scope, asgi_receive, asgi_send):
         route_scope = types.Scope({"foo": "bar"})
         handle = AsyncMock()
@@ -78,9 +69,6 @@ class TestCaseBaseRoute:
     def test_endpoint_handlers(self, route):
         assert route.endpoint_handlers() == {}
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-    )  # PORT: Remove when stop supporting 3.7
     async def test_handle(self, asgi_scope, asgi_receive, asgi_send):
         app = AsyncMock()
         route = BaseRoute("/", app)
@@ -388,9 +376,6 @@ class TestCaseMount:
         with patch.object(BaseRoute, "match", return_value=path_match_return):
             assert mount.match(asgi_scope) == result
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-    )  # PORT: Remove when stop supporting 3.7
     async def test_handle(self, mount, asgi_scope, asgi_receive, asgi_send):
         mount = Mount("/", AsyncMock(spec=Flama))
 
@@ -487,9 +472,6 @@ class TestCaseRouter:
         route = MagicMock(Route)
         assert Router(routes=[route]) == Router(routes=[route])
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-    )  # PORT: Remove when stop supporting 3.7
     async def test_call_lifespan(self, router, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "lifespan"
 
@@ -498,9 +480,6 @@ class TestCaseRouter:
 
         assert method_mock.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-    )  # PORT: Remove when stop supporting 3.7
     @pytest.mark.parametrize(
         ["request_type"], (pytest.param("http", id="http"), pytest.param("websocket", id="websocket"))
     )

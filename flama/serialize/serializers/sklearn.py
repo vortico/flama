@@ -1,23 +1,14 @@
 import codecs
+import importlib.metadata
 import logging
 import math
 import pickle
-import sys
 import typing as t
 import warnings
 
 from flama import types
 from flama.serialize.base import Serializer
 from flama.serialize.types import Framework
-
-if sys.version_info < (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
-    import importlib
-
-    import importlib_metadata
-
-    importlib.metadata = importlib_metadata
-else:
-    import importlib.metadata
 
 logger = logging.getLogger(__name__)
 

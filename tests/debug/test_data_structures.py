@@ -1,5 +1,4 @@
 import dataclasses
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -32,9 +31,6 @@ class TestCaseRequest:
 
 
 class TestCaseError:
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-    )  # PORT: Remove when stop supporting 3.7
     def test_from_exception(self):
         try:
             raise ValueError("Foo")
@@ -50,16 +46,13 @@ class TestCaseError:
         assert frame == {
             "filename": "tests/debug/test_data_structures.py",
             "function": "test_from_exception",
-            "line": 40,
+            "line": 36,
             "vendor": None,
         }
         assert result == {"description": "Foo", "error": "ValueError"}
 
 
 class TestCaseEnvironment:
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-    )  # PORT: Remove when stop supporting 3.7
     def test_from_system(self):
         result = dataclasses.asdict(Environment.from_system())
 
@@ -69,9 +62,6 @@ class TestCaseEnvironment:
 
 
 class TestCaseApp:
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-    )  # PORT: Remove when stop supporting 3.7
     def test_from_app(self):
         def foo_handler():
             ...
@@ -99,7 +89,7 @@ class TestCaseApp:
                     "endpoint": "foo_handler",
                     "module": "tests.debug.test_data_structures",
                     "file": "tests/debug/test_data_structures.py",
-                    "line": 76,
+                    "line": 66,
                     "name": "foo",
                 },
                 {
@@ -110,7 +100,7 @@ class TestCaseApp:
                             "path": "/",
                             "module": "tests.debug.test_data_structures",
                             "file": "tests/debug/test_data_structures.py",
-                            "line": 79,
+                            "line": 69,
                             "endpoint": "bar_handler",
                             "name": "bar",
                         }

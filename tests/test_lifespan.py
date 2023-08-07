@@ -1,4 +1,3 @@
-import sys
 from unittest.mock import MagicMock, call, patch
 
 import anyio.abc
@@ -8,15 +7,7 @@ from flama import Flama
 from flama.events import Events
 from flama.lifespan import Context, Lifespan
 
-if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
-    pass
-else:  # pragma: no cover
-    pass
 
-
-@pytest.mark.skipif(
-    sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-)  # PORT: Remove when stop supporting 3.7
 class TestCaseContext:
     @pytest.fixture
     def lifespan(self):
@@ -56,9 +47,6 @@ class TestCaseContext:
         assert lifespan.__aexit__.call_args_list == [call(None, None, None)]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-)  # PORT: Remove when stop supporting 3.7
 class TestCaseLifespan:
     @pytest.fixture
     def app(self):

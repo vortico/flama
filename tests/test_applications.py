@@ -1,5 +1,4 @@
-import sys
-from unittest.mock import MagicMock, PropertyMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
 
 import pytest
 
@@ -12,11 +11,6 @@ from flama.resources import BaseResource, ResourcesModule, ResourceType, resourc
 from flama.routing import BaseRoute
 from flama.schemas.modules import SchemaModule
 from flama.url import URL
-
-if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
-    from unittest.mock import AsyncMock
-else:  # pragma: no cover
-    from asyncmock import AsyncMock
 
 DEFAULT_MODULES = [ResourcesModule, SchemaModule, ModelsModule]
 
@@ -87,9 +81,6 @@ class TestCaseFlama:
         for name, module in app.modules.items():
             assert getattr(app, name) == module
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-    )  # PORT: Remove when stop supporting 3.7
     async def test_call(self, app, asgi_scope, asgi_receive, asgi_send):
         with patch.object(app, "middleware", new=AsyncMock(spec=MiddlewareStack)):
             await app(asgi_scope, asgi_receive, asgi_send)

@@ -1,22 +1,13 @@
 import codecs
+import importlib.metadata
 import io
 import json
-import sys
 import tarfile
 import typing as t
 from tempfile import TemporaryDirectory
 
 from flama.serialize.base import Serializer
 from flama.serialize.types import Framework
-
-if sys.version_info < (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
-    import importlib
-
-    import importlib_metadata
-
-    importlib.metadata = importlib_metadata
-else:
-    import importlib.metadata
 
 try:
     import tensorflow as tf
