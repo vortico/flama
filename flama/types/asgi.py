@@ -1,11 +1,6 @@
 import sys
 import typing as t
 
-if sys.version_info < (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
-    from typing_extensions import Protocol
-
-    t.Protocol = Protocol
-
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import Concatenate, ParamSpec
 

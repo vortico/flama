@@ -7,12 +7,6 @@ import flama.types
 from flama import schemas, types
 from flama.injection.resolver import Parameter as InjectionParameter
 
-if sys.version_info < (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
-    from typing_extensions import get_args, get_origin
-
-    t.get_args = get_args
-    t.get_origin = get_origin
-
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard
 

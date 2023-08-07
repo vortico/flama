@@ -1,16 +1,10 @@
-import sys
-from unittest.mock import PropertyMock, call, patch
+from unittest.mock import AsyncMock, PropertyMock, call, patch
 
 import pytest
 
 from flama import http
 from flama.debug.middleware import ExceptionMiddleware, ServerErrorMiddleware
 from flama.middleware import Middleware, MiddlewareStack
-
-if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
-    from unittest.mock import AsyncMock
-else:  # pragma: no cover
-    from asyncmock import AsyncMock
 
 
 class TestCaseMiddlewareStack:
@@ -71,9 +65,6 @@ class TestCaseMiddlewareStack:
         assert stack._stack is None
         assert stack.middleware == [middleware]
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python3.8 or higher to use async mocks"
-    )  # PORT: Remove when stop supporting 3.7
     async def test_call(self, stack, asgi_scope, asgi_receive, asgi_send):
         with patch.object(MiddlewareStack, "stack", new=PropertyMock(return_value=AsyncMock())):
             await stack(asgi_scope, asgi_receive, asgi_send)

@@ -1,5 +1,4 @@
-import sys
-from unittest.mock import Mock, call, patch
+from unittest.mock import AsyncMock, Mock, call, patch
 
 import pytest
 import sqlalchemy
@@ -8,9 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from flama import Flama
 from flama.sqlalchemy import SQLAlchemyModule
 from flama.testclient import TestClient
-
-if sys.version_info >= (3, 8):  # PORT: Remove when Python3.7 EOL
-    from unittest.mock import AsyncMock
 
 
 class TestCaseSQLAlchemyModule:
@@ -31,9 +27,6 @@ class TestCaseSQLAlchemyModule:
             assert app.sqlalchemy.engine is None
             assert isinstance(app.sqlalchemy.metadata, sqlalchemy.MetaData)
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="MagicMock cannot mock async methods until 3.8"
-    )  # PORT: Remove when Python3.7 EOL
     async def test_shutdown(self, app):
         module = SQLAlchemyModule("sqlite+aiosqlite://")
 
@@ -42,9 +35,6 @@ class TestCaseSQLAlchemyModule:
 
         assert engine_mock.dispose.call_args_list == [call()]
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="MagicMock cannot mock async methods until 3.8"
-    )  # PORT: Remove when Python3.7 EOL
     async def test_shutdown_no_database(self, app):
         module = SQLAlchemyModule()
 

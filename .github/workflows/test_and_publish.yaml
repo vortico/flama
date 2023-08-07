@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: [ "3.7", "3.8", "3.9", "3.10", "3.11"]
+        python: [ "3.8", "3.9", "3.10", "3.11"]
     container:
       image: python:${{ matrix.python }}
     steps:
@@ -100,7 +100,7 @@ jobs:
     strategy:
       matrix:
         linux: ["slim"]
-        python: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        python: ["3.8", "3.9", "3.10", "3.11"]
         schemas: ["pydantic", "marshmallow", "typesystem"]
     steps:
       - name: Check out the repo

@@ -1,9 +1,9 @@
 import asyncio
-import sys
 import tempfile
 import typing as t
 from contextlib import ExitStack
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import marshmallow
 import pydantic
@@ -17,11 +17,6 @@ from flama import Flama
 from flama.sqlalchemy import SQLAlchemyModule, metadata
 from flama.testclient import TestClient
 from tests.utils import ExceptionContext, installed
-
-if sys.version_info >= (3, 8):  # PORT: Remove when stop supporting 3.7 # pragma: no cover
-    from unittest.mock import AsyncMock
-else:  # pragma: no cover
-    from asyncmock import AsyncMock
 
 try:
     import numpy as np
