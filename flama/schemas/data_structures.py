@@ -10,7 +10,7 @@ from flama.injection.resolver import Parameter as InjectionParameter
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard
 
-    t.TypeGuard = TypeGuard
+    t.TypeGuard = TypeGuard  # type: ignore
 
 __all__ = ["Field", "Schema", "Parameter", "Parameters"]
 

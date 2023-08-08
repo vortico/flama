@@ -8,7 +8,7 @@ from flama.types.schema import _T_Field, _T_Schema
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard
 
-    t.TypeGuard = TypeGuard
+    t.TypeGuard = TypeGuard  # type: ignore
 
 
 class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
@@ -83,9 +83,17 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[_T_Schema, t.Type[_T_Schema]]]:
+    def is_schema(
+        self, obj: t.Any
+    ) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+        t.Union[_T_Schema, t.Type[_T_Schema]]
+    ]:
         ...
 
     @abc.abstractmethod
-    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[_T_Field, t.Type[_T_Field]]]:
+    def is_field(
+        self, obj: t.Any
+    ) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+        t.Union[_T_Field, t.Type[_T_Field]]
+    ]:
         ...

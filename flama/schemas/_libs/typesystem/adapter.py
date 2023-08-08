@@ -13,7 +13,7 @@ from flama.types import JSONSchema
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard
 
-    t.TypeGuard = TypeGuard
+    t.TypeGuard = TypeGuard  # type: ignore
 
 __all__ = ["TypesystemAdapter"]
 
@@ -101,9 +101,13 @@ class TypesystemAdapter(Adapter[Schema, Field]):
         return schema
 
     @t.no_type_check
-    def is_schema(self, obj: t.Any) -> t.TypeGuard[Schema]:
+    def is_schema(
+        self, obj: t.Any
+    ) -> t.TypeGuard[Schema]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
         return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
     @t.no_type_check
-    def is_field(self, obj: t.Any) -> t.TypeGuard[Field]:
+    def is_field(
+        self, obj: t.Any
+    ) -> t.TypeGuard[Field]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
         return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))

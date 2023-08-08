@@ -10,11 +10,11 @@ from flama import concurrency
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import ParamSpec
 
-    t.ParamSpec = ParamSpec
+    t.ParamSpec = ParamSpec  # type: ignore
 
 __all__ = ["BackgroundTask", "BackgroundTasks", "Concurrency", "BackgroundThreadTask", "BackgroundProcessTask"]
 
-P = t.ParamSpec("P")
+P = t.ParamSpec("P")  # type: ignore # PORT: Remove this comment when stop supporting 3.9
 
 
 class task_wrapper:

@@ -14,7 +14,7 @@ from flama.types import JSONSchema
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard
 
-    t.TypeGuard = TypeGuard
+    t.TypeGuard = TypeGuard  # type: ignore
 
 __all__ = ["PydanticAdapter"]
 
@@ -116,8 +116,12 @@ class PydanticAdapter(Adapter[Schema, Field]):
     def unique_schema(self, schema: t.Union[Schema, t.Type[Schema]]) -> t.Type[Schema]:
         return schema.__class__ if isinstance(schema, Schema) else schema
 
-    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Type[Schema]]:
+    def is_schema(
+        self, obj: t.Any
+    ) -> t.TypeGuard[t.Type[Schema]]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
         return inspect.isclass(obj) and issubclass(obj, Schema)
 
-    def is_field(self, obj: t.Any) -> t.TypeGuard[Field]:
+    def is_field(
+        self, obj: t.Any
+    ) -> t.TypeGuard[Field]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
         return isinstance(obj, Field)

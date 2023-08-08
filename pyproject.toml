@@ -93,7 +93,7 @@ optional = true
 [tool.poetry.group.ml.dependencies]
 scikit-learn = "^1.3.0"
 tensorflow-cpu = { version = "^2.12.0", platform = "linux"}
-torch = "^2.0.0"
+torch = "^2.0.0, !=2.0.1"
 
 [tool.black]
 line-length = 120
