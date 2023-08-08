@@ -4,19 +4,33 @@ import multiprocessing
 import sys
 import typing as t
 
+if sys.version_info < (3, 9):  # PORT: Remove when stop supporting 3.8 # pragma: no cover
+    import contextvars
+
+    async def to_thread(func, /, *args, **kwargs):
+        return await asyncio.get_running_loop().run_in_executor(
+            None, functools.partial(contextvars.copy_context().run, func, *args, **kwargs)
+        )
+
+    asyncio.to_thread = to_thread  # pyright: ignore
+
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import ParamSpec, TypeGuard
 
-    t.TypeGuard = TypeGuard
-    t.ParamSpec = ParamSpec
+    t.TypeGuard = TypeGuard  # type: ignore
+    t.ParamSpec = ParamSpec  # type: ignore
 
 __all__ = ["is_async", "run", "run"]
 
 R = t.TypeVar("R", covariant=True)
-P = t.ParamSpec("P")
+P = t.ParamSpec("P")  # type: ignore # PORT: Remove this comment when stop supporting 3.9
 
 
-def is_async(obj: t.Any) -> t.TypeGuard[t.Callable[..., t.Awaitable[t.Any]]]:
+def is_async(
+    obj: t.Any,
+) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+    t.Callable[..., t.Awaitable[t.Any]]
+]:
     """Check if given object is an async function, callable or partialised function.
 
     :param obj: Object to check.

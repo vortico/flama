@@ -4,8 +4,8 @@ import typing as t
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import Concatenate, ParamSpec
 
-    t.Concatenate = Concatenate
-    t.ParamSpec = ParamSpec
+    t.Concatenate = Concatenate  # type: ignore
+    t.ParamSpec = ParamSpec  # type: ignore
 
 if t.TYPE_CHECKING:
     from flama import endpoints  # noqa
@@ -29,7 +29,7 @@ __all__ = [
     "WebSocketHandler",
 ]
 
-P = t.ParamSpec("P")
+P = t.ParamSpec("P")  # type: ignore # PORT: Remove this comment when stop supporting 3.9
 R = t.TypeVar("R", covariant=True)
 
 Scope = t.NewType("Scope", t.MutableMapping[str, t.Any])
@@ -73,8 +73,12 @@ class MiddlewareAsyncClass(AppAsyncClass, t.Protocol[P, R]):
         ...
 
 
-MiddlewareFunction = t.Callable[t.Concatenate[App, P], App]
-MiddlewareAsyncFunction = t.Callable[t.Concatenate[App, P], t.Awaitable[App]]
+MiddlewareFunction = t.Callable[
+    t.Concatenate[App, P], App  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+]
+MiddlewareAsyncFunction = t.Callable[
+    t.Concatenate[App, P], t.Awaitable[App]  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+]
 Middleware = t.Union[t.Type[MiddlewareClass], t.Type[MiddlewareAsyncClass], MiddlewareFunction, MiddlewareAsyncFunction]
 
 HTTPHandler = t.Union[AppFunction, t.Type["endpoints.HTTPEndpoint"]]

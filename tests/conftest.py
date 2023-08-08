@@ -1,6 +1,7 @@
 import asyncio
 import tempfile
 import typing as t
+import warnings
 from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import AsyncMock
@@ -21,6 +22,7 @@ from tests.utils import ExceptionContext, installed
 try:
     import numpy as np
 except Exception:
+    warnings.warn("Numpy not installed")
     np = None
 
 try:
@@ -29,16 +31,19 @@ try:
     import sklearn.neural_network
     import sklearn.pipeline
 except Exception:
+    warnings.warn("SKLearn not installed")
     sklearn = None
 
 try:
     import tensorflow as tf
 except Exception:
+    warnings.warn("Tensorflow not installed")
     tf = None
 
 try:
     import torch
 except Exception:
+    warnings.warn("Torch not installed")
     torch = None
 
 DATABASE_URL = "sqlite+aiosqlite://"

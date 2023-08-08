@@ -13,7 +13,7 @@ from flama.schemas.routing import RouteParametersMixin
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import TypeGuard
 
-    t.TypeGuard = TypeGuard
+    t.TypeGuard = TypeGuard  # type: ignore
 
 if t.TYPE_CHECKING:
     from flama.applications import Flama
@@ -336,7 +336,9 @@ class Route(BaseRoute):
     @staticmethod
     def is_endpoint(
         x: t.Union[t.Callable, t.Type[endpoints.HTTPEndpoint]]
-    ) -> t.TypeGuard[t.Type[endpoints.HTTPEndpoint]]:
+    ) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+        t.Type[endpoints.HTTPEndpoint]
+    ]:
         return inspect.isclass(x) and issubclass(x, endpoints.HTTPEndpoint)
 
     def endpoint_handlers(self) -> t.Dict[str, t.Callable]:
@@ -412,7 +414,9 @@ class WebSocketRoute(BaseRoute):
     @staticmethod
     def is_endpoint(
         x: t.Union[t.Callable, t.Type[endpoints.WebSocketEndpoint]]
-    ) -> t.TypeGuard[t.Type[endpoints.WebSocketEndpoint]]:
+    ) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+        t.Type[endpoints.WebSocketEndpoint]
+    ]:
         return inspect.isclass(x) and issubclass(x, endpoints.WebSocketEndpoint)
 
     def endpoint_handlers(self) -> t.Dict[str, t.Callable]:
