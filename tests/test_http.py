@@ -20,23 +20,24 @@ class TestCaseRequest:
                 "body": (await request.body()).decode("utf-8"),
             }
 
-    def test_request(self, client):
+    async def test_request(self, client):
         expected_response = {
             "method": "GET",
-            "url": "http://testserver/request/",
+            "url": "http://localapp/request/",
             "headers": {
                 "accept": "*/*",
                 "accept-encoding": "gzip, deflate",
                 "connection": "keep-alive",
-                "host": "testserver",
-                "user-agent": "testclient",
+                "host": "localapp",
             },
             "body": "",
         }
 
-        response = client.get("/request/")
+        response = await client.get("/request/")
+        response_json = response.json()
+        del response_json["headers"]["user-agent"]
 
-        assert response.json() == expected_response, response.content
+        assert response_json == expected_response, str(response_json)
 
 
 class TestCaseJSONResponse:

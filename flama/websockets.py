@@ -5,11 +5,7 @@ import starlette.websockets
 if t.TYPE_CHECKING:
     from flama import types
 
-__all__ = [
-    "WebSocket",
-    "Close",
-    "State",
-]
+__all__ = ["WebSocket", "Close", "State"]
 
 State = starlette.websockets.WebSocketState
 

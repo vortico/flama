@@ -15,8 +15,8 @@ from faker import Faker
 
 import flama
 from flama import Flama
+from flama.client import AsyncClient
 from flama.sqlalchemy import SQLAlchemyModule, metadata
-from flama.testclient import TestClient
 from tests.utils import ExceptionContext, installed
 
 try:
@@ -142,14 +142,15 @@ def app(request):
 
 
 @pytest.fixture(scope="function")
-def client(app):
-    with TestClient(app) as client:
+async def client(app):
+    async with AsyncClient(app=app) as client:
         yield client
 
 
 @pytest.fixture(scope="function")
 def asgi_scope():
     return {
+        "app": Flama(),
         "type": "http",
         "method": "GET",
         "scheme": "https",

@@ -447,8 +447,8 @@ class TestCaseRouter:
         return Flama(schema=None, docs=None)
 
     @pytest.fixture(scope="function")
-    def router(self):
-        return Router()
+    def router(self, app):
+        return Router(root=app)
 
     @pytest.fixture(scope="function")
     def app_mock(self):
@@ -481,17 +481,36 @@ class TestCaseRouter:
         assert method_mock.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
 
     @pytest.mark.parametrize(
-        ["request_type"], (pytest.param("http", id="http"), pytest.param("websocket", id="websocket"))
+        ["request_type", "app_status", "exception"],
+        (
+            pytest.param("http", types.AppStatus.READY, None, id="http"),
+            pytest.param("websocket", types.AppStatus.READY, None, id="websocket"),
+            pytest.param(
+                "http",
+                types.AppStatus.NOT_INITIALIZED,
+                exceptions.ApplicationError(""),
+                id="http_not_initialized",
+            ),
+            pytest.param(
+                "websocket",
+                types.AppStatus.NOT_INITIALIZED,
+                exceptions.ApplicationError(""),
+                id="websocket_not_initialized",
+            ),
+        ),
+        indirect=["exception"],
     )
-    async def test_call(self, request_type, router, asgi_scope, asgi_receive, asgi_send):
+    async def test_call(self, request_type, app_status, exception, router, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = request_type
+        asgi_scope["app"]._status = app_status
 
         route = AsyncMock()
         route_scope = types.Scope({})
-        with patch.object(router, "resolve_route", return_value=(route, route_scope)):
+        with exception, patch.object(router, "resolve_route", return_value=(route, route_scope)):
             await router(asgi_scope, asgi_receive, asgi_send)
 
-        assert route.call_args_list == [call(route_scope, asgi_receive, asgi_send)]
+        if not exception:
+            assert route.call_args_list == [call(route_scope, asgi_receive, asgi_send)]
 
     def test_build(self, router):
         app = MagicMock(Flama)

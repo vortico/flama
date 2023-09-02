@@ -104,17 +104,17 @@ class TestCaseParamsValidation:
             return {"param": param}
 
         @app.route("/datetime_query_param_with_default/")
-        def datetime_query_param_with_default(param: datetime.datetime = "2018-01-01T00:00:00"):
+        def datetime_query_param_with_default(param: datetime.datetime = datetime.datetime(2018, 1, 1, 0, 0, 0)):
             assert isinstance(param, datetime.datetime)
             return {"param": param}
 
         @app.route("/date_query_param_with_default/")
-        def date_query_param_with_default(param: datetime.date = "2018-01-01"):
+        def date_query_param_with_default(param: datetime.date = datetime.date(2018, 1, 1)):
             assert isinstance(param, datetime.date)
             return {"param": param}
 
         @app.route("/time_query_param_with_default/")
-        def time_query_param_with_default(param: datetime.time = "00:00:00"):
+        def time_query_param_with_default(param: datetime.time = datetime.time(0, 0, 0)):
             assert isinstance(param, datetime.time)
             return {"param": param}
 
@@ -175,8 +175,8 @@ class TestCaseParamsValidation:
             pytest.param("/time_path_param/00:00:00/", "00:00:00", id="time path param"),
         ],
     )
-    def test_path_param(self, url, value, client):
-        response = client.get(url)
+    async def test_path_param(self, url, value, client):
+        response = await client.get(url)
         assert response.json() == {"param": value}
 
     @pytest.mark.parametrize(
@@ -191,8 +191,8 @@ class TestCaseParamsValidation:
             pytest.param("/time_query_param/", "00:00:00", id="time query param"),
         ],
     )
-    def test_query_param(self, url, value, client):
-        response = client.get(url, params={"param": value})
+    async def test_query_param(self, url, value, client):
+        response = await client.get(url, params={"param": value})
         assert response.json() == {"param": value}
 
     @pytest.mark.parametrize(
@@ -209,8 +209,8 @@ class TestCaseParamsValidation:
             pytest.param("/time_query_param_with_default/", "00:00:00", id="time query param with default"),
         ],
     )
-    def test_query_param_with_default(self, url, value, client):
-        response = client.get(url, params={"param": value})
+    async def test_query_param_with_default(self, url, value, client):
+        response = await client.get(url, params={"param": value})
         assert response.json() == {"param": value}
 
     @pytest.mark.parametrize(
@@ -225,18 +225,18 @@ class TestCaseParamsValidation:
             pytest.param("/time_query_param_optional/", id="time query param optional"),
         ],
     )
-    def test_query_param_optional(self, url, client):
-        response = client.get(url)
+    async def test_query_param_optional(self, url, client):
+        response = await client.get(url)
         assert response.json() == {"param": None}
 
-    def test_wrong_query_param(self, client):
-        response = client.get("/int_query_param/?param=foo")
+    async def test_wrong_query_param(self, client):
+        response = await client.get("/int_query_param/?param=foo")
         assert response.status_code == 400
 
-    def test_wrong_path_param(self, client):
-        response = client.get("/int_path_param/foo/")
+    async def test_wrong_path_param(self, client):
+        response = await client.get("/int_path_param/foo/")
         assert response.status_code == 400
 
-    def test_no_type_param(self, client):
+    async def test_no_type_param(self, client):
         with pytest.raises(ComponentNotFound, match="No component able to handle parameter 'foo' for function 'empty'"):
-            client.post("/empty/")
+            await client.post("/empty/")

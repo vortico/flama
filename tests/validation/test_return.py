@@ -3,7 +3,7 @@ import pytest
 
 from flama import Component, endpoints, http, types
 from flama.applications import Flama
-from flama.testclient import TestClient
+from flama.client import AsyncClient
 
 
 class Puppy:
@@ -111,55 +111,56 @@ class TestCaseReturnValidation:
         return app_
 
     @pytest.fixture(scope="function")
-    def client(self, app):
-        return TestClient(app)
+    async def client(self, app):
+        async with AsyncClient(app=app) as client:
+            yield client
 
-    def test_return_string(self, client):
-        response = client.get("/return_string/")
+    async def test_return_string(self, client):
+        response = await client.get("/return_string/")
 
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/json"
         assert response.json() == "example content"
 
-    def test_return_html(self, client):
-        response = client.get("/return_html/")
+    async def test_return_html(self, client):
+        response = await client.get("/return_html/")
         assert response.headers["content-type"] == "text/html; charset=utf-8"
         assert response.text == "<html><body>example content</body></html>"
 
-    def test_return_data(self, client):
-        response = client.get("/return_data/")
+    async def test_return_data(self, client):
+        response = await client.get("/return_data/")
 
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/json"
         assert response.json() == {"example": "content"}
 
-    def test_return_response(self, client):
-        response = client.get("/return_response/")
+    async def test_return_response(self, client):
+        response = await client.get("/return_response/")
 
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/json"
         assert response.json() == {"example": "content"}
 
-    def test_return_unserializable_json(self, client):
+    async def test_return_unserializable_json(self, client):
         with pytest.raises(TypeError, match=r".*Object of type .?Dummy.? is not JSON serializable"):
-            client.get("/return_unserializable_json/")
+            await client.get("/return_unserializable_json/")
 
-    def test_return_schema(self, client):
-        response = client.get("/return-schema/")
+    async def test_return_schema(self, client):
+        response = await client.get("/return-schema/")
 
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/json"
         assert response.json() == {"name": "Canna"}
 
-    def test_return_schema_many(self, client):
-        response = client.get("/return-schema-many/")
+    async def test_return_schema_many(self, client):
+        response = await client.get("/return-schema-many/")
 
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/json"
         assert response.json() == [{"name": "Canna"}, {"name": "Sandy"}]
 
-    def test_return_schema_empty(self, client):
-        response = client.get("/return-schema-empty/")
+    async def test_return_schema_empty(self, client):
+        response = await client.get("/return-schema-empty/")
 
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/json"

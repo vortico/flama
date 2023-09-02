@@ -348,6 +348,7 @@ class TestCaseExceptionMiddleware:
 
     async def test_not_found_handler_http_no_app(self, middleware, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "http"
+        del asgi_scope["app"]
         exc = exceptions.NotFoundException()
 
         with patch("flama.debug.middleware.http.PlainTextResponse") as mock:

@@ -1,20 +1,27 @@
-from tempfile import NamedTemporaryFile
+import multiprocessing
+import threading
 
-import anyio
 import pytest
 
 from flama import background, http
-from tests.asserts import assert_read_from_file
 
 
-def sync_task(path: str, msg: str):
-    with open(path, "w") as f:
-        f.write(msg)
+def sync_task(event):
+    event.set()
 
 
-async def async_task(path: str, msg: str):
-    async with await anyio.open_file(path, "w") as f:
-        await f.write(msg)
+async def async_task(event):
+    event.set()
+
+
+@pytest.fixture(scope="function")
+def process_event():
+    return multiprocessing.Event()
+
+
+@pytest.fixture(scope="function")
+def thread_event():
+    return threading.Event()
 
 
 class TestCaseBackgroundTask:
@@ -22,58 +29,41 @@ class TestCaseBackgroundTask:
     def task(self, request):
         return sync_task if request.param == "sync" else async_task
 
-    @pytest.fixture
-    def tmp_file(self):
-        with NamedTemporaryFile() as tmp_file:
-            yield tmp_file
-
-    def test_background_process_task(self, app, client, task, tmp_file):
+    async def test_background_process_task(self, app, client, task, process_event):
         @app.route("/")
-        async def test(path: str, msg: str):
-            return http.APIResponse({"foo": "bar"}, background=background.BackgroundProcessTask(task, path, msg))
+        async def test():
+            return http.APIResponse({"foo": "bar"}, background=background.BackgroundProcessTask(task, process_event))
 
-        response = client.get("/", params={"path": tmp_file.name, "msg": "foo"})
+        response = await client.get("/")
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
-        assert_read_from_file(tmp_file.name, "foo")
+        assert process_event.wait(1.0)
 
-    def test_background_thread_task(self, app, client, task, tmp_file):
+    async def test_background_thread_task(self, app, client, task, thread_event):
         @app.route("/")
-        async def test(path: str, msg: str):
-            return http.APIResponse({"foo": "bar"}, background=background.BackgroundThreadTask(task, path, msg))
+        async def test():
+            return http.APIResponse({"foo": "bar"}, background=background.BackgroundThreadTask(task, thread_event))
 
-        response = client.get("/", params={"path": tmp_file.name, "msg": "foo"})
+        response = await client.get("/")
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
-        assert_read_from_file(tmp_file.name, "foo")
+        assert thread_event.wait(1.0)
 
 
 class TestCaseBackgroundTasks:
-    @pytest.fixture
-    def tmp_file(self):
-        with NamedTemporaryFile() as tmp_file:
-            yield tmp_file
-
-    @pytest.fixture
-    def tmp_file_2(self):
-        with NamedTemporaryFile() as tmp_file:
-            yield tmp_file
-
-    def test_background_tasks(self, app, client, tmp_file, tmp_file_2):
+    async def test_background_tasks(self, app, client, process_event, thread_event):
         @app.route("/")
-        async def test(path_1: str, msg_1: str, path_2: str, msg_2: str):
+        async def test():
             tasks = background.BackgroundTasks()
-            tasks.add_task(background.Concurrency.process, sync_task, path_1, msg_1)
-            tasks.add_task(background.Concurrency.thread, async_task, path_2, msg_2)
+            tasks.add_task(background.Concurrency.process, sync_task, process_event)
+            tasks.add_task(background.Concurrency.thread, async_task, thread_event)
             return http.APIResponse({"foo": "bar"}, background=tasks)
 
-        response = client.get(
-            "/", params={"path_1": tmp_file.name, "msg_1": "foo", "path_2": tmp_file_2.name, "msg_2": "bar"}
-        )
+        response = await client.get("/")
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
-        assert_read_from_file(tmp_file.name, "foo")
-        assert_read_from_file(tmp_file_2.name, "bar")
+        assert process_event.wait(1.0)
+        assert thread_event.wait(1.0)

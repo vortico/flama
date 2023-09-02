@@ -585,7 +585,11 @@ class Router(types.AppAsyncClass):
         return isinstance(other, Router) and self.routes == other.routes
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        logger.debug("Request: %s", str(scope))
         assert scope["type"] in ("http", "websocket", "lifespan")
+
+        if "app" in scope and scope["app"]._status != types.AppStatus.READY and scope["type"] != "lifespan":
+            raise exceptions.ApplicationError("Application is not ready to process requests yet.")
 
         if "router" not in scope:
             scope["router"] = self

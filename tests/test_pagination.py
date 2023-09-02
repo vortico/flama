@@ -99,13 +99,13 @@ class TestPageNumberResponse:
             },
         }
 
-    def test_async_function(self, app, client, output_schema):
+    async def test_async_function(self, app, client, output_schema):
         @app.route("/page-number-async/", methods=["GET"])
         @paginator.page_number(schema_name="OutputSchema")
         async def page_number_async(**kwargs) -> types.Schema[output_schema]:
             return [{"value": i} for i in range(25)]
 
-        response = client.get("/page-number-async/")
+        response = await client.get("/page-number-async/")
         assert response.status_code == 200, response.json()
         assert response.json() == {
             "meta": {"page": 1, "page_size": 10, "count": None},
@@ -147,8 +147,8 @@ class TestPageNumberResponse:
             ),
         ),
     )
-    def test_params(self, client, params, status_code, expected):
-        response = client.get("/page-number/", params=params)
+    async def test_params(self, client, params, status_code, expected):
+        response = await client.get("/page-number/", params=params)
         assert response.status_code == status_code, response.json()
         assert response.json() == expected
 
@@ -230,13 +230,13 @@ class TestLimitOffsetResponse:
             },
         }
 
-    def test_async_function(self, app, client, output_schema):
+    async def test_async_function(self, app, client, output_schema):
         @app.route("/limit-offset-async/", methods=["GET"])
         @paginator.limit_offset(schema_name="OutputSchema")
         async def limit_offset_async(**kwargs) -> types.Schema[output_schema]:
             return [{"value": i} for i in range(25)]
 
-        response = client.get("/limit-offset-async/")
+        response = await client.get("/limit-offset-async/")
         assert response.status_code == 200, response.json()
         assert response.json() == {
             "meta": {"limit": 10, "offset": 0, "count": None},
@@ -278,7 +278,7 @@ class TestLimitOffsetResponse:
             ),
         ),
     )
-    def test_params(self, client, params, status_code, expected):
-        response = client.get("/limit-offset/", params=params)
+    async def test_params(self, client, params, status_code, expected):
+        response = await client.get("/limit-offset/", params=params)
         assert response.status_code == status_code, response.json()
         assert response.json() == expected

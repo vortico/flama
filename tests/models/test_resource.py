@@ -83,10 +83,10 @@ class TestCaseModelResourceMethods:
         ),
         indirect=["model_path"],
     )
-    def test_inspect(self, app, client, lib, model_path, url):
+    async def test_inspect(self, app, client, lib, model_path, url):
         app.models.add_model(f"/{lib}/", model=model_path, name=lib)
 
-        response = client.get(url)
+        response = await client.get(url)
         assert response.status_code == 200, response.json()
         inspect = response.json()
         assert set(inspect.keys()) == {"meta", "artifacts"}
@@ -151,10 +151,10 @@ class TestCaseModelResourceMethods:
         ),
         indirect=["model_path"],
     )
-    def test_predict(self, app, client, lib, model_path, url, x, y, status_code):
+    async def test_predict(self, app, client, lib, model_path, url, x, y, status_code):
         app.models.add_model(f"/{lib}/", model=model_path, name=lib)
 
-        response = client.post(url, json={"input": x})
+        response = await client.post(url, json={"input": x})
 
         assert response.status_code == status_code, response.json()
         if status_code == 200:

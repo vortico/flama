@@ -27,7 +27,9 @@ class Flama:
         modules: t.Optional[t.Set["Module"]] = None,
         middleware: t.Optional[t.Sequence["Middleware"]] = None,
         debug: bool = False,
-        events: t.Optional[t.Union[t.Dict[str, t.List[t.Callable]], Events]] = None,
+        events: t.Optional[
+            t.Union[t.Dict[str, t.List[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]]], Events]
+        ] = None,
         lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None,
         title: str = "Flama",
         version: str = "0.1.0",
@@ -53,6 +55,8 @@ class Flama:
         :param schema_library: Schema library to use.
         """
         self._debug = debug
+        self._status = types.AppStatus.NOT_INITIALIZED
+        self._shutdown = False
 
         # Create Dependency Injector
         self._injector = injection.Injector(

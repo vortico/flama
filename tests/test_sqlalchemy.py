@@ -5,24 +5,24 @@ import sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from flama import Flama
+from flama.client import AsyncClient
 from flama.sqlalchemy import SQLAlchemyModule
-from flama.testclient import TestClient
 
 
 class TestCaseSQLAlchemyModule:
     @pytest.fixture
-    def app(self):
+    async def app(self):
         app = Flama(modules={SQLAlchemyModule("sqlite+aiosqlite://")})
-        with TestClient(app):  # Initialize app life-cycle
+        async with AsyncClient(app):  # Initialize app life-cycle
             yield app
 
     def test_on_startup(self, app):
         assert isinstance(app.sqlalchemy.engine, AsyncEngine)
         assert isinstance(app.sqlalchemy.metadata, sqlalchemy.MetaData)
 
-    def test_on_startup_no_database(self):
+    async def test_on_startup_no_database(self):
         app = Flama(modules={SQLAlchemyModule()})
-        with TestClient(app):  # Initialize app life-cycle
+        async with AsyncClient(app):  # Initialize app life-cycle
             assert app.sqlalchemy.database is None
             assert app.sqlalchemy.engine is None
             assert isinstance(app.sqlalchemy.metadata, sqlalchemy.MetaData)

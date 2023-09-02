@@ -14,10 +14,10 @@ class _BaseModule:
     def __init__(self) -> None:
         self.app: "Flama"
 
-    async def on_startup(self):
+    async def on_startup(self) -> None:
         ...
 
-    async def on_shutdown(self):
+    async def on_shutdown(self) -> None:
         ...
 
 

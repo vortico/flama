@@ -22,3 +22,6 @@ class ExceptionContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         return self.context.__exit__(exc_type, exc_val, exc_tb)
+
+    def __bool__(self) -> bool:
+        return self.exception is not None

@@ -7,7 +7,7 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
 
     t.TypeGuard = TypeGuard  # type: ignore
 
-__all__ = ["Schema", "is_schema"]
+__all__ = ["_T_Field", "_T_Schema", "Schema", "is_schema"]
 
 _T_Field = t.TypeVar("_T_Field")
 _T_Schema = t.TypeVar("_T_Schema")

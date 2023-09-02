@@ -128,13 +128,13 @@ class TestCaseTypesystemSchemaValidateOutput:
             pytest.param("/custom-error", 502, None, id="custom_error"),
         ],
     )
-    def test_validation(self, client, path, status_code, expected_response):
-        response = client.get(path)
+    async def test_validation(self, client, path, status_code, expected_response):
+        response = await client.get(path)
         assert response.status_code == status_code, response.json()
         if status_code == 200:
             assert response.json() == expected_response
 
-    def test_validation_uncontrolled_error(self, client):
+    async def test_validation_uncontrolled_error(self, client):
         with patch(
             "flama.schemas.validation.schemas.adapter.dump",
             side_effect=[
@@ -146,7 +146,7 @@ class TestCaseTypesystemSchemaValidateOutput:
                 },
             ],
         ):
-            response = client.get("/product")
+            response = await client.get("/product")
             assert response.status_code == 500
             assert response.json() == {
                 "detail": "Error serializing response before validation: Exception",

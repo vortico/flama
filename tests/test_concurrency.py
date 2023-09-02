@@ -1,6 +1,11 @@
 import functools
+import multiprocessing
 
 from flama import concurrency
+
+
+async def task(event):
+    event.set()
 
 
 class TestCaseIsAsync:
@@ -53,3 +58,29 @@ class TestCaseRun:
             return x * 2
 
         assert await concurrency.run(foo_sync, 3) == 6
+
+
+class TestCaseRunTaskGroup:
+    async def test_run_task_group(self):
+        expected_result = ["foo", "bar"]
+
+        async def foo():
+            return "foo"
+
+        async def bar():
+            return "bar"
+
+        result = [t.result() for t in await concurrency.run_task_group(foo(), bar())]
+
+        assert result == expected_result
+
+
+class TestCaseAsyncProcess:
+    async def test_async_process(self):
+        event = multiprocessing.Event()
+
+        process = concurrency.AsyncProcess(target=task, args=(event,))
+        process.start()
+        process.join()
+
+        assert event.wait(1.0)
