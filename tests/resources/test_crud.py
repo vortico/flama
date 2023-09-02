@@ -178,49 +178,49 @@ class TestCaseCRUDResource:
         resource_route = app.routes[0]
         assert [(i.path, i.endpoint, i.methods, i.name) for i in resource_route.routes] == expected_routes
 
-    def test_create(self, client, puppy):
+    async def test_create(self, client, puppy):
         expected_puppy_id = 1
         expected_puppy = puppy.copy()
         expected_puppy["custom_id"] = expected_puppy_id
 
         # Successfully create a new record
-        response = client.request("post", "/puppy/", json=puppy)
+        response = await client.request("post", "/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
         assert created_puppy == expected_puppy
 
         # List all the existing records
-        response = client.request("get", f"/puppy/{expected_puppy_id}/")
+        response = await client.request("get", f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 200, response.json()
         assert response.json() == expected_puppy
 
-    def test_retrieve(self, client, puppy):
+    async def test_retrieve(self, client, puppy):
         expected_puppy_id = 1
         expected_result = puppy.copy()
         expected_result["custom_id"] = expected_puppy_id
 
         # Successfully create a new record
-        response = client.request("post", "/puppy/", json=puppy)
+        response = await client.request("post", "/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
         assert created_puppy == expected_result
 
         # Retrieve same record
-        response = client.request("get", f"/puppy/{expected_puppy_id}/")
+        response = await client.request("get", f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 200, response.json()
         assert response.json() == expected_result
 
-    def test_retrieve_not_found(self, client):
+    async def test_retrieve_not_found(self, client):
         # Retrieve wrong record
-        response = client.request("get", "/puppy/42/")
+        response = await client.request("get", "/puppy/42/")
         assert response.status_code == 404, response.json()
 
-    def test_retrieve_wrong_id_type(self, client):
+    async def test_retrieve_wrong_id_type(self, client):
         # Retrieve wrong record
-        response = client.request("get", "/puppy/foo/")
+        response = await client.request("get", "/puppy/foo/")
         assert response.status_code == 400, response.json()
 
-    def test_update(self, client, puppy, another_puppy):
+    async def test_update(self, client, puppy, another_puppy):
         expected_puppy_id = 1
         created_puppy = puppy.copy()
         created_puppy["custom_id"] = expected_puppy_id
@@ -228,79 +228,79 @@ class TestCaseCRUDResource:
         expected_puppy["custom_id"] = expected_puppy_id
 
         # Successfully create a new record
-        response = client.request("post", "/puppy/", json=puppy)
+        response = await client.request("post", "/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
         assert created_puppy == created_puppy
 
         # Update record
-        response = client.request("put", f"/puppy/{expected_puppy_id}/", json=another_puppy)
+        response = await client.request("put", f"/puppy/{expected_puppy_id}/", json=another_puppy)
         assert response.status_code == 200, response.json()
         assert response.json() == expected_puppy
 
         # List all the existing records
-        response = client.request("get", f"/puppy/{expected_puppy_id}/")
+        response = await client.request("get", f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 200, response.json()
         assert response.json() == expected_puppy
 
-    def test_update_not_found(self, client, puppy):
+    async def test_update_not_found(self, client, puppy):
         # Update wrong record
-        response = client.request("put", "/puppy/42/", json=puppy)
+        response = await client.request("put", "/puppy/42/", json=puppy)
         assert response.status_code == 404, response.json()
 
-    def test_update_wrong_id_type(self, client, puppy):
+    async def test_update_wrong_id_type(self, client, puppy):
         # Update wrong record
-        response = client.request("put", "/puppy/foo/", json=puppy)
+        response = await client.request("put", "/puppy/foo/", json=puppy)
         assert response.status_code == 400, response.json()
 
-    def test_delete(self, client, puppy):
+    async def test_delete(self, client, puppy):
         expected_puppy_id = 1
         expected_puppy = puppy.copy()
         expected_puppy["custom_id"] = expected_puppy_id
 
         # Successfully create a new record
-        response = client.request("post", "/puppy/", json=puppy)
+        response = await client.request("post", "/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
         assert created_puppy == expected_puppy
 
         # Retrieve same record
-        response = client.request("get", f"/puppy/{expected_puppy_id}/")
+        response = await client.request("get", f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 200, response.json()
         assert response.json() == expected_puppy
 
         # Delete record
-        response = client.request("delete", f"/puppy/{expected_puppy_id}/")
+        response = await client.request("delete", f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 204, response.json()
 
         # Retrieve deleted record
-        response = client.request("get", f"/puppy/{expected_puppy_id}/")
+        response = await client.request("get", f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 404, response.json()
 
-    def test_delete_wrong_id_type(self, client):
+    async def test_delete_wrong_id_type(self, client):
         # Delete wrong record
-        response = client.request("delete", "/puppy/foo/")
+        response = await client.request("delete", "/puppy/foo/")
         assert response.status_code == 400, response.json()
 
-    def test_delete_not_found(self, client, puppy):
+    async def test_delete_not_found(self, client, puppy):
         # Delete wrong record
-        response = client.request("delete", "/puppy/42/", json=puppy)
+        response = await client.request("delete", "/puppy/42/", json=puppy)
         assert response.status_code == 404, response.json()
 
     @pytest.mark.skipif(not DATABASE_URL.startswith("postgresql"), reason="Only valid for PostgreSQL backend")
-    def test_id_uuid(self, app, client, custom_id_uuid_resource):
+    async def test_id_uuid(self, app, client, custom_id_uuid_resource):
         app.resources.add_resource("/custom_id_datetime/", custom_id_uuid_resource)
 
         data = {"custom_id": str(uuid.uuid4()), "name": "foo"}
         expected_result = data.copy()
 
         # Successfully create a new record
-        response = client.request("post", "/custom_id_uuid/", json=data)
+        response = await client.request("post", "/custom_id_uuid/", json=data)
         assert response.status_code == 201, response.content
         assert response.json() == expected_result, response.json()
 
         # Retrieve same record
-        response = client.request("get", f"/custom_id_uuid/{data['custom_id']}/")
+        response = await client.request("get", f"/custom_id_uuid/{data['custom_id']}/")
         assert response.status_code == 200, response.json()
         assert response.json() == expected_result
 
@@ -311,12 +311,12 @@ class TestCaseCRUDResource:
         expected_result = data.copy()
 
         # Successfully create a new record
-        response = client.request("post", "/custom_id_datetime/", json=data)
+        response = await client.request("post", "/custom_id_datetime/", json=data)
         assert response.status_code == 201, response.content
         assert response.json() == expected_result, response.json()
 
         # Retrieve same record
-        response = client.request("get", f"/custom_id_datetime/{data['custom_id']}/")
+        response = await client.request("get", f"/custom_id_datetime/{data['custom_id']}/")
         assert response.status_code == 200, response.json()
         assert response.json() == expected_result
 
@@ -394,7 +394,7 @@ class TestCaseCRUDListResource:
 
         assert SpecializedPuppyResource().list() == ["foo", "bar"]
 
-    def test_list(self, client, puppy, another_puppy):
+    async def test_list(self, client, puppy, another_puppy):
         expected_puppy_id = 1
         expected_another_puppy_id = 2
         created_result_1 = puppy.copy()
@@ -406,23 +406,23 @@ class TestCaseCRUDListResource:
         expected_result[1]["custom_id"] = expected_another_puppy_id
 
         # Successfully create a new record
-        response = client.request("post", "/puppy/", json=puppy)
+        response = await client.request("post", "/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
         assert created_puppy == created_result_1
 
         # Successfully create another new record
-        response = client.request("post", "/puppy/", json=another_puppy)
+        response = await client.request("post", "/puppy/", json=another_puppy)
         assert response.status_code == 201, response.json()
         created_second_puppy = response.json()
         assert created_second_puppy == created_result_2
 
         # List all the existing records
-        response = client.request("get", "/puppy/")
+        response = await client.request("get", "/puppy/")
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == expected_result
 
-    def test_list_filter(self, client, puppy, another_puppy):
+    async def test_list_filter(self, client, puppy, another_puppy):
         expected_puppy_id = 1
         expected_another_puppy_id = 2
         created_result_1 = puppy.copy()
@@ -433,24 +433,24 @@ class TestCaseCRUDListResource:
         expected_result[0]["custom_id"] = expected_puppy_id
 
         # Successfully create a new record
-        response = client.request("post", "/puppy/", json=puppy)
+        response = await client.request("post", "/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
         assert created_puppy == created_result_1
 
         # Successfully create another new record
-        response = client.request("post", "/puppy/", json=another_puppy)
+        response = await client.request("post", "/puppy/", json=another_puppy)
         assert response.status_code == 201, response.json()
         created_second_puppy = response.json()
         assert created_second_puppy == created_result_2
 
         # Filter and found something
-        response = client.request("get", "/puppy/", params={"name": "canna", "custom_id__le": 1})
+        response = await client.request("get", "/puppy/", params={"name": "canna", "custom_id__le": 1})
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == expected_result
 
         # Filter without results
-        response = client.request("get", "/puppy/", params={"name": "canna", "custom_id__le": 0})
+        response = await client.request("get", "/puppy/", params={"name": "canna", "custom_id__le": 0})
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == []
 
@@ -489,7 +489,7 @@ class TestCaseCRUDListDropResource:
         resource_route = app.routes[0]
         assert [(i.path, i.endpoint, i.methods, i.name) for i in resource_route.routes] == expected_routes
 
-    def test_drop(self, client, puppy, another_puppy):
+    async def test_drop(self, client, puppy, another_puppy):
         expected_puppy_id = 1
         expected_another_puppy_id = 2
         created_result_1 = puppy.copy()
@@ -501,28 +501,28 @@ class TestCaseCRUDListDropResource:
         expected_result[1]["custom_id"] = expected_another_puppy_id
 
         # Successfully create a new record
-        response = client.request("post", "/puppy/", json=puppy)
+        response = await client.request("post", "/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
         assert created_puppy == created_result_1
 
         # Successfully create a new record
-        response = client.request("post", "/puppy/", json=another_puppy)
+        response = await client.request("post", "/puppy/", json=another_puppy)
         assert response.status_code == 201, response.json()
         created_puppy = response.json()
         assert created_puppy == created_result_2
 
         # List all the existing records
-        response = client.request("get", "/puppy/")
+        response = await client.request("get", "/puppy/")
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == expected_result
 
         # Drop collection
-        response = client.request("delete", "/puppy/", json=[puppy])
+        response = await client.request("delete", "/puppy/", json=[puppy])
         assert response.status_code == 204, response.json()
         assert response.json() == {"deleted": 2}
 
         # List all the existing records
-        response = client.request("get", "/puppy/")
+        response = await client.request("get", "/puppy/")
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == []

@@ -1,50 +1,9 @@
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
-import anyio.abc
 import pytest
 
-from flama import Flama
-from flama.events import Events
-from flama.lifespan import Context, Lifespan
-
-
-class TestCaseContext:
-    @pytest.fixture
-    def lifespan(self):
-        mock = MagicMock()
-        mock.return_value = mock
-        return mock
-
-    @pytest.fixture
-    def app(self):
-        mock = MagicMock(Flama)
-        mock.events = Events()
-        return mock
-
-    async def test_context(self, app, lifespan):
-        def foo_handler():
-            ...
-
-        def bar_handler():
-            ...
-
-        app.events.register("startup", foo_handler)
-        app.events.register("shutdown", bar_handler)
-
-        context = Context(app, lifespan)
-        assert context.app == app
-        assert context.lifespan == lifespan
-        assert lifespan.call_args_list == [call(app)]
-
-        tg_mock = MagicMock(anyio.abc.TaskGroup)
-        tg_mock.__aenter__.return_value = tg_mock
-        with patch("flama.lifespan.anyio.create_task_group", return_value=tg_mock):
-            async with context:
-                assert lifespan.__aenter__.call_args_list == [call()]
-                assert tg_mock.start_soon.call_args_list == [call(foo_handler)]
-
-        assert tg_mock.start_soon.call_args_list == [call(foo_handler), call(bar_handler)]
-        assert lifespan.__aexit__.call_args_list == [call(None, None, None)]
+from flama import Flama, exceptions, types
+from flama.lifespan import Lifespan
 
 
 class TestCaseLifespan:
@@ -57,30 +16,33 @@ class TestCaseLifespan:
         return Lifespan(MagicMock())
 
     @pytest.mark.parametrize(
-        ["context_side_effect", "receive_side_effect", "send_calls", "exception"],
+        ["startup_side_effect", "shutdown_side_effect", "send_calls", "app_status", "exception"],
         (
             pytest.param(
-                [None],
-                [None, None],
+                None,
+                None,
                 [call({"type": "lifespan.startup.complete"}), call({"type": "lifespan.shutdown.complete"})],
+                types.AppStatus.SHUT_DOWN,
                 None,
                 id="ok",
             ),
             pytest.param(
-                [Exception("Foo")],
-                [None, None],
-                [call({"type": "lifespan.startup.failed", "message": "Foo"})],
                 Exception("Foo"),
+                None,
+                [call({"type": "lifespan.startup.failed", "message": "Foo"})],
+                types.AppStatus.FAILED,
+                exceptions.ApplicationError("Lifespan startup failed"),
                 id="fail_before_start",
             ),
             pytest.param(
-                [None],
-                [None, Exception("Foo")],
+                None,
+                Exception("Foo"),
                 [
                     call({"type": "lifespan.startup.complete"}),
                     call({"type": "lifespan.shutdown.failed", "message": "Foo"}),
                 ],
-                Exception("Foo"),
+                types.AppStatus.FAILED,
+                exceptions.ApplicationError("Lifespan shutdown failed"),
                 id="fail_after_start",
             ),
         ),
@@ -93,19 +55,41 @@ class TestCaseLifespan:
         asgi_scope,
         asgi_receive,
         asgi_send,
-        context_side_effect,
-        receive_side_effect,
+        startup_side_effect,
+        shutdown_side_effect,
         send_calls,
+        app_status,
         exception,
     ):
         asgi_scope["app"] = app
-        asgi_receive.side_effect = receive_side_effect
-
-        context_mock = MagicMock(spec=Context)
-        context_mock.return_value = context_mock
-        context_mock.__aenter__.side_effect = context_side_effect
-        with exception, patch("flama.lifespan.Context", new=context_mock):
+        asgi_receive.side_effect = [
+            types.Message({"type": "lifespan.startup"}),
+            types.Message({"type": "lifespan.shutdown"}),
+        ]
+        with exception, patch.object(lifespan, "_startup", side_effect=startup_side_effect), patch.object(
+            lifespan, "_shutdown", side_effect=shutdown_side_effect
+        ):
             await lifespan(asgi_scope, asgi_receive, asgi_send)
 
-        assert context_mock.call_args_list == [call(app, lifespan.lifespan)]
         assert asgi_send.call_args_list == send_calls
+        assert app._status == app_status
+
+    async def test_startup(self, app, lifespan):
+        foo = AsyncMock()
+        app.events = MagicMock()
+        app.events.startup = [foo]
+
+        await lifespan._startup(app)
+
+        assert foo.await_args_list == [call()]
+        assert lifespan.lifespan(app).__aenter__.await_args_list == [call()]
+
+    async def test_shutdown(self, app, lifespan):
+        foo = AsyncMock()
+        app.events = MagicMock()
+        app.events.shutdown = [foo]
+
+        await lifespan._shutdown(app)
+
+        assert foo.await_args_list == [call()]
+        assert lifespan.lifespan(app).__aexit__.await_args_list == [call(None, None, None)]

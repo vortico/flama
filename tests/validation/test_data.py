@@ -3,7 +3,7 @@ from _pytest.mark import param
 
 from flama import endpoints, types, websockets
 from flama.applications import Flama
-from flama.testclient import TestClient
+from flama.client import AsyncClient
 
 
 class TestCaseDataValidation:
@@ -12,8 +12,9 @@ class TestCaseDataValidation:
         return Flama(schema=None, docs=None)
 
     @pytest.fixture(scope="function")
-    def client(self, app):
-        return TestClient(app)
+    async def client(self, app):
+        async with AsyncClient(app=app) as client:
+            yield client
 
     @pytest.mark.parametrize(
         "request_params,response_status,response_json",
@@ -43,26 +44,29 @@ class TestCaseDataValidation:
             ),
         ],
     )
-    def test_request_data(self, request_params, response_status, response_json, app, client):
+    async def test_request_data(self, request_params, response_status, response_json, app, client):
         @app.route("/request_data/", methods=["POST"])
         async def get_request_data(data: types.RequestData):
             try:
-                data = {
-                    key: value
-                    if not hasattr(value, "filename")
-                    else {"filename": value.filename, "content": (await value.read()).decode("utf-8")}
-                    for key, value in data.items()
-                }
+                data = types.RequestData(
+                    {
+                        key: value
+                        if not hasattr(value, "filename")
+                        else {"filename": value.filename, "content": (await value.read()).decode("utf-8")}
+                        for key, value in data.items()
+                    }
+                )
             except Exception:
                 pass
 
             return {"data": data}
 
-        response = client.request("post", "/request_data/", **request_params)
+        response = await client.request("post", "/request_data/", **request_params)
         assert response.status_code == response_status, str(response.content)
         if response_json is not None:
             assert response.json() == response_json
 
+    @pytest.mark.skip(reason="Cannot test websockets with current client")  # CAVEAT: Client doesn't support websockets
     @pytest.mark.parametrize(
         "encoding,send_method,data,expected_result",
         [

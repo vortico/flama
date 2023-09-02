@@ -17,8 +17,8 @@ class TestCaseMethodComponent:
             pytest.param("/method/", "post", {"method": "POST"}, id="post"),
         ],
     )
-    def test_method(self, client, path, method, expected):
-        response = client.request(method, path)
+    async def test_method(self, client, path, method, expected):
+        response = await client.request(method, path)
         assert response.json() == expected
 
 
@@ -114,8 +114,8 @@ class TestCaseURLComponent:
             ),
         ],
     )
-    def test_url(self, client, path, method, expected):
-        response = client.request(method, path)
+    async def test_url(self, client, path, method, expected):
+        response = await client.request(method, path)
         assert response.json() == expected
 
 
@@ -133,8 +133,8 @@ class TestCaseSchemeComponent:
             pytest.param("https://example.com/scheme/", "get", {"scheme": "https"}, id="https"),
         ],
     )
-    def test_scheme(self, client, path, method, expected):
-        response = client.request(method, path)
+    async def test_scheme(self, client, path, method, expected):
+        response = await client.request(method, path)
         assert response.json() == expected
 
 
@@ -152,8 +152,8 @@ class TestCaseHostComponent:
             pytest.param("http://example.com:123/host/", "get", {"host": "example.com"}, id="host_and_port"),
         ],
     )
-    def test_host(self, client, path, method, expected):
-        response = client.request(method, path)
+    async def test_host(self, client, path, method, expected):
+        response = await client.request(method, path)
         assert response.json() == expected
 
 
@@ -167,14 +167,16 @@ class TestCasePortComponent:
     @pytest.mark.parametrize(
         ["path", "method", "expected"],
         [
-            pytest.param("http://example.com/port/", "get", {"port": 80}, id="http"),
-            pytest.param("https://example.com/port/", "get", {"port": 443}, id="https"),
+            pytest.param("http://example.com/port/", "get", {"port": None}, id="http_default_implicit"),
+            pytest.param("https://example.com/port/", "get", {"port": None}, id="https_default_implicit"),
+            pytest.param("http://example.com:80/port/", "get", {"port": None}, id="http_default_explicit"),
+            pytest.param("https://example.com:443/port/", "get", {"port": None}, id="https_default_explicit"),
             pytest.param("http://example.com:123/port/", "get", {"port": 123}, id="http_custom"),
             pytest.param("https://example.com:123/port/", "get", {"port": 123}, id="https_custom"),
         ],
     )
-    def test_port(self, client, path, method, expected):
-        response = client.request(method, path)
+    async def test_port(self, client, path, method, expected):
+        response = await client.request(method, path)
         assert response.json() == expected
 
 
@@ -191,8 +193,8 @@ class TestCasePathComponent:
             pytest.param("/path/", "get", {"path": "/path/"}),
         ],
     )
-    def test_path(self, client, path, method, expected):
-        response = client.request(method, path)
+    async def test_path(self, client, path, method, expected):
+        response = await client.request(method, path)
         assert response.json() == expected
 
 
@@ -210,8 +212,8 @@ class TestCaseQueryStringComponent:
             pytest.param("/query_string/?a=1&a=2&b=3", "get", {"query_string": "a=1&a=2&b=3"}, id="params"),
         ],
     )
-    def test_query_string(self, client, path, method, expected):
-        response = client.request(method, path)
+    async def test_query_string(self, client, path, method, expected):
+        response = await client.request(method, path)
         assert response.json() == expected
 
 
@@ -229,8 +231,8 @@ class TestCaseQueryParamsComponent:
             pytest.param("/query_params/?a=1&a=2&b=3", "get", {"query_params": {"a": "2", "b": "3"}}, id="params"),
         ],
     )
-    def test_query_params(self, client, path, method, expected):
-        response = client.request(method, path)
+    async def test_query_params(self, client, path, method, expected):
+        response = await client.request(method, path)
         assert response.json() == expected
 
 
@@ -254,7 +256,6 @@ class TestCaseHeadersComponent:
                         "accept-encoding": "gzip, deflate",
                         "connection": "keep-alive",
                         "host": "example.com",
-                        "user-agent": "testclient",
                     }
                 },
                 id="default",
@@ -269,7 +270,6 @@ class TestCaseHeadersComponent:
                         "accept-encoding": "gzip, deflate",
                         "connection": "keep-alive",
                         "host": "example.com",
-                        "user-agent": "testclient",
                         "x-example-header": "example",
                     }
                 },
@@ -287,16 +287,18 @@ class TestCaseHeadersComponent:
                         "content-length": "3",
                         "content-type": "application/x-www-form-urlencoded",
                         "host": "example.com",
-                        "user-agent": "testclient",
                     }
                 },
                 id="content_length",
             ),
         ],
     )
-    def test_headers(self, client, path, method, request_kwargs, expected):
-        response = client.request(method, path, **dict(request_kwargs))
-        assert response.json() == expected
+    async def test_headers(self, client, path, method, request_kwargs, expected):
+        response = await client.request(method, path, **dict(request_kwargs))
+        response_json = response.json()
+        del response_json["headers"]["user-agent"]
+
+        assert response_json == expected
 
 
 class TestCaseBodyComponent:
@@ -312,6 +314,6 @@ class TestCaseBodyComponent:
             pytest.param("/body/", "post", {"content": "content"}, {"body": "content"}, id="default"),
         ],
     )
-    def test_body(self, client, path, method, request_kwargs, expected):
-        response = client.request(method, path, **dict(request_kwargs))
+    async def test_body(self, client, path, method, request_kwargs, expected):
+        response = await client.request(method, path, **dict(request_kwargs))
         assert response.json() == expected

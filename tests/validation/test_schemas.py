@@ -243,7 +243,7 @@ class TestCaseSchemaValidation:
             ),
         ],
     )
-    def test_schemas(self, client, path, method, test_input, expected_output, status_code):
-        response = client.request(method, path, json=test_input)
+    async def test_schemas(self, client, path, method, test_input, expected_output, status_code):
+        response = await client.request(method, path, json=test_input)
         assert response.status_code == status_code, response.json()
         assert_recursive_contains(expected_output, response.json())

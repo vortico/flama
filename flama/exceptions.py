@@ -15,6 +15,10 @@ __all__ = [
 ]
 
 
+class ApplicationError(Exception):
+    ...
+
+
 class DecodeError(Exception):
     """
     Raised by a Codec when `decode` fails due to malformed syntax.

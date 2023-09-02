@@ -20,7 +20,7 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
     t.TypeGuard = TypeGuard  # type: ignore
     t.ParamSpec = ParamSpec  # type: ignore
 
-__all__ = ["is_async", "run", "run"]
+__all__ = ["is_async", "run", "run_task_group", "AsyncProcess"]
 
 R = t.TypeVar("R", covariant=True)
 P = t.ParamSpec("P")  # type: ignore # PORT: Remove this comment when stop supporting 3.9
@@ -59,6 +59,30 @@ async def run(
         return await func(*args, **kwargs)
 
     return await asyncio.to_thread(func, *args, **kwargs)  # type: ignore
+
+
+if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
+
+    async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> t.List[asyncio.Task]:
+        """Run a group of tasks.
+
+        :param tasks: Tasks to run.
+        :result: Finished tasks.
+        """
+        tasks_list = [asyncio.create_task(task) for task in tasks]
+        await asyncio.wait(tasks_list)
+        return tasks_list
+
+else:
+
+    async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> t.List[asyncio.Task]:
+        """Run a group of tasks.
+
+        :param tasks: Tasks to run.
+        :result: Finished tasks.
+        """
+        async with asyncio.TaskGroup() as task_group:
+            return [task_group.create_task(task) for task in tasks]
 
 
 class AsyncProcess(multiprocessing.Process):

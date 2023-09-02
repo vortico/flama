@@ -80,11 +80,11 @@ class TestCaseSchemaModule:
             module.add_routes()
             assert module.app.add_route.call_args_list == expected_calls
 
-    def test_view_schema(self, client):
-        response = client.request("get", "/schema/")
+    async def test_view_schema(self, client):
+        response = await client.request("get", "/schema/")
         assert response.status_code == 200
         assert response.headers.get("content-type") == "application/vnd.oai.openapi"
 
-    def test_view_docs(self, client):
-        response = client.request("get", "/docs/")
+    async def test_view_docs(self, client):
+        response = await client.request("get", "/docs/")
         assert response.status_code == 200
