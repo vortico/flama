@@ -29,7 +29,7 @@ class PageNumberResponse(http.APIResponse):
         page: t.Optional[t.Union[int, str]] = None,
         page_size: t.Optional[t.Union[int, str]] = None,
         count: t.Optional[bool] = True,
-        **kwargs
+        **kwargs,
     ):
         self.page_number = int(page) if page is not None else 1
         self.page_size = int(page_size) if page_size is not None else self.default_page_size
@@ -73,7 +73,7 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
             page: t.Optional[int] = None,
             page_size: t.Optional[int] = None,
             count: t.Optional[bool] = False,
-            **kwargs
+            **kwargs,
         ):
             return PageNumberResponse(
                 schema=schema, page=page, page_size=page_size, count=count, content=await func(*args, **kwargs)
@@ -89,7 +89,7 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
             page: t.Optional[int] = None,
             page_size: t.Optional[int] = None,
             count: t.Optional[bool] = False,
-            **kwargs
+            **kwargs,
         ):
             return PageNumberResponse(
                 schema=schema, page=page, page_size=page_size, count=count, content=func(*args, **kwargs)
@@ -116,7 +116,11 @@ class PageNumberMixin:
 
         def _inner(func: t.Callable) -> t.Callable:
             resource_schema = schemas.Schema.from_type(inspect.signature(func).return_annotation).unique_schema
-            paginated_schema_name = "PageNumberPaginated" + schema_name
+            try:
+                schema_module, schema_class = schema_name.rsplit(".", 1)
+                paginated_schema_name = f"{schema_module}.PageNumberPaginated{schema_class}"
+            except ValueError:
+                paginated_schema_name = f"PageNumberPaginated{schema_name}"
             schema = schemas.Schema.build(
                 paginated_schema_name,
                 schema=schemas.schemas.PageNumber,

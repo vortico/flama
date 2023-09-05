@@ -341,23 +341,27 @@ class TestCaseSchemaRegistry:
         assert registry.used(spec) == expected_output
 
     @pytest.mark.parametrize(
-        "schema,name,exception",
+        ["schema", "name", "expected_name", "exception"],
         [
-            pytest.param(typesystem.Schema(title="Foo", fields={}), "Foo", None, id="typesystem_explicit_name"),
+            pytest.param(typesystem.Schema(title="Foo", fields={}), "Foo", "Foo", None, id="typesystem_explicit_name"),
             pytest.param(
                 typesystem.Schema(title="Foo", fields={}),
                 None,
+                "abc.Foo",
                 ValueError("Cannot infer schema name."),
                 id="typesystem_cannot_infer_name",
             ),
-            pytest.param(type("Foo", (marshmallow.Schema,), {}), None, None, id="marshmallow_infer_name"),
+            pytest.param(type("Foo", (marshmallow.Schema,), {}), None, "abc.Foo", None, id="marshmallow_infer_name"),
+            pytest.param(
+                pydantic.create_model("Foo", name=(str, ...)), None, "pydantic.main.Foo", None, id="pydantic_infer_name"
+            ),
         ],
         indirect=["exception"],
     )
-    def test_register(self, registry, schema, name, exception):
+    def test_register(self, registry, schema, name, expected_name, exception):
         with exception:
             registry.register(schema, name=name)
-            assert registry[schema].name == "Foo"
+            assert registry[schema].name == expected_name
 
     def test_register_already_registered(self, registry, foo_schema):
         with pytest.raises(ValueError, match="Schema is already registered."):
@@ -551,7 +555,7 @@ class TestCaseSchemaGenerator:
         schemas = app.schema.schema["components"]["schemas"]
 
         # Check declared components are only those that are in use
-        assert set(schemas.keys()) == {"Owner", "Puppy", "BodyParam", "APIError"}
+        assert set(schemas.keys()) == {"Owner", "Puppy", "BodyParam", "flama.APIError"}
 
     @pytest.mark.parametrize(
         "path,verb,expected_schema",
@@ -565,7 +569,9 @@ class TestCaseSchemaGenerator:
                         "200": {"description": "Param."},
                         "default": {
                             "description": "Unexpected error.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
                         },
                     },
                     "parameters": [
@@ -600,7 +606,9 @@ class TestCaseSchemaGenerator:
                         "200": {"description": "Param."},
                         "default": {
                             "description": "Unexpected error.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
                         },
                     },
                     "parameters": [
@@ -623,7 +631,9 @@ class TestCaseSchemaGenerator:
                         "200": {"description": "Param."},
                         "default": {
                             "description": "Unexpected error.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
                         },
                     },
                     "requestBody": {
@@ -653,7 +663,9 @@ class TestCaseSchemaGenerator:
                         },
                         "default": {
                             "description": "Unexpected error.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
                         },
                     },
                 },
@@ -680,7 +692,9 @@ class TestCaseSchemaGenerator:
                         },
                         "default": {
                             "description": "Unexpected error.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
                         },
                     },
                 },
@@ -707,7 +721,9 @@ class TestCaseSchemaGenerator:
                         },
                         "default": {
                             "description": "Unexpected error.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
                         },
                     },
                 },
@@ -734,7 +750,9 @@ class TestCaseSchemaGenerator:
                         },
                         "default": {
                             "description": "Unexpected error.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
                         },
                     },
                 },
@@ -761,7 +779,9 @@ class TestCaseSchemaGenerator:
                         },
                         "default": {
                             "description": "Unexpected error.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
                         },
                     },
                 },
@@ -775,7 +795,9 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "default": {
                             "description": "Unexpected error.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
                         }
                     },
                 },
@@ -791,7 +813,9 @@ class TestCaseSchemaGenerator:
                         "400": {"description": "Bad Request."},
                         "default": {
                             "description": "Unexpected error.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIError"}}},
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
                         },
                     },
                 },
