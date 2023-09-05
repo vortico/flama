@@ -78,12 +78,12 @@ class MLModelOutput(marshmallow.Schema):
 
 
 SCHEMAS = {
-    "APIError": APIError,
-    "DropCollection": DropCollection,
-    "LimitOffsetMeta": LimitOffsetMeta,
-    "LimitOffset": LimitOffset,
-    "PageNumberMeta": PageNumberMeta,
-    "PageNumber": PageNumber,
-    "MLModelInput": MLModelInput,
-    "MLModelOutput": MLModelOutput,
+    "flama.APIError": APIError,
+    "flama.DropCollection": DropCollection,
+    "flama.LimitOffsetMeta": LimitOffsetMeta,
+    "flama.LimitOffset": LimitOffset,
+    "flama.PageNumberMeta": PageNumberMeta,
+    "flama.PageNumber": PageNumber,
+    "flama.MLModelInput": MLModelInput,
+    "flama.MLModelOutput": MLModelOutput,
 }

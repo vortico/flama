@@ -204,7 +204,11 @@ class SchemaRegistry(typing.Dict[int, SchemaInfo]):
                 raise ValueError("Cannot infer schema name.")
 
             try:
-                name = schema_instance.__name__
+                name = (
+                    schema_instance.__qualname__
+                    if schema_instance.__module__ == "builtins"
+                    else f"{schema_instance.__module__}.{schema_instance.__qualname__}"
+                )
             except AttributeError:
                 raise ValueError("Cannot infer schema name.")
 

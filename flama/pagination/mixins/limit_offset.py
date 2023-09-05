@@ -27,7 +27,7 @@ class LimitOffsetResponse(http.APIResponse):
         offset: t.Optional[t.Union[int, str]] = None,
         limit: t.Optional[t.Union[int, str]] = None,
         count: t.Optional[bool] = True,
-        **kwargs
+        **kwargs,
     ):
         self.offset = int(offset) if offset is not None else 0
         self.limit = int(limit) if limit is not None else self.default_limit
@@ -66,7 +66,7 @@ class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
             limit: t.Optional[int] = None,
             offset: t.Optional[int] = None,
             count: t.Optional[bool] = False,
-            **kwargs
+            **kwargs,
         ):
             return LimitOffsetResponse(
                 schema=schema, limit=limit, offset=offset, count=count, content=await func(*args, **kwargs)
@@ -82,7 +82,7 @@ class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
             limit: t.Optional[int] = None,
             offset: t.Optional[int] = None,
             count: t.Optional[bool] = False,
-            **kwargs
+            **kwargs,
         ):
             return LimitOffsetResponse(
                 schema=schema, limit=limit, offset=offset, count=count, content=func(*args, **kwargs)
@@ -107,9 +107,13 @@ class LimitOffsetMixin:
         :return: Decorated view.
         """
 
-        def _inner(func: t.Callable):
+        def _inner(func: t.Callable) -> t.Callable:
             resource_schema = schemas.Schema.from_type(inspect.signature(func).return_annotation).unique_schema
-            paginated_schema_name = "LimitOffsetPaginated" + schema_name
+            try:
+                schema_module, schema_class = schema_name.rsplit(".", 1)
+                paginated_schema_name = f"{schema_module}.LimitOffsetPaginated{schema_class}"
+            except ValueError:
+                paginated_schema_name = f"LimitOffsetPaginated{schema_name}"
             schema = schemas.Schema.build(
                 paginated_schema_name,
                 schema=schemas.schemas.LimitOffset,

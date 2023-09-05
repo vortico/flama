@@ -38,7 +38,12 @@ class TestPageNumberResponse:
     def test_registered_schemas(self, app):
         schemas = app.schema.schema["components"]["schemas"]
 
-        assert set(schemas.keys()) == {"OutputSchema", "PageNumberPaginatedOutputSchema", "PageNumberMeta", "APIError"}
+        assert set(schemas.keys()) == {
+            "OutputSchema",
+            "PageNumberPaginatedOutputSchema",
+            "flama.PageNumberMeta",
+            "flama.APIError",
+        }
 
     def test_invalid_view(self, output_schema):
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
@@ -167,8 +172,8 @@ class TestLimitOffsetResponse:
         assert set(schemas.keys()) == {
             "OutputSchema",
             "LimitOffsetPaginatedOutputSchema",
-            "LimitOffsetMeta",
-            "APIError",
+            "flama.LimitOffsetMeta",
+            "flama.APIError",
         }
 
     def test_invalid_view(self, app, output_schema):
