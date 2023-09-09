@@ -1,12 +1,12 @@
 # ruff: noqa
 import datetime
-import typing
+import typing as t
 import uuid
 
 from typesystem.fields import *
 from typesystem.schemas import Reference
 
-MAPPING: typing.Dict[typing.Any, typing.Type[Field]] = {
+MAPPING: t.Dict[t.Union[t.Type, None], t.Type[Field]] = {
     None: Field,
     int: Integer,
     float: Float,
@@ -19,3 +19,5 @@ MAPPING: typing.Dict[typing.Any, typing.Type[Field]] = {
     datetime.datetime: DateTime,
     datetime.time: Time,
 }
+
+MAPPING_TYPES = {v: k for k, v in MAPPING.items()}

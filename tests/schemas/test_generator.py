@@ -1,9 +1,12 @@
+import contextlib
 import typing as t
+from collections import namedtuple
 
 import marshmallow
 import pydantic
 import pytest
 import typesystem
+import typesystem.fields
 
 from flama import types
 from flama.endpoints import HTTPEndpoint
@@ -19,23 +22,106 @@ class TestCaseSchemaRegistry:
         return SchemaRegistry()
 
     @pytest.fixture(scope="function")
-    def foo_schema(self, registry):
-        from flama import schemas
-
-        if schemas.lib == pydantic:
+    def foo_schema(self, app):
+        if app.schema.schema_library.lib == pydantic:
             schema = pydantic.create_model("Foo", name=(str, ...))
-        elif schemas.lib == typesystem:
+            name = "pydantic.main.Foo"
+        elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(title="Foo", fields={"name": typesystem.fields.String()})
-        elif schemas.lib == marshmallow:
+            name = "typesystem.schemas.Foo"
+        elif app.schema.schema_library.lib == marshmallow:
             schema = type("Foo", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
+            name = "abc.Foo"
         else:
-            raise ValueError("Wrong schema lib")
-        registry.register(schema, "Foo")
-        return schema
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
+        return namedtuple("FooSchema", ("schema", "name"))(schema=schema, name=name)
 
     @pytest.fixture(scope="function")
     def foo_array_schema(self, foo_schema):
-        return t.List[foo_schema]
+        return t.List[foo_schema.schema]
+
+    @pytest.fixture(scope="function")
+    def bar_schema(self, app, foo_schema):
+        child_schema = foo_schema.schema
+        if app.schema.schema_library.lib == pydantic:
+            schema = pydantic.create_model("Bar", foo=(child_schema, ...))
+            name = "pydantic.main.Bar"
+        elif app.schema.schema_library.lib == typesystem:
+            schema = typesystem.Schema(
+                title="Bar",
+                fields={
+                    "foo": typesystem.Reference(to="Foo", definitions=typesystem.Definitions({"Foo": child_schema}))
+                },
+            )
+            name = "typesystem.schemas.Bar"
+        elif app.schema.schema_library.lib == marshmallow:
+            schema = type("Bar", (marshmallow.Schema,), {"foo": marshmallow.fields.Nested(child_schema())})
+            name = "abc.Bar"
+        else:
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
+        return namedtuple("BarSchema", ("schema", "name"))(schema=schema, name=name)
+
+    @pytest.fixture(scope="function")
+    def bar_list_schema(self, app, foo_schema):
+        child_schema = foo_schema.schema
+        if app.schema.schema_library.lib == pydantic:
+            schema = pydantic.create_model("BarList", foo=(t.List[child_schema], ...))
+            name = "pydantic.main.BarList"
+        elif app.schema.schema_library.lib == typesystem:
+            schema = typesystem.Schema(
+                title="BarList",
+                fields={
+                    "foo": typesystem.Array(
+                        typesystem.Reference(to="Foo", definitions=typesystem.Definitions({"Foo": child_schema}))
+                    )
+                },
+            )
+            name = "typesystem.schemas.BarList"
+        elif app.schema.schema_library.lib == marshmallow:
+            schema = type(
+                "BarList",
+                (marshmallow.Schema,),
+                {"foo": marshmallow.fields.List(marshmallow.fields.Nested(child_schema()))},
+            )
+            name = "abc.BarList"
+        else:
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
+        return namedtuple("BarListSchema", ("schema", "name"))(schema=schema, name=name)
+
+    @pytest.fixture(scope="function")
+    def bar_dict_schema(self, app, foo_schema):
+        child_schema = foo_schema.schema
+        if app.schema.schema_library.lib == pydantic:
+            schema = pydantic.create_model("BarDict", foo=(t.Dict[str, child_schema], ...))
+            name = "pydantic.main.BarDict"
+        elif app.schema.schema_library.lib == typesystem:
+            schema = typesystem.Schema(
+                title="BarDict",
+                fields={
+                    "foo": typesystem.Object(
+                        properties={
+                            "x": typesystem.Reference(
+                                to="Foo", definitions=typesystem.Definitions({"Foo": child_schema})
+                            )
+                        }
+                    )
+                },
+            )
+            name = "typesystem.schemas.BarDict"
+        elif app.schema.schema_library.lib == marshmallow:
+            schema = type(
+                "BarDict",
+                (marshmallow.Schema,),
+                {"foo": marshmallow.fields.Dict(values=marshmallow.fields.Nested(child_schema()))},
+            )
+            name = "abc.BarDict"
+        else:
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
+        return namedtuple("BarDictSchema", ("schema", "name"))(schema=schema, name=name)
+
+    @pytest.fixture(scope="function")
+    def schemas(self, foo_schema, bar_schema, bar_list_schema, bar_dict_schema):
+        return {"Foo": foo_schema, "Bar": bar_schema, "BarList": bar_list_schema, "BarDict": bar_dict_schema}
 
     @pytest.fixture(scope="function")
     def spec(self):
@@ -45,7 +131,7 @@ class TestCaseSchemaRegistry:
         assert SchemaRegistry() == {}
 
     @pytest.mark.parametrize(
-        "operation,output",
+        ["operation", "register_schemas", "output"],
         [
             pytest.param(
                 openapi.Operation(
@@ -62,8 +148,66 @@ class TestCaseSchemaRegistry:
                         }
                     )
                 ),
-                True,
+                ["Foo"],
+                ["Foo"],
                 id="response_reference",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    responses=openapi.Responses(
+                        {
+                            "200": openapi.Response(
+                                description="Bar",
+                                content={
+                                    "application/json": openapi.MediaType(
+                                        schema=openapi.Reference(ref="#!/components/schemas/Bar")
+                                    )
+                                },
+                            )
+                        }
+                    )
+                ),
+                ["Bar"],
+                ["Foo", "Bar"],
+                id="response_reference_nested",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    responses=openapi.Responses(
+                        {
+                            "200": openapi.Response(
+                                description="Bar",
+                                content={
+                                    "application/json": openapi.MediaType(
+                                        schema=openapi.Reference(ref="#!/components/schemas/BarList")
+                                    )
+                                },
+                            )
+                        }
+                    )
+                ),
+                ["BarList"],
+                ["Foo", "BarList"],
+                id="response_reference_nested_list",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    responses=openapi.Responses(
+                        {
+                            "200": openapi.Response(
+                                description="Bar",
+                                content={
+                                    "application/json": openapi.MediaType(
+                                        schema=openapi.Reference(ref="#!/components/schemas/BarDict")
+                                    )
+                                },
+                            )
+                        }
+                    )
+                ),
+                ["BarDict"],
+                ["Foo", "BarDict"],
+                id="response_reference_nested_dict",
             ),
             pytest.param(
                 openapi.Operation(
@@ -85,8 +229,81 @@ class TestCaseSchemaRegistry:
                         }
                     )
                 ),
-                True,
+                ["Foo"],
+                ["Foo"],
                 id="response_schema",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    responses=openapi.Responses(
+                        {
+                            "200": openapi.Response(
+                                description="Bar",
+                                content={
+                                    "application/json": openapi.MediaType(
+                                        schema=openapi.Schema(
+                                            {
+                                                "type": "object",
+                                                "properties": {"bar": {"$ref": "#!/components/schemas/Bar"}},
+                                            }
+                                        ),
+                                    )
+                                },
+                            )
+                        }
+                    )
+                ),
+                ["Bar"],
+                ["Foo", "Bar"],
+                id="response_schema_nested",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    responses=openapi.Responses(
+                        {
+                            "200": openapi.Response(
+                                description="BarList",
+                                content={
+                                    "application/json": openapi.MediaType(
+                                        schema=openapi.Schema(
+                                            {
+                                                "type": "object",
+                                                "properties": {"bar": {"$ref": "#!/components/schemas/BarList"}},
+                                            }
+                                        ),
+                                    )
+                                },
+                            )
+                        }
+                    )
+                ),
+                ["BarList"],
+                ["Foo", "BarList"],
+                id="response_schema_nested_list",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    responses=openapi.Responses(
+                        {
+                            "200": openapi.Response(
+                                description="BarDict",
+                                content={
+                                    "application/json": openapi.MediaType(
+                                        schema=openapi.Schema(
+                                            {
+                                                "type": "object",
+                                                "properties": {"bar": {"$ref": "#!/components/schemas/BarDict"}},
+                                            }
+                                        ),
+                                    )
+                                },
+                            )
+                        }
+                    )
+                ),
+                ["BarDict"],
+                ["Foo", "BarDict"],
+                id="response_schema_nested_dict",
             ),
             pytest.param(
                 openapi.Operation(
@@ -113,7 +330,8 @@ class TestCaseSchemaRegistry:
                         }
                     )
                 ),
-                True,
+                ["Foo"],
+                ["Foo"],
                 id="response_array",
             ),
             pytest.param(
@@ -133,15 +351,41 @@ class TestCaseSchemaRegistry:
                         }
                     )
                 ),
-                False,
+                [],
+                [],
                 id="response_wrong",
             ),
             pytest.param(
                 openapi.Operation(
                     requestBody=openapi.Reference(ref="#!/components/schemas/Foo"), responses=openapi.Responses({})
                 ),
-                True,
+                ["Foo"],
+                ["Foo"],
                 id="body_reference",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    requestBody=openapi.Reference(ref="#!/components/schemas/Bar"), responses=openapi.Responses({})
+                ),
+                ["Bar"],
+                ["Foo", "Bar"],
+                id="body_reference_nested",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    requestBody=openapi.Reference(ref="#!/components/schemas/BarList"), responses=openapi.Responses({})
+                ),
+                ["BarList"],
+                ["Foo", "BarList"],
+                id="body_reference_nested_list",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    requestBody=openapi.Reference(ref="#!/components/schemas/BarDict"), responses=openapi.Responses({})
+                ),
+                ["BarDict"],
+                ["Foo", "BarDict"],
+                id="body_reference_nested_dict",
             ),
             pytest.param(
                 openapi.Operation(
@@ -157,8 +401,63 @@ class TestCaseSchemaRegistry:
                     ),
                     responses=openapi.Responses({}),
                 ),
-                True,
+                ["Foo"],
+                ["Foo"],
                 id="body_schema",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    requestBody=openapi.RequestBody(
+                        description="Bar",
+                        content={
+                            "application/json": openapi.MediaType(
+                                schema=openapi.Schema(
+                                    {"type": "object", "properties": {"foo": {"$ref": "#!/components/schemas/Bar"}}}
+                                ),
+                            )
+                        },
+                    ),
+                    responses=openapi.Responses({}),
+                ),
+                ["Bar"],
+                ["Foo", "Bar"],
+                id="body_schema_nested",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    requestBody=openapi.RequestBody(
+                        description="BarList",
+                        content={
+                            "application/json": openapi.MediaType(
+                                schema=openapi.Schema(
+                                    {"type": "object", "properties": {"foo": {"$ref": "#!/components/schemas/BarList"}}}
+                                ),
+                            )
+                        },
+                    ),
+                    responses=openapi.Responses({}),
+                ),
+                ["BarList"],
+                ["Foo", "BarList"],
+                id="body_schema_nested_list",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    requestBody=openapi.RequestBody(
+                        description="BarDict",
+                        content={
+                            "application/json": openapi.MediaType(
+                                schema=openapi.Schema(
+                                    {"type": "object", "properties": {"foo": {"$ref": "#!/components/schemas/BarDict"}}}
+                                ),
+                            )
+                        },
+                    ),
+                    responses=openapi.Responses({}),
+                ),
+                ["BarDict"],
+                ["Foo", "BarDict"],
+                id="body_schema_nested_dict",
             ),
             pytest.param(
                 openapi.Operation(
@@ -179,7 +478,8 @@ class TestCaseSchemaRegistry:
                     ),
                     responses=openapi.Responses({}),
                 ),
-                True,
+                ["Foo"],
+                ["Foo"],
                 id="body_array",
             ),
             pytest.param(
@@ -194,15 +494,41 @@ class TestCaseSchemaRegistry:
                     ),
                     responses=openapi.Responses({}),
                 ),
-                False,
+                [],
+                [],
                 id="body_wrong",
             ),
             pytest.param(
                 openapi.Operation(
                     parameters=[openapi.Reference(ref="#!/components/schemas/Foo")], responses=openapi.Responses({})
                 ),
-                True,
+                ["Foo"],
+                ["Foo"],
                 id="parameter_reference",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    parameters=[openapi.Reference(ref="#!/components/schemas/Bar")], responses=openapi.Responses({})
+                ),
+                ["Bar"],
+                ["Foo", "Bar"],
+                id="parameter_reference_nested",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    parameters=[openapi.Reference(ref="#!/components/schemas/BarList")], responses=openapi.Responses({})
+                ),
+                ["BarList"],
+                ["Foo", "BarList"],
+                id="parameter_reference_nested_list",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    parameters=[openapi.Reference(ref="#!/components/schemas/BarDict")], responses=openapi.Responses({})
+                ),
+                ["BarDict"],
+                ["Foo", "BarDict"],
+                id="parameter_reference_nested_dict",
             ),
             pytest.param(
                 openapi.Operation(
@@ -217,8 +543,60 @@ class TestCaseSchemaRegistry:
                     ],
                     responses=openapi.Responses({}),
                 ),
-                True,
+                ["Foo"],
+                ["Foo"],
                 id="parameter_schema",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    parameters=[
+                        openapi.Parameter(
+                            in_="query",
+                            name="bar",
+                            schema=openapi.Schema(
+                                {"type": "object", "properties": {"bar": {"$ref": "#!/components/schemas/Bar"}}}
+                            ),
+                        )
+                    ],
+                    responses=openapi.Responses({}),
+                ),
+                ["Bar"],
+                ["Foo", "Bar"],
+                id="parameter_schema_nested",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    parameters=[
+                        openapi.Parameter(
+                            in_="query",
+                            name="bar",
+                            schema=openapi.Schema(
+                                {"type": "object", "properties": {"bar": {"$ref": "#!/components/schemas/BarList"}}}
+                            ),
+                        )
+                    ],
+                    responses=openapi.Responses({}),
+                ),
+                ["BarList"],
+                ["Foo", "BarList"],
+                id="parameter_schema_nested_list",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    parameters=[
+                        openapi.Parameter(
+                            in_="query",
+                            name="bar",
+                            schema=openapi.Schema(
+                                {"type": "object", "properties": {"bar": {"$ref": "#!/components/schemas/BarDict"}}}
+                            ),
+                        )
+                    ],
+                    responses=openapi.Responses({}),
+                ),
+                ["BarDict"],
+                ["Foo", "BarDict"],
+                id="parameter_schema_nested_dict",
             ),
             pytest.param(
                 openapi.Operation(
@@ -238,7 +616,8 @@ class TestCaseSchemaRegistry:
                     ],
                     responses=openapi.Responses({}),
                 ),
-                True,
+                ["Foo"],
+                ["Foo"],
                 id="parameter_array",
             ),
             pytest.param(
@@ -252,7 +631,8 @@ class TestCaseSchemaRegistry:
                     ],
                     responses=openapi.Responses({}),
                 ),
-                False,
+                [],
+                [],
                 id="parameter_wrong",
             ),
             pytest.param(
@@ -260,8 +640,36 @@ class TestCaseSchemaRegistry:
                     callbacks={"200": openapi.Reference(ref="#!/components/schemas/Foo")},
                     responses=openapi.Responses({}),
                 ),
-                True,
+                ["Foo"],
+                ["Foo"],
                 id="callback_reference",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    callbacks={"200": openapi.Reference(ref="#!/components/schemas/Bar")},
+                    responses=openapi.Responses({}),
+                ),
+                ["Bar"],
+                ["Foo", "Bar"],
+                id="callback_reference_nested",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    callbacks={"200": openapi.Reference(ref="#!/components/schemas/BarList")},
+                    responses=openapi.Responses({}),
+                ),
+                ["BarList"],
+                ["Foo", "BarList"],
+                id="callback_reference_nested_list",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    callbacks={"200": openapi.Reference(ref="#!/components/schemas/BarDict")},
+                    responses=openapi.Responses({}),
+                ),
+                ["BarDict"],
+                ["Foo", "BarDict"],
+                id="callback_reference_nested_dict",
             ),
             pytest.param(
                 openapi.Operation(
@@ -296,8 +704,120 @@ class TestCaseSchemaRegistry:
                     },
                     responses=openapi.Responses({}),
                 ),
-                True,
+                ["Foo"],
+                ["Foo"],
                 id="callback_schema",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    callbacks={
+                        "foo": openapi.Callback(
+                            {
+                                "/callback": openapi.Path(
+                                    get=openapi.Operation(
+                                        responses=openapi.Responses(
+                                            {
+                                                "200": openapi.Response(
+                                                    description="Bar",
+                                                    content={
+                                                        "application/json": openapi.MediaType(
+                                                            schema=openapi.Schema(
+                                                                {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "bar": {"$ref": "#!/components/schemas/Bar"}
+                                                                    },
+                                                                }
+                                                            )
+                                                        )
+                                                    },
+                                                )
+                                            }
+                                        )
+                                    )
+                                )
+                            }
+                        )
+                    },
+                    responses=openapi.Responses({}),
+                ),
+                ["Bar"],
+                ["Foo", "Bar"],
+                id="callback_schema_nested",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    callbacks={
+                        "foo": openapi.Callback(
+                            {
+                                "/callback": openapi.Path(
+                                    get=openapi.Operation(
+                                        responses=openapi.Responses(
+                                            {
+                                                "200": openapi.Response(
+                                                    description="BarList",
+                                                    content={
+                                                        "application/json": openapi.MediaType(
+                                                            schema=openapi.Schema(
+                                                                {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "bar": {"$ref": "#!/components/schemas/BarList"}
+                                                                    },
+                                                                }
+                                                            )
+                                                        )
+                                                    },
+                                                )
+                                            }
+                                        )
+                                    )
+                                )
+                            }
+                        )
+                    },
+                    responses=openapi.Responses({}),
+                ),
+                ["BarList"],
+                ["Foo", "BarList"],
+                id="callback_schema_nested_list",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    callbacks={
+                        "foo": openapi.Callback(
+                            {
+                                "/callback": openapi.Path(
+                                    get=openapi.Operation(
+                                        responses=openapi.Responses(
+                                            {
+                                                "200": openapi.Response(
+                                                    description="BarDict",
+                                                    content={
+                                                        "application/json": openapi.MediaType(
+                                                            schema=openapi.Schema(
+                                                                {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "bar": {"$ref": "#!/components/schemas/BarDict"}
+                                                                    },
+                                                                }
+                                                            )
+                                                        )
+                                                    },
+                                                )
+                                            }
+                                        )
+                                    )
+                                )
+                            }
+                        )
+                    },
+                    responses=openapi.Responses({}),
+                ),
+                ["BarDict"],
+                ["Foo", "BarDict"],
+                id="callback_schema_nested_dict",
             ),
             pytest.param(
                 openapi.Operation(
@@ -330,49 +850,54 @@ class TestCaseSchemaRegistry:
                     },
                     responses=openapi.Responses({}),
                 ),
-                False,
+                [],
+                [],
                 id="callback_wrong",
             ),
         ],
     )
-    def test_used(self, registry, foo_schema, spec, operation, output):
-        expected_output = {id(foo_schema): registry[foo_schema]} if output else {}
+    def test_used(self, registry, schemas, spec, operation, register_schemas, output):
+        for schema in register_schemas:
+            registry.register(schemas[schema].schema, name=schema)
+
+        expected_output = {id(schemas[schema].schema) for schema in output}
+
         spec.add_path("/", openapi.Path(get=operation))
-        assert registry.used(spec) == expected_output
+
+        assert set(registry.used(spec).keys()) == expected_output
 
     @pytest.mark.parametrize(
-        ["schema", "name", "expected_name", "exception"],
+        ["schema", "explicit_name", "output"],
         [
-            pytest.param(typesystem.Schema(title="Foo", fields={}), "Foo", "Foo", None, id="typesystem_explicit_name"),
-            pytest.param(
-                typesystem.Schema(title="Foo", fields={}),
-                None,
-                "abc.Foo",
-                ValueError("Cannot infer schema name."),
-                id="typesystem_cannot_infer_name",
-            ),
-            pytest.param(type("Foo", (marshmallow.Schema,), {}), None, "abc.Foo", None, id="marshmallow_infer_name"),
-            pytest.param(
-                pydantic.create_model("Foo", name=(str, ...)), None, "pydantic.main.Foo", None, id="pydantic_infer_name"
-            ),
+            pytest.param("Foo", "Foo", {"Foo": "Foo"}, id="explicit_name"),
+            pytest.param("Foo", None, {"Foo": None}, id="infer_name"),
+            pytest.param("Bar", "Bar", {"Bar": "Bar"}, id="nested_schemas"),
         ],
-        indirect=["exception"],
     )
-    def test_register(self, registry, schema, name, expected_name, exception):
+    def test_register(self, registry, schemas, schema, explicit_name, output):
+        schema, name = schemas[schema]
+        expected_name = name if not explicit_name else explicit_name
+        exception = (
+            contextlib.ExitStack() if expected_name else pytest.raises(ValueError, match="Cannot infer schema name.")
+        )
         with exception:
-            registry.register(schema, name=name)
-            assert registry[schema].name == expected_name
+            registry.register(schema, name=explicit_name)
+            for s, n in output.items():
+                assert schemas[s].schema in registry
+                assert registry[schemas[s].schema].name == (n or schemas[s].name)
 
     def test_register_already_registered(self, registry, foo_schema):
+        schema = foo_schema.schema
+        registry.register(schema, name="Foo")
         with pytest.raises(ValueError, match="Schema is already registered."):
-            registry.register(foo_schema, name="Foo")
+            registry.register(schema, name="Foo")
 
     @pytest.mark.parametrize(
         ["multiple", "result"],
         (
-            pytest.param(False, openapi.Reference(ref="#/components/schemas/Foo"), id="single"),
+            pytest.param(False, openapi.Reference(ref="#/components/schemas/Foo"), id="schema"),
             pytest.param(
-                True, openapi.Schema({"type": "array", "items": {"$ref": "#/components/schemas/Foo"}}), id="multiple"
+                True, openapi.Schema({"type": "array", "items": {"$ref": "#/components/schemas/Foo"}}), id="array"
             ),
             pytest.param(
                 None,
@@ -384,79 +909,86 @@ class TestCaseSchemaRegistry:
                         ]
                     }
                 ),
-                id="multiple",
+                id="array_or_schema",
             ),
         ),
     )
     def test_get_openapi_ref(self, multiple, result, registry, foo_schema):
-        assert registry.get_openapi_ref(foo_schema, multiple=multiple) == result
+        schema = foo_schema.schema
+        registry.register(schema, name="Foo")
+        assert registry.get_openapi_ref(schema, multiple=multiple) == result
 
 
 class TestCaseSchemaGenerator:
     @pytest.fixture(scope="function")
     def owner_schema(self, app):
-        from flama import schemas
-
-        if schemas.lib == pydantic:
+        if app.schema.schema_library.lib == pydantic:
             schema = pydantic.create_model("Owner", name=(str, ...))
-        elif schemas.lib == typesystem:
+            name = "pydantic.main.Owner"
+        elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(title="Owner", fields={"name": typesystem.fields.String()})
-        elif schemas.lib == marshmallow:
+            name = "typesystem.schemas.Owner"
+        elif app.schema.schema_library.lib == marshmallow:
             schema = type("Owner", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
+            name = "abc.Owner"
         else:
             raise ValueError("Wrong schema lib")
         app.schema.schemas["Owner"] = schema
-        return schema
+        return namedtuple("OwnerSchema", ("schema", "name"))(schema, name)
 
     @pytest.fixture(scope="function")
     def puppy_schema(self, app, owner_schema):
-        from flama import schemas
-
-        if schemas.lib == pydantic:
-            schema = pydantic.create_model("Puppy", name=(str, ...), owner=(owner_schema, ...))
-        elif schemas.lib == typesystem:
+        if app.schema.schema_library.lib == pydantic:
+            schema = pydantic.create_model("Puppy", name=(str, ...), owner=(owner_schema.schema, ...))
+            name = "pydantic.main.Puppy"
+        elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(
                 title="Puppy",
                 fields={
                     "name": typesystem.fields.String(),
-                    "owner": typesystem.Reference(to="Owner", definitions=app.schema.schemas),
+                    "owner": typesystem.Reference(
+                        to="Owner", definitions=typesystem.Definitions({"Owner": owner_schema.schema})
+                    ),
                 },
             )
-        elif schemas.lib == marshmallow:
+            name = "typesystem.schemas.Puppy"
+        elif app.schema.schema_library.lib == marshmallow:
             schema = type(
                 "Puppy",
                 (marshmallow.Schema,),
                 {
                     "name": marshmallow.fields.String(),
-                    "owner": marshmallow.fields.Nested(owner_schema),
+                    "owner": marshmallow.fields.Nested(owner_schema.schema),
                 },
             )
+            name = "abc.Puppy"
         else:
             raise ValueError("Wrong schema lib")
         app.schema.schemas["Puppy"] = schema
-        return schema
+        return namedtuple("PuppySchema", ("schema", "name"))(schema, name)
 
     @pytest.fixture(scope="function")
     def body_param_schema(self, app):
-        from flama import schemas
-
-        if schemas.lib == pydantic:
+        if app.schema.schema_library.lib == pydantic:
             schema = pydantic.create_model("BodyParam", name=(str, ...))
-        elif schemas.lib == typesystem:
-            schema = typesystem.Schema(fields={"name": typesystem.fields.String()})
-        elif schemas.lib == marshmallow:
+            name = "pydantic.main.BodyParam"
+        elif app.schema.schema_library.lib == typesystem:
+            schema = typesystem.Schema(title="BodyParam", fields={"name": typesystem.fields.String()})
+            name = "typesystem.schemas.BodyParam"
+        elif app.schema.schema_library.lib == marshmallow:
             schema = type("BodyParam", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
+            name = "abc.BodyParam"
         else:
             raise ValueError("Wrong schema lib")
 
         app.schema.schemas["BodyParam"] = schema
-        return schema
+        return namedtuple("BodyParamSchema", ("schema", "name"))(schema, name)
 
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app, puppy_schema, body_param_schema):
         @app.route("/endpoint/", methods=["GET"])
         class PuppyEndpoint(HTTPEndpoint):
-            async def get(self) -> puppy_schema:
+            async def get(self) -> types.Schema[puppy_schema.schema]:
                 """
                 description: Endpoint.
                 responses:
@@ -466,7 +998,7 @@ class TestCaseSchemaGenerator:
                 return {"name": "Canna"}
 
         @app.route("/custom-component/", methods=["GET"])
-        async def get() -> puppy_schema:
+        async def get() -> types.Schema[puppy_schema.schema]:
             """
             description: Custom component.
             responses:
@@ -476,7 +1008,7 @@ class TestCaseSchemaGenerator:
             return {"name": "Canna"}
 
         @app.route("/many-components/", methods=["GET"])
-        async def many_components() -> types.Schema[puppy_schema]:
+        async def many_components() -> types.Schema[puppy_schema.schema]:
             """
             description: Many custom components.
             responses:
@@ -506,7 +1038,7 @@ class TestCaseSchemaGenerator:
             return {"name": param}
 
         @app.route("/body-param/", methods=["POST"])
-        async def body_param(param: types.Schema[body_param_schema]):
+        async def body_param(param: types.Schema[body_param_schema.schema]):
             """
             description: Body param.
             responses:

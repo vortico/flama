@@ -5,7 +5,7 @@ import typing as t
 import typesystem
 
 from flama.injection import Parameter
-from flama.schemas._libs.typesystem.fields import MAPPING
+from flama.schemas._libs.typesystem.fields import MAPPING, MAPPING_TYPES
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 from flama.types import JSONSchema
@@ -30,7 +30,7 @@ class TypesystemAdapter(Adapter[Schema, Field]):
         required: bool = True,
         default: t.Any = None,
         multiple: bool = False,
-        **kwargs
+        **kwargs,
     ) -> Field:
         if required is False and default is not Parameter.empty:
             kwargs["default"] = default
@@ -44,7 +44,7 @@ class TypesystemAdapter(Adapter[Schema, Field]):
                     if self.is_schema(type_)
                     else MAPPING[type_]()
                 ),
-                **kwargs
+                **kwargs,
             )
 
         return MAPPING[type_](**kwargs)
@@ -83,6 +83,13 @@ class TypesystemAdapter(Adapter[Schema, Field]):
         return value
 
     @t.no_type_check
+    def name(self, schema: Schema) -> str:
+        if not schema.title:
+            raise ValueError(f"Schema '{schema}' needs to define title attribute")
+
+        return schema.title if schema.__module__ == "builtins" else f"{schema.__module__}.{schema.title}"
+
+    @t.no_type_check
     def to_json_schema(self, schema: t.Union[Schema, Field]) -> JSONSchema:
         try:
             json_schema = typesystem.to_json_schema(schema)
@@ -99,6 +106,39 @@ class TypesystemAdapter(Adapter[Schema, Field]):
     @t.no_type_check
     def unique_schema(self, schema: Schema) -> Schema:
         return schema
+
+    def _get_field_type(
+        self, field: Field
+    ) -> t.Union[t.Union[Schema, t.Type], t.List[t.Union[Schema, t.Type]], t.Dict[str, t.Union[Schema, t.Type]]]:
+        if isinstance(field, typesystem.Reference):
+            return field.target
+
+        if isinstance(field, typesystem.Array):
+            return (
+                [self._get_field_type(x) for x in field.items]
+                if isinstance(field.items, (list, tuple, set))
+                else self._get_field_type(field.items)
+            )
+
+        if isinstance(field, typesystem.Object):
+            return {k: self._get_field_type(v) for k, v in field.properties.items()}
+
+        try:
+            return MAPPING_TYPES[field.__class__]
+        except KeyError:
+            return None
+
+    @t.no_type_check
+    def schema_fields(
+        self, schema: Schema
+    ) -> t.Dict[
+        str,
+        t.Tuple[
+            t.Union[t.Union[Schema, t.Type], t.List[t.Union[Schema, t.Type]], t.Dict[str, t.Union[Schema, t.Type]]],
+            Field,
+        ],
+    ]:
+        return {name: (self._get_field_type(field), field) for name, field in schema.fields.items()}
 
     @t.no_type_check
     def is_schema(
