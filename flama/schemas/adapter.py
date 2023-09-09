@@ -75,11 +75,29 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
+    def name(self, schema: t.Union[_T_Schema, t.Type[_T_Schema]]) -> str:
+        ...
+
+    @abc.abstractmethod
     def to_json_schema(self, schema: t.Union[_T_Schema, t.Type[_T_Schema], _T_Field]) -> JSONSchema:
         ...
 
     @abc.abstractmethod
     def unique_schema(self, schema: t.Union[_T_Schema, t.Type[_T_Schema]]) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
+        ...
+
+    @abc.abstractmethod
+    def schema_fields(
+        self, schema: t.Union[_T_Schema, t.Type[_T_Schema]]
+    ) -> t.Dict[
+        str,
+        t.Tuple[
+            t.Union[
+                t.Union[_T_Schema, t.Type], t.List[t.Union[_T_Schema, t.Type]], t.Dict[str, t.Union[_T_Schema, t.Type]]
+            ],
+            _T_Field,
+        ],
+    ]:
         ...
 
     @abc.abstractmethod

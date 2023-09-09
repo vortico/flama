@@ -91,6 +91,10 @@ class PydanticAdapter(Adapter[Schema, Field]):
 
         return self.validate(schema_cls, value)
 
+    def name(self, schema: t.Union[Schema, t.Type[Schema]]) -> str:
+        s = self.unique_schema(schema)
+        return s.__qualname__ if s.__module__ == "builtins" else f"{s.__module__}.{s.__qualname__}"
+
     def to_json_schema(self, schema: t.Union[Schema, t.Type[Schema], Field]) -> JSONSchema:
         try:
             if self.is_schema(schema):
@@ -115,6 +119,31 @@ class PydanticAdapter(Adapter[Schema, Field]):
 
     def unique_schema(self, schema: t.Union[Schema, t.Type[Schema]]) -> t.Type[Schema]:
         return schema.__class__ if isinstance(schema, Schema) else schema
+
+    def _get_field_type(
+        self, field: Field
+    ) -> t.Union[t.Union[Schema, t.Type], t.List[t.Union[Schema, t.Type]], t.Dict[str, t.Union[Schema, t.Type]]]:
+        if not self.is_field(field):
+            return field
+
+        if t.get_origin(field.annotation) == list:
+            return self._get_field_type(t.get_args(field.annotation)[0])
+
+        if t.get_origin(field.annotation) == dict:
+            return self._get_field_type(t.get_args(field.annotation)[1])
+
+        return field.annotation
+
+    def schema_fields(
+        self, schema: t.Union[Schema, t.Type[Schema]]
+    ) -> t.Dict[
+        str,
+        t.Tuple[
+            t.Union[t.Union[Schema, t.Type], t.List[t.Union[Schema, t.Type]], t.Dict[str, t.Union[Schema, t.Type]]],
+            Field,
+        ],
+    ]:
+        return {name: (self._get_field_type(field), field) for name, field in schema.model_fields.items()}
 
     def is_schema(
         self, obj: t.Any

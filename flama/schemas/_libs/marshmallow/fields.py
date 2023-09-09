@@ -1,12 +1,11 @@
 # ruff: noqa
 import datetime
-import typing
+import typing as t
 import uuid
 
-import marshmallow.fields
 from marshmallow.fields import *
 
-MAPPING: typing.Dict[typing.Optional[typing.Type], typing.Type[marshmallow.fields.Field]] = {
+MAPPING: t.Dict[t.Union[t.Type, None], t.Type[Field]] = {
     None: Field,
     int: Integer,
     float: Float,
@@ -19,3 +18,5 @@ MAPPING: typing.Dict[typing.Optional[typing.Type], typing.Type[marshmallow.field
     datetime.datetime: DateTime,
     datetime.time: Time,
 }
+
+MAPPING_TYPES = {v: k for k, v in MAPPING.items()}

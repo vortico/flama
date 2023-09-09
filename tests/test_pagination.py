@@ -11,23 +11,28 @@ from flama.pagination import paginator
 
 
 @pytest.fixture(scope="function")
-def output_schema(app):
-    from flama import schemas
+def app(app):
+    paginator.schemas = {}
+    return app
 
-    if schemas.lib == pydantic:
+
+@pytest.fixture(scope="function")
+def output_schema(app):
+
+    if app.schema.schema_library.lib == pydantic:
         schema = pydantic.create_model("OutputSchema", value=(t.Optional[int], ...))
-    elif schemas.lib == typesystem:
+    elif app.schema.schema_library.lib == typesystem:
         schema = typesystem.Schema(title="OutputSchema", fields={"value": typesystem.fields.Integer(allow_null=True)})
-    elif schemas.lib == marshmallow:
+    elif app.schema.schema_library.lib == marshmallow:
         schema = type("OutputSchema", (marshmallow.Schema,), {"value": marshmallow.fields.Integer(allow_none=True)})
     else:
-        raise ValueError("Wrong schema lib")
+        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
 
     app.schema.schemas["OutputSchema"] = schema
     return schema
 
 
-class TestPageNumberResponse:
+class TestCasePageNumberPagination:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app, output_schema):
         @app.route("/page-number/", methods=["GET"])
@@ -158,7 +163,7 @@ class TestPageNumberResponse:
         assert response.json() == expected
 
 
-class TestLimitOffsetResponse:
+class TestCaseLimitOffsetPagination:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app, output_schema):
         @app.route("/limit-offset/", methods=["GET"])
@@ -176,7 +181,7 @@ class TestLimitOffsetResponse:
             "flama.APIError",
         }
 
-    def test_invalid_view(self, app, output_schema):
+    def test_invalid_view(self, output_schema):
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
             @paginator.limit_offset(schema_name="Foo")

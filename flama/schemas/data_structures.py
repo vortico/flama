@@ -3,7 +3,6 @@ import enum
 import sys
 import typing as t
 
-import flama.types
 from flama import schemas, types
 from flama.injection.resolver import Parameter as InjectionParameter
 
@@ -13,6 +12,9 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
     t.TypeGuard = TypeGuard  # type: ignore
 
 __all__ = ["Field", "Schema", "Parameter", "Parameters"]
+
+
+UNKNOWN = t.TypeVar("UNKNOWN")
 
 
 class ParameterLocation(enum.Enum):
@@ -81,7 +83,7 @@ class Field:
         )
 
     @property
-    def json_schema(self) -> flama.types.JSONSchema:
+    def json_schema(self) -> types.JSONSchema:
         return schemas.adapter.to_json_schema(self.field)
 
 
@@ -121,12 +123,38 @@ class Schema:
         return schemas.adapter.is_schema(obj)
 
     @property
-    def json_schema(self) -> t.Dict[str, t.Any]:
+    def name(self) -> str:
+        return schemas.adapter.name(self.schema)
+
+    @property
+    def json_schema(self) -> types.JSONSchema:
         return schemas.adapter.to_json_schema(self.schema)
 
     @property
     def unique_schema(self) -> t.Any:
         return schemas.adapter.unique_schema(self.schema)
+
+    @property
+    def fields(self) -> t.Dict[str, t.Tuple[t.Any, t.Any]]:
+        return schemas.adapter.schema_fields(self.unique_schema)
+
+    def nested_schemas(self, schema: t.Any = UNKNOWN) -> t.List[t.Any]:
+        if schema == UNKNOWN:
+            return self.nested_schemas(self)
+
+        if schemas.adapter.is_schema(schema):
+            return [schema]
+
+        if isinstance(schema, (list, tuple, set)):
+            return [x for field in schema for x in self.nested_schemas(field)]
+
+        if isinstance(schema, dict):
+            return [x for field in schema.values() for x in self.nested_schemas(field)]
+
+        if isinstance(schema, Schema):
+            return [x for field_type, _ in schema.fields.values() for x in self.nested_schemas(field_type)]
+
+        return []
 
     @t.overload
     def validate(self, values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:

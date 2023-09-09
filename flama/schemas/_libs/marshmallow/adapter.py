@@ -7,7 +7,7 @@ from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin, resolve_schema_cls
 
 from flama.injection import Parameter
-from flama.schemas._libs.marshmallow.fields import MAPPING
+from flama.schemas._libs.marshmallow.fields import MAPPING, MAPPING_TYPES
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 from flama.types import JSONSchema
@@ -35,7 +35,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         required: bool = True,
         default: t.Any = None,
         multiple: bool = False,
-        **kwargs
+        **kwargs,
     ) -> Field:
         field_args = {
             "required": required,
@@ -80,6 +80,10 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         except Exception as exc:
             raise SchemaValidationError(errors=str(exc))
 
+    def name(self, schema: t.Union[Schema, t.Type[Schema]]) -> str:
+        s = self.unique_schema(schema)
+        return s.__qualname__ if s.__module__ == "builtins" else f"{s.__module__}.{s.__qualname__}"
+
     def to_json_schema(self, schema: t.Union[t.Type[Schema], t.Type[Field], Schema, Field]) -> JSONSchema:
         json_schema: t.Dict[str, t.Any]
         try:
@@ -115,18 +119,32 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
         return schema
 
-    def is_schema(
-        self, obj: t.Any
-    ) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
-        t.Union[Schema, t.Type[Schema]]
-    ]:
+    def _get_field_type(self, field: Field) -> t.Union[Schema, t.Type]:
+        if isinstance(field, marshmallow.fields.Nested):
+            return field.schema
+
+        if isinstance(field, marshmallow.fields.List):
+            return self._get_field_type(field.inner)  # type: ignore
+
+        if isinstance(field, marshmallow.fields.Dict):
+            return self._get_field_type(field.value_field)  # type: ignore
+
+        try:
+            return MAPPING_TYPES[field.__class__]
+        except KeyError:
+            return None
+
+    def schema_fields(
+        self, schema: t.Union[Schema, t.Type[Schema]]
+    ) -> t.Dict[str, t.Tuple[t.Union[t.Type, Schema], Field]]:
+        return {
+            name: (self._get_field_type(field), field) for name, field in self._schema_instance(schema).fields.items()
+        }
+
+    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[Schema, t.Type[Schema]]]:  # type: ignore
         return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
-    def is_field(
-        self, obj: t.Any
-    ) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
-        t.Union[Field, t.Type[Field]]
-    ]:
+    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[Field, t.Type[Field]]]:  # type: ignore
         return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))
 
     def _schema_instance(self, schema: t.Union[t.Type[Schema], Schema]) -> Schema:
