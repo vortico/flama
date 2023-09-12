@@ -563,7 +563,7 @@ class Router(types.AppAsyncClass):
         self,
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
         *,
-        components: t.Optional[t.Sequence["Component"]] = None,
+        components: t.Optional[t.Union[t.Sequence["Component"], t.Set["Component"]]] = None,
         lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None,
         root: t.Optional["Flama"] = None,
     ):
