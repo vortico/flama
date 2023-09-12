@@ -79,7 +79,7 @@ class Component(metaclass=abc.ABCMeta):
 
 
 class Components(t.Tuple[Component, ...]):
-    def __new__(cls, components=None):
+    def __new__(cls, components: t.Optional[t.Union[t.Sequence[Component], t.Set[Component]]] = None):
         return super().__new__(cls, components or [])
 
     def __eq__(self, other: t.Any) -> bool:

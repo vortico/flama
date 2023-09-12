@@ -23,8 +23,8 @@ class Flama:
     def __init__(
         self,
         routes: t.Optional[t.Sequence[t.Union["BaseRoute", "Mount"]]] = None,
-        components: t.Optional[t.Sequence[injection.Component]] = None,
-        modules: t.Optional[t.Set["Module"]] = None,
+        components: t.Optional[t.Union[t.Sequence[injection.Component], t.Set[injection.Component]]] = None,
+        modules: t.Optional[t.Union[t.Sequence["Module"], t.Set["Module"]]] = None,
         middleware: t.Optional[t.Sequence["Middleware"]] = None,
         debug: bool = False,
         events: t.Optional[
