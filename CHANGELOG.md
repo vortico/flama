@@ -1,5 +1,15 @@
 # Semantic Versioning Changelog
 
+# [v1.5.0](https://github.com/vortico/flama/compare/v1.4.0...v1.5.0) (2023-09-19)
+
+## ✨ New Features
+- [`c0c8ae6`](https://github.com/vortico/flama/commit/c0c8ae6)  Pydantic 2.0 compatibility (#105) (Issues: [`#105`](https://github.com/vortico/flama/issues/))
+- [`d3dbb98`](https://github.com/vortico/flama/commit/d3dbb98)  Improving types with pyright (#106 #108) (Issues: [`#106`](https://github.com/vortico/flama/issues/) [`#108`](https://github.com/vortico/flama/issues/))
+- [`4c00cc6`](https://github.com/vortico/flama/commit/4c00cc6)  Flama client and Lifespan refactor (#107) (Issues: [`#107`](https://github.com/vortico/flama/issues/))
+- [`331a759`](https://github.com/vortico/flama/commit/331a759)  Avoid data schema names collision in OpenAPI schema (#113) (Issues: [`#113`](https://github.com/vortico/flama/issues/))
+- [`0af3b64`](https://github.com/vortico/flama/commit/0af3b64)  Discovering nested schemas (#114) (Issues: [`#114`](https://github.com/vortico/flama/issues/))
+- [`573757f`](https://github.com/vortico/flama/commit/573757f)  Config tool for reading from files or env vars (#109) (Issues: [`#109`](https://github.com/vortico/flama/issues/))
+
 # [v1.4.0](https://github.com/vortico/flama/compare/v1.3.0...v1.4.0) (2023-06-08)
 
 ## ✨ New Features
