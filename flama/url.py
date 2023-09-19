@@ -6,6 +6,8 @@ import urllib.parse
 import uuid
 from decimal import Decimal
 
+T = t.TypeVar("T", bound=t.Union[int, str, float, Decimal, uuid.UUID])
+
 
 @dataclasses.dataclass
 class URL:
@@ -46,8 +48,11 @@ class URL:
         """
         return str(urllib.parse.urlunparse(tuple(self.components.values())))
 
+    def __str__(self) -> str:
+        return self.url
 
-T = t.TypeVar("T", bound=t.Union[int, str, float, Decimal, uuid.UUID])
+    def __repr__(self) -> str:
+        return f"URL('{self.url}')"
 
 
 class ParamSerializer(t.Generic[T], metaclass=abc.ABCMeta):
