@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.5.1](https://github.com/vortico/flama/compare/v1.5.0...v1.5.1) (2023-09-19)
+
+## 🐛 Bug Fixes
+- [`58400e2`](https://github.com/vortico/flama/commit/58400e2)  Allow null or non existant files as config param
+
 # [v1.5.0](https://github.com/vortico/flama/compare/v1.4.0...v1.5.0) (2023-09-19)
 
 ## ✨ New Features
