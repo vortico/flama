@@ -2,6 +2,7 @@ import dataclasses
 import functools
 import inspect
 import json
+import logging
 import os
 import typing as t
 
@@ -10,6 +11,8 @@ from flama.config.data_structures import FileDict
 
 __all__ = ["Config"]
 
+logger = logging.getLogger(__name__)
+
 R = t.TypeVar("R")
 Unknown = t.NewType("Unknown", str)
 
@@ -17,8 +20,11 @@ Unknown = t.NewType("Unknown", str)
 class Config:
     """Tool for retrieving config parameters from a config file or environment variables.
 
-    This class can handle several config file formats, some examples:
-        >>> config = Config(".env", "ini")
+    This class can be used to retrieve config parameters only from environment variables:
+        >>> config = Config()
+
+    But it can handle several config file formats, some examples:
+        >>> config_ini = Config(".env", "ini")
         >>> config_json = Config("config.json", "json")
         >>> config_yaml = Config("config.yaml", "yaml")
         >>> config_toml = Config("config.toml", "toml")
@@ -33,11 +39,11 @@ class Config:
 
     It is possible to convert config parameters into python types by specifying the type as part of the call. In this
     case an environment variable contains the values 'true' or 'false':
-        >>> DEBUG = config("DEBUG", type=bool)
+        >>> DEBUG = config("DEBUG", cast=bool)
 
     Also, a more complex conversion is possible by using custom functions, lets take the example of a variable where
     zero means False and any other value than zero means a True:
-        >>> DEBUG = config("DEBUG", type=lambda x: x != 0)
+        >>> DEBUG = config("DEBUG", cast=lambda x: x != 0)
 
     For last, there is a case when the config parameter is a json valid value, in this case it is possible to convert
     it into a dataclass:
@@ -45,12 +51,12 @@ class Config:
         ... class Puppy:
         ...     name: str
         ...     age: int
-        >>> PUPPY = config("PUPPY", type=Puppy)
+        >>> PUPPY = config("PUPPY", cast=Puppy)
     """
 
     def __init__(
         self,
-        config_file: t.Optional[t.Union[str, os.PathLike]],
+        config_file: t.Optional[t.Union[str, os.PathLike]] = None,
         format: t.Union[str, types.FileFormat] = types.FileFormat.INI,
     ) -> None:
         """Tool for retrieving config parameters from a config file or environment variables.
@@ -58,13 +64,21 @@ class Config:
         :param config_file: Config file path.
         :param format: Config file format.
         """
-        self.config_file = FileDict(config_file, format) if config_file else None
+        if config_file:
+            try:
+                self.config_file = FileDict(config_file, format)
+                logger.info("Config file '%s' loaded", config_file)
+            except exceptions.LoadError:
+                logger.info("Config file '%s' cannot be loaded", config_file)
+                self.config_file = {}
+        else:
+            self.config_file = {}
 
     def _get_item_from_environment(self, key: str) -> t.Any:
         return os.environ[key]
 
     def _get_item_from_config_file(self, key: str) -> t.Any:
-        return functools.reduce(lambda x, k: x[k], key.split("."), self.config_file or {})
+        return functools.reduce(lambda x, k: x[k], key.split("."), self.config_file)
 
     def _get_item(self, key: str, default: R = Unknown) -> R:
         try:
@@ -82,7 +96,7 @@ class Config:
 
         raise KeyError(key)
 
-    def _build_dataclass(self, data: t.Any, type: t.Type[R]) -> R:
+    def _build_dataclass(self, data: t.Any, dataclass: t.Type[R]) -> R:
         if isinstance(data, str):
             try:
                 data = json.loads(data)
@@ -93,18 +107,42 @@ class Config:
             raise exceptions.ConfigError("Wrong value for config dataclass")
 
         try:
-            return type(**(json.loads(data) if isinstance(data, str) else data))
+            return dataclass(**(json.loads(data) if isinstance(data, str) else data))
         except Exception as e:
             raise exceptions.ConfigError("Cannot create config dataclass") from e
 
+    @t.overload
+    def __call__(self, key: str) -> t.Any:
+        ...
+
+    @t.overload
+    def __call__(self, key: str, *, default: R) -> R:
+        ...
+
+    @t.overload
+    def __call__(self, key: str, *, cast: t.Type[R]) -> R:
+        ...
+
+    @t.overload
+    def __call__(self, key: str, *, default: R, cast: t.Type[R]) -> R:
+        ...
+
+    @t.overload
+    def __call__(self, key: str, *, cast: t.Callable[[t.Any], R]) -> R:
+        ...
+
+    @t.overload
+    def __call__(self, key: str, *, default: R, cast: t.Callable[[t.Any], R]) -> R:
+        ...
+
     def __call__(
-        self, key: str, /, default: R = Unknown, type: t.Optional[t.Union[t.Type[R], t.Callable[[t.Any], R]]] = None
+        self, key: str, default: R = Unknown, cast: t.Optional[t.Union[t.Type[R], t.Callable[[t.Any], R]]] = None
     ) -> R:
         """Get config parameter value.
 
         :param key: Config parameter name.
         :param default: Default value if config parameter is not found.
-        :param type: Type to convert config parameter value.
+        :param cast: Type or function to convert config parameter value.
         :return: Config parameter value.
         :raises KeyError: If config parameter is not found and no default value is specified.
         :raises ConfigError: If config parameter cannot be converted to the specified type.
@@ -112,22 +150,22 @@ class Config:
         Examples:
             >>> config = Config(".env", "ini")
             >>> FOO = config("FOO", default="bar")  # Default value if FOO is not found
-            >>> DEBUG = config("DEBUG", type=bool)  # Convert value to boolean
+            >>> DEBUG = config("DEBUG", cast=bool)  # Convert value to boolean
             >>> @dataclasses.dataclass
             ... class Puppy:
             ...     name: str
             ...     age: int
-            >>> PUPPY = config("PUPPY", type=Puppy)  # Parse json value and convert it to a dataclass
+            >>> PUPPY = config("PUPPY", cast=Puppy)  # Parse json value and convert it to a dataclass
         """
         value = self._get_item(key, default)
 
-        if type is None:
+        if cast is None:
             return value
 
-        if dataclasses.is_dataclass(type) and inspect.isclass(type):
-            return self._build_dataclass(data=value, type=type)
+        if dataclasses.is_dataclass(cast) and inspect.isclass(cast):
+            return self._build_dataclass(data=value, dataclass=cast)
 
         try:
-            return t.cast(t.Callable[[t.Any], R], type)(value)
+            return t.cast(t.Callable[[t.Any], R], cast)(value)
         except Exception as e:
-            raise exceptions.ConfigError("Cannot create config type") from e
+            raise exceptions.ConfigError("Cannot cast config type") from e

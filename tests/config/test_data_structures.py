@@ -8,6 +8,15 @@ from flama.config.data_structures import FileDict
 
 
 class TestCaseFileDict:
+    @pytest.fixture(scope="function")
+    def file_dict(self):
+        content = {"foo": "bar"}
+
+        with tempfile.NamedTemporaryFile("w+") as f:
+            json.dump(content, f)
+            f.flush()
+            yield FileDict(f.name, "json")
+
     @pytest.mark.parametrize(
         ["config_file", "format", "exception"],
         (
@@ -25,26 +34,21 @@ class TestCaseFileDict:
         file_path, config_obj = config_file
 
         with exception:
-            config_loader = FileDict(file_path, format)
+            file_dict = FileDict(file_path, format)
 
-            assert config_loader == config_obj
+            assert file_dict == config_obj
 
-    def test_eq(self):
-        content = {"foo": "bar"}
+    def test_getitem(self, file_dict):
+        assert file_dict["foo"] == "bar"
 
-        with tempfile.NamedTemporaryFile("w+") as f:
-            json.dump(content, f)
-            f.flush()
-            config_loader = FileDict(f.name, "json")
+    def test_eq(self, file_dict):
+        assert file_dict == {"foo": "bar"}
 
-        assert config_loader == content
+    def test_iter(self, file_dict):
+        assert list(iter(file_dict)) == ["foo"]
 
-    def test_iter(self):
-        content = {"foo": "bar"}
+    def test_len(self, file_dict):
+        assert len(file_dict) == 1
 
-        with tempfile.NamedTemporaryFile("w+") as f:
-            json.dump(content, f)
-            f.flush()
-            config_loader = FileDict(f.name, "json")
-
-        assert list(iter(config_loader)) == ["foo"]
+    def test_repr(self, file_dict):
+        assert repr(file_dict) == "FileDict({'foo': 'bar'})"

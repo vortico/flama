@@ -30,7 +30,7 @@ class FileDict(t.Mapping[str, t.Any]):
         try:
             self._data = self._loader.load(config_file)
         except Exception:
-            raise exceptions.ConfigError("Config file cannot be loaded")
+            raise exceptions.LoadError("Config file cannot be loaded")
 
     def __getitem__(self, key: str) -> t.Any:
         return self._data.__getitem__(key)
