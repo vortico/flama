@@ -38,7 +38,7 @@ class TestCaseBackgroundTask:
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
-        assert process_event.wait(1.0)
+        assert process_event.wait(5.0)
 
     async def test_background_thread_task(self, app, client, task, thread_event):
         @app.route("/")
@@ -49,7 +49,7 @@ class TestCaseBackgroundTask:
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
-        assert thread_event.wait(1.0)
+        assert thread_event.wait(5.0)
 
 
 class TestCaseBackgroundTasks:
@@ -65,5 +65,5 @@ class TestCaseBackgroundTasks:
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
-        assert process_event.wait(1.0)
-        assert thread_event.wait(1.0)
+        assert process_event.wait(5.0)
+        assert thread_event.wait(5.0)

@@ -1,18 +1,12 @@
 import typing as t
 
-from flama import schemas
-
-try:
-    import sqlalchemy
-except Exception:  # pragma: no cover
-    raise AssertionError("`sqlalchemy[asyncio]` must be installed to use crud resources") from None
-
-import flama.schemas
-from flama import exceptions, http, types
+from flama import exceptions, http, schemas, types
+from flama.ddd import exceptions as ddd_exceptions
 from flama.pagination import paginator
 from flama.resources import data_structures
 from flama.resources.rest import RESTResourceType
 from flama.resources.routing import resource_method
+from flama.resources.workers import FlamaWorker
 
 __all__ = [
     "CreateMixin",
@@ -40,21 +34,18 @@ class CreateMixin:
         @resource_method("/", methods=["POST"], name=f"{name}-create")
         async def create(
             self,
-            scope: types.Scope,
-            element: types.Schema[rest_schemas.input.schema],  # type: ignore[name-defined,type-arg]
-        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore[name-defined,type-arg]
-            app = scope["app"]
-
+            worker: FlamaWorker,
+            element: types.Schema[rest_schemas.input.schema],
+        ) -> types.Schema[rest_schemas.output.schema]:
             if element.get(rest_model.primary_key.name) is None:
                 element.pop(rest_model.primary_key.name, None)
 
-            async with app.sqlalchemy.engine.begin() as connection:
-                query = self.model.insert().values(**element)
-                result = await connection.execute(query)
+            async with worker:
+                result = await worker.repositories[self._meta.name].create(element)
 
             return http.APIResponse(  # type: ignore[return-value]
                 schema=rest_schemas.output.schema,
-                content={**element, **dict(zip([x.name for x in self.model.primary_key], result.inserted_primary_key))},
+                content={**element, **dict(zip([x.name for x in self.model.primary_key], result or []))},
                 status_code=201,
             )
 
@@ -86,19 +77,15 @@ class RetrieveMixin:
     ) -> t.Dict[str, t.Any]:
         @resource_method("/{element_id}/", methods=["GET"], name=f"{name}-retrieve")
         async def retrieve(
-            self, scope: types.Scope, element_id: rest_model.primary_key.type  # type: ignore[name-defined]
-        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore[name-defined,type-arg]
-            app = scope["app"]
-
-            async with app.sqlalchemy.engine.begin() as connection:
-                query = self.model.select().where(self.model.c[rest_model.primary_key.name] == element_id)
-                result = await connection.execute(query)
-                element = result.first()
-
-            if element is None:
+            self,
+            worker: FlamaWorker,
+            element_id: rest_model.primary_key.type,
+        ) -> types.Schema[rest_schemas.output.schema]:
+            try:
+                async with worker:
+                    return await worker.repositories[self._meta.name].retrieve(element_id)
+            except ddd_exceptions.NotFoundError:
                 raise exceptions.HTTPException(status_code=404)
-
-            return types.Schema(element._asdict())
 
         retrieve.__doc__ = f"""
             tags:
@@ -132,34 +119,19 @@ class UpdateMixin:
         @resource_method("/{element_id}/", methods=["PUT"], name=f"{name}-update")
         async def update(
             self,
-            scope: types.Scope,
-            element_id: rest_model.primary_key.type,  # type: ignore[name-defined]
-            element: types.Schema[rest_schemas.input.schema],  # type: ignore[name-defined,type-arg]
-        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore[name-defined,type-arg]
-            app = scope["app"]
-
-            async with app.sqlalchemy.engine.begin() as connection:
-                query = self.model.select().where(
-                    self.model.select().where(self.model.c[rest_model.primary_key.name] == element_id).exists()
-                )
-                result = await connection.execute(query)
-                exists = result.scalar()
-
-            if not exists:
-                raise http.HTTPException(status_code=404)
-
+            worker: FlamaWorker,
+            element_id: rest_model.primary_key.type,
+            element: types.Schema[rest_schemas.input.schema],
+        ) -> types.Schema[rest_schemas.output.schema]:
             schema = schemas.Schema(rest_schemas.input.schema)
-            clean_element = {k: v for k, v in schema.dump(element).items() if k != rest_model.primary_key.name}
-
-            async with app.sqlalchemy.engine.begin() as connection:
-                query = (
-                    self.model.update()
-                    .where(self.model.c[rest_model.primary_key.name] == element_id)
-                    .values(**clean_element)
-                )
-                await connection.execute(query)
-
-            return types.Schema({rest_model.primary_key.name: element_id, **clean_element})
+            clean_element = types.Schema[rest_schemas.input.schema](
+                {k: v for k, v in schema.dump(element).items() if k != rest_model.primary_key.name}
+            )
+            try:
+                async with worker:
+                    return await worker.repositories[self._meta.name].update(element_id, clean_element)
+            except ddd_exceptions.NotFoundError:
+                raise exceptions.HTTPException(status_code=404)
 
         update.__doc__ = f"""
             tags:
@@ -186,24 +158,12 @@ class DeleteMixin:
         cls, name: str, verbose_name: str, rest_model: data_structures.Model, **kwargs
     ) -> t.Dict[str, t.Any]:
         @resource_method("/{element_id}/", methods=["DELETE"], name=f"{name}-delete")
-        async def delete(
-            self, scope: types.Scope, element_id: rest_model.primary_key.type  # type: ignore[name-defined]
-        ):
-            app = scope["app"]
-
-            async with app.sqlalchemy.engine.begin() as connection:
-                query = self.model.select().where(
-                    self.model.select().where(self.model.c[rest_model.primary_key.name] == element_id).exists()
-                )
-                result = await connection.execute(query)
-                exists = result.scalar()
-
-            if not exists:
+        async def delete(self, worker: FlamaWorker, element_id: rest_model.primary_key.type):
+            try:
+                async with worker:
+                    await worker.repositories[self._meta.name].delete(element_id)
+            except ddd_exceptions.NotFoundError:
                 raise exceptions.HTTPException(status_code=404)
-
-            async with app.sqlalchemy.engine.begin() as connection:
-                query = self.model.delete().where(self.model.c[rest_model.primary_key.name] == element_id)
-                await connection.execute(query)
 
             return http.APIResponse(status_code=204)
 
@@ -231,25 +191,11 @@ class ListMixin:
     def _add_list(
         cls, name: str, verbose_name: str, rest_schemas: data_structures.Schemas, **kwargs
     ) -> t.Dict[str, t.Any]:
-        async def filter(self, app, *clauses, **filters) -> t.List[t.Dict]:
-            async with app.sqlalchemy.engine.begin() as connection:
-                query = self.model.select()
-
-                where_clauses = tuple(clauses) + tuple(self.model.c[k] == v for k, v in filters.items())
-
-                if where_clauses:
-                    query = query.where(sqlalchemy.and_(*where_clauses))
-
-                return [row._asdict() async for row in await connection.stream(query)]
-
         @resource_method("/", methods=["GET"], name=f"{name}-list")
         @paginator.page_number(schema_name=rest_schemas.output.name)
-        async def list(
-            self, scope: types.Scope, **kwargs
-        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore[name-defined,type-arg]
-            app = scope["app"]
-
-            return await self._filter(app)  # type: ignore[no-any-return,return-value]
+        async def list(self, worker: FlamaWorker, **kwargs) -> types.Schema[rest_schemas.output.schema]:
+            async with worker:
+                return await worker.repositories[self._meta.name].list()  # type: ignore[return-value]
 
         list.__doc__ = f"""
             tags:
@@ -264,24 +210,19 @@ class ListMixin:
                         List collection items.
         """
 
-        return {"_list": list, "_filter": filter}
+        return {"_list": list}
 
 
 class DropMixin:
     @classmethod
     def _add_drop(cls, name: str, verbose_name: str, **kwargs) -> t.Dict[str, t.Any]:
         @resource_method("/", methods=["DELETE"], name=f"{name}-drop")
-        async def drop(
-            self, scope: types.Scope
-        ) -> types.Schema[flama.schemas.schemas.DropCollection]:  # type: ignore[type-arg]
-            app = scope["app"]
-
-            async with app.sqlalchemy.engine.begin() as connection:
-                query = self.model.delete()
-                result = await connection.execute(query)
+        async def drop(self, worker: FlamaWorker) -> types.Schema[schemas.schemas.DropCollection]:
+            async with worker:
+                result = await worker.repositories[self._meta.name].drop()
 
             return http.APIResponse(  # type: ignore[return-value]
-                schema=flama.schemas.schemas.DropCollection, content={"deleted": result.rowcount}, status_code=204
+                schema=schemas.schemas.DropCollection, content={"deleted": result}, status_code=204
             )
 
         drop.__doc__ = f"""

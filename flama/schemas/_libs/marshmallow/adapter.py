@@ -52,7 +52,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
                 **field_args,
             )
 
-        return MAPPING[type_](**field_args)  # type: ignore[arg-type]
+        return MAPPING[type_](**field_args)
 
     def build_schema(
         self,
@@ -67,16 +67,16 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
     def validate(self, schema: t.Union[t.Type[Schema], Schema], values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         try:
-            return self._schema_instance(schema).load(values, unknown=marshmallow.EXCLUDE)  # type: ignore
+            return t.cast(t.Dict[str, t.Any], self._schema_instance(schema).load(values, unknown=marshmallow.EXCLUDE))
         except marshmallow.ValidationError as exc:
             raise SchemaValidationError(errors=exc.normalized_messages())
 
     def load(self, schema: t.Union[t.Type[Schema], Schema], value: t.Dict[str, t.Any]) -> Schema:
-        return self._schema_instance(schema).load(value)  # type: ignore
+        return t.cast(Schema, self._schema_instance(schema).load(value))
 
     def dump(self, schema: t.Union[t.Type[Schema], Schema], value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         try:
-            return self._schema_instance(schema).dump(value)  # type: ignore
+            return t.cast(t.Dict[str, t.Any], self._schema_instance(schema).dump(value))
         except Exception as exc:
             raise SchemaValidationError(errors=str(exc))
 
@@ -87,14 +87,12 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
     def to_json_schema(self, schema: t.Union[t.Type[Schema], t.Type[Field], Schema, Field]) -> JSONSchema:
         json_schema: t.Dict[str, t.Any]
         try:
-            plugin = MarshmallowPlugin(
-                schema_name_resolver=lambda x: resolve_schema_cls(x).__name__  # type: ignore[no-any-return]
-            )
+            plugin = MarshmallowPlugin(schema_name_resolver=lambda x: resolve_schema_cls(x).__name__)
             APISpec("", "", "3.1.0", [plugin])
-            converter: "OpenAPIConverter" = plugin.converter  # type: ignore[assignment]
+            converter: "OpenAPIConverter" = t.cast("OpenAPIConverter", plugin.converter)
 
             if (inspect.isclass(schema) and issubclass(schema, Field)) or isinstance(schema, Field):
-                json_schema = converter.field2property(schema)  # type: ignore[arg-type]
+                json_schema = converter.field2property(t.cast(marshmallow.fields.Field, schema))
             elif inspect.isclass(schema) and issubclass(schema, Schema):
                 json_schema = converter.schema2jsonschema(schema)
             elif isinstance(schema, Schema):
@@ -124,10 +122,10 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
             return field.schema
 
         if isinstance(field, marshmallow.fields.List):
-            return self._get_field_type(field.inner)  # type: ignore
+            return self._get_field_type(t.cast(marshmallow.fields.Field, field.inner))
 
         if isinstance(field, marshmallow.fields.Dict):
-            return self._get_field_type(field.value_field)  # type: ignore
+            return self._get_field_type(t.cast(marshmallow.fields.Field, field.value_field))
 
         try:
             return MAPPING_TYPES[field.__class__]
@@ -141,10 +139,10 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
             name: (self._get_field_type(field), field) for name, field in self._schema_instance(schema).fields.items()
         }
 
-    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[Schema, t.Type[Schema]]]:  # type: ignore
+    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[Schema, t.Type[Schema]]]:
         return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
-    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[Field, t.Type[Field]]]:  # type: ignore
+    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[Field, t.Type[Field]]]:
         return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))
 
     def _schema_instance(self, schema: t.Union[t.Type[Schema], Schema]) -> Schema:

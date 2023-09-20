@@ -2,20 +2,9 @@ import pytest
 from _pytest.mark import param
 
 from flama import endpoints, types, websockets
-from flama.applications import Flama
-from flama.client import AsyncClient
 
 
 class TestCaseDataValidation:
-    @pytest.fixture(scope="function")
-    def app(self):
-        return Flama(schema=None, docs=None)
-
-    @pytest.fixture(scope="function")
-    async def client(self, app):
-        async with AsyncClient(app=app) as client:
-            yield client
-
     @pytest.mark.parametrize(
         "request_params,response_status,response_json",
         [

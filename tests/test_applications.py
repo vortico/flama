@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
 import pytest
 
 from flama import Component, Flama, Module, Mount, Route, Router, exceptions, http, types, websockets
+from flama.ddd.components import WorkerComponent
 from flama.events import Events
 from flama.injection.injector import Injector
 from flama.middleware import Middleware, MiddlewareStack
@@ -69,9 +70,11 @@ class TestCaseFlama:
         assert isinstance(app.middleware, MiddlewareStack)
         assert app.middleware
         # Check modules
-        assert app.modules == {ResourcesModule, SchemaModule, ModelsModule, module}
+        assert app.modules == {*DEFAULT_MODULES, module}
         # Check components
-        assert app.components == [component_obj]
+        default_components = app.components[:1]
+        assert isinstance(default_components[0], WorkerComponent)
+        assert app.components == [*default_components, component_obj]
         # Check events
         assert app.events == Events(
             startup=[m.on_startup for m in app.modules.values()], shutdown=[m.on_shutdown for m in app.modules.values()]
@@ -259,7 +262,8 @@ class TestCaseFlama:
         root_app.add_get("/foo", lambda: {})
 
         assert len(root_app.router.routes) == 1
-        assert root_app.components == set()
+        default_components = root_app.components[:1]
+        assert root_app.components == default_components
         assert root_app.modules == DEFAULT_MODULES
 
         leaf_app = Flama(schema=None, docs=None, components=[component], modules={module()})

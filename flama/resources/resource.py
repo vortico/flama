@@ -10,6 +10,7 @@ __all__ = ["BaseResource", "ResourceType"]
 class BaseResource:
     name: str
     verbose_name: str
+    _meta: data_structures.Metadata
 
 
 class ResourceType(type):
@@ -31,11 +32,11 @@ class ResourceType(type):
         except AttributeError as e:
             raise ResourceAttributeError(str(e), name)
 
-        if "_meta" in namespace:
-            namespace["_meta"].name = resource_name
-            namespace["_meta"].verbose_name = verbose_name
-        else:
-            namespace["_meta"] = data_structures.Metadata(name=resource_name, verbose_name=verbose_name)
+        if "_meta" not in namespace:
+            namespace["_meta"] = data_structures.Metadata()
+
+        namespace["_meta"].name = resource_name
+        namespace["_meta"].verbose_name = verbose_name
 
         # Create methods and routes
         namespace.update(mcs._build_methods(namespace))

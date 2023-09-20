@@ -2,6 +2,7 @@ import pytest
 import sqlalchemy
 
 from flama.applications import Flama
+from flama.ddd.repositories import SQLAlchemyRepository
 from flama.resources import data_structures
 from flama.resources.crud import CRUDListDropResourceType, CRUDListResourceType, CRUDResourceType
 from flama.resources.resource import BaseResource
@@ -35,7 +36,15 @@ class TestCaseBaseResource:
         assert hasattr(resource, "_meta")
         assert resource._meta.name == "puppy"
         assert resource._meta.verbose_name == "Puppy"
-        assert resource._meta.namespaces == {
+
+        namespaces = resource._meta.namespaces
+        ddd_namespace = namespaces.pop("ddd")
+
+        assert list(ddd_namespace.keys()) == ["repository"]
+        assert issubclass(ddd_namespace["repository"], SQLAlchemyRepository)
+        assert ddd_namespace["repository"].__name__ == "PuppyResourceRepository"
+
+        assert namespaces == {
             "rest": {
                 "model": data_structures.Model(
                     table=puppy_model, primary_key=data_structures.PrimaryKey(name="custom_id", type=int)

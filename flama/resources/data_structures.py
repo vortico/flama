@@ -1,10 +1,10 @@
 import dataclasses
-import typing
+import typing as t
 
 try:
     from sqlalchemy import Table
 except Exception:  # pragma: no cover
-    Table = typing.Any
+    Table = t.Any
 
 __all__ = ["Model", "PrimaryKey", "Schema", "Metadata", "MethodMetadata"]
 
@@ -24,7 +24,7 @@ class Model:
 @dataclasses.dataclass
 class Schema:
     name: str
-    schema: typing.Any
+    schema: t.Any
 
 
 @dataclasses.dataclass
@@ -35,11 +35,11 @@ class Schemas:
 
 @dataclasses.dataclass
 class Metadata:
-    name: typing.Optional[str] = None
-    verbose_name: typing.Optional[str] = None
-    namespaces: typing.Dict[str, typing.Dict[str, typing.Any]] = dataclasses.field(default_factory=dict)
+    name: str = dataclasses.field(init=False)
+    verbose_name: str = dataclasses.field(init=False)
+    namespaces: t.Dict[str, t.Dict[str, t.Any]] = dataclasses.field(default_factory=dict)
 
-    def to_plain_dict(self) -> typing.Dict[str, typing.Any]:
+    def to_plain_dict(self) -> t.Dict[str, t.Any]:
         return {
             "name": self.name,
             "verbose_name": self.verbose_name,
@@ -50,6 +50,6 @@ class Metadata:
 @dataclasses.dataclass
 class MethodMetadata:
     path: str
-    methods: typing.Set[str] = dataclasses.field(default_factory=lambda: {"GET"})
-    name: typing.Optional[str] = None
-    tags: typing.Dict[str, typing.Any] = dataclasses.field(default_factory=dict)
+    methods: t.Set[str] = dataclasses.field(default_factory=lambda: {"GET"})
+    name: t.Optional[str] = None
+    tags: t.Dict[str, t.Any] = dataclasses.field(default_factory=dict)

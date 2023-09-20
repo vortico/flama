@@ -99,7 +99,7 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
 
 
 class PageNumberMixin:
-    def page_number(self, schema_name: str) -> t.Callable:
+    def _paginate_page_number(self, func: t.Callable) -> t.Callable:
         """
         Decorator for adding pagination behavior to a view. That decorator produces a view based on page numbering and
         it adds three query parameters to control the pagination: page, page_size and count. Page has a default value of
@@ -113,25 +113,23 @@ class PageNumberMixin:
         :param schema_name: Name used for output field.
         :return: Decorated view.
         """
+        schema = schemas.Schema.from_type(inspect.signature(func).return_annotation)
+        resource_schema = schema.unique_schema
+        schema_name = schema.name
 
-        def _inner(func: t.Callable) -> t.Callable:
-            resource_schema = schemas.Schema.from_type(inspect.signature(func).return_annotation).unique_schema
-            try:
-                schema_module, schema_class = schema_name.rsplit(".", 1)
-                paginated_schema_name = f"{schema_module}.PageNumberPaginated{schema_class}"
-            except ValueError:
-                paginated_schema_name = f"PageNumberPaginated{schema_name}"
-            schema = schemas.Schema.build(
-                paginated_schema_name,
-                schema=schemas.schemas.PageNumber,
-                fields=[schemas.Field("data", resource_schema, multiple=True)],
-            ).unique_schema
+        try:
+            schema_module, schema_class = schema_name.rsplit(".", 1)
+            paginated_schema_name = f"{schema_module}.PageNumberPaginated{schema_class}"
+        except ValueError:  # noqa: safety net
+            paginated_schema_name = f"PageNumberPaginated{schema_name}"
+        schema = schemas.Schema.build(
+            paginated_schema_name,
+            schema=schemas.schemas.PageNumber,
+            fields=[schemas.Field("data", resource_schema, multiple=True)],
+        ).unique_schema
 
-            decorator = PageNumberDecoratorFactory.decorate(func, schema)
+        decorator = PageNumberDecoratorFactory.decorate(func, schema)
 
-            self.schemas.update(  # type: ignore[attr-defined]
-                {schema_name: resource_schema, paginated_schema_name: schema}
-            )
-            return decorator
+        self.schemas.update({schema_name: resource_schema, paginated_schema_name: schema})  # type: ignore[attr-defined]
 
-        return _inner
+        return decorator
