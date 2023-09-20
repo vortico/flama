@@ -108,6 +108,7 @@ class _BaseClient:
             self.models = {m[0]: m[1] for m in models or {}}
 
         self.lifespan = LifespanContextManager(app) if app else None
+        self.app = app
 
         kwargs["app"] = app
         kwargs.setdefault("base_url", "http://localapp")

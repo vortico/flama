@@ -155,6 +155,7 @@ class TestCaseBaseClient:
         ):
             client = _BaseClient(models=[("foo", "/foo/", "model_foo.flm"), ("bar", "/bar/", "model_bar.flm")])
 
+        assert client.app == app
         assert client.lifespan
         assert client.lifespan.app == app
         assert client.models == {"foo": "/foo/", "bar": "/bar/"}
