@@ -1,6 +1,7 @@
 import datetime
 import enum
 import html
+import inspect
 import json
 import os
 import typing as t
@@ -83,6 +84,10 @@ class EnhancedJSONEncoder(json.JSONEncoder):
             )
 
             return "P" + "".join([formatted_value for value, formatted_value in formatted_units if value])
+        if inspect.isclass(obj) and issubclass(obj, BaseException):
+            return obj.__name__
+        if isinstance(obj, BaseException):
+            return repr(obj)
         return super().default(obj)
 
 

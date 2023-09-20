@@ -1,5 +1,8 @@
 import datetime
+import enum
 import json
+import pathlib
+import uuid
 from unittest.mock import MagicMock, Mock, call, mock_open, patch
 
 import jinja2
@@ -45,13 +48,32 @@ class TestCaseJSONResponse:
     def schema(self):
         return Mock()
 
-    def test_render(self, schema):
-        content = {"foo": datetime.timedelta(days=1, hours=20, minutes=30, seconds=10, milliseconds=10, microseconds=6)}
-        expected_result = {"foo": "P1D20H30M10.010006S"}
-
+    @pytest.mark.parametrize(
+        ["content", "result"],
+        (
+            pytest.param({"foo": pathlib.Path("foo/bar.json")}, {"foo": "foo/bar.json"}, id="path"),
+            pytest.param({"foo": b"bar"}, {"foo": "bar"}, id="bytes"),
+            pytest.param({"foo": bytearray([1, 2, 3])}, {"foo": "\x01\x02\x03"}, id="bytearray"),
+            pytest.param({"foo": enum.Enum("Foo", ["bar"]).bar}, {"foo": 1}, id="enum"),
+            pytest.param({"foo": uuid.UUID(int=0)}, {"foo": "00000000-0000-0000-0000-000000000000"}, id="uuid"),
+            pytest.param(
+                {"foo": datetime.datetime(2023, 9, 20, 11, 30, 0)}, {"foo": "2023-09-20T11:30:00"}, id="datetime"
+            ),
+            pytest.param({"foo": datetime.date(2023, 9, 20)}, {"foo": "2023-09-20"}, id="date"),
+            pytest.param({"foo": datetime.time(11, 30, 0)}, {"foo": "11:30:00"}, id="time"),
+            pytest.param(
+                {"foo": datetime.timedelta(days=1, hours=20, minutes=30, seconds=10, milliseconds=10, microseconds=6)},
+                {"foo": "P1D20H30M10.010006S"},
+                id="timedelta",
+            ),
+            pytest.param({"foo": Exception}, {"foo": "Exception"}, id="exception_class"),
+            pytest.param({"foo": Exception("bar")}, {"foo": "Exception('bar')"}, id="exception_obj"),
+        ),
+    )
+    def test_render(self, content, result):
         response = http.JSONResponse(content=content)
 
-        assert json.loads(response.body.decode()) == expected_result
+        assert json.loads(response.body.decode()) == result
 
 
 class TestCaseAPIResponse:
