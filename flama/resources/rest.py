@@ -2,6 +2,7 @@ import datetime
 import typing as t
 import uuid
 
+from flama.ddd.repositories import SQLAlchemyRepository
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
 from flama.resources.resource import BaseResource, ResourceType
@@ -51,11 +52,18 @@ class RESTResourceType(ResourceType):
         except AttributeError as e:
             raise ResourceAttributeError(str(e), name)
 
-        metadata_namespace = {"model": model, "schemas": resource_schemas}
+        metadata_rest_namespace = {"model": model, "schemas": resource_schemas}
+        metadata_ddd_namespace = {
+            "repository": type(f"{name}Repository", (SQLAlchemyRepository,), {"_table": model.table})
+        }
+
         if "_meta" in namespace:
-            namespace["_meta"].namespaces["rest"] = metadata_namespace
+            namespace["_meta"].namespaces["rest"] = metadata_rest_namespace
+            namespace["_meta"].namespaces["ddd"] = metadata_ddd_namespace
         else:
-            namespace["_meta"] = data_structures.Metadata(namespaces={"rest": metadata_namespace})
+            namespace["_meta"] = data_structures.Metadata(
+                namespaces={"rest": metadata_rest_namespace, "ddd": metadata_ddd_namespace}
+            )
 
         return super().__new__(mcs, name, bases, namespace)
 

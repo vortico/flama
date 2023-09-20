@@ -4,6 +4,7 @@ import typing as t
 from flama.modules import Module
 from flama.resources.resource import BaseResource
 from flama.resources.routing import ResourceRoute
+from flama.resources.workers import FlamaWorker
 
 if t.TYPE_CHECKING:
     from flama import types
@@ -13,6 +14,10 @@ __all__ = ["ResourcesModule"]
 
 class ResourcesModule(Module):
     name = "resources"
+
+    def __init__(self):
+        super().__init__()
+        self.worker = FlamaWorker()
 
     def add_resource(
         self,
@@ -36,6 +41,11 @@ class ResourcesModule(Module):
             raise ValueError("Wrong resource")
 
         self.app.mount(mount=ResourceRoute(path, resource_instance, tags))
+
+        if "ddd" in resource_instance._meta.namespaces:
+            self.worker.add_repository(
+                resource_instance._meta.name, resource_instance._meta.namespaces["ddd"]["repository"]
+            )
 
         return resource_instance
 

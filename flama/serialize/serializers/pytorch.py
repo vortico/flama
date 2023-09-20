@@ -3,8 +3,8 @@ import importlib.metadata
 import io
 import typing as t
 
+from flama.serialize import exceptions, types
 from flama.serialize.base import Serializer
-from flama.serialize.types import Framework
 
 try:
     import torch
@@ -13,17 +13,21 @@ except Exception:  # pragma: no cover
 
 
 class PyTorchSerializer(Serializer):
-    lib = Framework.torch
+    lib = types.Framework.torch
 
     def dump(self, obj: t.Any, **kwargs) -> bytes:
-        assert torch is not None, "`pytorch` must be installed to use PyTorchSerializer."
+        if torch is None:  # noqa
+            raise exceptions.FrameworkNotInstalled("pytorch")
+
         buffer = io.BytesIO()
         torch.jit.save(torch.jit.script(obj), buffer, **kwargs)
         buffer.seek(0)
         return codecs.encode(buffer.read(), "base64")
 
     def load(self, model: bytes, **kwargs) -> t.Any:
-        assert torch is not None, "`pytorch` must be installed to use PyTorchSerializer."
+        if torch is None:  # noqa
+            raise exceptions.FrameworkNotInstalled("pytorch")
+
         return torch.jit.load(io.BytesIO(codecs.decode(model, "base64")), **kwargs)
 
     def info(self, model: t.Any) -> t.Dict[str, t.Any]:
@@ -34,4 +38,7 @@ class PyTorchSerializer(Serializer):
         }
 
     def version(self) -> str:
-        return importlib.metadata.version("torch")
+        try:
+            return importlib.metadata.version("torch")
+        except Exception:  # noqa
+            raise exceptions.FrameworkNotInstalled("pytorch")

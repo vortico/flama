@@ -207,7 +207,7 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
 
         try:
             schema_name = name or s.name
-        except ValueError as e:
+        except ValueError as e:  # noqa: safety net
             raise ValueError("Cannot infer schema name.") from e
 
         schema_instance = s.unique_schema
@@ -380,37 +380,6 @@ class SchemaGenerator:
                 x: metadata.get("requestBody", {}).get("content", {}).get("application/json", {}).get(x)
                 for x in ("description", "required")
             },
-        )
-
-    def _build_endpoint_response(
-        self, endpoint: EndpointInfo, metadata: t.Dict[str, t.Any]
-    ) -> t.Tuple[t.Optional[openapi.Response], str]:
-        try:
-            response_code, main_response = list(metadata.get("responses", {}).items())[0]
-        except IndexError:
-            response_code, main_response = "200", {}
-            logger.warning(
-                'OpenAPI description not provided in docstring for main response in endpoint "%s"', endpoint.path
-            )
-
-        if endpoint.response_parameter.schema.schema:
-            if endpoint.response_parameter.schema.schema not in self.schemas:
-                self.schemas.register(schema=endpoint.response_parameter.schema.schema)
-
-            content = {
-                "application/json": openapi.MediaType(
-                    schema=self.schemas.get_openapi_ref(endpoint.response_parameter.schema.schema)
-                )
-            }
-        else:
-            content = None
-
-        return (
-            openapi.Response(
-                description=main_response.get("description", "Description not provided."),
-                content=content,
-            ),
-            str(response_code),
         )
 
     def _build_endpoint_default_response(self, metadata: t.Dict[str, t.Any]) -> openapi.Response:

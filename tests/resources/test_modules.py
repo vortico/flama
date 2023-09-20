@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 import pytest
 
 from flama.applications import Flama
@@ -61,6 +63,10 @@ class TestCaseResourcesModule:
             ("/{element_id}/", {"PUT"}, resource.update, {"tag": "update"}),
             ("/{element_id}/", {"DELETE"}, resource.delete, {"tag": "delete"}),
         ]
+
+    def test_add_resource_wrong(self, app):
+        with pytest.raises(ValueError, match=""):
+            app.resources.add_resource("/puppy/", Mock())
 
     def test_mount_resource_declarative(self, puppy_model, puppy_schema, tags):
         class PuppyResource(BaseResource, metaclass=CRUDResourceType):

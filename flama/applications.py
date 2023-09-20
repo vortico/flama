@@ -10,6 +10,7 @@ from flama.pagination import paginator
 from flama.resources import ResourcesModule
 from flama.routing import BaseRoute, Router
 from flama.schemas.modules import SchemaModule
+from flama.ddd.components import WorkerComponent
 
 if t.TYPE_CHECKING:
     from flama.middleware import Middleware
@@ -77,24 +78,22 @@ class Flama:
             }
         )
 
+        # Initialize Modules
+        default_modules = [
+            ResourcesModule(),
+            SchemaModule(title, version, description, schema=schema, docs=docs),
+            ModelsModule(),
+        ]
+        self.modules = Modules(app=self, modules={*default_modules, *(modules or [])})
+
         # Initialize router
-        self.app = self.router = Router(routes=routes, components=components, lifespan=lifespan)
+        default_components = [WorkerComponent(worker=default_modules[0].worker)]
+        self.app = self.router = Router(
+            routes=routes, components=[*default_components, *(components or [])], lifespan=lifespan
+        )
 
         # Build middleware stack
         self.middleware = MiddlewareStack(app=self.app, middleware=middleware or [], debug=debug)
-
-        # Initialize Modules
-        self.modules = Modules(
-            app=self,
-            modules={
-                *[
-                    ResourcesModule(),
-                    SchemaModule(title, version, description, schema=schema, docs=docs),
-                    ModelsModule(),
-                ],
-                *(modules or []),
-            },
-        )
 
         # Setup schema library
         self.schema.schema_library = schema_library

@@ -9,12 +9,12 @@ import sqlalchemy
 import typesystem
 from sqlalchemy.dialects import postgresql
 
-from flama import types
 from flama.applications import Flama
 from flama.pagination import paginator
 from flama.resources.crud import CRUDListDropResourceType, CRUDListResourceType, CRUDResourceType
 from flama.resources.rest import RESTResource
 from flama.resources.routing import ResourceRoute, resource_method
+from flama.resources.workers import FlamaWorker
 from flama.sqlalchemy import SQLAlchemyModule
 from tests.conftest import DATABASE_URL
 
@@ -336,7 +336,7 @@ class TestCaseCRUDListResource:
             @paginator.page_number(schema_name="PuppyResource")
             async def list(
                 self,
-                scope: types.Scope,
+                worker: FlamaWorker,
                 name: typing.Optional[str] = None,
                 custom_id__le: typing.Optional[int] = None,
                 **kwargs,
@@ -344,8 +344,6 @@ class TestCaseCRUDListResource:
                 """
                 description: Custom list method with filtering by name.
                 """
-                app = scope["app"]
-
                 clauses = []
 
                 if custom_id__le is not None:
@@ -356,7 +354,8 @@ class TestCaseCRUDListResource:
                 if name is not None:
                     filters["name"] = name
 
-                return await self._filter(app, *clauses, **filters)
+                async with worker:
+                    return await worker.repositories[self._meta.name].list(*clauses, **filters)
 
         return PuppyResource()
 

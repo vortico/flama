@@ -55,7 +55,7 @@ class FrameworkSerializers:
 
         try:
             inspect_objs += model.__class__.__mro__
-        except AttributeError:
+        except AttributeError:  # noqa: safety net
             ...
 
         for obj in inspect_objs:
@@ -259,7 +259,7 @@ class ModelArtifact:
         except KeyError:  # pragma: no cover
             raise ValueError("Wrong data")
 
-        if serializer.version() != metadata.framework.version:
+        if serializer.version() != metadata.framework.version:  # noqa
             warnings.warn(
                 f"Model was built using {metadata.framework.lib.value} '{metadata.framework.version}' but detected "
                 f"version '{serializer.version()}' installed. This may cause unexpected behavior.",

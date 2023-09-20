@@ -92,7 +92,7 @@ class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
 
 
 class LimitOffsetMixin:
-    def limit_offset(self, schema_name: str):
+    def _paginate_limit_offset(self, func: t.Callable) -> t.Callable:
         """
         Decorator for adding pagination behavior to a view. That decorator produces a view based on limit-offset and
         it adds three query parameters to control the pagination: limit, offset and count. Offset has a default value of
@@ -106,26 +106,23 @@ class LimitOffsetMixin:
         :param schema_name: Name used for output field.
         :return: Decorated view.
         """
+        schema = schemas.Schema.from_type(inspect.signature(func).return_annotation)
+        resource_schema = schema.unique_schema
+        schema_name = schema.name
 
-        def _inner(func: t.Callable) -> t.Callable:
-            resource_schema = schemas.Schema.from_type(inspect.signature(func).return_annotation).unique_schema
-            try:
-                schema_module, schema_class = schema_name.rsplit(".", 1)
-                paginated_schema_name = f"{schema_module}.LimitOffsetPaginated{schema_class}"
-            except ValueError:
-                paginated_schema_name = f"LimitOffsetPaginated{schema_name}"
-            schema = schemas.Schema.build(
-                paginated_schema_name,
-                schema=schemas.schemas.LimitOffset,
-                fields=[schemas.Field("data", resource_schema, multiple=True)],
-            ).unique_schema
+        try:
+            schema_module, schema_class = schema_name.rsplit(".", 1)
+            paginated_schema_name = f"{schema_module}.LimitOffsetPaginated{schema_class}"
+        except ValueError:  # noqa: safety net
+            paginated_schema_name = f"LimitOffsetPaginated{schema_name}"
+        schema = schemas.Schema.build(
+            paginated_schema_name,
+            schema=schemas.schemas.LimitOffset,
+            fields=[schemas.Field("data", resource_schema, multiple=True)],
+        ).unique_schema
 
-            decorator = LimitOffsetDecoratorFactory.decorate(func, schema)
+        decorator = LimitOffsetDecoratorFactory.decorate(func, schema)
 
-            self.schemas.update(  # type: ignore[attr-defined]
-                {schema_name: resource_schema, paginated_schema_name: schema}
-            )
+        self.schemas.update({schema_name: resource_schema, paginated_schema_name: schema})  # type: ignore[attr-defined]
 
-            return decorator
-
-        return _inner
+        return decorator

@@ -6,6 +6,7 @@ import marshmallow.validate
 import pydantic
 import pytest
 import typesystem
+import typesystem.fields
 
 from flama import types
 from tests.asserts import assert_recursive_contains
@@ -16,13 +17,11 @@ utc = datetime.timezone.utc
 class TestCaseSchemaValidation:
     @pytest.fixture(scope="function")
     def product_schema(self, app):
-        from flama import schemas
-
-        if schemas.lib == pydantic:
+        if app.schema.schema_library.lib == pydantic:
             schema = pydantic.create_model(
                 "Product", name=(str, ...), rating=(t.Optional[int], ...), created=(t.Optional[datetime.datetime], ...)
             )
-        elif schemas.lib == typesystem:
+        elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(
                 title="Product",
                 fields={
@@ -31,7 +30,7 @@ class TestCaseSchemaValidation:
                     "created": typesystem.fields.DateTime(allow_null=True),
                 },
             )
-        elif schemas.lib == marshmallow:
+        elif app.schema.schema_library.lib == marshmallow:
             schema = type(
                 "Product",
                 (marshmallow.Schema,),
@@ -44,32 +43,26 @@ class TestCaseSchemaValidation:
         else:
             raise ValueError("Wrong schema lib")
 
-        app.schema.register_schema("Product", schema)
         return schema
 
     @pytest.fixture(scope="function")
     def reviewed_product_schema(self, app, product_schema):
-        from flama import schemas
-
-        if schemas.lib == pydantic:
+        if app.schema.schema_library.lib == pydantic:
             schema = pydantic.create_model("ReviewedProduct", reviewer=(str, ...), __base__=product_schema)
-        elif schemas.lib == typesystem:
+        elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(
                 title="ReviewedProduct", fields={**product_schema.fields, **{"reviewer": typesystem.fields.String()}}
             )
-        elif schemas.lib == marshmallow:
+        elif app.schema.schema_library.lib == marshmallow:
             schema = type("ReviewedProduct", (product_schema,), {"reviewer": marshmallow.fields.String()})
         else:
             raise ValueError("Wrong schema lib")
 
-        app.schema.schemas["ReviewedProduct"] = schema
         return schema
 
     @pytest.fixture(scope="function")
     def location_schema(self, app):
-        from flama import schemas
-
-        if schemas.lib == pydantic:
+        if app.schema.schema_library.lib == pydantic:
 
             def latitude_validator(cls, x):
                 assert -90 <= x <= 90
@@ -85,14 +78,14 @@ class TestCaseSchemaValidation:
                 longitude=(float, ...),
                 __validators__={"latitude": latitude_validator, "longitude": longitude_validator},
             )
-        elif schemas.lib == typesystem:
+        elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(
                 fields={
                     "latitude": typesystem.fields.Number(minimum=-90, maximum=90),
                     "longitude": typesystem.fields.Number(minimum=-180, maximum=180),
                 }
             )
-        elif schemas.lib == marshmallow:
+        elif app.schema.schema_library.lib == marshmallow:
             schema = type(
                 "Location",
                 (marshmallow.Schema,),
@@ -103,24 +96,20 @@ class TestCaseSchemaValidation:
             )
         else:
             raise ValueError("Wrong schema lib")
-
-        app.schema.schemas["Location"] = schema
         return schema
 
     @pytest.fixture(scope="function")
     def place_schema(self, app, location_schema):
-        from flama import schemas
-
-        if schemas.lib == pydantic:
+        if app.schema.schema_library.lib == pydantic:
             schema = pydantic.create_model("Place", location=(location_schema, ...), name=(str, ...))
-        elif schemas.lib == typesystem:
+        elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(
                 fields={
-                    "location": typesystem.Reference("Location", app.schema.schemas),
+                    "location": typesystem.Reference("Location", typesystem.Definitions({"Location": location_schema})),
                     "name": typesystem.String(),
                 }
             )
-        elif schemas.lib == marshmallow:
+        elif app.schema.schema_library.lib == marshmallow:
             schema = type(
                 "Place",
                 (marshmallow.Schema,),
@@ -128,11 +117,10 @@ class TestCaseSchemaValidation:
             )
         else:
             raise ValueError("Wrong schema lib")
-        app.schema.schemas["Place"] = schema
         return schema
 
     @pytest.fixture(scope="function", autouse=True)
-    def add_endpoints(self, app, product_schema, reviewed_product_schema, location_schema, place_schema):
+    def add_endpoints(self, app, product_schema, reviewed_product_schema, place_schema):
         @app.route("/product", methods=["POST"])
         def product_identity(product: types.Schema[product_schema]) -> types.Schema[product_schema]:
             return product
@@ -167,7 +155,7 @@ class TestCaseSchemaValidation:
             return {"rating": "foo", "created": "bar"}
 
     @pytest.mark.parametrize(
-        "path,method,test_input,expected_output,status_code",
+        ["path", "method", "json_data", "expected_output", "status_code"],
         [
             pytest.param(
                 "/product",
@@ -243,7 +231,7 @@ class TestCaseSchemaValidation:
             ),
         ],
     )
-    async def test_schemas(self, client, path, method, test_input, expected_output, status_code):
-        response = await client.request(method, path, json=test_input)
+    async def test_schemas(self, client, path, method, json_data, expected_output, status_code):
+        response = await client.request(method, path, json=json_data)
         assert response.status_code == status_code, response.json()
         assert_recursive_contains(expected_output, response.json())

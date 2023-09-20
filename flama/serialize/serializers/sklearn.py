@@ -6,15 +6,17 @@ import pickle
 import typing as t
 import warnings
 
-from flama import types
+from flama.serialize import exceptions, types
 from flama.serialize.base import Serializer
-from flama.serialize.types import Framework
+
+if t.TYPE_CHECKING:
+    from flama.types import JSONField, JSONSchema
 
 logger = logging.getLogger(__name__)
 
 
 class SKLearnSerializer(Serializer):
-    lib = Framework.sklearn
+    lib = types.Framework.sklearn
 
     def dump(self, obj: t.Any, **kwargs) -> bytes:
         return codecs.encode(pickle.dumps(obj), "base64")
@@ -26,7 +28,7 @@ class SKLearnSerializer(Serializer):
 
         return model
 
-    def _info(self, data) -> types.JSONField:
+    def _info(self, data) -> "JSONField":
         if isinstance(data, (int, bool, str)):
             return data
 
@@ -41,7 +43,7 @@ class SKLearnSerializer(Serializer):
 
         return None
 
-    def info(self, model: t.Any) -> t.Optional[types.JSONSchema]:
+    def info(self, model: t.Any) -> t.Optional["JSONSchema"]:
         try:
             return self._info(model.get_params())  # type: ignore
         except:  # noqa
@@ -49,4 +51,7 @@ class SKLearnSerializer(Serializer):
             return None
 
     def version(self) -> str:
-        return importlib.metadata.version("scikit-learn")
+        try:
+            return importlib.metadata.version("scikit-learn")
+        except Exception:  # noqa
+            raise exceptions.FrameworkNotInstalled("scikit-learn")

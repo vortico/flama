@@ -16,6 +16,24 @@ from flama.schemas.generator import SchemaRegistry
 from tests.asserts import assert_recursive_contains
 
 
+def _fix_ref(value, refs):
+    try:
+        prefix, name = value.rsplit("/", 1)
+        return f"{prefix}/{refs[name]}"
+    except KeyError:
+        return value
+
+
+def _replace_refs(schema, refs):
+    if isinstance(schema, dict):
+        return {k: _fix_ref(v, refs) if k == "$ref" else _replace_refs(v, refs) for k, v in schema.items()}
+
+    if isinstance(schema, (list, tuple, set)):
+        return [_replace_refs(x, refs) for x in schema]
+
+    return schema
+
+
 class TestCaseSchemaRegistry:
     @pytest.fixture(scope="function")
     def registry(self):
@@ -933,7 +951,6 @@ class TestCaseSchemaGenerator:
             name = "abc.Owner"
         else:
             raise ValueError("Wrong schema lib")
-        app.schema.schemas["Owner"] = schema
         return namedtuple("OwnerSchema", ("schema", "name"))(schema, name)
 
     @pytest.fixture(scope="function")
@@ -964,7 +981,6 @@ class TestCaseSchemaGenerator:
             name = "abc.Puppy"
         else:
             raise ValueError("Wrong schema lib")
-        app.schema.schemas["Puppy"] = schema
         return namedtuple("PuppySchema", ("schema", "name"))(schema, name)
 
     @pytest.fixture(scope="function")
@@ -980,9 +996,11 @@ class TestCaseSchemaGenerator:
             name = "abc.BodyParam"
         else:
             raise ValueError("Wrong schema lib")
-
-        app.schema.schemas["BodyParam"] = schema
         return namedtuple("BodyParamSchema", ("schema", "name"))(schema, name)
+
+    @pytest.fixture(scope="function")
+    def schemas(self, owner_schema, puppy_schema, body_param_schema):
+        return {"Owner": owner_schema, "Puppy": puppy_schema, "BodyParam": body_param_schema}
 
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app, puppy_schema, body_param_schema):
@@ -1083,11 +1101,16 @@ class TestCaseSchemaGenerator:
         assert schema["version"] == "0.1"
         assert schema["description"] == "Bar"
 
-    def test_components_schemas(self, app):
-        schemas = app.schema.schema["components"]["schemas"]
+    def test_components_schemas(self, app, schemas):
+        used_schemas = app.schema.schema["components"]["schemas"]
 
         # Check declared components are only those that are in use
-        assert set(schemas.keys()) == {"Owner", "Puppy", "BodyParam", "flama.APIError"}
+        assert set(used_schemas.keys()) == {
+            schemas["Owner"].name,
+            schemas["Puppy"].name,
+            schemas["BodyParam"].name,
+            "flama.APIError",
+        }
 
     @pytest.mark.parametrize(
         "path,verb,expected_schema",
@@ -1355,5 +1378,7 @@ class TestCaseSchemaGenerator:
             ),
         ],
     )
-    def test_schema(self, app, path, verb, expected_schema):
-        assert_recursive_contains(expected_schema, app.schema.schema["paths"][path][verb])
+    def test_schema(self, app, schemas, path, verb, expected_schema):
+        schema = _replace_refs(expected_schema, {k: v.name for k, v in schemas.items()})
+
+        assert_recursive_contains(schema, app.schema.schema["paths"][path][verb])

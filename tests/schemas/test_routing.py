@@ -4,6 +4,7 @@ import marshmallow
 import pydantic
 import pytest
 import typesystem
+import typesystem.fields
 
 import flama.types.websockets
 from flama import Component, HTTPEndpoint, Route, WebSocketEndpoint, WebSocketRoute, types, websockets

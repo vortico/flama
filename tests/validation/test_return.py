@@ -1,54 +1,55 @@
 import marshmallow
+import pydantic
 import pytest
+import typesystem
+import typesystem.fields
 
-from flama import Component, endpoints, http, types
-from flama.applications import Flama
-from flama.client import AsyncClient
-
-
-class Puppy:
-    name = "Canna"
-
-
-class PuppyComponent(Component):
-    def resolve(self) -> Puppy:
-        return Puppy()
-
-
-class BodyParam(marshmallow.Schema):
-    name = marshmallow.fields.String()
+from flama import endpoints, http, types
 
 
 class TestCaseReturnValidation:
-    @pytest.fixture(  # noqa: C901
-        scope="class", params=[pytest.param(True, id="endpoints"), pytest.param(False, id="function views")]
-    )
-    def app(self, request):  # noqa: C901
-        app_ = Flama(components=[PuppyComponent()], schema=None, docs=None)
+    @pytest.fixture(scope="function")
+    def output_schema(self, app):
+        if app.schema.schema_library.lib == pydantic:
+            schema = pydantic.create_model("OutputSchema", name=(str, ...))
+        elif app.schema.schema_library.lib == typesystem:
+            schema = typesystem.Schema(title="OutputSchema", fields={"name": typesystem.fields.String()})
+        elif app.schema.schema_library.lib == marshmallow:
+            schema = type("OutputSchema", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
+        else:
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
 
+        return schema
+
+    @pytest.fixture(  # noqa: C901
+        scope="function",
+        params=[pytest.param(True, id="endpoints"), pytest.param(False, id="function views")],
+        autouse=True,
+    )
+    def add_endpoints(self, app, request, output_schema):  # noqa: C901
         if request.param:
 
-            @app_.route("/return_string/")
+            @app.route("/return-string/")
             class StrEndpoint(endpoints.HTTPEndpoint):
                 def get(self, data: types.RequestData) -> str:
                     return "example content"
 
-            @app_.route("/return_html/")
-            class HTMLEndpoint(endpoints.HTTPEndpoint):
-                def get(self, data: types.RequestData) -> http.HTMLResponse:
-                    return http.HTMLResponse("<html><body>example content</body></html>")
-
-            @app_.route("/return_data/")
+            @app.route("/return-dict/")
             class DictEndpoint(endpoints.HTTPEndpoint):
                 def get(self, data: types.RequestData) -> dict:
                     return {"example": "content"}
 
-            @app_.route("/return_response/")
+            @app.route("/return-html-response/")
+            class HTMLEndpoint(endpoints.HTTPEndpoint):
+                def get(self, data: types.RequestData) -> http.HTMLResponse:
+                    return http.HTMLResponse("<html><body>example content</body></html>")
+
+            @app.route("/return-json-response/")
             class JSONEndpoint(endpoints.HTTPEndpoint):
                 def get(self, data: types.RequestData) -> http.JSONResponse:
                     return http.JSONResponse({"example": "content"})
 
-            @app_.route("/return_unserializable_json/")
+            @app.route("/return-unserializable-json/")
             class UnserializableEndpoint(endpoints.HTTPEndpoint):
                 def get(self) -> dict:
                     class Dummy:
@@ -56,112 +57,99 @@ class TestCaseReturnValidation:
 
                     return {"dummy": Dummy()}
 
-            @app_.route("/return-schema/", methods=["GET"])
+            @app.route("/return-schema/", methods=["GET"])
             class ReturnSchemaHTTPEndpoint(endpoints.HTTPEndpoint):
-                async def get(self) -> BodyParam:
+                async def get(self) -> types.Schema[output_schema]:
                     return {"name": "Canna"}
 
-            @app_.route("/return-schema-many/", methods=["GET"])
+            @app.route("/return-schema-many/", methods=["GET"])
             class ReturnSchemaManyHTTPEndpoint(endpoints.HTTPEndpoint):
-                async def get(self) -> BodyParam(many=True):
+                async def get(self) -> types.Schema[output_schema]:
                     return [{"name": "Canna"}, {"name": "Sandy"}]
 
-            @app_.route("/return-schema-empty/", methods=["GET"])
+            @app.route("/return-schema-empty/", methods=["GET"])
             class ReturnSchemaEmptyHTTPEndpoint(endpoints.HTTPEndpoint):
-                async def get(self) -> BodyParam:
+                async def get(self) -> types.Schema[output_schema]:
                     return None
 
         else:
 
-            @app_.route("/return_string/")
+            @app.route("/return-string/")
             def return_string(data: types.RequestData) -> str:
                 return "example content"
 
-            @app_.route("/return_html/")
-            def return_html(data: types.RequestData) -> http.HTMLResponse:
-                return http.HTMLResponse("<html><body>example content</body></html>")
-
-            @app_.route("/return_data/")
+            @app.route("/return-dict/")
             def return_data(data: types.RequestData) -> dict:
                 return {"example": "content"}
 
-            @app_.route("/return_response/")
+            @app.route("/return-html-response/")
+            def return_html(data: types.RequestData) -> http.HTMLResponse:
+                return http.HTMLResponse("<html><body>example content</body></html>")
+
+            @app.route("/return-json-response/")
             def return_response(data: types.RequestData) -> http.Response:
                 return http.JSONResponse({"example": "content"})
 
-            @app_.route("/return_unserializable_json/")
+            @app.route("/return-unserializable-json/")
             def return_unserializable_json() -> dict:
                 class Dummy:
                     pass
 
                 return {"dummy": Dummy()}
 
-            @app_.route("/return-schema/", methods=["GET"])
-            async def return_schema() -> BodyParam:
+            @app.route("/return-schema/", methods=["GET"])
+            async def return_schema() -> types.Schema[output_schema]:
                 return {"name": "Canna"}
 
-            @app_.route("/return-schema-many/", methods=["GET"])
-            async def return_schema_many() -> BodyParam(many=True):
+            @app.route("/return-schema-many/", methods=["GET"])
+            async def return_schema_many() -> types.Schema[output_schema]:
                 return [{"name": "Canna"}, {"name": "Sandy"}]
 
-            @app_.route("/return-schema-empty/", methods=["GET"])
-            async def return_schema_empty() -> BodyParam:
+            @app.route("/return-schema-empty/", methods=["GET"])
+            async def return_schema_empty() -> types.Schema[output_schema]:
                 return None
 
-        return app_
+    @pytest.mark.parametrize(
+        ["path", "status_code", "content_type", "content", "exception"],
+        (
+            pytest.param("/return-string/", 200, "application/json", b'"example content"', None, id="string"),
+            pytest.param("/return-dict/", 200, "application/json", b'{"example":"content"}', None, id="dict"),
+            pytest.param(
+                "/return-html-response/",
+                200,
+                "text/html; charset=utf-8",
+                b"<html><body>example content</body></html>",
+                None,
+                id="html_response",
+            ),
+            pytest.param(
+                "/return-json-response/", 200, "application/json", b'{"example":"content"}', None, id="json_response"
+            ),
+            pytest.param(
+                "/return-unserializable-json/",
+                None,
+                None,
+                None,
+                TypeError(".*Object of type .?Dummy.? is not JSON serializable"),
+                id="unserializable_json_response",
+            ),
+            pytest.param("/return-schema/", 200, "application/json", b'{"name":"Canna"}', None, id="schema"),
+            pytest.param(
+                "/return-schema-many/",
+                200,
+                "application/json",
+                b'[{"name":"Canna"},{"name":"Sandy"}]',
+                None,
+                id="schema_many",
+            ),
+            pytest.param("/return-schema-empty/", 200, "application/json", b"", None, id="schema_empty"),
+        ),
+        indirect=["exception"],
+    )
+    async def test_return(self, client, path, status_code, content_type, content, exception):
+        with exception:
+            response = await client.get(path)
 
-    @pytest.fixture(scope="function")
-    async def client(self, app):
-        async with AsyncClient(app=app) as client:
-            yield client
-
-    async def test_return_string(self, client):
-        response = await client.get("/return_string/")
-
-        assert response.status_code == 200
-        assert response.headers["content-type"] == "application/json"
-        assert response.json() == "example content"
-
-    async def test_return_html(self, client):
-        response = await client.get("/return_html/")
-        assert response.headers["content-type"] == "text/html; charset=utf-8"
-        assert response.text == "<html><body>example content</body></html>"
-
-    async def test_return_data(self, client):
-        response = await client.get("/return_data/")
-
-        assert response.status_code == 200
-        assert response.headers["content-type"] == "application/json"
-        assert response.json() == {"example": "content"}
-
-    async def test_return_response(self, client):
-        response = await client.get("/return_response/")
-
-        assert response.status_code == 200
-        assert response.headers["content-type"] == "application/json"
-        assert response.json() == {"example": "content"}
-
-    async def test_return_unserializable_json(self, client):
-        with pytest.raises(TypeError, match=r".*Object of type .?Dummy.? is not JSON serializable"):
-            await client.get("/return_unserializable_json/")
-
-    async def test_return_schema(self, client):
-        response = await client.get("/return-schema/")
-
-        assert response.status_code == 200
-        assert response.headers["content-type"] == "application/json"
-        assert response.json() == {"name": "Canna"}
-
-    async def test_return_schema_many(self, client):
-        response = await client.get("/return-schema-many/")
-
-        assert response.status_code == 200
-        assert response.headers["content-type"] == "application/json"
-        assert response.json() == [{"name": "Canna"}, {"name": "Sandy"}]
-
-    async def test_return_schema_empty(self, client):
-        response = await client.get("/return-schema-empty/")
-
-        assert response.status_code == 200
-        assert response.headers["content-type"] == "application/json"
-        assert response.content == b""
+            assert response.status_code == status_code
+            assert response.headers["content-type"] == content_type
+            assert response.content == content
