@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "flama"
-version = "1.5.1"
+version = "1.5.2"
 description = "Fire up your models with the flame 🔥"
 authors = [
     "José Antonio Perdiguero López <perdy@perdy.io>",

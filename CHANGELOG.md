@@ -1,5 +1,11 @@
 # Semantic Versioning Changelog
 
+# [v1.5.2](https://github.com/vortico/flama/compare/v1.5.1...v1.5.2) (2023-09-20)
+
+## 🐛 Bug Fixes
+- [`880e6b2`](https://github.com/vortico/flama/commit/880e6b2)  Parse exception objects as part of JSON responses 
+- [`3e12f31`](https://github.com/vortico/flama/commit/3e12f31)  Keep a reference to app in client
+
 # [v1.5.1](https://github.com/vortico/flama/compare/v1.5.0...v1.5.1) (2023-09-19)
 
 ## 🐛 Bug Fixes
