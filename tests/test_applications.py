@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
@@ -94,14 +94,12 @@ class TestCaseFlama:
             assert app.middleware.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
 
     def test_components(self, app):
-        expected_components = [MagicMock()]
-        components_mock = PropertyMock(return_value=expected_components)
+        component = MagicMock(spec=Component)
 
-        with patch.object(Router, "components", new=components_mock):
-            components = app.components
+        app.router.add_component(component)
 
-        assert components_mock.call_args_list == [call()]
-        assert components == expected_components
+        default_components = app.components[:1]
+        assert app.components == [*default_components, component]
 
     def test_add_component(self, app, component):
         component_obj = component()
@@ -258,21 +256,23 @@ class TestCaseFlama:
         with exception:
             assert app.resolve_url(resolve, **path_params) == resolution
 
-    def test_end_to_end(self, component, module):
-        """Test"""
-        root_app = Flama(schema=None, docs=None)
+    def test_end_to_end(self, module):
+        root_component = MagicMock(spec=Component)
+        root_app = Flama(schema=None, docs=None, components=[root_component])
         root_app.add_get("/foo", lambda: {})
 
         assert len(root_app.router.routes) == 1
-        default_components = root_app.components[:1]
-        assert root_app.components == default_components
+        root_default_components = root_app.components[:1]
+        assert root_app.components == [*root_default_components, root_component]
         assert root_app.modules == DEFAULT_MODULES
 
-        leaf_app = Flama(schema=None, docs=None, components=[component], modules={module()})
+        leaf_component = MagicMock(spec=Component)
+        leaf_app = Flama(schema=None, docs=None, components=[leaf_component], modules={module()})
         leaf_app.add_get("/bar", lambda: {})
 
         assert len(leaf_app.router.routes) == 1
-        assert leaf_app.components == [component]
+        leaf_default_components = leaf_app.components[:1]
+        assert leaf_app.components == [*leaf_default_components, leaf_component]
         assert leaf_app.modules == [*DEFAULT_MODULES, module]
 
         root_app.mount("/app", app=leaf_app)
@@ -288,17 +288,19 @@ class TestCaseFlama:
         assert isinstance(mount_app.app, Router)
         mount_router = mount_app.app
         # Check components are collected across the entire tree
-        assert mount_router.components == [component]
-        assert root_app.components == [component]
+        assert root_app.components == [*root_default_components, root_component]
+        assert mount_router.components == [*leaf_default_components, leaf_component, *root_app.components]
         # Check modules are isolated for each app
         assert mount_app.modules == [*DEFAULT_MODULES, module]
         assert root_app.modules == DEFAULT_MODULES
 
-    def test_end_to_end_declarative(self, component, module):
+    def test_end_to_end_declarative(self, module):
+        leaf_component = MagicMock(spec=Component)
         leaf_routes = [Route("/bar", lambda: {})]
-        leaf_app = Flama(routes=leaf_routes, schema=None, docs=None, components=[component], modules={module()})
+        leaf_app = Flama(routes=leaf_routes, schema=None, docs=None, components=[leaf_component], modules={module()})
+        root_component = MagicMock(spec=Component)
         root_routes = [Route("/foo", lambda: {}), Mount("/app", app=leaf_app)]
-        root_app = Flama(routes=root_routes, schema=None, docs=None)
+        root_app = Flama(routes=root_routes, schema=None, docs=None, components=[root_component])
 
         assert len(root_app.router.routes) == 2
         # Check mount is initialized
@@ -311,8 +313,10 @@ class TestCaseFlama:
         assert isinstance(mount_app.app, Router)
         mount_router = mount_app.app
         # Check components are collected across the entire tree
-        assert mount_router.components == [component]
-        assert root_app.components == [component]
+        root_default_components = root_app.components[:1]
+        assert root_app.components == [*root_default_components, root_component]
+        leaf_default_components = leaf_app.components[:1]
+        assert mount_router.components == [*leaf_default_components, leaf_component, *root_app.components]
         # Check modules are isolated for each app
         assert mount_app.modules == [*DEFAULT_MODULES, module]
         assert root_app.modules == DEFAULT_MODULES

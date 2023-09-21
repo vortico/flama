@@ -2,6 +2,7 @@ import functools
 import typing as t
 
 from flama import asgi, http, injection, types, url, validation, websockets
+from flama.ddd.components import WorkerComponent
 from flama.events import Events
 from flama.middleware import MiddlewareStack
 from flama.models.modules import ModelsModule
@@ -10,7 +11,6 @@ from flama.pagination import paginator
 from flama.resources import ResourcesModule
 from flama.routing import BaseRoute, Router
 from flama.schemas.modules import SchemaModule
-from flama.ddd.components import WorkerComponent
 
 if t.TYPE_CHECKING:
     from flama.middleware import Middleware
@@ -108,6 +108,9 @@ class Flama:
 
         # Reference to paginator from within app
         self.paginator = paginator
+
+        # Build router to propagate root application
+        self.router.build(self)
 
     def __getattr__(self, item: str) -> t.Any:
         """Retrieve a module by its name.
