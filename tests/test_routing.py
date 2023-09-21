@@ -351,14 +351,24 @@ class TestCaseMount:
         assert Mount("/", app, name="app_mock") == Mount("/", app, name="app_mock")
         assert Mount("/", app, name="app_mock") != Mount("/", app, name="bar")
 
-    def test_build(self, mount, app):
+    @pytest.mark.parametrize(
+        ["app", "used"],
+        (
+            pytest.param(MagicMock(spec=Router), False, id="router"),
+            pytest.param(MagicMock(spec=Flama, router=MagicMock(spec=Router, components=[])), True, id="app"),
+        ),
+    )
+    def test_build(self, mount, app, used):
+        root_app = MagicMock(spec=Flama)
+        expected_calls = [call(app)] if used else [call(root_app)]
+
         route = MagicMock(spec=Route)
-        mount.app = MagicMock(spec=Flama)
+        mount.app = app
         mount.app.routes = [route]
 
-        mount.build(app)
+        mount.build(root_app)
 
-        assert route.build.call_args_list == [call(app)]
+        assert route.build.call_args_list == expected_calls
 
     @pytest.mark.parametrize(
         ["scope_type", "path_match_return", "result"],
@@ -383,16 +393,30 @@ class TestCaseMount:
 
         assert mount.app.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
 
-    def test_route_scope(self, mount, asgi_scope):
+    @pytest.mark.parametrize(
+        ["app", "used"],
+        (
+            pytest.param(Router(), False, id="router"),
+            pytest.param(Flama(docs=None, schema=None), True, id="app"),
+        ),
+    )
+    def test_route_scope(self, mount, asgi_scope, app, used):
         def bar():
             ...
 
+        mount.app = app
         mount.app.add_route("/bar", bar)
 
         asgi_scope["path"] = "/foo/1/bar"
         route_scope = mount.route_scope(asgi_scope)
 
-        assert route_scope == {"endpoint": mount.app, "path": "/bar", "path_params": {"x": 1}, "root_path": "/foo/1"}
+        assert route_scope == {
+            "app": app if used else asgi_scope["app"],
+            "endpoint": mount.app,
+            "path": "/bar",
+            "path_params": {"x": 1},
+            "root_path": "/foo/1",
+        }
 
     @pytest.mark.parametrize(
         ["name", "params", "expected_url", "exception"],
@@ -452,7 +476,7 @@ class TestCaseRouter:
 
     @pytest.fixture(scope="function")
     def app_mock(self):
-        return MagicMock(spec=Flama)
+        return MagicMock(spec=Flama, router=MagicMock(spec=Router, components=Components([])))
 
     @pytest.fixture(scope="function")
     def component_mock(self):
@@ -527,9 +551,14 @@ class TestCaseRouter:
     def test_components(self, router, component_mock):
         assert router.components == []
 
-        router.mount("/app/", app=Router(components=[component_mock]))
+        router.add_component(component_mock)
+        leaf_component = MagicMock(spec=Component)
+        leaf_router = Router(components=[leaf_component])
+        router.mount("/app/", app=leaf_router)
 
         assert router.components == [component_mock]
+        # Components are not propagated to leaf because mounted was done through a router instead of app
+        assert leaf_router.components == [leaf_component]
 
     def test_add_component(self, router, component_mock):
         assert router.components == []
@@ -693,8 +722,9 @@ class TestCaseRouter:
         # Check router is created and initialized, also shares components and modules with main app
         assert isinstance(mount_route.app, Router)
         mount_router = mount_route.app
-        assert mount_router.components == Components([component_mock])
-        assert app.components == Components([component_mock])
+        default_components = app.components[:1]
+        assert mount_router.components == [component_mock]
+        assert app.components == default_components
 
     def test_mount_declarative(self, component_mock, tags):
         def root():
@@ -742,9 +772,9 @@ class TestCaseRouter:
         # Check router is created and initialized, also shares components and modules with main app
         assert isinstance(mount_with_routes_route.app, Router)
         mount_with_routes_router = mount_with_routes_route.app
-        assert mount_with_routes_router.components == Components([component_mock])
-        # As the component is repeated, it should appear twice
-        assert app.components == Components([component_mock, component_mock])
+        assert mount_with_routes_router.components == [component_mock]
+        default_components = app.components[:1]
+        assert app.components == default_components
         # Check second-level routes are created an initialized
         assert len(mount_with_routes_route.routes) == 2
         assert mount_with_routes_route.routes[0].path == "/"
@@ -758,9 +788,8 @@ class TestCaseRouter:
         # Check router is created and initialized, also shares components and modules with main app
         assert isinstance(mount_with_app_route.app, Router)
         mount_with_app_router = mount_with_app_route.app
-        assert mount_with_app_router.components == Components([component_mock])
-        # As the component is repeated, it should appear twice
-        assert app.components == Components([component_mock, component_mock])
+        assert mount_with_app_router.components == [component_mock]
+        assert app.components == default_components
         # Check second-level routes are created an initialized
         assert len(mount_with_app_route.routes) == 2
         assert mount_with_app_route.routes[0].path == "/"

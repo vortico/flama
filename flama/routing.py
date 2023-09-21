@@ -480,9 +480,14 @@ class Mount(BaseRoute):
 
         :param app: Flama app.
         """
-        if app:
+        from flama import Flama
+
+        if app and isinstance(self.app, Flama):
+            self.app.router.components = Components(self.app.router.components + app.components)
+
+        if root := (self.app if isinstance(self.app, Flama) else app):
             for route in self.routes:
-                route.build(app)
+                route.build(root)
 
     def match(self, scope: types.Scope) -> Match:
         """Check if this route matches with given scope.
@@ -510,6 +515,9 @@ class Mount(BaseRoute):
         :param scope: ASGI scope.
         :return: Route scope.
         """
+        from flama import Flama
+
+        app = self.app if isinstance(self.app, Flama) else scope["app"]
         path = scope["path"]
         root_path = scope.get("root_path", "")
         matched_params = self.path.values(path)
@@ -517,6 +525,7 @@ class Mount(BaseRoute):
         matched_path = path[: -len(remaining_path)]
         return types.Scope(
             {
+                "app": app,
                 "path_params": {**dict(scope.get("path_params", {})), **matched_params},
                 "endpoint": self.endpoint,
                 "root_path": root_path + matched_path,
@@ -575,7 +584,7 @@ class Router(types.AppAsyncClass):
         :param root: Flama application.
         """
         self.routes = [] if routes is None else list(routes)
-        self._components = Components(components if components else set())
+        self.components = Components(components if components else set())
         self.lifespan = Lifespan(lifespan)
 
         if root:
@@ -611,26 +620,12 @@ class Router(types.AppAsyncClass):
         for route in self.routes:
             route.build(app)
 
-    @property
-    def components(self) -> Components:
-        return Components(
-            self._components
-            + Components(
-                [
-                    component
-                    for route in self.routes
-                    if hasattr(route, "app") and hasattr(route.app, "components")
-                    for component in getattr(route.app, "components", [])
-                ]
-            )
-        )
-
     def add_component(self, component: Component):
         """Register a new component.
 
         :param component: Component to register.
         """
-        self._components = Components(self._components + Components([component]))
+        self.components = Components(self.components + Components([component]))
 
     def add_route(
         self,
