@@ -5,6 +5,7 @@ import pydantic
 import pytest
 import starlette.websockets
 import typesystem
+import typesystem.fields
 
 from flama import Component, exceptions, types, websockets
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
@@ -100,16 +101,18 @@ class TestCaseHTTPEndpoint:
                     ...
 
             route = app.add_route("/", FooEndpoint)
-            asgi_scope = {
-                **asgi_scope,
-                "app": app,
-                "type": "http",
-                "method": "GET",
-                "path": "/",
-                "path_params": {},
-                "endpoint": FooEndpoint,
-                "route": route,
-            }
+            asgi_scope = types.Scope(
+                {
+                    **asgi_scope,
+                    "app": app,
+                    "type": "http",
+                    "method": "GET",
+                    "path": "/",
+                    "path_params": {},
+                    "endpoint": FooEndpoint,
+                    "route": route,
+                }
+            )
             endpoint = HTTPEndpoint(asgi_scope, asgi_receive, asgi_send)
             assert endpoint.state == {
                 "scope": asgi_scope,
@@ -130,6 +133,12 @@ class TestCaseHTTPEndpoint:
 
     def test_allowed_methods(self, endpoint):
         assert endpoint.allowed_methods() == {"GET", "HEAD"}
+
+        class BarEndpoint(HTTPEndpoint):
+            def post(self):
+                ...
+
+        assert BarEndpoint.allowed_methods() == {"POST"}
 
     def test_handler(self, endpoint):
         endpoint.state["request"].scope["method"] = "GET"
@@ -226,7 +235,7 @@ class TestCaseWebSocketEndpoint:
     def test_injecting_component(self, app, client):
         @app.websocket_route("/")
         class FooWebSocketEndpoint(WebSocketEndpoint):
-            encoding = "bytes"
+            encoding = types.Encoding("bytes")
 
             async def on_connect(self, websocket: websockets.WebSocket):
                 await websocket.accept()
@@ -264,20 +273,22 @@ class TestCaseWebSocketEndpoint:
             ws.send_bytes("foo")
             result = ws.receive()
 
-        assert result == {"code": 1011, "type": "websocket.close", "reason": ""}
+            assert result == {"code": 1011, "type": "websocket.close", "reason": ""}
 
     def test_init(self, app, asgi_scope, asgi_receive, asgi_send):
         with patch("flama.endpoints.websockets.WebSocket") as websocket_mock:
             route = app.add_websocket_route("/", WebSocketEndpoint)
-            asgi_scope = {
-                **asgi_scope,
-                "app": app,
-                "type": "websocket",
-                "path": "/",
-                "path_params": {},
-                "endpoint": WebSocketEndpoint,
-                "route": route,
-            }
+            asgi_scope = types.Scope(
+                {
+                    **asgi_scope,
+                    "app": app,
+                    "type": "websocket",
+                    "path": "/",
+                    "path_params": {},
+                    "endpoint": WebSocketEndpoint,
+                    "route": route,
+                }
+            )
             endpoint = WebSocketEndpoint(asgi_scope, asgi_receive, asgi_send)
             assert endpoint.state == {
                 "scope": asgi_scope,
@@ -298,6 +309,13 @@ class TestCaseWebSocketEndpoint:
             endpoint.__await__()
 
             assert endpoint.dispatch.call_args_list == [call()]
+
+    def test_allowed_handlers(self, endpoint):
+        assert endpoint.allowed_handlers() == {
+            "WEBSOCKET_CONNECT": endpoint.__class__.on_connect,
+            "WEBSOCKET_RECEIVE": endpoint.__class__.on_receive,
+            "WEBSOCKET_DISCONNECT": endpoint.__class__.on_disconnect,
+        }
 
     @pytest.mark.parametrize(
         ["endpoint_receive", "websocket_receive", "exception", "result_code", "result_message"],

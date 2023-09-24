@@ -52,18 +52,12 @@ class RESTResourceType(ResourceType):
         except AttributeError as e:
             raise ResourceAttributeError(str(e), name)
 
-        metadata_rest_namespace = {"model": model, "schemas": resource_schemas}
-        metadata_ddd_namespace = {
-            "repository": type(f"{name}Repository", (SQLAlchemyRepository,), {"_table": model.table})
-        }
-
-        if "_meta" in namespace:
-            namespace["_meta"].namespaces["rest"] = metadata_rest_namespace
-            namespace["_meta"].namespaces["ddd"] = metadata_ddd_namespace
-        else:
-            namespace["_meta"] = data_structures.Metadata(
-                namespaces={"rest": metadata_rest_namespace, "ddd": metadata_ddd_namespace}
-            )
+        namespace.setdefault("_meta", data_structures.Metadata()).namespaces.update(
+            {
+                "rest": {"model": model, "schemas": resource_schemas},
+                "ddd": {"repository": type(f"{name}Repository", (SQLAlchemyRepository,), {"_table": model.table})},
+            }
+        )
 
         return super().__new__(mcs, name, bases, namespace)
 

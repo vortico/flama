@@ -1,10 +1,16 @@
 import functools
 import multiprocessing
 
+import pytest
+
 from flama import concurrency
 
 
-async def task(event):
+def sync_event_task(event):
+    event.set()
+
+
+async def async_event_task(event):
     event.set()
 
 
@@ -76,11 +82,20 @@ class TestCaseRunTaskGroup:
 
 
 class TestCaseAsyncProcess:
-    async def test_async_process(self):
+    @pytest.mark.parametrize(
+        ["target"],
+        (
+            pytest.param(sync_event_task, id="sync"),
+            pytest.param(async_event_task, id="async"),
+            pytest.param(None, id="no_target"),
+        ),
+    )
+    async def test_async_process(self, target):
         event = multiprocessing.Event()
 
-        process = concurrency.AsyncProcess(target=task, args=(event,))
+        process = concurrency.AsyncProcess(target=target, args=(event,))
         process.start()
         process.join()
 
-        assert event.wait(1.0)
+        if target:
+            assert event.wait(5.0)

@@ -1,13 +1,13 @@
 import typing as t
 
-from flama.ddd import SQLAlchemyWorker
+from flama.ddd import SQLAlchemyWorker, WorkerType
 
 if t.TYPE_CHECKING:
     from flama import Flama
     from flama.ddd.repositories import SQLAlchemyRepository
 
 
-class FlamaWorker(SQLAlchemyWorker):
+class FlamaWorker(SQLAlchemyWorker, metaclass=WorkerType):
     def __init__(self, app: t.Optional["Flama"] = None):
         super().__init__(app)
         self._init_repositories: t.Optional[t.Dict[str, "SQLAlchemyRepository"]] = None

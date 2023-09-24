@@ -73,7 +73,7 @@ if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragm
         await asyncio.wait(tasks_list)
         return tasks_list
 
-else:
+else:  # noqa
 
     async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> t.List[asyncio.Task]:
         """Run a group of tasks.

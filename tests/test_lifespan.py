@@ -21,7 +21,10 @@ class TestCaseLifespan:
             pytest.param(
                 None,
                 None,
-                [call({"type": "lifespan.startup.complete"}), call({"type": "lifespan.shutdown.complete"})],
+                [
+                    call({"type": "lifespan.startup.complete"}),
+                    call({"type": "lifespan.shutdown.complete"}),
+                ],
                 types.AppStatus.SHUT_DOWN,
                 None,
                 id="ok",
@@ -29,7 +32,9 @@ class TestCaseLifespan:
             pytest.param(
                 Exception("Foo"),
                 None,
-                [call({"type": "lifespan.startup.failed", "message": "Foo"})],
+                [
+                    call({"type": "lifespan.startup.failed", "message": "Foo"}),
+                ],
                 types.AppStatus.FAILED,
                 exceptions.ApplicationError("Lifespan startup failed"),
                 id="fail_before_start",
@@ -64,6 +69,7 @@ class TestCaseLifespan:
         asgi_scope["app"] = app
         asgi_receive.side_effect = [
             types.Message({"type": "lifespan.startup"}),
+            types.Message({"type": "http"}),
             types.Message({"type": "lifespan.shutdown"}),
         ]
         with exception, patch.object(lifespan, "_startup", side_effect=startup_side_effect), patch.object(
@@ -74,7 +80,15 @@ class TestCaseLifespan:
         assert asgi_send.call_args_list == send_calls
         assert app._status == app_status
 
-    async def test_startup(self, app, lifespan):
+    @pytest.mark.parametrize(
+        ["child_lifespan"],
+        (
+            pytest.param(MagicMock(), id="lifespan"),
+            pytest.param(None, id="no_lifespan"),
+        ),
+    )
+    async def test_startup(self, app, lifespan, child_lifespan):
+        lifespan.lifespan = child_lifespan
         foo = AsyncMock()
         app.events = MagicMock()
         app.events.startup = [foo]
@@ -82,9 +96,18 @@ class TestCaseLifespan:
         await lifespan._startup(app)
 
         assert foo.await_args_list == [call()]
-        assert lifespan.lifespan(app).__aenter__.await_args_list == [call()]
+        if child_lifespan:
+            assert lifespan.lifespan(app).__aenter__.await_args_list == [call()]
 
-    async def test_shutdown(self, app, lifespan):
+    @pytest.mark.parametrize(
+        ["child_lifespan"],
+        (
+            pytest.param(MagicMock(), id="lifespan"),
+            pytest.param(None, id="no_lifespan"),
+        ),
+    )
+    async def test_shutdown(self, app, lifespan, child_lifespan):
+        lifespan.lifespan = child_lifespan
         foo = AsyncMock()
         app.events = MagicMock()
         app.events.shutdown = [foo]
@@ -92,4 +115,5 @@ class TestCaseLifespan:
         await lifespan._shutdown(app)
 
         assert foo.await_args_list == [call()]
-        assert lifespan.lifespan(app).__aexit__.await_args_list == [call(None, None, None)]
+        if child_lifespan:
+            assert lifespan.lifespan(app).__aexit__.await_args_list == [call(None, None, None)]
