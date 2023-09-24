@@ -1,3 +1,4 @@
+import dataclasses
 import datetime
 import enum
 import html
@@ -88,6 +89,8 @@ class EnhancedJSONEncoder(json.JSONEncoder):
             return obj.__name__
         if isinstance(obj, BaseException):
             return repr(obj)
+        if dataclasses.is_dataclass(obj):
+            return dataclasses.asdict(obj)
         return super().default(obj)
 
 

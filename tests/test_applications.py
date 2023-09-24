@@ -84,6 +84,8 @@ class TestCaseFlama:
         for name, module in app.modules.items():
             assert getattr(app, name) == module
 
+        assert getattr(app, "wrong") is None
+
     async def test_call(self, app, asgi_scope, asgi_receive, asgi_send):
         with patch.object(app, "middleware", new=AsyncMock(spec=MiddlewareStack)):
             await app(asgi_scope, asgi_receive, asgi_send)

@@ -32,10 +32,7 @@ class ResourceType(type):
         except AttributeError as e:
             raise ResourceAttributeError(str(e), name)
 
-        if "_meta" not in namespace:
-            namespace["_meta"] = data_structures.Metadata()
-
-        namespace["_meta"].name = resource_name
+        namespace.setdefault("_meta", data_structures.Metadata()).name = resource_name
         namespace["_meta"].verbose_name = verbose_name
 
         # Create methods and routes

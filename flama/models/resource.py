@@ -95,15 +95,11 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
         except AttributeError as e:
             raise ResourceAttributeError(str(e), name)
 
-        metadata_namespace = {
+        namespace.setdefault("_meta", data_structures.Metadata()).namespaces["model"] = {
             "component": component,
             "model": component.model,
             "model_type": component.get_model_type(),
         }
-        if "_meta" in namespace:
-            namespace["_meta"].namespaces["model"] = metadata_namespace
-        else:
-            namespace["_meta"] = data_structures.Metadata(namespaces={"model": metadata_namespace})
 
         return super().__new__(mcs, name, bases, namespace)
 

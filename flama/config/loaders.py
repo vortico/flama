@@ -14,7 +14,7 @@ if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragm
         tomllib = tomli
     except ModuleNotFoundError:
         tomllib = None
-else:
+else:  # noqa
     import tomllib
 
 __all__ = ["FileLoader", "ConfigFileLoader", "JSONFileLoader", "YAMLFileLoader", "TOMLFileLoader"]
