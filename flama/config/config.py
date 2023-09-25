@@ -57,7 +57,7 @@ class Config:
     def __init__(
         self,
         config_file: t.Optional[t.Union[str, os.PathLike]] = None,
-        format: t.Union[str, types.FileFormat] = types.FileFormat.INI,
+        format: t.Union[str, types.FileFormat] = types.FileFormat.ini,
     ) -> None:
         """Tool for retrieving config parameters from a config file or environment variables.
 

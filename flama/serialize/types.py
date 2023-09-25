@@ -1,10 +1,19 @@
 import enum
+import sys
+
+if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
+
+    class StrEnum(str, enum.Enum):
+        def _generate_next_value_(name, start, count, last_values):
+            return name.lower()
+
+    enum.StrEnum = StrEnum  # type: ignore
 
 
-class Framework(enum.Enum):
+class Framework(enum.StrEnum):  # type: ignore # PORT: Replace with enum.StrEnum when stop supporting 3.10
     """ML formats available for Flama serialization."""
 
-    sklearn = "sklearn"
-    tensorflow = "tensorflow"
-    torch = "torch"
-    keras = "keras"
+    sklearn = enum.auto()
+    tensorflow = enum.auto()
+    torch = enum.auto()
+    keras = enum.auto()

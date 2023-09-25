@@ -5,6 +5,7 @@ import html
 import inspect
 import json
 import os
+import sys
 import typing as t
 import uuid
 from pathlib import Path
@@ -17,6 +18,14 @@ import starlette.schemas
 import flama.types
 from flama import schemas, types
 from flama.exceptions import HTTPException, SerializationError
+
+if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
+
+    class StrEnum(str, enum.Enum):
+        def _generate_next_value_(name, start, count, last_values):
+            return name.lower()
+
+    enum.StrEnum = StrEnum  # type: ignore
 
 __all__ = [
     "Method",
@@ -35,7 +44,9 @@ __all__ = [
     "OpenAPIResponse",
 ]
 
-Method = enum.Enum("Method", ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"])
+Method = enum.StrEnum(  # type: ignore # PORT: Remove this comment when stop supporting 3.10
+    "Method", ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"]
+)
 Request = starlette.requests.Request
 
 
