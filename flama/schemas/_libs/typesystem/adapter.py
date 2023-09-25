@@ -121,7 +121,10 @@ class TypesystemAdapter(Adapter[Schema, Field]):
             )
 
         if isinstance(field, typesystem.Object):
-            return {k: self._get_field_type(v) for k, v in field.properties.items()}
+            object_fields = {k: self._get_field_type(v) for k, v in field.properties.items()}
+            if isinstance(field.additional_properties, (typesystem.Field, typesystem.Reference)):
+                object_fields[""] = self._get_field_type(field.additional_properties)
+            return object_fields
 
         try:
             return MAPPING_TYPES[field.__class__]
