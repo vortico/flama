@@ -139,10 +139,10 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
             name: (self._get_field_type(field), field) for name, field in self._schema_instance(schema).fields.items()
         }
 
-    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[Schema, t.Type[Schema]]]:
+    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[Schema, t.Type[Schema]]]:  # type: ignore
         return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
-    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[Field, t.Type[Field]]]:
+    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[Field, t.Type[Field]]]:  # type: ignore
         return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))
 
     def _schema_instance(self, schema: t.Union[t.Type[Schema], Schema]) -> Schema:

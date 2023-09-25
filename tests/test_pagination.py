@@ -1,9 +1,11 @@
 import typing as t
+from collections import namedtuple
 
 import marshmallow
 import pydantic
 import pytest
 import typesystem
+import typesystem.fields
 from pytest import param
 
 from flama import types
@@ -18,34 +20,35 @@ def app(app):
 
 @pytest.fixture(scope="function")
 def output_schema(app):
-
     if app.schema.schema_library.lib == pydantic:
         schema = pydantic.create_model("OutputSchema", value=(t.Optional[int], ...))
+        name = "pydantic.main.OutputSchema"
     elif app.schema.schema_library.lib == typesystem:
         schema = typesystem.Schema(title="OutputSchema", fields={"value": typesystem.fields.Integer(allow_null=True)})
+        name = "typesystem.schemas.OutputSchema"
     elif app.schema.schema_library.lib == marshmallow:
         schema = type("OutputSchema", (marshmallow.Schema,), {"value": marshmallow.fields.Integer(allow_none=True)})
+        name = "abc.OutputSchema"
     else:
         raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
 
-    app.schema.schemas["OutputSchema"] = schema
-    return schema
+    return namedtuple("OutputSchema", ("schema", "name"))(schema=schema, name=name)
 
 
 class TestCasePageNumberPagination:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app, output_schema):
-        @app.route("/page-number/", methods=["GET"])
-        @paginator.page_number(schema_name="OutputSchema")
-        def page_number(**kwargs) -> types.Schema[output_schema]:
+        @app.route("/page-number/", methods=["GET"], pagination="page_number")
+        def page_number(**kwargs) -> types.Schema[output_schema.schema]:
             return [{"value": i} for i in range(25)]
 
-    def test_registered_schemas(self, app):
+    def test_registered_schemas(self, app, output_schema):
         schemas = app.schema.schema["components"]["schemas"]
+        name_prefix = output_schema.name.rsplit(".", 1)[0]
 
         assert set(schemas.keys()) == {
-            "OutputSchema",
-            "PageNumberPaginatedOutputSchema",
+            f"{name_prefix}.OutputSchema",
+            f"{name_prefix}.PageNumberPaginatedOutputSchema",
             "flama.PageNumberMeta",
             "flama.APIError",
         }
@@ -53,14 +56,14 @@ class TestCasePageNumberPagination:
     def test_invalid_view(self, output_schema):
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
-            @paginator.page_number(schema_name="OutputSchema")
-            def invalid() -> types.Schema[output_schema]:
+            @paginator._paginate_page_number
+            def invalid() -> types.Schema[output_schema.schema]:
                 ...
 
     def test_invalid_response(self):
         with pytest.raises(ValueError, match=r"Wrong schema type"):
 
-            @paginator.page_number(schema_name="OutputSchema")
+            @paginator._paginate_page_number
             def invalid():
                 ...
 
@@ -82,12 +85,14 @@ class TestCasePageNumberPagination:
             {"name": "page_size", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
         ]
 
-    def test_pagination_schema_return(self, app):
+    def test_pagination_schema_return(self, app, output_schema):
+        prefix, name = output_schema.name.rsplit(".", 1)
+        paginated_output_schema_name = f"{prefix}.PageNumberPaginated{name}"
         response_schema = app.schema.schema["paths"]["/page-number/"]["get"]["responses"]["200"]
-        component_schema = app.schema.schema["components"]["schemas"]["PageNumberPaginatedOutputSchema"]
+        component_schema = app.schema.schema["components"]["schemas"][paginated_output_schema_name]
 
         assert "data" in component_schema["properties"]
-        assert component_schema["properties"]["data"]["items"] == {"$ref": "#/components/schemas/OutputSchema"}
+        assert component_schema["properties"]["data"]["items"] == {"$ref": f"#/components/schemas/{output_schema.name}"}
         assert component_schema["properties"]["data"]["type"] == "array"
         assert set(component_schema["required"]) == {"meta", "data"}
         assert component_schema["type"] == "object"
@@ -98,9 +103,9 @@ class TestCasePageNumberPagination:
                 "application/json": {
                     "schema": {
                         "oneOf": [
-                            {"$ref": "#/components/schemas/PageNumberPaginatedOutputSchema"},
+                            {"$ref": f"#/components/schemas/{paginated_output_schema_name}"},
                             {
-                                "items": {"$ref": "#/components/schemas/PageNumberPaginatedOutputSchema"},
+                                "items": {"$ref": f"#/components/schemas/{paginated_output_schema_name}"},
                                 "type": "array",
                             },
                         ]
@@ -110,9 +115,8 @@ class TestCasePageNumberPagination:
         }
 
     async def test_async_function(self, app, client, output_schema):
-        @app.route("/page-number-async/", methods=["GET"])
-        @paginator.page_number(schema_name="OutputSchema")
-        async def page_number_async(**kwargs) -> types.Schema[output_schema]:
+        @app.route("/page-number-async/", methods=["GET"], pagination="page_number")
+        async def page_number_async(**kwargs) -> types.Schema[output_schema.schema]:
             return [{"value": i} for i in range(25)]
 
         response = await client.get("/page-number-async/")
@@ -166,17 +170,17 @@ class TestCasePageNumberPagination:
 class TestCaseLimitOffsetPagination:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app, output_schema):
-        @app.route("/limit-offset/", methods=["GET"])
-        @paginator.limit_offset(schema_name="OutputSchema")
-        def limit_offset(**kwargs) -> types.Schema[output_schema]:
+        @app.route("/limit-offset/", methods=["GET"], pagination="limit_offset")
+        def limit_offset(**kwargs) -> types.Schema[output_schema.schema]:
             return [{"value": i} for i in range(25)]
 
-    def test_registered_schemas(self, app):
+    def test_registered_schemas(self, app, output_schema):
         schemas = app.schema.schema["components"]["schemas"]
+        name_prefix = output_schema.name.rsplit(".", 1)[0]
 
         assert set(schemas.keys()) == {
-            "OutputSchema",
-            "LimitOffsetPaginatedOutputSchema",
+            f"{name_prefix}.OutputSchema",
+            f"{name_prefix}.LimitOffsetPaginatedOutputSchema",
             "flama.LimitOffsetMeta",
             "flama.APIError",
         }
@@ -184,14 +188,14 @@ class TestCaseLimitOffsetPagination:
     def test_invalid_view(self, output_schema):
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
-            @paginator.limit_offset(schema_name="Foo")
-            def invalid() -> types.Schema[output_schema]:
+            @paginator._paginate_limit_offset
+            def invalid() -> types.Schema[output_schema.schema]:
                 ...
 
     def test_invalid_response(self):
         with pytest.raises(ValueError, match=r"Wrong schema type"):
 
-            @paginator.limit_offset(schema_name="Foo")
+            @paginator._paginate_limit_offset
             def invalid():
                 ...
 
@@ -213,12 +217,15 @@ class TestCaseLimitOffsetPagination:
             {"name": "offset", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
         ]
 
-    def test_pagination_schema_return(self, app):
+    def test_pagination_schema_return(self, app, output_schema):
+        prefix, name = output_schema.name.rsplit(".", 1)
+        paginated_output_schema_name = f"{prefix}.LimitOffsetPaginated{name}"
+
         response_schema = app.schema.schema["paths"]["/limit-offset/"]["get"]["responses"]["200"]
-        component_schema = app.schema.schema["components"]["schemas"]["LimitOffsetPaginatedOutputSchema"]
+        component_schema = app.schema.schema["components"]["schemas"][paginated_output_schema_name]
 
         assert "data" in component_schema["properties"]
-        assert component_schema["properties"]["data"]["items"] == {"$ref": "#/components/schemas/OutputSchema"}
+        assert component_schema["properties"]["data"]["items"] == {"$ref": f"#/components/schemas/{output_schema.name}"}
         assert component_schema["properties"]["data"]["type"] == "array"
         assert set(component_schema["required"]) == {"meta", "data"}
         assert component_schema["type"] == "object"
@@ -229,9 +236,9 @@ class TestCaseLimitOffsetPagination:
                 "application/json": {
                     "schema": {
                         "oneOf": [
-                            {"$ref": "#/components/schemas/LimitOffsetPaginatedOutputSchema"},
+                            {"$ref": f"#/components/schemas/{paginated_output_schema_name}"},
                             {
-                                "items": {"$ref": "#/components/schemas/LimitOffsetPaginatedOutputSchema"},
+                                "items": {"$ref": f"#/components/schemas/{paginated_output_schema_name}"},
                                 "type": "array",
                             },
                         ]
@@ -241,9 +248,8 @@ class TestCaseLimitOffsetPagination:
         }
 
     async def test_async_function(self, app, client, output_schema):
-        @app.route("/limit-offset-async/", methods=["GET"])
-        @paginator.limit_offset(schema_name="OutputSchema")
-        async def limit_offset_async(**kwargs) -> types.Schema[output_schema]:
+        @app.route("/limit-offset-async/", methods=["GET"], pagination="limit_offset")
+        async def limit_offset_async(**kwargs) -> types.Schema[output_schema.schema]:
             return [{"value": i} for i in range(25)]
 
         response = await client.get("/limit-offset-async/")
