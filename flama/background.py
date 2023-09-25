@@ -12,6 +12,15 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
 
     t.ParamSpec = ParamSpec  # type: ignore
 
+if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
+
+    class StrEnum(str, enum.Enum):
+        def _generate_next_value_(name, start, count, last_values):
+            return name.lower()
+
+    enum.StrEnum = StrEnum  # type: ignore
+
+
 __all__ = ["BackgroundTask", "BackgroundTasks", "Concurrency", "BackgroundThreadTask", "BackgroundProcessTask"]
 
 P = t.ParamSpec("P")  # type: ignore # PORT: Remove this comment when stop supporting 3.9
@@ -26,9 +35,9 @@ class task_wrapper:
         await concurrency.run(self.target, *args, **kwargs)
 
 
-class Concurrency(enum.Enum):
-    thread = "thread"
-    process = "process"
+class Concurrency(enum.StrEnum):  # type: ignore # PORT: Remove this comment when stop supporting 3.10
+    thread = enum.auto()
+    process = enum.auto()
 
 
 class BackgroundTask(starlette.background.BackgroundTask):
@@ -42,7 +51,7 @@ class BackgroundTask(starlette.background.BackgroundTask):
         self.func = task_wrapper(func)
         self.args = args
         self.kwargs = kwargs
-        self.concurrency = Concurrency[concurrency] if isinstance(concurrency, str) else concurrency
+        self.concurrency = Concurrency[concurrency]
 
     async def __call__(self):
         if self.concurrency == Concurrency.process:

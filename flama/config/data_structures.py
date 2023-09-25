@@ -7,23 +7,23 @@ __all__ = ["FileDict"]
 
 
 class FileDict(t.Mapping[str, t.Any]):
-    """A dictionary that loads its data from a file. Supports JSON, TOML, YAML and INI files."""
+    """A dictionary that loads its data from a file. Supports json, toml, yaml and ini files."""
 
     _LOADERS: t.Dict[types.FileFormat, loaders.FileLoader] = {
-        types.FileFormat.JSON: loaders.JSONFileLoader(),
-        types.FileFormat.TOML: loaders.TOMLFileLoader(),
-        types.FileFormat.YAML: loaders.YAMLFileLoader(),
-        types.FileFormat.INI: loaders.ConfigFileLoader(),
+        types.FileFormat.json: loaders.JSONFileLoader(),
+        types.FileFormat.toml: loaders.TOMLFileLoader(),
+        types.FileFormat.yaml: loaders.YAMLFileLoader(),
+        types.FileFormat.ini: loaders.ConfigFileLoader(),
     }
 
     def __init__(self, config_file: t.Union[str, os.PathLike], format: t.Union[str, types.FileFormat]):
-        """A dictionary that loads its data from a file. Supports JSON, TOML, YAML and INI files.
+        """A dictionary that loads its data from a file. Supports json, toml, yaml and ini files.
 
         :param config_file: Config file path.
         :param format: Config file format.
         """
         try:
-            self._loader = self._LOADERS[types.FileFormat[format.upper()] if isinstance(format, str) else format]
+            self._loader = self._LOADERS[types.FileFormat[format]]
         except KeyError:
             raise exceptions.ConfigError("Wrong config file format")
 

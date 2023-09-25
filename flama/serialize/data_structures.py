@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 import tarfile
 import tempfile
 import typing as t
@@ -20,15 +21,32 @@ from flama.serialize.base import Serializer
 from flama.serialize.exceptions import FrameworkVersionWarning
 from flama.serialize.types import Framework
 
+if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
+
+    class StrEnum(str, enum.Enum):
+        def _generate_next_value_(name, start, count, last_values):
+            return name.lower()
+
+    enum.StrEnum = StrEnum  # type: ignore
+
+
 __all__ = ["ModelArtifact", "Compression"]
 
 logger = logging.getLogger(__name__)
 
 
-class Compression(enum.Enum):
-    fast = "gz"
-    standard = "bz2"
-    high = "xz"
+class Compression(enum.StrEnum):  # type: ignore # PORT: Remove this comment when stop supporting 3.10
+    fast = enum.auto()
+    standard = enum.auto()
+    high = enum.auto()
+
+    @property
+    def format(self) -> str:
+        return {
+            Compression.fast: "gz",
+            Compression.standard: "bz2",
+            Compression.high: "xz",
+        }[self]
 
 
 class FrameworkSerializers:
@@ -40,7 +58,7 @@ class FrameworkSerializers:
                 Framework.sklearn: ("sklearn", "SKLearnSerializer"),
                 Framework.keras: ("tensorflow", "TensorFlowSerializer"),
                 Framework.tensorflow: ("tensorflow", "TensorFlowSerializer"),
-            }[Framework[framework] if isinstance(framework, str) else framework]
+            }[Framework[framework]]
         except KeyError:  # pragma: no cover
             raise ValueError("Wrong framework")
 
@@ -306,8 +324,7 @@ class ModelArtifact:
         :param kwargs: Keyword arguments passed to library dump method.
         """
         logger.info("Dump model '%s'", path)
-        compression = Compression[compression] if isinstance(compression, str) else compression
-        with tarfile.open(path, f"w:{compression.value}") as tar:
+        with tarfile.open(path, f"w:{Compression[compression].format}") as tar:
             if self.artifacts:
                 for name, path in self.artifacts.items():
                     tar.add(path, f"artifacts/{name}")
