@@ -15,6 +15,7 @@ from flama.schemas.modules import SchemaModule
 if t.TYPE_CHECKING:
     from flama.middleware import Middleware
     from flama.modules import Module
+    from flama.pagination.types import PaginationType
     from flama.routing import Mount, Route, WebSocketRoute
 
 __all__ = ["Flama"]
@@ -165,6 +166,7 @@ class Flama:
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         route: t.Optional["Route"] = None,
+        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
         tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> "Route":
         """Register a new HTTP route or endpoint under given path.
@@ -175,6 +177,7 @@ class Flama:
         :param name: Endpoint or route name.
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
         :param route: HTTP route.
+        :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the route.
         """
         return self.router.add_route(
@@ -185,6 +188,7 @@ class Flama:
             include_in_schema=include_in_schema,
             route=route,
             root=self,
+            pagination=pagination,
             tags=tags,
         )
 
@@ -194,6 +198,7 @@ class Flama:
         methods: t.Optional[t.List[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
+        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
         tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
@@ -202,11 +207,18 @@ class Flama:
         :param methods: List of valid HTTP methods (only applies for routes).
         :param name: Endpoint or route name.
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
+        :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the route.
         :return: Decorated route.
         """
         return self.router.route(
-            path, methods=methods, name=name, include_in_schema=include_in_schema, root=self, tags=tags
+            path,
+            methods=methods,
+            name=name,
+            include_in_schema=include_in_schema,
+            root=self,
+            pagination=pagination,
+            tags=tags,
         )
 
     def add_websocket_route(
@@ -215,6 +227,7 @@ class Flama:
         endpoint: t.Optional[types.WebSocketHandler] = None,
         name: t.Optional[str] = None,
         route: t.Optional["WebSocketRoute"] = None,
+        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
         tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> "WebSocketRoute":
         """Register a new websocket route or endpoint under given path.
@@ -223,21 +236,29 @@ class Flama:
         :param endpoint: Websocket endpoint.
         :param name: Endpoint or route name.
         :param route: Websocket route.
+        :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the websocket route.
         """
-        return self.router.add_websocket_route(path, endpoint, name=name, route=route, root=self, tags=tags)
+        return self.router.add_websocket_route(
+            path, endpoint, name=name, route=route, root=self, pagination=pagination, tags=tags
+        )
 
     def websocket_route(
-        self, path: str, name: t.Optional[str] = None, tags: t.Optional[t.Dict[str, types.Tag]] = None
+        self,
+        path: str,
+        name: t.Optional[str] = None,
+        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
+        tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
         :param path: URL path.
         :param name: Websocket route name.
+        :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the websocket route.
         :return: Decorated route.
         """
-        return self.router.websocket_route(path, name=name, root=self, tags=tags)
+        return self.router.websocket_route(path, name=name, root=self, pagination=pagination, tags=tags)
 
     def mount(
         self,

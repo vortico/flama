@@ -7,10 +7,10 @@ import pydantic
 import pytest
 import sqlalchemy
 import typesystem
+import typesystem.fields
 from sqlalchemy.dialects import postgresql
 
 from flama.applications import Flama
-from flama.pagination import paginator
 from flama.resources.crud import CRUDListDropResourceType, CRUDListResourceType, CRUDResourceType
 from flama.resources.rest import RESTResource
 from flama.resources.routing import ResourceRoute, resource_method
@@ -332,8 +332,7 @@ class TestCaseCRUDListResource:
             input_schema = puppy_schema
             output_schema = puppy_schema
 
-            @resource_method("/", methods=["GET"], name="puppy-list")
-            @paginator.page_number(schema_name="PuppyResource")
+            @resource_method("/", methods=["GET"], name="puppy-list", pagination="page_number")
             async def list(
                 self,
                 worker: FlamaWorker,

@@ -1,11 +1,13 @@
 import inspect
 import typing as t
 
+from flama.pagination import paginator
 from flama.resources import data_structures
 from flama.routing import Mount, Route
 
 if t.TYPE_CHECKING:
     from flama import types
+    from flama.pagination.types import PaginationType
     from flama.resources import BaseResource
 
 __all__ = ["ResourceRoute", "resource_method"]
@@ -45,6 +47,8 @@ def resource_method(
     path: str,
     methods: t.Optional[t.Sequence[str]] = None,
     name: t.Optional[str] = None,
+    *,
+    pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
     tags: t.Optional[t.Dict[str, "types.Tag"]] = None,
 ) -> t.Callable:
     """Decorator for adding useful info needed for generating resource routes.
@@ -52,11 +56,14 @@ def resource_method(
     :param path: Route path.
     :param methods: HTTP methods available.
     :param name: Route name.
+    :param pagination: Apply a pagination technique.
     :param tags: Tags to add to the method.
     :return: Decorated method.
     """
 
-    def wrapper(func):
+    def wrapper(func: t.Callable) -> t.Callable:
+        func = paginator.paginate(pagination, func) if pagination is not None else func
+
         func._meta = data_structures.MethodMetadata(
             path=path, methods=set(methods) if methods is not None else {"GET"}, name=name, tags=tags or {}
         )

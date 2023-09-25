@@ -8,6 +8,7 @@ import typing as t
 from flama import concurrency, endpoints, exceptions, http, schemas, types, url, websockets
 from flama.injection import Component, Components
 from flama.lifespan import Lifespan
+from flama.pagination import paginator
 from flama.schemas.routing import RouteParametersMixin
 
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
@@ -25,6 +26,7 @@ if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragm
 
 if t.TYPE_CHECKING:
     from flama.applications import Flama
+    from flama.pagination.types import PaginationType
 
 __all__ = ["Route", "WebSocketRoute", "Mount", "Router"]
 
@@ -49,11 +51,16 @@ class EndpointWrapper(types.AppAsyncClass):
         self,
         handler: t.Union[t.Callable, t.Type[endpoints.HTTPEndpoint], t.Type[endpoints.WebSocketEndpoint]],
         endpoint_type: _EndpointType,
+        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
     ):
         """Wraps a function or endpoint into ASGI application.
 
         :param handler: Function or endpoint.
+        :param endpoint_type: Endpoint type, http or websocket.
+        :param pagination: Apply a pagination technique.
         """
+        if pagination:
+            handler = paginator.paginate(pagination, handler)
 
         self.handler = handler
         functools.update_wrapper(self, handler)
@@ -300,6 +307,7 @@ class Route(BaseRoute):
         methods: t.Optional[t.Union[t.Set[str], t.Sequence[str]]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
+        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
         tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> None:
         """A route definition of a http endpoint.
@@ -309,6 +317,7 @@ class Route(BaseRoute):
         :param methods: List of valid HTTP methods.
         :param name: Route name.
         :param include_in_schema: True if this route must be listed as part of the App schema.
+        :param pagination: Apply a pagination technique.
         :param tags: Route tags.
         """
         assert self.is_endpoint(endpoint) or (
@@ -327,7 +336,7 @@ class Route(BaseRoute):
 
         super().__init__(
             path,
-            EndpointWrapper(endpoint, EndpointWrapper.type.http),
+            EndpointWrapper(endpoint, EndpointWrapper.type.http, pagination=pagination),
             name=name,
             include_in_schema=include_in_schema,
             tags=tags,
@@ -389,6 +398,7 @@ class WebSocketRoute(BaseRoute):
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
+        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
         tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ):
         """A route definition of a websocket endpoint.
@@ -397,6 +407,7 @@ class WebSocketRoute(BaseRoute):
         :param endpoint: Websocket endpoint or function.
         :param name: Route name.
         :param include_in_schema: True if this route must be listed as part of the App schema.
+        :param pagination: Apply a pagination technique.
         :param tags: Route tags.
         """
 
@@ -408,7 +419,7 @@ class WebSocketRoute(BaseRoute):
 
         super().__init__(
             path,
-            EndpointWrapper(endpoint, EndpointWrapper.type.websocket),
+            EndpointWrapper(endpoint, EndpointWrapper.type.websocket, pagination=pagination),
             name=name,
             include_in_schema=include_in_schema,
             tags=tags,
@@ -642,8 +653,10 @@ class Router(types.AppAsyncClass):
         methods: t.Optional[t.List[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
+        *,
         route: t.Optional[Route] = None,
         root: t.Optional["Flama"] = None,
+        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
         tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> Route:
         """Register a new HTTP route in this router under given path.
@@ -655,12 +668,19 @@ class Router(types.AppAsyncClass):
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
         :param route: HTTP route.
         :param root: Flama application.
+        :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the route or endpoint.
         :return: Route.
         """
         if path is not None and endpoint is not None:
             route = Route(
-                path, endpoint=endpoint, methods=methods, name=name, include_in_schema=include_in_schema, tags=tags
+                path,
+                endpoint=endpoint,
+                methods=methods,
+                name=name,
+                include_in_schema=include_in_schema,
+                pagination=pagination,
+                tags=tags,
             )
 
         assert route is not None, "Either 'path' and 'endpoint' or 'route' variables are needed"
@@ -677,7 +697,9 @@ class Router(types.AppAsyncClass):
         methods: t.Optional[t.List[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
+        *,
         root: t.Optional["Flama"] = None,
+        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
         tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
@@ -687,13 +709,21 @@ class Router(types.AppAsyncClass):
         :param name: Endpoint or route name.
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
         :param root: Flama application.
+        :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the endpoint.
         :return: Decorated route.
         """
 
         def decorator(func: types.HTTPHandler) -> types.HTTPHandler:
             self.add_route(
-                path, func, methods=methods, name=name, include_in_schema=include_in_schema, root=root, tags=tags
+                path,
+                func,
+                methods=methods,
+                name=name,
+                include_in_schema=include_in_schema,
+                root=root,
+                pagination=pagination,
+                tags=tags,
             )
             return func
 
@@ -704,8 +734,10 @@ class Router(types.AppAsyncClass):
         path: t.Optional[str] = None,
         endpoint: t.Optional[types.WebSocketHandler] = None,
         name: t.Optional[str] = None,
+        *,
         route: t.Optional[WebSocketRoute] = None,
         root: t.Optional["Flama"] = None,
+        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
         tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> WebSocketRoute:
         """Register a new websocket route in this router under given path.
@@ -715,11 +747,12 @@ class Router(types.AppAsyncClass):
         :param name: Websocket route name.
         :param route: Specific route class.
         :param root: Flama application.
+        :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the websocket route.
         :return: Websocket route.
         """
         if path is not None and endpoint is not None:
-            route = WebSocketRoute(path, endpoint=endpoint, name=name, tags=tags)
+            route = WebSocketRoute(path, endpoint=endpoint, name=name, pagination=pagination, tags=tags)
 
         assert route is not None, "Either 'path' and 'endpoint' or 'route' variables are needed"
 
@@ -733,7 +766,9 @@ class Router(types.AppAsyncClass):
         self,
         path: str,
         name: t.Optional[str] = None,
+        *,
         root: t.Optional["Flama"] = None,
+        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
         tags: t.Optional[t.Dict[str, types.Tag]] = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
@@ -741,12 +776,13 @@ class Router(types.AppAsyncClass):
         :param path: URL path.
         :param name: Websocket route name.
         :param root: Flama application.
+        :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the websocket route.
         :return: Decorated websocket route.
         """
 
         def decorator(func: types.WebSocketHandler) -> types.WebSocketHandler:
-            self.add_websocket_route(path, func, name=name, root=root, tags=tags)
+            self.add_websocket_route(path, func, name=name, root=root, pagination=pagination, tags=tags)
             return func
 
         return decorator
@@ -756,6 +792,7 @@ class Router(types.AppAsyncClass):
         path: t.Optional[str] = None,
         app: t.Optional[types.App] = None,
         name: t.Optional[str] = None,
+        *,
         mount: t.Optional[Mount] = None,
         root: t.Optional["Flama"] = None,
         tags: t.Optional[t.Dict[str, types.Tag]] = None,

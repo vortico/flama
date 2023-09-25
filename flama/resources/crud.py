@@ -2,7 +2,6 @@ import typing as t
 
 from flama import exceptions, http, schemas, types
 from flama.ddd import exceptions as ddd_exceptions
-from flama.pagination import paginator
 from flama.resources import data_structures
 from flama.resources.rest import RESTResourceType
 from flama.resources.routing import resource_method
@@ -191,8 +190,7 @@ class ListMixin:
     def _add_list(
         cls, name: str, verbose_name: str, rest_schemas: data_structures.Schemas, **kwargs
     ) -> t.Dict[str, t.Any]:
-        @resource_method("/", methods=["GET"], name=f"{name}-list")
-        @paginator.page_number(schema_name=rest_schemas.output.name)
+        @resource_method("/", methods=["GET"], name=f"{name}-list", pagination="page_number")
         async def list(self, worker: FlamaWorker, **kwargs) -> types.Schema[rest_schemas.output.schema]:
             async with worker:
                 return await worker.repositories[self._meta.name].list()  # type: ignore[return-value]

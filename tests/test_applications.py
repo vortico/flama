@@ -127,7 +127,17 @@ class TestCaseFlama:
             route = app.add_route("/", foo, tags=tags)
 
         assert router_mock.add_route.call_args_list == [
-            call("/", foo, methods=None, name=None, include_in_schema=True, route=None, root=app, tags=tags)
+            call(
+                "/",
+                foo,
+                methods=None,
+                name=None,
+                include_in_schema=True,
+                route=None,
+                root=app,
+                pagination=None,
+                tags=tags,
+            )
         ]
         assert route == foo
 
@@ -139,7 +149,7 @@ class TestCaseFlama:
                 ...
 
         assert router_mock.route.call_args_list == [
-            call("/", methods=None, name=None, include_in_schema=True, root=app, tags=tags)
+            call("/", methods=None, name=None, include_in_schema=True, root=app, pagination=None, tags=tags)
         ]
 
     def test_add_websocket_route(self, app, tags):
@@ -151,7 +161,7 @@ class TestCaseFlama:
             route = app.add_websocket_route("/", foo, tags=tags)
 
         assert router_mock.add_websocket_route.call_args_list == [
-            call("/", foo, name=None, route=None, root=app, tags=tags)
+            call("/", foo, name=None, route=None, root=app, pagination=None, tags=tags)
         ]
         assert route == foo
 
@@ -162,7 +172,9 @@ class TestCaseFlama:
             def foo():
                 ...
 
-        assert router_mock.websocket_route.call_args_list == [call("/", name=None, root=app, tags=tags)]
+        assert router_mock.websocket_route.call_args_list == [
+            call("/", name=None, root=app, pagination=None, tags=tags)
+        ]
 
     def test_mount(self, app, tags):
         expected_mount = MagicMock()
