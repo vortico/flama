@@ -11,13 +11,21 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
 
     t.TypeGuard = TypeGuard  # type: ignore
 
+if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
+
+    class StrEnum(str, enum.Enum):
+        def _generate_next_value_(name, start, count, last_values):
+            return name.lower()
+
+    enum.StrEnum = StrEnum  # type: ignore
+
 __all__ = ["Field", "Schema", "Parameter", "Parameters"]
 
 
 UNKNOWN = t.TypeVar("UNKNOWN")
 
 
-class ParameterLocation(enum.Enum):
+class ParameterLocation(enum.StrEnum):  # type: ignore # PORT: Remove this comment when stop supporting 3.10
     query = enum.auto()
     path = enum.auto()
     body = enum.auto()
@@ -126,9 +134,34 @@ class Schema:
     def name(self) -> str:
         return schemas.adapter.name(self.schema)
 
+    def _fix_ref(self, value: str, refs: t.Dict[str, str]) -> str:
+        try:
+            prefix, name = value.rsplit("/", 1)
+            return f"{prefix}/{refs[name]}"
+        except KeyError:
+            return value
+
+    def _replace_json_schema_refs(self, schema: types.JSONField, refs: t.Dict[str, str]) -> types.JSONField:
+        if isinstance(schema, dict):
+            return {
+                k: self._fix_ref(t.cast(str, v), refs) if k == "$ref" else self._replace_json_schema_refs(v, refs)
+                for k, v in schema.items()
+            }
+
+        if isinstance(schema, (list, tuple, set)):
+            return [self._replace_json_schema_refs(x, refs) for x in schema]
+
+        return schema
+
     @property
     def json_schema(self) -> types.JSONSchema:
-        return schemas.adapter.to_json_schema(self.schema)
+        return t.cast(
+            types.JSONSchema,
+            self._replace_json_schema_refs(
+                schemas.adapter.to_json_schema(self.schema),
+                {Schema(x).name.rsplit(".", 1)[1]: Schema(x).name for x in self.nested_schemas()},
+            ),
+        )
 
     @property
     def unique_schema(self) -> t.Any:
@@ -143,7 +176,7 @@ class Schema:
             return self.nested_schemas(self)
 
         if schemas.adapter.is_schema(schema):
-            return [schema]
+            return [schemas.adapter.unique_schema(schema)]
 
         if isinstance(schema, (list, tuple, set)):
             return [x for field in schema for x in self.nested_schemas(field)]
