@@ -30,7 +30,7 @@ class WorkerType(abc.ABCMeta):
 
 
 class AbstractWorker(abc.ABC):
-    _repositories: t.Dict[str, t.Type[AbstractRepository]]
+    _repositories: t.ClassVar[t.Dict[str, t.Type[AbstractRepository]]]
 
     def __init__(self, app: t.Optional["Flama"] = None):
         self._app = app
@@ -66,17 +66,16 @@ class AbstractWorker(abc.ABC):
 
 
 class SQLAlchemyWorker(AbstractWorker, metaclass=WorkerType):
-    _repositories: t.Dict[str, t.Type[SQLAlchemyRepository]]
-
-    def __init__(self, app: t.Optional["Flama"] = None):
-        super().__init__(app)
-        self._connection: t.Optional["AsyncConnection"] = None
-        self._transaction: t.Optional["AsyncTransaction"] = None
+    _repositories: t.ClassVar[t.Dict[str, t.Type[SQLAlchemyRepository]]]
+    _connection: "AsyncConnection"
+    _transaction: "AsyncTransaction"
 
     @property
     def connection(self) -> "AsyncConnection":
-        assert self._connection, "Connection not initialized"
-        return self._connection
+        try:
+            return self._connection
+        except AttributeError:
+            raise AttributeError("Connection not initialized")
 
     async def begin(self):
         self._connection = self.app.sqlalchemy.engine.connect()
@@ -85,13 +84,13 @@ class SQLAlchemyWorker(AbstractWorker, metaclass=WorkerType):
         await self._transaction
 
     async def close(self):
-        if self._transaction:
+        if hasattr(self, "_transaction"):
             await self._transaction.__aexit__(None, None, None)
-            self._transaction = None
+            del self._transaction
 
-        if self._connection:
+        if hasattr(self, "_connection"):
             await self._connection.__aexit__(None, None, None)
-            self._connection = None
+            del self._connection
 
     async def __aenter__(self):
         await self.begin()

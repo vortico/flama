@@ -23,10 +23,17 @@ class AbstractRepository(abc.ABC):
 
 
 class SQLAlchemyRepository(AbstractRepository):
-    _table: sqlalchemy.Table
+    _table: t.ClassVar[sqlalchemy.Table]
 
     def __init__(self, connection: "AsyncConnection"):
         self._connection = connection
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, SQLAlchemyRepository)
+            and self._table == other._table
+            and self._connection == other._connection
+        )
 
     @property
     def primary_key(self) -> sqlalchemy.Column:

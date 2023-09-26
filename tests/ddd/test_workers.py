@@ -25,7 +25,7 @@ class TestCaseSQLAlchemyWorker:
         worker = SQLAlchemyWorker(app)
 
         assert worker._app == app
-        assert worker._connection is None
+        assert not hasattr(worker, "_connection")
 
     def test_app(self, app):
         worker = SQLAlchemyWorker()
@@ -43,7 +43,7 @@ class TestCaseSQLAlchemyWorker:
             worker.app
 
     def test_connection(self, worker):
-        with pytest.raises(AssertionError, match="Connection not initialized"):
+        with pytest.raises(AttributeError, match="Connection not initialized"):
             worker.connection
 
     async def test_begin(self, worker):
@@ -61,24 +61,24 @@ class TestCaseSQLAlchemyWorker:
             assert connection_mock.begin.await_args_list == [call()]
 
     async def test_close(self, worker):
-        assert not worker._transaction
-        assert not worker._connection
+        assert not hasattr(worker, "_transaction")
+        assert not hasattr(worker, "_connection")
 
         connection_mock = AsyncMock(spec=AsyncConnection)
         transaction_mock = AsyncMock(spec=AsyncTransaction)
+        worker._connection = connection_mock
+        worker._transaction = transaction_mock
 
-        with patch.object(worker, "_connection", new=connection_mock), patch.object(
-            worker, "_transaction", new=transaction_mock
-        ):
-            await worker.close()
-            assert transaction_mock.__aexit__.await_args_list == [call(None, None, None)]
-            assert connection_mock.__aexit__.await_args_list == [call(None, None, None)]
-            assert not worker._transaction
-            assert not worker._connection
+        await worker.close()
+
+        assert transaction_mock.__aexit__.await_args_list == [call(None, None, None)]
+        assert connection_mock.__aexit__.await_args_list == [call(None, None, None)]
+        assert not hasattr(worker, "_transaction")
+        assert not hasattr(worker, "_connection")
 
     async def test_async_context(self, worker):
-        assert not worker._connection
-        assert not worker._transaction
+        assert not hasattr(worker, "_transaction")
+        assert not hasattr(worker, "_connection")
         assert not hasattr(worker, "bar")
 
         async with worker:
@@ -88,8 +88,8 @@ class TestCaseSQLAlchemyWorker:
             assert hasattr(worker, "bar")
             assert isinstance(worker.bar, SQLAlchemyRepository)
 
-        assert not worker._connection
-        assert not worker._transaction
+        assert not hasattr(worker, "_transaction")
+        assert not hasattr(worker, "_connection")
         assert not hasattr(worker, "bar")
 
     async def test_commit(self, worker):
@@ -97,7 +97,7 @@ class TestCaseSQLAlchemyWorker:
         connection_mock = AsyncMock(spec=AsyncConnection)
         connection_mock.commit = commit_mock
 
-        with patch.object(worker, "_connection", new=connection_mock):
+        with patch.object(worker, "_connection", new=connection_mock, create=True):
             await worker.commit()
             assert commit_mock.await_args_list == [call()]
 
@@ -106,7 +106,7 @@ class TestCaseSQLAlchemyWorker:
         connection_mock = AsyncMock(spec=AsyncConnection)
         connection_mock.rollback = rollback_mock
 
-        with patch.object(worker, "_connection", new=connection_mock):
+        with patch.object(worker, "_connection", new=connection_mock, create=True):
             await worker.rollback()
             assert rollback_mock.await_args_list == [call()]
 
