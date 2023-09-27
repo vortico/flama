@@ -16,7 +16,10 @@ class TestCaseFlamaWorker:
 
     @pytest.fixture(scope="function")
     def worker(self, client):
-        return FlamaWorker(client.app)
+        class FooWorker(FlamaWorker):
+            ...
+
+        return FooWorker(client.app)
 
     @pytest.fixture(scope="function")
     def repository(self):
