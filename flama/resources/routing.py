@@ -6,7 +6,7 @@ from flama.resources import data_structures
 from flama.routing import Mount, Route
 
 if t.TYPE_CHECKING:
-    from flama import types
+    from flama import Flama, types
     from flama.pagination.types import PaginationType
     from flama.resources import BaseResource
 
@@ -41,6 +41,21 @@ class ResourceRoute(Mount):
         ]
 
         super().__init__(path=path, routes=routes, name=self.resource._meta.name)  # type: ignore
+
+    def build(self, app: t.Optional["Flama"] = None) -> None:
+        """Build step for resource routes.
+
+        Add this resource's repository to Flama's worker.
+
+        :param app: Flama app.
+        """
+        from flama import Flama
+
+        super().build(app)
+        if (root := (self.app if isinstance(self.app, Flama) else app)) and "ddd" in self.resource._meta.namespaces:
+            root.resources.worker.add_repository(
+                self.resource._meta.name, self.resource._meta.namespaces["ddd"]["repository"]
+            )
 
 
 def resource_method(

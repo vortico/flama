@@ -29,6 +29,10 @@ def app(app):
 def add_resources(app, resource):
     app.resources.add_resource("/puppy/", resource)
 
+    yield
+
+    del app.resources.worker._repositories[resource._meta.name]
+
 
 @pytest.fixture
 def puppy():
@@ -100,14 +104,18 @@ class TestCaseCRUDResource:
         return schema_
 
     @pytest.fixture
-    def custom_id_datetime_resource(self, custom_id_datetime_model, custom_id_datetime_schema):
+    def custom_id_datetime_resource(self, custom_id_datetime_model, custom_id_datetime_schema, app):
         class CustomUUIDResource(RESTResource, metaclass=CRUDListResourceType):
             model = custom_id_datetime_model
             schema = custom_id_datetime_schema
 
             name = "custom_id_datetime"
 
-        return CustomUUIDResource
+        app.resources.add_resource("/custom_id_datetime/", CustomUUIDResource)
+
+        yield CustomUUIDResource
+
+        del app.resources.worker._repositories[CustomUUIDResource._meta.name]
 
     @pytest.fixture
     async def custom_id_uuid_model(self, app):
@@ -156,14 +164,18 @@ class TestCaseCRUDResource:
         return schema_
 
     @pytest.fixture
-    def custom_id_uuid_resource(self, custom_id_uuid_model, custom_id_uuid_schema):
+    def custom_id_uuid_resource(self, custom_id_uuid_model, custom_id_uuid_schema, app):
         class CustomUUIDResource(RESTResource, metaclass=CRUDListResourceType):
             model = custom_id_uuid_model
             schema = custom_id_uuid_schema
 
             name = "custom_id_uuid"
 
-        return CustomUUIDResource
+        app.resources.add_resource("/custom_id_datetime/", CustomUUIDResource)
+
+        yield CustomUUIDResource
+
+        del app.resources.worker._repositories[CustomUUIDResource._meta.name]
 
     def test_crud_resource(self, resource, puppy_model, puppy_schema, app):
         expected_routes = [
@@ -289,8 +301,6 @@ class TestCaseCRUDResource:
 
     @pytest.mark.skipif(not DATABASE_URL.startswith("postgresql"), reason="Only valid for PostgreSQL backend")
     async def test_id_uuid(self, app, client, custom_id_uuid_resource):
-        app.resources.add_resource("/custom_id_datetime/", custom_id_uuid_resource)
-
         data = {"custom_id": str(uuid.uuid4()), "name": "foo"}
         expected_result = data.copy()
 
@@ -305,8 +315,6 @@ class TestCaseCRUDResource:
         assert response.json() == expected_result
 
     async def test_id_datetime(self, client, app, custom_id_datetime_resource):
-        app.resources.add_resource("/custom_id_datetime/", custom_id_datetime_resource)
-
         data = {"custom_id": "2018-01-01T00:00:00", "name": "foo"}
         expected_result = data.copy()
 

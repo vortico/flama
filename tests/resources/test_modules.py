@@ -32,16 +32,19 @@ class TestCaseResourcesModule:
         resource = PuppyResource()
         app.resources.add_resource("/puppy/", resource, tags=tags)
 
-        assert len(app.routes) == 1
-        assert isinstance(app.routes[0], ResourceRoute)
-        resource_route = app.routes[0]
-        assert len(resource_route.routes) == 4
-        assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
-            ("/", {"POST"}, resource.create, {"tag": "create"}),
-            ("/{element_id}/", {"GET", "HEAD"}, resource.retrieve, {"tag": "retrieve"}),
-            ("/{element_id}/", {"PUT"}, resource.update, {"tag": "update"}),
-            ("/{element_id}/", {"DELETE"}, resource.delete, {"tag": "delete"}),
-        ]
+        try:
+            assert len(app.routes) == 1
+            assert isinstance(app.routes[0], ResourceRoute)
+            resource_route = app.routes[0]
+            assert len(resource_route.routes) == 4
+            assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
+                ("/", {"POST"}, resource.create, {"tag": "create"}),
+                ("/{element_id}/", {"GET", "HEAD"}, resource.retrieve, {"tag": "retrieve"}),
+                ("/{element_id}/", {"PUT"}, resource.update, {"tag": "update"}),
+                ("/{element_id}/", {"DELETE"}, resource.delete, {"tag": "delete"}),
+            ]
+        finally:
+            del app.resources.worker._repositories[PuppyResource._meta.name]
 
     def test_add_resource_decorator(self, app, puppy_model, puppy_schema, tags):
         class PuppyResource(BaseResource, metaclass=CRUDResourceType):
@@ -53,16 +56,19 @@ class TestCaseResourcesModule:
             PuppyResource()
         )  # Apply decoration to an instance in order to check endpoints
 
-        assert len(app.routes) == 1
-        assert isinstance(app.routes[0], ResourceRoute)
-        resource_route = app.routes[0]
-        assert len(resource_route.routes) == 4
-        assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
-            ("/", {"POST"}, resource.create, {"tag": "create"}),
-            ("/{element_id}/", {"GET", "HEAD"}, resource.retrieve, {"tag": "retrieve"}),
-            ("/{element_id}/", {"PUT"}, resource.update, {"tag": "update"}),
-            ("/{element_id}/", {"DELETE"}, resource.delete, {"tag": "delete"}),
-        ]
+        try:
+            assert len(app.routes) == 1
+            assert isinstance(app.routes[0], ResourceRoute)
+            resource_route = app.routes[0]
+            assert len(resource_route.routes) == 4
+            assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
+                ("/", {"POST"}, resource.create, {"tag": "create"}),
+                ("/{element_id}/", {"GET", "HEAD"}, resource.retrieve, {"tag": "retrieve"}),
+                ("/{element_id}/", {"PUT"}, resource.update, {"tag": "update"}),
+                ("/{element_id}/", {"DELETE"}, resource.delete, {"tag": "delete"}),
+            ]
+        finally:
+            del app.resources.worker._repositories[PuppyResource._meta.name]
 
     def test_add_resource_wrong(self, app):
         with pytest.raises(ValueError, match=""):
@@ -78,16 +84,19 @@ class TestCaseResourcesModule:
 
         app = Flama(routes=[route], schema=None, docs=None)
 
-        assert len(app.router.routes) == 1
-
-        assert len(app.routes) == 1
-        assert isinstance(app.routes[0], ResourceRoute)
-        resource_route = app.routes[0]
-        assert len(resource_route.routes) == 4
-        assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
-            ("/", {"POST"}, resource_route.resource.create, {"tag": "create"}),
-            ("/{element_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve, {"tag": "retrieve"}),
-            ("/{element_id}/", {"PUT"}, resource_route.resource.update, {"tag": "update"}),
-            ("/{element_id}/", {"DELETE"}, resource_route.resource.delete, {"tag": "delete"}),
-        ]
-        assert isinstance(resource_route.resource, PuppyResource)
+        try:
+            assert len(app.router.routes) == 1
+            assert len(app.routes) == 1
+            assert isinstance(app.routes[0], ResourceRoute)
+            resource_route = app.routes[0]
+            assert len(resource_route.routes) == 4
+            assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
+                ("/", {"POST"}, resource_route.resource.create, {"tag": "create"}),
+                ("/{element_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve, {"tag": "retrieve"}),
+                ("/{element_id}/", {"PUT"}, resource_route.resource.update, {"tag": "update"}),
+                ("/{element_id}/", {"DELETE"}, resource_route.resource.delete, {"tag": "delete"}),
+            ]
+            assert isinstance(resource_route.resource, PuppyResource)
+            assert PuppyResource._meta.name in app.resources.worker._repositories
+        finally:
+            del app.resources.worker._repositories[PuppyResource._meta.name]

@@ -42,11 +42,6 @@ class ResourcesModule(Module):
 
         self.app.mount(mount=ResourceRoute(path, resource_instance, tags))
 
-        if "ddd" in resource_instance._meta.namespaces:
-            self.worker.add_repository(
-                resource_instance._meta.name, resource_instance._meta.namespaces["ddd"]["repository"]
-            )
-
         return resource_instance
 
     def resource(
