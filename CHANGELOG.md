@@ -1,5 +1,15 @@
 # Semantic Versioning Changelog
 
+# [v1.6.0](https://github.com/vortico/flama/compare/v1.5.2...v1.6.0) (2023-09-27)
+
+## ✨ New Features
+- [`62f8991`](https://github.com/vortico/flama/commit/62f8991)  Add support for domain-driven-design (#115) (Issues: [`#115`](https://github.com/vortico/flama/issues/))
+- [`4ffc05b`](https://github.com/vortico/flama/commit/4ffc05b)  Add runtime isolation for nested Flama applications 
+- [`bb09212`](https://github.com/vortico/flama/commit/bb09212)  Pagination as part of the route declaration 
+
+## 🐛 Bug Fixes
+- [`78c1c37`](https://github.com/vortico/flama/commit/78c1c37)  Fix nested schema names in JSON schema generation
+
 # [v1.5.2](https://github.com/vortico/flama/compare/v1.5.1...v1.5.2) (2023-09-20)
 
 ## 🐛 Bug Fixes
