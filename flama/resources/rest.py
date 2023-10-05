@@ -2,7 +2,7 @@ import datetime
 import typing as t
 import uuid
 
-from flama.ddd.repositories import SQLAlchemyRepository
+from flama.ddd.repositories import SQLAlchemyTableRepository
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
 from flama.resources.resource import BaseResource, ResourceType
@@ -55,7 +55,7 @@ class RESTResourceType(ResourceType):
         namespace.setdefault("_meta", data_structures.Metadata()).namespaces.update(
             {
                 "rest": {"model": model, "schemas": resource_schemas},
-                "ddd": {"repository": type(f"{name}Repository", (SQLAlchemyRepository,), {"_table": model.table})},
+                "ddd": {"repository": type(f"{name}Repository", (SQLAlchemyTableRepository,), {"_table": model.table})},
             }
         )
 
