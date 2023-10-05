@@ -60,19 +60,41 @@ class TestCaseSQLAlchemyWorker:
             assert connection_mock.begin.call_args_list == [call()]
             assert connection_mock.begin.await_args_list == [call()]
 
-    async def test_close(self, worker):
+    @pytest.mark.parametrize(
+        ["transaction", "transaction_calls", "connection", "connection_calls"],
+        (
+            pytest.param(None, [], None, [], id="no_transaction_no_connection"),
+            pytest.param(
+                AsyncMock(AsyncTransaction), [call(None, None, None)], None, [], id="transaction_no_connection"
+            ),
+            pytest.param(
+                None, [], AsyncMock(AsyncConnection), [call(None, None, None)], id="no_transaction_connection"
+            ),
+            pytest.param(
+                AsyncMock(AsyncTransaction),
+                [call(None, None, None)],
+                AsyncMock(AsyncConnection),
+                [call(None, None, None)],
+                id="transaction_connection",
+            ),
+        ),
+    )
+    async def test_close(self, transaction, transaction_calls, connection, connection_calls, worker):
         assert not hasattr(worker, "_transaction")
         assert not hasattr(worker, "_connection")
 
-        connection_mock = AsyncMock(spec=AsyncConnection)
-        transaction_mock = AsyncMock(spec=AsyncTransaction)
-        worker._connection = connection_mock
-        worker._transaction = transaction_mock
+        if connection:
+            worker._connection = connection
+        if transaction:
+            worker._transaction = transaction
 
         await worker.close()
 
-        assert transaction_mock.__aexit__.await_args_list == [call(None, None, None)]
-        assert connection_mock.__aexit__.await_args_list == [call(None, None, None)]
+        if transaction:
+            assert transaction.__aexit__.await_args_list == transaction_calls
+        if connection:
+            assert connection.__aexit__.await_args_list == connection_calls
+
         assert not hasattr(worker, "_transaction")
         assert not hasattr(worker, "_connection")
 

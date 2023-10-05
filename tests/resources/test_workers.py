@@ -4,7 +4,7 @@ import pytest
 import sqlalchemy
 
 from flama import Flama
-from flama.ddd import SQLAlchemyRepository
+from flama.ddd import SQLAlchemyTableRepository
 from flama.resources.workers import FlamaWorker
 from flama.sqlalchemy import SQLAlchemyModule
 
@@ -23,7 +23,7 @@ class TestCaseFlamaWorker:
 
     @pytest.fixture(scope="function")
     def repository(self):
-        class FooRepository(SQLAlchemyRepository):
+        class FooRepository(SQLAlchemyTableRepository):
             _table = Mock(spec=sqlalchemy.Table)
 
         return FooRepository
