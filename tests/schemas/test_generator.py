@@ -981,6 +981,51 @@ class TestCaseSchemaGenerator:
             """
             return {}
 
+        @app.route("/custom-params/", methods=["GET"])
+        async def custom_params(name: str):
+            """
+            description: Custom params.
+            parameters:
+              - in: query
+                name: name
+                schema:
+                    type: string
+                required: true
+                description: The query param
+            responses:
+              200:
+                description: OK.
+            """
+            return {}
+
+        @app.route("/custom-body/", methods=["POST"])
+        async def custom_body():
+            """
+            description: Custom body.
+            requestBody:
+                description: The body request
+                required: true
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            properties:
+                                model:
+                                    type: string
+                                    format: binary
+                                    description: The model file
+                                name:
+                                    type: string
+                                    description: The model name
+                                description:
+                                    type: string
+                                    description: The model description
+            responses:
+              200:
+                description: OK.
+            """
+            return {}
+
         router = Router()
         router.add_route("/custom-component/", endpoint=get, methods=["GET"])
         app.mount("/mount", router)
@@ -1272,6 +1317,67 @@ class TestCaseSchemaGenerator:
                     },
                 },
                 id="multiple_responses",
+            ),
+            pytest.param(
+                "/custom-params/",
+                "get",
+                {
+                    "description": "Custom params.",
+                    "parameters": [
+                        {
+                            "in": "query",
+                            "name": "name",
+                            "schema": {"type": "string"},
+                            "required": True,
+                            "description": "The query param",
+                        }
+                    ],
+                    "responses": {
+                        "200": {"description": "OK."},
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
+                        },
+                    },
+                },
+                id="custom_params",
+            ),
+            pytest.param(
+                "/custom-body/",
+                "post",
+                {
+                    "description": "Custom body.",
+                    "requestBody": {
+                        "content": {
+                            "multipart/form-data": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "model": {
+                                            "type": "string",
+                                            "format": "binary",
+                                            "description": "The model file",
+                                        },
+                                        "name": {"type": "string", "description": "The model name"},
+                                        "description": {"type": "string", "description": "The model description"},
+                                    },
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {"description": "OK."},
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
+                        },
+                    },
+                },
+                id="custom_body",
             ),
         ],
     )
