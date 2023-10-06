@@ -364,22 +364,22 @@ class SchemaGenerator:
     def _build_endpoint_body(
         self, endpoint: EndpointInfo, metadata: t.Dict[str, t.Any]
     ) -> t.Optional[openapi.RequestBody]:
-        if not endpoint.body_parameter:
+        content = {k: v for k, v in metadata.get("requestBody", {}).get("content", {}).items()}
+
+        if endpoint.body_parameter:
+            if endpoint.body_parameter.schema.schema not in self.schemas:
+                self.schemas.register(schema=endpoint.body_parameter.schema.schema)
+
+            content["application/json"] = openapi.MediaType(
+                schema=self.schemas.get_openapi_ref(endpoint.body_parameter.schema.schema, multiple=False),
+            )
+
+        if not content:
             return None
 
-        if endpoint.body_parameter.schema.schema not in self.schemas:
-            self.schemas.register(schema=endpoint.body_parameter.schema.schema)
-
         return openapi.RequestBody(
-            content={
-                "application/json": openapi.MediaType(
-                    schema=self.schemas.get_openapi_ref(endpoint.body_parameter.schema.schema, multiple=False),
-                )
-            },
-            **{
-                x: metadata.get("requestBody", {}).get("content", {}).get("application/json", {}).get(x)
-                for x in ("description", "required")
-            },
+            content=content,
+            **{x: metadata.get("requestBody", {}).get(x) for x in ("description", "required")},
         )
 
     def _build_endpoint_default_response(self, metadata: t.Dict[str, t.Any]) -> openapi.Response:
