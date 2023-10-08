@@ -58,7 +58,9 @@ async def run(
     if is_async(func):
         return await func(*args, **kwargs)
 
-    return await asyncio.to_thread(func, *args, **kwargs)  # type: ignore
+    return t.cast(
+        R, await asyncio.to_thread(func, *args, **kwargs)  # PORT: Remove when stop supporting 3.8 # type: ignore
+    )
 
 
 if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
