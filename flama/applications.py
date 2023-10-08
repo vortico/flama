@@ -94,7 +94,7 @@ class Flama:
         )
 
         # Build middleware stack
-        self.middleware = MiddlewareStack(app=self.app, middleware=middleware or [], debug=debug)
+        self.middleware = MiddlewareStack(app=self, middleware=middleware or [], debug=debug)
 
         # Setup schema library
         self.schema.schema_library = schema_library

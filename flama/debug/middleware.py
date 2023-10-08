@@ -17,15 +17,15 @@ __all__ = ["ServerErrorMiddleware", "ExceptionMiddleware"]
 TEMPLATES_PATH = Path(__file__).parents[1].resolve() / "templates" / "debug"
 
 
-class BaseErrorMiddleware(types.MiddlewareAsyncClass):
-    def __init__(self, app: "types.App", debug: bool = False) -> None:
+class BaseErrorMiddleware:
+    def __init__(self, app: types.App, debug: bool = False) -> None:
         self.app = app
         self.debug = debug
 
-    async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         response_started = False
 
-        async def sender(message: "types.Message") -> None:
+        async def sender(message: types.Message) -> None:
             nonlocal response_started, send
 
             if message["type"] == "http.response.start":
@@ -33,26 +33,26 @@ class BaseErrorMiddleware(types.MiddlewareAsyncClass):
             await send(message)
 
         try:
-            await self.app(scope, receive, sender)
+            await concurrency.run(self.app, scope, receive, sender)
         except Exception as exc:
             await self.process_exception(scope, receive, send, exc, response_started)
 
     @abc.abstractmethod
     async def process_exception(
-        self, scope: "types.Scope", receive: "types.Receive", send: "types.Send", exc: Exception, response_started: bool
+        self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception, response_started: bool
     ) -> None:
         ...
 
 
 class ServerErrorMiddleware(BaseErrorMiddleware):
-    def _get_handler(self, scope: "types.Scope") -> "Handler":
+    def _get_handler(self, scope: types.Scope) -> "Handler":
         if scope["type"] == "http":
             return self.debug_handler if self.debug else self.error_handler
 
         return self.noop_handler
 
     async def process_exception(
-        self, scope: "types.Scope", receive: "types.Receive", send: "types.Send", exc: Exception, response_started: bool
+        self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception, response_started: bool
     ) -> None:
         handler = self._get_handler(scope)
         response = handler(scope, receive, send, exc)
@@ -65,7 +65,7 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
         raise exc
 
     def debug_handler(
-        self, scope: "types.Scope", receive: "types.Receive", send: "types.Send", exc: Exception
+        self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception
     ) -> http.Response:
         request = http.Request(scope)
         accept = request.headers.get("accept", "")
@@ -77,16 +77,16 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
         return http.PlainTextResponse("Internal Server Error", status_code=500)
 
     def error_handler(
-        self, scope: "types.Scope", receive: "types.Receive", send: "types.Send", exc: Exception
+        self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception
     ) -> http.Response:
         return http.PlainTextResponse("Internal Server Error", status_code=500)
 
-    def noop_handler(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send", exc: Exception) -> None:
+    def noop_handler(self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception) -> None:
         ...
 
 
 class ExceptionMiddleware(BaseErrorMiddleware):
-    def __init__(self, app: "types.App", handlers: t.Optional[t.Mapping[t.Any, "Handler"]] = None, debug: bool = False):
+    def __init__(self, app: types.App, handlers: t.Optional[t.Mapping[t.Any, "Handler"]] = None, debug: bool = False):
         super().__init__(app, debug)
         handlers = handlers or {}
         self._status_handlers: t.Dict[int, "Handler"] = {
@@ -127,7 +127,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
                 raise exc
 
     async def process_exception(
-        self, scope: "types.Scope", receive: "types.Receive", send: "types.Send", exc: Exception, response_started: bool
+        self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception, response_started: bool
     ) -> None:
         handler = self._get_handler(exc)
 
@@ -140,7 +140,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
             await response(scope, receive, send)
 
     def http_exception_handler(
-        self, scope: "types.Scope", receive: "types.Receive", send: "types.Send", exc: exceptions.HTTPException
+        self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.HTTPException
     ) -> http.Response:
         if exc.status_code in {204, 304}:
             return http.Response(status_code=exc.status_code, headers=exc.headers)
@@ -158,13 +158,13 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         return http.APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
 
     async def websocket_exception_handler(
-        self, scope: "types.Scope", receive: "types.Receive", send: "types.Send", exc: exceptions.WebSocketException
+        self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.WebSocketException
     ) -> None:
         websocket = websockets.WebSocket(scope, receive=receive, send=send)
         await websocket.close(code=exc.code, reason=exc.reason)
 
     async def not_found_handler(
-        self, scope: "types.Scope", receive: "types.Receive", send: "types.Send", exc: exceptions.NotFoundException
+        self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.NotFoundException
     ) -> t.Optional[http.Response]:
         if scope.get("type", "") == "websocket":
             await self.websocket_exception_handler(scope, receive, send, exc=exceptions.WebSocketException(1000))
@@ -177,9 +177,9 @@ class ExceptionMiddleware(BaseErrorMiddleware):
 
     async def method_not_allowed_handler(
         self,
-        scope: "types.Scope",
-        receive: "types.Receive",
-        send: "types.Send",
+        scope: types.Scope,
+        receive: types.Receive,
+        send: types.Send,
         exc: exceptions.MethodNotAllowedException,
     ) -> t.Optional[http.Response]:
         if scope.get("type", "") == "websocket":
