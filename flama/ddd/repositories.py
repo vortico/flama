@@ -48,9 +48,9 @@ class SQLAlchemyTableManager:
 
     @property
     def primary_key(self) -> sqlalchemy.Column:
-        """Returns the primary key of the model.
+        """Returns the primary key of the table.
 
-        :return: sqlalchemy.Column: The primary key of the model.
+        :return: sqlalchemy.Column: The primary key of the table.
         :raises: exceptions.IntegrityError: If the model has a composed primary key.
         """
 
@@ -61,8 +61,8 @@ class SQLAlchemyTableManager:
 
         return model_pk_columns[0]
 
-    async def create(self, data: t.Union[t.Dict[str, t.Any], types.Schema]) -> t.Optional[t.Tuple[t.Any, ...]]:
-        """Creates a new element in the repository.
+    async def create(self, *data: t.Union[t.Dict[str, t.Any], types.Schema]) -> t.Optional[t.List[t.Tuple[t.Any, ...]]]:
+        """Creates new elements in the table.
 
         If the element already exists, it raises an `exceptions.IntegrityError`. If the element is created, it returns
         the primary key of the element.
@@ -72,13 +72,13 @@ class SQLAlchemyTableManager:
         :raises: exceptions.IntegrityError: If the element already exists.
         """
         try:
-            result = await self._connection.execute(sqlalchemy.insert(self.table).values(**data))
+            result = await self._connection.execute(sqlalchemy.insert(self.table), data)
         except sqlalchemy.exc.IntegrityError as e:
             raise exceptions.IntegrityError(str(e))
-        return tuple(result.inserted_primary_key) if result.inserted_primary_key else None
+        return [tuple(x) for x in result.inserted_primary_key_rows] if result.inserted_primary_key_rows else None
 
     async def retrieve(self, id: t.Any) -> types.Schema:
-        """Retrieves an element from the repository.
+        """Retrieves an element from the table.
 
         If the element does not exist, it raises a `NotFoundError`.
 
@@ -98,7 +98,7 @@ class SQLAlchemyTableManager:
         return types.Schema(element._asdict())
 
     async def update(self, id: t.Any, data: t.Union[t.Dict[str, t.Any], types.Schema]) -> types.Schema:
-        """Updates an element in the repository.
+        """Updates an element in the table.
 
         If the element does not exist, it raises a `NotFoundError`. If the element is updated, it returns the updated
         element.
@@ -119,7 +119,7 @@ class SQLAlchemyTableManager:
         return types.Schema({pk.name: id, **data})
 
     async def delete(self, id: t.Any) -> None:
-        """Deletes an element from the repository.
+        """Deletes an element from the table.
 
         If the element does not exist, it raises a `NotFoundError`.
 
@@ -134,7 +134,7 @@ class SQLAlchemyTableManager:
             raise exceptions.NotFoundError(id)
 
     async def list(self, *clauses, **filters) -> t.List[types.Schema]:
-        """Lists all the elements in the repository.
+        """Lists all the elements in the table.
 
         If no elements are found, it returns an empty list. If no clauses or filters are given, it returns all the
         elements in the repository.
@@ -157,14 +157,29 @@ class SQLAlchemyTableManager:
 
         return [types.Schema(row._asdict()) async for row in await self._connection.stream(query)]
 
-    async def drop(self) -> int:
-        """Drops all the elements in the repository.
+    async def drop(self, *clauses, **filters) -> int:
+        """Drops elements in the table.
 
-        Returns the number of elements dropped.
+        Returns the number of elements dropped. If no clauses or filters are given, it deletes all the elements in the
+        repository.
 
+        Clauses are used to filter the elements using sqlalchemy clauses. Filters are used to filter the elements using
+        exact values to specific columns. Clauses and filters can be combined.
+
+        Clause example: `table.c["id"]._in((1, 2, 3))`
+        Filter example: `id=1`
+
+        :param clauses: Clauses to filter the elements.
+        :param filters: Filters to filter the elements.
         :return: The number of elements dropped.
         """
-        result = await self._connection.execute(sqlalchemy.delete(self.table))
+        query = sqlalchemy.delete(self.table)
+
+        where_clauses = tuple(clauses) + tuple(self.table.c[k] == v for k, v in filters.items())
+        if where_clauses:
+            query = query.where(sqlalchemy.and_(*where_clauses))
+
+        result = await self._connection.execute(query)
         return result.rowcount
 
 
@@ -178,8 +193,8 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
     def __eq__(self, other):
         return isinstance(other, SQLAlchemyTableRepository) and self._table == other._table and super().__eq__(other)
 
-    async def create(self, data: t.Union[t.Dict[str, t.Any], types.Schema]) -> t.Optional[t.Tuple[t.Any, ...]]:
-        """Creates a new element in the repository.
+    async def create(self, *data: t.Union[t.Dict[str, t.Any], types.Schema]) -> t.Optional[t.List[t.Tuple[t.Any, ...]]]:
+        """Creates new elements in the repository.
 
         If the element already exists, it raises an `exceptions.IntegrityError`. If the element is created, it returns
         the primary key of the element.
@@ -188,7 +203,7 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         :return: The primary key of the created element.
         :raises: exceptions.IntegrityError: If the element already exists.
         """
-        return await self._table_manager.create(data)
+        return await self._table_manager.create(*data)
 
     async def retrieve(self, id: t.Any) -> types.Schema:
         """Retrieves an element from the repository.
@@ -242,11 +257,20 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         """
         return await self._table_manager.list(*clauses, **filters)
 
-    async def drop(self) -> int:
-        """Drops all the elements in the repository.
+    async def drop(self, *clauses, **filters) -> int:
+        """Drops elements in the repository.
 
-        Returns the number of elements dropped.
+        Returns the number of elements dropped. If no clauses or filters are given, it deletes all the elements in the
+        repository.
 
+        Clauses are used to filter the elements using sqlalchemy clauses. Filters are used to filter the elements using
+        exact values to specific columns. Clauses and filters can be combined.
+
+        Clause example: `table.c["id"]._in((1, 2, 3))`
+        Filter example: `id=1`
+
+        :param clauses: Clauses to filter the elements.
+        :param filters: Filters to filter the elements.
         :return: The number of elements dropped.
         """
         return await self._table_manager.drop()

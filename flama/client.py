@@ -102,7 +102,7 @@ class _BaseClient:
 
         if models:
             app = Flama() if not app else app
-            for (name, url, path) in models:
+            for name, url, path in models:
                 app.models.add_model(url, path, name)
 
             self.models = {m[0]: m[1] for m in models or {}}

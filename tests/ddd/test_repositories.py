@@ -107,14 +107,20 @@ class TestCaseSQLAlchemyTableManager:
     @pytest.mark.parametrize(
         ["data", "result", "exception"],
         (
-            pytest.param({"name": "foo"}, (1,), None, id="ok"),
-            pytest.param({"name": None}, None, exceptions.IntegrityError, id="integrity_error"),
+            pytest.param([{"name": "foo"}], [(1,)], None, id="single"),
+            pytest.param(
+                [{"name": "foo"}, {"name": "bar"}],
+                [(None,), (None,)],  # SQlite doesn't allow to retrieve pk from bulk inserts
+                None,
+                id="multiple",
+            ),
+            pytest.param([{"name": None}], None, exceptions.IntegrityError, id="integrity_error"),
         ),
         indirect=["exception"],
     )
     async def test_create(self, table_manager, data, result, exception):
         with exception:
-            assert await table_manager.create(data) == result
+            assert await table_manager.create(*data) == result
 
     @pytest.mark.parametrize(
         ["data", "result", "exception"],
@@ -175,12 +181,21 @@ class TestCaseSQLAlchemyTableManager:
 
         assert r == result
 
-    async def test_drop(self, table_manager):
+    @pytest.mark.parametrize(
+        ["clauses", "filters", "result"],
+        (
+            pytest.param([], {}, 2, id="all"),
+            pytest.param([lambda x: x.ilike("fo%")], {}, 1, id="clauses"),
+            pytest.param([], {"name": "foo"}, 1, id="filters"),
+        ),
+    )
+    async def test_drop(self, clauses, filters, result, table, table_manager):
         await table_manager.create({"name": "foo"})
+        await table_manager.create({"name": "bar"})
 
-        result = await table_manager.drop()
+        r = await table_manager.drop(*[c(table.c["name"]) for c in clauses], **filters)
 
-        assert result == 1
+        assert r == result
 
 
 class TestCaseSQLAlchemyTableRepository:

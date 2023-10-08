@@ -44,7 +44,7 @@ class CreateMixin:
 
             return http.APIResponse(  # type: ignore[return-value]
                 schema=rest_schemas.output.schema,
-                content={**element, **dict(zip([x.name for x in self.model.primary_key], result or []))},
+                content={**element, **dict(zip([x.name for x in self.model.primary_key], result[0] if result else []))},
                 status_code=201,
             )
 
