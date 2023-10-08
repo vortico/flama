@@ -44,7 +44,7 @@ class Match(enum.Enum):
     full = enum.auto()
 
 
-class EndpointWrapper(types.AppAsyncClass):
+class EndpointWrapper:
     type = _EndpointType
 
     def __init__(
@@ -70,13 +70,13 @@ class EndpointWrapper(types.AppAsyncClass):
             (self.type.websocket, False): self._websocket_function,
             (self.type.websocket, True): self._websocket_endpoint,
         }
-        self.call_function: types.App = decorator_select[(endpoint_type, inspect.isclass(self.handler))]
+        self.call_function = decorator_select[(endpoint_type, inspect.isclass(self.handler))]
 
     def __get__(self, instance, owner):
         return functools.partial(self.__call__, instance)
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        await self.call_function(scope, receive, send)
+        await concurrency.run(self.call_function, scope, receive, send)
 
     async def _http_function(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs an HTTP request.
@@ -256,7 +256,7 @@ class BaseRoute(RouteParametersMixin):
         :param receive: ASGI receive event.
         :param send: ASGI send event.
         """
-        await self.app(scope, receive, send)
+        await concurrency.run(self.app, scope, receive, send)
 
     def match(self, scope: types.Scope) -> Match:
         """Check if this route matches with given scope.
@@ -526,7 +526,7 @@ class Mount(BaseRoute):
         :param receive: ASGI receive event.
         :param send: ASGI send event
         """
-        await self.app(scope, receive, send)
+        await concurrency.run(self.app, scope, receive, send)
 
     def route_scope(self, scope: types.Scope) -> types.Scope:
         """Build route scope from given scope.
@@ -586,7 +586,7 @@ class Mount(BaseRoute):
         return getattr(self.app, "routes", [])
 
 
-class Router(types.AppAsyncClass):
+class Router:
     def __init__(
         self,
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
