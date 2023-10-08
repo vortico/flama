@@ -89,75 +89,67 @@ class TestCaseSQLAlchemyTableManager:
         assert SQLAlchemyTableManager(table, connection) == SQLAlchemyTableManager(table, connection)
 
     @pytest.mark.parametrize(
-        ["table", "result", "exception"],
-        (
-            pytest.param("single", "id", None, id="single_pk"),
-            pytest.param(
-                "composed", None, exceptions.IntegrityError("Composed primary keys are not supported"), id="composed_pk"
-            ),
-        ),
-        indirect=["exception"],
-    )
-    async def test_primary_key(self, table, result, exception, tables):
-        table_manager = SQLAlchemyTableManager(tables[table], Mock())
-
-        with exception:
-            assert table_manager.primary_key.name == result
-
-    @pytest.mark.parametrize(
         ["data", "result", "exception"],
         (
-            pytest.param({"name": "foo"}, (1,), None, id="ok"),
-            pytest.param({"name": None}, None, exceptions.IntegrityError, id="integrity_error"),
+            pytest.param([{"name": "foo"}], [(1,)], None, id="single"),
+            pytest.param(
+                [{"name": "foo"}, {"name": "bar"}],
+                [(None,), (None,)],  # SQlite doesn't allow to retrieve pk from bulk inserts
+                None,
+                id="multiple",
+            ),
+            pytest.param([{"name": None}], None, exceptions.IntegrityError, id="integrity_error"),
         ),
         indirect=["exception"],
     )
     async def test_create(self, table_manager, data, result, exception):
         with exception:
-            assert await table_manager.create(data) == result
+            assert await table_manager.create(*data) == result
 
     @pytest.mark.parametrize(
-        ["data", "result", "exception"],
+        ["clauses", "filters", "result", "exception"],
         (
-            pytest.param(1, {"id": 1, "name": "foo"}, None, id="ok"),
-            pytest.param(2, None, exceptions.NotFoundError(1), id="not_found"),
+            pytest.param([], {"id": 1}, {"id": 1, "name": "foo"}, None, id="ok"),
+            pytest.param([], {"id": 0}, None, exceptions.NotFoundError(), id="not_found"),
+            pytest.param(
+                [lambda x: x.ilike("fo%")], {}, None, exceptions.MultipleRecordsError(), id="multiple_results"
+            ),
         ),
         indirect=["exception"],
     )
-    async def test_retrieve(self, data, result, exception, table_manager):
-        await table_manager.create({"name": "foo"})
+    async def test_retrieve(self, clauses, filters, result, exception, table, table_manager):
+        await table_manager.create({"name": "foo"}, {"name": "foo"})
 
         with exception:
-            assert await table_manager.retrieve(data) == result
+            assert await table_manager.retrieve(*[c(table.c["name"]) for c in clauses], **filters) == result
 
     @pytest.mark.parametrize(
-        ["data", "result", "exception"],
+        ["clauses", "filters", "data", "result"],
         (
-            pytest.param((1, {"name": "bar"}), {"id": 1, "name": "foo"}, None, id="ok"),
-            pytest.param((2, {"name": "bar"}), None, exceptions.NotFoundError(1), id="not_found"),
+            pytest.param([], {"id": 1}, {"name": "bar"}, 1, id="ok"),
+            pytest.param([], {"id": 0}, {"name": "bar"}, 0, id="not_found"),
+            pytest.param([lambda x: x.ilike("fo%")], {}, {"name": "bar"}, 2, id="multiple_results"),
+        ),
+    )
+    async def test_update(self, clauses, filters, data, result, table, table_manager):
+        await table_manager.create({"name": "foo"}, {"name": "foo"})
+
+        assert await table_manager.update(data, *[c(table.c["name"]) for c in clauses], **filters) == result
+
+    @pytest.mark.parametrize(
+        ["clauses", "filters", "exception"],
+        (
+            pytest.param([], {"id": 1}, None, id="ok"),
+            pytest.param([], {"id": 0}, exceptions.NotFoundError(), id="not_found"),
+            pytest.param([lambda x: x.ilike("fo%")], {}, exceptions.MultipleRecordsError(), id="multiple_results"),
         ),
         indirect=["exception"],
     )
-    async def test_update(self, data, result, exception, table_manager):
-        id_, data_ = data
-        await table_manager.create(data_)
+    async def test_delete(self, clauses, filters, exception, table, table_manager):
+        await table_manager.create({"name": "foo"}, {"name": "foo"})
 
         with exception:
-            assert await table_manager.update(id_, {"name": "foo"}) == result
-
-    @pytest.mark.parametrize(
-        ["data", "exception"],
-        (
-            pytest.param(1, None, id="ok"),
-            pytest.param(2, exceptions.NotFoundError(1), id="not_found"),
-        ),
-        indirect=["exception"],
-    )
-    async def test_delete(self, data, exception, table_manager):
-        await table_manager.create({"name": "foo"})
-
-        with exception:
-            await table_manager.delete(data)
+            await table_manager.delete(*[c(table.c["name"]) for c in clauses], **filters)
 
     @pytest.mark.parametrize(
         ["clauses", "filters", "result"],
@@ -168,19 +160,26 @@ class TestCaseSQLAlchemyTableManager:
         ),
     )
     async def test_list(self, clauses, filters, result, table, table_manager):
-        await table_manager.create({"name": "foo"})
-        await table_manager.create({"name": "bar"})
+        await table_manager.create({"name": "foo"}, {"name": "bar"})
 
-        r = await table_manager.list(*[c(table.c["name"]) for c in clauses], **filters)
+        r = [x async for x in table_manager.list(*[c(table.c["name"]) for c in clauses], **filters)]
 
         assert r == result
 
-    async def test_drop(self, table_manager):
-        await table_manager.create({"name": "foo"})
+    @pytest.mark.parametrize(
+        ["clauses", "filters", "result"],
+        (
+            pytest.param([], {}, 2, id="all"),
+            pytest.param([lambda x: x.ilike("fo%")], {}, 1, id="clauses"),
+            pytest.param([], {"name": "foo"}, 1, id="filters"),
+        ),
+    )
+    async def test_drop(self, clauses, filters, result, table, table_manager):
+        await table_manager.create({"name": "foo"}, {"name": "bar"})
 
-        result = await table_manager.drop()
+        r = await table_manager.drop(*[c(table.c["name"]) for c in clauses], **filters)
 
-        assert result == 1
+        assert r == result
 
 
 class TestCaseSQLAlchemyTableRepository:
@@ -253,7 +252,7 @@ class TestCaseSQLAlchemyTableRepository:
         clauses = [Mock(), Mock()]
         filters = {"foo": "bar"}
 
-        await repository.list(*clauses, **filters)
+        repository.list(*clauses, **filters)
 
         assert table_manager.list.call_args_list == [call(*clauses, **filters)]
 

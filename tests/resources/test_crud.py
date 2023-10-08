@@ -362,7 +362,7 @@ class TestCaseCRUDListResource:
                     filters["name"] = name
 
                 async with worker:
-                    return await worker.repositories[self._meta.name].list(*clauses, **filters)
+                    return [x async for x in worker.repositories[self._meta.name].list(*clauses, **filters)]
 
         return PuppyResource()
 
