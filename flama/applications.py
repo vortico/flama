@@ -167,7 +167,7 @@ class Flama:
         include_in_schema: bool = True,
         route: t.Optional["Route"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> "Route":
         """Register a new HTTP route or endpoint under given path.
 
@@ -199,7 +199,7 @@ class Flama:
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -228,7 +228,7 @@ class Flama:
         name: t.Optional[str] = None,
         route: t.Optional["WebSocketRoute"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> "WebSocketRoute":
         """Register a new websocket route or endpoint under given path.
 
@@ -248,7 +248,7 @@ class Flama:
         path: str,
         name: t.Optional[str] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
@@ -266,7 +266,7 @@ class Flama:
         app: t.Optional[types.App] = None,
         name: t.Optional[str] = None,
         mount: t.Optional["Mount"] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> "Mount":
         """Register a new mount point containing an ASGI app in this router under given path.
 

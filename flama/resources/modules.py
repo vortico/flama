@@ -6,9 +6,6 @@ from flama.resources.resource import BaseResource
 from flama.resources.routing import ResourceRoute
 from flama.resources.workers import FlamaWorker
 
-if t.TYPE_CHECKING:
-    from flama import types
-
 __all__ = ["ResourcesModule"]
 
 
@@ -23,7 +20,7 @@ class ResourcesModule(Module):
         self,
         path: str,
         resource: t.Union[BaseResource, t.Type[BaseResource]],
-        tags: t.Optional[t.Dict[str, t.Dict[str, "types.Tag"]]] = None,
+        tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None,
         *args,
         **kwargs
     ) -> "BaseResource":
@@ -45,7 +42,7 @@ class ResourcesModule(Module):
         return resource_instance
 
     def resource(
-        self, path: str, tags: t.Optional[t.Dict[str, t.Dict[str, "types.Tag"]]] = None, *args, **kwargs
+        self, path: str, tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None, *args, **kwargs
     ) -> t.Callable:
         """Decorator for Resources classes for adding them to the application.
 

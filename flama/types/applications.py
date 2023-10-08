@@ -1,9 +1,6 @@
 import enum
-import typing as t
 
-__all__ = ["Tag", "AppStatus"]
-
-Tag = t.Union[str, t.Sequence["Tag"], t.Dict[str, "Tag"]]
+__all__ = ["AppStatus"]
 
 
 class AppStatus(enum.Enum):
