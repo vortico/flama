@@ -4,9 +4,6 @@ import typing as t
 from flama.models.resource import ModelResource, ModelResourceType
 from flama.modules import Module
 
-if t.TYPE_CHECKING:
-    from flama import types
-
 __all__ = ["ModelsModule"]
 
 
@@ -18,7 +15,7 @@ class ModelsModule(Module):
         path: str,
         model: t.Union[str, os.PathLike],
         name: str,
-        tags: t.Optional[t.Dict[str, t.Dict[str, "types.Tag"]]] = None,
+        tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None,
         *args,
         **kwargs
     ) -> ModelResource:
@@ -43,7 +40,7 @@ class ModelsModule(Module):
         return resource
 
     def model_resource(
-        self, path: str, tags: t.Optional[t.Dict[str, t.Dict[str, "types.Tag"]]] = None, *args, **kwargs
+        self, path: str, tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None, *args, **kwargs
     ) -> t.Callable:
         """Decorator for ModelResource classes for adding them to the application.
 
@@ -63,7 +60,7 @@ class ModelsModule(Module):
         self,
         path: str,
         resource: t.Union[ModelResource, t.Type[ModelResource]],
-        tags: t.Optional[t.Dict[str, t.Dict[str, "types.Tag"]]] = None,
+        tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None,
         *args,
         **kwargs
     ) -> ModelResource:
