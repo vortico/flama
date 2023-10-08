@@ -44,7 +44,7 @@ class CreateMixin:
 
             return http.APIResponse(  # type: ignore[return-value]
                 schema=rest_schemas.output.schema,
-                content={**element, **dict(zip([x.name for x in self.model.primary_key], result or []))},
+                content={**element, **dict(zip([x.name for x in self.model.primary_key], result[0] if result else []))},
                 status_code=201,
             )
 
@@ -82,7 +82,9 @@ class RetrieveMixin:
         ) -> types.Schema[rest_schemas.output.schema]:
             try:
                 async with worker:
-                    return await worker.repositories[self._meta.name].retrieve(element_id)
+                    return await worker.repositories[self._meta.name].retrieve(
+                        **{rest_model.primary_key.name: element_id}
+                    )
             except ddd_exceptions.NotFoundError:
                 raise exceptions.HTTPException(status_code=404)
 
@@ -126,11 +128,17 @@ class UpdateMixin:
             clean_element = types.Schema[rest_schemas.input.schema](
                 {k: v for k, v in schema.dump(element).items() if k != rest_model.primary_key.name}
             )
-            try:
-                async with worker:
-                    return await worker.repositories[self._meta.name].update(element_id, clean_element)
-            except ddd_exceptions.NotFoundError:
+            async with worker:
+                result = await worker.repositories[self._meta.name].update(
+                    clean_element, **{rest_model.primary_key.name: element_id}
+                )
+
+            if result == 0:
                 raise exceptions.HTTPException(status_code=404)
+
+            return types.Schema[rest_schemas.output.schema](
+                {**clean_element, **{rest_model.primary_key.name: element_id}}
+            )
 
         update.__doc__ = f"""
             tags:
@@ -160,7 +168,7 @@ class DeleteMixin:
         async def delete(self, worker: FlamaWorker, element_id: rest_model.primary_key.type):
             try:
                 async with worker:
-                    await worker.repositories[self._meta.name].delete(element_id)
+                    await worker.repositories[self._meta.name].delete(**{rest_model.primary_key.name: element_id})
             except ddd_exceptions.NotFoundError:
                 raise exceptions.HTTPException(status_code=404)
 
@@ -193,7 +201,7 @@ class ListMixin:
         @resource_method("/", methods=["GET"], name=f"{name}-list", pagination="page_number")
         async def list(self, worker: FlamaWorker, **kwargs) -> types.Schema[rest_schemas.output.schema]:
             async with worker:
-                return await worker.repositories[self._meta.name].list()  # type: ignore[return-value]
+                return [x async for x in worker.repositories[self._meta.name].list()]  # type: ignore[return-value]
 
         list.__doc__ = f"""
             tags:
