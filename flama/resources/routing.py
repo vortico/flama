@@ -6,7 +6,7 @@ from flama.resources import data_structures
 from flama.routing import Mount, Route
 
 if t.TYPE_CHECKING:
-    from flama import Flama, types
+    from flama import Flama
     from flama.pagination.types import PaginationType
     from flama.resources import BaseResource
 
@@ -18,7 +18,7 @@ class ResourceRoute(Mount):
         self,
         path: str,
         resource: t.Union["BaseResource", t.Type["BaseResource"]],
-        tags: t.Optional[t.Dict[str, t.Dict[str, "types.Tag"]]] = None,
+        tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None,
     ):
         tags = tags or {}
 
@@ -64,7 +64,7 @@ def resource_method(
     name: t.Optional[str] = None,
     *,
     pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-    tags: t.Optional[t.Dict[str, "types.Tag"]] = None,
+    tags: t.Optional[t.Dict[str, t.Any]] = None,
 ) -> t.Callable:
     """Decorator for adding useful info needed for generating resource routes.
 
