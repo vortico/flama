@@ -1,6 +1,7 @@
+from http.cookies import SimpleCookie
 from urllib.parse import parse_qsl
 
-from flama import types
+from flama import http, types
 from flama.injection.components import Component, Components
 
 __all__ = [
@@ -66,8 +67,17 @@ class QueryParamsComponent(Component):
 
 
 class HeadersComponent(Component):
-    def resolve(self, scope: types.Scope) -> types.Headers:
-        return types.Headers(scope=scope)
+    def resolve(self, request: http.Request) -> types.Headers:
+        return request.headers
+
+
+class CookiesComponent(Component):
+    def resolve(self, headers: types.Headers) -> types.Cookies:
+        cookie = SimpleCookie()
+        cookie.load(headers.get("cookie", ""))
+        return types.Cookies(
+            {str(name): {str(k): str(v) for k, v in morsel.items()} for name, morsel in cookie.items()}
+        )
 
 
 class BodyComponent(Component):
@@ -95,6 +105,7 @@ ASGI_COMPONENTS = Components(
         QueryStringComponent(),
         QueryParamsComponent(),
         HeadersComponent(),
+        CookiesComponent(),
         BodyComponent(),
     ]
 )
