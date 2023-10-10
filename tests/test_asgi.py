@@ -1,3 +1,5 @@
+import http.cookiejar
+
 import pytest
 
 from flama import types
@@ -297,6 +299,103 @@ class TestCaseHeadersComponent:
         response = await client.request(method, path, **dict(request_kwargs))
         response_json = response.json()
         del response_json["headers"]["user-agent"]
+
+        assert response_json == expected
+
+
+class TestCaseCookiesComponent:
+    @pytest.fixture(scope="function", autouse=True)
+    def add_endpoints(self, app):
+        @app.route("/cookies/", methods=["GET", "POST"])
+        def get_cookies(cookies: types.Cookies):
+            return {"cookies": dict(cookies)}
+
+    @pytest.mark.parametrize(
+        ["path", "method", "cookies", "expected"],
+        [
+            pytest.param(
+                "http://example.com/cookies/",
+                "get",
+                {},
+                {"cookies": {}},
+                id="default",
+            ),
+            pytest.param(
+                "http://example.com/cookies/",
+                "get",
+                [
+                    http.cookiejar.Cookie(
+                        version=0,
+                        name="foo",
+                        value="bar",
+                        port=None,
+                        port_specified=False,
+                        domain="",
+                        domain_specified=False,
+                        domain_initial_dot=False,
+                        path="/",
+                        path_specified=True,
+                        secure=False,
+                        expires=None,
+                        discard=True,
+                        comment=None,
+                        comment_url=None,
+                        rest={"HttpOnly": ""},
+                        rfc2109=False,
+                    )
+                ],
+                {
+                    "cookies": {
+                        "foo": {
+                            "expires": "",
+                            "path": "",
+                            "comment": "",
+                            "domain": "",
+                            "max-age": "",
+                            "secure": "",
+                            "httponly": "",
+                            "version": "",
+                            "samesite": "",
+                        }
+                    }
+                },
+                id="cookie",
+            ),
+            pytest.param(
+                "http://example.com/cookies/",
+                "get",
+                [
+                    http.cookiejar.Cookie(
+                        version=0,
+                        name="foo",
+                        value="bar",
+                        port=None,
+                        port_specified=False,
+                        domain="",
+                        domain_specified=False,
+                        domain_initial_dot=False,
+                        path="/",
+                        path_specified=True,
+                        secure=True,
+                        expires=None,
+                        discard=True,
+                        comment=None,
+                        comment_url=None,
+                        rest={"HttpOnly": "true"},
+                        rfc2109=False,
+                    )
+                ],
+                {"cookies": {}},  # Cannot get cookie because secure and no https
+                id="cookie_secure",
+            ),
+        ],
+    )
+    async def test_cookies(self, client, path, method, cookies, expected):
+        cookies_jar = http.cookiejar.CookieJar()
+        for cookie in cookies:
+            cookies_jar.set_cookie(cookie)
+        response = await client.request(method, path, cookies=cookies_jar)
+        response_json = response.json()
 
         assert response_json == expected
 
