@@ -31,6 +31,10 @@ classifiers = [
 include = ["flama/py.typed", "flama/templates/**/*"]
 exclude = []
 
+[tool.poetry.build]
+generate-setup-file = false
+script = "build.py"
+
 [tool.poetry.dependencies]
 python = ">=3.8,<3.12"
 starlette = ">=0.21.0,<1.0.0"
@@ -151,22 +155,6 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 # Unlike Flake8, default to a complexity level of 10.
 max-complexity = 10
 
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-ignore_missing_imports = true
-show_error_codes = true
-exclude = [
-    "\\.venv",
-    "\\.github",
-    "examples",
-    "docs",
-    "build",
-    "dist",
-    "tests",
-]
-
 [tool.pyright]
 include = ["flama"]
 exclude = [
@@ -201,9 +189,7 @@ omit = [
     "flama/cli/*",
     "flama/types/*",
     "flama/*/types.py",
-    "flama/authentication.py",
-    "flama/middleware.py",
-    "flama/testclient.py",
+    "build.py",
 ]
 concurrency = ["thread", "multiprocessing"]
 
