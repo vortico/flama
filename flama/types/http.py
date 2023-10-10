@@ -23,6 +23,7 @@ __all__ = [
     "URL",
     "Headers",
     "MutableHeaders",
+    "Cookies",
     "QueryParams",
     "PARAMETERS_TYPES",
 ]
@@ -41,6 +42,7 @@ PathParam = t.NewType("PathParam", str)
 RequestData = t.NewType("RequestData", t.Dict[str, t.Any])
 Headers = starlette.datastructures.Headers
 MutableHeaders = starlette.datastructures.MutableHeaders
+Cookies = t.NewType("Cookies", t.Dict[str, t.Dict[str, str]])
 QueryParams = starlette.datastructures.QueryParams
 
 PARAMETERS_TYPES: t.Dict[t.Type, t.Type] = {
