@@ -1,6 +1,7 @@
 import abc
 import dataclasses
 import inspect
+import logging
 import typing as t
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from flama.debug.data_structures import ErrorContext, NotFoundContext
 
 if t.TYPE_CHECKING:
     from flama.debug.types import Handler
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["ServerErrorMiddleware", "ExceptionMiddleware"]
 
@@ -54,7 +57,12 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
     async def process_exception(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception, response_started: bool
     ) -> None:
+        logger.exception("Unhandled exception '%s' for scope %s", exc, scope)
+
         handler = self._get_handler(scope)
+
+        logger.debug("Exception handler: %s", handler)
+
         response = handler(scope, receive, send, exc)
 
         if response and concurrency.is_async(response) and not response_started:
@@ -129,7 +137,11 @@ class ExceptionMiddleware(BaseErrorMiddleware):
     async def process_exception(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception, response_started: bool
     ) -> None:
+        logger.debug("Handled exception '%s' for scope %s", exc, scope, exc_info=True)
+
         handler = self._get_handler(exc)
+
+        logger.debug("Exception handler: %s", handler)
 
         if response_started:
             raise RuntimeError("Caught handled exception, but response already started.") from exc
