@@ -1,10 +1,11 @@
 import pytest
 
 from flama.applications import Flama
-from flama.resources import BaseResource
-from flama.resources.crud import CRUDResourceType
+from flama.client import AsyncClient
+from flama.resources import BaseResource, ResourceType
+from flama.resources.crud import CRUDListResourceType
 from flama.resources.routing import ResourceRoute, resource_method
-from flama.routing import Route
+from flama.routing import Mount, Route
 from flama.sqlalchemy import SQLAlchemyModule
 
 
@@ -15,7 +16,7 @@ class TestCaseResourceRoute:
 
     @pytest.fixture(scope="function")
     def resource(self, puppy_model, puppy_schema):
-        class PuppyResource(BaseResource, metaclass=CRUDResourceType):
+        class PuppyResource(BaseResource, metaclass=CRUDListResourceType):
             name = "puppy"
             model = puppy_model
             schema = puppy_schema
@@ -31,6 +32,7 @@ class TestCaseResourceRoute:
                 "retrieve": {"tag": "retrieve"},
                 "update": {"tag": "update"},
                 "delete": {"tag": "delete"},
+                "list": {"tag": "list"},
             },
         )
 
@@ -43,6 +45,7 @@ class TestCaseResourceRoute:
             ("/{element_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve, {"tag": "retrieve"}),
             ("/{element_id}/", {"PUT"}, resource_route.resource.update, {"tag": "update"}),
             ("/{element_id}/", {"DELETE"}, resource_route.resource.delete, {"tag": "delete"}),
+            ("/", {"GET", "HEAD"}, resource_route.resource.list, {"tag": "list"}),
         ]
 
     def test_init_wrong_tags(self, resource):
@@ -55,6 +58,7 @@ class TestCaseResourceRoute:
                     "retrieve": {"tag": "retrieve"},
                     "update": {"tag": "update"},
                     "delete": {"tag": "delete"},
+                    "list": {"tag": "list"},
                     "wrong": "wrong",
                 },
             )
@@ -69,15 +73,56 @@ class TestCaseResourceRoute:
         assert len(app.routes) == 2
         resource_route = app.routes[1]
         assert isinstance(resource_route, ResourceRoute)
-        assert len(resource_route.routes) == 4
-        for route in resource_route.routes:
-            assert isinstance(route, Route)
         assert [(route.path, route.methods, route.endpoint) for route in resource_route.routes] == [
             ("/", {"POST"}, resource_route.resource.create),
             ("/{element_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
             ("/{element_id}/", {"PUT"}, resource_route.resource.update),
             ("/{element_id}/", {"DELETE"}, resource_route.resource.delete),
+            ("/", {"GET", "HEAD"}, resource_route.resource.list),
         ]
+
+    def test_nested_mount_resource(self, resource):
+        app = Flama(schema=None, docs=None)
+        app.add_route(route=Route("/", lambda: {"Hello": "world"}))
+
+        sub_app = Flama(schema=None, docs=None)
+        sub_app.resources.add_resource("/puppy/", resource)
+        app.mount("/", sub_app)
+
+        assert len(app.router.routes) == 2
+
+        assert len(app.routes) == 2
+        mount = app.routes[1]
+        assert isinstance(mount, Mount)
+        assert len(mount.routes) == 1
+        resource_route = mount.routes[0]
+        assert isinstance(resource_route, ResourceRoute)
+        assert [(route.path, route.methods, route.endpoint) for route in resource_route.routes] == [
+            ("/", {"POST"}, resource_route.resource.create),
+            ("/{element_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
+            ("/{element_id}/", {"PUT"}, resource_route.resource.update),
+            ("/{element_id}/", {"DELETE"}, resource_route.resource.delete),
+            ("/", {"GET", "HEAD"}, resource_route.resource.list),
+        ]
+
+    async def test_request_nested_resource(self, app):
+        class PuppyResource(BaseResource, metaclass=ResourceType):
+            name = "puppy"
+            verbose_name = "Puppy"
+
+            @resource_method("/", methods=["GET"], name="puppy-list", tags={"foo": "bar"})
+            async def list(self):
+                return {"name": "Canna"}
+
+        sub_app = Flama(schema=None, docs=None)
+        sub_app.resources.add_resource("/puppy/", PuppyResource)
+        app.mount("/", sub_app)
+        app.mark = 1
+        sub_app.mark = 2
+
+        async with AsyncClient(app) as client:
+            response = await client.get("/puppy/")
+            assert response.status_code == 200
 
 
 class TestCaseResourceMethod:

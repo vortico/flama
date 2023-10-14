@@ -52,6 +52,7 @@ class ResourceRoute(Mount):
         from flama import Flama
 
         super().build(app)
+
         if (root := (self.app if isinstance(self.app, Flama) else app)) and "ddd" in self.resource._meta.namespaces:
             root.resources.worker.add_repository(
                 self.resource._meta.name, self.resource._meta.namespaces["ddd"]["repository"]
