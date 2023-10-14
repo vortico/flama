@@ -4,6 +4,7 @@ import pytest
 
 from flama import endpoints, exceptions, types, url, websockets
 from flama.applications import Flama
+from flama.client import AsyncClient
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 from flama.injection import Component, Components
 from flama.routing import BaseRoute, EndpointWrapper, Match, Mount, Route, Router, WebSocketRoute
@@ -415,7 +416,7 @@ class TestCaseMount:
             "endpoint": mount.app,
             "path": "/bar",
             "path_params": {"x": 1},
-            "root_path": "/foo/1",
+            "root_path": "" if used else "/foo/1",
         }
 
     @pytest.mark.parametrize(
@@ -830,7 +831,7 @@ class TestCaseRouter:
         assert route.path == "/foo/"
         assert route_scope is not None
         assert route_scope["path"] == "/foo/"
-        assert route_scope["root_path"] == "/router"
+        assert route_scope["root_path"] == ""
         assert route_scope["endpoint"] == foo
 
     def test_resolve_route_mount_router(self, app, router, asgi_scope):
@@ -928,3 +929,14 @@ class TestCaseRouter:
 
         with exception:
             assert router.resolve_url("foo") == result
+
+    async def test_request_nested_app(self, app):
+        sub_app = Flama(docs=None, schema=None)
+        sub_app.add_route("/bar/", lambda: {"foo": "bar"}, ["GET"])
+
+        app.mount("/foo", sub_app)
+
+        async with AsyncClient(app) as client:
+            response = await client.get("/foo/bar/")
+            assert response.status_code == 200
+            assert response.json() == {"foo": "bar"}

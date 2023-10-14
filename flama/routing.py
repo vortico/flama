@@ -536,18 +536,22 @@ class Mount(BaseRoute):
         """
         from flama import Flama
 
-        app = self.app if isinstance(self.app, Flama) else scope["app"]
         path = scope["path"]
-        root_path = scope.get("root_path", "")
         matched_params = self.path.values(path)
         remaining_path = matched_params.pop("path")
         matched_path = path[: -len(remaining_path)]
+        if isinstance(self.app, Flama):
+            app = self.app
+            root_path = ""
+        else:
+            app = scope["app"]
+            root_path = scope.get("root_path", "") + matched_path
         return types.Scope(
             {
                 "app": app,
                 "path_params": {**dict(scope.get("path_params", {})), **matched_params},
                 "endpoint": self.endpoint,
-                "root_path": root_path + matched_path,
+                "root_path": root_path,
                 "path": remaining_path,
             }
         )
