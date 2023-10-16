@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
@@ -16,69 +17,140 @@ class TestCaseLifespan:
         return Lifespan(MagicMock())
 
     @pytest.mark.parametrize(
-        ["startup_side_effect", "shutdown_side_effect", "send_calls", "app_status", "exception"],
+        ["states", "startup_side_effect", "shutdown_side_effect", "exception"],
         (
             pytest.param(
+                (
+                    (
+                        [],
+                        [],
+                        types.AppStatus.NOT_INITIALIZED,
+                    ),
+                    (
+                        [
+                            types.Message({"type": "lifespan.startup"}),
+                        ],
+                        [
+                            types.Message({"type": "lifespan.startup.complete"}),
+                            types.Message({"type": "lifespan.startup.complete"}),
+                        ],
+                        types.AppStatus.READY,
+                    ),
+                    (
+                        [
+                            types.Message({"type": "lifespan.shutdown"}),
+                        ],
+                        [
+                            types.Message({"type": "lifespan.shutdown.complete"}),
+                            types.Message({"type": "lifespan.shutdown.complete"}),
+                        ],
+                        types.AppStatus.SHUT_DOWN,
+                    ),
+                ),
                 None,
                 None,
-                [
-                    call({"type": "lifespan.startup.complete"}),
-                    call({"type": "lifespan.shutdown.complete"}),
-                ],
-                types.AppStatus.SHUT_DOWN,
                 None,
                 id="ok",
             ),
             pytest.param(
+                (
+                    (
+                        [],
+                        [],
+                        types.AppStatus.NOT_INITIALIZED,
+                    ),
+                    (
+                        [
+                            types.Message({"type": "lifespan.startup"}),
+                        ],
+                        [
+                            types.Message({"type": "lifespan.startup.failed", "message": "Foo"}),
+                        ],
+                        types.AppStatus.FAILED,
+                    ),
+                ),
                 Exception("Foo"),
                 None,
-                [
-                    call({"type": "lifespan.startup.failed", "message": "Foo"}),
-                ],
-                types.AppStatus.FAILED,
                 exceptions.ApplicationError("Lifespan startup failed"),
-                id="fail_before_start",
+                id="startup_fail",
             ),
             pytest.param(
+                (
+                    (
+                        [],
+                        [],
+                        types.AppStatus.NOT_INITIALIZED,
+                    ),
+                    (
+                        [
+                            types.Message({"type": "lifespan.startup"}),
+                        ],
+                        [
+                            types.Message({"type": "lifespan.startup.complete"}),
+                            types.Message({"type": "lifespan.startup.complete"}),
+                        ],
+                        types.AppStatus.READY,
+                    ),
+                    (
+                        [
+                            types.Message({"type": "lifespan.shutdown"}),
+                        ],
+                        [
+                            types.Message({"type": "lifespan.shutdown.failed", "message": "Foo"}),
+                        ],
+                        types.AppStatus.FAILED,
+                    ),
+                ),
                 None,
                 Exception("Foo"),
-                [
-                    call({"type": "lifespan.startup.complete"}),
-                    call({"type": "lifespan.shutdown.failed", "message": "Foo"}),
-                ],
-                types.AppStatus.FAILED,
                 exceptions.ApplicationError("Lifespan shutdown failed"),
-                id="fail_after_start",
+                id="shutdown_fail",
+            ),
+            pytest.param(
+                (
+                    (
+                        [
+                            types.Message({"type": "lifespan.unknown"}),
+                        ],
+                        [],
+                        types.AppStatus.NOT_INITIALIZED,
+                    ),
+                ),
+                None,
+                None,
+                None,
+                id="unknown_message",
             ),
         ),
         indirect=["exception"],
     )
-    async def test_call(
-        self,
-        app,
-        lifespan,
-        asgi_scope,
-        asgi_receive,
-        asgi_send,
-        startup_side_effect,
-        shutdown_side_effect,
-        send_calls,
-        app_status,
-        exception,
-    ):
-        asgi_scope["app"] = app
-        asgi_receive.side_effect = [
-            types.Message({"type": "lifespan.startup"}),
-            types.Message({"type": "http"}),
-            types.Message({"type": "lifespan.shutdown"}),
-        ]
+    async def test_call(self, states, startup_side_effect, shutdown_side_effect, exception):
+        receive_queue = asyncio.Queue()
+        send_queue = asyncio.Queue()
+
+        async def receive() -> types.Message:
+            return await receive_queue.get()
+
+        async def send(message: types.Message) -> None:
+            await send_queue.put(message)
+
+        app = Flama(docs=None, schema=None)
+        sub_app = Flama(docs=None, schema=None)
+        app.mount("/foo", sub_app)
+
+        lifespan = app.router.lifespan
+
         with exception, patch.object(lifespan, "_startup", side_effect=startup_side_effect), patch.object(
             lifespan, "_shutdown", side_effect=shutdown_side_effect
         ):
-            await lifespan(asgi_scope, asgi_receive, asgi_send)
+            for (receive_messages, send_messages, app_status) in states:
+                for m in receive_messages:
+                    await receive_queue.put(m)
+                    await lifespan(types.Scope({"app": app, "type": "lifespan"}), receive, send)
 
-        assert asgi_send.call_args_list == send_calls
-        assert app._status == app_status
+                assert [await send_queue.get() for _ in range(len(send_messages))] == send_messages
+                assert app._status == app_status
+                assert sub_app._status == app_status
 
     @pytest.mark.parametrize(
         ["child_lifespan"],

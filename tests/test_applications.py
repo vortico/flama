@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
@@ -11,6 +12,7 @@ from flama.models import ModelsModule
 from flama.resources import BaseResource, ResourcesModule, ResourceType, resource_method
 from flama.routing import BaseRoute
 from flama.schemas.modules import SchemaModule
+from flama.types.applications import AppStatus
 from flama.url import URL
 
 DEFAULT_MODULES = [ResourcesModule, SchemaModule, ModelsModule]
@@ -268,7 +270,7 @@ class TestCaseFlama:
         with exception:
             assert app.resolve_url(resolve, **path_params) == resolution
 
-    def test_end_to_end(self, module):
+    def test_build_application(self, module):
         root_component = MagicMock(spec=Component)
         root_app = Flama(schema=None, docs=None, components=[root_component])
         root_app.add_get("/foo", lambda: {})
@@ -306,7 +308,7 @@ class TestCaseFlama:
         assert mount_app.modules == [*DEFAULT_MODULES, module]
         assert root_app.modules == DEFAULT_MODULES
 
-    def test_end_to_end_declarative(self, module):
+    def test_build_application_declarative(self, module):
         leaf_component = MagicMock(spec=Component)
         leaf_routes = [Route("/bar", lambda: {})]
         leaf_app = Flama(routes=leaf_routes, schema=None, docs=None, components=[leaf_component], modules={module()})
@@ -332,3 +334,45 @@ class TestCaseFlama:
         # Check modules are isolated for each app
         assert mount_app.modules == [*DEFAULT_MODULES, module]
         assert root_app.modules == DEFAULT_MODULES
+
+    async def test_call_complete_workflow(self):
+        receive_queue = asyncio.Queue()
+        send_queue = asyncio.Queue()
+
+        async def receive() -> types.Message:
+            return await receive_queue.get()
+
+        async def send(message: types.Message) -> None:
+            await send_queue.put(message)
+
+        app = Flama(docs=None, schema=None)
+        sub_app = Flama(docs=None, schema=None)
+        sub_app.add_route("/bar/", lambda: {"foo": "bar"})
+        app.mount("/foo", sub_app)
+
+        assert app._status == AppStatus.NOT_INITIALIZED
+        assert sub_app._status == AppStatus.NOT_INITIALIZED
+
+        await receive_queue.put(types.Message({"type": "lifespan.startup"}))
+        await app(types.Scope({"type": "lifespan"}), receive, send)
+        assert await send_queue.get() == {"type": "lifespan.startup.complete"}
+        assert await send_queue.get() == {"type": "lifespan.startup.complete"}
+
+        assert app._status == AppStatus.READY
+        assert sub_app._status == AppStatus.READY
+
+        await app(types.Scope({"type": "http", "path": "/foo/bar/", "method": "GET"}), receive, send)
+        assert await send_queue.get() == {
+            "type": "http.response.start",
+            "headers": [(b"content-length", b"13"), (b"content-type", b"application/json")],
+            "status": 200,
+        }
+        assert await send_queue.get() == {"body": b'{"foo":"bar"}', "type": "http.response.body"}
+
+        await receive_queue.put(types.Message({"type": "lifespan.shutdown"}))
+        await app(types.Scope({"type": "lifespan"}), receive, send)
+        assert await send_queue.get() == {"type": "lifespan.shutdown.complete"}
+        assert await send_queue.get() == {"type": "lifespan.shutdown.complete"}
+
+        assert app._status == AppStatus.SHUT_DOWN
+        assert sub_app._status == AppStatus.SHUT_DOWN

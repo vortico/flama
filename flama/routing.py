@@ -1,3 +1,4 @@
+import abc
 import enum
 import functools
 import inspect
@@ -190,7 +191,7 @@ class EndpointWrapper:
         return isinstance(other, EndpointWrapper) and self.handler == other.handler
 
 
-class BaseRoute(RouteParametersMixin):
+class BaseRoute(abc.ABC, RouteParametersMixin):
     def __init__(
         self,
         path: t.Union[str, url.RegexPath],
@@ -216,8 +217,9 @@ class BaseRoute(RouteParametersMixin):
         self.tags = tags or {}
         super().__init__()
 
+    @abc.abstractmethod
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
+        ...
 
     def __eq__(self, other: t.Any) -> bool:
         return (
@@ -344,6 +346,10 @@ class Route(BaseRoute):
 
         self.app: EndpointWrapper
 
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        if scope["type"] == "http":
+            await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
+
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, Route) and self.methods == other.methods
 
@@ -427,6 +433,10 @@ class WebSocketRoute(BaseRoute):
 
         self.app: EndpointWrapper
 
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        if scope["type"] == "websocket":
+            await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
+
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, WebSocketRoute)
 
@@ -489,6 +499,12 @@ class Mount(BaseRoute):
 
         super().__init__(url.RegexPath(path.rstrip("/") + "{path:path}"), app, name=name, tags=tags)
 
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        if scope["type"] in ("http", "websocket") or (
+            scope["type"] == "lifespan" and types.is_flama_instance(self.app)
+        ):
+            await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
+
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, Mount)
 
@@ -499,12 +515,10 @@ class Mount(BaseRoute):
 
         :param app: Flama app.
         """
-        from flama import Flama
-
-        if app and isinstance(self.app, Flama):
+        if app and types.is_flama_instance(self.app):
             self.app.router.components = Components(self.app.router.components + app.components)
 
-        if root := (self.app if isinstance(self.app, Flama) else app):
+        if root := (self.app if types.is_flama_instance(self.app) else app):
             for route in self.routes:
                 route.build(root)
 
@@ -531,30 +545,33 @@ class Mount(BaseRoute):
     def route_scope(self, scope: types.Scope) -> types.Scope:
         """Build route scope from given scope.
 
+        It generates an updated scope parameters for the route:
+        * app: The app of this mount point. If it's mounting a Flama app, it will replace the app with this one
+        * path_params: The matched path parameters of this mount point
+        * endpoint: The endpoint of this mount point
+        * root_path: The root path of this mount point (if it's mounting a Flama app, it will be empty)
+        * path: The remaining path to be matched
+
         :param scope: ASGI scope.
         :return: Route scope.
         """
-        from flama import Flama
+        result = {"app": self.app if types.is_flama_instance(self.app) else scope["app"]}
 
-        path = scope["path"]
-        matched_params = self.path.values(path)
-        remaining_path = matched_params.pop("path")
-        matched_path = path[: -len(remaining_path)]
-        if isinstance(self.app, Flama):
-            app = self.app
-            root_path = ""
-        else:
-            app = scope["app"]
-            root_path = scope.get("root_path", "") + matched_path
-        return types.Scope(
-            {
-                "app": app,
-                "path_params": {**dict(scope.get("path_params", {})), **matched_params},
-                "endpoint": self.endpoint,
-                "root_path": root_path,
-                "path": remaining_path,
-            }
-        )
+        if "path" in scope:
+            path = scope["path"]
+            matched_params = self.path.values(path)
+            remaining_path = matched_params.pop("path")
+            matched_path = path[: -len(remaining_path)]
+            result.update(
+                {
+                    "path_params": {**dict(scope.get("path_params", {})), **matched_params},
+                    "endpoint": self.endpoint,
+                    "root_path": "" if types.is_flama_instance(self.app) else scope.get("root_path", "") + matched_path,
+                    "path": remaining_path,
+                }
+            )
+
+        return types.Scope(result)
 
     def resolve_url(self, name: str, **params: t.Any) -> url.URL:
         """Builds URL path for given name and params.
