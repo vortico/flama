@@ -1,5 +1,4 @@
 import asyncio
-import contextlib
 import functools
 import importlib.metadata
 import logging
@@ -46,36 +45,23 @@ class LifespanContextManager:
             self._shutdown_complete.set()
 
     async def _app_task(self) -> None:
-        with contextlib.suppress(asyncio.CancelledError):
-            scope = types.Scope({"type": "lifespan"})
+        scope = types.Scope({"type": "lifespan"})
 
-            try:
-                await self.app(scope, self._receive, self._send)
-            except BaseException as exc:
-                self._exception = exc
-                self._startup_complete.set()
-                self._shutdown_complete.set()
+        try:
+            await self.app(scope, self._receive, self._send)
+        except BaseException as exc:
+            self._exception = exc
+            self._startup_complete.set()
+            self._shutdown_complete.set()
 
-                raise
-
-    def _run_app(self) -> None:
-        self._task = asyncio.get_event_loop().create_task(self._app_task())
-
-    async def _stop_app(self) -> None:
-        assert self._task is not None
-
-        if not self._task.done():
-            self._task.cancel()
-
-        await self._task
+            raise
 
     async def __aenter__(self) -> "LifespanContextManager":
-        self._run_app()
+        asyncio.create_task(self._app_task())
 
         try:
             await self._startup()
         except BaseException:
-            await self._stop_app()
             raise
 
         return self
@@ -86,8 +72,12 @@ class LifespanContextManager:
         exc_value: t.Optional[BaseException] = None,
         traceback: t.Optional[TracebackType] = None,
     ):
-        await self._shutdown()
-        await self._stop_app()
+        asyncio.create_task(self._app_task())
+
+        try:
+            await self._shutdown()
+        except BaseException:
+            raise
 
 
 class _BaseClient:
@@ -193,7 +183,7 @@ class AsyncClient(_BaseClient, httpx.AsyncClient):
             await self.lifespan.__aexit__(exc_type, exc_value, traceback)
         await super().__aexit__(exc_type, exc_value, traceback)
 
-    async def model_request(self, model: str, method: str, url: str, **kwargs) -> t.Awaitable[httpx.Response]:
+    def model_request(self, model: str, method: str, url: str, **kwargs) -> t.Awaitable[httpx.Response]:
         assert self.models, "No models found for request."
         return self.request(method, f"{self.models[model].rstrip('/')}{url}", **kwargs)
 
