@@ -95,34 +95,6 @@ class TestCaseLifespanContextManager:
             assert lifespan_context_manager._startup_complete.set.call_args_list == [call()]
             assert lifespan_context_manager._shutdown_complete.set.call_args_list == [call()]
 
-    def test_run_app(self, lifespan_context_manager):
-        with patch.object(lifespan_context_manager, "_app_task") as app_task:
-            lifespan_context_manager._run_app()
-
-            assert isinstance(lifespan_context_manager._task, asyncio.Task)
-            assert app_task.call_args_list == [call()]
-
-    @pytest.mark.parametrize(
-        ["done"],
-        (
-            pytest.param(True, id="done"),
-            pytest.param(False, id="not_done"),
-        ),
-    )
-    async def test_stop_app(self, lifespan_context_manager, done):
-        class TaskMock(AsyncMock):
-            def __await__(self):
-                self.await_count += 1
-                return iter([])
-
-        lifespan_context_manager._task = TaskMock(spec=asyncio.Task)
-        lifespan_context_manager._task.done.return_value = done
-
-        await lifespan_context_manager._stop_app()
-
-        assert done or lifespan_context_manager._task.cancel.call_args_list == [call()]
-        assert lifespan_context_manager._task.await_count == 1
-
     @pytest.mark.parametrize(
         ["exception"],
         (
@@ -132,20 +104,18 @@ class TestCaseLifespanContextManager:
         indirect=["exception"],
     )
     async def test_context(self, lifespan_context_manager, exception):
-        with exception, patch.object(lifespan_context_manager, "_run_app"), patch.object(
-            lifespan_context_manager, "_stop_app"
-        ), patch.object(lifespan_context_manager, "_startup", side_effect=exception.exception), patch.object(
-            lifespan_context_manager, "_shutdown"
-        ):
+        with exception, patch.object(lifespan_context_manager, "_app_task"), patch.object(
+            lifespan_context_manager, "_startup", side_effect=exception.exception
+        ), patch.object(lifespan_context_manager, "_shutdown"):
             async with lifespan_context_manager:
-                assert lifespan_context_manager._run_app.call_args_list == [call()]
+                assert lifespan_context_manager._app_task.call_args_list == [call()]
                 assert lifespan_context_manager._startup.await_args_list == [call()]
 
                 if exception:
                     assert lifespan_context_manager._stop_app.await_args_list == [call()]
 
+            assert lifespan_context_manager._app_task.call_args_list == [call(), call()]
             assert lifespan_context_manager._shutdown.await_args_list == [call()]
-            assert lifespan_context_manager._stop_app.await_args_list == [call()]
 
 
 class TestCaseBaseClient:

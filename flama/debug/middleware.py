@@ -38,7 +38,10 @@ class BaseErrorMiddleware:
         try:
             await concurrency.run(self.app, scope, receive, sender)
         except Exception as exc:
-            await self.process_exception(scope, receive, send, exc, response_started)
+            if scope["type"] in ("http", "websocket"):
+                await self.process_exception(scope, receive, send, exc, response_started)
+            else:
+                raise
 
     @abc.abstractmethod
     async def process_exception(

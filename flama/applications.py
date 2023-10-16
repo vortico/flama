@@ -1,7 +1,9 @@
 import functools
+import logging
+import threading
 import typing as t
 
-from flama import asgi, http, injection, types, url, validation, websockets
+from flama import asgi, exceptions, http, injection, types, url, validation, websockets
 from flama.ddd.components import WorkerComponent
 from flama.events import Events
 from flama.middleware import MiddlewareStack
@@ -19,6 +21,8 @@ if t.TYPE_CHECKING:
     from flama.routing import Mount, Route, WebSocketRoute
 
 __all__ = ["Flama"]
+
+logger = logging.getLogger(__name__)
 
 
 class Flama:
@@ -57,7 +61,7 @@ class Flama:
         :param schema_library: Schema library to use.
         """
         self._debug = debug
-        self._status = types.AppStatus.NOT_INITIALIZED
+        self._status = types.AppStatus.NOT_STARTED
         self._shutdown = False
 
         # Create Dependency Injector
@@ -131,8 +135,25 @@ class Flama:
         :param receive: ASGI receive event.
         :param send: ASGI send event.
         """
+        if scope["type"] != "lifespan" and self.status in (types.AppStatus.NOT_STARTED, types.AppStatus.STARTING):
+            raise exceptions.ApplicationError("Application is not ready to process requests yet.")
+
+        if scope["type"] != "lifespan" and self.status in (types.AppStatus.SHUT_DOWN, types.AppStatus.SHUTTING_DOWN):
+            raise exceptions.ApplicationError("Application is already shut down.")
+
         scope["app"] = self
         await self.middleware(scope, receive, send)
+
+    @property
+    def status(self) -> types.AppStatus:
+        return self._status
+
+    @status.setter
+    def status(self, s: types.AppStatus) -> None:
+        logger.debug("Transitioning %s from %s to %s", self, self._status, s)
+
+        with threading.Lock():
+            self._status = s
 
     @property
     def components(self) -> injection.Components:
