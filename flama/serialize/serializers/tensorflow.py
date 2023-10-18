@@ -10,7 +10,7 @@ from flama.serialize import exceptions, types
 from flama.serialize.base import Serializer
 
 try:
-    import tensorflow as tf
+    import tensorflow as tf  # type: ignore
 except Exception:  # pragma: no cover
     tf = None  # type: ignore[misc, assignment]
 

@@ -288,7 +288,7 @@ class TestCaseLifespan:
         with exception, patch.object(lifespan, "_startup", side_effect=startup_side_effect), patch.object(
             lifespan, "_shutdown", side_effect=shutdown_side_effect
         ):
-            for (receive_messages, send_messages, app_status) in states:
+            for receive_messages, send_messages, app_status in states:
                 for m in receive_messages:
                     await receive_queue.put(m)
                     await lifespan(types.Scope({"app": app, "type": "lifespan"}), receive, send)
