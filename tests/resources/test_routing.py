@@ -1,7 +1,7 @@
 import pytest
 
 from flama.applications import Flama
-from flama.client import AsyncClient
+from flama.client import Client
 from flama.resources import BaseResource, ResourceType
 from flama.resources.crud import CRUDListResourceType
 from flama.resources.routing import ResourceRoute, resource_method
@@ -120,7 +120,7 @@ class TestCaseResourceRoute:
         app.mark = 1
         sub_app.mark = 2
 
-        async with AsyncClient(app) as client:
+        async with Client(app) as client:
             response = await client.get("/puppy/")
             assert response.status_code == 200
 

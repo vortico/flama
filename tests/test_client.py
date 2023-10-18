@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 import pytest
 
 from flama import Flama, types
-from flama.client import AsyncClient, Client, LifespanContextManager, _BaseClient
+from flama.client import Client, LifespanContextManager
 from flama.models.modules import ModelsModule
 
 
@@ -118,12 +118,10 @@ class TestCaseLifespanContextManager:
             assert lifespan_context_manager._shutdown.await_args_list == [call()]
 
 
-class TestCaseBaseClient:
+class TestCaseClient:
     def test_init_models(self, app):
-        with patch("flama.client.Flama", return_value=app), patch("builtins.super"), patch(
-            "importlib.metadata.version", return_value="x.y.z"
-        ):
-            client = _BaseClient(models=[("foo", "/foo/", "model_foo.flm"), ("bar", "/bar/", "model_bar.flm")])
+        with patch("flama.client.Flama", return_value=app), patch("importlib.metadata.version", return_value="x.y.z"):
+            client = Client(models=[("foo", "/foo/", "model_foo.flm"), ("bar", "/bar/", "model_bar.flm")])
 
         assert client.app == app
         assert client.lifespan
@@ -135,49 +133,13 @@ class TestCaseBaseClient:
         ]
 
     def test_init_no_app(self):
-        with patch("builtins.super"), patch("importlib.metadata.version", return_value="x.y.z"):
-            client = _BaseClient()
+        with patch("importlib.metadata.version", return_value="x.y.z"):
+            client = Client()
 
         assert client.lifespan is None
 
-
-class TestCaseClient:
-    def test_context_app(self, app):
-        client = Client(app=app)
-        client.lifespan = MagicMock(spec=LifespanContextManager)
-
-        with patch("httpx.Client.__enter__") as enter_mock, patch("httpx.Client.__exit__") as exit_mock:
-            with client:
-                assert enter_mock.call_args_list == [call()]
-                assert client.lifespan.__aenter__.await_args_list == [call()]
-
-            assert client.lifespan.__aexit__.await_args_list == [call(None, None, None)]
-            assert exit_mock.call_args_list == [call(None, None, None)]
-
-    def test_context_no_app(self):
-        client = Client()
-
-        with patch("httpx.Client.__enter__") as enter_mock, patch("httpx.Client.__exit__") as exit_mock:
-            with client:
-                assert enter_mock.call_args_list == [call()]
-
-            assert exit_mock.call_args_list == [call(None, None, None)]
-
-    def test_model_request(self, app):
-        with patch("flama.client.Flama", return_value=app), patch("builtins.super"), patch(
-            "importlib.metadata.version", return_value="x.y.z"
-        ):
-            client = Client(models=[("foo", "/foo/", "model_foo.flm")])
-
-        with patch.object(client, "request"):
-            client.model_request("foo", "GET", "/")
-
-            assert client.request.call_args_list == [call("GET", "/foo/")]
-
-
-class TestCaseAsyncClient:
     async def test_context_app(self, app):
-        client = AsyncClient(app=app)
+        client = Client(app=app)
         client.lifespan = MagicMock(spec=LifespanContextManager)
 
         with patch("httpx.AsyncClient.__aenter__") as aenter_mock, patch("httpx.AsyncClient.__aexit__") as aexit_mock:
@@ -189,7 +151,7 @@ class TestCaseAsyncClient:
             assert aexit_mock.await_args_list == [call(None, None, None)]
 
     async def test_context_no_app(self):
-        client = AsyncClient()
+        client = Client()
 
         with patch("httpx.AsyncClient.__aenter__") as aenter_mock, patch("httpx.AsyncClient.__aexit__") as aexit_mock:
             async with client:
@@ -201,7 +163,7 @@ class TestCaseAsyncClient:
         with patch("flama.client.Flama", return_value=app), patch("builtins.super"), patch(
             "importlib.metadata.version", return_value="x.y.z"
         ):
-            client = AsyncClient(models=[("foo", "/foo/", "model_foo.flm")])
+            client = Client(models=[("foo", "/foo/", "model_foo.flm")])
 
         with patch.object(client, "request"):
             await client.model_request("foo", "GET", "/")
