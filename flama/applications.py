@@ -142,6 +142,7 @@ class Flama:
             raise exceptions.ApplicationError("Application is already shut down.")
 
         scope["app"] = self
+        scope.setdefault("root_app", self)
         await self.middleware(scope, receive, send)
 
     @property

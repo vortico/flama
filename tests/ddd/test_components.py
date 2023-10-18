@@ -60,15 +60,19 @@ class TestCaseWorkerComponent:
         assert component.can_handle_parameter(Parameter(param_name, parameter_types[param_type])) == expected
 
     def test_resolve(self, component, worker):
-        class FooApp:
+        class App:
             ...
 
-        scopes = types.Scope({"app": FooApp()})
+        foo = App()
+        bar = App()
+
+        scopes = types.Scope({"app": foo, "root_app": bar})
 
         assert hasattr(component.worker, "_app")
         assert not component.worker._app
 
-        component.resolve(scopes)
-        assert component.resolve(scopes) == worker
+        resolved = component.resolve(scopes)
+
+        assert resolved == worker
         assert hasattr(component.worker, "_app")
-        assert component.worker._app == scopes["app"]
+        assert component.worker._app == scopes["root_app"]
