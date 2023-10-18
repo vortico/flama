@@ -7,7 +7,7 @@ from flama.serialize import exceptions, types
 from flama.serialize.base import Serializer
 
 try:
-    import torch
+    import torch  # type: ignore
 except Exception:  # pragma: no cover
     torch = None  # type: ignore[misc, assignment]
 
