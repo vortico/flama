@@ -2,7 +2,7 @@ import pytest
 
 from flama import endpoints, http, injection, websockets
 from flama.applications import Flama
-from flama.client import AsyncClient
+from flama.client import Client
 
 
 class Puppy:
@@ -194,5 +194,5 @@ class TestCaseComponentsInjection:
             match="Component 'UnhandledComponent' must include a return annotation on the 'resolve' method, "
             "or override 'can_handle_parameter'",
         ):
-            async with AsyncClient(app) as client:
+            async with Client(app) as client:
                 await client.request("get", "/")

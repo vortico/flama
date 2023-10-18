@@ -14,8 +14,8 @@ import typesystem
 from faker import Faker
 
 import flama
-from flama import Flama
-from flama.client import AsyncClient
+from flama import Flama, types
+from flama.client import Client
 from flama.sqlalchemy import SQLAlchemyModule, metadata
 from tests.utils import ExceptionContext, installed
 
@@ -143,7 +143,8 @@ def app(request):
 
 @pytest.fixture(scope="function")
 async def client(app):
-    async with AsyncClient(app=app) as client:
+    async with Client(app=app) as client:
+        assert client.app.status == types.AppStatus.READY
         yield client
 
 

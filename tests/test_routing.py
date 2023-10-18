@@ -4,7 +4,7 @@ import pytest
 
 from flama import endpoints, exceptions, types, url, websockets
 from flama.applications import Flama
-from flama.client import AsyncClient
+from flama.client import Client
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 from flama.injection import Component, Components
 from flama.lifespan import Lifespan
@@ -992,7 +992,7 @@ class TestCaseRouter:
 
         app.mount("/foo", sub_app)
 
-        async with AsyncClient(app) as client:
+        async with Client(app) as client:
             response = await client.get("/foo/bar/")
             assert response.status_code == 200
             assert response.json() == {"foo": "bar"}

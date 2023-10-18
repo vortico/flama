@@ -10,7 +10,7 @@ import httpx
 from flama import types
 from flama.applications import Flama
 
-__all__ = ["Client", "AsyncClient", "LifespanContextManager"]
+__all__ = ["Client", "LifespanContextManager"]
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,6 @@ class LifespanContextManager:
         self._shutdown_complete = asyncio.Event()
         self._receive_queue = asyncio.Queue(maxsize=2)
         self._exception: t.Optional[BaseException] = None
-        self._task: t.Optional[asyncio.Task] = None
 
     async def _startup(self) -> None:
         await self._receive_queue.put(types.Message({"type": "lifespan.startup"}))
@@ -57,12 +56,14 @@ class LifespanContextManager:
             raise
 
     async def __aenter__(self) -> "LifespanContextManager":
-        asyncio.create_task(self._app_task())
+        task = asyncio.create_task(self._app_task())
 
         try:
             await self._startup()
         except BaseException:
             raise
+        finally:
+            await task
 
         return self
 
@@ -72,15 +73,33 @@ class LifespanContextManager:
         exc_value: t.Optional[BaseException] = None,
         traceback: t.Optional[TracebackType] = None,
     ):
-        asyncio.create_task(self._app_task())
+        task = asyncio.create_task(self._app_task())
 
         try:
             await self._shutdown()
         except BaseException:
             raise
+        finally:
+            await task
 
 
-class _BaseClient:
+class Client(httpx.AsyncClient):
+    """A client for interacting with a Flama application either remote or local.
+
+    This client can handle a local python object:
+    >>> client = Client(app=Flama())
+
+    Or connect to a remote API:
+    >>> client = Client(base_url="https://foo.bar")
+
+    Or generate a Flama application based on a set of flm model files:
+    >>> client = Client(models=[("foo", "/foo/", "model_foo.flm"), ("bar", "/bar/", "model_bar.flm")])
+
+    For initializing the application it's required to use it as an async context manager:
+    >>> async with Client(app=Flama()) as client:
+    >>>     client.post(...)
+    """
+
     def __init__(
         self,
         /,
@@ -106,70 +125,10 @@ class _BaseClient:
 
         super().__init__(**kwargs)
 
-
-class Client(_BaseClient, httpx.Client):
-    """A client for interacting with a Flama application either remote or local.
-
-    This client can handle a local python object:
-    >>> client = Client(app=Flama())
-
-    Or connect to a remote API:
-    >>> client = Client(base_url="https://foo.bar")
-
-    Or generate a Flama application based on a set of flm model files:
-    >>> client = Client(models=[("foo", "/foo/", "model_foo.flm"), ("bar", "/bar/", "model_bar.flm")])
-
-    For initializing the application it's required to use it as an async context manager:
-    >>> with Client(app=Flama()) as client:
-    >>>     client.post(...)
-    """
-
-    def __enter__(self) -> "Client":
-        super().__enter__()
-        if self.lifespan:
-            asyncio.get_event_loop().run_until_complete(self.lifespan.__aenter__())
-
-        return self
-
-    def __exit__(
-        self,
-        exc_type: t.Optional[t.Type[BaseException]] = None,
-        exc_value: t.Optional[BaseException] = None,
-        traceback: t.Optional[TracebackType] = None,
-    ):
-        if self.lifespan:
-            asyncio.get_event_loop().run_until_complete(self.lifespan.__aexit__(exc_type, exc_value, traceback))
-        super().__exit__(exc_type, exc_value, traceback)
-
-    def model_request(self, model: str, method: str, url: str, **kwargs) -> httpx.Response:
-        assert self.models, "No models found for request."
-        return self.request(method, f"{self.models[model].rstrip('/')}{url}", **kwargs)
-
-    model_inspect = functools.partialmethod(model_request, method="GET", url="/")
-    model_predict = functools.partialmethod(model_request, method="POST", url="/predict/")
-
-
-class AsyncClient(_BaseClient, httpx.AsyncClient):
-    """An async client for interacting with a Flama application either remote or local.
-
-    This client can handle a local python object:
-    >>> client = AsyncClient(app=Flama())
-
-    Or connect to a remote API:
-    >>> client = AsyncClient(base_url="https://foo.bar")
-
-    Or generate a Flama application based on a set of flm model files:
-    >>> client = AsyncClient(models=[("foo", "/foo/", "model_foo.flm"), ("bar", "/bar/", "model_bar.flm")])
-
-    For initializing the application it's required to use it as an async context manager:
-    >>> async with AsyncClient(app=Flama()) as client:
-    >>>     client.post(...)
-    """
-
-    async def __aenter__(self) -> "AsyncClient":
-        await super().__aenter__()
+    async def __aenter__(self) -> "Client":
         if self.lifespan:
             await self.lifespan.__aenter__()
+        await super().__aenter__()
 
         return self
 
@@ -179,9 +138,9 @@ class AsyncClient(_BaseClient, httpx.AsyncClient):
         exc_value: t.Optional[BaseException] = None,
         traceback: t.Optional[TracebackType] = None,
     ):
+        await super().__aexit__(exc_type, exc_value, traceback)
         if self.lifespan:
             await self.lifespan.__aexit__(exc_type, exc_value, traceback)
-        await super().__aexit__(exc_type, exc_value, traceback)
 
     def model_request(self, model: str, method: str, url: str, **kwargs) -> t.Awaitable[httpx.Response]:
         assert self.models, "No models found for request."
