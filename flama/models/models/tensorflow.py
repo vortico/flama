@@ -4,7 +4,7 @@ from flama import exceptions
 from flama.models.base import Model
 
 try:
-    import tensorflow as tf
+    import tensorflow as tf  # type: ignore
 except Exception:  # pragma: no cover
     tf = None
 
