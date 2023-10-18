@@ -132,6 +132,8 @@ class TestCaseFlama:
 
             assert "app" in asgi_scope
             assert asgi_scope["app"] == app
+            assert "root_app" in asgi_scope
+            assert asgi_scope["root_app"] == app
             assert app.middleware.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
 
     def test_components(self, app):
