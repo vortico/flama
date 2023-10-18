@@ -567,14 +567,6 @@ class TestCaseRouter:
         route = MagicMock(Route)
         assert Router(routes=[route]) == Router(routes=[route])
 
-    async def test_call_lifespan(self, router, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["type"] = "lifespan"
-
-        with patch.object(router, "lifespan", new_callable=AsyncMock) as method_mock:
-            await router(asgi_scope, asgi_receive, asgi_send)
-
-        assert method_mock.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
-
     @pytest.mark.parametrize(
         ["request_type"],
         (

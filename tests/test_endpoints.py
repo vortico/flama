@@ -58,6 +58,7 @@ class TestCaseHTTPEndpoint:
                 ...
 
         asgi_scope["app"] = app
+        asgi_scope["root_app"] = app
         asgi_scope["type"] = "http"
         return FooEndpoint(asgi_scope, asgi_receive, asgi_send)
 
@@ -105,6 +106,7 @@ class TestCaseHTTPEndpoint:
                 {
                     **asgi_scope,
                     "app": app,
+                    "root_app": app,
                     "type": "http",
                     "method": "GET",
                     "path": "/",
@@ -120,6 +122,7 @@ class TestCaseHTTPEndpoint:
                 "send": asgi_send,
                 "exc": None,
                 "app": app,
+                "root_app": app,
                 "path_params": {},
                 "route": route,
                 "request": request_mock(),
@@ -163,6 +166,7 @@ class TestCaseWebSocketEndpoint:
                 ...
 
         asgi_scope["app"] = app
+        asgi_scope["root_app"] = app
         asgi_scope["type"] = "websocket"
         with patch("flama.endpoints.websockets.WebSocket", spec=websockets.WebSocket):
             return FooEndpoint(asgi_scope, asgi_receive, asgi_send)
@@ -282,6 +286,7 @@ class TestCaseWebSocketEndpoint:
                 {
                     **asgi_scope,
                     "app": app,
+                    "root_app": app,
                     "type": "websocket",
                     "path": "/",
                     "path_params": {},
@@ -296,6 +301,7 @@ class TestCaseWebSocketEndpoint:
                 "send": asgi_send,
                 "exc": None,
                 "app": app,
+                "root_app": app,
                 "path_params": {},
                 "route": route,
                 "websocket": websocket_mock(),
