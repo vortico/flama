@@ -3,7 +3,7 @@ import asyncio
 import inspect
 import typing as t
 
-from flama.injection.exceptions import ComponentNotFound
+from flama.injection.exceptions import ComponentError, ComponentNotFound
 from flama.injection.resolver import Parameter
 
 __all__ = ["Component", "Components"]
@@ -18,10 +18,10 @@ class Component(metaclass=abc.ABCMeta):
         :return: Unique identifier.
         """
         try:
-            parameter_type = parameter.type.__name__
+            parameter_type = parameter.annotation.__name__
         except AttributeError:
-            parameter_type = parameter.type.__class__.__name__
-        component_id = f"{id(parameter.type)}:{parameter_type}"
+            parameter_type = parameter.annotation.__class__.__name__
+        component_id = f"{id(parameter.annotation)}:{parameter_type}"
 
         # If `resolve` includes `Parameter` then use an id that is additionally parameterized by the parameter name.
         args = inspect.signature(self.resolve).parameters.values()  # type: ignore[attr-defined]
@@ -41,12 +41,13 @@ class Component(metaclass=abc.ABCMeta):
         :return: True if this component can handle the given parameter.
         """
         return_annotation = inspect.signature(self.resolve).return_annotation  # type: ignore[attr-defined]
-        assert return_annotation is not inspect.Signature.empty, (
-            f"Component '{self.__class__.__name__}' must include a return annotation on the 'resolve' method, or "
-            f"override 'can_handle_parameter'"
-        )
+        if return_annotation is inspect.Signature.empty:
+            raise ComponentError(
+                f"Component '{self.__class__.__name__}' must include a return annotation on the 'resolve' method, or "
+                f"override 'can_handle_parameter'"
+            )
 
-        return parameter.type is return_annotation
+        return parameter.annotation is return_annotation
 
     def signature(self) -> t.Dict[str, Parameter]:
         """Component resolver signature.
@@ -57,6 +58,10 @@ class Component(metaclass=abc.ABCMeta):
             k: Parameter.from_parameter(v)
             for k, v in inspect.signature(self.resolve).parameters.items()  # type: ignore[attr-defined]
         }
+
+    @property
+    def use_parameter(self) -> bool:
+        return any((x for x in self.signature().values() if x.annotation is Parameter))
 
     async def __call__(self, *args, **kwargs):
         """Performs a resolution by calling this component's resolve method.

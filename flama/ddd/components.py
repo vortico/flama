@@ -16,7 +16,7 @@ class WorkerComponent(Component):
         self.worker = worker
 
     def can_handle_parameter(self, parameter: "Parameter") -> bool:
-        return parameter.type is self.worker.__class__
+        return parameter.annotation is self.worker.__class__
 
     def resolve(self, scope: types.Scope):
         self.worker.app = scope["root_app"]

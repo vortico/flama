@@ -1,28 +1,51 @@
 import functools
 import typing as t
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
 from flama.injection.components import Component, Components
-from flama.injection.exceptions import ComponentNotFound
+from flama.injection.exceptions import ComponentError, ComponentNotFound
 from flama.injection.injector import Injector
+from flama.injection.resolver import EMPTY, Parameter, ResolutionTree, Resolver
 
-
-class Foo:
-    foo = "foo"
-
-
+Foo = t.NewType("Foo", str)
 Bar = t.NewType("Bar", str)
+CustomStr = t.NewType("CustomStr", str)
 Unknown = t.NewType("Unknown", str)
 
 
-class FooComponent(Component):
+class LiteralComponent(Component):
     def resolve(self) -> Foo:
-        return Foo()
+        return Foo("foo")
+
+
+class ContextComponent(Component):
+    def resolve(self, x: CustomStr) -> Foo:
+        return Foo(x)
+
+
+class ChildNestedComponent(Component):
+    def resolve(self) -> Bar:
+        return Bar("bar")
+
+
+class NestedComponent(Component):
+    def resolve(self, x: Bar) -> Foo:
+        return Foo(x)
+
+
+class UnhandledComponent(Component):
+    def resolve(self):
+        pass
+
+
+def function(foo: Foo):
+    return foo
 
 
 class TestCaseInjector:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def injector(self):
         return Injector()
 
@@ -46,7 +69,7 @@ class TestCaseInjector:
         assert injector._resolver is not None
 
     def test_components_property(self, injector):
-        value = Components([FooComponent()])
+        value = Components([LiteralComponent()])
 
         assert injector._resolver is None
         injector.resolver
@@ -65,79 +88,85 @@ class TestCaseInjector:
         injector.resolver
         assert injector._resolver is not None
 
-    async def test_inject(self):
-        def foobar(foo: Foo, bar: Bar):
-            return f"foobar: {foo.foo} + {bar}"
+    def test_resolve(self):
+        resolver_mock = MagicMock(spec=Resolver)
+        resolution_mock = MagicMock(spec=ResolutionTree)
+        resolver_mock.resolve.return_value = resolution_mock
 
-        state = {"bar": Bar("bar")}
-        state_types = {"bar": Bar}
+        injector = Injector()
+        with patch.object(injector, "_resolver", resolver_mock):
+            resolution = injector.resolve(Foo, name="foo", default=Foo("foo"))
 
-        injector = Injector(state_types, Components([FooComponent()]))
-        injected_func = await injector.inject(foobar, **state)
+        assert resolver_mock.resolve.call_args_list == [call(Parameter("foo", Foo, Foo("foo")))]
+        assert resolution == resolution_mock
 
-        assert isinstance(injected_func, functools.partial)
-        assert injected_func.func == foobar
-        assert "foo" in injected_func.keywords
-        assert isinstance(injected_func.keywords["foo"], Foo)
-        assert "bar" in injected_func.keywords
-        assert isinstance(injected_func.keywords["bar"], str)
-        assert injected_func() == "foobar: foo + bar"
+    def test_resolve_function(self):
+        resolver_mock = MagicMock(spec=Resolver)
+        resolution_mock = MagicMock(spec=ResolutionTree)
+        resolver_mock.resolve.return_value = resolution_mock
 
-    async def test_nested_components(self):
-        def foo(bar: Bar):
-            return bar
+        injector = Injector()
+        with patch.object(injector, "_resolver", resolver_mock):
+            resolution = injector.resolve_function(function)
 
-        class BarComponent(Component):
-            def resolve(self, foo: Foo) -> Bar:
-                return Bar(foo.foo)
+        assert resolver_mock.resolve.call_args_list == [call(Parameter("foo", Foo, EMPTY))]
+        assert resolution == {"foo": resolution_mock}
 
-        injector = Injector({}, Components([FooComponent(), BarComponent()]))
-        injected_func = await injector.inject(foo)
+    @pytest.mark.parametrize(
+        ["context", "context_types", "components", "result", "exception"],
+        (
+            pytest.param({"foo": Foo("foo")}, {"foo": Foo}, Components(), Foo("foo"), None, id="context"),
+            pytest.param({}, {}, Components([LiteralComponent()]), Foo("foo"), None, id="component"),
+            pytest.param(
+                {"x": CustomStr("bar")},
+                {"x": CustomStr},
+                Components([ContextComponent()]),
+                Foo("bar"),
+                None,
+                id="component_context",
+            ),
+            pytest.param(
+                {}, {}, Components([NestedComponent(), ChildNestedComponent()]), Foo("bar"), None, id="component_nested"
+            ),
+            pytest.param(
+                {},
+                {},
+                Components([UnhandledComponent()]),
+                None,
+                ComponentError(
+                    "Component 'UnhandledComponent' must include a return annotation on the 'resolve' method, or "
+                    "override 'can_handle_parameter'"
+                ),
+                id="unhandled",
+            ),
+            pytest.param(
+                {},
+                {},
+                Components(),
+                None,
+                ComponentNotFound(Parameter("foo"), function=function),
+                id="unknown_parameter",
+            ),
+            pytest.param(
+                {},
+                {},
+                Components([NestedComponent()]),
+                None,
+                (
+                    ComponentNotFound,
+                    "No component able to handle parameter 'x' in component 'NestedComponent' for function 'function'",
+                ),
+                id="unknown_parameter_in_component",
+            ),
+        ),
+        indirect=["exception"],
+    )
+    async def test_inject(self, context, context_types, components, result, exception):
+        with exception:
+            injector = Injector(context_types, components)
+            injected_func = await injector.inject(function, context)
 
-        assert isinstance(injected_func, functools.partial)
-        assert injected_func.func == foo
-        assert "bar" in injected_func.keywords
-        assert isinstance(injected_func.keywords["bar"], str)
-        assert injected_func() == Bar("foo")
-
-    async def test_unhandled_component(self):
-        def foo(x: int):
-            ...
-
-        class UnhandledComponent(Component):
-            def resolve(self):
-                pass
-
-        injector = Injector({}, Components([UnhandledComponent()]))
-        with pytest.raises(
-            AssertionError,
-            match="Component 'UnhandledComponent' must include a return annotation on the 'resolve' method, "
-            "or override 'can_handle_parameter'",
-        ):
-            await injector.inject(foo)
-
-    async def test_unknown_component(self):
-        def foo(unknown: Unknown):
-            ...
-
-        injector = Injector({}, Components())
-        with pytest.raises(
-            ComponentNotFound,
-            match="No component able to handle parameter 'unknown' for function 'foo'",
-        ):
-            await injector.inject(foo)
-
-    async def test_unknown_param_in_component(self):
-        def foo(bar: Bar):
-            ...
-
-        class BarComponent(Component):
-            def resolve(self, unknown: Unknown) -> Bar:
-                ...
-
-        injector = Injector({}, Components([BarComponent()]))
-        with pytest.raises(
-            ComponentNotFound,
-            match="No component able to handle parameter 'unknown' in component 'BarComponent' for function 'foo'",
-        ):
-            await injector.inject(foo)
+            assert isinstance(injected_func, functools.partial)
+            assert injected_func.func == function
+            assert "foo" in injected_func.keywords
+            assert injected_func() == result
