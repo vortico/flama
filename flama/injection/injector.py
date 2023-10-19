@@ -1,20 +1,26 @@
 import functools
+import inspect
 import typing as t
 
 from flama.injection.components import Component, Components
-from flama.injection.resolver import Resolver
+from flama.injection.exceptions import ComponentNotFound
+from flama.injection.resolver import EMPTY, ROOT_NAME, Parameter, Resolver
 
 if t.TYPE_CHECKING:
-    from flama.injection.resolver import ParametersTree
+    from flama.injection.resolver import ResolutionTree
 
 
 class Injector:
+    """Functions dependency injector. It uses a resolver to generate dependencies trees and evaluate them."""
+
     def __init__(
         self,
         context_types: t.Optional[t.Dict[str, t.Type]] = None,
         components: t.Optional[t.Union[t.Sequence[Component], Components]] = None,
     ):
         """Functions dependency injector.
+
+        It uses a resolver to generate dependencies trees and evaluate them.
 
         :param context_types: A mapping of names into types for injection contexts.
         :param components: List of components.
@@ -62,21 +68,65 @@ class Injector:
     def resolver(self):
         self._resolver = None
 
-    def resolve(self, func: t.Callable) -> "ParametersTree":
-        """
-        Inspects a function and creates a resolution list of all components needed to run it.
+    @t.overload
+    def resolve(self, annotation: t.Any):
+        ...
 
-        :param func: Function to resolve.
-        :return: The parameters resolution tree.
-        """
-        return self.resolver.resolve(func)
+    @t.overload
+    def resolve(self, annotation: t.Any, *, name: str):
+        ...
 
-    async def inject(self, func: t.Callable, **context: t.Any) -> t.Callable:
-        """Given a function, injects all components and types defined in its signature and returns the partialised
-        function.
+    @t.overload
+    def resolve(self, annotation: t.Any, *, default: t.Any):
+        ...
+
+    @t.overload
+    def resolve(self, annotation: t.Any, *, name: str, default: t.Any):
+        ...
+
+    def resolve(
+        self, annotation: t.Optional[t.Any] = None, *, name: t.Optional[str] = None, default: t.Any = EMPTY
+    ) -> "ResolutionTree":
+        """Generate a dependencies tree for a given type annotation.
+
+        :param annotation: Type annotation to be resolved.
+        :param name: Name of the parameter to be resolved.
+        :param func: Function to be resolved.
+        :return: Dependencies tree.
+        """
+        return self.resolver.resolve(Parameter(name or ROOT_NAME, annotation, default))
+
+    def resolve_function(self, func: t.Callable) -> t.Dict[str, "ResolutionTree"]:
+        """Generate a dependencies tree for a given function.
+
+        It analyses the function signature, look for type annotations and try to resolve them.
+
+        :param func: Function to be resolved.
+        :return: Mapping of parameter names and dependencies trees.
+        """
+        parameters = {}
+        for p in [x for x in inspect.signature(func).parameters.values() if x.name not in ("self", "cls")]:
+            try:
+                parameters[p.name] = self.resolver.resolve(Parameter.from_parameter(p))
+            except ComponentNotFound as e:
+                raise ComponentNotFound(e.parameter, component=e.component, function=func) from None
+
+        return parameters
+
+    async def inject(self, func: t.Callable, context: t.Optional[t.Dict[str, t.Any]] = None) -> t.Callable:
+        """Inject dependencies into a given function.
+
+        It analyses the function signature, look for type annotations and try to resolve them. Once all dependencies
+        trees are resolved for every single parameter, it uses the given context to evaluate those trees and calculate
+        a final value for each parameter. Finally, it returns a partialised function with all dependencies injected.
 
         :param func: Function to be partialised.
         :param context: Mapping of names and values used to gather injection values.
         :return: Partialised function with all dependencies injected.
         """
-        return functools.partial(func, **(await self.resolve(func).context(**context)))
+        if context is None:
+            context = {}
+
+        return functools.partial(
+            func, **{name: await resolution.value(context) for name, resolution in self.resolve_function(func).items()}
+        )

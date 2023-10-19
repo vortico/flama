@@ -12,48 +12,51 @@ if t.TYPE_CHECKING:
 __all__ = ["Return", "Parameter", "Resolver"]
 
 
-class _empty:
-    ...
-
-
-_return = "_return"
+EMPTY = t.NewType("EMPTY", object)
+ROOT_NAME = "_root"
 
 
 @dataclasses.dataclass(frozen=True)
 class Parameter:
-    empty = _empty
+    """A parameter that is part of a function signature."""
+
+    empty = EMPTY
 
     name: str
-    type: t.Any = _empty
-    default: t.Any = _empty
+    annotation: t.Any = EMPTY
+    default: t.Any = EMPTY
 
     @classmethod
     def from_parameter(cls, parameter: inspect.Parameter) -> "Parameter":
         return cls(
             name=parameter.name,
-            type=parameter.annotation if parameter.annotation is not parameter.empty else _empty,
-            default=parameter.default if parameter.default is not parameter.empty else _empty,
+            annotation=parameter.annotation if parameter.annotation is not parameter.empty else EMPTY,
+            default=parameter.default if parameter.default is not parameter.empty else EMPTY,
         )
 
 
 @dataclasses.dataclass(frozen=True)
 class Return(Parameter):
-    name: str = dataclasses.field(init=False, default=_return)
-    default: t.Any = dataclasses.field(init=False, default=_empty)
+    """A special parameter that represents the return value of a function."""
+
+    name: str = dataclasses.field(init=False, default="_return")
+    default: t.Any = dataclasses.field(init=False, default=EMPTY)
 
     @classmethod
     def from_return_annotation(cls, return_annotation: t.Any) -> "Return":
-        return Return(return_annotation if return_annotation is not inspect.Signature.empty else _empty)
+        return Return(return_annotation if return_annotation is not inspect.Signature.empty else EMPTY)
 
 
 @dataclasses.dataclass(frozen=True)
-class Node(abc.ABC):
+class ResolutionNode(abc.ABC):
+    """A single node in the dependencies tree."""
+
     name: str
     parameter: Parameter
-    nodes: t.List["Node"]
+    nodes: t.List["ResolutionNode"]
 
     @abc.abstractmethod
-    async def value(self, **values: t.Any) -> t.Any:
+    async def value(self, context: t.Dict[str, t.Any]) -> t.Any:
         ...
 
     def components(self) -> t.List[t.Tuple[str, "Component"]]:
@@ -67,11 +70,13 @@ class Node(abc.ABC):
 
 
 @dataclasses.dataclass(frozen=True)
-class ComponentNode(Node):
+class ComponentNode(ResolutionNode):
+    """A node that represents a parameter that is resolved by component."""
+
     component: "Component"
 
-    async def value(self, **values: t.Any) -> t.Any:
-        kwargs = {node.name: await node.value(**values) for node in self.nodes}
+    async def value(self, context: t.Dict[str, t.Any]) -> t.Any:
+        kwargs = {node.name: await node.value(context) for node in self.nodes}
 
         return await self.component(**kwargs)
 
@@ -86,17 +91,21 @@ class ComponentNode(Node):
 
 
 @dataclasses.dataclass(frozen=True)
-class ContextNode(Node):
-    async def value(self, **values: t.Any) -> t.Any:
-        return values[self.parameter.name]
+class ContextNode(ResolutionNode):
+    """A node that represents a parameter that is resolved by context."""
+
+    async def value(self, context: t.Dict[str, t.Any]) -> t.Any:
+        return context[self.parameter.name]
 
     def context(self) -> t.List[t.Tuple[str, Parameter]]:
         return [(self.name, self.parameter)]
 
 
 @dataclasses.dataclass(frozen=True)
-class ParameterNode(Node):
-    async def value(self, **values: t.Any) -> t.Any:
+class ParameterNode(ResolutionNode):
+    """A node that represents a parameter that is resolved by another parameter."""
+
+    async def value(self, context: t.Dict[str, t.Any]) -> t.Any:
         return self.parameter
 
     def parameters(self) -> t.List[Parameter]:
@@ -104,67 +113,46 @@ class ParameterNode(Node):
 
 
 @dataclasses.dataclass(frozen=True)
-class ParametersTreeMeta:
-    context: t.List[t.Tuple[str, Parameter]]
-    parameters: t.List[Parameter]
-    response: Return
-    components: t.List[t.Tuple[str, "Component"]]
+class ResolutionTree:
+    """Dependencies tree."""
 
-
-@dataclasses.dataclass(frozen=True)
-class ParametersTree:
-    nodes: t.List[Node]
-    function: t.Union[t.Callable, t.Callable[..., t.Awaitable]]
-    meta: ParametersTreeMeta = dataclasses.field(init=False)
+    root: ResolutionNode
+    context: t.List[t.Tuple[str, Parameter]] = dataclasses.field(init=False)
+    parameters: t.List[Parameter] = dataclasses.field(init=False)
+    components: t.List[t.Tuple[str, "Component"]] = dataclasses.field(init=False)
 
     def __post_init__(self):
-        object.__setattr__(
-            self,
-            "meta",
-            ParametersTreeMeta(
-                context=list(sorted({x for node in self.nodes for x in node.context()}, key=lambda x: x[0])),
-                parameters=list(sorted({x for node in self.nodes for x in node.parameters()}, key=lambda x: x.name)),
-                response=Return.from_return_annotation(inspect.signature(self.function).return_annotation),
-                components=list(sorted({x for node in self.nodes for x in node.components()}, key=lambda x: x[0])),
-            ),
-        )
+        object.__setattr__(self, "context", self.root.context())
+        object.__setattr__(self, "parameters", self.root.parameters())
+        object.__setattr__(self, "components", self.root.components())
 
     @classmethod
     def build(
-        cls,
-        function: t.Union[t.Callable, t.Callable[..., t.Awaitable]],
-        context_types: t.Dict[t.Any, str],
-        components: "Components",
-    ) -> "ParametersTree":
-        return cls(
-            nodes=[
-                cls._build_node(p.name, Parameter.from_parameter(p), context_types, components)
-                for p in inspect.signature(function).parameters.values()
-                if p.name not in ("self", "cls")
-            ],
-            function=function,
-        )
+        cls, parameter: Parameter, context_types: t.Dict[t.Any, str], components: "Components"
+    ) -> "ResolutionTree":
+        return cls(root=cls._build_node(parameter, context_types, components))
 
     @classmethod
     def _build_node(
         cls,
-        name: str,
         parameter: Parameter,
         context_types: t.Dict[t.Any, str],
         components: "Components",
         parent: t.Optional[Parameter] = None,
-    ) -> Node:
-        assert name not in ("self", "cls")
+    ) -> ResolutionNode:
+        assert parameter.name not in ("self", "cls")
 
         # Check if the parameter annotation exists in context types.
-        if parameter.type in context_types:
-            return ContextNode(name, Parameter(context_types[parameter.type], parameter.type), nodes=[])
+        if parameter.annotation in context_types:
+            return ContextNode(
+                parameter.name, Parameter(context_types[parameter.annotation], parameter.annotation), nodes=[]
+            )
 
         # The 'Parameter' annotation can be used to get the parameter itself, so it is stored as a constant.
-        if parameter.type is Parameter:
+        if parameter.annotation is Parameter:
             assert parent is not None, "A root function cannot define an argument with Parameter type"
 
-            return ParameterNode(name, parent, nodes=[])
+            return ParameterNode(parameter.name, parent, nodes=[])
 
         # Look for a component that can handles the parameter.
         try:
@@ -172,47 +160,90 @@ class ParametersTree:
         except ComponentNotFound:
             # There is no component that can handles this parameter, and it is a builtin type, so it'll be expected as
             # part of the building context values.
-            if parameter.type in BUILTIN_TYPES:
-                return ContextNode(name, parameter, nodes=[])
+            if parameter.annotation in BUILTIN_TYPES:
+                return ContextNode(parameter.name, parameter, nodes=[])
 
             raise
         else:
             # There is a component that can handles the parameter
             try:
                 nodes = [
-                    cls._build_node(p.name, p, context_types, components, parent=parameter)
+                    cls._build_node(p, context_types, components, parent=parameter)
                     for p in component.signature().values()
                     if p.name not in ("self", "cls")
                 ]
-                return ComponentNode(name, parameter, nodes, component)
+                return ComponentNode(parameter.name, parameter, nodes, component)
             except ComponentNotFound as e:
                 if e.component is None:
                     raise ComponentNotFound(e.parameter, component=component) from None
 
                 raise  # noqa: safety net
 
-    async def context(self, **values: t.Any) -> t.Any:
-        return {node.name: await node.value(**values) for node in self.nodes}
+    async def value(self, context: t.Dict[str, t.Any]) -> t.Any:
+        return await self.root.value(context)
+
+
+class ResolutionCache(t.Mapping[str, ResolutionTree]):
+    """A cache for resolution trees."""
+
+    def __init__(self):
+        self._data = {}
+
+    def _can_cache(self, value: ResolutionTree) -> bool:
+        return isinstance(value.root, ComponentNode) and not value.root.component.use_parameter
+
+    def __setitem__(self, key: int, value: ResolutionTree) -> None:
+        if not self._can_cache(value):
+            raise ValueError(f"Resolution {value} cannot be cached")
+
+        self._data.__setitem__(key, value)
+
+    def __getitem__(self, key: int) -> t.Any:
+        return self._data.__getitem__(key)
+
+    def __eq__(self, other: object) -> bool:
+        return self._data.__eq__(other)
+
+    def __iter__(self) -> t.Iterator:
+        return self._data.__iter__()
+
+    def __len__(self) -> int:
+        return self._data.__len__()
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._data.__repr__()})"
 
 
 class Resolver:
+    """Provides a way to inspect a parameter and build it dependencies tree."""
+
     def __init__(self, context_types: t.Dict[str, t.Type], components: "Components"):
+        """Initialize a new resolver.
+
+        The context types are used to determine if a parameter is a context value or not. The components registry will
+        be used to determine if a parameter can be handled by a component or not.
+
+        :param context_types: A dictionary that maps a context type name to a type.
+        :param components: A components registry.
+        """
         self.context_types = {v: k for k, v in context_types.items()}
         self.components = components
-        self.cache: t.Dict[int, ParametersTree] = {}
+        self._cache = ResolutionCache()
 
-    def resolve(self, func: t.Callable) -> ParametersTree:
-        """
-        Inspects a function and creates a resolution list of all components needed to run it.
+    def resolve(self, parameter: Parameter) -> ResolutionTree:
+        """Build a resolution tree for the given parameter.
 
-        :param func: Function to resolve.
-        :return: The parameters builder.
+        :param parameter: The parameter to be resolved.
+        :return: A resolution tree.
         """
-        key = hash(func)
-        if key not in self.cache:
+        key = hash(parameter.annotation)
+        try:
+            resolution = self._cache[key]
+        except KeyError:
+            resolution = ResolutionTree.build(parameter, self.context_types, self.components)
             try:
-                self.cache[key] = ParametersTree.build(func, self.context_types, self.components)
-            except ComponentNotFound as e:
-                raise ComponentNotFound(e.parameter, component=e.component, function=func) from None
+                self._cache[key] = resolution
+            except ValueError:
+                ...
 
-        return self.cache[key]
+        return resolution
