@@ -153,7 +153,7 @@ class TestCaseHTTPEndpoint:
         with patch("flama.endpoints.concurrency.run") as run_mock:
             await endpoint.dispatch()
 
-            assert app.injector.inject.call_args_list == [call(endpoint.get, **endpoint.state)]
+            assert app.injector.inject.call_args_list == [call(endpoint.get, endpoint.state)]
             assert run_mock.call_args_list == [call(injected_mock)]
 
 

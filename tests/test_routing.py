@@ -103,17 +103,19 @@ class TestCaseBaseRoute:
         ["name", "params", "exception"],
         (
             pytest.param("foo", {"bar": 1}, None, id="found"),
-            pytest.param("bar", {}, exceptions.NotFoundException(name="bar", params={}), id="not_found_wrong_name"),
+            pytest.param(
+                "bar", {}, (exceptions.NotFoundException, r"Path not found \(name='bar'\)"), id="not_found_wrong_name"
+            ),
             pytest.param(
                 "foo",
                 {"wrong": 1},
-                exceptions.NotFoundException(name="foo", params={"wrong": 1}),
+                (exceptions.NotFoundException, r"Path not found \(params={'wrong': 1}, name='foo'\)"),
                 id="not_found_wrong_params",
             ),
             pytest.param(
                 "foo",
                 {"bar": 1, "wrong": 1},
-                exceptions.NotFoundException(name="foo", params={"bar": 1, "wrong": 1}),
+                (exceptions.NotFoundException, r"Path not found \(params={'bar': 1, 'wrong': 1}, name='foo'\)"),
                 id="error_remaining_params",
             ),
         ),
@@ -507,14 +509,14 @@ class TestCaseMount:
                 "wrong",
                 {"x": 1},
                 None,
-                exceptions.NotFoundException(params={"x": 1}, name="wrong"),
+                (exceptions.NotFoundException, r"Path not found \(params={'x': 1}, name='wrong'\)"),
                 id="not_found_mount",
             ),
             pytest.param(
                 "foo:wrong",
                 {"x": 1},
                 None,
-                exceptions.NotFoundException(params={"x": 1}, name="wrong"),
+                (exceptions.NotFoundException, r"Path not found \(params={'x': 1}, name='foo:wrong'\)"),
                 id="not_found_route",
             ),
         ),
