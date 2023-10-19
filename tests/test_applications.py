@@ -289,7 +289,11 @@ class TestCaseFlama:
                 "puppy:custom", {}, URL(scheme="http", path="/puppy/custom"), None, id="resource_custom_method"
             ),
             pytest.param(
-                "not-found", {}, None, exceptions.NotFoundException(params={}, name="not-found"), id="not_found"
+                "not-found",
+                {},
+                None,
+                (exceptions.NotFoundException, r"Path not found \(name='not-found'\)"),
+                id="not_found",
             ),
         ),
         indirect=["exception"],

@@ -104,7 +104,7 @@ class EndpointWrapper:
         }
 
         try:
-            injected_func = await app.injector.inject(self.handler, **state)
+            injected_func = await app.injector.inject(self.handler, state)
             response = await concurrency.run(injected_func)
             response = self._build_api_response(self.handler, response)
         except Exception:
@@ -153,7 +153,7 @@ class EndpointWrapper:
             "websocket_message": None,
         }
 
-        injected_func = await app.injector.inject(self.handler, **state)
+        injected_func = await app.injector.inject(self.handler, state)
         await injected_func(**route_scope.get("kwargs", {}))
 
     async def _websocket_endpoint(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:

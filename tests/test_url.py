@@ -233,13 +233,13 @@ class TestCaseRegexPath:
             pytest.param("/{foo:float}/", "/1/", {"foo": 1.0}, None, id="float_positive_no_decimals"),
             pytest.param("/{foo:float}/", "/-1.0/", {"foo": -1.0}, None, id="float_negative"),
             pytest.param("/{foo:float}/", "/-1/", {"foo": -1.0}, None, id="float_negative_no_decimals"),
-            pytest.param("/{foo:float}/", "/foo/", None, ValueError("Path '/foo' does not match."), id="float_fail"),
+            pytest.param("/{foo:float}/", "/foo/", None, ValueError("Path '/foo/' does not match."), id="float_fail"),
             pytest.param("/{foo:decimal}/", "/1.0/", {"foo": Decimal("1.0")}, None, id="decimal_positive"),
             pytest.param("/{foo:decimal}/", "/1/", {"foo": Decimal("1.0")}, None, id="decimal_positive_no_decimals"),
             pytest.param("/{foo:decimal}/", "/-1.0/", {"foo": Decimal("-1.0")}, None, id="decimal_negative"),
             pytest.param("/{foo:decimal}/", "/-1/", {"foo": Decimal("-1.0")}, None, id="decimal_negative_no_decimals"),
             pytest.param(
-                "/{foo:decimal}/", "/foo/", None, ValueError("Path '/foo' does not match."), id="decimal_fail"
+                "/{foo:decimal}/", "/foo/", None, ValueError("Path '/foo/' does not match."), id="decimal_fail"
             ),
             pytest.param(
                 "/{foo:uuid}/",

@@ -67,7 +67,7 @@ class Field:
     def from_parameter(cls, parameter: InjectionParameter) -> "Field":
         return cls(
             parameter.name,
-            parameter.type,
+            parameter.annotation,
             required=parameter.default is InjectionParameter.empty,
             default=parameter.default
             if parameter.default is not InjectionParameter.empty
@@ -273,27 +273,27 @@ class Parameter:
     def _build_path_parameter(cls, parameter: InjectionParameter) -> "Parameter":
         return cls(
             name=parameter.name,
-            type=parameter.type if parameter.type is not parameter.empty else str,
             location=ParameterLocation.path,
+            type=parameter.annotation if parameter.annotation is not parameter.empty else str,
         )
 
     @classmethod
     def _build_query_parameter(cls, parameter: InjectionParameter) -> "Parameter":
         return cls(
             name=parameter.name,
-            type=parameter.type if parameter.type is not parameter.empty else str,
             location=ParameterLocation.query,
+            type=parameter.annotation if parameter.annotation is not parameter.empty else str,
             required=parameter.default is InjectionParameter.empty,
             default=parameter.default,
         )
 
     @classmethod
     def _build_body_parameter(cls, parameter: InjectionParameter) -> "Parameter":
-        return cls(name=parameter.name, type=parameter.type, location=ParameterLocation.body)
+        return cls(name=parameter.name, location=ParameterLocation.body, type=parameter.annotation)
 
     @classmethod
     def _build_response_parameter(cls, parameter: InjectionParameter) -> "Parameter":
-        return cls(name=parameter.name, type=parameter.type, location=ParameterLocation.response)
+        return cls(name=parameter.name, location=ParameterLocation.response, type=parameter.annotation)
 
 
 Parameters = t.Dict[str, Parameter]

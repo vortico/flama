@@ -24,16 +24,6 @@ class Foo:
     name = "Foo"
 
 
-class ParamObject1:
-    def __init__(self, param):
-        self.param = param
-
-
-class ParamObject2:
-    def __init__(self, param):
-        self.param = param
-
-
 class TestCaseComponentsInjection:
     @pytest.fixture(scope="class")
     def puppy_component(self):
@@ -59,33 +49,9 @@ class TestCaseComponentsInjection:
 
         return OwnerComponent()
 
-    @pytest.fixture(scope="class")
-    def param_component_1(self):
-        class ParamComponent1(injection.Component):
-            def resolve(self, param: str) -> ParamObject1:
-                return ParamObject1(param=param)
-
-        return ParamComponent1()
-
-    @pytest.fixture(scope="class")
-    def param_component_2(self):
-        class ParamComponent2(injection.Component):
-            def resolve(self, param: str) -> ParamObject2:
-                return ParamObject2(param=param)
-
-        return ParamComponent2()
-
     @pytest.fixture(scope="function", autouse=True)
-    def add_components(
-        self, app, puppy_component, owner_component, param_component_1, param_component_2, unknown_param_component
-    ):
-        for component in [
-            puppy_component,
-            owner_component,
-            param_component_1,
-            param_component_2,
-            unknown_param_component,
-        ]:
+    def add_components(self, app, puppy_component, owner_component, unknown_param_component):
+        for component in (puppy_component, owner_component, unknown_param_component):
             app.add_component(component)
 
     @pytest.fixture(scope="function", autouse=True)
@@ -109,18 +75,6 @@ class TestCaseComponentsInjection:
         async def nested_component_view(owner: Owner):
             return {"name": owner.name, "puppy": {"name": owner.puppy.name}}
 
-        @app.route("/param-1-component/")
-        async def param_1_components_view(param: ParamObject1):
-            return {"param": param.param}
-
-        @app.route("/param-2-component/")
-        async def param_2_components_view(param: ParamObject2):
-            return {"param": param.param}
-
-        @app.route("/same-param-components/")
-        async def same_param_components_view(param1: ParamObject1, param2: ParamObject2):
-            return {"param1": param1.param, "param2": param2.param}
-
         @app.route("/unknown-component/")
         def unknown_component_view(unknown: Unknown):
             return http.JSONResponse({"foo": "bar"})
@@ -129,54 +83,70 @@ class TestCaseComponentsInjection:
         def unknown_param_in_component_view(foo: Foo):
             return http.JSONResponse({"foo": "bar"})
 
-    async def test_injection_http_view(self, client):
-        response = await client.request("get", "/http-view/")
-        assert response.status_code == 200
-        assert response.json() == {"puppy": "Canna"}
+    @pytest.mark.parametrize(
+        ["url", "method", "params", "status_code", "result", "exception"],
+        (
+            pytest.param("/http-view/", "get", None, 200, {"puppy": "Canna"}, None, id="http_view"),
+            pytest.param("/http-endpoint/", "get", None, 200, {"puppy": "Canna"}, None, id="http_endpoint"),
+            pytest.param(
+                "/http-endpoint/",
+                "websocket",
+                None,
+                None,
+                {"puppy": "Canna"},
+                None,
+                marks=pytest.mark.skip(
+                    reason="Cannot test websockets with current client"
+                ),  # CAVEAT: Client doesn't support websockets
+                id="websocket",
+            ),
+            pytest.param(
+                "/nested-component/",
+                "get",
+                None,
+                200,
+                {"name": "Perdy", "puppy": {"name": "Canna"}},
+                None,
+                id="nested_component",
+            ),
+            pytest.param(
+                "/unknown-component/",
+                "get",
+                None,
+                None,
+                None,
+                (
+                    injection.ComponentNotFound,
+                    "No component able to handle parameter 'unknown' for function 'unknown_component_view'",
+                ),
+                id="unknown_component",
+            ),
+            pytest.param(
+                "/unknown-param-in-component/",
+                "get",
+                None,
+                None,
+                None,
+                (
+                    injection.ComponentNotFound,
+                    "No component able to handle parameter 'foo' in component 'UnknownParamComponent' for function "
+                    "'unknown_param_in_component_view'",
+                ),
+                id="unknown_param_in_component",
+            ),
+        ),
+        indirect=["exception"],
+    )
+    async def test_injection(self, client, url, method, params, status_code, result, exception):
+        with exception:
+            if method == "websocket":
+                with client.websocket_connect(url) as websocket:
+                    assert websocket.receive_json() == result
+            else:
+                response = await client.request(method, url, params=params)
 
-    async def test_injection_http_endpoint(self, client):
-        response = await client.request("get", "/http-endpoint/")
-        assert response.status_code == 200
-        assert response.json() == {"puppy": "Canna"}
-
-    @pytest.mark.skip(reason="Cannot test websockets with current client")  # CAVEAT: Client doesn't support websockets
-    def test_injection_websocket_view(self, client):
-        with client.websocket_connect("/websocket-view/") as websocket:
-            assert websocket.receive_json() == {"puppy": "Canna"}
-
-    async def test_nested_component(self, client):
-        response = await client.request("get", "/nested-component/")
-        assert response.status_code == 200
-        assert response.json() == {"name": "Perdy", "puppy": {"name": "Canna"}}
-
-    async def test_same_param_components_single_view(self, client):
-        response = await client.request("get", "/same-param-components/", params={"param": "foo"})
-        assert response.status_code == 200
-        assert response.json() == {"param1": "foo", "param2": "foo"}
-
-    async def test_same_param_components_multiple_views(self, client):
-        response = await client.request("get", "/param-1-component/", params={"param": "foo"})
-        assert response.status_code == 200
-        assert response.json() == {"param": "foo"}
-
-        response = await client.request("get", "/param-2-component/", params={"param": "foo"})
-        assert response.status_code == 200
-        assert response.json() == {"param": "foo"}
-
-    async def test_unknown_component(self, client):
-        with pytest.raises(
-            injection.ComponentNotFound,
-            match="No component able to handle parameter 'unknown' for function 'unknown_component_view'",
-        ):
-            await client.request("get", "/unknown-component/")
-
-    async def test_unknown_param_in_component(self, client):
-        with pytest.raises(
-            injection.ComponentNotFound,
-            match="No component able to handle parameter 'foo' in component 'UnknownParamComponent' for function "
-            "'unknown_param_in_component_view'",
-        ):
-            await client.request("get", "/unknown-param-in-component/")
+                assert response.status_code == status_code
+                assert response.json() == result
 
     async def test_unhandled_component(self):
         class UnhandledComponent(injection.Component):
@@ -190,7 +160,7 @@ class TestCaseComponentsInjection:
             return http.JSONResponse({"foo": "bar"})
 
         with pytest.raises(
-            AssertionError,
+            injection.ComponentError,
             match="Component 'UnhandledComponent' must include a return annotation on the 'resolve' method, "
             "or override 'can_handle_parameter'",
         ):

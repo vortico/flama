@@ -167,7 +167,7 @@ class TestCaseLifespan:
                             types.Message(
                                 {
                                     "type": "lifespan.startup.failed",
-                                    "message": "Trying to start application from 'READY' state",
+                                    "message": "Trying to start application from 'AppStatus.READY' state",
                                 }
                             ),
                         ],
@@ -176,7 +176,7 @@ class TestCaseLifespan:
                 ),
                 None,
                 None,
-                exceptions.ApplicationError("Trying to start application from 'READY' state"),
+                exceptions.ApplicationError("Trying to start application from 'AppStatus.READY' state"),
                 id="start_from_ready",
             ),
             pytest.param(
@@ -194,7 +194,7 @@ class TestCaseLifespan:
                             types.Message(
                                 {
                                     "type": "lifespan.shutdown.failed",
-                                    "message": "Trying to start application from 'NOT_STARTED' state",
+                                    "message": "Trying to shutdown application from 'AppStatus.NOT_STARTED' state",
                                 }
                             ),
                         ],
@@ -203,7 +203,7 @@ class TestCaseLifespan:
                 ),
                 None,
                 None,
-                exceptions.ApplicationError("Trying to start application from 'NOT_STARTED' state"),
+                exceptions.ApplicationError("Trying to shutdown application from 'AppStatus.NOT_STARTED' state"),
                 id="shutdown_from_not_started",
             ),
             pytest.param(
@@ -239,7 +239,7 @@ class TestCaseLifespan:
                             types.Message(
                                 {
                                     "type": "lifespan.shutdown.failed",
-                                    "message": "Trying to start application from 'SHUT_DOWN' state",
+                                    "message": "Trying to shutdown application from 'AppStatus.SHUT_DOWN' state",
                                 }
                             ),
                         ],
@@ -248,7 +248,7 @@ class TestCaseLifespan:
                 ),
                 None,
                 None,
-                exceptions.ApplicationError("Trying to start application from 'SHUT_DOWN' state"),
+                exceptions.ApplicationError("Trying to shutdown application from 'AppStatus.SHUT_DOWN' state"),
                 id="shutdown_from_shutdown",
             ),
             pytest.param(

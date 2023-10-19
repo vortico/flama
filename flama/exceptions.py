@@ -106,7 +106,12 @@ class NotFoundException(Exception):
 
     def __str__(self) -> str:
         params = ("path", "params", "name")
-        formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
+        formatted_params = ", ".join([f"{x}={repr(getattr(self, x))}" for x in params if getattr(self, x)])
+        return f"Path not found ({formatted_params})"
+
+    def __repr__(self) -> str:
+        params = ("path", "params", "name")
+        formatted_params = ", ".join([f"{x}={repr(getattr(self, x))}" for x in params if getattr(self, x)])
         return f"{self.__class__.__name__}({formatted_params})"
 
 
@@ -120,6 +125,11 @@ class MethodNotAllowedException(Exception):
         self.allowed = allowed
 
     def __str__(self) -> str:
+        params = ("path", "params", "method", "allowed")
+        formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
+        return f"Method not allowed ({formatted_params})"
+
+    def __repr__(self) -> str:
         params = ("path", "params", "method", "allowed")
         formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
         return f"{self.__class__.__name__}({formatted_params})"
