@@ -69,7 +69,7 @@ class HTTPEndpoint:
     async def dispatch(self) -> None:
         """Dispatch a request."""
         app = self.state["app"]
-        handler = await app.injector.inject(self.handler, **self.state)
+        handler = await app.injector.inject(self.handler, self.state)
         return await concurrency.run(handler)
 
 
@@ -123,14 +123,14 @@ class WebSocketEndpoint:
         app = self.state["app"]
         websocket = self.state["websocket"]
 
-        on_connect = await app.injector.inject(self.on_connect, **self.state)
+        on_connect = await app.injector.inject(self.on_connect, self.state)
         await on_connect()
 
         try:
             self.state["websocket_message"] = await websocket.receive()
 
             while websocket.is_connected:
-                on_receive = await app.injector.inject(self.on_receive, **self.state)
+                on_receive = await app.injector.inject(self.on_receive, self.state)
                 await on_receive()
                 self.state["websocket_message"] = await websocket.receive()
 
@@ -145,7 +145,7 @@ class WebSocketEndpoint:
             self.state["websocket_code"] = types.Code(1011)
             raise e from None
         finally:
-            on_disconnect = await app.injector.inject(self.on_disconnect, **self.state)
+            on_disconnect = await app.injector.inject(self.on_disconnect, self.state)
             await on_disconnect()
 
     async def on_connect(self, websocket: websockets.WebSocket) -> None:

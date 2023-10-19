@@ -66,7 +66,7 @@ class TestCaseConfig:
                 EMPTY,
                 lambda x: int(x),
                 None,
-                exceptions.ConfigError("Cannot create config type"),
+                exceptions.ConfigError("Cannot cast config type"),
                 id="cast_function_error",
             ),
             pytest.param({"foo": '{"bar": 1}'}, {}, "foo", EMPTY, Foo, Foo(bar=1), None, id="cast_dataclass_str"),

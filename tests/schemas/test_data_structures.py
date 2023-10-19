@@ -63,7 +63,7 @@ class TestCaseField:
             assert getattr(field, k) == v
 
     def test_from_parameter(self):
-        assert Field.from_parameter(InjectionParameter(name="foo", type=int, default=0)) == Field(
+        assert Field.from_parameter(InjectionParameter(name="foo", annotation=int, default=0)) == Field(
             "foo", int, required=False, default=0
         )
 
@@ -324,7 +324,7 @@ class TestCaseParameter:
         ),
     )
     def test_build(self, foo_schema, type_, parameter, result):
-        if parameter.type == types.Schema:
+        if parameter.annotation == types.Schema:
             parameter = InjectionParameter(parameter.name, types.Schema[foo_schema.schema], parameter.default)
             result = Parameter(
                 name=result.name,

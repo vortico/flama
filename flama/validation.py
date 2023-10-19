@@ -85,7 +85,7 @@ class ValidateRequestDataComponent(Component):
 
 class PrimitiveParamComponent(Component):
     def can_handle_parameter(self, parameter: Parameter):
-        return Field.is_http_valid_type(parameter.type)
+        return Field.is_http_valid_type(parameter.annotation)
 
     def resolve(self, parameter: Parameter, path_params: ValidatedPathParams, query_params: ValidatedQueryParams):
         params = path_params if (parameter.name in path_params) else query_params
@@ -99,10 +99,10 @@ class PrimitiveParamComponent(Component):
 
 class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: Parameter):
-        return types.is_schema(parameter.type)
+        return types.is_schema(parameter.annotation)
 
     def resolve(self, parameter: Parameter, data: ValidatedRequestData) -> types.Schema:
-        assert types.is_schema(parameter.type)
+        assert types.is_schema(parameter.annotation)
 
         return types.Schema(data)
 
