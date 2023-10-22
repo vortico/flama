@@ -19,13 +19,12 @@ class FlamaWorker(SQLAlchemyWorker):
         assert self._init_repositories, "Repositories not initialized"
         return self._init_repositories
 
-    async def __aenter__(self):
-        await self.begin()
+    async def begin(self) -> None:
+        await self.begin_transaction()
         self._init_repositories = {r: cls(self.connection) for r, cls in self._repositories.items()}
-        return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.close()
+        await self.end_transaction()
         del self._init_repositories
 
     def add_repository(self, name: str, cls: t.Type["SQLAlchemyTableRepository"]) -> None:
