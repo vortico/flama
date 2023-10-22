@@ -18,11 +18,12 @@ __all__ = ["metadata", "SQLAlchemyModule"]
 class SQLAlchemyModule(Module):
     name = "sqlalchemy"
 
-    def __init__(self, database: t.Optional[str] = None):
+    def __init__(self, database: t.Optional[str] = None, engine_args: t.Optional[t.Dict[str, t.Any]] = None):
         super().__init__()
 
         self.database = database
         self._engine: t.Optional["AsyncEngine"] = None
+        self._engine_args = engine_args or {}
         self._metadata: t.Optional["MetaData"] = metadata
 
     @property
@@ -45,7 +46,7 @@ class SQLAlchemyModule(Module):
 
     async def on_startup(self):
         if self.database:
-            self.engine = create_async_engine(self.database)
+            self.engine = create_async_engine(self.database, **self._engine_args)
 
     async def on_shutdown(self):
         if self.engine:
