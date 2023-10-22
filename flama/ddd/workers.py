@@ -78,18 +78,16 @@ class SQLAlchemyWorker(AbstractWorker, metaclass=WorkerType):
             raise AttributeError("Connection not initialized")
 
     async def begin(self):
-        self._connection = self.app.sqlalchemy.engine.connect()
-        await self._connection.__aenter__()
-        self._transaction = self._connection.begin()
-        await self._transaction
+        self._connection = await self.app.sqlalchemy.open_connection()
+        self._transaction = await self.app.sqlalchemy.begin_transaction(self._connection)
 
-    async def close(self):
+    async def close(self, rollback: bool = False):
         if hasattr(self, "_transaction"):
-            await self._transaction.__aexit__(None, None, None)
+            await self.app.sqlalchemy.end_transaction(self._transaction, rollback)
             del self._transaction
 
         if hasattr(self, "_connection"):
-            await self._connection.__aexit__(None, None, None)
+            await self.app.sqlalchemy.close_connection(self._transaction)
             del self._connection
 
     async def __aenter__(self):
@@ -99,7 +97,7 @@ class SQLAlchemyWorker(AbstractWorker, metaclass=WorkerType):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.close()
+        await self.close(rollback=exc_type is not None)
 
         for repository in self._repositories.keys():
             delattr(self, repository)
