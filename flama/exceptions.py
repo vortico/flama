@@ -19,6 +19,10 @@ class ApplicationError(Exception):
     ...
 
 
+class SQLAlchemyError(ApplicationError):
+    ...
+
+
 class DecodeError(Exception):
     """
     Raised by a Codec when `decode` fails due to malformed syntax.
