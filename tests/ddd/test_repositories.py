@@ -124,24 +124,27 @@ class TestCaseSQLAlchemyTableManager:
             assert await table_manager.retrieve(*[c(table.c["name"]) for c in clauses], **filters) == result
 
     @pytest.mark.parametrize(
-        ["clauses", "filters", "data", "result"],
+        ["clauses", "filters", "data", "result", "exception"],
         (
-            pytest.param([], {"id": 1}, {"name": "bar"}, 1, id="ok"),
-            pytest.param([], {"id": 0}, {"name": "bar"}, 0, id="not_found"),
-            pytest.param([lambda x: x.ilike("fo%")], {}, {"name": "bar"}, 2, id="multiple_results"),
+            pytest.param([], {"id": 1}, {"name": "bar"}, 1, None, id="ok"),
+            pytest.param([], {"id": 0}, {"name": "bar"}, 0, None, id="not_found"),
+            pytest.param([], {"id": 1}, {"name": None}, None, exceptions.IntegrityError, id="integrity_error"),
+            pytest.param([lambda x: x.ilike("fo%")], {}, {"name": "bar"}, 2, None, id="multiple_results"),
         ),
+        indirect=["exception"],
     )
-    async def test_update(self, clauses, filters, data, result, table, table_manager):
+    async def test_update(self, clauses, filters, data, result, exception, table, table_manager):
         await table_manager.create({"name": "foo"}, {"name": "foo"})
 
-        assert await table_manager.update(data, *[c(table.c["name"]) for c in clauses], **filters) == result
+        with exception:
+            assert await table_manager.update(data, *[c(table.c["name"]) for c in clauses], **filters) == result
 
     @pytest.mark.parametrize(
         ["clauses", "filters", "exception"],
         (
             pytest.param([], {"id": 1}, None, id="ok"),
             pytest.param([], {"id": 0}, exceptions.NotFoundError(), id="not_found"),
-            pytest.param([lambda x: x.ilike("fo%")], {}, exceptions.MultipleRecordsError(), id="multiple_results"),
+            pytest.param([lambda x: x.ilike("fo%")], {}, exceptions.MultipleRecordsError, id="multiple_results"),
         ),
         indirect=["exception"],
     )

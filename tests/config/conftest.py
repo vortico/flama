@@ -19,7 +19,7 @@ class ConfigFileFactory:
     @property
     def file(self) -> tempfile._TemporaryFileWrapper:
         if not getattr(self, "_file"):
-            raise AttributeError("Config file not initialised")
+            raise AttributeError("Config file not initialized")
 
         return self._file
 

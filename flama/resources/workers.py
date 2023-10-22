@@ -1,6 +1,7 @@
 import typing as t
 
 from flama.ddd import SQLAlchemyWorker
+from flama.exceptions import ApplicationError
 
 if t.TYPE_CHECKING:
     from flama import Flama
@@ -8,25 +9,56 @@ if t.TYPE_CHECKING:
 
 
 class FlamaWorker(SQLAlchemyWorker):
-    _repositories: t.ClassVar[t.Dict[str, t.Type["SQLAlchemyTableRepository"]]]
+    """The worker used by Flama Resources."""
+
+    _repositories: t.Dict[str, t.Type["SQLAlchemyTableRepository"]]
 
     def __init__(self, app: t.Optional["Flama"] = None):
+        """Initialize the worker.
+
+        This special worker is used to handle the repositories created by Flama Resources.
+
+        :param app: The application instance.
+        """
+
         super().__init__(app)
+        self._repositories = {}
         self._init_repositories: t.Optional[t.Dict[str, "SQLAlchemyTableRepository"]] = None
 
     @property
     def repositories(self) -> t.Dict[str, "SQLAlchemyTableRepository"]:
-        assert self._init_repositories, "Repositories not initialized"
+        """Get the initialized repositories.
+
+        :retirns: The initialized repositories.
+        :raises ApplicationError: If the repositories are not initialized.
+        """
+        if not self._init_repositories:
+            raise ApplicationError("Repositories not initialized")
+
         return self._init_repositories
 
-    async def __aenter__(self):
-        await self.begin()
-        self._init_repositories = {r: cls(self.connection) for r, cls in self._repositories.items()}
-        return self
+    async def begin(self) -> None:
+        """Start a unit of work.
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.close()
+        Initialize the connection, begin a transaction, and create the repositories.
+        """
+        await self.begin_transaction()
+        self._init_repositories = {r: cls(self.connection) for r, cls in self._repositories.items()}
+
+    async def end(self, *, rollback: bool = False) -> None:
+        """End a unit of work.
+
+        Close the connection, commit or rollback the transaction, and delete the repositories.
+
+        :param rollback: If the unit of work should be rolled back.
+        """
+        await self.end_transaction(rollback=rollback)
         del self._init_repositories
 
     def add_repository(self, name: str, cls: t.Type["SQLAlchemyTableRepository"]) -> None:
+        """Register a repository.
+
+        :param name: The name of the repository.
+        :param cls: The class of the repository.
+        """
         self._repositories[name] = cls
