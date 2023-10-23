@@ -1,3 +1,4 @@
+import warnings
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
 
 import marshmallow
@@ -130,7 +131,9 @@ class TestCaseHTTPEndpoint:
 
     def test_await(self, endpoint):
         with patch.object(endpoint, "dispatch"):
-            endpoint.__await__()
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                endpoint.__await__()
 
             assert endpoint.dispatch.call_args_list == [call()]
 
@@ -312,7 +315,9 @@ class TestCaseWebSocketEndpoint:
 
     def test_await(self, endpoint):
         with patch.object(endpoint, "dispatch"):
-            endpoint.__await__()
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                endpoint.__await__()
 
             assert endpoint.dispatch.call_args_list == [call()]
 

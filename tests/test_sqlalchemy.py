@@ -25,6 +25,14 @@ class TestCaseSingleConnectionManager:
     def connection_manager(self, engine):
         return SingleConnectionManager(engine)
 
+    @pytest.fixture(scope="function")
+    async def connection(self, connection_manager):
+        c = await connection_manager.open()
+
+        yield c
+
+        await connection_manager.close(c)
+
     def test_init(self, engine):
         connection_manager = SingleConnectionManager(engine)
 
@@ -69,9 +77,7 @@ class TestCaseSingleConnectionManager:
         assert connection_manager._connection_clients == 0
         assert connection_manager._connection is None
 
-    async def test_begin_end_transaction(self, connection_manager):
-        connection = await connection_manager.open()
-
+    async def test_begin_end_transaction(self, connection_manager, connection):
         # Begin a transaction using a wrong connection
         with pytest.raises(SQLAlchemyError, match="Wrong connection"):
             await connection_manager.begin(Mock(spec=AsyncConnection))
