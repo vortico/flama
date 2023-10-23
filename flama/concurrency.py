@@ -90,12 +90,12 @@ else:  # noqa
 class AsyncProcess(multiprocessing.Process):
     """Multiprocessing Process class whose target is an async function."""
 
-    def run(self):
-        if self._target:  # type: ignore
-            task = self._target(*self._args, **self._kwargs)  # type: ignore
+    _target: t.Optional[t.Callable[..., t.Union[t.Any, t.Coroutine]]]
+    _args: t.List[t.Any]
+    _kwargs: t.Dict[str, t.Any]
 
-            if is_async(self._target):  # type: ignore
-                policy = asyncio.get_event_loop_policy()
-                loop = policy.new_event_loop()
-                policy.set_event_loop(loop)
-                loop.run_until_complete(task)
+    def run(self):
+        if self._target:
+            result_or_task = self._target(*self._args, **self._kwargs)
+
+            return asyncio.run(result_or_task) if is_async(self._target) else result_or_task
