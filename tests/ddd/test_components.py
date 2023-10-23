@@ -1,38 +1,12 @@
 import pytest
 
 from flama import types
-from flama.ddd import AbstractRepository, AbstractWorker
+from flama.ddd import AbstractWorker
 from flama.ddd.components import WorkerComponent
 from flama.injection.resolver import Parameter
 
 
 class TestCaseWorkerComponent:
-    @pytest.fixture(scope="function")
-    def repository(self):
-        class Repository(AbstractRepository):
-            ...
-
-        return Repository
-
-    @pytest.fixture(scope="function")
-    def worker(self, client, repository):
-        class FooWorker(AbstractWorker):
-            async def __aenter__(self) -> "AbstractWorker":
-                return self
-
-            async def __aexit__(self, exc_type, exc_val, exc_tb):
-                pass
-
-            async def commit(self) -> None:
-                pass
-
-            async def rollback(self) -> None:
-                pass
-
-            bar: repository
-
-        return FooWorker()
-
     @pytest.fixture(scope="function")
     def component(self, worker):
         return WorkerComponent(worker)

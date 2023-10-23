@@ -1,6 +1,7 @@
 import typing as t
 
 from flama.ddd import SQLAlchemyWorker
+from flama.exceptions import ApplicationError
 
 if t.TYPE_CHECKING:
     from flama import Flama
@@ -8,15 +9,18 @@ if t.TYPE_CHECKING:
 
 
 class FlamaWorker(SQLAlchemyWorker):
-    _repositories: t.ClassVar[t.Dict[str, t.Type["SQLAlchemyTableRepository"]]]
+    _repositories: t.Dict[str, t.Type["SQLAlchemyTableRepository"]]
 
     def __init__(self, app: t.Optional["Flama"] = None):
         super().__init__(app)
+        self._repositories = {}
         self._init_repositories: t.Optional[t.Dict[str, "SQLAlchemyTableRepository"]] = None
 
     @property
     def repositories(self) -> t.Dict[str, "SQLAlchemyTableRepository"]:
-        assert self._init_repositories, "Repositories not initialized"
+        if not self._init_repositories:
+            raise ApplicationError("Repositories not initialized")
+
         return self._init_repositories
 
     async def begin(self) -> None:

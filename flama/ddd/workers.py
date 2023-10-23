@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncTransaction
 
 from flama.ddd import types
 from flama.ddd.repositories import AbstractRepository, SQLAlchemyRepository
+from flama.exceptions import ApplicationError
 
 if t.TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncConnection
@@ -24,18 +25,27 @@ class WorkerType(abc.ABCMeta):
     """
 
     def __new__(mcs, name: str, bases: t.Tuple[type], namespace: t.Dict[str, t.Any]):
-        namespace["_repositories"] = types.Repositories(
-            {
-                k: v
-                for k, v in namespace.get("__annotations__", {}).items()
-                if inspect.isclass(v) and issubclass(v, AbstractRepository)
+        if mcs._is_abstract_worker(namespace) and "__annotations__" in namespace:
+            namespace["_repositories"] = types.Repositories(
+                {
+                    k: v
+                    for k, v in namespace["__annotations__"].items()
+                    if inspect.isclass(v) and issubclass(v, AbstractRepository)
+                }
+            )
+
+            namespace["__annotations__"] = {
+                k: v for k, v in namespace["__annotations__"].items() if k not in namespace["_repositories"]
             }
-        )
 
         return super().__new__(mcs, name, bases, namespace)
 
+    @staticmethod
+    def _is_abstract_worker(namespace: t.Dict[str, t.Any]) -> bool:
+        return namespace.get("__module__") != "flama.ddd.workers" or namespace.get("__qualname__") != "AbstractWorker"
 
-class AbstractWorker(abc.ABC):
+
+class AbstractWorker(abc.ABC, metaclass=WorkerType):
     """Abstract class for workers.
 
     It will be used to define the workers for the application. A worker consists of a set of repositories that will be
@@ -59,7 +69,9 @@ class AbstractWorker(abc.ABC):
 
         :return: Application instance.
         """
-        assert self._app, "Worker not initialized"
+        if not self._app:
+            raise ApplicationError("Worker not initialized")
+
         return self._app
 
     @app.setter
@@ -81,7 +93,7 @@ class AbstractWorker(abc.ABC):
         ...
 
     @abc.abstractmethod
-    async def end(self, rollback: bool = False) -> None:
+    async def end(self, *, rollback: bool = False) -> None:
         """End a unit of work.
 
         :param rollback: If the unit of work should be rolled back.
@@ -108,7 +120,7 @@ class AbstractWorker(abc.ABC):
         ...
 
 
-class SQLAlchemyWorker(AbstractWorker, metaclass=WorkerType):
+class SQLAlchemyWorker(AbstractWorker):
     _repositories: t.ClassVar[t.Dict[str, t.Type[SQLAlchemyRepository]]]
     _connection: "AsyncConnection"
     _transaction: "AsyncTransaction"
@@ -125,6 +137,18 @@ class SQLAlchemyWorker(AbstractWorker, metaclass=WorkerType):
         except AttributeError:
             raise AttributeError("Connection not initialized")
 
+    @property
+    def transaction(self) -> "AsyncTransaction":
+        """Database transaction.
+
+        :return: Database transaction.
+        :raises AttributeError: If the transaction is not started.
+        """
+        try:
+            return self._transaction
+        except AttributeError:
+            raise AttributeError("Transaction not started")
+
     async def begin_transaction(self) -> None:
         """Open a connection and begin a transaction."""
 
@@ -135,14 +159,13 @@ class SQLAlchemyWorker(AbstractWorker, metaclass=WorkerType):
         """End a transaction and close the connection.
 
         :param rollback: If the transaction should be rolled back.
+        :raises AttributeError: If the connection is not initialized or the transaction is not started.
         """
-        if hasattr(self, "_transaction"):
-            await self.app.sqlalchemy.end_transaction(self._transaction, rollback=rollback)
-            del self._transaction
+        await self.app.sqlalchemy.end_transaction(self.transaction, rollback=rollback)
+        del self._transaction
 
-        if hasattr(self, "_connection"):
-            await self.app.sqlalchemy.close_connection(self._connection)
-            del self._connection
+        await self.app.sqlalchemy.close_connection(self.connection)
+        del self._connection
 
     async def begin(self) -> None:
         """Start a unit of work.
