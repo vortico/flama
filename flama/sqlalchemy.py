@@ -107,7 +107,7 @@ class SingleConnectionManager(ConnectionManager):
         :raises SQLAlchemyError: If the transaction is not initialized.
         """
         if not self._transaction:
-            raise exceptions.SQLAlchemyError("Connection not initialized")
+            raise exceptions.SQLAlchemyError("Transaction not started")
 
         return self._transaction
 
@@ -142,6 +142,7 @@ class SingleConnectionManager(ConnectionManager):
 
         if self._clients == 0:
             await connection.__aexit__(None, None, None)
+            self._connection = None
 
     async def begin(self, connection: "AsyncConnection") -> "AsyncTransaction":
         """Begin a new transaction.
@@ -155,10 +156,10 @@ class SingleConnectionManager(ConnectionManager):
         if connection != self.connection:
             raise exceptions.SQLAlchemyError("Wrong connection")
 
-        try:
-            transaction = connection.begin_nested()
-        except exceptions.SQLAlchemyError:
+        if self._transaction is None:
             self._transaction = transaction = connection.begin()
+        else:
+            transaction = connection.begin_nested()
 
         await transaction
         return transaction
@@ -174,6 +175,9 @@ class SingleConnectionManager(ConnectionManager):
         else:
             await transaction.commit()
 
+        if transaction == self.transaction:
+            self._transaction = None
+
 
 class MultipleConnectionManager(ConnectionManager):
     """Connection manager that handlers several connections and transactions."""
@@ -188,7 +192,7 @@ class MultipleConnectionManager(ConnectionManager):
         """
         super().__init__(engine)
         self._connections: t.Set["AsyncConnection"] = set()
-        self._transactions: t.Dict["AsyncTransaction", "AsyncConnection"] = {}
+        self._transactions: t.Dict["AsyncConnection", "AsyncTransaction"] = {}
 
     async def open(self) -> "AsyncConnection":
         """Open a new connection to the database.
@@ -209,10 +213,11 @@ class MultipleConnectionManager(ConnectionManager):
         if connection not in self._connections:
             raise exceptions.SQLAlchemyError("Connection not initialized")
 
-        for transaction in [tx for tx, con in self._transactions.items() if con == connection]:
-            await self.end(transaction)
+        if connection in self._transactions:
+            await self.end(self._transactions[connection])
 
         await connection.__aexit__(None, None, None)
+        self._connections.remove(connection)
 
     async def begin(self, connection: "AsyncConnection") -> "AsyncTransaction":
         """Begin a new transaction.
@@ -224,8 +229,11 @@ class MultipleConnectionManager(ConnectionManager):
         if connection not in self._connections:
             raise exceptions.SQLAlchemyError("Connection not initialized")
 
+        if connection in self._transactions:
+            raise exceptions.SQLAlchemyError("Transaction already started in this connection")
+
         transaction = await connection.begin()
-        self._transactions[transaction] = connection
+        self._transactions[connection] = transaction
         return transaction
 
     async def end(self, transaction: "AsyncTransaction", *, rollback: bool = False) -> None:
@@ -235,7 +243,7 @@ class MultipleConnectionManager(ConnectionManager):
         :param rollback: If the transaction should be rolled back.
         :raises SQLAlchemyError: If the transaction is not started.
         """
-        if transaction not in self._transactions:
+        if transaction.connection not in self._transactions:
             raise exceptions.SQLAlchemyError("Transaction not started")
 
         if rollback:
@@ -243,7 +251,7 @@ class MultipleConnectionManager(ConnectionManager):
         else:
             await transaction.commit()
 
-        del self._transactions[transaction]
+        del self._transactions[transaction.connection]
 
 
 class SQLAlchemyModule(Module):

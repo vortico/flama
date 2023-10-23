@@ -1,19 +1,43 @@
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncTransaction
+from sqlalchemy.ext.asyncio import AsyncConnection
 
-from flama import Flama
-from flama.ddd import AbstractWorker, SQLAlchemyRepository, SQLAlchemyWorker, WorkerType
-from flama.ddd.repositories import AbstractRepository
-from flama.sqlalchemy import SQLAlchemyModule
+from flama.ddd.repositories import SQLAlchemyRepository
+from flama.ddd.workers import SQLAlchemyWorker
+from flama.exceptions import ApplicationError
+
+
+class TestCaseAbstractWorker:
+    def test_new(self, worker):
+        assert hasattr(worker, "_repositories")
+
+    def test_app(self, app, worker):
+        with pytest.raises(ApplicationError, match="Worker not initialized"):
+            worker.app
+
+        worker.app = app
+
+        assert worker.app == app
+
+        del worker.app
+
+        with pytest.raises(ApplicationError, match="Worker not initialized"):
+            worker.app
+
+    async def test_async_context(self, app, worker):
+        worker.app = app
+
+        with patch.multiple(worker, begin=AsyncMock(), end=AsyncMock()):
+            async with worker:
+                assert worker.begin.await_args_list == [call()]
+                assert worker.end.await_args_list == []
+
+            assert worker.begin.await_args_list == [call()]
+            assert worker.end.await_args_list == [call(rollback=False)]
 
 
 class TestCaseSQLAlchemyWorker:
-    @pytest.fixture(scope="function")
-    def app(self):
-        return Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
-
     @pytest.fixture(scope="function")
     def worker(self, client):
         class FooWorker(SQLAlchemyWorker):
@@ -27,92 +51,78 @@ class TestCaseSQLAlchemyWorker:
         assert worker._app == app
         assert not hasattr(worker, "_connection")
 
-    def test_app(self, app):
-        worker = SQLAlchemyWorker()
-
-        with pytest.raises(AssertionError, match="Worker not initialized"):
-            worker.app
-
-        worker.app = app
-
-        assert worker.app == app
-
-        del worker.app
-
-        with pytest.raises(AssertionError, match="Worker not initialized"):
-            worker.app
-
     def test_connection(self, worker):
         with pytest.raises(AttributeError, match="Connection not initialized"):
             worker.connection
 
-    async def test_begin(self, worker):
-        transaction_mock = AsyncMock(spec=AsyncTransaction)
-        connection_mock = AsyncMock(spec=AsyncConnection)
-        connection_mock.begin = transaction_mock
-        engine_mock = MagicMock(spec=AsyncEngine)
-        engine_mock.connect.return_value = connection_mock
+    def test_transaction(self, worker):
+        with pytest.raises(AttributeError, match="Transaction not started"):
+            worker.transaction
 
-        with patch.object(worker.app.sqlalchemy, "engine", new=engine_mock):
-            await worker.begin()
-            assert engine_mock.connect.call_args_list == [call()]
-            assert connection_mock.__aenter__.await_args_list == [call()]
-            assert connection_mock.begin.call_args_list == [call()]
-            assert connection_mock.begin.await_args_list == [call()]
+    async def test_begin_transaction(self, app, worker):
+        connection_mock = AsyncMock()
+        transaction_mock = AsyncMock()
+
+        with patch.multiple(
+            app.sqlalchemy,
+            open_connection=AsyncMock(return_value=connection_mock),
+            begin_transaction=AsyncMock(return_value=transaction_mock),
+        ):
+            await worker.begin_transaction()
+
+            assert worker._connection == connection_mock
+            assert worker._transaction == transaction_mock
+            assert app.sqlalchemy.open_connection.await_args_list == [call()]
+            assert app.sqlalchemy.begin_transaction.await_args_list == [call(connection_mock)]
 
     @pytest.mark.parametrize(
-        ["transaction", "transaction_calls", "connection", "connection_calls"],
+        ["rollback"],
         (
-            pytest.param(None, [], None, [], id="no_transaction_no_connection"),
-            pytest.param(
-                AsyncMock(AsyncTransaction), [call(None, None, None)], None, [], id="transaction_no_connection"
-            ),
-            pytest.param(
-                None, [], AsyncMock(AsyncConnection), [call(None, None, None)], id="no_transaction_connection"
-            ),
-            pytest.param(
-                AsyncMock(AsyncTransaction),
-                [call(None, None, None)],
-                AsyncMock(AsyncConnection),
-                [call(None, None, None)],
-                id="transaction_connection",
-            ),
+            pytest.param(True, id="rollback"),
+            pytest.param(False, id="commit"),
         ),
     )
-    async def test_close(self, transaction, transaction_calls, connection, connection_calls, worker):
-        assert not hasattr(worker, "_transaction")
-        assert not hasattr(worker, "_connection")
+    async def test_end_transaction(self, app, worker, rollback):
+        worker._connection = connection_mock = AsyncMock()
+        worker._transaction = transaction_mock = AsyncMock()
 
-        if connection:
-            worker._connection = connection
-        if transaction:
-            worker._transaction = transaction
+        with patch.multiple(app.sqlalchemy, end_transaction=AsyncMock(), close_connection=AsyncMock()):
+            await worker.end_transaction(rollback=rollback)
 
-        await worker.close()
+            assert not hasattr(worker, "_transaction")
+            assert not hasattr(worker, "_connection")
+            assert app.sqlalchemy.end_transaction.await_args_list == [call(transaction_mock, rollback=rollback)]
+            assert app.sqlalchemy.close_connection.await_args_list == [call(connection_mock)]
 
-        if transaction:
-            assert transaction.__aexit__.await_args_list == transaction_calls
-        if connection:
-            assert connection.__aexit__.await_args_list == connection_calls
+    async def test_begin(self, worker):
+        worker._connection = AsyncMock()
 
-        assert not hasattr(worker, "_transaction")
-        assert not hasattr(worker, "_connection")
+        with patch.object(worker, "begin_transaction"):
+            assert not hasattr(worker, "bar")
 
-    async def test_async_context(self, worker):
-        assert not hasattr(worker, "_transaction")
-        assert not hasattr(worker, "_connection")
-        assert not hasattr(worker, "bar")
+            await worker.begin()
 
-        async with worker:
-            assert worker._connection
-            assert worker._transaction
-            assert worker._transaction.is_active
+            assert worker.begin_transaction.await_args_list == [call()]
             assert hasattr(worker, "bar")
             assert isinstance(worker.bar, SQLAlchemyRepository)
 
-        assert not hasattr(worker, "_transaction")
-        assert not hasattr(worker, "_connection")
-        assert not hasattr(worker, "bar")
+    @pytest.mark.parametrize(
+        ["rollback"],
+        (
+            pytest.param(True, id="rollback"),
+            pytest.param(False, id="commit"),
+        ),
+    )
+    async def test_end(self, worker, rollback):
+        worker.bar = MagicMock()
+
+        with patch.object(worker, "end_transaction"):
+            assert hasattr(worker, "bar")
+
+            await worker.end(rollback=rollback)
+
+            assert worker.end_transaction.await_args_list == [call(rollback=rollback)]
+            assert not hasattr(worker, "bar")
 
     async def test_commit(self, worker):
         commit_mock = AsyncMock()
@@ -131,35 +141,3 @@ class TestCaseSQLAlchemyWorker:
         with patch.object(worker, "_connection", new=connection_mock, create=True):
             await worker.rollback()
             assert rollback_mock.await_args_list == [call()]
-
-
-class TestCaseWorkerType:
-    @pytest.fixture(scope="function")
-    def worker(self):
-        class Worker(AbstractWorker):
-            async def __aenter__(self) -> "Worker":
-                return self
-
-            async def __aexit__(self, exc_type, exc_val, exc_tb):
-                return None
-
-            async def commit(self) -> None:
-                ...
-
-            async def rollback(self) -> None:
-                ...
-
-        return Worker
-
-    @pytest.fixture(scope="function")
-    def repository(self):
-        class Repository(AbstractRepository):
-            ...
-
-        return Repository
-
-    def test_custom_worker(self, worker, repository):
-        class CustomWorker(worker, metaclass=WorkerType):
-            foo: repository
-
-        assert CustomWorker._repositories == {"foo": repository}
