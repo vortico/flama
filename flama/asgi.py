@@ -76,7 +76,10 @@ class CookiesComponent(Component):
         cookie = SimpleCookie()
         cookie.load(headers.get("cookie", ""))
         return types.Cookies(
-            {str(name): {str(k): str(v) for k, v in morsel.items()} for name, morsel in cookie.items()}
+            {
+                str(name): {**{str(k): str(v) for k, v in morsel.items()}, "value": morsel.value}
+                for name, morsel in cookie.items()
+            }
         )
 
 

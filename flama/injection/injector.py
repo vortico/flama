@@ -69,19 +69,19 @@ class Injector:
         self._resolver = None
 
     @t.overload
-    def resolve(self, annotation: t.Any):
+    def resolve(self, annotation: t.Any) -> "ResolutionTree":
         ...
 
     @t.overload
-    def resolve(self, annotation: t.Any, *, name: str):
+    def resolve(self, annotation: t.Any, *, name: str) -> "ResolutionTree":
         ...
 
     @t.overload
-    def resolve(self, annotation: t.Any, *, default: t.Any):
+    def resolve(self, annotation: t.Any, *, default: t.Any) -> "ResolutionTree":
         ...
 
     @t.overload
-    def resolve(self, annotation: t.Any, *, name: str, default: t.Any):
+    def resolve(self, annotation: t.Any, *, name: str, default: t.Any) -> "ResolutionTree":
         ...
 
     def resolve(

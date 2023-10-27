@@ -347,6 +347,7 @@ class TestCaseCookiesComponent:
                 {
                     "cookies": {
                         "foo": {
+                            "value": "bar",
                             "expires": "",
                             "path": "",
                             "comment": "",
