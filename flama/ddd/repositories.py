@@ -133,7 +133,9 @@ class SQLAlchemyTableManager:
 
         await self._connection.execute(query)
 
-    async def list(self, *clauses, **filters) -> t.AsyncIterable[types.Schema]:
+    async def list(
+        self, *clauses, order_by: t.Optional[str] = None, order_direction: str = "asc", **filters
+    ) -> t.AsyncIterable[types.Schema]:
         """Lists all the elements in the table.
 
         If no elements are found, it returns an empty list. If no clauses or filters are given, it returns all the
@@ -143,13 +145,21 @@ class SQLAlchemyTableManager:
         exact values to specific columns. Clauses and filters can be combined.
 
         Clause example: `table.c["id"]._in((1, 2, 3))`
+        Order example: `order_by="id", order_direction="desc"`
         Filter example: `id=1`
 
         :param clauses: Clauses to filter the elements.
+        :param order_by: Column to order the elements.
+        :param order_direction: Direction to order the elements, either `asc` or `desc`.
         :param filters: Filters to filter the elements.
         :return: Async iterable of the elements.
         """
         query = self._filter_query(sqlalchemy.select(self.table), *clauses, **filters)
+
+        if order_by:
+            query = query.order_by(
+                self.table.c[order_by].desc() if order_direction == "desc" else self.table.c[order_by]
+            )
 
         result = await self._connection.stream(query)
 
@@ -276,7 +286,9 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         """
         return await self._table_manager.delete(*clauses, **filters)
 
-    def list(self, *clauses, **filters) -> t.AsyncIterable[types.Schema]:
+    def list(
+        self, *clauses, order_by: t.Optional[str] = None, order_direction: str = "asc", **filters
+    ) -> t.AsyncIterable[types.Schema]:
         """Lists all the elements in the repository.
 
         Lists all the elements in the repository that match the clauses and filters. If no clauses or filters are given,
@@ -286,13 +298,16 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         exact values to specific columns. Clauses and filters can be combined.
 
         Clause example: `table.c["id"]._in((1, 2, 3))`
+        Order example: `order_by="id", order_direction="desc"`
         Filter example: `id=1`
 
         :param clauses: Clauses to filter the elements.
+        :param order_by: Column to order the elements.
+        :param order_direction: Direction to order the elements, either `asc` or `desc`.
         :param filters: Filters to filter the elements.
         :return: Async iterable of the elements.
         """
-        return self._table_manager.list(*clauses, **filters)
+        return self._table_manager.list(*clauses, order_by=order_by, order_direction=order_direction, **filters)
 
     async def drop(self, *clauses, **filters) -> int:
         """Drops elements in the repository.

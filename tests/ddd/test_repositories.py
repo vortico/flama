@@ -155,17 +155,23 @@ class TestCaseSQLAlchemyTableManager:
             await table_manager.delete(*[c(table.c["name"]) for c in clauses], **filters)
 
     @pytest.mark.parametrize(
-        ["clauses", "filters", "result"],
+        ["clauses", "order_by", "order_direction", "filters", "result"],
         (
-            pytest.param([], {}, [{"id": 1, "name": "foo"}, {"id": 2, "name": "bar"}], id="all"),
-            pytest.param([lambda x: x.ilike("fo%")], {}, [{"id": 1, "name": "foo"}], id="clauses"),
-            pytest.param([], {"name": "foo"}, [{"id": 1, "name": "foo"}], id="filters"),
+            pytest.param([], None, None, {}, [{"id": 1, "name": "foo"}, {"id": 2, "name": "bar"}], id="all"),
+            pytest.param([lambda x: x.ilike("fo%")], None, None, {}, [{"id": 1, "name": "foo"}], id="clauses"),
+            pytest.param([], "name", "asc", {}, [{"id": 2, "name": "bar"}, {"id": 1, "name": "foo"}], id="order"),
+            pytest.param([], None, None, {"name": "foo"}, [{"id": 1, "name": "foo"}], id="filters"),
         ),
     )
-    async def test_list(self, clauses, filters, result, table, table_manager):
+    async def test_list(self, clauses, order_by, order_direction, filters, result, table, table_manager):
         await table_manager.create({"name": "foo"}, {"name": "bar"})
 
-        r = [x async for x in table_manager.list(*[c(table.c["name"]) for c in clauses], **filters)]
+        r = [
+            x
+            async for x in table_manager.list(
+                *[c(table.c["name"]) for c in clauses], order_by=order_by, order_direction=order_direction, **filters
+            )
+        ]
 
         assert r == result
 
@@ -253,11 +259,15 @@ class TestCaseSQLAlchemyTableRepository:
 
     async def test_list(self, repository, table_manager):
         clauses = [Mock(), Mock()]
+        order_by = "foo"
+        order_direction = "desc"
         filters = {"foo": "bar"}
 
-        repository.list(*clauses, **filters)
+        repository.list(*clauses, order_by=order_by, order_direction=order_direction, **filters)
 
-        assert table_manager.list.call_args_list == [call(*clauses, **filters)]
+        assert table_manager.list.call_args_list == [
+            call(*clauses, order_by=order_by, order_direction=order_direction, **filters)
+        ]
 
     async def test_drop(self, repository, table_manager):
         await repository.drop()

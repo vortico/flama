@@ -199,9 +199,20 @@ class ListMixin:
         cls, name: str, verbose_name: str, rest_schemas: data_structures.Schemas, **kwargs
     ) -> t.Dict[str, t.Any]:
         @resource_method("/", methods=["GET"], name=f"{name}-list", pagination="page_number")
-        async def list(self, worker: FlamaWorker, **kwargs) -> types.Schema[rest_schemas.output.schema]:
+        async def list(
+            self,
+            worker: FlamaWorker,
+            order_by: t.Optional[str] = None,
+            order_direction: str = "asc",
+            **kwargs,
+        ) -> types.Schema[rest_schemas.output.schema]:
             async with worker:
-                return [x async for x in worker.repositories[self._meta.name].list()]  # type: ignore[return-value]
+                return [  # type: ignore[return-value]
+                    x
+                    async for x in worker.repositories[self._meta.name].list(
+                        order_by=order_by, order_direction=order_direction
+                    )
+                ]
 
         list.__doc__ = f"""
             tags:
