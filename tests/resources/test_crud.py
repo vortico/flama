@@ -344,6 +344,8 @@ class TestCaseCRUDListResource:
             async def list(
                 self,
                 worker: FlamaWorker,
+                order_by: typing.Optional[str] = None,
+                order_direction: str = "asc",
                 name: typing.Optional[str] = None,
                 custom_id__le: typing.Optional[int] = None,
                 **kwargs,
@@ -362,7 +364,12 @@ class TestCaseCRUDListResource:
                     filters["name"] = name
 
                 async with worker:
-                    return [x async for x in worker.repositories[self._meta.name].list(*clauses, **filters)]
+                    return [
+                        x
+                        async for x in worker.repositories[self._meta.name].list(
+                            *clauses, order_by=order_by, order_direction=order_direction, **filters
+                        )
+                    ]
 
         return PuppyResource()
 
@@ -425,6 +432,34 @@ class TestCaseCRUDListResource:
 
         # List all the existing records
         response = await client.request("get", "/puppy/")
+        assert response.status_code == 200, response.json()
+        assert response.json()["data"] == expected_result
+
+    async def test_list_order(self, client, puppy, another_puppy):
+        expected_puppy_id = 1
+        expected_another_puppy_id = 2
+        created_result_1 = puppy.copy()
+        created_result_1["custom_id"] = expected_puppy_id
+        created_result_2 = another_puppy.copy()
+        created_result_2["custom_id"] = expected_another_puppy_id
+        expected_result = [another_puppy.copy(), puppy.copy()]
+        expected_result[1]["custom_id"] = expected_puppy_id
+        expected_result[0]["custom_id"] = expected_another_puppy_id
+
+        # Successfully create a new record
+        response = await client.request("post", "/puppy/", json=puppy)
+        assert response.status_code == 201, response.json()
+        created_puppy = response.json()
+        assert created_puppy == created_result_1
+
+        # Successfully create another new record
+        response = await client.request("post", "/puppy/", json=another_puppy)
+        assert response.status_code == 201, response.json()
+        created_second_puppy = response.json()
+        assert created_second_puppy == created_result_2
+
+        # List all the existing records
+        response = await client.request("get", "/puppy/", params={"order_by": "name", "order_direction": "desc"})
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == expected_result
 
