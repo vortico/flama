@@ -42,9 +42,9 @@ class TestCaseResourceRoute:
             assert isinstance(route, Route)
         assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
             ("/", {"POST"}, resource_route.resource.create, {"tag": "create"}),
-            ("/{element_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve, {"tag": "retrieve"}),
-            ("/{element_id}/", {"PUT"}, resource_route.resource.update, {"tag": "update"}),
-            ("/{element_id}/", {"DELETE"}, resource_route.resource.delete, {"tag": "delete"}),
+            ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve, {"tag": "retrieve"}),
+            ("/{resource_id}/", {"PUT"}, resource_route.resource.update, {"tag": "update"}),
+            ("/{resource_id}/", {"DELETE"}, resource_route.resource.delete, {"tag": "delete"}),
             ("/", {"GET", "HEAD"}, resource_route.resource.list, {"tag": "list"}),
         ]
 
@@ -75,9 +75,9 @@ class TestCaseResourceRoute:
         assert isinstance(resource_route, ResourceRoute)
         assert [(route.path, route.methods, route.endpoint) for route in resource_route.routes] == [
             ("/", {"POST"}, resource_route.resource.create),
-            ("/{element_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
-            ("/{element_id}/", {"PUT"}, resource_route.resource.update),
-            ("/{element_id}/", {"DELETE"}, resource_route.resource.delete),
+            ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
+            ("/{resource_id}/", {"PUT"}, resource_route.resource.update),
+            ("/{resource_id}/", {"DELETE"}, resource_route.resource.delete),
             ("/", {"GET", "HEAD"}, resource_route.resource.list),
         ]
 
@@ -99,9 +99,9 @@ class TestCaseResourceRoute:
         assert isinstance(resource_route, ResourceRoute)
         assert [(route.path, route.methods, route.endpoint) for route in resource_route.routes] == [
             ("/", {"POST"}, resource_route.resource.create),
-            ("/{element_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
-            ("/{element_id}/", {"PUT"}, resource_route.resource.update),
-            ("/{element_id}/", {"DELETE"}, resource_route.resource.delete),
+            ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
+            ("/{resource_id}/", {"PUT"}, resource_route.resource.update),
+            ("/{resource_id}/", {"DELETE"}, resource_route.resource.delete),
             ("/", {"GET", "HEAD"}, resource_route.resource.list),
         ]
 

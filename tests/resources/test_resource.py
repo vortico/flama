@@ -67,10 +67,10 @@ class TestCaseBaseResource:
         resource = PuppyResource()
 
         expected_routes = [
-            ("/", resource.create, {"POST"}, "puppy-create"),
-            ("/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
-            ("/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
-            ("/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
+            ("/", resource.create, {"POST"}, "create"),
+            ("/{resource_id}/", resource.retrieve, {"GET", "HEAD"}, "retrieve"),
+            ("/{resource_id}/", resource.update, {"PUT"}, "update"),
+            ("/{resource_id}/", resource.delete, {"DELETE"}, "delete"),
         ]
 
         app.resources.add_resource("/", resource)
@@ -91,11 +91,11 @@ class TestCaseBaseResource:
         resource = PuppyResource()
 
         expected_routes = [
-            ("/", resource.create, {"POST"}, "puppy-create"),
-            ("/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
-            ("/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
-            ("/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
-            ("/", resource.list, {"GET", "HEAD"}, "puppy-list"),
+            ("/", resource.create, {"POST"}, "create"),
+            ("/{resource_id}/", resource.retrieve, {"GET", "HEAD"}, "retrieve"),
+            ("/{resource_id}/", resource.update, {"PUT"}, "update"),
+            ("/{resource_id}/", resource.delete, {"DELETE"}, "delete"),
+            ("/", resource.list, {"GET", "HEAD"}, "list"),
         ]
 
         app.resources.add_resource("/", resource)
@@ -121,12 +121,12 @@ class TestCaseBaseResource:
         resource = PuppyResource()
 
         expected_routes = [
-            ("/", resource.create, {"POST"}, "puppy-create"),
-            ("/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
-            ("/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
-            ("/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
-            ("/", resource.list, {"GET", "HEAD"}, "puppy-list"),
-            ("/", resource.drop, {"DELETE"}, "puppy-drop"),
+            ("/", resource.create, {"POST"}, "create"),
+            ("/{resource_id}/", resource.retrieve, {"GET", "HEAD"}, "retrieve"),
+            ("/{resource_id}/", resource.update, {"PUT"}, "update"),
+            ("/{resource_id}/", resource.delete, {"DELETE"}, "delete"),
+            ("/", resource.list, {"GET", "HEAD"}, "list"),
+            ("/", resource.drop, {"DELETE"}, "drop"),
         ]
 
         app.resources.add_resource("/", resource)

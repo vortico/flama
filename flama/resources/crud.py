@@ -30,21 +30,24 @@ class CreateMixin:
         rest_model: data_structures.Model,
         **kwargs,
     ) -> t.Dict[str, t.Any]:
-        @resource_method("/", methods=["POST"], name=f"{name}-create")
+        @resource_method("/", methods=["POST"], name="create")
         async def create(
             self,
             worker: FlamaWorker,
-            element: types.Schema[rest_schemas.input.schema],
+            resource: types.Schema[rest_schemas.input.schema],
         ) -> types.Schema[rest_schemas.output.schema]:
-            if element.get(rest_model.primary_key.name) is None:
-                element.pop(rest_model.primary_key.name, None)
+            if resource.get(rest_model.primary_key.name) is None:
+                resource.pop(rest_model.primary_key.name, None)
 
             async with worker:
-                result = await worker.repositories[self._meta.name].create(element)
+                result = await worker.repositories[self._meta.name].create(resource)
 
             return http.APIResponse(  # type: ignore[return-value]
                 schema=rest_schemas.output.schema,
-                content={**element, **dict(zip([x.name for x in self.model.primary_key], result[0] if result else []))},
+                content={
+                    **resource,
+                    **dict(zip([x.name for x in self.model.primary_key], result[0] if result else [])),
+                },
                 status_code=201,
             )
 
@@ -52,13 +55,13 @@ class CreateMixin:
             tags:
                 - {verbose_name}
             summary:
-                Create a new document
+                Create a new resource
             description:
-                Create a new document in this resource.
+                Create a new resource in this collection.
             responses:
                 201:
                     description:
-                        Document created successfully.
+                        Resource created successfully.
         """
 
         return {"_create": create}
@@ -74,16 +77,16 @@ class RetrieveMixin:
         rest_model: data_structures.Model,
         **kwargs,
     ) -> t.Dict[str, t.Any]:
-        @resource_method("/{element_id}/", methods=["GET"], name=f"{name}-retrieve")
+        @resource_method("/{resource_id}/", methods=["GET"], name="retrieve")
         async def retrieve(
             self,
             worker: FlamaWorker,
-            element_id: rest_model.primary_key.type,
+            resource_id: rest_model.primary_key.type,
         ) -> types.Schema[rest_schemas.output.schema]:
             try:
                 async with worker:
                     return await worker.repositories[self._meta.name].retrieve(
-                        **{rest_model.primary_key.name: element_id}
+                        **{rest_model.primary_key.name: resource_id}
                     )
             except ddd_exceptions.NotFoundError:
                 raise exceptions.HTTPException(status_code=404)
@@ -92,16 +95,16 @@ class RetrieveMixin:
             tags:
                 - {verbose_name}
             summary:
-                Retrieve a document
+                Retrieve a resource
             description:
-                Retrieve a document from this resource.
+                Retrieve a resource from this collection.
             responses:
                 200:
                     description:
-                        Document found.
+                        Resource found and retrieved.
                 404:
                     description:
-                        Document not found.
+                        Resource not found.
         """
 
         return {"_retrieve": retrieve}
@@ -117,43 +120,43 @@ class UpdateMixin:
         rest_model: data_structures.Model,
         **kwargs,
     ) -> t.Dict[str, t.Any]:
-        @resource_method("/{element_id}/", methods=["PUT"], name=f"{name}-update")
+        @resource_method("/{resource_id}/", methods=["PUT"], name="update")
         async def update(
             self,
             worker: FlamaWorker,
-            element_id: rest_model.primary_key.type,
-            element: types.Schema[rest_schemas.input.schema],
+            resource_id: rest_model.primary_key.type,
+            resource: types.Schema[rest_schemas.input.schema],
         ) -> types.Schema[rest_schemas.output.schema]:
             schema = schemas.Schema(rest_schemas.input.schema)
             clean_element = types.Schema[rest_schemas.input.schema](
-                {k: v for k, v in schema.dump(element).items() if k != rest_model.primary_key.name}
+                {k: v for k, v in schema.dump(resource).items() if k != rest_model.primary_key.name}
             )
             async with worker:
                 result = await worker.repositories[self._meta.name].update(
-                    clean_element, **{rest_model.primary_key.name: element_id}
+                    clean_element, **{rest_model.primary_key.name: resource_id}
                 )
 
             if result == 0:
                 raise exceptions.HTTPException(status_code=404)
 
             return types.Schema[rest_schemas.output.schema](
-                {**clean_element, **{rest_model.primary_key.name: element_id}}
+                {**clean_element, **{rest_model.primary_key.name: resource_id}}
             )
 
         update.__doc__ = f"""
             tags:
                 - {verbose_name}
             summary:
-                Update a document
+                Update a resource
             description:
-                Update a document in this resource.
+                Update a resource in this collection.
             responses:
                 200:
                     description:
-                        Document updated successfully.
+                        Resource updated successfully.
                 404:
                     description:
-                        Document not found.
+                        Resource not found.
         """
 
         return {"_update": update}
@@ -164,11 +167,11 @@ class DeleteMixin:
     def _add_delete(
         cls, name: str, verbose_name: str, rest_model: data_structures.Model, **kwargs
     ) -> t.Dict[str, t.Any]:
-        @resource_method("/{element_id}/", methods=["DELETE"], name=f"{name}-delete")
-        async def delete(self, worker: FlamaWorker, element_id: rest_model.primary_key.type):
+        @resource_method("/{resource_id}/", methods=["DELETE"], name="delete")
+        async def delete(self, worker: FlamaWorker, resource_id: rest_model.primary_key.type):
             try:
                 async with worker:
-                    await worker.repositories[self._meta.name].delete(**{rest_model.primary_key.name: element_id})
+                    await worker.repositories[self._meta.name].delete(**{rest_model.primary_key.name: resource_id})
             except ddd_exceptions.NotFoundError:
                 raise exceptions.HTTPException(status_code=404)
 
@@ -178,16 +181,16 @@ class DeleteMixin:
             tags:
                 - {verbose_name}
             summary:
-                Delete a document
+                Delete a resource
             description:
-                Delete a document in this resource.
+                Delete a resource in this collection.
             responses:
                 204:
                     description:
-                        Document deleted successfully.
+                        Resource deleted successfully.
                 404:
                     description:
-                        Document not found.
+                        Resource not found.
         """
 
         return {"_delete": delete}
@@ -198,7 +201,7 @@ class ListMixin:
     def _add_list(
         cls, name: str, verbose_name: str, rest_schemas: data_structures.Schemas, **kwargs
     ) -> t.Dict[str, t.Any]:
-        @resource_method("/", methods=["GET"], name=f"{name}-list", pagination="page_number")
+        @resource_method("/", methods=["GET"], name="list", pagination="page_number")
         async def list(
             self,
             worker: FlamaWorker,
@@ -220,11 +223,11 @@ class ListMixin:
             summary:
                 List collection
             description:
-                List resource collection.
+                List all resources in this collection.
             responses:
                 200:
                     description:
-                        List collection items.
+                        Resources list.
         """
 
         return {"_list": list}
@@ -233,7 +236,7 @@ class ListMixin:
 class DropMixin:
     @classmethod
     def _add_drop(cls, name: str, verbose_name: str, **kwargs) -> t.Dict[str, t.Any]:
-        @resource_method("/", methods=["DELETE"], name=f"{name}-drop")
+        @resource_method("/", methods=["DELETE"], name="drop")
         async def drop(self, worker: FlamaWorker) -> types.Schema[schemas.schemas.DropCollection]:
             async with worker:
                 result = await worker.repositories[self._meta.name].drop()
@@ -248,7 +251,7 @@ class DropMixin:
             summary:
                 Drop collection
             description:
-                Drop resource collection.
+                Drop all resources in this collection.
             responses:
                 204:
                     description:

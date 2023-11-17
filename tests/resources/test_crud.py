@@ -179,10 +179,10 @@ class TestCaseCRUDResource:
 
     def test_crud_resource(self, resource, puppy_model, puppy_schema, app):
         expected_routes = [
-            ("/", resource.create, {"POST"}, "puppy-create"),
-            ("/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
-            ("/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
-            ("/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
+            ("/", resource.create, {"POST"}, "create"),
+            ("/{resource_id}/", resource.retrieve, {"GET", "HEAD"}, "retrieve"),
+            ("/{resource_id}/", resource.update, {"PUT"}, "update"),
+            ("/{resource_id}/", resource.delete, {"DELETE"}, "delete"),
         ]
 
         assert len(app.routes) == 1
@@ -340,7 +340,7 @@ class TestCaseCRUDListResource:
             input_schema = puppy_schema
             output_schema = puppy_schema
 
-            @resource_method("/", methods=["GET"], name="puppy-list", pagination="page_number")
+            @resource_method("/", methods=["GET"], name="list", pagination="page_number")
             async def list(
                 self,
                 worker: FlamaWorker,
@@ -375,11 +375,11 @@ class TestCaseCRUDListResource:
 
     def test_crud_list_resource(self, resource, puppy_model, puppy_schema, app):
         expected_routes = [
-            ("/", resource.list, {"GET", "HEAD"}, "puppy-list"),
-            ("/", resource.create, {"POST"}, "puppy-create"),
-            ("/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
-            ("/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
-            ("/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
+            ("/", resource.list, {"GET", "HEAD"}, "list"),
+            ("/", resource.create, {"POST"}, "create"),
+            ("/{resource_id}/", resource.retrieve, {"GET", "HEAD"}, "retrieve"),
+            ("/{resource_id}/", resource.update, {"PUT"}, "update"),
+            ("/{resource_id}/", resource.delete, {"DELETE"}, "delete"),
         ]
 
         assert hasattr(resource, "create")
@@ -511,12 +511,12 @@ class TestCaseCRUDListDropResource:
 
     def test_crud_list_drop_resource(self, resource, puppy_model, puppy_schema, app):
         expected_routes = [
-            ("/", resource.create, {"POST"}, "puppy-create"),
-            ("/{element_id}/", resource.retrieve, {"GET", "HEAD"}, "puppy-retrieve"),
-            ("/{element_id}/", resource.update, {"PUT"}, "puppy-update"),
-            ("/{element_id}/", resource.delete, {"DELETE"}, "puppy-delete"),
-            ("/", resource.list, {"GET", "HEAD"}, "puppy-list"),
-            ("/", resource.drop, {"DELETE"}, "puppy-drop"),
+            ("/", resource.create, {"POST"}, "create"),
+            ("/{resource_id}/", resource.retrieve, {"GET", "HEAD"}, "retrieve"),
+            ("/{resource_id}/", resource.update, {"PUT"}, "update"),
+            ("/{resource_id}/", resource.delete, {"DELETE"}, "delete"),
+            ("/", resource.list, {"GET", "HEAD"}, "list"),
+            ("/", resource.drop, {"DELETE"}, "drop"),
         ]
 
         assert hasattr(resource, "create")
