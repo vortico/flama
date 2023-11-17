@@ -21,7 +21,7 @@ class InspectMixin:
     def _add_inspect(
         cls, name: str, verbose_name: str, model_model_type: t.Type["Model"], **kwargs
     ) -> t.Dict[str, t.Any]:
-        @resource_method("/", methods=["GET"], name=f"{name}-inspect")
+        @resource_method("/", methods=["GET"], name="inspect")
         async def inspect(self, model: model_model_type):  # type: ignore[valid-type]
             return model.inspect()  # type: ignore[attr-defined]
 
@@ -46,7 +46,7 @@ class PredictMixin:
     def _add_predict(
         cls, name: str, verbose_name: str, model_model_type: t.Type["Model"], **kwargs
     ) -> t.Dict[str, t.Any]:
-        @resource_method("/predict/", methods=["POST"], name=f"{name}-predict")
+        @resource_method("/predict/", methods=["POST"], name="predict")
         async def predict(
             self,
             model: model_model_type,  # type: ignore[valid-type]

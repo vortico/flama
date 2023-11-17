@@ -39,9 +39,9 @@ class TestCaseResourcesModule:
             assert len(resource_route.routes) == 4
             assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
                 ("/", {"POST"}, resource.create, {"tag": "create"}),
-                ("/{element_id}/", {"GET", "HEAD"}, resource.retrieve, {"tag": "retrieve"}),
-                ("/{element_id}/", {"PUT"}, resource.update, {"tag": "update"}),
-                ("/{element_id}/", {"DELETE"}, resource.delete, {"tag": "delete"}),
+                ("/{resource_id}/", {"GET", "HEAD"}, resource.retrieve, {"tag": "retrieve"}),
+                ("/{resource_id}/", {"PUT"}, resource.update, {"tag": "update"}),
+                ("/{resource_id}/", {"DELETE"}, resource.delete, {"tag": "delete"}),
             ]
         finally:
             del app.resources.worker._repositories[PuppyResource._meta.name]
@@ -63,9 +63,9 @@ class TestCaseResourcesModule:
             assert len(resource_route.routes) == 4
             assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
                 ("/", {"POST"}, resource.create, {"tag": "create"}),
-                ("/{element_id}/", {"GET", "HEAD"}, resource.retrieve, {"tag": "retrieve"}),
-                ("/{element_id}/", {"PUT"}, resource.update, {"tag": "update"}),
-                ("/{element_id}/", {"DELETE"}, resource.delete, {"tag": "delete"}),
+                ("/{resource_id}/", {"GET", "HEAD"}, resource.retrieve, {"tag": "retrieve"}),
+                ("/{resource_id}/", {"PUT"}, resource.update, {"tag": "update"}),
+                ("/{resource_id}/", {"DELETE"}, resource.delete, {"tag": "delete"}),
             ]
         finally:
             del app.resources.worker._repositories[PuppyResource._meta.name]
@@ -92,9 +92,9 @@ class TestCaseResourcesModule:
             assert len(resource_route.routes) == 4
             assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
                 ("/", {"POST"}, resource_route.resource.create, {"tag": "create"}),
-                ("/{element_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve, {"tag": "retrieve"}),
-                ("/{element_id}/", {"PUT"}, resource_route.resource.update, {"tag": "update"}),
-                ("/{element_id}/", {"DELETE"}, resource_route.resource.delete, {"tag": "delete"}),
+                ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve, {"tag": "retrieve"}),
+                ("/{resource_id}/", {"PUT"}, resource_route.resource.update, {"tag": "update"}),
+                ("/{resource_id}/", {"DELETE"}, resource_route.resource.delete, {"tag": "delete"}),
             ]
             assert isinstance(resource_route.resource, PuppyResource)
             assert PuppyResource._meta.name in app.resources.worker._repositories
