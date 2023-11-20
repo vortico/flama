@@ -1,0 +1,53 @@
+name: Bug
+description: Report a bug
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: A clear and concise description of what the bug consists of.
+      placeholder: Describe the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: proposition
+    attributes:
+      label: Reproduce steps
+      description: A clear of steps to reproduce the bug.
+      placeholder: What did you do to run into this bug?
+    validations:
+      required: true
+  - type: dropdown
+    id: schemas
+    attributes:
+      label: Schema library
+      description: The schema library used in your project.
+      options:
+        - Pydantic
+        - Marshmallow
+        - Typesystem
+    validations:
+      required: false
+  - type: dropdown
+    id: models
+    attributes:
+      label: Models library
+      description: The models library used in your project.
+      options:
+        - Scikit Learn
+        - TensorFlow
+        - PyTorch
+    validations:
+      required: false
+  - type: textarea
+    id: logs 
+    attributes:
+      label: Error logs
+      description: Any log and error trace that could be useful for fixing this bug.
+    validations:
+      required: false

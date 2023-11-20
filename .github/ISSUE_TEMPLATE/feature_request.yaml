@@ -1,0 +1,32 @@
+name: Feature request
+description: Request a new feature
+labels: ["feature request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this request!
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: A clear and concise description of what the feature will consists of.
+      placeholder: Describe the feature.
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What drives these changes.
+      placeholder: Tell us why this feature is relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: proposition
+    attributes:
+      label: Proposed changes
+      description: A clear and concise description of what you want to happen. It could be piece of code prototyping the changes, or demonstrating how the interface of the new feature will be.
+      placeholder: Here you have an space for explaining in detail what the new issue consists of.
+    validations:
+      required: true
