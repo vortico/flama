@@ -65,9 +65,14 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
             name=name or self.DEFAULT_SCHEMA_NAME,
         )
 
-    def validate(self, schema: t.Union[t.Type[Schema], Schema], values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    def validate(
+        self, schema: t.Union[t.Type[Schema], Schema], values: t.Dict[str, t.Any], *, partial: bool = False
+    ) -> t.Dict[str, t.Any]:
         try:
-            return t.cast(t.Dict[str, t.Any], self._schema_instance(schema).load(values, unknown=marshmallow.EXCLUDE))
+            return t.cast(
+                t.Dict[str, t.Any],
+                self._schema_instance(schema).load(values, unknown=marshmallow.EXCLUDE, partial=partial),
+            )
         except marshmallow.ValidationError as exc:
             raise SchemaValidationError(errors=exc.normalized_messages())
 

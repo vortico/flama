@@ -51,7 +51,6 @@ class TestCaseTypesystemSchemaValidateOutput:
         else:
             raise ValueError("Wrong schema lib")
 
-        app.schema.schemas["Product"] = schema
         return schema
 
     @pytest.fixture(scope="function", autouse=True)

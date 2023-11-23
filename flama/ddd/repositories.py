@@ -46,7 +46,7 @@ class SQLAlchemyTableManager:
             and self.table == other.table
         )
 
-    async def create(self, *data: t.Union[t.Dict[str, t.Any], types.Schema]) -> t.List[t.Tuple[t.Any, ...]]:
+    async def create(self, *data: t.Union[t.Dict[str, t.Any], types.Schema]) -> t.List[types.Schema]:
         """Creates new elements in the table.
 
         If the element already exists, it raises an `IntegrityError`. If the element is created, it returns
@@ -57,10 +57,10 @@ class SQLAlchemyTableManager:
         :raises IntegrityError: If the element already exists or cannot be inserted.
         """
         try:
-            result = await self._connection.execute(sqlalchemy.insert(self.table), data)
+            result = await self._connection.execute(sqlalchemy.insert(self.table).values(data).returning(self.table))
         except sqlalchemy.exc.IntegrityError as e:
             raise exceptions.IntegrityError(str(e))
-        return [tuple(x) for x in result.inserted_primary_key_rows]
+        return [types.Schema(element._asdict()) for element in result]
 
     async def retrieve(self, *clauses, **filters) -> types.Schema:
         """Retrieves an element from the table.
@@ -71,7 +71,7 @@ class SQLAlchemyTableManager:
         Clauses are used to filter the elements using sqlalchemy clauses. Filters are used to filter the elements
         using exact values to specific columns. Clauses and filters can be combined.
 
-        Clause example: `table.c["id"]._in((1, 2, 3))`
+        Clause example: `table.c["id"].in_((1, 2, 3))`
         Filter example: `id=1`
 
         :param id: The primary key of the element.
@@ -90,7 +90,9 @@ class SQLAlchemyTableManager:
 
         return types.Schema(element._asdict())
 
-    async def update(self, data: t.Union[t.Dict[str, t.Any], types.Schema], *clauses, **filters) -> int:
+    async def update(
+        self, data: t.Union[t.Dict[str, t.Any], types.Schema], *clauses, **filters
+    ) -> t.List[types.Schema]:
         """Updates elements in the table.
 
         Using clauses and filters, it filters the elements to update. If no clauses or filters are given, it updates
@@ -102,14 +104,16 @@ class SQLAlchemyTableManager:
         :return: The number of elements updated.
         :raises IntegrityError: If the element cannot be updated.
         """
-        query = self._filter_query(sqlalchemy.update(self.table), *clauses, **filters).values(**data)
+        query = (
+            self._filter_query(sqlalchemy.update(self.table), *clauses, **filters).values(**data).returning(self.table)
+        )
 
         try:
             result = await self._connection.execute(query)
         except sqlalchemy.exc.IntegrityError:
             raise exceptions.IntegrityError
 
-        return result.rowcount
+        return [types.Schema(element._asdict()) for element in result]
 
     async def delete(self, *clauses, **filters) -> None:
         """Delete elements from the table.
@@ -119,7 +123,7 @@ class SQLAlchemyTableManager:
         Clauses are used to filter the elements using sqlalchemy clauses. Filters are used to filter the elements using
         exact values to specific columns. Clauses and filters can be combined.
 
-        Clause example: `table.c["id"]._in((1, 2, 3))`
+        Clause example: `table.c["id"].in_((1, 2, 3))`
         Filter example: `id=1`
 
         :param clauses: Clauses to filter the elements.
@@ -144,7 +148,7 @@ class SQLAlchemyTableManager:
         Clauses are used to filter the elements using sqlalchemy clauses. Filters are used to filter the elements using
         exact values to specific columns. Clauses and filters can be combined.
 
-        Clause example: `table.c["id"]._in((1, 2, 3))`
+        Clause example: `table.c["id"].in_((1, 2, 3))`
         Order example: `order_by="id", order_direction="desc"`
         Filter example: `id=1`
 
@@ -175,7 +179,7 @@ class SQLAlchemyTableManager:
         Clauses are used to filter the elements using sqlalchemy clauses. Filters are used to filter the elements using
         exact values to specific columns. Clauses and filters can be combined.
 
-        Clause example: `table.c["id"]._in((1, 2, 3))`
+        Clause example: `table.c["id"].in_((1, 2, 3))`
         Filter example: `id=1`
 
         :param clauses: Clauses to filter the elements.
@@ -197,7 +201,7 @@ class SQLAlchemyTableManager:
         Clauses are used to filter the elements using sqlalchemy clauses. Filters are used to filter the elements using
         exact values to specific columns. Clauses and filters can be combined.
 
-        Clause example: `table.c["id"]._in((1, 2, 3))`
+        Clause example: `table.c["id"].in_((1, 2, 3))`
         Filter example: `id=1`
 
         :param query: The query to filter.
@@ -223,7 +227,7 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
     def __eq__(self, other):
         return isinstance(other, SQLAlchemyTableRepository) and self._table == other._table and super().__eq__(other)
 
-    async def create(self, *data: t.Union[t.Dict[str, t.Any], types.Schema]) -> t.List[t.Tuple[t.Any, ...]]:
+    async def create(self, *data: t.Union[t.Dict[str, t.Any], types.Schema]) -> t.List[types.Schema]:
         """Creates new elements in the repository.
 
         If the element already exists, it raises an `exceptions.IntegrityError`. If the element is created, it returns
@@ -244,7 +248,7 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         Clauses are used to filter the elements using sqlalchemy clauses. Filters are used to filter the elements
         using exact values to specific columns. Clauses and filters can be combined.
 
-        Clause example: `table.c["id"]._in((1, 2, 3))`
+        Clause example: `table.c["id"].in_((1, 2, 3))`
         Filter example: `id=1`
 
         :param clauses: Clauses to filter the elements.
@@ -255,7 +259,9 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         """
         return await self._table_manager.retrieve(*clauses, **filters)
 
-    async def update(self, data: t.Union[t.Dict[str, t.Any], types.Schema], *clauses, **filters) -> int:
+    async def update(
+        self, data: t.Union[t.Dict[str, t.Any], types.Schema], *clauses, **filters
+    ) -> t.List[types.Schema]:
         """Updates an element in the repository.
 
         If the element does not exist, it raises a `NotFoundError`. If the element is updated, it returns the updated
@@ -275,7 +281,7 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         Clauses are used to filter the elements using sqlalchemy clauses. Filters are used to filter the elements
         using exact values to specific columns. Clauses and filters can be combined.
 
-        Clause example: `table.c["id"]._in((1, 2, 3))`
+        Clause example: `table.c["id"].in_((1, 2, 3))`
         Filter example: `id=1`
 
         :param id: The primary key of the element.
@@ -297,7 +303,7 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         Clauses are used to filter the elements using sqlalchemy clauses. Filters are used to filter the elements using
         exact values to specific columns. Clauses and filters can be combined.
 
-        Clause example: `table.c["id"]._in((1, 2, 3))`
+        Clause example: `table.c["id"].in_((1, 2, 3))`
         Order example: `order_by="id", order_direction="desc"`
         Filter example: `id=1`
 
@@ -318,7 +324,7 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         Clauses are used to filter the elements using sqlalchemy clauses. Filters are used to filter the elements using
         exact values to specific columns. Clauses and filters can be combined.
 
-        Clause example: `table.c["id"]._in((1, 2, 3))`
+        Clause example: `table.c["id"].in_((1, 2, 3))`
         Filter example: `id=1`
 
         :param clauses: Clauses to filter the elements.

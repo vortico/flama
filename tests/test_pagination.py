@@ -101,15 +101,7 @@ class TestCasePageNumberPagination:
             "description": "Description not provided.",
             "content": {
                 "application/json": {
-                    "schema": {
-                        "oneOf": [
-                            {"$ref": f"#/components/schemas/{paginated_output_schema_name}"},
-                            {
-                                "items": {"$ref": f"#/components/schemas/{paginated_output_schema_name}"},
-                                "type": "array",
-                            },
-                        ]
-                    }
+                    "schema": {"$ref": f"#/components/schemas/{paginated_output_schema_name}"},
                 }
             },
         }
@@ -234,15 +226,7 @@ class TestCaseLimitOffsetPagination:
             "description": "Description not provided.",
             "content": {
                 "application/json": {
-                    "schema": {
-                        "oneOf": [
-                            {"$ref": f"#/components/schemas/{paginated_output_schema_name}"},
-                            {
-                                "items": {"$ref": f"#/components/schemas/{paginated_output_schema_name}"},
-                                "type": "array",
-                            },
-                        ]
-                    }
+                    "schema": {"$ref": f"#/components/schemas/{paginated_output_schema_name}"},
                 }
             },
         }

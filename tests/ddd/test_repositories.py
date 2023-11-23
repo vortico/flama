@@ -91,14 +91,24 @@ class TestCaseSQLAlchemyTableManager:
     @pytest.mark.parametrize(
         ["data", "result", "exception"],
         (
-            pytest.param([{"name": "foo"}], [(1,)], None, id="single"),
+            pytest.param(
+                [{"name": "foo"}],
+                [{"id": 1, "name": "foo"}],
+                None,
+                id="single",
+            ),
             pytest.param(
                 [{"name": "foo"}, {"name": "bar"}],
-                [(None,), (None,)],  # SQlite doesn't allow to retrieve pk from bulk inserts
+                [{"id": 1, "name": "foo"}, {"id": 2, "name": "bar"}],
                 None,
                 id="multiple",
             ),
-            pytest.param([{"name": None}], None, exceptions.IntegrityError, id="integrity_error"),
+            pytest.param(
+                [{"name": None}],
+                None,
+                exceptions.IntegrityError,
+                id="integrity_error",
+            ),
         ),
         indirect=["exception"],
     )
@@ -126,10 +136,38 @@ class TestCaseSQLAlchemyTableManager:
     @pytest.mark.parametrize(
         ["clauses", "filters", "data", "result", "exception"],
         (
-            pytest.param([], {"id": 1}, {"name": "bar"}, 1, None, id="ok"),
-            pytest.param([], {"id": 0}, {"name": "bar"}, 0, None, id="not_found"),
-            pytest.param([], {"id": 1}, {"name": None}, None, exceptions.IntegrityError, id="integrity_error"),
-            pytest.param([lambda x: x.ilike("fo%")], {}, {"name": "bar"}, 2, None, id="multiple_results"),
+            pytest.param(
+                [],
+                {"id": 1},
+                {"name": "bar"},
+                [{"id": 1, "name": "bar"}],
+                None,
+                id="ok",
+            ),
+            pytest.param(
+                [],
+                {"id": 0},
+                {"name": "bar"},
+                [],
+                None,
+                id="not_found",
+            ),
+            pytest.param(
+                [],
+                {"id": 1},
+                {"name": None},
+                [{"id": 1, "name": None}],
+                exceptions.IntegrityError,
+                id="integrity_error",
+            ),
+            pytest.param(
+                [lambda x: x.ilike("fo%")],
+                {},
+                {"name": "bar"},
+                [{"id": 1, "name": "bar"}, {"id": 2, "name": "bar"}],
+                None,
+                id="multiple_results",
+            ),
         ),
         indirect=["exception"],
     )

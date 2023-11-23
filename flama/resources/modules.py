@@ -2,7 +2,7 @@ import inspect
 import typing as t
 
 from flama.modules import Module
-from flama.resources.resource import BaseResource
+from flama.resources.resource import Resource
 from flama.resources.routing import ResourceRoute
 from flama.resources.workers import FlamaWorker
 
@@ -19,20 +19,20 @@ class ResourcesModule(Module):
     def add_resource(
         self,
         path: str,
-        resource: t.Union[BaseResource, t.Type[BaseResource]],
+        resource: t.Union[Resource, t.Type[Resource]],
         tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None,
         *args,
         **kwargs
-    ) -> "BaseResource":
+    ) -> "Resource":
         """Adds a resource to this application, setting its endpoints.
 
         :param path: Resource base path.
         :param tags: Tags to add to the resource.
         :param resource: Resource class.
         """
-        if inspect.isclass(resource) and issubclass(resource, BaseResource):
+        if inspect.isclass(resource) and issubclass(resource, Resource):
             resource_instance = resource(*args, **kwargs)
-        elif isinstance(resource, BaseResource):
+        elif isinstance(resource, Resource):
             resource_instance = resource
         else:
             raise ValueError("Wrong resource")
@@ -51,7 +51,7 @@ class ResourcesModule(Module):
         :return: Decorated resource class.
         """
 
-        def decorator(resource: t.Type[BaseResource]) -> t.Type[BaseResource]:
+        def decorator(resource: t.Type[Resource]) -> t.Type[Resource]:
             self.add_resource(path, resource, tags, *args, **kwargs)
             return resource
 
