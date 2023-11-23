@@ -30,7 +30,6 @@ class JWTComponent(Component):
         try:
             token = cookies[self.cookie_key]["value"]
         except KeyError:
-            print(cookies)
             logger.debug("'%s' not found in cookies", self.cookie_key)
             raise exceptions.Unauthorized()
 

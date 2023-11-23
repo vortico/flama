@@ -8,7 +8,7 @@ from flama.routing import Mount, Route
 if t.TYPE_CHECKING:
     from flama import Flama
     from flama.pagination.types import PaginationType
-    from flama.resources import BaseResource
+    from flama.resources import Resource
 
 __all__ = ["ResourceRoute", "resource_method"]
 
@@ -17,7 +17,7 @@ class ResourceRoute(Mount):
     def __init__(
         self,
         path: str,
-        resource: t.Union["BaseResource", t.Type["BaseResource"]],
+        resource: t.Union["Resource", t.Type["Resource"]],
         tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None,
     ):
         tags = tags or {}

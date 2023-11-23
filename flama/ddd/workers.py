@@ -25,7 +25,7 @@ class WorkerType(abc.ABCMeta):
     """
 
     def __new__(mcs, name: str, bases: t.Tuple[type], namespace: t.Dict[str, t.Any]):
-        if mcs._is_abstract_worker(namespace) and "__annotations__" in namespace:
+        if not mcs._is_abstract(namespace) and "__annotations__" in namespace:
             namespace["_repositories"] = types.Repositories(
                 {
                     k: v
@@ -41,8 +41,8 @@ class WorkerType(abc.ABCMeta):
         return super().__new__(mcs, name, bases, namespace)
 
     @staticmethod
-    def _is_abstract_worker(namespace: t.Dict[str, t.Any]) -> bool:
-        return namespace.get("__module__") != "flama.ddd.workers" or namespace.get("__qualname__") != "AbstractWorker"
+    def _is_abstract(namespace: t.Dict[str, t.Any]) -> bool:
+        return namespace.get("__module__") == "flama.ddd.workers" and namespace.get("__qualname__") == "AbstractWorker"
 
 
 class AbstractWorker(abc.ABC, metaclass=WorkerType):

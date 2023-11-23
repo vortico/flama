@@ -35,7 +35,7 @@ def _replace_refs(schema, refs):
 
 class TestCaseSchemaRegistry:
     @pytest.fixture(scope="function")
-    def registry(self):
+    def registry(self, app):
         return SchemaRegistry()
 
     @pytest.fixture(scope="function")
@@ -810,21 +810,15 @@ class TestCaseSchemaRegistry:
     @pytest.mark.parametrize(
         ["multiple", "result"],
         (
-            pytest.param(False, openapi.Reference(ref="#/components/schemas/Foo"), id="schema"),
             pytest.param(
-                True, openapi.Schema({"type": "array", "items": {"$ref": "#/components/schemas/Foo"}}), id="array"
+                False,
+                openapi.Reference(ref="#/components/schemas/Foo"),
+                id="schema",
             ),
             pytest.param(
-                None,
-                openapi.Schema(
-                    {
-                        "oneOf": [
-                            {"$ref": "#/components/schemas/Foo"},
-                            {"type": "array", "items": {"$ref": "#/components/schemas/Foo"}},
-                        ]
-                    }
-                ),
-                id="array_or_schema",
+                True,
+                openapi.Schema({"type": "array", "items": {"$ref": "#/components/schemas/Foo"}}),
+                id="array",
             ),
         ),
     )
@@ -1037,6 +1031,8 @@ class TestCaseSchemaGenerator:
         app.mount("/nested", mounted_router)
 
     def test_schema_info(self, app):
+        print(app.schema.schema_library, app.schema.schemas)
+
         schema = app.schema.schema["info"]
 
         assert schema["title"] == "Foo"
@@ -1147,16 +1143,7 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Component.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "oneOf": [
-                                            {"$ref": "#/components/schemas/Puppy"},
-                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
-                                        ]
-                                    }
-                                }
-                            },
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
                         },
                         "default": {
                             "description": "Unexpected error.",
@@ -1176,16 +1163,7 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Many components.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "oneOf": [
-                                            {"$ref": "#/components/schemas/Puppy"},
-                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
-                                        ]
-                                    }
-                                }
-                            },
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
                         },
                         "default": {
                             "description": "Unexpected error.",
@@ -1205,16 +1183,7 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Component.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "oneOf": [
-                                            {"$ref": "#/components/schemas/Puppy"},
-                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
-                                        ]
-                                    }
-                                }
-                            },
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
                         },
                         "default": {
                             "description": "Unexpected error.",
@@ -1234,16 +1203,7 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Component.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "oneOf": [
-                                            {"$ref": "#/components/schemas/Puppy"},
-                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
-                                        ]
-                                    }
-                                }
-                            },
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
                         },
                         "default": {
                             "description": "Unexpected error.",
@@ -1263,16 +1223,7 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Component.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "oneOf": [
-                                            {"$ref": "#/components/schemas/Puppy"},
-                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
-                                        ]
-                                    }
-                                }
-                            },
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
                         },
                         "default": {
                             "description": "Unexpected error.",

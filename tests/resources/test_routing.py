@@ -2,8 +2,8 @@ import pytest
 
 from flama.applications import Flama
 from flama.client import Client
-from flama.resources import BaseResource, ResourceType
-from flama.resources.crud import CRUDListResourceType
+from flama.resources.crud import CRUDResource
+from flama.resources.resource import Resource
 from flama.resources.routing import ResourceRoute, resource_method
 from flama.routing import Mount, Route
 from flama.sqlalchemy import SQLAlchemyModule
@@ -16,7 +16,7 @@ class TestCaseResourceRoute:
 
     @pytest.fixture(scope="function")
     def resource(self, puppy_model, puppy_schema):
-        class PuppyResource(BaseResource, metaclass=CRUDListResourceType):
+        class PuppyResource(CRUDResource):
             name = "puppy"
             model = puppy_model
             schema = puppy_schema
@@ -31,8 +31,12 @@ class TestCaseResourceRoute:
                 "create": {"tag": "create"},
                 "retrieve": {"tag": "retrieve"},
                 "update": {"tag": "update"},
+                "partial_update": {"tag": "partial-update"},
                 "delete": {"tag": "delete"},
                 "list": {"tag": "list"},
+                "replace": {"tag": "replace"},
+                "partial_replace": {"tag": "partial-replace"},
+                "drop": {"tag": "drop"},
             },
         )
 
@@ -44,8 +48,12 @@ class TestCaseResourceRoute:
             ("/", {"POST"}, resource_route.resource.create, {"tag": "create"}),
             ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve, {"tag": "retrieve"}),
             ("/{resource_id}/", {"PUT"}, resource_route.resource.update, {"tag": "update"}),
+            ("/{resource_id}/", {"PATCH"}, resource_route.resource.partial_update, {"tag": "partial-update"}),
             ("/{resource_id}/", {"DELETE"}, resource_route.resource.delete, {"tag": "delete"}),
             ("/", {"GET", "HEAD"}, resource_route.resource.list, {"tag": "list"}),
+            ("/", {"PUT"}, resource_route.resource.replace, {"tag": "replace"}),
+            ("/", {"PATCH"}, resource_route.resource.partial_replace, {"tag": "partial-replace"}),
+            ("/", {"DELETE"}, resource_route.resource.drop, {"tag": "drop"}),
         ]
 
     def test_init_wrong_tags(self, resource):
@@ -57,8 +65,12 @@ class TestCaseResourceRoute:
                     "create": {"tag": "create"},
                     "retrieve": {"tag": "retrieve"},
                     "update": {"tag": "update"},
+                    "partial_update": {"tag": "partial-update"},
                     "delete": {"tag": "delete"},
                     "list": {"tag": "list"},
+                    "replace": {"tag": "replace"},
+                    "partial_replace": {"tag": "partial-replace"},
+                    "drop": {"tag": "drop"},
                     "wrong": "wrong",
                 },
             )
@@ -77,8 +89,12 @@ class TestCaseResourceRoute:
             ("/", {"POST"}, resource_route.resource.create),
             ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
             ("/{resource_id}/", {"PUT"}, resource_route.resource.update),
+            ("/{resource_id}/", {"PATCH"}, resource_route.resource.partial_update),
             ("/{resource_id}/", {"DELETE"}, resource_route.resource.delete),
             ("/", {"GET", "HEAD"}, resource_route.resource.list),
+            ("/", {"PUT"}, resource_route.resource.replace),
+            ("/", {"PATCH"}, resource_route.resource.partial_replace),
+            ("/", {"DELETE"}, resource_route.resource.drop),
         ]
 
     def test_nested_mount_resource(self, resource):
@@ -101,12 +117,16 @@ class TestCaseResourceRoute:
             ("/", {"POST"}, resource_route.resource.create),
             ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
             ("/{resource_id}/", {"PUT"}, resource_route.resource.update),
+            ("/{resource_id}/", {"PATCH"}, resource_route.resource.partial_update),
             ("/{resource_id}/", {"DELETE"}, resource_route.resource.delete),
             ("/", {"GET", "HEAD"}, resource_route.resource.list),
+            ("/", {"PUT"}, resource_route.resource.replace),
+            ("/", {"PATCH"}, resource_route.resource.partial_replace),
+            ("/", {"DELETE"}, resource_route.resource.drop),
         ]
 
     async def test_request_nested_resource(self, app):
-        class PuppyResource(BaseResource, metaclass=ResourceType):
+        class PuppyResource(Resource):
             name = "puppy"
             verbose_name = "Puppy"
 

@@ -5,7 +5,7 @@ import uuid
 from flama.ddd.repositories import SQLAlchemyTableRepository
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
-from flama.resources.resource import BaseResource, ResourceType
+from flama.resources.resource import Resource, ResourceType
 
 try:
     import sqlalchemy
@@ -24,13 +24,6 @@ PK_MAPPING: t.Dict[t.Any, t.Any] = {
 }
 
 
-class RESTResource(BaseResource):
-    model: sqlalchemy.Table
-    schema: t.Any
-    input_schema: t.Any
-    output_schema: t.Any
-
-
 class RESTResourceType(ResourceType):
     def __new__(mcs, name: str, bases: t.Tuple[type], namespace: t.Dict[str, t.Any]):
         """Resource metaclass for defining basic behavior for REST resources:
@@ -41,25 +34,32 @@ class RESTResourceType(ResourceType):
         :param bases: List of superclasses.
         :param namespace: Variables namespace used to create the class.
         """
-        try:
-            # Get model
-            model = mcs._get_model(bases, namespace)
-            namespace["model"] = model.table
+        if not mcs._is_abstract(namespace):
+            try:
+                # Get model
+                model = mcs._get_model(bases, namespace)
+                namespace["model"] = model.table
 
-            # Get input and output schemas
-            resource_schemas = mcs._get_schemas(name, bases, namespace)
-            namespace["schemas"] = resource_schemas
-        except AttributeError as e:
-            raise ResourceAttributeError(str(e), name)
+                # Get input and output schemas
+                resource_schemas = mcs._get_schemas(name, bases, namespace)
+                namespace["schemas"] = resource_schemas
+            except AttributeError as e:
+                raise ResourceAttributeError(str(e), name)
 
-        namespace.setdefault("_meta", data_structures.Metadata()).namespaces.update(
-            {
-                "rest": {"model": model, "schemas": resource_schemas},
-                "ddd": {"repository": type(f"{name}Repository", (SQLAlchemyTableRepository,), {"_table": model.table})},
-            }
-        )
+            namespace.setdefault("_meta", data_structures.Metadata()).namespaces.update(
+                {
+                    "rest": {"model": model, "schemas": resource_schemas},
+                    "ddd": {
+                        "repository": type(f"{name}Repository", (SQLAlchemyTableRepository,), {"_table": model.table})
+                    },
+                }
+            )
 
         return super().__new__(mcs, name, bases, namespace)
+
+    @staticmethod
+    def _is_abstract(namespace: t.Dict[str, t.Any]) -> bool:
+        return namespace.get("__module__") == "flama.resources.rest" and namespace.get("__qualname__") == "RESTResource"
 
     @classmethod
     def _get_model(cls, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> data_structures.Model:
@@ -141,3 +141,10 @@ class RESTResourceType(ResourceType):
             ...
 
         raise AttributeError(ResourceAttributeError.SCHEMA_NOT_FOUND)
+
+
+class RESTResource(Resource, metaclass=RESTResourceType):
+    model: sqlalchemy.Table
+    schema: t.Any
+    input_schema: t.Any
+    output_schema: t.Any

@@ -194,7 +194,7 @@ class TestCaseSchema:
         ),
     )
     def test_json_schema(self, schemas, schema, json_schema, key_to_replace):
-        result = Schema(schemas[schema].schema).json_schema
+        result = Schema(schemas[schema].schema).json_schema({id(schemas["Foo"].schema): schemas["Foo"].name})
 
         expected_result = deepcopy(json_schema)
 
@@ -238,7 +238,7 @@ class TestCaseSchema:
     @pytest.mark.parametrize(
         ["values", "expected_result"],
         (
-            pytest.param(Mock(), True, id="single"),
+            pytest.param(Mock(partial=False), True, id="single"),
             pytest.param([Mock(), Mock()], [True, True], id="multiple"),
         ),
     )
@@ -251,7 +251,7 @@ class TestCaseSchema:
 
             assert result == expected_result
             assert schemas_mock.adapter.validate.call_args_list == [
-                call(schema_mock, x) for x in (values if isinstance(values, list) else [values])
+                call(schema_mock, x, partial=False) for x in (values if isinstance(values, list) else [values])
             ]
 
     @pytest.mark.parametrize(

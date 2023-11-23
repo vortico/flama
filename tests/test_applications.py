@@ -9,7 +9,7 @@ from flama.events import Events
 from flama.injection.injector import Injector
 from flama.middleware import Middleware, MiddlewareStack
 from flama.models import ModelsModule
-from flama.resources import BaseResource, ResourcesModule, ResourceType, resource_method
+from flama.resources import Resource, ResourcesModule, resource_method
 from flama.routing import BaseRoute
 from flama.schemas.modules import SchemaModule
 from flama.types.applications import AppStatus
@@ -304,7 +304,7 @@ class TestCaseFlama:
         app.mount(mount=Mount("/foo", routes=[Route("/bar", lambda: None, name="bar")], name="foo"))
 
         @app.resources.resource("/puppy")
-        class PuppyResource(BaseResource, metaclass=ResourceType):
+        class PuppyResource(Resource):
             name = "puppy"
             verbose_name = "Puppy"
 
