@@ -4,7 +4,7 @@ import sqlalchemy
 from flama.applications import Flama
 from flama.ddd.repositories import SQLAlchemyRepository
 from flama.resources import data_structures
-from flama.resources.rest import RESTResource, RESTResourceType
+from flama.resources.rest import RESTResource
 from flama.sqlalchemy import SQLAlchemyModule, metadata
 
 
@@ -13,10 +13,10 @@ def app(app):
     return Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
 
 
-class TestCaseBaseResource:
+class TestCaseRESTResource:
     @pytest.fixture(scope="function")
     def resource(self, puppy_model, puppy_schema):
-        class PuppyResource(RESTResource, metaclass=RESTResourceType):
+        class PuppyResource(RESTResource):
             name = "puppy"
             verbose_name = "Puppy"
 
@@ -61,7 +61,7 @@ class TestCaseBaseResource:
     def test_new_no_model(self, puppy_schema):
         with pytest.raises(AttributeError, match=r"PuppyResource needs to define attribute 'model'"):
 
-            class PuppyResource(metaclass=RESTResourceType):
+            class PuppyResource(RESTResource):
                 schema = puppy_schema
 
     def test_invalid_no_model(self, puppy_schema):
@@ -69,12 +69,12 @@ class TestCaseBaseResource:
             AttributeError, match=r"PuppyResource model must be a valid SQLAlchemy Table instance or a Model instance"
         ):
 
-            class PuppyResource(metaclass=RESTResourceType):
+            class PuppyResource(RESTResource):
                 schema = puppy_schema
                 model = None
 
     def test_new_no_name(self, puppy_model, puppy_schema):
-        class PuppyResource(metaclass=RESTResourceType):
+        class PuppyResource(RESTResource):
             model = puppy_model
             schema = puppy_schema
 
@@ -83,7 +83,7 @@ class TestCaseBaseResource:
     def test_new_wrong_name(self, puppy_model, puppy_schema):
         with pytest.raises(AttributeError, match=r"PuppyResource invalid resource name '123foo'"):
 
-            class PuppyResource(metaclass=RESTResourceType):
+            class PuppyResource(RESTResource):
                 model = puppy_model
                 schema = puppy_schema
                 name = "123foo"
@@ -94,7 +94,7 @@ class TestCaseBaseResource:
             match=r"PuppyResource needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'",
         ):
 
-            class PuppyResource(metaclass=RESTResourceType):
+            class PuppyResource(RESTResource):
                 model = puppy_model
 
     def test_new_no_input_schema(self, puppy_model, puppy_schema):
@@ -103,7 +103,7 @@ class TestCaseBaseResource:
             match=r"PuppyResource needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'",
         ):
 
-            class PuppyResource(metaclass=RESTResourceType):
+            class PuppyResource(RESTResource):
                 model = puppy_model
                 output_schema = puppy_schema
 
@@ -113,7 +113,7 @@ class TestCaseBaseResource:
             match=r"PuppyResource needs to define attribute 'schema' or the pair 'input_schema' and 'output_schema'",
         ):
 
-            class PuppyResource(metaclass=RESTResourceType):
+            class PuppyResource(RESTResource):
                 model = puppy_model
                 input_schema = puppy_schema
 
@@ -122,7 +122,7 @@ class TestCaseBaseResource:
 
         with pytest.raises(AttributeError, match=r"PuppyResource model must define a single-column primary key"):
 
-            class PuppyResource(metaclass=RESTResourceType):
+            class PuppyResource(RESTResource):
                 model = model_
                 schema = puppy_schema
 
@@ -137,7 +137,7 @@ class TestCaseBaseResource:
 
         with pytest.raises(AttributeError, match=r"PuppyResource model must define a single-column primary key"):
 
-            class PuppyResource(metaclass=RESTResourceType):
+            class PuppyResource(RESTResource):
                 model = model_
                 schema = puppy_schema
 
@@ -148,6 +148,6 @@ class TestCaseBaseResource:
 
         with pytest.raises(AttributeError, match=r"PuppyResource model primary key wrong type"):
 
-            class PuppyResource(metaclass=RESTResourceType):
+            class PuppyResource(RESTResource):
                 model = model_
                 schema = puppy_schema

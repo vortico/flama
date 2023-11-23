@@ -73,11 +73,13 @@ class PydanticAdapter(Adapter[Schema, Field]):
             },  # type: ignore
         )
 
-    def validate(self, schema: t.Union[Schema, t.Type[Schema]], values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    def validate(
+        self, schema: t.Union[Schema, t.Type[Schema]], values: t.Dict[str, t.Any], *, partial: bool = False
+    ) -> t.Dict[str, t.Any]:
         schema_cls = self.unique_schema(schema)
 
         try:
-            return schema_cls(**values).model_dump()
+            return schema_cls(**values).model_dump(exclude_unset=partial)
         except pydantic.ValidationError as errors:
             raise SchemaValidationError(errors={str(error["loc"][0]): error for error in errors.errors()})
 

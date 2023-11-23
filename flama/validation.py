@@ -99,12 +99,24 @@ class PrimitiveParamComponent(Component):
 
 class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: Parameter):
-        return types.is_schema(parameter.annotation)
+        schema = (
+            t.get_args(parameter.annotation)[0] if t.get_origin(parameter.annotation) == list else parameter.annotation
+        )
+        return types.Schema.is_schema(schema)
 
-    def resolve(self, parameter: Parameter, data: ValidatedRequestData) -> types.Schema:
-        assert types.is_schema(parameter.annotation)
+    def resolve(self, parameter: Parameter, request: http.Request, route: BaseRoute, data: types.RequestData):
+        body_param = route.parameters.body[request.method]
 
-        return types.Schema(data)
+        assert (
+            body_param is not None
+        ), f"Body schema parameter not defined for route '{route}' and method '{request.method}'"
+
+        try:
+            return body_param.schema.validate(
+                data, partial=types.Schema.is_schema(parameter.annotation) and parameter.annotation.partial
+            )
+        except SchemaValidationError as exc:  # noqa: safety net, just should not happen
+            raise exceptions.ValidationError(detail=exc.errors)
 
 
 VALIDATION_COMPONENTS = Components(

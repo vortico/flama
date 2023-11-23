@@ -1,21 +1,17 @@
 import asyncio
 import tempfile
-import typing as t
 import warnings
 from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-import marshmallow
-import pydantic
 import pytest
-import sqlalchemy
-import typesystem
 from faker import Faker
 
 import flama
 from flama import Flama, types
 from flama.client import Client
+from flama.pagination import paginator
 from flama.sqlalchemy import SQLAlchemyModule, metadata
 from tests.utils import ExceptionContext, installed
 
@@ -71,47 +67,6 @@ def exception(request):
     return context
 
 
-@pytest.fixture(scope="function")
-def puppy_schema(app):
-    from flama import schemas
-
-    if schemas.lib == pydantic:
-        schema_ = pydantic.create_model("Puppy", custom_id=(t.Optional[int], None), name=(str, ...))
-    elif schemas.lib == typesystem:
-        schema_ = typesystem.Schema(
-            fields={"custom_id": typesystem.Integer(allow_null=True), "name": typesystem.String()}
-        )
-    elif schemas.lib == marshmallow:
-        schema_ = type(
-            "Puppy",
-            (marshmallow.Schema,),
-            {"custom_id": marshmallow.fields.Integer(allow_none=True), "name": marshmallow.fields.String()},
-        )
-    else:
-        raise ValueError("Wrong schema lib")
-
-    app.schema.schemas["Puppy"] = schema_
-    return schema_
-
-
-@pytest.fixture(scope="function")
-async def puppy_model(app, client):
-    table = sqlalchemy.Table(
-        "puppy",
-        app.sqlalchemy.metadata,
-        sqlalchemy.Column("custom_id", sqlalchemy.Integer, primary_key=True, autoincrement=True),
-        sqlalchemy.Column("name", sqlalchemy.String),
-    )
-
-    async with app.sqlalchemy.engine.begin() as connection:
-        await connection.run_sync(app.sqlalchemy.metadata.create_all, tables=[table])
-
-    yield table
-
-    async with app.sqlalchemy.engine.begin() as connection:
-        await connection.run_sync(app.sqlalchemy.metadata.drop_all, tables=[table])
-
-
 @pytest.fixture(scope="session")
 def fake():
     return Faker()
@@ -120,6 +75,11 @@ def fake():
 @pytest.fixture(autouse=True)
 def clear_metadata():
     metadata.clear()
+
+
+@pytest.fixture(autouse=True)
+def clear_pagination():
+    paginator.schemas = {}
 
 
 @pytest.fixture(

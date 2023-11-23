@@ -43,7 +43,6 @@ class TestCaseRouteFieldsMixin:
         else:
             raise ValueError("Wrong schema lib")
 
-        app.schema.schemas["FooSchema"] = schema
         return schema
 
     @pytest.fixture

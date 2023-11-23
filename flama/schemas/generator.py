@@ -37,9 +37,8 @@ class SchemaInfo:
     def ref(self) -> str:
         return f"#/components/schemas/{self.name}"
 
-    @property
-    def json_schema(self) -> types.JSONSchema:
-        return Schema(self.schema).json_schema
+    def json_schema(self, names: t.Dict[int, str]) -> types.JSONSchema:
+        return Schema(self.schema).json_schema(names)
 
 
 class SchemaRegistry(t.Dict[int, SchemaInfo]):
@@ -53,13 +52,20 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
         return super().__contains__(id(schemas.Schema(item).unique_schema))
 
     def __getitem__(self, item: t.Any) -> SchemaInfo:
-        """
-        Lookup method that allows using Schema classes or instances.
+        """Lookup method that allows using Schema classes or instances.
 
         :param item: Schema to look for.
         :return: Registered schema.
         """
         return super().__getitem__(id(schemas.Schema(item).unique_schema))
+
+    @property
+    def names(self) -> t.Dict[int, str]:
+        """Returns a dictionary mapping schema ids to their names.
+
+        :return: Schema names.
+        """
+        return {k: v.name for k, v in self.items()}
 
     @t.no_type_check
     def _get_schema_references_from_schema(self, schema: t.Union[openapi.Schema, openapi.Reference]) -> t.List[str]:
@@ -178,17 +184,16 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
         refs_from_schemas = {
             x.split("/")[-1]
             for schema in used_schemas.values()
-            for x in self._get_schema_references_from_schema(openapi.Schema(schema.json_schema))
+            for x in self._get_schema_references_from_schema(openapi.Schema(schema.json_schema(self.names)))
         }
         used_schemas.update({k: v for k, v in self.items() if v.name in refs_from_schemas})
 
         for child_schema in [y for x in used_schemas.values() for y in schemas.Schema(x.schema).nested_schemas()]:
             schema = schemas.Schema(child_schema)
             instance = schema.unique_schema
+
             if instance not in used_schemas:
-                used_schemas[id(instance)] = (
-                    self[instance] if instance in self else SchemaInfo(name=schema.name, schema=instance)
-                )
+                used_schemas[id(instance)] = self[instance]
 
         return used_schemas
 
@@ -214,6 +219,9 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
         schema_id = id(schema_instance)
         self[schema_id] = SchemaInfo(name=schema_name, schema=schema_instance)
 
+        for child_schema in [schemas.Schema(x) for x in s.nested_schemas() if x not in self]:
+            self.register(schema=child_schema.schema, name=child_schema.name)
+
         return schema_id
 
     def get_openapi_ref(
@@ -230,8 +238,6 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
 
         if multiple is True:
             return openapi.Schema({"items": {"$ref": reference}, "type": "array"})
-        elif multiple is None:
-            return openapi.Schema({"oneOf": [{"$ref": reference}, {"items": {"$ref": reference}, "type": "array"}]})
         else:
             return openapi.Reference(ref=reference)
 
@@ -371,7 +377,9 @@ class SchemaGenerator:
                 self.schemas.register(schema=endpoint.body_parameter.schema.schema)
 
             content["application/json"] = openapi.MediaType(
-                schema=self.schemas.get_openapi_ref(endpoint.body_parameter.schema.schema, multiple=False),
+                schema=self.schemas.get_openapi_ref(
+                    endpoint.body_parameter.schema.schema, multiple=endpoint.body_parameter.multiple
+                ),
             )
 
         if not content:
@@ -380,16 +388,6 @@ class SchemaGenerator:
         return openapi.RequestBody(
             content=content,
             **{x: metadata.get("requestBody", {}).get(x) for x in ("description", "required")},
-        )
-
-    def _build_endpoint_default_response(self, metadata: t.Dict[str, t.Any]) -> openapi.Response:
-        return openapi.Response(
-            description=metadata.get("responses", {}).get("default", {}).get("description", "Unexpected error."),
-            content={
-                "application/json": openapi.MediaType(
-                    schema=self.schemas.get_openapi_ref(schemas.schemas.APIError, multiple=False)
-                )
-            },
         )
 
     def _build_endpoint_responses(self, endpoint: EndpointInfo, metadata: t.Dict[str, t.Any]) -> openapi.Responses:
@@ -415,7 +413,11 @@ class SchemaGenerator:
 
             responses[main_response_code]["content"] = {
                 **responses[main_response_code].get("content", {}),
-                "application/json": {"schema": self.schemas.get_openapi_ref(endpoint.response_parameter.schema.schema)},
+                "application/json": {
+                    "schema": self.schemas.get_openapi_ref(
+                        endpoint.response_parameter.schema.schema, multiple=endpoint.response_parameter.multiple
+                    )
+                },
             }
 
         responses["default"] = {
@@ -497,7 +499,7 @@ class SchemaGenerator:
             self.spec.add_path(path, openapi.Path(**operations))  # type: ignore[arg-type]
 
         for schema in self.schemas.used(self.spec).values():
-            self.spec.add_schema(schema.name, openapi.Schema(schema.json_schema))
+            self.spec.add_schema(schema.name, openapi.Schema(schema.json_schema(self.schemas.names)))
 
         api_schema: t.Dict[str, t.Any] = self.spec.asdict()
 

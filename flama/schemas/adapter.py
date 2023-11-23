@@ -63,7 +63,9 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def validate(self, schema: t.Union[_T_Schema, t.Type[_T_Schema]], values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    def validate(
+        self, schema: t.Union[_T_Schema, t.Type[_T_Schema]], values: t.Dict[str, t.Any], *, partial: bool = False
+    ) -> t.Dict[str, t.Any]:
         ...
 
     @abc.abstractmethod

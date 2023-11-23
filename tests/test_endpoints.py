@@ -8,7 +8,7 @@ import starlette.websockets
 import typesystem
 import typesystem.fields
 
-from flama import Component, exceptions, types, websockets
+from flama import Component, Flama, exceptions, types, websockets
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 
 
@@ -21,33 +21,9 @@ class PuppyComponent(Component):
         return Puppy()
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="module")
 def app(app):
-    app.add_component(PuppyComponent())
-    return app
-
-
-@pytest.fixture(scope="class")
-def puppy_schema(app):
-    from flama import schemas
-
-    if schemas.lib == pydantic:
-        schema = pydantic.create_model("Puppy", name=(str, ...))
-    elif schemas.lib == typesystem:
-        schema = typesystem.Schema(title="Puppy", fields={"name": typesystem.fields.String()})
-    elif schemas.lib == marshmallow:
-        schema = type(
-            "Puppy",
-            (marshmallow.Schema,),
-            {
-                "name": marshmallow.fields.String(),
-            },
-        )
-    else:
-        raise ValueError("Wrong schema lib")
-
-    app.schema.schemas["Puppy"] = schema
-    return schema
+    return Flama(schema=None, docs=None, components=[PuppyComponent()])
 
 
 class TestCaseHTTPEndpoint:
@@ -62,6 +38,25 @@ class TestCaseHTTPEndpoint:
         asgi_scope["root_app"] = app
         asgi_scope["type"] = "http"
         return FooEndpoint(asgi_scope, asgi_receive, asgi_send)
+
+    @pytest.fixture(scope="class")
+    def puppy_schema(self, app):
+        if app.schema.schema_library.lib == pydantic:
+            schema = pydantic.create_model("Puppy", name=(str, ...))
+        elif app.schema.schema_library.lib == typesystem:
+            schema = typesystem.Schema(title="Puppy", fields={"name": typesystem.fields.String()})
+        elif app.schema.schema_library.lib == marshmallow:
+            schema = type(
+                "Puppy",
+                (marshmallow.Schema,),
+                {
+                    "name": marshmallow.fields.String(),
+                },
+            )
+        else:
+            raise ValueError("Wrong schema lib")
+
+        return schema
 
     @pytest.fixture(scope="class")
     def puppy_endpoint(self, app, puppy_schema):
