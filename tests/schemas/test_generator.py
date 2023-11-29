@@ -1031,8 +1031,6 @@ class TestCaseSchemaGenerator:
         app.mount("/nested", mounted_router)
 
     def test_schema_info(self, app):
-        print(app.schema.schema_library, app.schema.schemas)
-
         schema = app.schema.schema["info"]
 
         assert schema["title"] == "Foo"

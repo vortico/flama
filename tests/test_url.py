@@ -295,6 +295,17 @@ class TestCaseRegexPath:
                 None,
                 id="uuid",
             ),
+            pytest.param(
+                "/{foo:uuid}/bar/{bar:uuid}/",
+                {
+                    "foo": uuid.UUID("83a8e611-525c-4d30-9bbf-f2c142606a3d"),
+                    "bar": uuid.UUID("ac187df6-d785-4aed-bcb7-84ed4a461e0c"),
+                },
+                "/83a8e611-525c-4d30-9bbf-f2c142606a3d/bar/ac187df6-d785-4aed-bcb7-84ed4a461e0c/",
+                {},
+                None,
+                id="multiple_uuid",
+            ),
             pytest.param("/{foo:path}", {"foo": ""}, "/", {"foo": ""}, None, id="path_empty"),
             pytest.param("/{foo:path}", {"foo": "foo/"}, "/", {"foo": "foo/"}, None, id="path"),
             pytest.param("/{foo:path}", {"foo": "foo/bar"}, "/", {"foo": "foo/bar"}, None, id="path_nested"),

@@ -223,7 +223,7 @@ class RegexPath:
         remaining_params = {k: v for k, v in params.items() if k not in self.serializers}
         values = {k: self.serializers[k].dump(v) for k, v in params.items() if k in self.serializers}
         path = re.sub(
-            pattern=r"|".join(rf"{{({x})}}" for x in values.keys()),
+            pattern=f"{{({r'|'.join(values.keys())})}}",
             repl=lambda x: values.pop(x.group(1)),
             string=self.template,
         )

@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
@@ -284,6 +285,13 @@ class TestCaseFlama:
         (
             pytest.param("foo", {}, URL(scheme="http", path="/foo"), None, id="plain"),
             pytest.param("foo", {"x": 1}, URL(scheme="http", path="/foo/1"), None, id="path_params"),
+            pytest.param(
+                "bar",
+                {"x": uuid.UUID(int=1), "y": uuid.UUID(int=2)},
+                URL(scheme="http", path=f"/bar/{uuid.UUID(int=1)}/y/{uuid.UUID(int=2)}"),
+                None,
+                id="multiple_path_params",
+            ),
             pytest.param("foo:bar", {}, URL(scheme="http", path="/foo/bar"), None, id="nested"),
             pytest.param(
                 "puppy:custom", {}, URL(scheme="http", path="/puppy/custom"), None, id="resource_custom_method"
@@ -301,6 +309,7 @@ class TestCaseFlama:
     def test_resolve_url(self, app, resolve, path_params, resolution, exception):
         app.add_route(route=Route("/foo", lambda: None, name="foo"))
         app.add_route(route=Route("/foo/{x:int}", lambda: None, name="foo"))
+        app.add_route(route=Route("/bar/{x:uuid}/y/{y:uuid}", lambda: None, name="bar"))
         app.mount(mount=Mount("/foo", routes=[Route("/bar", lambda: None, name="bar")], name="foo"))
 
         @app.resources.resource("/puppy")
