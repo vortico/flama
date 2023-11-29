@@ -81,9 +81,13 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
     def dump(self, schema: t.Union[t.Type[Schema], Schema], value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         try:
-            return t.cast(t.Dict[str, t.Any], self._schema_instance(schema).dump(value))
+            dump_value = t.cast(t.Dict[str, t.Any], self._schema_instance(schema).dump(value))
         except Exception as exc:
             raise SchemaValidationError(errors=str(exc))
+
+        self.validate(schema, dump_value)
+
+        return dump_value
 
     def name(self, schema: t.Union[Schema, t.Type[Schema]]) -> str:
         s = self.unique_schema(schema)

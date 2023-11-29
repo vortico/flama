@@ -130,14 +130,14 @@ class FileResponse(starlette.responses.FileResponse, Response):
 class APIResponse(JSONResponse):
     media_type = "application/json"
 
-    def __init__(self, content: t.Any = None, schema: t.Optional["schemas.Schema"] = None, *args, **kwargs):
+    def __init__(self, content: t.Any = None, schema: t.Optional[t.Type["types.Schema"]] = None, *args, **kwargs):
         self.schema = schema
         super().__init__(content, *args, **kwargs)
 
     def render(self, content: t.Any):
         if self.schema is not None:
             try:
-                content = schemas.Schema(self.schema).dump(content)
+                content = schemas.Schema.from_type(self.schema).dump(content)
             except schemas.SchemaValidationError as e:
                 raise SerializationError(status_code=500, detail=e.errors)
 
@@ -164,7 +164,9 @@ class APIErrorResponse(APIResponse):
             "headers": headers,
         }
 
-        super().__init__(content, schemas.schemas.APIError, status_code=status_code, *args, **kwargs)
+        super().__init__(
+            content, schema=types.Schema[schemas.schemas.APIError], status_code=status_code, *args, **kwargs
+        )
 
         self.detail = detail
         self.exception = exception

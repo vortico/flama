@@ -101,8 +101,8 @@ class SQLAlchemyTableManager:
 
         :param id: The primary key of the element.
         :param data: The data to update the element.
-        :return: The number of elements updated.
-        :raises IntegrityError: If the element cannot be updated.
+        :return: The updated elements.
+        :raises IntegrityError: If the elements cannot be updated.
         """
         query = (
             self._filter_query(sqlalchemy.update(self.table), *clauses, **filters).values(**data).returning(self.table)
@@ -270,8 +270,8 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         :param data: The data to update the element.
         :param clauses: Clauses to filter the elements.
         :param filters: Filters to filter the elements.
-        :return: The number of elements updated.
-        :raises IntegrityError: If the element cannot be updated.
+        :return: The updated elements.
+        :raises IntegrityError: If the elements cannot be updated.
         """
         return await self._table_manager.update(data, *clauses, **filters)
 

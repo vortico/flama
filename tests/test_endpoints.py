@@ -46,13 +46,7 @@ class TestCaseHTTPEndpoint:
         elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(title="Puppy", fields={"name": typesystem.fields.String()})
         elif app.schema.schema_library.lib == marshmallow:
-            schema = type(
-                "Puppy",
-                (marshmallow.Schema,),
-                {
-                    "name": marshmallow.fields.String(),
-                },
-            )
+            schema = type("Puppy", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         else:
             raise ValueError("Wrong schema lib")
 
