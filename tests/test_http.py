@@ -7,7 +7,11 @@ import uuid
 from unittest.mock import MagicMock, Mock, call, mock_open, patch
 
 import jinja2
+import marshmallow
+import pydantic
 import pytest
+import typesystem
+import typesystem.fields
 
 from flama import exceptions, http, schemas, types
 
@@ -97,9 +101,18 @@ class TestCaseJSONResponse:
 
 
 class TestCaseAPIResponse:
-    @pytest.fixture
-    def schema(self):
-        return Mock()
+    @pytest.fixture(scope="function")
+    def schema(self, app):
+        if app.schema.schema_library.lib == pydantic:
+            schema = pydantic.create_model("Puppy", name=(str, ...))
+        elif app.schema.schema_library.lib == typesystem:
+            schema = typesystem.Schema(title="Puppy", fields={"name": typesystem.fields.String()})
+        elif app.schema.schema_library.lib == marshmallow:
+            schema = type("Puppy", (marshmallow.Schema,), {"name": marshmallow.fields.String(required=True)})
+        else:
+            raise ValueError("Wrong schema lib")
+
+        return schema
 
     def test_init(self, schema):
         with patch("flama.http.starlette.responses.JSONResponse.__init__"):
@@ -108,26 +121,18 @@ class TestCaseAPIResponse:
         assert response.schema == schema
 
     @pytest.mark.parametrize(
-        "schema,content,expected,exception",
+        ["use_schema", "content", "expected", "exception"],
         (
-            pytest.param(
-                Mock(return_value={"foo": "bar"}), {"foo": "bar"}, '{"foo":"bar"}', None, id="schema_and_content"
-            ),
-            pytest.param(None, {}, "", None, id="no_content"),
-            pytest.param(None, {"foo": "bar"}, '{"foo":"bar"}', None, id="no_schema"),
-            pytest.param(
-                Mock(side_effect=schemas.SchemaValidationError(errors={})),
-                {},
-                "",
-                exceptions.SerializationError,
-                id="error",
-            ),
+            pytest.param(True, {"name": "Canna"}, '{"name":"Canna"}', None, id="schema_and_content"),
+            pytest.param(False, {}, "", None, id="no_content"),
+            pytest.param(False, {"name": "Canna"}, '{"name":"Canna"}', None, id="no_schema"),
+            pytest.param(True, {"foo": "bar"}, "", exceptions.SerializationError, id="error"),
         ),
-        indirect=("exception",),
+        indirect=["exception"],
     )
-    def test_render(self, schema, content, expected, exception):
-        with patch.object(schemas.adapter, "dump", new=schema), exception:
-            response = http.APIResponse(schema=schema, content=content)
+    def test_render(self, schema, use_schema, content, expected, exception):
+        with exception:
+            response = http.APIResponse(schema=types.Schema[schema] if use_schema else None, content=content)
             assert response.body.decode() == expected
 
 
