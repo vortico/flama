@@ -258,27 +258,24 @@ model_factory = ModelFactory()
 
 @pytest.fixture(scope="function")
 def model(request):
-    if not installed(request.param):
+    if not installed(request.param) or not installed("numpy"):
         pytest.skip(f"Lib '{request.param}' is not installed.")
-        return
 
     return model_factory.model(request.param)
 
 
 @pytest.fixture(scope="function")
 def serialized_model_class(request):
-    if not installed(request.param):
+    if not installed(request.param) or not installed("numpy"):
         pytest.skip(f"Lib '{request.param}' is not installed.")
-        return
 
     return model_factory.model_cls(request.param)
 
 
 @pytest.fixture(scope="function")
 def model_path(request):
-    if not installed(request.param):
+    if not installed(request.param) or not installed("numpy"):
         pytest.skip(f"Lib '{request.param}' is not installed.")
-        return
 
     with tempfile.NamedTemporaryFile(suffix=".flm") as f:
         flama.dump(model_factory.model(request.param), f.name)
