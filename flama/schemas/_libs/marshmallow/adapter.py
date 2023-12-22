@@ -56,6 +56,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
     def build_schema(
         self,
+        *,
         name: t.Optional[str] = None,
         schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
         fields: t.Optional[t.Dict[str, Field]] = None,
@@ -126,7 +127,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
         return schema
 
-    def _get_field_type(self, field: Field) -> t.Union[Schema, t.Type]:
+    def _get_field_type(self, field: Field) -> t.Any:
         if isinstance(field, marshmallow.fields.Nested):
             return field.schema
 
@@ -143,7 +144,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
     def schema_fields(
         self, schema: t.Union[Schema, t.Type[Schema]]
-    ) -> t.Dict[str, t.Tuple[t.Union[t.Type, Schema], Field]]:
+    ) -> t.Dict[str, t.Tuple[t.Union[None, t.Type, Schema], Field]]:
         return {
             name: (self._get_field_type(field), field) for name, field in self._schema_instance(schema).fields.items()
         }

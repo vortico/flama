@@ -9,13 +9,17 @@ try:
     from sqlalchemy import MetaData
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    if t.TYPE_CHECKING:
-        from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncTransaction
-
     metadata = MetaData()
 except Exception:  # pragma: no cover
     sqlalchemy = None  # type: ignore[assignment]
     metadata = None  # type: ignore[assignment]
+    create_async_engine = None  # type: ignore[assignment]
+
+if t.TYPE_CHECKING:
+    try:
+        from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncTransaction
+    except Exception:  # pragma: no cover
+        ...
 
 __all__ = ["metadata", "SQLAlchemyModule"]
 
@@ -371,6 +375,9 @@ class SQLAlchemyModule(Module):
 
     async def on_startup(self):
         """Initialize the SQLAlchemy engine and connection manager."""
+        if create_async_engine is None:  # noqa
+            raise exceptions.ApplicationError("sqlalchemy[asyncio] must be installed to use SQLAlchemyModule")
+
         self._engine = create_async_engine(self.database, **self._engine_args)
         self._connection_manager = self._manager_cls(self._engine)
 

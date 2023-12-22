@@ -34,16 +34,9 @@ class TestCaseFlamaWorker:
 
         assert not worker._init_repositories
 
-    def test_add_repository(self, worker, repository):
-        assert worker._repositories == {}
-
-        worker.add_repository("foo", repository)
-
-        assert worker._repositories == {"foo": repository}
-
     async def test_async_context(self, app, worker, repository):
         worker.app = app
-        worker.add_repository("foo", repository)
+        worker._repositories["foo"] = repository
 
         with pytest.raises(ApplicationError, match="Repositories not initialized"):
             worker.repositories

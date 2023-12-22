@@ -183,7 +183,7 @@ class ResolutionTree:
         return await self.root.value(context)
 
 
-class ResolutionCache(t.Mapping[str, ResolutionTree]):
+class ResolutionCache(t.Mapping[int, ResolutionTree]):
     """A cache for resolution trees."""
 
     def __init__(self):

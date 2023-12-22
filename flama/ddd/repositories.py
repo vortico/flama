@@ -8,12 +8,14 @@ try:
     import sqlalchemy
     import sqlalchemy.exc
 except Exception:  # pragma: no cover
-    raise AssertionError("`sqlalchemy[asyncio]` must be installed to use crud resources") from None
+    raise AssertionError("`sqlalchemy[asyncio]` must be installed to use ddd") from None
 
 
 if t.TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncConnection
-
+    try:
+        from sqlalchemy.ext.asyncio import AsyncConnection
+    except Exception:  # pragma: no cover
+        ...
 
 __all__ = ["AbstractRepository", "SQLAlchemyRepository", "SQLAlchemyTableRepository", "SQLAlchemyTableManager"]
 
@@ -21,13 +23,15 @@ __all__ = ["AbstractRepository", "SQLAlchemyRepository", "SQLAlchemyTableReposit
 class AbstractRepository(abc.ABC):
     """Base class for repositories."""
 
-    ...
+    def __init__(self, *args, **kwargs):
+        ...
 
 
 class SQLAlchemyRepository(AbstractRepository):
     """Base class for SQLAlchemy repositories. It provides a connection to the database."""
 
-    def __init__(self, connection: "AsyncConnection"):
+    def __init__(self, connection: "AsyncConnection", *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._connection = connection
 
     def __eq__(self, other):
@@ -220,8 +224,8 @@ class SQLAlchemyTableManager:
 class SQLAlchemyTableRepository(SQLAlchemyRepository):
     _table: t.ClassVar[sqlalchemy.Table]
 
-    def __init__(self, connection: "AsyncConnection"):
-        super().__init__(connection)
+    def __init__(self, connection: "AsyncConnection", *args, **kwargs):
+        super().__init__(connection, *args, **kwargs)
         self._table_manager = SQLAlchemyTableManager(self._table, connection)
 
     def __eq__(self, other):

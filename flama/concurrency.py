@@ -94,8 +94,8 @@ class AsyncProcess(multiprocessing.Process):
     _args: t.List[t.Any]
     _kwargs: t.Dict[str, t.Any]
 
-    def run(self):
+    def run(self) -> None:
         if self._target:
             result_or_task = self._target(*self._args, **self._kwargs)
 
-            return asyncio.run(result_or_task) if is_async(self._target) else result_or_task
+            asyncio.run(result_or_task) if is_async(self._target) else result_or_task

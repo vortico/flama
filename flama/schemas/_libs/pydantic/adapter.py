@@ -56,7 +56,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
         *,
         name: t.Optional[str] = None,
         schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
-        fields: t.Optional[t.Dict[str, Field]] = None,
+        fields: t.Optional[t.Dict[str, t.Type[Field]]] = None,
     ) -> t.Type[Schema]:
         return pydantic.create_model(
             name or self.DEFAULT_SCHEMA_NAME,
@@ -97,7 +97,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
         s = self.unique_schema(schema)
         return s.__qualname__ if s.__module__ == "builtins" else f"{s.__module__}.{s.__qualname__}"
 
-    def to_json_schema(self, schema: t.Union[Schema, t.Type[Schema], Field]) -> JSONSchema:
+    def to_json_schema(self, schema: t.Union[t.Type[Schema], t.Type[Field]]) -> JSONSchema:
         try:
             if self.is_schema(schema):
                 json_schema = model_json_schema(schema, ref_template="#/components/schemas/{model}")
@@ -122,9 +122,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
     def unique_schema(self, schema: t.Union[Schema, t.Type[Schema]]) -> t.Type[Schema]:
         return schema.__class__ if isinstance(schema, Schema) else schema
 
-    def _get_field_type(
-        self, field: Field
-    ) -> t.Union[t.Union[Schema, t.Type], t.List[t.Union[Schema, t.Type]], t.Dict[str, t.Union[Schema, t.Type]]]:
+    def _get_field_type(self, field: Field) -> t.Any:
         if not self.is_field(field):
             return field
 
@@ -137,14 +135,8 @@ class PydanticAdapter(Adapter[Schema, Field]):
         return field.annotation
 
     def schema_fields(
-        self, schema: t.Union[Schema, t.Type[Schema]]
-    ) -> t.Dict[
-        str,
-        t.Tuple[
-            t.Union[t.Union[Schema, t.Type], t.List[t.Union[Schema, t.Type]], t.Dict[str, t.Union[Schema, t.Type]]],
-            Field,
-        ],
-    ]:
+        self, schema: t.Type[Schema]
+    ) -> t.Dict[str, t.Tuple[t.Union[t.Type, t.List[t.Type], t.Dict[str, t.Type]], Field]]:
         return {name: (self._get_field_type(field), field) for name, field in schema.model_fields.items()}
 
     def is_schema(
@@ -154,5 +146,5 @@ class PydanticAdapter(Adapter[Schema, Field]):
 
     def is_field(
         self, obj: t.Any
-    ) -> t.TypeGuard[Field]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+    ) -> t.TypeGuard[t.Type[Field]]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
         return isinstance(obj, Field)

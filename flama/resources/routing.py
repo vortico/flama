@@ -54,9 +54,9 @@ class ResourceRoute(Mount):
         super().build(app)
 
         if (root := (self.app if isinstance(self.app, Flama) else app)) and "ddd" in self.resource._meta.namespaces:
-            root.resources.worker.add_repository(
-                self.resource._meta.name, self.resource._meta.namespaces["ddd"]["repository"]
-            )
+            root.resources.worker._repositories[self.resource._meta.name] = self.resource._meta.namespaces["ddd"][
+                "repository"
+            ]
 
 
 def resource_method(
@@ -80,7 +80,7 @@ def resource_method(
     def wrapper(func: t.Callable) -> t.Callable:
         func = paginator.paginate(pagination, func) if pagination is not None else func
 
-        func._meta = data_structures.MethodMetadata(
+        func._meta = data_structures.MethodMetadata(  # type: ignore
             path=path, methods=set(methods) if methods is not None else {"GET"}, name=name, tags=tags or {}
         )
 

@@ -11,8 +11,6 @@ if t.TYPE_CHECKING:
 class FlamaWorker(SQLAlchemyWorker):
     """The worker used by Flama Resources."""
 
-    _repositories: t.Dict[str, t.Type["SQLAlchemyTableRepository"]]
-
     def __init__(self, app: t.Optional["Flama"] = None):
         """Initialize the worker.
 
@@ -22,7 +20,7 @@ class FlamaWorker(SQLAlchemyWorker):
         """
 
         super().__init__(app)
-        self._repositories = {}
+        self._repositories: t.Dict[str, t.Type["SQLAlchemyTableRepository"]] = {}  # type: ignore
         self._init_repositories: t.Optional[t.Dict[str, "SQLAlchemyTableRepository"]] = None
 
     @property
@@ -54,11 +52,3 @@ class FlamaWorker(SQLAlchemyWorker):
         """
         await self.end_transaction(rollback=rollback)
         del self._init_repositories
-
-    def add_repository(self, name: str, cls: t.Type["SQLAlchemyTableRepository"]) -> None:
-        """Register a repository.
-
-        :param name: The name of the repository.
-        :param cls: The class of the repository.
-        """
-        self._repositories[name] = cls

@@ -2,14 +2,15 @@ import abc
 import inspect
 import typing as t
 
-from sqlalchemy.ext.asyncio import AsyncTransaction
-
 from flama.ddd import types
-from flama.ddd.repositories import AbstractRepository, SQLAlchemyRepository
+from flama.ddd.repositories import AbstractRepository
 from flama.exceptions import ApplicationError
 
 if t.TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncConnection
+    try:
+        from sqlalchemy.ext.asyncio import AsyncConnection, AsyncTransaction
+    except Exception:  # pragma: no cover
+        ...
 
     from flama import Flama
 
@@ -121,7 +122,11 @@ class AbstractWorker(abc.ABC, metaclass=WorkerType):
 
 
 class SQLAlchemyWorker(AbstractWorker):
-    _repositories: t.ClassVar[t.Dict[str, t.Type[SQLAlchemyRepository]]]
+    """Worker for SQLAlchemy.
+
+    It will provide a connection and a transaction to the database and create the repositories for the entities.
+    """
+
     _connection: "AsyncConnection"
     _transaction: "AsyncTransaction"
 
