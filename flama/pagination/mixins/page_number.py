@@ -2,7 +2,7 @@ import functools
 import inspect
 import typing as t
 
-from flama import http, schemas
+from flama import http, schemas, types
 
 __all__ = ["PageNumberMixin", "PageNumberResponse"]
 
@@ -25,7 +25,7 @@ class PageNumberResponse(http.APIResponse):
 
     def __init__(
         self,
-        schema: schemas.Schema,
+        schema: t.Type[types.Schema],
         page: t.Optional[t.Union[int, str]] = None,
         page_size: t.Optional[t.Union[int, str]] = None,
         count: t.Optional[bool] = True,
@@ -66,7 +66,7 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
     ]
 
     @classmethod
-    def _decorate_async(cls, func: t.Callable, schema: schemas.Schema) -> t.Callable:
+    def _decorate_async(cls, func: t.Callable, schema: t.Type[types.Schema]) -> t.Callable:
         @functools.wraps(func)
         async def decorator(
             *args,
@@ -82,7 +82,7 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
         return decorator
 
     @classmethod
-    def _decorate_sync(cls, func: t.Callable, schema: schemas.Schema) -> t.Callable:
+    def _decorate_sync(cls, func: t.Callable, schema: t.Type[types.Schema]) -> t.Callable:
         @functools.wraps(func)
         def decorator(
             *args,
@@ -113,9 +113,9 @@ class PageNumberMixin:
         :param schema_name: Name used for output field.
         :return: Decorated view.
         """
-        schema = schemas.Schema.from_type(inspect.signature(func).return_annotation)
-        resource_schema = schema.unique_schema
-        schema_name = schema.name
+        schema_wrapped = schemas.Schema.from_type(inspect.signature(func).return_annotation)
+        resource_schema = schema_wrapped.unique_schema
+        schema_name = schema_wrapped.name
 
         try:
             schema_module, schema_class = schema_name.rsplit(".", 1)

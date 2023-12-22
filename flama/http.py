@@ -66,22 +66,22 @@ class PlainTextResponse(starlette.responses.PlainTextResponse, Response):
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, (Path, os.PathLike)):
-            return str(obj)
-        if isinstance(obj, (bytes, bytearray)):
-            return obj.decode("utf-8")
-        if isinstance(obj, enum.Enum):
-            return obj.value
-        if isinstance(obj, uuid.UUID):
-            return str(obj)
-        if isinstance(obj, (set, frozenset)):
-            return list(obj)
-        if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
-            return obj.isoformat()
-        if isinstance(obj, datetime.timedelta):
+    def default(self, o):
+        if isinstance(o, (Path, os.PathLike)):
+            return str(o)
+        if isinstance(o, (bytes, bytearray)):
+            return o.decode("utf-8")
+        if isinstance(o, enum.Enum):
+            return o.value
+        if isinstance(o, uuid.UUID):
+            return str(o)
+        if isinstance(o, (set, frozenset)):
+            return list(o)
+        if isinstance(o, (datetime.datetime, datetime.date, datetime.time)):
+            return o.isoformat()
+        if isinstance(o, datetime.timedelta):
             # split seconds to larger units
-            seconds = obj.total_seconds()
+            seconds = o.total_seconds()
             minutes, seconds = divmod(seconds, 60)
             hours, minutes = divmod(minutes, 60)
             days, hours = divmod(hours, 24)
@@ -96,13 +96,13 @@ class EnhancedJSONEncoder(json.JSONEncoder):
             )
 
             return "P" + "".join([formatted_value for value, formatted_value in formatted_units if value])
-        if inspect.isclass(obj) and issubclass(obj, BaseException):
-            return obj.__name__
-        if isinstance(obj, BaseException):
-            return repr(obj)
-        if dataclasses.is_dataclass(obj):
-            return dataclasses.asdict(obj)
-        return super().default(obj)
+        if inspect.isclass(o) and issubclass(o, BaseException):
+            return o.__name__
+        if isinstance(o, BaseException):
+            return repr(o)
+        if dataclasses.is_dataclass(o):
+            return dataclasses.asdict(o)
+        return super().default(o)
 
 
 class JSONResponse(starlette.responses.JSONResponse, Response):

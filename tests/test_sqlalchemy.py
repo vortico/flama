@@ -77,7 +77,14 @@ class TestCaseSingleConnectionManager:
         assert connection_manager._connection_clients == 0
         assert connection_manager._connection is None
 
-    async def test_begin_end_transaction(self, connection_manager, connection):
+    @pytest.mark.parametrize(
+        ["rollback", "commit_calls", "rollback_calls"],
+        (
+            pytest.param(False, [call()], [], id="commit"),
+            pytest.param(True, [], [call()], id="rollback"),
+        ),
+    )
+    async def test_begin_end_transaction(self, connection_manager, connection, rollback, commit_calls, rollback_calls):
         # Begin a transaction using a wrong connection
         with pytest.raises(SQLAlchemyError, match="Wrong connection"):
             await connection_manager.begin(Mock(spec=AsyncConnection))
@@ -97,17 +104,21 @@ class TestCaseSingleConnectionManager:
             assert connection_manager._transaction_clients == 2
             assert connection_manager._transaction == first_transaction
 
-            await connection_manager.end(second_transaction, rollback=True)
+            # Close a transaction using a wrong transaction
+            with pytest.raises(SQLAlchemyError, match="Wrong transaction"):
+                await connection_manager.end(Mock(spec=AsyncTransaction))
+
+            await connection_manager.end(second_transaction, rollback=rollback)
 
             assert second_transaction.commit.call_args_list == []
             assert second_transaction.rollback.call_args_list == []
             assert connection_manager._transaction_clients == 1
             assert connection_manager._transaction == first_transaction
 
-            await connection_manager.end(first_transaction, rollback=True)
+            await connection_manager.end(first_transaction, rollback=rollback)
 
-            assert first_transaction.commit.call_args_list == []
-            assert first_transaction.rollback.call_args_list == [call()]
+            assert first_transaction.commit.call_args_list == commit_calls
+            assert first_transaction.rollback.call_args_list == rollback_calls
             assert connection_manager._transaction_clients == 0
             assert connection_manager._transaction is None
 
@@ -147,7 +158,14 @@ class TestCaseMultipleConnectionManager:
 
         assert connection_manager._connections == set()
 
-    async def test_begin_end_transaction(self, connection_manager):
+    @pytest.mark.parametrize(
+        ["rollback", "commit_calls", "rollback_calls"],
+        (
+            pytest.param(False, [call()], [], id="commit"),
+            pytest.param(True, [], [call()], id="rollback"),
+        ),
+    )
+    async def test_begin_end_transaction(self, connection_manager, rollback, commit_calls, rollback_calls):
         assert connection_manager._connections == set()
         assert connection_manager._transactions == {}
 
@@ -159,34 +177,37 @@ class TestCaseMultipleConnectionManager:
         with pytest.raises(SQLAlchemyError, match="Transaction not started"):
             await connection_manager.end(Mock(spec=AsyncTransaction))
 
-        first_connection = await connection_manager.open()
-        second_connection = await connection_manager.open()
-        first_connection_transaction = await connection_manager.begin(first_connection)
-        second_connection_transaction = await connection_manager.begin(second_connection)
+        with patch.multiple("sqlalchemy.ext.asyncio.AsyncTransaction", rollback=AsyncMock(), commit=AsyncMock()):
+            first_connection = await connection_manager.open()
+            second_connection = await connection_manager.open()
+            first_connection_transaction = await connection_manager.begin(first_connection)
+            second_connection_transaction = await connection_manager.begin(second_connection)
 
-        # Two transactions for the same connection
-        with pytest.raises(SQLAlchemyError, match="Transaction already started in this connection"):
-            await connection_manager.begin(first_connection)
+            # Two transactions for the same connection
+            with pytest.raises(SQLAlchemyError, match="Transaction already started in this connection"):
+                await connection_manager.begin(first_connection)
 
-        assert connection_manager._connections == {first_connection, second_connection}
-        assert connection_manager._transactions == {
-            first_connection: first_connection_transaction,
-            second_connection: second_connection_transaction,
-        }
+            assert connection_manager._connections == {first_connection, second_connection}
+            assert connection_manager._transactions == {
+                first_connection: first_connection_transaction,
+                second_connection: second_connection_transaction,
+            }
 
-        await connection_manager.end(second_connection_transaction, rollback=True)
+            await connection_manager.end(second_connection_transaction, rollback=rollback)
+            assert second_connection_transaction.commit.call_args_list == commit_calls
+            assert second_connection_transaction.rollback.call_args_list == rollback_calls
 
-        assert connection_manager._transactions == {first_connection: first_connection_transaction}
+            assert connection_manager._transactions == {first_connection: first_connection_transaction}
 
-        await connection_manager.close(first_connection)
+            await connection_manager.close(first_connection)
 
-        assert connection_manager._connections == {second_connection}
-        assert connection_manager._transactions == {}
+            assert connection_manager._connections == {second_connection}
+            assert connection_manager._transactions == {}
 
-        await connection_manager.close(second_connection)
+            await connection_manager.close(second_connection)
 
-        assert connection_manager._connections == set()
-        assert connection_manager._transactions == {}
+            assert connection_manager._connections == set()
+            assert connection_manager._transactions == {}
 
 
 class TestCaseSQLAlchemyModule:

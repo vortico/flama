@@ -29,6 +29,8 @@ if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragm
 
     enum.StrEnum = StrEnum  # type: ignore
 
+if t.TYPE_CHECKING:
+    from flama.types import JSONSchema
 
 __all__ = ["ModelArtifact", "Compression"]
 
@@ -41,7 +43,7 @@ class Compression(enum.StrEnum):  # type: ignore # PORT: Remove this comment whe
     high = enum.auto()
 
     @property
-    def format(self) -> str:
+    def compression_format(self) -> str:
         return {
             Compression.fast: "gz",
             Compression.standard: "bz2",
@@ -110,7 +112,7 @@ class ModelInfo:
     """Dataclass for storing model info."""
 
     obj: str
-    info: t.Dict[str, t.Any]
+    info: t.Optional["JSONSchema"] = None
     params: t.Optional[t.Dict[str, t.Any]] = None
     metrics: t.Optional[t.Dict[str, t.Any]] = None
 
@@ -324,7 +326,7 @@ class ModelArtifact:
         :param kwargs: Keyword arguments passed to library dump method.
         """
         logger.info("Dump model '%s'", path)
-        with tarfile.open(path, f"w:{Compression[compression].format}") as tar:
+        with tarfile.open(path, f"w:{Compression[compression].compression_format}") as tar:
             if self.artifacts:
                 for name, path in self.artifacts.items():
                     tar.add(path, f"artifacts/{name}")

@@ -11,6 +11,9 @@ try:
 except Exception:  # pragma: no cover
     torch = None  # type: ignore[misc, assignment]
 
+if t.TYPE_CHECKING:
+    from flama.types import JSONSchema
+
 
 class PyTorchSerializer(Serializer):
     lib = types.Framework.torch
@@ -30,7 +33,7 @@ class PyTorchSerializer(Serializer):
 
         return torch.jit.load(io.BytesIO(codecs.decode(model, "base64")), **kwargs)
 
-    def info(self, model: t.Any) -> t.Dict[str, t.Any]:
+    def info(self, model: t.Any) -> t.Optional["JSONSchema"]:
         return {
             "modules": [str(x) for x in model.modules()],
             "parameters": {k: str(v) for k, v in model.named_parameters()},

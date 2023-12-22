@@ -29,27 +29,19 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
 
     @t.overload
     @abc.abstractmethod
-    def build_schema(
-        self, *, name: t.Optional[str] = None, fields: t.Dict[str, _T_Field]
-    ) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
+    def build_schema(self, *, name: t.Optional[str] = None, fields: t.Dict[str, t.Any]) -> t.Any:
+        ...
+
+    @t.overload
+    @abc.abstractmethod
+    def build_schema(self, *, name: t.Optional[str] = None, schema: t.Any) -> t.Any:
         ...
 
     @t.overload
     @abc.abstractmethod
     def build_schema(
-        self, *, name: t.Optional[str] = None, schema: t.Union[_T_Schema, t.Type[_T_Schema]]
-    ) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
-        ...
-
-    @t.overload
-    @abc.abstractmethod
-    def build_schema(
-        self,
-        *,
-        name: t.Optional[str] = None,
-        schema: t.Union[_T_Schema, t.Type[_T_Schema]],
-        fields: t.Optional[t.Dict[str, _T_Field]],
-    ) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
+        self, *, name: t.Optional[str] = None, schema: t.Any, fields: t.Optional[t.Dict[str, t.Any]]
+    ) -> t.Any:
         ...
 
     @abc.abstractmethod
@@ -57,63 +49,47 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
         self,
         *,
         name: t.Optional[str] = None,
-        schema: t.Optional[t.Union[_T_Schema, t.Type[_T_Schema]]] = None,
-        fields: t.Optional[t.Dict[str, _T_Field]] = None,
-    ) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
+        schema: t.Optional[t.Any] = None,
+        fields: t.Optional[t.Dict[str, t.Any]] = None,
+    ) -> t.Any:
         ...
 
     @abc.abstractmethod
-    def validate(
-        self, schema: t.Union[_T_Schema, t.Type[_T_Schema]], values: t.Dict[str, t.Any], *, partial: bool = False
-    ) -> t.Dict[str, t.Any]:
+    def validate(self, schema: t.Any, values: t.Dict[str, t.Any], *, partial: bool = False) -> t.Dict[str, t.Any]:
         ...
 
     @abc.abstractmethod
-    def load(self, schema: t.Union[_T_Schema, t.Type[_T_Schema]], value: t.Dict[str, t.Any]) -> _T_Schema:
+    def load(self, schema: t.Any, value: t.Dict[str, t.Any]) -> _T_Schema:
         ...
 
     @abc.abstractmethod
-    def dump(self, schema: t.Union[_T_Schema, t.Type[_T_Schema]], value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    def dump(self, schema: t.Any, value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         ...
 
     @abc.abstractmethod
-    def name(self, schema: t.Union[_T_Schema, t.Type[_T_Schema]]) -> str:
+    def name(self, schema: t.Any) -> str:
         ...
 
     @abc.abstractmethod
-    def to_json_schema(self, schema: t.Union[_T_Schema, t.Type[_T_Schema], _T_Field]) -> JSONSchema:
+    def to_json_schema(self, schema: t.Any) -> JSONSchema:
         ...
 
     @abc.abstractmethod
-    def unique_schema(self, schema: t.Union[_T_Schema, t.Type[_T_Schema]]) -> t.Union[_T_Schema, t.Type[_T_Schema]]:
+    def unique_schema(self, schema: t.Any) -> t.Any:
         ...
 
     @abc.abstractmethod
-    def schema_fields(
-        self, schema: t.Union[_T_Schema, t.Type[_T_Schema]]
-    ) -> t.Dict[
-        str,
-        t.Tuple[
-            t.Union[
-                t.Union[_T_Schema, t.Type], t.List[t.Union[_T_Schema, t.Type]], t.Dict[str, t.Union[_T_Schema, t.Type]]
-            ],
-            _T_Field,
-        ],
-    ]:
+    def schema_fields(self, schema: t.Any) -> t.Dict[str, t.Any]:
         ...
 
     @abc.abstractmethod
     def is_schema(
         self, obj: t.Any
-    ) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
-        t.Union[_T_Schema, t.Type[_T_Schema]]
-    ]:
+    ) -> t.TypeGuard[t.Any]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
         ...
 
     @abc.abstractmethod
     def is_field(
         self, obj: t.Any
-    ) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
-        t.Union[_T_Field, t.Type[_T_Field]]
-    ]:
+    ) -> t.TypeGuard[t.Any]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
         ...

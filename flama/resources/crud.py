@@ -30,7 +30,8 @@ class CreateMixin:
                 resource.pop(rest_model.primary_key.name, None)
 
             async with worker:
-                result = await worker.repositories[self._meta.name].create(resource)
+                repository = worker.repositories[self._meta.name]
+                result = await repository.create(resource)
 
             return http.APIResponse(  # type: ignore[return-value]
                 schema=rest_schemas.output.schema, content=result[0], status_code=201
@@ -70,9 +71,8 @@ class RetrieveMixin:
         ) -> types.Schema[rest_schemas.output.schema]:
             try:
                 async with worker:
-                    return await worker.repositories[self._meta.name].retrieve(
-                        **{rest_model.primary_key.name: resource_id}
-                    )
+                    repository = worker.repositories[self._meta.name]
+                    return await repository.retrieve(**{rest_model.primary_key.name: resource_id})
             except ddd_exceptions.NotFoundError:
                 raise exceptions.HTTPException(status_code=404)
 
@@ -115,11 +115,12 @@ class UpdateMixin:
             resource[rest_model.primary_key.name] = resource_id
             async with worker:
                 try:
-                    await worker.repositories[self._meta.name].delete(**{rest_model.primary_key.name: resource_id})
+                    repository = worker.repositories[self._meta.name]
+                    await repository.delete(**{rest_model.primary_key.name: resource_id})
                 except ddd_exceptions.NotFoundError:
                     raise exceptions.HTTPException(status_code=404)
 
-                result = await worker.repositories[self._meta.name].create(resource)
+                result = await repository.create(resource)
 
             return types.Schema[rest_schemas.output.schema](result[0])
 
@@ -161,9 +162,8 @@ class PartialUpdateMixin:
         ) -> types.Schema[rest_schemas.output.schema]:
             resource[rest_model.primary_key.name] = resource_id
             async with worker:
-                result = await worker.repositories[self._meta.name].update(
-                    resource, **{rest_model.primary_key.name: resource_id}
-                )
+                repository = worker.repositories[self._meta.name]
+                result = await repository.update(resource, **{rest_model.primary_key.name: resource_id})
 
                 if not result:
                     raise exceptions.HTTPException(status_code=404)
@@ -199,7 +199,8 @@ class DeleteMixin:
         async def delete(self, worker: FlamaWorker, resource_id: rest_model.primary_key.type):
             try:
                 async with worker:
-                    await worker.repositories[self._meta.name].delete(**{rest_model.primary_key.name: resource_id})
+                    repository = worker.repositories[self._meta.name]
+                    await repository.delete(**{rest_model.primary_key.name: resource_id})
             except ddd_exceptions.NotFoundError:
                 raise exceptions.HTTPException(status_code=404)
 
@@ -238,11 +239,9 @@ class ListMixin:
             **kwargs,
         ) -> types.Schema[rest_schemas.output.schema]:
             async with worker:
+                repository = worker.repositories[self._meta.name]
                 return [  # type: ignore[return-value]
-                    x
-                    async for x in worker.repositories[self._meta.name].list(
-                        order_by=order_by, order_direction=order_direction
-                    )
+                    x async for x in repository.list(order_by=order_by, order_direction=order_direction)
                 ]
 
         list.__doc__ = f"""
@@ -278,8 +277,9 @@ class ReplaceMixin:
             resources: t.List[types.Schema[rest_schemas.input.schema]],
         ) -> t.List[types.Schema[rest_schemas.output.schema]]:
             async with worker:
-                await worker.repositories[self._meta.name].drop()
-                return await worker.repositories[self._meta.name].create(*resources)
+                repository = worker.repositories[self._meta.name]
+                await repository.drop()
+                return await repository.create(*resources)
 
         replace.__doc__ = f"""
             tags:
@@ -314,12 +314,13 @@ class PartialReplaceMixin:
             resources: t.List[types.Schema[rest_schemas.input.schema]],
         ) -> t.List[types.Schema[rest_schemas.output.schema]]:
             async with worker:
-                await worker.repositories[self._meta.name].drop(
+                repository = worker.repositories[self._meta.name]
+                await repository.drop(
                     rest_model.table.c[rest_model.primary_key.name].in_(
                         [x[rest_model.primary_key.name] for x in resources]
                     )
                 )
-                return await worker.repositories[self._meta.name].create(*resources)
+                return await repository.create(*resources)
 
         partial_replace.__doc__ = f"""
             tags:
@@ -343,7 +344,8 @@ class DropMixin:
         @resource_method("/", methods=["DELETE"], name="drop")
         async def drop(self, worker: FlamaWorker) -> types.Schema[schemas.schemas.DropCollection]:
             async with worker:
-                result = await worker.repositories[self._meta.name].drop()
+                repository = worker.repositories[self._meta.name]
+                result = await repository.drop()
 
             return http.APIResponse(  # type: ignore[return-value]
                 schema=schemas.schemas.DropCollection, content={"deleted": result}, status_code=204

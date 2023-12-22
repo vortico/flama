@@ -832,7 +832,7 @@ class TestCaseSchemaGenerator:
     @pytest.fixture(scope="function")
     def owner_schema(self, app):
         if app.schema.schema_library.lib == pydantic:
-            schema = pydantic.create_model("Owner", name=(str, ...))
+            schema = pydantic.create_model("Owner", name=(str, ...), __module__="pydantic.main")
             name = "pydantic.main.Owner"
         elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(title="Owner", fields={"name": typesystem.fields.String()})
@@ -847,7 +847,9 @@ class TestCaseSchemaGenerator:
     @pytest.fixture(scope="function")
     def puppy_schema(self, app, owner_schema):
         if app.schema.schema_library.lib == pydantic:
-            schema = pydantic.create_model("Puppy", name=(str, ...), owner=(owner_schema.schema, ...))
+            schema = pydantic.create_model(
+                "Puppy", name=(str, ...), owner=(owner_schema.schema, ...), __module__="pydantic.main"
+            )
             name = "pydantic.main.Puppy"
         elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(
@@ -877,7 +879,7 @@ class TestCaseSchemaGenerator:
     @pytest.fixture(scope="function")
     def body_param_schema(self, app):
         if app.schema.schema_library.lib == pydantic:
-            schema = pydantic.create_model("BodyParam", name=(str, ...))
+            schema = pydantic.create_model("BodyParam", name=(str, ...), __module__="pydantic.main")
             name = "pydantic.main.BodyParam"
         elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(title="BodyParam", fields={"name": typesystem.fields.String()})

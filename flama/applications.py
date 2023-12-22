@@ -4,7 +4,6 @@ import threading
 import typing as t
 
 from flama import asgi, exceptions, http, injection, types, url, validation, websockets
-from flama.ddd.components import WorkerComponent
 from flama.events import Events
 from flama.middleware import MiddlewareStack
 from flama.models.modules import ModelsModule
@@ -13,6 +12,13 @@ from flama.pagination import paginator
 from flama.resources import ResourcesModule
 from flama.routing import BaseRoute, Router
 from flama.schemas.modules import SchemaModule
+
+try:
+    from flama.ddd.components import WorkerComponent
+    from flama.resources.workers import FlamaWorker
+except AssertionError:
+    WorkerComponent = None
+    FlamaWorker = None
 
 if t.TYPE_CHECKING:
     from flama.middleware import Middleware
@@ -83,16 +89,22 @@ class Flama:
             }
         )
 
+        # Create worker
+        worker = FlamaWorker() if FlamaWorker else None
+
         # Initialize Modules
         default_modules = [
-            ResourcesModule(),
+            ResourcesModule(worker=worker),
             SchemaModule(title, version, description, schema=schema, docs=docs),
             ModelsModule(),
         ]
         self.modules = Modules(app=self, modules={*default_modules, *(modules or [])})
 
         # Initialize router
-        default_components = [WorkerComponent(worker=default_modules[0].worker)]
+        default_components = []
+        if worker and WorkerComponent:
+            default_components.append(WorkerComponent(worker=worker))
+
         self.app = self.router = Router(
             routes=routes, components=[*default_components, *(components or [])], lifespan=lifespan
         )

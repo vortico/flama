@@ -78,10 +78,6 @@ class Component(metaclass=abc.ABCMeta):
     def __str__(self) -> str:
         return str(self.__class__.__name__)
 
-    @abc.abstractmethod
-    def resolve(self, *args, **kwargs) -> t.Any:
-        ...
-
 
 class Components(t.Tuple[Component, ...]):
     def __new__(cls, components: t.Optional[t.Union[t.Sequence[Component], t.Set[Component]]] = None):

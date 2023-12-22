@@ -4,7 +4,13 @@ import typing as t
 from flama.modules import Module
 from flama.resources.resource import Resource
 from flama.resources.routing import ResourceRoute
-from flama.resources.workers import FlamaWorker
+
+if t.TYPE_CHECKING:
+    try:
+        from flama.resources.workers import FlamaWorker
+    except AssertionError:
+        ...
+
 
 __all__ = ["ResourcesModule"]
 
@@ -12,9 +18,9 @@ __all__ = ["ResourcesModule"]
 class ResourcesModule(Module):
     name = "resources"
 
-    def __init__(self):
+    def __init__(self, worker: t.Optional["FlamaWorker"] = None):
         super().__init__()
-        self.worker = FlamaWorker()
+        self.worker = worker
 
     def add_resource(
         self,

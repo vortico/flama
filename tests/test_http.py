@@ -13,7 +13,7 @@ import pytest
 import typesystem
 import typesystem.fields
 
-from flama import exceptions, http, schemas, types
+from flama import exceptions, http, types
 
 
 @dataclasses.dataclass

@@ -21,7 +21,7 @@ def app(app):
 @pytest.fixture(scope="function")
 def output_schema(app):
     if app.schema.schema_library.lib == pydantic:
-        schema = pydantic.create_model("OutputSchema", value=(t.Optional[int], ...))
+        schema = pydantic.create_model("OutputSchema", value=(t.Optional[int], ...), __module__="pydantic.main")
         name = "pydantic.main.OutputSchema"
     elif app.schema.schema_library.lib == typesystem:
         schema = typesystem.Schema(title="OutputSchema", fields={"value": typesystem.fields.Integer(allow_null=True)})
