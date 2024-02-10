@@ -4,7 +4,7 @@ from flama import exceptions
 from flama.models.base import Model
 
 try:
-    import torch
+    import torch  # type: ignore
 except Exception:  # pragma: no cover
     torch = None  # type: ignore
 

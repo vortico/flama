@@ -8,7 +8,7 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
     t.ParamSpec = ParamSpec  # type: ignore
 
 if t.TYPE_CHECKING:
-    from flama import endpoints  # noqa
+    from flama import endpoints
 
 __all__ = [
     "Scope",
@@ -16,14 +16,10 @@ __all__ = [
     "Receive",
     "Send",
     "AppClass",
-    "AppAsyncClass",
     "AppFunction",
-    "AppAsyncFunction",
     "App",
     "MiddlewareClass",
-    "MiddlewareAsyncClass",
     "MiddlewareFunction",
-    "MiddlewareAsyncFunction",
     "Middleware",
     "HTTPHandler",
     "WebSocketHandler",
@@ -47,28 +43,19 @@ class Send(t.Protocol):
 
 
 # Applications
-class AppClass(t.Protocol[P, R]):
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+@t.runtime_checkable
+class AppClass(t.Protocol):
+    def __call__(self, scope: Scope, receive: Receive, send: Send) -> t.Union[None, t.Awaitable[None]]:
         ...
 
 
-class AppAsyncClass(t.Protocol[P, R]):
-    async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
-        ...
-
-
-AppFunction = t.Callable[P, R]
-AppAsyncFunction = t.Callable[P, t.Awaitable[R]]
-App = t.Union[AppClass, AppAsyncClass, AppFunction, AppAsyncFunction]
+AppFunction = t.Callable[[Scope, Receive, Send], t.Union[None, t.Awaitable[None]]]
+App = t.Union[AppClass, AppFunction]
 
 
 # Middleware
+@t.runtime_checkable
 class MiddlewareClass(AppClass, t.Protocol[P, R]):
-    def __init__(self, app: App, *args: P.args, **kwargs: P.kwargs):
-        ...
-
-
-class MiddlewareAsyncClass(AppAsyncClass, t.Protocol[P, R]):
     def __init__(self, app: App, *args: P.args, **kwargs: P.kwargs):
         ...
 
@@ -76,10 +63,7 @@ class MiddlewareAsyncClass(AppAsyncClass, t.Protocol[P, R]):
 MiddlewareFunction = t.Callable[
     t.Concatenate[App, P], App  # type: ignore # PORT: Remove this comment when stop supporting 3.9
 ]
-MiddlewareAsyncFunction = t.Callable[
-    t.Concatenate[App, P], t.Awaitable[App]  # type: ignore # PORT: Remove this comment when stop supporting 3.9
-]
-Middleware = t.Union[t.Type[MiddlewareClass], t.Type[MiddlewareAsyncClass], MiddlewareFunction, MiddlewareAsyncFunction]
+Middleware = t.Union[t.Type[MiddlewareClass], MiddlewareFunction]
 
-HTTPHandler = t.Union[AppFunction, t.Type["endpoints.HTTPEndpoint"]]
-WebSocketHandler = t.Union[AppFunction, t.Type["endpoints.WebSocketEndpoint"]]
+HTTPHandler = t.Union[t.Callable, t.Type["endpoints.HTTPEndpoint"]]
+WebSocketHandler = t.Union[t.Callable, t.Type["endpoints.WebSocketEndpoint"]]

@@ -1,3 +1,4 @@
+import abc
 import enum
 import functools
 import inspect
@@ -19,6 +20,7 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
 if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
 
     class StrEnum(str, enum.Enum):
+        @staticmethod
         def _generate_next_value_(name, start, count, last_values):
             return name.lower()
 
@@ -44,7 +46,7 @@ class Match(enum.Enum):
     full = enum.auto()
 
 
-class EndpointWrapper(types.AppAsyncClass):
+class EndpointWrapper:
     type = _EndpointType
 
     def __init__(
@@ -70,13 +72,13 @@ class EndpointWrapper(types.AppAsyncClass):
             (self.type.websocket, False): self._websocket_function,
             (self.type.websocket, True): self._websocket_endpoint,
         }
-        self.call_function: types.App = decorator_select[(endpoint_type, inspect.isclass(self.handler))]
+        self.call_function = decorator_select[(endpoint_type, inspect.isclass(self.handler))]
 
     def __get__(self, instance, owner):
         return functools.partial(self.__call__, instance)
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        await self.call_function(scope, receive, send)
+        await concurrency.run(self.call_function, scope, receive, send)
 
     async def _http_function(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs an HTTP request.
@@ -96,13 +98,14 @@ class EndpointWrapper(types.AppAsyncClass):
             "send": send,
             "exc": None,
             "app": app,
+            "root_app": scope["root_app"],
             "path_params": route_scope.get("path_params", {}),
             "route": route,
             "request": http.Request(route_scope, receive=receive),
         }
 
         try:
-            injected_func = await app.injector.inject(self.handler, **state)
+            injected_func = await app.injector.inject(self.handler, state)
             response = await concurrency.run(injected_func)
             response = self._build_api_response(self.handler, response)
         except Exception:
@@ -142,6 +145,7 @@ class EndpointWrapper(types.AppAsyncClass):
             "send": send,
             "exc": None,
             "app": app,
+            "root_app": scope["root_app"],
             "path_params": route_scope.get("path_params", {}),
             "route": route,
             "websocket": websockets.WebSocket(route_scope, receive, send),
@@ -150,7 +154,7 @@ class EndpointWrapper(types.AppAsyncClass):
             "websocket_message": None,
         }
 
-        injected_func = await app.injector.inject(self.handler, **state)
+        injected_func = await app.injector.inject(self.handler, state)
         await injected_func(**route_scope.get("kwargs", {}))
 
     async def _websocket_endpoint(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
@@ -190,7 +194,7 @@ class EndpointWrapper(types.AppAsyncClass):
         return isinstance(other, EndpointWrapper) and self.handler == other.handler
 
 
-class BaseRoute(RouteParametersMixin):
+class BaseRoute(abc.ABC, RouteParametersMixin):
     def __init__(
         self,
         path: t.Union[str, url.RegexPath],
@@ -198,7 +202,7 @@ class BaseRoute(RouteParametersMixin):
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ):
         """A route definition of a http endpoint.
 
@@ -216,8 +220,9 @@ class BaseRoute(RouteParametersMixin):
         self.tags = tags or {}
         super().__init__()
 
+    @abc.abstractmethod
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
+        ...
 
     def __eq__(self, other: t.Any) -> bool:
         return (
@@ -256,7 +261,7 @@ class BaseRoute(RouteParametersMixin):
         :param receive: ASGI receive event.
         :param send: ASGI send event.
         """
-        await self.app(scope, receive, send)
+        await concurrency.run(self.app, scope, receive, send)
 
     def match(self, scope: types.Scope) -> Match:
         """Check if this route matches with given scope.
@@ -308,7 +313,7 @@ class Route(BaseRoute):
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> None:
         """A route definition of a http endpoint.
 
@@ -343,6 +348,10 @@ class Route(BaseRoute):
         )
 
         self.app: EndpointWrapper
+
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        if scope["type"] == "http":
+            await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
 
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, Route) and self.methods == other.methods
@@ -399,7 +408,7 @@ class WebSocketRoute(BaseRoute):
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ):
         """A route definition of a websocket endpoint.
 
@@ -426,6 +435,10 @@ class WebSocketRoute(BaseRoute):
         )
 
         self.app: EndpointWrapper
+
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        if scope["type"] == "websocket":
+            await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
 
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, WebSocketRoute)
@@ -471,7 +484,7 @@ class Mount(BaseRoute):
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
         components: t.Optional[t.Sequence[Component]] = None,
         name: t.Optional[str] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ):
         """A mount point for adding a nested ASGI application or a list of routes.
 
@@ -489,6 +502,12 @@ class Mount(BaseRoute):
 
         super().__init__(url.RegexPath(path.rstrip("/") + "{path:path}"), app, name=name, tags=tags)
 
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        if scope["type"] in ("http", "websocket") or (
+            scope["type"] == "lifespan" and types.is_flama_instance(self.app)
+        ):
+            await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
+
     def __eq__(self, other: t.Any) -> bool:
         return super().__eq__(other) and isinstance(other, Mount)
 
@@ -499,12 +518,10 @@ class Mount(BaseRoute):
 
         :param app: Flama app.
         """
-        from flama import Flama
-
-        if app and isinstance(self.app, Flama):
+        if app and types.is_flama_instance(self.app):
             self.app.router.components = Components(self.app.router.components + app.components)
 
-        if root := (self.app if isinstance(self.app, Flama) else app):
+        if root := (self.app if types.is_flama_instance(self.app) else app):
             for route in self.routes:
                 route.build(root)
 
@@ -526,31 +543,38 @@ class Mount(BaseRoute):
         :param receive: ASGI receive event.
         :param send: ASGI send event
         """
-        await self.app(scope, receive, send)
+        await concurrency.run(self.app, scope, receive, send)
 
     def route_scope(self, scope: types.Scope) -> types.Scope:
         """Build route scope from given scope.
 
+        It generates an updated scope parameters for the route:
+        * app: The app of this mount point. If it's mounting a Flama app, it will replace the app with this one
+        * path_params: The matched path parameters of this mount point
+        * endpoint: The endpoint of this mount point
+        * root_path: The root path of this mount point (if it's mounting a Flama app, it will be empty)
+        * path: The remaining path to be matched
+
         :param scope: ASGI scope.
         :return: Route scope.
         """
-        from flama import Flama
+        result = {"app": self.app if types.is_flama_instance(self.app) else scope["app"]}
 
-        app = self.app if isinstance(self.app, Flama) else scope["app"]
-        path = scope["path"]
-        root_path = scope.get("root_path", "")
-        matched_params = self.path.values(path)
-        remaining_path = matched_params.pop("path")
-        matched_path = path[: -len(remaining_path)]
-        return types.Scope(
-            {
-                "app": app,
-                "path_params": {**dict(scope.get("path_params", {})), **matched_params},
-                "endpoint": self.endpoint,
-                "root_path": root_path + matched_path,
-                "path": remaining_path,
-            }
-        )
+        if "path" in scope:
+            path = scope["path"]
+            matched_params = self.path.values(path)
+            remaining_path = matched_params.pop("path")
+            matched_path = path[: -len(remaining_path)]
+            result.update(
+                {
+                    "path_params": {**dict(scope.get("path_params", {})), **matched_params},
+                    "endpoint": self.endpoint,
+                    "root_path": "" if types.is_flama_instance(self.app) else scope.get("root_path", "") + matched_path,
+                    "path": remaining_path,
+                }
+            )
+
+        return types.Scope(result)
 
     def resolve_url(self, name: str, **params: t.Any) -> url.URL:
         """Builds URL path for given name and params.
@@ -586,7 +610,7 @@ class Mount(BaseRoute):
         return getattr(self.app, "routes", [])
 
 
-class Router(types.AppAsyncClass):
+class Router:
     def __init__(
         self,
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
@@ -616,15 +640,12 @@ class Router(types.AppAsyncClass):
         logger.debug("Request: %s", str(scope))
         assert scope["type"] in ("http", "websocket", "lifespan")
 
-        if "app" in scope and scope["app"]._status != types.AppStatus.READY and scope["type"] != "lifespan":
-            raise exceptions.ApplicationError("Application is not ready to process requests yet.")
-
-        if "router" not in scope:
-            scope["router"] = self
-
         if scope["type"] == "lifespan":
             await self.lifespan(scope, receive, send)
             return
+
+        if "router" not in scope:
+            scope["router"] = self
 
         route, route_scope = self.resolve_route(scope)
         await route(route_scope, receive, send)
@@ -657,7 +678,7 @@ class Router(types.AppAsyncClass):
         route: t.Optional[Route] = None,
         root: t.Optional["Flama"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> Route:
         """Register a new HTTP route in this router under given path.
 
@@ -700,7 +721,7 @@ class Router(types.AppAsyncClass):
         *,
         root: t.Optional["Flama"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -738,7 +759,7 @@ class Router(types.AppAsyncClass):
         route: t.Optional[WebSocketRoute] = None,
         root: t.Optional["Flama"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> WebSocketRoute:
         """Register a new websocket route in this router under given path.
 
@@ -769,7 +790,7 @@ class Router(types.AppAsyncClass):
         *,
         root: t.Optional["Flama"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
@@ -795,7 +816,7 @@ class Router(types.AppAsyncClass):
         *,
         mount: t.Optional[Mount] = None,
         root: t.Optional["Flama"] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> Mount:
         """Register a new mount point containing an ASGI app in this router under given path.
 

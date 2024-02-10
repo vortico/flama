@@ -11,12 +11,6 @@ build_pkg() {
     clean_folder
   fi
 
-  cd templates
-  echo "🔥 Install js requirements..."
-  npm i
-  echo "🔥 Build templates..."
-  npm run build
-  cd ..
   echo "🔥 Build package:"
   poetry build
 

@@ -35,7 +35,7 @@ def _replace_refs(schema, refs):
 
 class TestCaseSchemaRegistry:
     @pytest.fixture(scope="function")
-    def registry(self):
+    def registry(self, app):
         return SchemaRegistry()
 
     @pytest.fixture(scope="function")
@@ -810,21 +810,15 @@ class TestCaseSchemaRegistry:
     @pytest.mark.parametrize(
         ["multiple", "result"],
         (
-            pytest.param(False, openapi.Reference(ref="#/components/schemas/Foo"), id="schema"),
             pytest.param(
-                True, openapi.Schema({"type": "array", "items": {"$ref": "#/components/schemas/Foo"}}), id="array"
+                False,
+                openapi.Reference(ref="#/components/schemas/Foo"),
+                id="schema",
             ),
             pytest.param(
-                None,
-                openapi.Schema(
-                    {
-                        "oneOf": [
-                            {"$ref": "#/components/schemas/Foo"},
-                            {"type": "array", "items": {"$ref": "#/components/schemas/Foo"}},
-                        ]
-                    }
-                ),
-                id="array_or_schema",
+                True,
+                openapi.Schema({"type": "array", "items": {"$ref": "#/components/schemas/Foo"}}),
+                id="array",
             ),
         ),
     )
@@ -838,7 +832,7 @@ class TestCaseSchemaGenerator:
     @pytest.fixture(scope="function")
     def owner_schema(self, app):
         if app.schema.schema_library.lib == pydantic:
-            schema = pydantic.create_model("Owner", name=(str, ...))
+            schema = pydantic.create_model("Owner", name=(str, ...), __module__="pydantic.main")
             name = "pydantic.main.Owner"
         elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(title="Owner", fields={"name": typesystem.fields.String()})
@@ -853,7 +847,9 @@ class TestCaseSchemaGenerator:
     @pytest.fixture(scope="function")
     def puppy_schema(self, app, owner_schema):
         if app.schema.schema_library.lib == pydantic:
-            schema = pydantic.create_model("Puppy", name=(str, ...), owner=(owner_schema.schema, ...))
+            schema = pydantic.create_model(
+                "Puppy", name=(str, ...), owner=(owner_schema.schema, ...), __module__="pydantic.main"
+            )
             name = "pydantic.main.Puppy"
         elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(
@@ -883,7 +879,7 @@ class TestCaseSchemaGenerator:
     @pytest.fixture(scope="function")
     def body_param_schema(self, app):
         if app.schema.schema_library.lib == pydantic:
-            schema = pydantic.create_model("BodyParam", name=(str, ...))
+            schema = pydantic.create_model("BodyParam", name=(str, ...), __module__="pydantic.main")
             name = "pydantic.main.BodyParam"
         elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(title="BodyParam", fields={"name": typesystem.fields.String()})
@@ -978,6 +974,51 @@ class TestCaseSchemaGenerator:
                 description: OK.
               400:
                 description: Bad Request.
+            """
+            return {}
+
+        @app.route("/custom-params/", methods=["GET"])
+        async def custom_params(name: str):
+            """
+            description: Custom params.
+            parameters:
+              - in: query
+                name: name
+                schema:
+                    type: string
+                required: true
+                description: The query param
+            responses:
+              200:
+                description: OK.
+            """
+            return {}
+
+        @app.route("/custom-body/", methods=["POST"])
+        async def custom_body():
+            """
+            description: Custom body.
+            requestBody:
+                description: The body request
+                required: true
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            properties:
+                                model:
+                                    type: string
+                                    format: binary
+                                    description: The model file
+                                name:
+                                    type: string
+                                    description: The model name
+                                description:
+                                    type: string
+                                    description: The model description
+            responses:
+              200:
+                description: OK.
             """
             return {}
 
@@ -1102,16 +1143,7 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Component.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "oneOf": [
-                                            {"$ref": "#/components/schemas/Puppy"},
-                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
-                                        ]
-                                    }
-                                }
-                            },
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
                         },
                         "default": {
                             "description": "Unexpected error.",
@@ -1131,16 +1163,7 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Many components.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "oneOf": [
-                                            {"$ref": "#/components/schemas/Puppy"},
-                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
-                                        ]
-                                    }
-                                }
-                            },
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
                         },
                         "default": {
                             "description": "Unexpected error.",
@@ -1160,16 +1183,7 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Component.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "oneOf": [
-                                            {"$ref": "#/components/schemas/Puppy"},
-                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
-                                        ]
-                                    }
-                                }
-                            },
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
                         },
                         "default": {
                             "description": "Unexpected error.",
@@ -1189,16 +1203,7 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Component.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "oneOf": [
-                                            {"$ref": "#/components/schemas/Puppy"},
-                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
-                                        ]
-                                    }
-                                }
-                            },
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
                         },
                         "default": {
                             "description": "Unexpected error.",
@@ -1218,16 +1223,7 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Component.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "oneOf": [
-                                            {"$ref": "#/components/schemas/Puppy"},
-                                            {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"},
-                                        ]
-                                    }
-                                }
-                            },
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
                         },
                         "default": {
                             "description": "Unexpected error.",
@@ -1272,6 +1268,67 @@ class TestCaseSchemaGenerator:
                     },
                 },
                 id="multiple_responses",
+            ),
+            pytest.param(
+                "/custom-params/",
+                "get",
+                {
+                    "description": "Custom params.",
+                    "parameters": [
+                        {
+                            "in": "query",
+                            "name": "name",
+                            "schema": {"type": "string"},
+                            "required": True,
+                            "description": "The query param",
+                        }
+                    ],
+                    "responses": {
+                        "200": {"description": "OK."},
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
+                        },
+                    },
+                },
+                id="custom_params",
+            ),
+            pytest.param(
+                "/custom-body/",
+                "post",
+                {
+                    "description": "Custom body.",
+                    "requestBody": {
+                        "content": {
+                            "multipart/form-data": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "model": {
+                                            "type": "string",
+                                            "format": "binary",
+                                            "description": "The model file",
+                                        },
+                                        "name": {"type": "string", "description": "The model name"},
+                                        "description": {"type": "string", "description": "The model description"},
+                                    },
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {"description": "OK."},
+                        "default": {
+                            "description": "Unexpected error.",
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                            },
+                        },
+                    },
+                },
+                id="custom_body",
             ),
         ],
     )

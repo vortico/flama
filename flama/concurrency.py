@@ -58,7 +58,9 @@ async def run(
     if is_async(func):
         return await func(*args, **kwargs)
 
-    return await asyncio.to_thread(func, *args, **kwargs)  # type: ignore
+    return t.cast(
+        R, await asyncio.to_thread(func, *args, **kwargs)  # PORT: Remove when stop supporting 3.8 # type: ignore
+    )
 
 
 if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
@@ -88,12 +90,12 @@ else:  # noqa
 class AsyncProcess(multiprocessing.Process):
     """Multiprocessing Process class whose target is an async function."""
 
-    def run(self):
-        if self._target:  # type: ignore
-            task = self._target(*self._args, **self._kwargs)  # type: ignore
+    _target: t.Optional[t.Callable[..., t.Union[t.Any, t.Coroutine]]]
+    _args: t.List[t.Any]
+    _kwargs: t.Dict[str, t.Any]
 
-            if is_async(self._target):  # type: ignore
-                policy = asyncio.get_event_loop_policy()
-                loop = policy.new_event_loop()
-                policy.set_event_loop(loop)
-                loop.run_until_complete(task)
+    def run(self) -> None:
+        if self._target:
+            result_or_task = self._target(*self._args, **self._kwargs)
+
+            asyncio.run(result_or_task) if is_async(self._target) else result_or_task

@@ -1,3 +1,4 @@
+import warnings
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
 
 import marshmallow
@@ -7,7 +8,7 @@ import starlette.websockets
 import typesystem
 import typesystem.fields
 
-from flama import Component, exceptions, types, websockets
+from flama import Component, Flama, exceptions, types, websockets
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 
 
@@ -20,33 +21,9 @@ class PuppyComponent(Component):
         return Puppy()
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="module")
 def app(app):
-    app.add_component(PuppyComponent())
-    return app
-
-
-@pytest.fixture(scope="class")
-def puppy_schema(app):
-    from flama import schemas
-
-    if schemas.lib == pydantic:
-        schema = pydantic.create_model("Puppy", name=(str, ...))
-    elif schemas.lib == typesystem:
-        schema = typesystem.Schema(title="Puppy", fields={"name": typesystem.fields.String()})
-    elif schemas.lib == marshmallow:
-        schema = type(
-            "Puppy",
-            (marshmallow.Schema,),
-            {
-                "name": marshmallow.fields.String(),
-            },
-        )
-    else:
-        raise ValueError("Wrong schema lib")
-
-    app.schema.schemas["Puppy"] = schema
-    return schema
+    return Flama(schema=None, docs=None, components=[PuppyComponent()])
 
 
 class TestCaseHTTPEndpoint:
@@ -58,8 +35,22 @@ class TestCaseHTTPEndpoint:
                 ...
 
         asgi_scope["app"] = app
+        asgi_scope["root_app"] = app
         asgi_scope["type"] = "http"
         return FooEndpoint(asgi_scope, asgi_receive, asgi_send)
+
+    @pytest.fixture(scope="class")
+    def puppy_schema(self, app):
+        if app.schema.schema_library.lib == pydantic:
+            schema = pydantic.create_model("Puppy", name=(str, ...))
+        elif app.schema.schema_library.lib == typesystem:
+            schema = typesystem.Schema(title="Puppy", fields={"name": typesystem.fields.String()})
+        elif app.schema.schema_library.lib == marshmallow:
+            schema = type("Puppy", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
+        else:
+            raise ValueError("Wrong schema lib")
+
+        return schema
 
     @pytest.fixture(scope="class")
     def puppy_endpoint(self, app, puppy_schema):
@@ -105,6 +96,7 @@ class TestCaseHTTPEndpoint:
                 {
                     **asgi_scope,
                     "app": app,
+                    "root_app": app,
                     "type": "http",
                     "method": "GET",
                     "path": "/",
@@ -120,6 +112,7 @@ class TestCaseHTTPEndpoint:
                 "send": asgi_send,
                 "exc": None,
                 "app": app,
+                "root_app": app,
                 "path_params": {},
                 "route": route,
                 "request": request_mock(),
@@ -127,7 +120,9 @@ class TestCaseHTTPEndpoint:
 
     def test_await(self, endpoint):
         with patch.object(endpoint, "dispatch"):
-            endpoint.__await__()
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                endpoint.__await__()
 
             assert endpoint.dispatch.call_args_list == [call()]
 
@@ -150,7 +145,7 @@ class TestCaseHTTPEndpoint:
         with patch("flama.endpoints.concurrency.run") as run_mock:
             await endpoint.dispatch()
 
-            assert app.injector.inject.call_args_list == [call(endpoint.get, **endpoint.state)]
+            assert app.injector.inject.call_args_list == [call(endpoint.get, endpoint.state)]
             assert run_mock.call_args_list == [call(injected_mock)]
 
 
@@ -163,6 +158,7 @@ class TestCaseWebSocketEndpoint:
                 ...
 
         asgi_scope["app"] = app
+        asgi_scope["root_app"] = app
         asgi_scope["type"] = "websocket"
         with patch("flama.endpoints.websockets.WebSocket", spec=websockets.WebSocket):
             return FooEndpoint(asgi_scope, asgi_receive, asgi_send)
@@ -282,6 +278,7 @@ class TestCaseWebSocketEndpoint:
                 {
                     **asgi_scope,
                     "app": app,
+                    "root_app": app,
                     "type": "websocket",
                     "path": "/",
                     "path_params": {},
@@ -296,6 +293,7 @@ class TestCaseWebSocketEndpoint:
                 "send": asgi_send,
                 "exc": None,
                 "app": app,
+                "root_app": app,
                 "path_params": {},
                 "route": route,
                 "websocket": websocket_mock(),
@@ -306,7 +304,9 @@ class TestCaseWebSocketEndpoint:
 
     def test_await(self, endpoint):
         with patch.object(endpoint, "dispatch"):
-            endpoint.__await__()
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                endpoint.__await__()
 
             assert endpoint.dispatch.call_args_list == [call()]
 

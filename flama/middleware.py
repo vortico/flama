@@ -18,7 +18,7 @@ except Exception:
     SessionMiddleware = None  # type: ignore[misc, assignment]
 
 if t.TYPE_CHECKING:
-    from flama import types
+    from flama import Flama, types
     from flama.http import Request, Response
 
 __all__ = [
@@ -40,45 +40,41 @@ class Middleware:
         self.middleware = middleware
         self.kwargs = kwargs
 
-    def __call__(
-        self, app: "types.App"
-    ) -> t.Union["types.App", t.Awaitable["types.App"], "types.MiddlewareClass", "types.MiddlewareAsyncClass"]:
+    def __call__(self, app: "types.App") -> t.Union["types.MiddlewareClass", "types.App"]:
         return self.middleware(app, **self.kwargs)
 
     def __repr__(self) -> str:
         name = self.__class__.__name__
         middleware_name = (
-            self.middleware.__name__ if inspect.isfunction(self.middleware) else self.middleware.__class__.__name__
+            self.middleware.__class__.__name__ if inspect.isclass(self.middleware) else self.middleware.__name__
         )
         args = ", ".join([middleware_name] + [f"{key}={value!r}" for key, value in self.kwargs.items()])
         return f"{name}({args})"
 
 
 class MiddlewareStack:
-    def __init__(self, app: "types.App", middleware: t.Sequence[Middleware], debug: bool):
+    def __init__(self, app: "Flama", middleware: t.Sequence[Middleware], debug: bool):
         self.app = app
         self.middleware = list(reversed(middleware))
         self.debug = debug
         self._exception_handlers: t.Dict[
             t.Union[int, t.Type[Exception]], t.Callable[["Request", Exception], "Response"]
         ] = {}
-        self._stack: t.Optional[
-            t.Union["types.App", t.Awaitable["types.App"], "types.MiddlewareClass", "types.MiddlewareAsyncClass"]
-        ] = None
+        self._stack: t.Optional[t.Union["types.MiddlewareClass", "types.App"]] = None
 
     @property
     def stack(
         self,
-    ) -> t.Union["types.App", t.Awaitable["types.App"], "types.MiddlewareClass", "types.MiddlewareAsyncClass"]:
+    ) -> t.Union["types.MiddlewareClass", "types.App"]:
         if self._stack is None:
             self._stack = functools.reduce(
-                lambda app, middleware: middleware(app=app),  # type: ignore
+                lambda app, middleware: middleware(app=app),
                 [
                     Middleware(ExceptionMiddleware, handlers=self._exception_handlers, debug=self.debug),
                     *self.middleware,
                     Middleware(ServerErrorMiddleware, debug=self.debug),
                 ],
-                self.app,
+                self.app.router,
             )
 
         return self._stack
@@ -107,4 +103,4 @@ class MiddlewareStack:
         del self.stack
 
     async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
-        await concurrency.run(self.stack, scope, receive, send)  # type: ignore
+        await concurrency.run(self.stack, scope, receive, send)

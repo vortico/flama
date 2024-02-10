@@ -3,6 +3,9 @@ import typing as t
 
 from flama.serialize.types import Framework
 
+if t.TYPE_CHECKING:
+    from flama.types import JSONSchema
+
 __all__ = ["Serializer"]
 
 
@@ -18,7 +21,7 @@ class Serializer(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def info(self, model: t.Any) -> t.Dict[str, t.Any]:
+    def info(self, model: t.Any) -> t.Optional["JSONSchema"]:
         ...
 
     @abc.abstractmethod

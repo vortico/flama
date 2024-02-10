@@ -1,5 +1,6 @@
 import multiprocessing
 import threading
+import warnings
 
 import pytest
 
@@ -34,7 +35,10 @@ class TestCaseBackgroundTask:
         async def test():
             return http.APIResponse({"foo": "bar"}, background=background.BackgroundProcessTask(task, process_event))
 
-        response = await client.get("/")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            response = await client.get("/")
+
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 
@@ -61,7 +65,10 @@ class TestCaseBackgroundTasks:
             tasks.add_task(background.Concurrency.thread, async_task, thread_event)
             return http.APIResponse({"foo": "bar"}, background=tasks)
 
-        response = await client.get("/")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            response = await client.get("/")
+
         assert response.status_code == 200
         assert response.json() == {"foo": "bar"}
 

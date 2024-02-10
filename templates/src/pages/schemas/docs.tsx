@@ -19,10 +19,7 @@ function DocsPage({ specUrl, baseUrl }: DocsPageProps) {
 
     const elements = document.createElement('elements-api')
     elements.setAttribute('apiDescriptionUrl', specUrl)
-    elements.setAttribute(
-      'logo',
-      'https://raw.githubusercontent.com/vortico/flama-site/master/public/favicon/icon-512.png'
-    )
+    elements.setAttribute('logo', 'https://raw.githubusercontent.com/vortico/flama/master/public/icon-32.png')
     elements.setAttribute('basePath', baseUrl)
 
     document.head.appendChild(script)

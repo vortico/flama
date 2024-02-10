@@ -1,3 +1,5 @@
+import asyncio
+import uuid
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
@@ -8,9 +10,10 @@ from flama.events import Events
 from flama.injection.injector import Injector
 from flama.middleware import Middleware, MiddlewareStack
 from flama.models import ModelsModule
-from flama.resources import BaseResource, ResourcesModule, ResourceType, resource_method
+from flama.resources import Resource, ResourcesModule, resource_method
 from flama.routing import BaseRoute
 from flama.schemas.modules import SchemaModule
+from flama.types.applications import AppStatus
 from flama.url import URL
 
 DEFAULT_MODULES = [ResourcesModule, SchemaModule, ModelsModule]
@@ -86,11 +89,52 @@ class TestCaseFlama:
 
         assert getattr(app, "wrong") is None
 
-    async def test_call(self, app, asgi_scope, asgi_receive, asgi_send):
-        with patch.object(app, "middleware", new=AsyncMock(spec=MiddlewareStack)):
+    @pytest.mark.parametrize(
+        ["request_type", "app_status", "exception"],
+        (
+            pytest.param("http", types.AppStatus.READY, None, id="http_ready"),
+            pytest.param(
+                "http",
+                types.AppStatus.NOT_STARTED,
+                exceptions.ApplicationError("Application is not ready to process requests yet."),
+                id="http_not_started",
+            ),
+            pytest.param(
+                "http",
+                types.AppStatus.SHUT_DOWN,
+                exceptions.ApplicationError("Application is already shut down."),
+                id="http_shut_down",
+            ),
+            pytest.param("websocket", types.AppStatus.READY, None, id="websocket_ready"),
+            pytest.param(
+                "websocket",
+                types.AppStatus.NOT_STARTED,
+                exceptions.ApplicationError("Application is not ready to process requests yet."),
+                id="websocket_not_started",
+            ),
+            pytest.param(
+                "websocket",
+                types.AppStatus.SHUT_DOWN,
+                exceptions.ApplicationError("Application is already shut down."),
+                id="websocket_shut_down",
+            ),
+            pytest.param("lifespan", types.AppStatus.READY, None, id="lifespan_ready"),
+            pytest.param("lifespan", types.AppStatus.NOT_STARTED, None, id="lifespan_not_started"),
+            pytest.param("lifespan", types.AppStatus.SHUT_DOWN, None, id="lifespan_shut_down"),
+        ),
+        indirect=["exception"],
+    )
+    async def test_call(self, request_type, app_status, exception, app, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = request_type
+        app._status = app_status
+
+        with exception, patch.object(app, "middleware", new=AsyncMock(spec=MiddlewareStack)):
             await app(asgi_scope, asgi_receive, asgi_send)
+
             assert "app" in asgi_scope
             assert asgi_scope["app"] == app
+            assert "root_app" in asgi_scope
+            assert asgi_scope["root_app"] == app
             assert app.middleware.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
 
     def test_components(self, app):
@@ -241,12 +285,23 @@ class TestCaseFlama:
         (
             pytest.param("foo", {}, URL(scheme="http", path="/foo"), None, id="plain"),
             pytest.param("foo", {"x": 1}, URL(scheme="http", path="/foo/1"), None, id="path_params"),
+            pytest.param(
+                "bar",
+                {"x": uuid.UUID(int=1), "y": uuid.UUID(int=2)},
+                URL(scheme="http", path=f"/bar/{uuid.UUID(int=1)}/y/{uuid.UUID(int=2)}"),
+                None,
+                id="multiple_path_params",
+            ),
             pytest.param("foo:bar", {}, URL(scheme="http", path="/foo/bar"), None, id="nested"),
             pytest.param(
                 "puppy:custom", {}, URL(scheme="http", path="/puppy/custom"), None, id="resource_custom_method"
             ),
             pytest.param(
-                "not-found", {}, None, exceptions.NotFoundException(params={}, name="not-found"), id="not_found"
+                "not-found",
+                {},
+                None,
+                (exceptions.NotFoundException, r"Path not found \(name='not-found'\)"),
+                id="not_found",
             ),
         ),
         indirect=["exception"],
@@ -254,10 +309,11 @@ class TestCaseFlama:
     def test_resolve_url(self, app, resolve, path_params, resolution, exception):
         app.add_route(route=Route("/foo", lambda: None, name="foo"))
         app.add_route(route=Route("/foo/{x:int}", lambda: None, name="foo"))
+        app.add_route(route=Route("/bar/{x:uuid}/y/{y:uuid}", lambda: None, name="bar"))
         app.mount(mount=Mount("/foo", routes=[Route("/bar", lambda: None, name="bar")], name="foo"))
 
         @app.resources.resource("/puppy")
-        class PuppyResource(BaseResource, metaclass=ResourceType):
+        class PuppyResource(Resource):
             name = "puppy"
             verbose_name = "Puppy"
 
@@ -268,7 +324,7 @@ class TestCaseFlama:
         with exception:
             assert app.resolve_url(resolve, **path_params) == resolution
 
-    def test_end_to_end(self, module):
+    def test_build_application(self, module):
         root_component = MagicMock(spec=Component)
         root_app = Flama(schema=None, docs=None, components=[root_component])
         root_app.add_get("/foo", lambda: {})
@@ -306,7 +362,7 @@ class TestCaseFlama:
         assert mount_app.modules == [*DEFAULT_MODULES, module]
         assert root_app.modules == DEFAULT_MODULES
 
-    def test_end_to_end_declarative(self, module):
+    def test_build_application_declarative(self, module):
         leaf_component = MagicMock(spec=Component)
         leaf_routes = [Route("/bar", lambda: {})]
         leaf_app = Flama(routes=leaf_routes, schema=None, docs=None, components=[leaf_component], modules={module()})
@@ -332,3 +388,43 @@ class TestCaseFlama:
         # Check modules are isolated for each app
         assert mount_app.modules == [*DEFAULT_MODULES, module]
         assert root_app.modules == DEFAULT_MODULES
+
+    async def test_call_complete_workflow(self):
+        receive_queue = asyncio.Queue()
+        send_queue = asyncio.Queue()
+
+        async def receive() -> types.Message:
+            return await receive_queue.get()
+
+        async def send(message: types.Message) -> None:
+            await send_queue.put(message)
+
+        app = Flama(docs=None, schema=None)
+        sub_app = Flama(docs=None, schema=None)
+        sub_app.add_route("/bar/", lambda: {"foo": "bar"})
+        app.mount("/foo", sub_app)
+
+        assert app._status == AppStatus.NOT_STARTED
+        assert sub_app._status == AppStatus.NOT_STARTED
+
+        await receive_queue.put(types.Message({"type": "lifespan.startup"}))
+        await app(types.Scope({"type": "lifespan"}), receive, send)
+        assert await send_queue.get() == {"type": "lifespan.startup.complete"}
+
+        assert app._status == AppStatus.READY
+        assert sub_app._status == AppStatus.READY
+
+        await app(types.Scope({"type": "http", "path": "/foo/bar/", "method": "GET"}), receive, send)
+        assert await send_queue.get() == {
+            "type": "http.response.start",
+            "headers": [(b"content-length", b"13"), (b"content-type", b"application/json")],
+            "status": 200,
+        }
+        assert await send_queue.get() == {"body": b'{"foo":"bar"}', "type": "http.response.body"}
+
+        await receive_queue.put(types.Message({"type": "lifespan.shutdown"}))
+        await app(types.Scope({"type": "lifespan"}), receive, send)
+        assert await send_queue.get() == {"type": "lifespan.shutdown.complete"}
+
+        assert app._status == AppStatus.SHUT_DOWN
+        assert sub_app._status == AppStatus.SHUT_DOWN

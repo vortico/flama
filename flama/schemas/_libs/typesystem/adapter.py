@@ -1,6 +1,7 @@
 import inspect
 import sys
 import typing as t
+import warnings
 
 import typesystem
 
@@ -49,9 +50,9 @@ class TypesystemAdapter(Adapter[Schema, Field]):
 
         return MAPPING[type_](**kwargs)
 
-    @t.no_type_check
-    def build_schema(
+    def build_schema(  # type: ignore[return-value]
         self,
+        *,
         name: t.Optional[str] = None,
         schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
         fields: t.Optional[t.Dict[str, Field]] = None,
@@ -61,18 +62,18 @@ class TypesystemAdapter(Adapter[Schema, Field]):
             fields={**(self.unique_schema(schema).fields if self.is_schema(schema) else {}), **(fields or {})},
         )
 
-    @t.no_type_check
-    def validate(self, schema: Schema, values: t.Dict[str, t.Any]) -> t.Any:
+    def validate(self, schema: Schema, values: t.Dict[str, t.Any], *, partial: bool = False) -> t.Any:
         try:
+            if partial:
+                warnings.warn("Typesystem does not support partial validation")
+                return schema.serialize(values)
             return schema.validate(values)
         except typesystem.ValidationError as errors:
             raise SchemaValidationError(errors={k: [v] for k, v in errors.items()})
 
-    @t.no_type_check
     def load(self, schema: Schema, value: t.Dict[str, t.Any]) -> t.Any:
         return schema.validate(value)
 
-    @t.no_type_check
     def dump(self, schema: Schema, value: t.Dict[str, t.Any]) -> t.Any:
         return self._dump(self.validate(schema, value))
 
@@ -82,14 +83,12 @@ class TypesystemAdapter(Adapter[Schema, Field]):
 
         return value
 
-    @t.no_type_check
     def name(self, schema: Schema) -> str:
         if not schema.title:
             raise ValueError(f"Schema '{schema}' needs to define title attribute")
 
         return schema.title if schema.__module__ == "builtins" else f"{schema.__module__}.{schema.title}"
 
-    @t.no_type_check
     def to_json_schema(self, schema: t.Union[Schema, Field]) -> JSONSchema:
         try:
             json_schema = typesystem.to_json_schema(schema)
@@ -103,13 +102,10 @@ class TypesystemAdapter(Adapter[Schema, Field]):
 
         return json_schema
 
-    @t.no_type_check
     def unique_schema(self, schema: Schema) -> Schema:
         return schema
 
-    def _get_field_type(
-        self, field: Field
-    ) -> t.Union[t.Union[Schema, t.Type], t.List[t.Union[Schema, t.Type]], t.Dict[str, t.Union[Schema, t.Type]]]:
+    def _get_field_type(self, field: Field) -> t.Any:
         if isinstance(field, typesystem.Reference):
             return field.target
 
@@ -131,7 +127,6 @@ class TypesystemAdapter(Adapter[Schema, Field]):
         except KeyError:
             return None
 
-    @t.no_type_check
     def schema_fields(
         self, schema: Schema
     ) -> t.Dict[
@@ -143,13 +138,11 @@ class TypesystemAdapter(Adapter[Schema, Field]):
     ]:
         return {name: (self._get_field_type(field), field) for name, field in schema.fields.items()}
 
-    @t.no_type_check
     def is_schema(
         self, obj: t.Any
     ) -> t.TypeGuard[Schema]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
         return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
-    @t.no_type_check
     def is_field(
         self, obj: t.Any
     ) -> t.TypeGuard[Field]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9

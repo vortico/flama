@@ -1,8 +1,9 @@
 import functools
+import logging
+import threading
 import typing as t
 
-from flama import asgi, http, injection, types, url, validation, websockets
-from flama.ddd.components import WorkerComponent
+from flama import asgi, exceptions, http, injection, types, url, validation, websockets
 from flama.events import Events
 from flama.middleware import MiddlewareStack
 from flama.models.modules import ModelsModule
@@ -12,6 +13,13 @@ from flama.resources import ResourcesModule
 from flama.routing import BaseRoute, Router
 from flama.schemas.modules import SchemaModule
 
+try:
+    from flama.ddd.components import WorkerComponent
+    from flama.resources.workers import FlamaWorker
+except AssertionError:
+    WorkerComponent = None
+    FlamaWorker = None
+
 if t.TYPE_CHECKING:
     from flama.middleware import Middleware
     from flama.modules import Module
@@ -19,6 +27,8 @@ if t.TYPE_CHECKING:
     from flama.routing import Mount, Route, WebSocketRoute
 
 __all__ = ["Flama"]
+
+logger = logging.getLogger(__name__)
 
 
 class Flama:
@@ -57,7 +67,7 @@ class Flama:
         :param schema_library: Schema library to use.
         """
         self._debug = debug
-        self._status = types.AppStatus.NOT_INITIALIZED
+        self._status = types.AppStatus.NOT_STARTED
         self._shutdown = False
 
         # Create Dependency Injector
@@ -79,22 +89,28 @@ class Flama:
             }
         )
 
+        # Create worker
+        worker = FlamaWorker() if FlamaWorker else None
+
         # Initialize Modules
         default_modules = [
-            ResourcesModule(),
+            ResourcesModule(worker=worker),
             SchemaModule(title, version, description, schema=schema, docs=docs),
             ModelsModule(),
         ]
         self.modules = Modules(app=self, modules={*default_modules, *(modules or [])})
 
         # Initialize router
-        default_components = [WorkerComponent(worker=default_modules[0].worker)]
+        default_components = []
+        if worker and WorkerComponent:
+            default_components.append(WorkerComponent(worker=worker))
+
         self.app = self.router = Router(
             routes=routes, components=[*default_components, *(components or [])], lifespan=lifespan
         )
 
         # Build middleware stack
-        self.middleware = MiddlewareStack(app=self.app, middleware=middleware or [], debug=debug)
+        self.middleware = MiddlewareStack(app=self, middleware=middleware or [], debug=debug)
 
         # Setup schema library
         self.schema.schema_library = schema_library
@@ -131,8 +147,26 @@ class Flama:
         :param receive: ASGI receive event.
         :param send: ASGI send event.
         """
+        if scope["type"] != "lifespan" and self.status in (types.AppStatus.NOT_STARTED, types.AppStatus.STARTING):
+            raise exceptions.ApplicationError("Application is not ready to process requests yet.")
+
+        if scope["type"] != "lifespan" and self.status in (types.AppStatus.SHUT_DOWN, types.AppStatus.SHUTTING_DOWN):
+            raise exceptions.ApplicationError("Application is already shut down.")
+
         scope["app"] = self
+        scope.setdefault("root_app", self)
         await self.middleware(scope, receive, send)
+
+    @property
+    def status(self) -> types.AppStatus:
+        return self._status
+
+    @status.setter
+    def status(self, s: types.AppStatus) -> None:
+        logger.debug("Transitioning %s from %s to %s", self, self._status, s)
+
+        with threading.Lock():
+            self._status = s
 
     @property
     def components(self) -> injection.Components:
@@ -167,7 +201,7 @@ class Flama:
         include_in_schema: bool = True,
         route: t.Optional["Route"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> "Route":
         """Register a new HTTP route or endpoint under given path.
 
@@ -199,7 +233,7 @@ class Flama:
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -228,7 +262,7 @@ class Flama:
         name: t.Optional[str] = None,
         route: t.Optional["WebSocketRoute"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> "WebSocketRoute":
         """Register a new websocket route or endpoint under given path.
 
@@ -248,7 +282,7 @@ class Flama:
         path: str,
         name: t.Optional[str] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
@@ -266,7 +300,7 @@ class Flama:
         app: t.Optional[types.App] = None,
         name: t.Optional[str] = None,
         mount: t.Optional["Mount"] = None,
-        tags: t.Optional[t.Dict[str, types.Tag]] = None,
+        tags: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> "Mount":
         """Register a new mount point containing an ASGI app in this router under given path.
 

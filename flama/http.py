@@ -22,6 +22,7 @@ from flama.exceptions import HTTPException, SerializationError
 if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
 
     class StrEnum(str, enum.Enum):
+        @staticmethod
         def _generate_next_value_(name, start, count, last_values):
             return name.lower()
 
@@ -66,22 +67,22 @@ class PlainTextResponse(starlette.responses.PlainTextResponse, Response):
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, (Path, os.PathLike)):
-            return str(obj)
-        if isinstance(obj, (bytes, bytearray)):
-            return obj.decode("utf-8")
-        if isinstance(obj, enum.Enum):
-            return obj.value
-        if isinstance(obj, uuid.UUID):
-            return str(obj)
-        if isinstance(obj, (set, frozenset)):
-            return list(obj)
-        if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
-            return obj.isoformat()
-        if isinstance(obj, datetime.timedelta):
+    def default(self, o):
+        if isinstance(o, (Path, os.PathLike)):
+            return str(o)
+        if isinstance(o, (bytes, bytearray)):
+            return o.decode("utf-8")
+        if isinstance(o, enum.Enum):
+            return o.value
+        if isinstance(o, uuid.UUID):
+            return str(o)
+        if isinstance(o, (set, frozenset)):
+            return list(o)
+        if isinstance(o, (datetime.datetime, datetime.date, datetime.time)):
+            return o.isoformat()
+        if isinstance(o, datetime.timedelta):
             # split seconds to larger units
-            seconds = obj.total_seconds()
+            seconds = o.total_seconds()
             minutes, seconds = divmod(seconds, 60)
             hours, minutes = divmod(minutes, 60)
             days, hours = divmod(hours, 24)
@@ -96,13 +97,13 @@ class EnhancedJSONEncoder(json.JSONEncoder):
             )
 
             return "P" + "".join([formatted_value for value, formatted_value in formatted_units if value])
-        if inspect.isclass(obj) and issubclass(obj, BaseException):
-            return obj.__name__
-        if isinstance(obj, BaseException):
-            return repr(obj)
-        if dataclasses.is_dataclass(obj):
-            return dataclasses.asdict(obj)
-        return super().default(obj)
+        if inspect.isclass(o) and issubclass(o, BaseException):
+            return o.__name__
+        if isinstance(o, BaseException):
+            return repr(o)
+        if dataclasses.is_dataclass(o):
+            return dataclasses.asdict(o)
+        return super().default(o)
 
 
 class JSONResponse(starlette.responses.JSONResponse, Response):
@@ -130,14 +131,14 @@ class FileResponse(starlette.responses.FileResponse, Response):
 class APIResponse(JSONResponse):
     media_type = "application/json"
 
-    def __init__(self, content: t.Any = None, schema: t.Optional["schemas.Schema"] = None, *args, **kwargs):
+    def __init__(self, content: t.Any = None, schema: t.Optional[t.Type["types.Schema"]] = None, *args, **kwargs):
         self.schema = schema
         super().__init__(content, *args, **kwargs)
 
     def render(self, content: t.Any):
         if self.schema is not None:
             try:
-                content = schemas.Schema(self.schema).dump(content)
+                content = schemas.Schema.from_type(self.schema).dump(content)
             except schemas.SchemaValidationError as e:
                 raise SerializationError(status_code=500, detail=e.errors)
 
@@ -164,7 +165,9 @@ class APIErrorResponse(APIResponse):
             "headers": headers,
         }
 
-        super().__init__(content, schemas.schemas.APIError, status_code=status_code, *args, **kwargs)
+        super().__init__(
+            content, schema=types.Schema[schemas.schemas.APIError], status_code=status_code, *args, **kwargs
+        )
 
         self.detail = detail
         self.exception = exception

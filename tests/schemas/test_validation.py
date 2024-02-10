@@ -11,7 +11,7 @@ from flama import exceptions
 from flama.schemas.validation import output_validation
 
 
-class TestCaseTypesystemSchemaValidateOutput:
+class TestCaseSchemaValidateOutput:
     @pytest.fixture(scope="function")
     def product_schema(self, app):
         from flama import schemas
@@ -51,7 +51,6 @@ class TestCaseTypesystemSchemaValidateOutput:
         else:
             raise ValueError("Wrong schema lib")
 
-        app.schema.schemas["Product"] = schema
         return schema
 
     @pytest.fixture(scope="function", autouse=True)
@@ -95,7 +94,7 @@ class TestCaseTypesystemSchemaValidateOutput:
             return {"name": "foo", "rating": -1}
 
     @pytest.mark.parametrize(
-        "path,status_code,expected_response",
+        ["path", "status_code", "expected_response"],
         [
             pytest.param(
                 "/product",
@@ -124,8 +123,18 @@ class TestCaseTypesystemSchemaValidateOutput:
                 ],
                 id="many_items",
             ),
-            pytest.param("/validation-error", 500, None, id="validation_error"),
-            pytest.param("/custom-error", 502, None, id="custom_error"),
+            pytest.param(
+                "/validation-error",
+                500,
+                None,
+                id="validation_error",
+            ),
+            pytest.param(
+                "/custom-error",
+                502,
+                None,
+                id="custom_error",
+            ),
         ],
     )
     async def test_validation(self, client, path, status_code, expected_response):

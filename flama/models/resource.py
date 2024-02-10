@@ -4,9 +4,9 @@ import typing as t
 import flama.schemas
 from flama import types
 from flama.models.components import ModelComponentBuilder
-from flama.resources import BaseResource, data_structures
+from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
-from flama.resources.resource import ResourceType
+from flama.resources.resource import Resource, ResourceType
 from flama.resources.routing import resource_method
 
 if t.TYPE_CHECKING:
@@ -21,7 +21,7 @@ class InspectMixin:
     def _add_inspect(
         cls, name: str, verbose_name: str, model_model_type: t.Type["Model"], **kwargs
     ) -> t.Dict[str, t.Any]:
-        @resource_method("/", methods=["GET"], name=f"{name}-inspect")
+        @resource_method("/", methods=["GET"], name="inspect")
         async def inspect(self, model: model_model_type):  # type: ignore[valid-type]
             return model.inspect()  # type: ignore[attr-defined]
 
@@ -46,7 +46,7 @@ class PredictMixin:
     def _add_predict(
         cls, name: str, verbose_name: str, model_model_type: t.Type["Model"], **kwargs
     ) -> t.Dict[str, t.Any]:
-        @resource_method("/predict/", methods=["POST"], name=f"{name}-predict")
+        @resource_method("/predict/", methods=["POST"], name="predict")
         async def predict(
             self,
             model: model_model_type,  # type: ignore[valid-type]
@@ -70,11 +70,6 @@ class PredictMixin:
         return {"_predict": predict}
 
 
-class ModelResource(BaseResource):
-    component: "ModelComponent"
-    model_path: t.Union[str, os.PathLike]
-
-
 class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
     METHODS = ("inspect", "predict")
 
@@ -87,21 +82,28 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
         :param bases: List of superclasses.
         :param namespace: Variables namespace used to create the class.
         """
-        try:
-            # Get model component
-            component = mcs._get_model_component(bases, namespace)
-            namespace["component"] = component
-            namespace["model"] = component.model
-        except AttributeError as e:
-            raise ResourceAttributeError(str(e), name)
+        if not mcs._is_abstract(namespace):
+            try:
+                # Get model component
+                component = mcs._get_model_component(bases, namespace)
+                namespace["component"] = component
+                namespace["model"] = component.model
+            except AttributeError as e:
+                raise ResourceAttributeError(str(e), name)
 
-        namespace.setdefault("_meta", data_structures.Metadata()).namespaces["model"] = {
-            "component": component,
-            "model": component.model,
-            "model_type": component.get_model_type(),
-        }
+            namespace.setdefault("_meta", data_structures.Metadata()).namespaces["model"] = {
+                "component": component,
+                "model": component.model,
+                "model_type": component.get_model_type(),
+            }
 
         return super().__new__(mcs, name, bases, namespace)
+
+    @staticmethod
+    def _is_abstract(namespace: t.Dict[str, t.Any]) -> bool:
+        return (
+            namespace.get("__module__") == "flama.models.resource" and namespace.get("__qualname__") == "ModelResource"
+        )
 
     @classmethod
     def _get_model_component(cls, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> "ModelComponent":
@@ -119,3 +121,8 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
             ...
 
         raise AttributeError(ResourceAttributeError.MODEL_NOT_FOUND)
+
+
+class ModelResource(Resource, metaclass=ModelResourceType):
+    component: "ModelComponent"
+    model_path: t.Union[str, os.PathLike]

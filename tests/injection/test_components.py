@@ -35,15 +35,17 @@ class TestCaseComponent:
             def resolve(self, x: param_type) -> Bar:
                 return Bar(x)
 
-        foo_component = BarComponent()
+        component = BarComponent()
 
-        assert foo_component.identity(Parameter(param_name, type=param_type)) == f"{id(param_type)}{expected_id_suffix}"
+        assert (
+            component.identity(Parameter(param_name, annotation=param_type)) == f"{id(param_type)}{expected_id_suffix}"
+        )
 
     @pytest.mark.parametrize(
         "parameter,expected",
         [
-            pytest.param(Parameter("foo", type=Foo), True, id="handle"),
-            pytest.param(Parameter("foo", type=int), False, id="not_handle"),
+            pytest.param(Parameter("foo", annotation=Foo), True, id="handle"),
+            pytest.param(Parameter("foo", annotation=int), False, id="not_handle"),
         ],
     )
     def test_can_handle_parameter(self, foo_component, parameter, expected):

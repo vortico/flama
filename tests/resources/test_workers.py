@@ -1,49 +1,44 @@
-from unittest.mock import Mock
-
 import pytest
-import sqlalchemy
 
 from flama import Flama
-from flama.ddd import SQLAlchemyRepository
+from flama.client import Client
+from flama.ddd.repositories import SQLAlchemyRepository
+from flama.exceptions import ApplicationError
 from flama.resources.workers import FlamaWorker
 from flama.sqlalchemy import SQLAlchemyModule
 
 
 class TestCaseFlamaWorker:
     @pytest.fixture(scope="function")
-    def app(self):
-        return Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
+    async def app(self):
+        app_ = Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
+        async with Client(app_):
+            yield app_
 
     @pytest.fixture(scope="function")
-    def worker(self, client):
+    def worker(self):
         class FooWorker(FlamaWorker):
             ...
 
-        return FooWorker(client.app)
+        return FooWorker()
 
     @pytest.fixture(scope="function")
     def repository(self):
         class FooRepository(SQLAlchemyRepository):
-            _table = Mock(spec=sqlalchemy.Table)
+            ...
 
         return FooRepository
 
-    def test_init(self, app):
+    def test_init(self):
         worker = FlamaWorker()
 
         assert not worker._init_repositories
 
-    def test_add_repository(self, worker, repository):
-        assert worker._repositories == {}
+    async def test_async_context(self, app, worker, repository):
+        worker.app = app
+        worker._repositories["foo"] = repository
 
-        worker.add_repository("foo", repository)
-
-        assert worker._repositories == {"foo": repository}
-
-    async def test_async_context(self, worker, repository):
-        worker.add_repository("foo", repository)
-
-        with pytest.raises(AssertionError, match="Repositories not initialized"):
+        with pytest.raises(ApplicationError, match="Repositories not initialized"):
             worker.repositories
 
         async with worker:

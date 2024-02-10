@@ -19,7 +19,10 @@ class TestCaseSchemaValidation:
     def product_schema(self, app):
         if app.schema.schema_library.lib == pydantic:
             schema = pydantic.create_model(
-                "Product", name=(str, ...), rating=(t.Optional[int], ...), created=(t.Optional[datetime.datetime], ...)
+                "Product",
+                name=(str, ...),
+                rating=(t.Optional[int], None),
+                created=(t.Optional[datetime.datetime], None),
             )
         elif app.schema.schema_library.lib == typesystem:
             schema = typesystem.Schema(
@@ -136,19 +139,12 @@ class TestCaseSchemaValidation:
             return place
 
         @app.route("/many-products", methods=["GET"])
-        def many_products() -> types.Schema[product_schema]:
-            return [
-                {
-                    "name": "foo",
-                    "rating": 0,
-                    "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
-                },
-                {
-                    "name": "bar",
-                    "rating": 1,
-                    "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
-                },
-            ]
+        def many_products(products: t.List[types.Schema[product_schema]]) -> types.Schema[product_schema]:
+            return products
+
+        @app.route("/partial-product", methods=["GET"])
+        def partial_product(product: types.PartialSchema[product_schema]) -> types.PartialSchema[product_schema]:
+            return product
 
         @app.route("/serialization-error")
         def serialization_error() -> types.Schema[product_schema]:
@@ -202,7 +198,18 @@ class TestCaseSchemaValidation:
             pytest.param(
                 "/many-products",
                 "get",
-                None,
+                [
+                    {
+                        "name": "foo",
+                        "rating": 0,
+                        "created": "2018-01-01T00:00:00+00:00",
+                    },
+                    {
+                        "name": "bar",
+                        "rating": 1,
+                        "created": "2018-01-01T00:00:00+00:00",
+                    },
+                ],
                 [
                     {
                         "name": "foo",
@@ -217,6 +224,14 @@ class TestCaseSchemaValidation:
                 ],
                 200,
                 id="array_schema",
+            ),
+            pytest.param(
+                "/partial-product",
+                "get",
+                {"name": "foo"},
+                {"name": "foo"},
+                200,
+                id="partial_schema",
             ),
             pytest.param(
                 "/serialization-error",

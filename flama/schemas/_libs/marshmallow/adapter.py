@@ -56,6 +56,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
     def build_schema(
         self,
+        *,
         name: t.Optional[str] = None,
         schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
         fields: t.Optional[t.Dict[str, Field]] = None,
@@ -65,9 +66,14 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
             name=name or self.DEFAULT_SCHEMA_NAME,
         )
 
-    def validate(self, schema: t.Union[t.Type[Schema], Schema], values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    def validate(
+        self, schema: t.Union[t.Type[Schema], Schema], values: t.Dict[str, t.Any], *, partial: bool = False
+    ) -> t.Dict[str, t.Any]:
         try:
-            return t.cast(t.Dict[str, t.Any], self._schema_instance(schema).load(values, unknown=marshmallow.EXCLUDE))
+            return t.cast(
+                t.Dict[str, t.Any],
+                self._schema_instance(schema).load(values, unknown=marshmallow.EXCLUDE, partial=partial),
+            )
         except marshmallow.ValidationError as exc:
             raise SchemaValidationError(errors=exc.normalized_messages())
 
@@ -76,9 +82,13 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
     def dump(self, schema: t.Union[t.Type[Schema], Schema], value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         try:
-            return t.cast(t.Dict[str, t.Any], self._schema_instance(schema).dump(value))
+            dump_value = t.cast(t.Dict[str, t.Any], self._schema_instance(schema).dump(value))
         except Exception as exc:
             raise SchemaValidationError(errors=str(exc))
+
+        self.validate(schema, dump_value)
+
+        return dump_value
 
     def name(self, schema: t.Union[Schema, t.Type[Schema]]) -> str:
         s = self.unique_schema(schema)
@@ -117,7 +127,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
         return schema
 
-    def _get_field_type(self, field: Field) -> t.Union[Schema, t.Type]:
+    def _get_field_type(self, field: Field) -> t.Any:
         if isinstance(field, marshmallow.fields.Nested):
             return field.schema
 
@@ -134,7 +144,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
     def schema_fields(
         self, schema: t.Union[Schema, t.Type[Schema]]
-    ) -> t.Dict[str, t.Tuple[t.Union[t.Type, Schema], Field]]:
+    ) -> t.Dict[str, t.Tuple[t.Union[None, t.Type, Schema], Field]]:
         return {
             name: (self._get_field_type(field), field) for name, field in self._schema_instance(schema).fields.items()
         }

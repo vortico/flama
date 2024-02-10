@@ -4,13 +4,7 @@ import typing as t
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
 
-__all__ = ["BaseResource", "ResourceType"]
-
-
-class BaseResource:
-    name: str
-    verbose_name: str
-    _meta: data_structures.Metadata
+__all__ = ["Resource", "ResourceType"]
 
 
 class ResourceType(type):
@@ -26,20 +20,25 @@ class ResourceType(type):
         :param bases: List of superclasses.
         :param namespace: Variables namespace used to create the class.
         """
-        try:
-            # Define resource names
-            resource_name, verbose_name = mcs._get_resource_name(name, namespace)
-        except AttributeError as e:
-            raise ResourceAttributeError(str(e), name)
+        if not mcs._is_abstract(namespace):
+            try:
+                # Define resource names
+                resource_name, verbose_name = mcs._get_resource_name(name, namespace)
+            except AttributeError as e:
+                raise ResourceAttributeError(str(e), name)
 
-        namespace.setdefault("_meta", data_structures.Metadata()).name = resource_name
-        namespace["_meta"].verbose_name = verbose_name
+            namespace.setdefault("_meta", data_structures.Metadata()).name = resource_name
+            namespace["_meta"].verbose_name = verbose_name
 
-        # Create methods and routes
-        namespace.update(mcs._build_methods(namespace))
-        namespace["routes"] = mcs._build_routes(namespace)
+            # Create methods and routes
+            namespace.update(mcs._build_methods(namespace))
+            namespace["routes"] = mcs._build_routes(namespace)
 
         return super().__new__(mcs, name, bases, namespace)
+
+    @staticmethod
+    def _is_abstract(namespace: t.Dict[str, t.Any]) -> bool:
+        return namespace.get("__module__") == "flama.resources.resource" and namespace.get("__qualname__") == "Resource"
 
     @classmethod
     def _get_mro(cls, *classes: type) -> t.List[t.Type]:
@@ -135,3 +134,9 @@ class ResourceType(type):
         )
 
         return methods_namespace
+
+
+class Resource(metaclass=ResourceType):
+    name: str
+    verbose_name: str
+    _meta: data_structures.Metadata

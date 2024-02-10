@@ -6,9 +6,9 @@ from flama.resources import data_structures
 from flama.routing import Mount, Route
 
 if t.TYPE_CHECKING:
-    from flama import Flama, types
+    from flama import Flama
     from flama.pagination.types import PaginationType
-    from flama.resources import BaseResource
+    from flama.resources import Resource
 
 __all__ = ["ResourceRoute", "resource_method"]
 
@@ -17,8 +17,8 @@ class ResourceRoute(Mount):
     def __init__(
         self,
         path: str,
-        resource: t.Union["BaseResource", t.Type["BaseResource"]],
-        tags: t.Optional[t.Dict[str, t.Dict[str, "types.Tag"]]] = None,
+        resource: t.Union["Resource", t.Type["Resource"]],
+        tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None,
     ):
         tags = tags or {}
 
@@ -52,10 +52,11 @@ class ResourceRoute(Mount):
         from flama import Flama
 
         super().build(app)
+
         if (root := (self.app if isinstance(self.app, Flama) else app)) and "ddd" in self.resource._meta.namespaces:
-            root.resources.worker.add_repository(
-                self.resource._meta.name, self.resource._meta.namespaces["ddd"]["repository"]
-            )
+            root.resources.worker._repositories[self.resource._meta.name] = self.resource._meta.namespaces["ddd"][
+                "repository"
+            ]
 
 
 def resource_method(
@@ -64,7 +65,7 @@ def resource_method(
     name: t.Optional[str] = None,
     *,
     pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-    tags: t.Optional[t.Dict[str, "types.Tag"]] = None,
+    tags: t.Optional[t.Dict[str, t.Any]] = None,
 ) -> t.Callable:
     """Decorator for adding useful info needed for generating resource routes.
 
@@ -79,7 +80,7 @@ def resource_method(
     def wrapper(func: t.Callable) -> t.Callable:
         func = paginator.paginate(pagination, func) if pagination is not None else func
 
-        func._meta = data_structures.MethodMetadata(
+        func._meta = data_structures.MethodMetadata(  # type: ignore
             path=path, methods=set(methods) if methods is not None else {"GET"}, name=name, tags=tags or {}
         )
 

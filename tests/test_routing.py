@@ -4,24 +4,34 @@ import pytest
 
 from flama import endpoints, exceptions, types, url, websockets
 from flama.applications import Flama
+from flama.client import Client
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 from flama.injection import Component, Components
+from flama.lifespan import Lifespan
 from flama.routing import BaseRoute, EndpointWrapper, Match, Mount, Route, Router, WebSocketRoute
 
 
 class TestCaseBaseRoute:
     @pytest.fixture(scope="function")
-    def route(self):
-        return BaseRoute(
+    def route_cls(self):
+        class _Route(BaseRoute):
+            async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+                return await self.handle(scope, receive, send)
+
+        return _Route
+
+    @pytest.fixture(scope="function")
+    def route(self, route_cls):
+        return route_cls(
             "/", EndpointWrapper(lambda: None, EndpointWrapper.type.http), name="foo", include_in_schema=False
         )
 
-    def test_init(self):
+    def test_init(self, route_cls):
         def foo():
             ...
 
         app = EndpointWrapper(foo, EndpointWrapper.type.http)
-        route = BaseRoute(
+        route = route_cls(
             "/",
             app,
             name="foo",
@@ -36,27 +46,18 @@ class TestCaseBaseRoute:
         assert route.include_in_schema is False
         assert route.tags == {"tag": "tag", "list_tag": ["foo", "bar"], "dict_tag": {"foo": "bar"}}
 
-    async def test_call(self, route, asgi_scope, asgi_receive, asgi_send):
-        route_scope = types.Scope({"foo": "bar"})
-        handle = AsyncMock()
-
-        with patch.object(route, "handle", new=handle), patch.object(route, "route_scope", return_value=route_scope):
-            await route(asgi_scope, asgi_receive, asgi_send)
-
-        assert handle.call_args_list == [call(types.Scope({**asgi_scope, **route_scope}), asgi_receive, asgi_send)]
-
-    def test_eq(self):
+    def test_eq(self, route_cls):
         def foo():
             ...
 
-        assert BaseRoute("/", foo, name="foo") == BaseRoute("/", foo, name="foo")
-        assert BaseRoute("/", foo, name="foo") != BaseRoute("/", foo, name="bar")
+        assert route_cls("/", foo, name="foo") == route_cls("/", foo, name="foo")
+        assert route_cls("/", foo, name="foo") != route_cls("/", foo, name="bar")
 
-    def test_repr(self):
+    def test_repr(self, route_cls):
         def foo():
             ...
 
-        assert repr(BaseRoute("/", foo, name="foo")) == "BaseRoute(path='/', name='foo')"
+        assert repr(route_cls("/", foo, name="foo")) == "_Route(path='/', name='foo')"
 
     @pytest.mark.parametrize(["app"], (pytest.param(MagicMock(spec=Flama), id="app"), pytest.param(None, id="no_app")))
     def test_build(self, app, route):
@@ -69,9 +70,9 @@ class TestCaseBaseRoute:
     def test_endpoint_handlers(self, route):
         assert route.endpoint_handlers() == {}
 
-    async def test_handle(self, asgi_scope, asgi_receive, asgi_send):
+    async def test_handle(self, route_cls, asgi_scope, asgi_receive, asgi_send):
         app = AsyncMock()
-        route = BaseRoute("/", app)
+        route = route_cls("/", app)
 
         await route.handle(asgi_scope, asgi_receive, asgi_send)
 
@@ -88,9 +89,9 @@ class TestCaseBaseRoute:
         with patch.object(route.path, "match", return_value=path_match_return):
             assert route.match(asgi_scope) == result
 
-    def test_route_scope(self, asgi_scope):
+    def test_route_scope(self, route_cls, asgi_scope):
         app = AsyncMock()
-        route = BaseRoute("/", app)
+        route = route_cls("/", app)
         path_values = {"foo": "bar"}
 
         with patch.object(route.path, "values", return_value=path_values):
@@ -102,30 +103,36 @@ class TestCaseBaseRoute:
         ["name", "params", "exception"],
         (
             pytest.param("foo", {"bar": 1}, None, id="found"),
-            pytest.param("bar", {}, exceptions.NotFoundException(name="bar", params={}), id="not_found_wrong_name"),
+            pytest.param(
+                "bar", {}, (exceptions.NotFoundException, r"Path not found \(name='bar'\)"), id="not_found_wrong_name"
+            ),
             pytest.param(
                 "foo",
                 {"wrong": 1},
-                exceptions.NotFoundException(name="foo", params={"wrong": 1}),
+                (exceptions.NotFoundException, r"Path not found \(params={'wrong': 1}, name='foo'\)"),
                 id="not_found_wrong_params",
             ),
             pytest.param(
                 "foo",
                 {"bar": 1, "wrong": 1},
-                exceptions.NotFoundException(name="foo", params={"bar": 1, "wrong": 1}),
+                (exceptions.NotFoundException, r"Path not found \(params={'bar': 1, 'wrong': 1}, name='foo'\)"),
                 id="error_remaining_params",
             ),
         ),
         indirect=["exception"],
     )
-    def test_resolve_url(self, name, params, exception):
-        route = BaseRoute("/foo/{bar:int}", lambda bar: None, name="foo")
+    def test_resolve_url(self, route_cls, name, params, exception):
+        route = route_cls("/foo/{bar:int}", lambda bar: None, name="foo")
 
         with exception:
             assert route.resolve_url(name=name, **params)
 
 
 class TestCaseRoute:
+    @pytest.fixture(scope="function")
+    def route(self):
+        return Route("/", EndpointWrapper(lambda: None, EndpointWrapper.type.http), name="foo", include_in_schema=False)
+
     @pytest.fixture(scope="function")
     def endpoint(self, request):
         if request.param == "function":
@@ -167,6 +174,26 @@ class TestCaseRoute:
         assert route.name == name
         assert route.include_in_schema is False
         assert route.methods == expected_methods
+
+    @pytest.mark.parametrize(
+        ["scope_type", "handle_call"],
+        (
+            pytest.param("http", True, id="http"),
+            pytest.param("websocket", False, id="websocket"),
+            pytest.param("lifespan", False, id="lifespan"),
+            pytest.param("wrong", False, id="wrong"),
+        ),
+    )
+    async def test_call(self, scope_type, handle_call, route, asgi_scope, asgi_receive, asgi_send):
+        scope = types.Scope({**asgi_scope, "type": scope_type})
+        route_scope = types.Scope({"foo": "bar"})
+        handle = AsyncMock()
+        expected_calls = [call(types.Scope({**scope, **route_scope}), asgi_receive, asgi_send)] if handle_call else []
+
+        with patch.object(route, "handle", new=handle), patch.object(route, "route_scope", return_value=route_scope):
+            await route(scope, asgi_receive, asgi_send)
+
+        assert handle.call_args_list == expected_calls
 
     def test_eq(self):
         def foo():
@@ -233,6 +260,12 @@ class TestCaseRoute:
 
 class TestCaseWebsocketRoute:
     @pytest.fixture(scope="function")
+    def route(self):
+        return WebSocketRoute(
+            "/", EndpointWrapper(lambda: None, EndpointWrapper.type.websocket), name="foo", include_in_schema=False
+        )
+
+    @pytest.fixture(scope="function")
     def endpoint(self, request):
         if request.param == "function":
 
@@ -265,6 +298,26 @@ class TestCaseWebsocketRoute:
         assert route.endpoint == endpoint
         assert route.name == name
         assert route.include_in_schema is False
+
+    @pytest.mark.parametrize(
+        ["scope_type", "handle_call"],
+        (
+            pytest.param("http", False, id="http"),
+            pytest.param("websocket", True, id="websocket"),
+            pytest.param("lifespan", False, id="lifespan"),
+            pytest.param("wrong", False, id="wrong"),
+        ),
+    )
+    async def test_call(self, scope_type, handle_call, route, asgi_scope, asgi_receive, asgi_send):
+        scope = types.Scope({**asgi_scope, "type": scope_type})
+        route_scope = types.Scope({"foo": "bar"})
+        handle = AsyncMock()
+        expected_calls = [call(types.Scope({**scope, **route_scope}), asgi_receive, asgi_send)] if handle_call else []
+
+        with patch.object(route, "handle", new=handle), patch.object(route, "route_scope", return_value=route_scope):
+            await route(scope, asgi_receive, asgi_send)
+
+        assert handle.call_args_list == expected_calls
 
     def test_eq(self):
         def foo():
@@ -347,6 +400,26 @@ class TestCaseMount:
             assert mount.app == app
             assert mount.path == "/foo"
 
+    @pytest.mark.parametrize(
+        ["scope_type", "handle_call"],
+        (
+            pytest.param("http", True, id="http"),
+            pytest.param("websocket", True, id="websocket"),
+            pytest.param("lifespan", True, id="lifespan"),
+            pytest.param("wrong", False, id="wrong"),
+        ),
+    )
+    async def test_call(self, scope_type, handle_call, mount, asgi_scope, asgi_receive, asgi_send):
+        scope = types.Scope({**asgi_scope, "type": scope_type})
+        route_scope = types.Scope({"foo": "bar"})
+        handle = AsyncMock()
+        expected_calls = [call(types.Scope({**scope, **route_scope}), asgi_receive, asgi_send)] if handle_call else []
+
+        with patch.object(mount, "handle", new=handle), patch.object(mount, "route_scope", return_value=route_scope):
+            await mount(scope, asgi_receive, asgi_send)
+
+        assert handle.call_args_list == expected_calls
+
     def test_eq(self, app):
         assert Mount("/", app, name="app_mock") == Mount("/", app, name="app_mock")
         assert Mount("/", app, name="app_mock") != Mount("/", app, name="bar")
@@ -415,7 +488,7 @@ class TestCaseMount:
             "endpoint": mount.app,
             "path": "/bar",
             "path_params": {"x": 1},
-            "root_path": "/foo/1",
+            "root_path": "" if used else "/foo/1",
         }
 
     @pytest.mark.parametrize(
@@ -436,14 +509,14 @@ class TestCaseMount:
                 "wrong",
                 {"x": 1},
                 None,
-                exceptions.NotFoundException(params={"x": 1}, name="wrong"),
+                (exceptions.NotFoundException, r"Path not found \(params={'x': 1}, name='wrong'\)"),
                 id="not_found_mount",
             ),
             pytest.param(
                 "foo:wrong",
                 {"x": 1},
                 None,
-                exceptions.NotFoundException(params={"x": 1}, name="wrong"),
+                (exceptions.NotFoundException, r"Path not found \(params={'x': 1}, name='foo:wrong'\)"),
                 id="not_found_route",
             ),
         ),
@@ -496,45 +569,31 @@ class TestCaseRouter:
         route = MagicMock(Route)
         assert Router(routes=[route]) == Router(routes=[route])
 
-    async def test_call_lifespan(self, router, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["type"] = "lifespan"
-
-        with patch.object(router, "lifespan", new_callable=AsyncMock) as method_mock:
-            await router(asgi_scope, asgi_receive, asgi_send)
-
-        assert method_mock.call_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
-
     @pytest.mark.parametrize(
-        ["request_type", "app_status", "exception"],
+        ["request_type"],
         (
-            pytest.param("http", types.AppStatus.READY, None, id="http"),
-            pytest.param("websocket", types.AppStatus.READY, None, id="websocket"),
-            pytest.param(
-                "http",
-                types.AppStatus.NOT_INITIALIZED,
-                exceptions.ApplicationError(""),
-                id="http_not_initialized",
-            ),
-            pytest.param(
-                "websocket",
-                types.AppStatus.NOT_INITIALIZED,
-                exceptions.ApplicationError(""),
-                id="websocket_not_initialized",
-            ),
+            pytest.param("http", id="http"),
+            pytest.param("websocket", id="websocket"),
         ),
-        indirect=["exception"],
     )
-    async def test_call(self, request_type, app_status, exception, router, asgi_scope, asgi_receive, asgi_send):
+    async def test_call_route(self, request_type, router, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = request_type
-        asgi_scope["app"]._status = app_status
 
         route = AsyncMock()
         route_scope = types.Scope({})
-        with exception, patch.object(router, "resolve_route", return_value=(route, route_scope)):
+        with patch.object(router, "resolve_route", return_value=(route, route_scope)):
             await router(asgi_scope, asgi_receive, asgi_send)
 
-        if not exception:
-            assert route.call_args_list == [call(route_scope, asgi_receive, asgi_send)]
+        assert route.call_args_list == [call(route_scope, asgi_receive, asgi_send)]
+
+    async def test_call_lifespan(self, router, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "lifespan"
+
+        lifespan_mock = AsyncMock(Lifespan)
+        with patch.object(router, "lifespan", lifespan_mock):
+            await router(asgi_scope, asgi_receive, asgi_send)
+
+        assert lifespan_mock.await_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
 
     def test_build(self, router):
         app = MagicMock(Flama)
@@ -830,7 +889,7 @@ class TestCaseRouter:
         assert route.path == "/foo/"
         assert route_scope is not None
         assert route_scope["path"] == "/foo/"
-        assert route_scope["root_path"] == "/router"
+        assert route_scope["root_path"] == ""
         assert route_scope["endpoint"] == foo
 
     def test_resolve_route_mount_router(self, app, router, asgi_scope):
@@ -928,3 +987,14 @@ class TestCaseRouter:
 
         with exception:
             assert router.resolve_url("foo") == result
+
+    async def test_request_nested_app(self, app):
+        sub_app = Flama(docs=None, schema=None)
+        sub_app.add_route("/bar/", lambda: {"foo": "bar"}, ["GET"])
+
+        app.mount("/foo", sub_app)
+
+        async with Client(app) as client:
+            response = await client.get("/foo/bar/")
+            assert response.status_code == 200
+            assert response.json() == {"foo": "bar"}

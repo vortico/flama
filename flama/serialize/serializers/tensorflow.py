@@ -10,9 +10,12 @@ from flama.serialize import exceptions, types
 from flama.serialize.base import Serializer
 
 try:
-    import tensorflow as tf
+    import tensorflow as tf  # type: ignore
 except Exception:  # pragma: no cover
     tf = None  # type: ignore[misc, assignment]
+
+if t.TYPE_CHECKING:
+    from flama.types import JSONSchema
 
 
 class TensorFlowSerializer(Serializer):
@@ -39,8 +42,8 @@ class TensorFlowSerializer(Serializer):
             model_tar.extractall(saved_model_dir)
             return tf.keras.models.load_model(saved_model_dir)  # type: ignore
 
-    def info(self, model: t.Any) -> t.Dict[str, t.Any]:
-        model_info: t.Dict[str, t.Any] = json.loads(model.to_json())
+    def info(self, model: t.Any) -> t.Optional["JSONSchema"]:
+        model_info: "JSONSchema" = json.loads(model.to_json())
         return model_info
 
     def version(self) -> str:

@@ -11,7 +11,7 @@ import typesystem.fields
 @pytest.fixture(scope="function")
 def foo_schema(app):
     if app.schema.schema_library.lib == pydantic:
-        schema = pydantic.create_model("Foo", name=(str, ...))
+        schema = pydantic.create_model("Foo", name=(str, ...), __module__="pydantic.main")
         name = "pydantic.main.Foo"
     elif app.schema.schema_library.lib == typesystem:
         schema = typesystem.Schema(title="Foo", fields={"name": typesystem.fields.String()})
@@ -28,7 +28,7 @@ def foo_schema(app):
 def bar_schema(app, foo_schema):
     child_schema = foo_schema.schema
     if app.schema.schema_library.lib == pydantic:
-        schema = pydantic.create_model("Bar", foo=(child_schema, ...))
+        schema = pydantic.create_model("Bar", foo=(child_schema, ...), __module__="pydantic.main")
         name = "pydantic.main.Bar"
     elif app.schema.schema_library.lib == typesystem:
         schema = typesystem.Schema(
@@ -48,7 +48,7 @@ def bar_schema(app, foo_schema):
 def bar_list_schema(app, foo_schema):
     child_schema = foo_schema.schema
     if app.schema.schema_library.lib == pydantic:
-        schema = pydantic.create_model("BarList", foo=(t.List[child_schema], ...))
+        schema = pydantic.create_model("BarList", foo=(t.List[child_schema], ...), __module__="pydantic.main")
         name = "pydantic.main.BarList"
     elif app.schema.schema_library.lib == typesystem:
         schema = typesystem.Schema(
@@ -76,7 +76,7 @@ def bar_list_schema(app, foo_schema):
 def bar_dict_schema(app, foo_schema):
     child_schema = foo_schema.schema
     if app.schema.schema_library.lib == pydantic:
-        schema = pydantic.create_model("BarDict", foo=(t.Dict[str, child_schema], ...))
+        schema = pydantic.create_model("BarDict", foo=(t.Dict[str, child_schema], ...), __module__="pydantic.main")
         name = "pydantic.main.BarDict"
     elif app.schema.schema_library.lib == typesystem:
         schema = typesystem.Schema(

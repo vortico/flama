@@ -1,15 +1,12 @@
-import databases
 import sqlalchemy
 from pydantic import BaseModel
-from sqlalchemy import create_engine
 
 import flama
 from flama import Flama
-from flama.resources.crud import CRUDListResourceType
+from flama.resources.crud import CRUDResource
+from flama.sqlalchemy import SQLAlchemyModule
 
-DATABASE_URL = "sqlite:///resource.db"
-
-database = databases.Database(DATABASE_URL)
+DATABASE_URL = "sqlite+aiosqlite://"
 
 metadata = sqlalchemy.MetaData()
 
@@ -27,9 +24,7 @@ PuppyModel = sqlalchemy.Table(
 )
 
 
-class PuppyResource(metaclass=CRUDListResourceType):
-    database = database
-
+class PuppyResource(CRUDResource):
     name = "puppy"
     verbose_name = "Puppy"
 
@@ -39,24 +34,13 @@ class PuppyResource(metaclass=CRUDListResourceType):
 
 app = Flama(
     title="Puppy Register",  # API title
-    version="0.1",  # API version
+    version="0.1.0",  # API version
     description="A register of puppies",  # API description
+    modules=[SQLAlchemyModule(database=DATABASE_URL)],
 )
 
-app.add_resource("/", PuppyResource)
-
-
-@app.on_event("startup")
-async def startup():
-    engine = create_engine(DATABASE_URL)
-    metadata.create_all(engine)  # Create the tables.
-    await database.connect()
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    await database.disconnect()
+app.resources.add_resource("/", PuppyResource)
 
 
 if __name__ == "__main__":
-    flama.run(app, host="0.0.0.0", port=8000)
+    flama.run(flama_app=app, server_host="0.0.0.0", server_port=8080)

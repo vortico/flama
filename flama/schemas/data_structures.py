@@ -14,6 +14,7 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
 if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
 
     class StrEnum(str, enum.Enum):
+        @staticmethod
         def _generate_next_value_(name, start, count, last_values):
             return name.lower()
 
@@ -67,7 +68,7 @@ class Field:
     def from_parameter(cls, parameter: InjectionParameter) -> "Field":
         return cls(
             parameter.name,
-            parameter.type,
+            parameter.annotation,
             required=parameter.default is InjectionParameter.empty,
             default=parameter.default
             if parameter.default is not InjectionParameter.empty
@@ -101,10 +102,10 @@ class Schema:
 
     @classmethod
     def from_type(cls, type_: t.Optional[t.Type]) -> "Schema":
-        if types.is_schema(type_):
+        if types.Schema.is_schema(type_):
             schema = type_.schema
         elif t.get_origin(type_) in (list, tuple, set):
-            schema = t.get_args(type_)[0]
+            return cls.from_type(t.get_args(type_)[0])
         else:
             schema = type_
 
@@ -153,13 +154,12 @@ class Schema:
 
         return schema
 
-    @property
-    def json_schema(self) -> types.JSONSchema:
+    def json_schema(self, names: t.Dict[int, str]) -> types.JSONSchema:
         return t.cast(
             types.JSONSchema,
             self._replace_json_schema_refs(
                 schemas.adapter.to_json_schema(self.schema),
-                {Schema(x).name.rsplit(".", 1)[1]: Schema(x).name for x in self.nested_schemas()},
+                {Schema(x).name.rsplit(".", 1)[1]: names[id(Schema(x).unique_schema)] for x in self.nested_schemas()},
             ),
         )
 
@@ -190,18 +190,18 @@ class Schema:
         return []
 
     @t.overload
-    def validate(self, values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    def validate(self, values: t.Dict[str, t.Any], *, partial: bool = False) -> t.Dict[str, t.Any]:
         ...
 
     @t.overload
-    def validate(self, values: t.List[t.Dict[str, t.Any]]) -> t.List[t.Dict[str, t.Any]]:
+    def validate(self, values: t.List[t.Dict[str, t.Any]], *, partial: bool = False) -> t.List[t.Dict[str, t.Any]]:
         ...
 
-    def validate(self, values):
+    def validate(self, values, *, partial=False):
         if isinstance(values, (list, tuple)):
-            return [schemas.adapter.validate(self.schema, value) for value in values]
+            return [schemas.adapter.validate(self.schema, value, partial=partial) for value in values]
 
-        return schemas.adapter.validate(self.schema, values)
+        return schemas.adapter.validate(self.schema, values, partial=partial)
 
     @t.overload
     def load(self, values: t.Dict[str, t.Any]) -> t.Any:
@@ -240,6 +240,7 @@ class Parameter:
     required: bool = True
     default: t.Any = InjectionParameter.empty
     nullable: bool = dataclasses.field(init=False)
+    multiple: bool = dataclasses.field(init=False)
     schema: "Schema" = dataclasses.field(hash=False, init=False, compare=False)
     field: "Field" = dataclasses.field(hash=False, init=False, compare=False)
 
@@ -259,6 +260,7 @@ class Parameter:
 
         object.__setattr__(self, "schema", schema)
         object.__setattr__(self, "field", field)
+        object.__setattr__(self, "multiple", t.get_origin(self.type) in (list, tuple, set, frozenset))
 
     @classmethod
     def build(cls, type_: str, parameter: InjectionParameter):
@@ -273,27 +275,27 @@ class Parameter:
     def _build_path_parameter(cls, parameter: InjectionParameter) -> "Parameter":
         return cls(
             name=parameter.name,
-            type=parameter.type if parameter.type is not parameter.empty else str,
             location=ParameterLocation.path,
+            type=parameter.annotation if parameter.annotation is not parameter.empty else str,
         )
 
     @classmethod
     def _build_query_parameter(cls, parameter: InjectionParameter) -> "Parameter":
         return cls(
             name=parameter.name,
-            type=parameter.type if parameter.type is not parameter.empty else str,
             location=ParameterLocation.query,
+            type=parameter.annotation if parameter.annotation is not parameter.empty else str,
             required=parameter.default is InjectionParameter.empty,
             default=parameter.default,
         )
 
     @classmethod
     def _build_body_parameter(cls, parameter: InjectionParameter) -> "Parameter":
-        return cls(name=parameter.name, type=parameter.type, location=ParameterLocation.body)
+        return cls(name=parameter.name, location=ParameterLocation.body, type=parameter.annotation)
 
     @classmethod
     def _build_response_parameter(cls, parameter: InjectionParameter) -> "Parameter":
-        return cls(name=parameter.name, type=parameter.type, location=ParameterLocation.response)
+        return cls(name=parameter.name, location=ParameterLocation.response, type=parameter.annotation)
 
 
 Parameters = t.Dict[str, Parameter]

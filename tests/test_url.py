@@ -233,13 +233,13 @@ class TestCaseRegexPath:
             pytest.param("/{foo:float}/", "/1/", {"foo": 1.0}, None, id="float_positive_no_decimals"),
             pytest.param("/{foo:float}/", "/-1.0/", {"foo": -1.0}, None, id="float_negative"),
             pytest.param("/{foo:float}/", "/-1/", {"foo": -1.0}, None, id="float_negative_no_decimals"),
-            pytest.param("/{foo:float}/", "/foo/", None, ValueError("Path '/foo' does not match."), id="float_fail"),
+            pytest.param("/{foo:float}/", "/foo/", None, ValueError("Path '/foo/' does not match."), id="float_fail"),
             pytest.param("/{foo:decimal}/", "/1.0/", {"foo": Decimal("1.0")}, None, id="decimal_positive"),
             pytest.param("/{foo:decimal}/", "/1/", {"foo": Decimal("1.0")}, None, id="decimal_positive_no_decimals"),
             pytest.param("/{foo:decimal}/", "/-1.0/", {"foo": Decimal("-1.0")}, None, id="decimal_negative"),
             pytest.param("/{foo:decimal}/", "/-1/", {"foo": Decimal("-1.0")}, None, id="decimal_negative_no_decimals"),
             pytest.param(
-                "/{foo:decimal}/", "/foo/", None, ValueError("Path '/foo' does not match."), id="decimal_fail"
+                "/{foo:decimal}/", "/foo/", None, ValueError("Path '/foo/' does not match."), id="decimal_fail"
             ),
             pytest.param(
                 "/{foo:uuid}/",
@@ -294,6 +294,17 @@ class TestCaseRegexPath:
                 {},
                 None,
                 id="uuid",
+            ),
+            pytest.param(
+                "/{foo:uuid}/bar/{bar:uuid}/",
+                {
+                    "foo": uuid.UUID("83a8e611-525c-4d30-9bbf-f2c142606a3d"),
+                    "bar": uuid.UUID("ac187df6-d785-4aed-bcb7-84ed4a461e0c"),
+                },
+                "/83a8e611-525c-4d30-9bbf-f2c142606a3d/bar/ac187df6-d785-4aed-bcb7-84ed4a461e0c/",
+                {},
+                None,
+                id="multiple_uuid",
             ),
             pytest.param("/{foo:path}", {"foo": ""}, "/", {"foo": ""}, None, id="path_empty"),
             pytest.param("/{foo:path}", {"foo": "foo/"}, "/", {"foo": "foo/"}, None, id="path"),

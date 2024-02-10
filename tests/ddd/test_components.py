@@ -1,38 +1,12 @@
 import pytest
 
 from flama import types
-from flama.ddd import AbstractRepository, AbstractWorker
+from flama.ddd import AbstractWorker
 from flama.ddd.components import WorkerComponent
 from flama.injection.resolver import Parameter
 
 
 class TestCaseWorkerComponent:
-    @pytest.fixture(scope="function")
-    def repository(self):
-        class Repository(AbstractRepository):
-            ...
-
-        return Repository
-
-    @pytest.fixture(scope="function")
-    def worker(self, client, repository):
-        class FooWorker(AbstractWorker):
-            async def __aenter__(self) -> "AbstractWorker":
-                return self
-
-            async def __aexit__(self, exc_type, exc_val, exc_tb):
-                pass
-
-            async def commit(self) -> None:
-                pass
-
-            async def rollback(self) -> None:
-                pass
-
-            bar: repository
-
-        return FooWorker()
-
     @pytest.fixture(scope="function")
     def component(self, worker):
         return WorkerComponent(worker)
@@ -60,15 +34,19 @@ class TestCaseWorkerComponent:
         assert component.can_handle_parameter(Parameter(param_name, parameter_types[param_type])) == expected
 
     def test_resolve(self, component, worker):
-        class FooApp:
+        class App:
             ...
 
-        scopes = types.Scope({"app": FooApp()})
+        foo = App()
+        bar = App()
+
+        scopes = types.Scope({"app": foo, "root_app": bar})
 
         assert hasattr(component.worker, "_app")
         assert not component.worker._app
 
-        component.resolve(scopes)
-        assert component.resolve(scopes) == worker
+        resolved = component.resolve(scopes)
+
+        assert resolved == worker
         assert hasattr(component.worker, "_app")
-        assert component.worker._app == scopes["app"]
+        assert component.worker._app == scopes["root_app"]

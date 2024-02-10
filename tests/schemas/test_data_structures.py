@@ -63,7 +63,7 @@ class TestCaseField:
             assert getattr(field, k) == v
 
     def test_from_parameter(self):
-        assert Field.from_parameter(InjectionParameter(name="foo", type=int, default=0)) == Field(
+        assert Field.from_parameter(InjectionParameter(name="foo", annotation=int, default=0)) == Field(
             "foo", int, required=False, default=0
         )
 
@@ -194,7 +194,7 @@ class TestCaseSchema:
         ),
     )
     def test_json_schema(self, schemas, schema, json_schema, key_to_replace):
-        result = Schema(schemas[schema].schema).json_schema
+        result = Schema(schemas[schema].schema).json_schema({id(schemas["Foo"].schema): schemas["Foo"].name})
 
         expected_result = deepcopy(json_schema)
 
@@ -238,7 +238,7 @@ class TestCaseSchema:
     @pytest.mark.parametrize(
         ["values", "expected_result"],
         (
-            pytest.param(Mock(), True, id="single"),
+            pytest.param(Mock(partial=False), True, id="single"),
             pytest.param([Mock(), Mock()], [True, True], id="multiple"),
         ),
     )
@@ -251,7 +251,7 @@ class TestCaseSchema:
 
             assert result == expected_result
             assert schemas_mock.adapter.validate.call_args_list == [
-                call(schema_mock, x) for x in (values if isinstance(values, list) else [values])
+                call(schema_mock, x, partial=False) for x in (values if isinstance(values, list) else [values])
             ]
 
     @pytest.mark.parametrize(
@@ -324,7 +324,7 @@ class TestCaseParameter:
         ),
     )
     def test_build(self, foo_schema, type_, parameter, result):
-        if parameter.type == types.Schema:
+        if parameter.annotation == types.Schema:
             parameter = InjectionParameter(parameter.name, types.Schema[foo_schema.schema], parameter.default)
             result = Parameter(
                 name=result.name,

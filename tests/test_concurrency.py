@@ -1,5 +1,6 @@
 import functools
 import multiprocessing
+import warnings
 
 import pytest
 
@@ -93,9 +94,11 @@ class TestCaseAsyncProcess:
     async def test_async_process(self, target):
         event = multiprocessing.Event()
 
-        process = concurrency.AsyncProcess(target=target, args=(event,))
-        process.start()
-        process.join()
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            process = concurrency.AsyncProcess(target=target, args=(event,))
+            process.start()
+            process.join()
 
         if target:
             assert event.wait(5.0)

@@ -112,3 +112,13 @@ flama run examples.hello_flama:app
 This project is absolutely open to contributions so if you have a nice idea, please read
 our [contributing docs](.github/CONTRIBUTING.md) **before submitting** a pull
 request.
+
+## Star History
+
+<a href="https://github.com/vortico/flama">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=vortico/flama&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=vortico/flama&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=vortico/flama&type=Date" />
+  </picture>
+</a>
