@@ -1022,6 +1022,13 @@ class TestCaseSchemaGenerator:
             """
             return {}
 
+        @app.route("/wrong-schema/", methods=["POST"])
+        async def wrong():
+            """
+            Wrong schema.
+            """
+            return {}
+
         router = Router()
         router.add_route("/custom-component/", endpoint=get, methods=["GET"])
         app.mount("/mount", router)
@@ -1329,6 +1336,12 @@ class TestCaseSchemaGenerator:
                     },
                 },
                 id="custom_body",
+            ),
+            pytest.param(
+                "/wrong-schema/",
+                "post",
+                {},
+                id="wrong_schema",
             ),
         ],
     )

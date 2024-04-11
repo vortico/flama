@@ -8,7 +8,7 @@ from collections import defaultdict
 import yaml
 
 from flama import routing, schemas, types
-from flama.schemas import Schema, openapi
+from flama.schemas import Schema, exceptions, openapi
 from flama.schemas.data_structures import Parameter
 from flama.url import RegexPath
 
@@ -21,11 +21,11 @@ __all__ = ["SchemaRegistry", "SchemaGenerator"]
 class EndpointInfo:
     path: str
     method: str
-    func: t.Callable
-    query_parameters: t.Dict[str, Parameter]
-    path_parameters: t.Dict[str, Parameter]
-    body_parameter: t.Optional[Parameter]
-    response_parameter: Parameter
+    func: t.Callable = dataclasses.field(repr=False)
+    query_parameters: t.Dict[str, Parameter] = dataclasses.field(repr=False)
+    path_parameters: t.Dict[str, Parameter] = dataclasses.field(repr=False)
+    body_parameter: t.Optional[Parameter] = dataclasses.field(repr=False)
+    response_parameter: Parameter = dataclasses.field(repr=False)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -495,8 +495,15 @@ class SchemaGenerator:
         endpoints_info = self.get_endpoints(routes)
 
         for path, endpoints in endpoints_info.items():
-            operations = {e.method: self.get_operation_schema(e) for e in endpoints}
-            self.spec.add_path(path, openapi.Path(**operations))  # type: ignore[arg-type]
+            operations = {}
+            for endpoint in endpoints:
+                try:
+                    operations[endpoint.method] = self.get_operation_schema(endpoint)
+                except Exception:
+                    logger.error("Cannot generate schema for endpoint %s", endpoint)
+
+            if operations:
+                self.spec.add_path(path, openapi.Path(**operations))  # type: ignore[arg-type]
 
         for schema in self.schemas.used(self.spec).values():
             self.spec.add_schema(schema.name, openapi.Schema(schema.json_schema(self.schemas.names)))
