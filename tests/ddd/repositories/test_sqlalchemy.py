@@ -18,7 +18,7 @@ def app():
 
 @pytest.fixture(scope="function")
 async def connection(client):
-    # Exactly the same behavior than 'async with worker'
+    # Exactly the same behavior as 'async with worker'
     connection_: AsyncConnection = client.app.sqlalchemy.engine.connect()
     await connection_.__aenter__()
     transaction = connection_.begin()
@@ -264,7 +264,9 @@ class TestCaseSQLAlchemyTableRepository:
         class Repository(SQLAlchemyTableRepository):
             _table = table
 
-        assert Repository(connection) == Repository(connection)
+        repository = Repository(connection)
+        assert repository == Repository(connection)
+        assert repository != Repository(Mock(spec=AsyncConnection))
 
     async def test_create(self, repository, table_manager):
         data = {"foo": "bar"}

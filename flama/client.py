@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class LifespanContextManager:
-    def __init__(self, app: Flama, timeout: float = 60.0):
+    def __init__(self, app: "Flama", timeout: float = 60.0):
         self.app = app
         self.timeout = timeout
         self._startup_complete = asyncio.Event()
@@ -103,7 +103,7 @@ class Client(httpx.AsyncClient):
     def __init__(
         self,
         /,
-        app: t.Optional[Flama] = None,
+        app: t.Optional["Flama"] = None,
         models: t.Optional[t.Sequence[t.Tuple[str, str, str]]] = None,
         **kwargs,
     ):
