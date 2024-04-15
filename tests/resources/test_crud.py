@@ -250,6 +250,29 @@ class TestCaseCRUDResource:
         assert response.status_code == 200, response.json()
         assert response.json() == expected_puppy
 
+    async def test_create_already_exists(self, client, puppy):
+        expected_puppy_id = 1
+        expected_puppy = puppy.copy()
+        expected_puppy["custom_id"] = expected_puppy_id
+
+        # Create a new record
+        response = await client.request("post", "/puppy/", json=puppy)
+        assert response.status_code == 201, response.json()
+        created_puppy = response.json()
+        assert created_puppy == expected_puppy
+
+        # Fails if resource exists
+        response = await client.request("post", "/puppy/", json=expected_puppy)
+        assert response.status_code == 400, response.json()
+
+    async def test_create_wrong_data(self, client, puppy):
+        wrong_puppy = puppy.copy()
+        wrong_puppy["age"] = "wrong"
+
+        # Fails if wrong input data
+        response = await client.request("post", "/puppy/", json=wrong_puppy)
+        assert response.status_code == 400, response.json()
+
     async def test_retrieve(self, client, puppy):
         expected_puppy_id = 1
         expected_result = puppy.copy()
@@ -288,8 +311,7 @@ class TestCaseCRUDResource:
         # Successfully create a new record
         response = await client.request("post", "/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
-        created_puppy = response.json()
-        assert created_puppy == created_puppy
+        assert response.json() == created_puppy
 
         # Update record
         response = await client.request("put", f"/puppy/{expected_puppy_id}/", json=another_puppy)
@@ -311,6 +333,22 @@ class TestCaseCRUDResource:
         response = await client.request("put", "/puppy/foo/", json=puppy)
         assert response.status_code == 400, response.json()
 
+    async def test_update_wrong_data(self, client, puppy):
+        expected_puppy_id = 1
+        created_puppy = puppy.copy()
+        created_puppy["custom_id"] = expected_puppy_id
+        wrong_puppy = puppy.copy()
+        wrong_puppy["age"] = "wrong"
+
+        # Successfully create a new record
+        response = await client.request("post", "/puppy/", json=puppy)
+        assert response.status_code == 201, response.json()
+        assert response.json() == created_puppy
+
+        # Update record
+        response = await client.request("put", f"/puppy/{expected_puppy_id}/", json=wrong_puppy)
+        assert response.status_code == 400, response.json()
+
     async def test_partial_update(self, client, puppy, another_puppy):
         expected_puppy_id = 1
         created_puppy = puppy.copy()
@@ -323,8 +361,7 @@ class TestCaseCRUDResource:
         # Successfully create a new record
         response = await client.request("post", "/puppy/", json=puppy)
         assert response.status_code == 201, response.json()
-        created_puppy = response.json()
-        assert created_puppy == created_puppy
+        assert response.json() == created_puppy
 
         # Update record
         response = await client.request("patch", f"/puppy/{expected_puppy_id}/", json=another_puppy)
@@ -344,6 +381,22 @@ class TestCaseCRUDResource:
     async def test_partial_update_wrong_id_type(self, client, puppy):
         # Update wrong record
         response = await client.request("patch", "/puppy/foo/", json=puppy)
+        assert response.status_code == 400, response.json()
+
+    async def test_partial_update_wrong_data(self, client, puppy):
+        expected_puppy_id = 1
+        created_puppy = puppy.copy()
+        created_puppy["custom_id"] = expected_puppy_id
+        wrong_puppy = puppy.copy()
+        wrong_puppy["age"] = "wrong"
+
+        # Successfully create a new record
+        response = await client.request("post", "/puppy/", json=puppy)
+        assert response.status_code == 201, response.json()
+        assert response.json() == created_puppy
+
+        # Update record
+        response = await client.request("patch", f"/puppy/{expected_puppy_id}/", json=wrong_puppy)
         assert response.status_code == 400, response.json()
 
     async def test_delete(self, client, puppy):
@@ -482,6 +535,28 @@ class TestCaseCRUDResource:
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == [{"custom_id": 2, **puppy}, {"custom_id": 3, **another_puppy}]
 
+    async def test_replace_wrong_data(self, client, puppy):
+        wrong_puppy = puppy.copy()
+        wrong_puppy["age"] = "wrong"
+
+        # Successfully create a new record
+        response = await client.request("post", "/puppy/", json=puppy)
+        assert response.status_code == 201, response.json()
+
+        # List all the existing records
+        response = await client.request("get", "/puppy/")
+        assert response.status_code == 200, response.json()
+        assert response.json()["data"] == [{"custom_id": 1, **puppy}]
+
+        # Fails if wrong input data
+        response = await client.request("put", "/puppy/", json=[{"custom_id": 2, **wrong_puppy}])
+        assert response.status_code == 400, response.json()
+
+        # Collection remains the same
+        response = await client.request("get", "/puppy/")
+        assert response.status_code == 200, response.json()
+        assert response.json()["data"] == [{"custom_id": 1, **puppy}]
+
     async def test_partial_replace(self, client, puppy, another_puppy):
         # Successfully create a new record
         response = await client.request("post", "/puppy/", json=puppy)
@@ -511,6 +586,28 @@ class TestCaseCRUDResource:
             {"custom_id": 2, **puppy},
             {"custom_id": 3, **another_puppy},
         ]
+
+    async def test_partial_replace_wrong_data(self, client, puppy):
+        wrong_puppy = puppy.copy()
+        wrong_puppy["age"] = "wrong"
+
+        # Successfully create a new record
+        response = await client.request("post", "/puppy/", json=puppy)
+        assert response.status_code == 201, response.json()
+
+        # List all the existing records
+        response = await client.request("get", "/puppy/")
+        assert response.status_code == 200, response.json()
+        assert response.json()["data"] == [{"custom_id": 1, **puppy}]
+
+        # Partial replace collection
+        response = await client.request("patch", "/puppy/", json=[{"custom_id": 2, **wrong_puppy}])
+        assert response.status_code == 400, response.json()
+
+        # Collection remains the same
+        response = await client.request("get", "/puppy/")
+        assert response.status_code == 200, response.json()
+        assert response.json()["data"] == [{"custom_id": 1, **puppy}]
 
     async def test_drop(self, client, puppy, another_puppy):
         # Successfully create a new record

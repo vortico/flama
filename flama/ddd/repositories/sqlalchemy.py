@@ -1,8 +1,8 @@
-import abc
 import typing as t
 
 from flama import types
 from flama.ddd import exceptions
+from flama.ddd.repositories import AbstractRepository
 
 try:
     import sqlalchemy
@@ -15,15 +15,6 @@ if t.TYPE_CHECKING:
     try:
         from sqlalchemy.ext.asyncio import AsyncConnection
     except Exception:  # pragma: no cover
-        ...
-
-__all__ = ["AbstractRepository", "SQLAlchemyRepository", "SQLAlchemyTableRepository", "SQLAlchemyTableManager"]
-
-
-class AbstractRepository(abc.ABC):
-    """Base class for repositories."""
-
-    def __init__(self, *args, **kwargs):
         ...
 
 
@@ -56,8 +47,8 @@ class SQLAlchemyTableManager:
         If the element already exists, it raises an `IntegrityError`. If the element is created, it returns
         the primary key of the element.
 
-        :param data: The data to create the element.
-        :return: The primary key of the created element.
+        :param data: The data to create the elements.
+        :return: The created elements.
         :raises IntegrityError: If the element already exists or cannot be inserted.
         """
         try:
@@ -78,7 +69,6 @@ class SQLAlchemyTableManager:
         Clause example: `table.c["id"].in_((1, 2, 3))`
         Filter example: `id=1`
 
-        :param id: The primary key of the element.
         :return: The element.
         :raises NotFoundError: If the element does not exist.
         :raises MultipleRecordsError: If more than one element is found.
@@ -102,9 +92,7 @@ class SQLAlchemyTableManager:
         Using clauses and filters, it filters the elements to update. If no clauses or filters are given, it updates
         all the elements in the table.
 
-
-        :param id: The primary key of the element.
-        :param data: The data to update the element.
+        :param data: The data to update the elements.
         :return: The updated elements.
         :raises IntegrityError: If the elements cannot be updated.
         """
@@ -120,9 +108,7 @@ class SQLAlchemyTableManager:
         return [types.Schema(element._asdict()) for element in result]
 
     async def delete(self, *clauses, **filters) -> None:
-        """Delete elements from the table.
-
-        If no clauses or filters are given, it deletes all the elements in the repository.
+        """Delete an element from the table.
 
         Clauses are used to filter the elements using sqlalchemy clauses. Filters are used to filter the elements using
         exact values to specific columns. Clauses and filters can be combined.

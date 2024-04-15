@@ -8,7 +8,7 @@ from collections import defaultdict
 import yaml
 
 from flama import routing, schemas, types
-from flama.schemas import Schema, exceptions, openapi
+from flama.schemas import Schema, openapi
 from flama.schemas.data_structures import Parameter
 from flama.url import RegexPath
 
