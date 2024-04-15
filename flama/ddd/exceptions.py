@@ -5,6 +5,10 @@ class RepositoryException(Exception):
     ...
 
 
+class Empty(Exception):
+    ...
+
+
 class IntegrityError(RepositoryException):
     ...
 

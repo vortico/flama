@@ -4,6 +4,8 @@ import typing as t
 import starlette.exceptions
 
 __all__ = [
+    "ApplicationError",
+    "SQLAlchemyError",
     "DecodeError",
     "HTTPException",
     "NoCodecAvailable",

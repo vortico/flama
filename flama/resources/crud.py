@@ -1,4 +1,5 @@
 import typing as t
+from http import HTTPStatus
 
 from flama import exceptions, http, schemas, types
 from flama.ddd import exceptions as ddd_exceptions
@@ -31,10 +32,15 @@ class CreateMixin:
 
             async with worker:
                 repository = worker.repositories[self._meta.name]
-                result = await repository.create(resource)
+                try:
+                    result = await repository.create(resource)
+                except ddd_exceptions.IntegrityError:
+                    raise exceptions.HTTPException(
+                        status_code=HTTPStatus.BAD_REQUEST, detail="Already exists or cannot be created"
+                    )
 
             return http.APIResponse(  # type: ignore[return-value]
-                schema=rest_schemas.output.schema, content=result[0], status_code=201
+                schema=rest_schemas.output.schema, content=result[0], status_code=HTTPStatus.CREATED
             )
 
         create.__doc__ = f"""
@@ -48,6 +54,9 @@ class CreateMixin:
                 201:
                     description:
                         Resource created successfully.
+                400:
+                    description:
+                        Resource already exists or cannot be created.
         """
 
         return {"_create": create}
@@ -74,7 +83,7 @@ class RetrieveMixin:
                     repository = worker.repositories[self._meta.name]
                     return await repository.retrieve(**{rest_model.primary_key.name: resource_id})
             except ddd_exceptions.NotFoundError:
-                raise exceptions.HTTPException(status_code=404)
+                raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
 
         retrieve.__doc__ = f"""
             tags:
@@ -118,9 +127,12 @@ class UpdateMixin:
                     repository = worker.repositories[self._meta.name]
                     await repository.delete(**{rest_model.primary_key.name: resource_id})
                 except ddd_exceptions.NotFoundError:
-                    raise exceptions.HTTPException(status_code=404)
+                    raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
 
-                result = await repository.create(resource)
+                try:
+                    result = await repository.create(resource)
+                except ddd_exceptions.IntegrityError:
+                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Wrong input data")
 
             return types.Schema[rest_schemas.output.schema](result[0])
 
@@ -135,6 +147,9 @@ class UpdateMixin:
                 200:
                     description:
                         Resource updated successfully.
+                400:
+                    description:
+                        Wrong input data.
                 404:
                     description:
                         Resource not found.
@@ -163,10 +178,13 @@ class PartialUpdateMixin:
             resource[rest_model.primary_key.name] = resource_id
             async with worker:
                 repository = worker.repositories[self._meta.name]
-                result = await repository.update(resource, **{rest_model.primary_key.name: resource_id})
+                try:
+                    result = await repository.update(resource, **{rest_model.primary_key.name: resource_id})
+                except ddd_exceptions.IntegrityError:
+                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Wrong input data")
 
                 if not result:
-                    raise exceptions.HTTPException(status_code=404)
+                    raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
 
             return types.Schema[rest_schemas.output.schema](result[0])
 
@@ -182,6 +200,9 @@ class PartialUpdateMixin:
                 200:
                     description:
                         Resource updated successfully.
+                400:
+                    description:
+                        Wrong input data.
                 404:
                     description:
                         Resource not found.
@@ -202,9 +223,9 @@ class DeleteMixin:
                     repository = worker.repositories[self._meta.name]
                     await repository.delete(**{rest_model.primary_key.name: resource_id})
             except ddd_exceptions.NotFoundError:
-                raise exceptions.HTTPException(status_code=404)
+                raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
 
-            return http.APIResponse(status_code=204)
+            return http.APIResponse(status_code=HTTPStatus.NO_CONTENT)
 
         delete.__doc__ = f"""
             tags:
@@ -279,7 +300,10 @@ class ReplaceMixin:
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 await repository.drop()
-                return await repository.create(*resources)
+                try:
+                    return await repository.create(*resources)
+                except ddd_exceptions.IntegrityError:
+                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Wrong input data")
 
         replace.__doc__ = f"""
             tags:
@@ -292,6 +316,9 @@ class ReplaceMixin:
                 200:
                     description:
                         Collection replaced successfully.
+                400:
+                    description:
+                        Wrong input data.
         """
 
         return {"_replace": replace}
@@ -320,7 +347,10 @@ class PartialReplaceMixin:
                         [x[rest_model.primary_key.name] for x in resources]
                     )
                 )
-                return await repository.create(*resources)
+                try:
+                    return await repository.create(*resources)
+                except ddd_exceptions.IntegrityError:
+                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Wrong input data")
 
         partial_replace.__doc__ = f"""
             tags:
@@ -333,6 +363,9 @@ class PartialReplaceMixin:
                 200:
                     description:
                         Collection replaced successfully.
+                400:
+                    description:
+                        Wrong input data.
         """
 
         return {"_partial_replace": partial_replace}
@@ -348,7 +381,7 @@ class DropMixin:
                 result = await repository.drop()
 
             return http.APIResponse(  # type: ignore[return-value]
-                schema=schemas.schemas.DropCollection, content={"deleted": result}, status_code=204
+                schema=schemas.schemas.DropCollection, content={"deleted": result}, status_code=HTTPStatus.NO_CONTENT
             )
 
         drop.__doc__ = f"""
