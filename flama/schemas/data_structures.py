@@ -190,6 +190,10 @@ class Schema:
         return []
 
     @t.overload
+    def validate(self, values: None, *, partial: bool = False) -> t.Dict[str, t.Any]:
+        ...
+
+    @t.overload
     def validate(self, values: t.Dict[str, t.Any], *, partial: bool = False) -> t.Dict[str, t.Any]:
         ...
 
@@ -197,11 +201,11 @@ class Schema:
     def validate(self, values: t.List[t.Dict[str, t.Any]], *, partial: bool = False) -> t.List[t.Dict[str, t.Any]]:
         ...
 
-    def validate(self, values, *, partial=False):
+    def validate(self, values: t.Union[t.Dict[str, t.Any], t.List[t.Dict[str, t.Any]], None], *, partial=False):
         if isinstance(values, (list, tuple)):
             return [schemas.adapter.validate(self.schema, value, partial=partial) for value in values]
 
-        return schemas.adapter.validate(self.schema, values, partial=partial)
+        return schemas.adapter.validate(self.schema, values or {}, partial=partial)
 
     @t.overload
     def load(self, values: t.Dict[str, t.Any]) -> t.Any:
