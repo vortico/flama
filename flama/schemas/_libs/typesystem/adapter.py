@@ -56,11 +56,16 @@ class TypesystemAdapter(Adapter[Schema, Field]):
         name: t.Optional[str] = None,
         schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
         fields: t.Optional[t.Dict[str, Field]] = None,
+        partial: bool = False,
     ) -> Schema:
-        return Schema(
-            title=name or self.DEFAULT_SCHEMA_NAME,
-            fields={**(self.unique_schema(schema).fields if self.is_schema(schema) else {}), **(fields or {})},
-        )
+        fields_ = {**(self.unique_schema(schema).fields if self.is_schema(schema) else {}), **(fields or {})}
+
+        if partial:
+            for field in fields_:
+                fields_[field].default = None
+                fields_[field].allow_null = True
+
+        return Schema(title=name or self.DEFAULT_SCHEMA_NAME, fields=fields_)
 
     def validate(self, schema: Schema, values: t.Dict[str, t.Any], *, partial: bool = False) -> t.Any:
         try:
@@ -83,11 +88,12 @@ class TypesystemAdapter(Adapter[Schema, Field]):
 
         return value
 
-    def name(self, schema: Schema) -> str:
+    def name(self, schema: Schema, *, prefix: t.Optional[str] = None) -> str:
         if not schema.title:
             raise ValueError(f"Schema '{schema}' needs to define title attribute")
 
-        return schema.title if schema.__module__ == "builtins" else f"{schema.__module__}.{schema.title}"
+        schema_name = f"{prefix or ''}{schema.title}"
+        return schema_name if schema.__module__ == "builtins" else f"{schema.__module__}.{schema_name}"
 
     def to_json_schema(self, schema: t.Union[Schema, Field]) -> JSONSchema:
         try:

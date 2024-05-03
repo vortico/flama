@@ -57,21 +57,22 @@ class PydanticAdapter(Adapter[Schema, Field]):
         name: t.Optional[str] = None,
         schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
         fields: t.Optional[t.Dict[str, t.Type[Field]]] = None,
+        partial: bool = False,
     ) -> t.Type[Schema]:
-        return pydantic.create_model(
-            name or self.DEFAULT_SCHEMA_NAME,
+        fields_ = {
             **{
-                **(
-                    {
-                        name: (field_info.annotation, field_info)
-                        for name, field_info in self.unique_schema(schema).model_fields.items()
-                    }
-                    if self.is_schema(schema)
-                    else {}
-                ),
-                **({name: (field.annotation, field) for name, field in fields.items()} if fields else {}),
-            },  # type: ignore
-        )
+                name: (field.annotation, field)
+                for name, field in (self.unique_schema(schema).model_fields.items() if self.is_schema(schema) else {})
+            },
+            **{name: (field.annotation, field) for name, field in (fields.items() if fields else {})},
+        }
+
+        if partial:
+            for name, (annotation, field) in fields_.items():
+                field.default = None
+                fields_[name] = (t.Optional[annotation], field)
+
+        return pydantic.create_model(name or self.DEFAULT_SCHEMA_NAME, **fields_)
 
     def validate(
         self, schema: t.Union[Schema, t.Type[Schema]], values: t.Dict[str, t.Any], *, partial: bool = False
@@ -93,9 +94,10 @@ class PydanticAdapter(Adapter[Schema, Field]):
 
         return self.validate(schema_cls, value)
 
-    def name(self, schema: t.Union[Schema, t.Type[Schema]]) -> str:
+    def name(self, schema: t.Union[Schema, t.Type[Schema]], *, prefix: t.Optional[str] = None) -> str:
         s = self.unique_schema(schema)
-        return s.__qualname__ if s.__module__ == "builtins" else f"{s.__module__}.{s.__qualname__}"
+        schema_name = f"{prefix or ''}{s.__qualname__}"
+        return schema_name if s.__module__ == "builtins" else f"{s.__module__}.{schema_name}"
 
     def to_json_schema(self, schema: t.Union[t.Type[Schema], t.Type[Field]]) -> JSONSchema:
         try:
@@ -103,13 +105,17 @@ class PydanticAdapter(Adapter[Schema, Field]):
                 json_schema = model_json_schema(schema, ref_template="#/components/schemas/{model}")
                 if "$defs" in json_schema:
                     del json_schema["$defs"]
+                for property in json_schema["properties"].values():
+                    if "anyOf" in property:  # Simplify type from anyOf to a list of types
+                        property["type"] = [x["type"] for x in property["anyOf"]]
+                        del property["anyOf"]
             elif self.is_field(schema):
                 json_schema = model_json_schema(
                     self.build_schema(fields={"x": schema}), ref_template="#/components/schemas/{model}"
                 )["properties"]["x"]
                 if not schema.title:  # Pydantic is introducing a default title, so we drop it
                     del json_schema["title"]
-                if "anyOf" in json_schema:  # Just simplifying type definition from anyOf to a list of types
+                if "anyOf" in json_schema:  # Simplify type from anyOf to a list of types
                     json_schema["type"] = [x["type"] for x in json_schema["anyOf"]]
                     del json_schema["anyOf"]
             else:
