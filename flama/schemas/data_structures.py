@@ -103,7 +103,15 @@ class Schema:
     @classmethod
     def from_type(cls, type_: t.Optional[t.Type]) -> "Schema":
         if types.Schema.is_schema(type_):
-            schema = type_.schema
+            schema = (
+                type_.schema
+                if not type_.partial
+                else schemas.adapter.build_schema(
+                    name=schemas.adapter.name(type_.schema, prefix="Partial").rsplit(".", 1)[1],
+                    schema=type_.schema,
+                    partial=True,
+                )
+            )
         elif t.get_origin(type_) in (list, tuple, set):
             return cls.from_type(t.get_args(type_)[0])
         else:

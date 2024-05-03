@@ -60,11 +60,16 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         name: t.Optional[str] = None,
         schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
         fields: t.Optional[t.Dict[str, Field]] = None,
+        partial: bool = False,
     ) -> t.Type[Schema]:
-        return Schema.from_dict(
-            fields={**(self.unique_schema(schema)().fields if schema else {}), **(fields or {})},
-            name=name or self.DEFAULT_SCHEMA_NAME,
-        )
+        fields_ = {**(self.unique_schema(schema)().fields if schema else {}), **(fields or {})}
+
+        if partial:
+            for field in fields_:
+                fields_[field].required = False
+                fields_[field].allow_none = True
+
+        return Schema.from_dict(fields=fields_, name=name or self.DEFAULT_SCHEMA_NAME)  # type: ignore
 
     def validate(
         self, schema: t.Union[t.Type[Schema], Schema], values: t.Dict[str, t.Any], *, partial: bool = False
@@ -90,9 +95,10 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
         return dump_value
 
-    def name(self, schema: t.Union[Schema, t.Type[Schema]]) -> str:
+    def name(self, schema: t.Union[Schema, t.Type[Schema]], *, prefix: t.Optional[str] = None) -> str:
         s = self.unique_schema(schema)
-        return s.__qualname__ if s.__module__ == "builtins" else f"{s.__module__}.{s.__qualname__}"
+        schema_name = f"{prefix or ''}{s.__qualname__}"
+        return schema_name if s.__module__ == "builtins" else f"{s.__module__}.{schema_name}"
 
     def to_json_schema(self, schema: t.Union[t.Type[Schema], t.Type[Field], Schema, Field]) -> JSONSchema:
         json_schema: t.Dict[str, t.Any]

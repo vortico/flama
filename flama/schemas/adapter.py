@@ -39,6 +39,11 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
 
     @t.overload
     @abc.abstractmethod
+    def build_schema(self, *, name: t.Optional[str] = None, schema: t.Any, partial: bool) -> t.Any:
+        ...
+
+    @t.overload
+    @abc.abstractmethod
     def build_schema(
         self, *, name: t.Optional[str] = None, schema: t.Any, fields: t.Optional[t.Dict[str, t.Any]]
     ) -> t.Any:
@@ -51,6 +56,7 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
         name: t.Optional[str] = None,
         schema: t.Optional[t.Any] = None,
         fields: t.Optional[t.Dict[str, t.Any]] = None,
+        partial: bool = False,
     ) -> t.Any:
         ...
 
@@ -66,8 +72,18 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
     def dump(self, schema: t.Any, value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         ...
 
+    @t.overload
     @abc.abstractmethod
     def name(self, schema: t.Any) -> str:
+        ...
+
+    @t.overload
+    @abc.abstractmethod
+    def name(self, schema: t.Any, *, prefix: str) -> str:
+        ...
+
+    @abc.abstractmethod
+    def name(self, schema: t.Any, *, prefix: t.Optional[str] = None) -> str:
         ...
 
     @abc.abstractmethod

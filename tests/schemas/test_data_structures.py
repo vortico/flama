@@ -103,33 +103,44 @@ class TestCaseField:
 
 class TestCaseSchema:
     @pytest.fixture(scope="function")
-    def schema_type(self, request, foo_schema):
+    def schema_type(self, request, foo_schema, bar_schema, bar_list_schema, bar_dict_schema):
         if request.param is None:
             return None
-        elif request.param == "schema":
+        elif request.param == "bare_schema":
             return foo_schema.schema
-        elif request.param == "schema_wrapped":
+        elif request.param == "schema":
             return types.Schema[foo_schema.schema]
-        elif request.param == "list":
-            return t.List[foo_schema.schema] if inspect.isclass(foo_schema.schema) else foo_schema.schema
+        elif request.param == "list_of_schema":
+            return t.List[types.Schema[foo_schema.schema]] if inspect.isclass(foo_schema.schema) else foo_schema.schema
+        elif request.param == "schema_partial":
+            return types.PartialSchema[foo_schema.schema]
+        elif request.param == "schema_nested":
+            return types.Schema[bar_schema.schema]
+        elif request.param == "schema_nested_list":
+            return types.Schema[bar_list_schema.schema]
+        elif request.param == "schema_nested_dict":
+            return types.Schema[bar_dict_schema.schema]
+
         else:
             raise ValueError("Wrong schema type")
 
     @pytest.mark.parametrize(
         ["schema_type", "exception"],
         (
+            pytest.param("bare_schema", None, id="bare_schema"),
             pytest.param("schema", None, id="schema"),
-            pytest.param("schema_wrapped", None, id="schema_wrapped"),
-            pytest.param("list", None, id="list"),
+            pytest.param("schema_partial", None, id="schema_partial"),
+            pytest.param("list_of_schema", None, id="list_of_schema"),
+            pytest.param("schema_nested", None, id="schema_nested"),
+            pytest.param("schema_nested_list", None, id="schema_nested_list"),
+            pytest.param("schema_nested_dict", None, id="schema_nested_dict"),
             pytest.param(None, ValueError("Wrong schema type"), id="wrong"),
         ),
         indirect=["schema_type", "exception"],
     )
-    def test_from_type(self, foo_schema, schema_type, exception):
+    def test_from_type(self, schema_type, exception):
         with exception:
-            schema = Schema.from_type(schema_type)
-
-            assert schema.schema == foo_schema.schema
+            Schema.from_type(schema_type)
 
     def test_build(self, foo_schema):
         n = Mock()
@@ -157,31 +168,37 @@ class TestCaseSchema:
             assert schemas_mock.adapter.name.call_args_list == [call(mock)]
 
     @pytest.mark.parametrize(
-        ["schema", "json_schema", "key_to_replace"],
+        ["schema_type", "json_schema", "key_to_replace"],
         (
             pytest.param(
-                "Foo",
+                "schema",
                 {"properties": {"name": {"type": "string"}}, "type": "object"},
                 None,
-                id="no_nested",
+                id="plain",
             ),
             pytest.param(
-                "Bar",
+                "schema_partial",
+                {"properties": {"name": {"type": ["string", "null"]}}, "type": "object"},
+                None,
+                id="partial",
+            ),
+            pytest.param(
+                "schema_nested",
                 {"properties": {"foo": {"$ref": "#/components/schemas/Foo"}}, "type": "object"},
                 "properties.foo",
-                id="attribute_nested",
+                id="nested",
             ),
             pytest.param(
-                "BarList",
+                "schema_nested_list",
                 {
                     "properties": {"foo": {"items": {"$ref": "#/components/schemas/Foo"}, "type": "array"}},
                     "type": "object",
                 },
                 "properties.foo.items",
-                id="list_nested",
+                id="nested_list",
             ),
             pytest.param(
-                "BarDict",
+                "schema_nested_dict",
                 {
                     "properties": {
                         "foo": {"additionalProperties": {"$ref": "#/components/schemas/Foo"}, "type": "object"}
@@ -189,12 +206,13 @@ class TestCaseSchema:
                     "type": "object",
                 },
                 "properties.foo.additionalProperties",
-                id="dict_nested",
+                id="nested_dict",
             ),
         ),
+        indirect=["schema_type"],
     )
-    def test_json_schema(self, schemas, schema, json_schema, key_to_replace):
-        result = Schema(schemas[schema].schema).json_schema({id(schemas["Foo"].schema): schemas["Foo"].name})
+    def test_json_schema(self, schemas, schema_type, json_schema, key_to_replace):
+        result = Schema.from_type(schema_type).json_schema({id(schemas["Foo"].schema): schemas["Foo"].name})
 
         expected_result = deepcopy(json_schema)
 

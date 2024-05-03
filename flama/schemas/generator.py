@@ -31,7 +31,7 @@ class EndpointInfo:
 @dataclasses.dataclass(frozen=True)
 class SchemaInfo:
     name: str
-    schema: t.Any
+    schema: types.Schema
 
     @property
     def ref(self) -> str:
