@@ -17,9 +17,10 @@ class HTTPWorker(AbstractWorker):
 
     _client: "Client"
 
-    def __init__(self, url: t.Union[str, t.Callable[[], str]], app: t.Optional["Flama"] = None):
+    def __init__(self, url: t.Union[str, t.Callable[[], str]], app: t.Optional["Flama"] = None, **client_kwargs: t.Any):
         super().__init__(app=app)
         self._url = url
+        self._client_kwargs = client_kwargs
 
     @property
     def url(self) -> str:
@@ -52,7 +53,7 @@ class HTTPWorker(AbstractWorker):
         """
         from flama.client import Client
 
-        self._client = Client(base_url=self.url)
+        self._client = Client(base_url=self.url, **self._client_kwargs)
 
         await self.begin_transaction()
 
