@@ -2,20 +2,15 @@ import functools
 import inspect
 import typing as t
 
-from starlette.middleware.authentication import AuthenticationMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.middleware.cors import CORSMiddleware
-from starlette.middleware.gzip import GZipMiddleware
-from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
-from starlette.middleware.trustedhost import TrustedHostMiddleware
+import starlette.middleware.authentication
+import starlette.middleware.base
+import starlette.middleware.cors
+import starlette.middleware.gzip
+import starlette.middleware.httpsredirect
+import starlette.middleware.trustedhost
 
 from flama import concurrency
 from flama.debug.middleware import ExceptionMiddleware, ServerErrorMiddleware
-
-try:
-    from starlette.middleware.sessions import SessionMiddleware
-except Exception:
-    SessionMiddleware = None  # type: ignore[misc, assignment]
 
 if t.TYPE_CHECKING:
     from flama import Flama, types
@@ -33,6 +28,67 @@ __all__ = [
     "SessionMiddleware",
     "TrustedHostMiddleware",
 ]
+
+try:
+    import starlette.middleware.sessions
+
+    class SessionMiddleware(starlette.middleware.sessions.SessionMiddleware):
+        def __init__(self, app: "types.App", *args, **kwargs):
+            super().__init__(app, *args, **kwargs)  # type: ignore[arg-type]
+
+        async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:  # type: ignore[overrid]
+            return await super().__call__(scope, receive, send)  # type: ignore[assignment]
+
+except ModuleNotFoundError:
+    SessionMiddleware = None  # type: ignore[assignment]
+
+
+class AuthenticationMiddleware(starlette.middleware.authentication.AuthenticationMiddleware):
+    def __init__(self, app: "types.App", *args, **kwargs):
+        super().__init__(app, *args, **kwargs)  # type: ignore[arg-type]
+
+    async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:  # type: ignore[overrid]
+        return await super().__call__(scope, receive, send)  # type: ignore[assignment]
+
+
+class BaseHTTPMiddleware(starlette.middleware.base.BaseHTTPMiddleware):
+    def __init__(self, app: "types.App", *args, **kwargs):
+        super().__init__(app, *args, **kwargs)  # type: ignore[arg-type]
+
+    async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:  # type: ignore[overrid]
+        return await super().__call__(scope, receive, send)  # type: ignore[assignment]
+
+
+class CORSMiddleware(starlette.middleware.cors.CORSMiddleware):
+    def __init__(self, app: "types.App", *args, **kwargs):
+        super().__init__(app, *args, **kwargs)  # type: ignore[arg-type]
+
+    async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:  # type: ignore[overrid]
+        return await super().__call__(scope, receive, send)  # type: ignore[assignment]
+
+
+class GZipMiddleware(starlette.middleware.gzip.GZipMiddleware):
+    def __init__(self, app: "types.App", *args, **kwargs):
+        super().__init__(app, *args, **kwargs)  # type: ignore[arg-type]
+
+    async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:  # type: ignore[overrid]
+        return await super().__call__(scope, receive, send)  # type: ignore[assignment]
+
+
+class HTTPSRedirectMiddleware(starlette.middleware.httpsredirect.HTTPSRedirectMiddleware):
+    def __init__(self, app: "types.App", *args, **kwargs):
+        super().__init__(app, *args, **kwargs)  # type: ignore[arg-type]
+
+    async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:  # type: ignore[overrid]
+        return await super().__call__(scope, receive, send)  # type: ignore[assignment]
+
+
+class TrustedHostMiddleware(starlette.middleware.trustedhost.TrustedHostMiddleware):
+    def __init__(self, app: "types.App", *args, **kwargs):
+        super().__init__(app, *args, **kwargs)  # type: ignore[arg-type]
+
+    async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:  # type: ignore[overrid]
+        return await super().__call__(scope, receive, send)  # type: ignore[assignment]
 
 
 class Middleware:
