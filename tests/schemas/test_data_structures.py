@@ -6,7 +6,9 @@ import uuid
 from copy import deepcopy
 from unittest.mock import Mock, call, patch
 
+import marshmallow
 import pytest
+import typesystem
 
 from flama import types
 from flama.injection import Parameter as InjectionParameter
@@ -103,7 +105,7 @@ class TestCaseField:
 
 class TestCaseSchema:
     @pytest.fixture(scope="function")
-    def schema_type(self, request, foo_schema, bar_schema, bar_list_schema, bar_dict_schema):
+    def schema_type(self, app, request, foo_schema, bar_schema, bar_optional_schema, bar_list_schema, bar_dict_schema):
         if request.param is None:
             return None
         elif request.param == "bare_schema":
@@ -116,6 +118,10 @@ class TestCaseSchema:
             return types.PartialSchema[foo_schema.schema]
         elif request.param == "schema_nested":
             return types.Schema[bar_schema.schema]
+        elif request.param == "schema_nested_optional":
+            if app.schema.schema_library.lib in (typesystem, marshmallow):
+                pytest.skip("Library does not support optional nested schemas")
+            return types.Schema[bar_optional_schema.schema]
         elif request.param == "schema_nested_list":
             return types.Schema[bar_list_schema.schema]
         elif request.param == "schema_nested_dict":
@@ -132,6 +138,7 @@ class TestCaseSchema:
             pytest.param("schema_partial", None, id="schema_partial"),
             pytest.param("list_of_schema", None, id="list_of_schema"),
             pytest.param("schema_nested", None, id="schema_nested"),
+            pytest.param("schema_nested_optional", None, id="schema_nested_optional"),
             pytest.param("schema_nested_list", None, id="schema_nested_list"),
             pytest.param("schema_nested_dict", None, id="schema_nested_dict"),
             pytest.param(None, ValueError("Wrong schema type"), id="wrong"),
@@ -178,7 +185,7 @@ class TestCaseSchema:
             ),
             pytest.param(
                 "schema_partial",
-                {"properties": {"name": {"type": ["string", "null"]}}, "type": "object"},
+                {"properties": {"name": {"anyOf": [{"type": "string"}, {"type": "null"}]}}, "type": "object"},
                 None,
                 id="partial",
             ),
@@ -187,6 +194,15 @@ class TestCaseSchema:
                 {"properties": {"foo": {"$ref": "#/components/schemas/Foo"}}, "type": "object"},
                 "properties.foo",
                 id="nested",
+            ),
+            pytest.param(
+                "schema_nested_optional",
+                {
+                    "properties": {"foo": {"anyOf": [{"$ref": "#/components/schemas/Foo"}, {"type": "null"}]}},
+                    "type": "object",
+                },
+                "properties.foo.anyOf.0",
+                id="nested_optional",
             ),
             pytest.param(
                 "schema_nested_list",
@@ -217,7 +233,9 @@ class TestCaseSchema:
         expected_result = deepcopy(json_schema)
 
         if key_to_replace:
-            subdict = functools.reduce(lambda x, k: x[k], key_to_replace.split("."), expected_result)
+            subdict = functools.reduce(
+                lambda x, k: x[int(k) if k.isnumeric() else k], key_to_replace.split("."), expected_result
+            )
             subdict["$ref"] = subdict["$ref"].replace("Foo", schemas["Foo"].name)
 
         assert_recursive_contains(expected_result, result)

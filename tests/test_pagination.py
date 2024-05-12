@@ -10,6 +10,7 @@ from pytest import param
 
 from flama import types
 from flama.pagination import paginator
+from tests.asserts import assert_recursive_contains
 
 
 @pytest.fixture(scope="function")
@@ -71,19 +72,33 @@ class TestCasePageNumberPagination:
         schema = app.schema.schema["paths"]["/page-number/"]["get"]
         parameters = schema.get("parameters", [])
 
-        for parameter in parameters:
-            parameter["schema"] = {k: v for k, v in parameter["schema"].items() if k in ("type", "default")}
-
-        assert parameters == [
+        assert_recursive_contains(
             {
                 "name": "count",
                 "in": "query",
                 "required": False,
-                "schema": {"type": ["boolean", "null"], "default": False},
+                "schema": {"anyOf": [{"type": "boolean"}, {"type": "null"}], "default": False},
             },
-            {"name": "page", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
-            {"name": "page_size", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
-        ]
+            parameters[0],
+        )
+        assert_recursive_contains(
+            {
+                "name": "page",
+                "in": "query",
+                "required": False,
+                "schema": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+            },
+            parameters[1],
+        )
+        assert_recursive_contains(
+            {
+                "name": "page_size",
+                "in": "query",
+                "required": False,
+                "schema": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+            },
+            parameters[2],
+        )
 
     def test_pagination_schema_return(self, app, output_schema):
         prefix, name = output_schema.name.rsplit(".", 1)
@@ -195,19 +210,33 @@ class TestCaseLimitOffsetPagination:
         schema = app.schema.schema["paths"]["/limit-offset/"]["get"]
         parameters = schema.get("parameters", [])
 
-        for parameter in parameters:
-            parameter["schema"] = {k: v for k, v in parameter["schema"].items() if k in ("type", "default")}
-
-        assert parameters == [
+        assert_recursive_contains(
             {
                 "name": "count",
                 "in": "query",
                 "required": False,
-                "schema": {"type": ["boolean", "null"], "default": False},
+                "schema": {"anyOf": [{"type": "boolean"}, {"type": "null"}], "default": False},
             },
-            {"name": "limit", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
-            {"name": "offset", "in": "query", "required": False, "schema": {"type": ["integer", "null"]}},
-        ]
+            parameters[0],
+        )
+        assert_recursive_contains(
+            {
+                "name": "limit",
+                "in": "query",
+                "required": False,
+                "schema": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+            },
+            parameters[1],
+        )
+        assert_recursive_contains(
+            {
+                "name": "offset",
+                "in": "query",
+                "required": False,
+                "schema": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+            },
+            parameters[2],
+        )
 
     def test_pagination_schema_return(self, app, output_schema):
         prefix, name = output_schema.name.rsplit(".", 1)

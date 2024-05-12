@@ -1,4 +1,5 @@
 import inspect
+import itertools
 import sys
 import typing as t
 import warnings
@@ -101,6 +102,11 @@ class TypesystemAdapter(Adapter[Schema, Field]):
 
             if not isinstance(json_schema, dict):
                 raise SchemaGenerationError
+
+            for property in itertools.chain(json_schema.get("properties", {}).values(), [json_schema]):
+                if isinstance(property.get("type"), list):
+                    property["anyOf"] = [{"type": x} for x in property["type"]]
+                    del property["type"]
 
             json_schema.pop("components", None)
         except Exception as e:
