@@ -105,19 +105,12 @@ class PydanticAdapter(Adapter[Schema, Field]):
                 json_schema = model_json_schema(schema, ref_template="#/components/schemas/{model}")
                 if "$defs" in json_schema:
                     del json_schema["$defs"]
-                for property in json_schema["properties"].values():
-                    if "anyOf" in property:  # Simplify type from anyOf to a list of types
-                        property["type"] = [x["type"] for x in property["anyOf"]]
-                        del property["anyOf"]
             elif self.is_field(schema):
                 json_schema = model_json_schema(
                     self.build_schema(fields={"x": schema}), ref_template="#/components/schemas/{model}"
                 )["properties"]["x"]
                 if not schema.title:  # Pydantic is introducing a default title, so we drop it
                     del json_schema["title"]
-                if "anyOf" in json_schema:  # Simplify type from anyOf to a list of types
-                    json_schema["type"] = [x["type"] for x in json_schema["anyOf"]]
-                    del json_schema["anyOf"]
             else:
                 raise TypeError("Not a valid schema class or field")
 

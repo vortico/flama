@@ -1085,7 +1085,7 @@ class TestCaseSchemaGenerator:
                             "name": "param2",
                             "in": "query",
                             "required": False,
-                            "schema": {"type": ["string", "null"]},
+                            "schema": {"anyOf": [{"type": "string"}, {"type": "null"}]},
                         },
                         {
                             "name": "param3",

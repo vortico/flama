@@ -45,6 +45,36 @@ def bar_schema(app, foo_schema):
 
 
 @pytest.fixture(scope="function")
+def bar_optional_schema(app, foo_schema):
+    child_schema = foo_schema.schema
+    if app.schema.schema_library.lib == pydantic:
+        schema = pydantic.create_model(
+            "BarOptional", foo=(t.Union[child_schema, None], None), __module__="pydantic.main"
+        )
+        name = "pydantic.main.BarOptional"
+    elif app.schema.schema_library.lib == typesystem:
+        schema = typesystem.Schema(
+            title="BarOptional",
+            fields={
+                "foo": typesystem.Reference(
+                    to="Foo", definitions=typesystem.Definitions({"Foo": child_schema}), allow_null=True, default=None
+                )
+            },
+        )
+        name = "typesystem.schemas.BarOptional"
+    elif app.schema.schema_library.lib == marshmallow:
+        schema = type(
+            "BarOptional",
+            (marshmallow.Schema,),
+            {"foo": marshmallow.fields.Nested(child_schema(), required=False, default=None, allow_none=True)},
+        )
+        name = "abc.BarOptional"
+    else:
+        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
+    return namedtuple("BarOptionalSchema", ("schema", "name"))(schema=schema, name=name)
+
+
+@pytest.fixture(scope="function")
 def bar_list_schema(app, foo_schema):
     child_schema = foo_schema.schema
     if app.schema.schema_library.lib == pydantic:

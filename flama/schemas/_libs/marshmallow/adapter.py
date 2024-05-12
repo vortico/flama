@@ -1,4 +1,5 @@
 import inspect
+import itertools
 import sys
 import typing as t
 
@@ -122,6 +123,11 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
                     json_schema = converter.schema2jsonschema(schema)
             else:
                 raise SchemaGenerationError
+
+            for property in itertools.chain(json_schema.get("properties", {}).values(), [json_schema]):
+                if isinstance(property.get("type"), list):
+                    property["anyOf"] = [{"type": x} for x in property["type"]]
+                    del property["type"]
         except Exception as e:
             raise SchemaGenerationError from e
 
