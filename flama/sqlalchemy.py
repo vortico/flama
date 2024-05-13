@@ -1,4 +1,5 @@
 import abc
+import logging
 import typing as t
 
 from flama import exceptions
@@ -23,6 +24,8 @@ if t.TYPE_CHECKING:
 
 __all__ = ["metadata", "SQLAlchemyModule"]
 
+logger = logging.getLogger(__name__)
+
 
 class ConnectionManager(abc.ABC):
     """Abstract class for connection managers.
@@ -37,6 +40,7 @@ class ConnectionManager(abc.ABC):
         """
         self._engine = engine
 
+    @abc.abstractmethod
     async def open(self) -> "AsyncConnection":
         """Open a new connection to the database.
 
@@ -212,7 +216,7 @@ class MultipleConnectionManager(ConnectionManager):
         :return: Database connection.
         """
         connection = self._engine.connect()
-        await connection.__aenter__()
+        await connection.start()
         self._connections.add(connection)
         return connection
 
@@ -228,8 +232,8 @@ class MultipleConnectionManager(ConnectionManager):
         if connection in self._transactions:
             await self.end(self._transactions[connection])
 
-        await connection.__aexit__(None, None, None)
         self._connections.remove(connection)
+        await connection.close()
 
     async def begin(self, connection: "AsyncConnection") -> "AsyncTransaction":
         """Begin a new transaction.
@@ -258,12 +262,12 @@ class MultipleConnectionManager(ConnectionManager):
         if transaction.connection not in self._transactions:
             raise exceptions.SQLAlchemyError("Transaction not started")
 
+        del self._transactions[transaction.connection]
+
         if rollback:
             await transaction.rollback()
         else:
             await transaction.commit()
-
-        del self._transactions[transaction.connection]
 
 
 class SQLAlchemyModule(Module):
