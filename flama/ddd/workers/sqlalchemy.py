@@ -1,3 +1,4 @@
+import logging
 import typing as t
 
 from flama.ddd.workers.base import AbstractWorker
@@ -9,6 +10,8 @@ if t.TYPE_CHECKING:
         ...
 
 __all__ = ["SQLAlchemyWorker"]
+
+logger = logging.getLogger(__name__)
 
 
 class SQLAlchemyWorker(AbstractWorker):

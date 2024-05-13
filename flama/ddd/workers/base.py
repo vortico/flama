@@ -1,5 +1,7 @@
 import abc
+import asyncio
 import inspect
+import logging
 import typing as t
 
 from flama.ddd.repositories import AbstractRepository
@@ -8,8 +10,11 @@ from flama.exceptions import ApplicationError
 if t.TYPE_CHECKING:
     from flama import Flama
 
+logger = logging.getLogger(__name__)
 
 Repositories = t.NewType("Repositories", t.Dict[str, t.Type[AbstractRepository]])
+
+__all__ = ["WorkerType", "AbstractWorker"]
 
 
 class WorkerType(abc.ABCMeta):
@@ -57,6 +62,7 @@ class AbstractWorker(abc.ABC, metaclass=WorkerType):
         :param app: Application instance.
         """
         self._app = app
+        self._lock = asyncio.Lock()
 
     @property
     def app(self) -> "Flama":
@@ -97,12 +103,16 @@ class AbstractWorker(abc.ABC, metaclass=WorkerType):
 
     async def __aenter__(self) -> "AbstractWorker":
         """Start a unit of work."""
+        await self._lock.acquire()
+        logger.debug("Start unit of work")
         await self.begin()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """End a unit of work."""
         await self.end(rollback=exc_type is not None)
+        logger.debug("End unit of work")
+        self._lock.release()
 
     @abc.abstractmethod
     async def commit(self) -> None:
