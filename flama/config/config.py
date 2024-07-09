@@ -1,6 +1,5 @@
 import dataclasses
 import functools
-import inspect
 import json
 import logging
 import os
@@ -15,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 R = t.TypeVar("R")
 Unknown = t.NewType("Unknown", str)
+unknown = Unknown("")
 
 
 class Config:
@@ -80,7 +80,7 @@ class Config:
     def _get_item_from_config_file(self, key: str) -> t.Any:
         return functools.reduce(lambda x, k: x[k], key.split("."), self.config_file)
 
-    def _get_item(self, key: str, default: R = Unknown) -> R:
+    def _get_item(self, key: str, default: t.Union[R, Unknown] = unknown) -> R:
         try:
             return self._get_item_from_environment(key)
         except KeyError:
@@ -91,7 +91,7 @@ class Config:
         except KeyError:
             ...
 
-        if default is not Unknown:
+        if default is not unknown:
             return t.cast(R, default)
 
         raise KeyError(key)
@@ -116,7 +116,7 @@ class Config:
         ...
 
     @t.overload
-    def __call__(self, key: str, *, default: R) -> R:
+    def __call__(self, key: str, *, default: t.Union[R, Unknown]) -> R:
         ...
 
     @t.overload
@@ -124,7 +124,7 @@ class Config:
         ...
 
     @t.overload
-    def __call__(self, key: str, *, default: R, cast: t.Type[R]) -> R:
+    def __call__(self, key: str, *, default: t.Union[R, Unknown], cast: t.Type[R]) -> R:
         ...
 
     @t.overload
@@ -132,11 +132,15 @@ class Config:
         ...
 
     @t.overload
-    def __call__(self, key: str, *, default: R, cast: t.Callable[[t.Any], R]) -> R:
+    def __call__(self, key: str, *, default: t.Union[R, Unknown], cast: t.Callable[[t.Any], R]) -> R:
         ...
 
     def __call__(
-        self, key: str, default: R = Unknown, cast: t.Optional[t.Union[t.Type[R], t.Callable[[t.Any], R]]] = None
+        self,
+        key: str,
+        *,
+        default: t.Union[R, Unknown] = unknown,
+        cast: t.Optional[t.Union[t.Type[R], t.Callable[[t.Any], R]]] = None
     ) -> R:
         """Get config parameter value.
 
@@ -162,8 +166,8 @@ class Config:
         if cast is None:
             return value
 
-        if dataclasses.is_dataclass(cast) and inspect.isclass(cast):
-            return self._build_dataclass(data=value, dataclass=cast)
+        if dataclasses.is_dataclass(cast) and isinstance(cast, type):
+            return t.cast(R, self._build_dataclass(data=value, dataclass=cast))
 
         try:
             return t.cast(t.Callable[[t.Any], R], cast)(value)

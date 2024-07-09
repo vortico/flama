@@ -92,7 +92,7 @@ class TestCaseJWTComponent:
                         "n0sICJpYXQiOiAwfQ==.0000",
                     }
                 },
-                400,
+                401,
                 {
                     "detail": {
                         "description": "Signature verification failed for token 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVC"
@@ -100,7 +100,7 @@ class TestCaseJWTComponent:
                         "error": "JWTValidateException",
                     },
                     "error": "HTTPException",
-                    "status_code": 400,
+                    "status_code": 401,
                 },
                 id="invalid_token",
             ),

@@ -101,7 +101,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
             return o.__name__
         if isinstance(o, BaseException):
             return repr(o)
-        if dataclasses.is_dataclass(o):
+        if dataclasses.is_dataclass(o) and not isinstance(o, type):
             return dataclasses.asdict(o)
         return super().default(o)
 

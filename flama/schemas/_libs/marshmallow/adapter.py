@@ -104,7 +104,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
     def to_json_schema(self, schema: t.Union[t.Type[Schema], t.Type[Field], Schema, Field]) -> JSONSchema:
         json_schema: t.Dict[str, t.Any]
         try:
-            plugin = MarshmallowPlugin(schema_name_resolver=lambda x: resolve_schema_cls(x).__name__)
+            plugin = MarshmallowPlugin(schema_name_resolver=lambda x: t.cast(type, resolve_schema_cls(x)).__name__)
             APISpec("", "", "3.1.0", [plugin])
             converter: "OpenAPIConverter" = t.cast("OpenAPIConverter", plugin.converter)
 
