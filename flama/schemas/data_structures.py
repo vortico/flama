@@ -10,6 +10,9 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
     from typing_extensions import TypeGuard
 
     t.TypeGuard = TypeGuard  # type: ignore
+    UnionType = [t.Union]
+else:
+    UnionType = [t.Union, type(int | str)]
 
 if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
 
@@ -87,12 +90,7 @@ class Field:
 
         return (
             (type_ in types.PARAMETERS_TYPES)
-            or (
-                origin in (t.Union, type(int | str))
-                and len(args) == 2
-                and args[0] in types.PARAMETERS_TYPES
-                and args[1] is NoneType
-            )
+            or (origin in UnionType and len(args) == 2 and args[0] in types.PARAMETERS_TYPES and args[1] is NoneType)
             or (origin is list and args[0] in types.PARAMETERS_TYPES)
         )
 
@@ -191,7 +189,7 @@ class Schema:
         if schemas.adapter.is_schema(schema):
             return [schemas.adapter.unique_schema(schema)]
 
-        if t.get_origin(schema) in (t.Union, type(int | str)):
+        if t.get_origin(schema) in UnionType:
             return [x for field in t.get_args(schema) for x in self.nested_schemas(field)]
 
         if isinstance(schema, (list, tuple, set)):

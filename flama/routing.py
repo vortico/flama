@@ -167,7 +167,7 @@ class EndpointWrapper:
         """
         await self.handler(scope, receive, send)
 
-    def _build_api_response(self, handler: t.Callable, response: http.Response) -> http.Response:
+    def _build_api_response(self, handler: t.Callable, response: t.Union[http.Response, None]) -> http.Response:
         """Build an API response given a handler and the current response.
 
         It infers the output schema from the handler signature or just wraps the response in a APIResponse object.

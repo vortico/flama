@@ -72,7 +72,7 @@ class JWTComponent(Component):
             token = jwt.JWT.decode(encoded_token, self.secret)
         except (exceptions.JWTDecodeException, exceptions.JWTValidateException) as e:
             raise HTTPException(
-                status_code=http.HTTPStatus.BAD_REQUEST, detail={"error": e.__class__, "description": str(e)}
+                status_code=http.HTTPStatus.UNAUTHORIZED, detail={"error": e.__class__, "description": str(e)}
             )
 
         return token

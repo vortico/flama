@@ -1,5 +1,4 @@
 import functools
-import inspect
 import typing as t
 
 import starlette.middleware.authentication
@@ -102,7 +101,9 @@ class Middleware:
     def __repr__(self) -> str:
         name = self.__class__.__name__
         middleware_name = (
-            self.middleware.__class__.__name__ if inspect.isclass(self.middleware) else self.middleware.__name__
+            self.middleware.__class__.__name__
+            if isinstance(self.middleware, types.MiddlewareClass)
+            else self.middleware.__name__
         )
         args = ", ".join([middleware_name] + [f"{key}={value!r}" for key, value in self.kwargs.items()])
         return f"{name}({args})"
