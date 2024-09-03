@@ -9,6 +9,7 @@ on:
       - '.github/**'
       - 'docs/**'
       - 'scripts/**'
+      - 'Dockerfiles/**'
 
 env:
   DEFAULT_LINUX: "slim"
