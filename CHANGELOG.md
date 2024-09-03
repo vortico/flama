@@ -1,5 +1,34 @@
 # Semantic Versioning Changelog
 
+# [v1.7.0](https://github.com/vortico/flama/compare/v1.6.0...v1.7.0) (2024-09-03)
+
+## ✨ New Features
+- [`96229a1`](https://github.com/vortico/flama/commit/96229a1)  Decouple table manager logic from repositories (#118) (Issues: [`#118`](https://github.com/vortico/flama/issues/))
+- [`d944180`](https://github.com/vortico/flama/commit/d944180)  Enhanced OpenAPI docstrings (#121) (Issues: [`#121`](https://github.com/vortico/flama/issues/))
+- [`a66d5ee`](https://github.com/vortico/flama/commit/a66d5ee)  Enhanced actions for DDD repositories (#124) (Issues: [`#124`](https://github.com/vortico/flama/issues/))
+- [`0695c77`](https://github.com/vortico/flama/commit/0695c77)  ASGI Cookies component 
+- [`cd06bdb`](https://github.com/vortico/flama/commit/cd06bdb)  Python 3.12 compatibility (#119) (Issues: [`#119`](https://github.com/vortico/flama/issues/))
+- [`a2ef280`](https://github.com/vortico/flama/commit/a2ef280)  Single type injection (#126) (Issues: [`#126`](https://github.com/vortico/flama/issues/))
+- [`869711d`](https://github.com/vortico/flama/commit/869711d)  Connections manager for SQLAlchemy module (#135) (Issues: [`#135`](https://github.com/vortico/flama/issues/))
+- [`4899473`](https://github.com/vortico/flama/commit/4899473)  Authentication mechanism (#137) (Issues: [`#137`](https://github.com/vortico/flama/issues/))
+- [`03634c2`](https://github.com/vortico/flama/commit/03634c2)  Ordering for repositories list (#139) (Issues: [`#139`](https://github.com/vortico/flama/issues/))
+- [`070fb4f`](https://github.com/vortico/flama/commit/070fb4f)  Enhanced operations for CRUD (#141) (Issues: [`#141`](https://github.com/vortico/flama/issues/))
+- [`bd4f6c1`](https://github.com/vortico/flama/commit/bd4f6c1)  Non-blocking errors on schema generation 
+- [`4e5ba47`](https://github.com/vortico/flama/commit/4e5ba47)  Implement DDD for HTTP resources 
+- [`c177eef`](https://github.com/vortico/flama/commit/c177eef)  Use PartialSchema for all-optional schema version 
+- [`336914e`](https://github.com/vortico/flama/commit/336914e)  HTTPWorker accepts client kwargs 
+
+## 🐛 Bug Fixes
+- [`518a4eb`](https://github.com/vortico/flama/commit/518a4eb)  Fix resolution for routes within nested resources 
+- [`3e1c0a8`](https://github.com/vortico/flama/commit/3e1c0a8)  Include nested applications in Lifespan (#130) (Issues: [`#130`](https://github.com/vortico/flama/issues/))
+- [`036264e`](https://github.com/vortico/flama/commit/036264e)  Resolve url match multiple path params 
+- [`2664aba`](https://github.com/vortico/flama/commit/2664aba)  Remove unintended sqlalchemy import (#143) (Issues: [`#143`](https://github.com/vortico/flama/issues/))
+- [`cde8071`](https://github.com/vortico/flama/commit/cde8071)  Serve flama logo from its repository (#144) (Issues: [`#144`](https://github.com/vortico/flama/issues/))
+- [`9bcd6d7`](https://github.com/vortico/flama/commit/9bcd6d7)  Accept empty body as a valid input for schema validation 
+- [`c4d0915`](https://github.com/vortico/flama/commit/c4d0915)  Fix middleware types 
+- [`5716a6f`](https://github.com/vortico/flama/commit/5716a6f)  Allow nullable nested schemas for Pydantic 
+- [`8836aa7`](https://github.com/vortico/flama/commit/8836aa7)  Atomic operations on SQLAlchemy connections management
+
 # [v1.6.0](https://github.com/vortico/flama/compare/v1.5.2...v1.6.0) (2023-09-27)
 
 ## ✨ New Features
