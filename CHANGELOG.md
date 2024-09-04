@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.7.1](https://github.com/vortico/flama/compare/v1.7.0...v1.7.1) (2024-09-04)
+
+## 🐛 Bug Fixes
+- [`fbf168b`](https://github.com/vortico/flama/commit/fbf168b)  Move templates building into CI
+
 # [v1.7.0](https://github.com/vortico/flama/compare/v1.6.0...v1.7.0) (2024-09-03)
 
 ## ✨ New Features
