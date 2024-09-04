@@ -31,10 +31,6 @@ classifiers = [
 include = ["flama/py.typed", "flama/templates/**/*"]
 exclude = []
 
-[tool.poetry.build]
-generate-setup-file = false
-script = "build.py"
-
 [tool.poetry.dependencies]
 python = ">=3.8,<3.13"
 starlette = ">=0.31.0,<1.0.0"

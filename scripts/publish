@@ -4,6 +4,7 @@ set -e
 source scripts/str_lib.sh
 source scripts/clean
 source scripts/build
+source scripts/install
 
 publish_pkg() {
   if [[ -n "${PYPI_TOKEN}" ]]; then
@@ -18,6 +19,7 @@ publish_pkg() {
   local arg="$1"
   if [ "$arg" == "--build" ]; then
     clean_folder
+    install_pkg
     build_pkg
   fi
 
