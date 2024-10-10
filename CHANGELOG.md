@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.7.2](https://github.com/vortico/flama/compare/v1.7.1...v1.7.2) (2024-10-10)
+
+## 🐛 Bug Fixes
+- [`28a98a1`](https://github.com/vortico/flama/commit/28a98a1)  Inherited response call methods
+
 # [v1.7.1](https://github.com/vortico/flama/compare/v1.7.0...v1.7.1) (2024-09-04)
 
 ## 🐛 Bug Fixes
