@@ -1,32 +1,27 @@
 import http
 import logging
+import typing as t
 
 from flama import Component
-from flama.authentication import exceptions, jwt
+from flama.authentication import exceptions, jwt, types
 from flama.exceptions import HTTPException
 from flama.types import Headers
 from flama.types.http import Cookies
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["JWTComponent"]
+__all__ = ["AccessTokenComponent", "RefreshTokenComponent"]
 
 
-class JWTComponent(Component):
-    def __init__(
-        self,
-        secret: bytes,
-        *,
-        header_key: str = "Authorization",
-        header_prefix: str = "Bearer",
-        cookie_key: str = "flama_authentication",
-    ):
+class BaseTokenComponent(Component):
+    def __init__(self, secret: bytes, *, header_key: str, header_prefix: str, cookie_key: str):
         self.secret = secret
         self.header_key = header_key
         self.header_prefix = header_prefix
         self.cookie_key = cookie_key
 
     def _token_from_cookies(self, cookies: Cookies) -> bytes:
+        print(f"ERROR: {cookies}")
         try:
             token = cookies[self.cookie_key]["value"]
         except KeyError:
@@ -36,6 +31,7 @@ class JWTComponent(Component):
         return token.encode()
 
     def _token_from_header(self, headers: Headers) -> bytes:
+        print(f"ERROR: {headers}")
         try:
             header_prefix, token = headers[self.header_key].split()
         except KeyError:
@@ -55,7 +51,7 @@ class JWTComponent(Component):
 
         return token.encode()
 
-    def resolve(self, headers: Headers, cookies: Cookies) -> jwt.JWT:
+    def _resolve_token(self, headers: Headers, cookies: Cookies) -> jwt.JWT:
         try:
             try:
                 encoded_token = self._token_from_header(headers)
@@ -76,3 +72,33 @@ class JWTComponent(Component):
             )
 
         return token
+
+
+class AccessTokenComponent(BaseTokenComponent):
+    def __init__(
+        self,
+        secret: bytes,
+        *,
+        header_prefix: str = "Bearer",
+        header_key: str = "access_token",
+        cookie_key: str = "access_token",
+    ):
+        super().__init__(secret, header_prefix=header_prefix, header_key=header_key, cookie_key=cookie_key)
+
+    def resolve(self, headers: Headers, cookies: Cookies) -> types.AccessToken:
+        return t.cast(types.AccessToken, self._resolve_token(headers, cookies))
+
+
+class RefreshTokenComponent(BaseTokenComponent):
+    def __init__(
+        self,
+        secret: bytes,
+        *,
+        header_prefix: str = "Bearer",
+        header_key: str = "refresh_token",
+        cookie_key: str = "refresh_token",
+    ):
+        super().__init__(secret, header_prefix=header_prefix, header_key=header_key, cookie_key=cookie_key)
+
+    def resolve(self, headers: Headers, cookies: Cookies) -> types.RefreshToken:
+        return t.cast(types.RefreshToken, self._resolve_token(headers, cookies))

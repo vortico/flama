@@ -3,7 +3,7 @@ import uuid
 import pytest
 
 from flama import Flama
-from flama.authentication.components import JWTComponent
+from flama.authentication.components import AccessTokenComponent
 from flama.authentication.middlewares import AuthenticationMiddleware
 from flama.middleware import Middleware
 
@@ -27,7 +27,7 @@ class TestCaseAuthenticationMiddleware:
         return Flama(
             schema=None,
             docs=None,
-            components=[JWTComponent(secret=secret.bytes)],
+            components=[AccessTokenComponent(secret=secret.bytes)],
             middleware=[Middleware(AuthenticationMiddleware)],
         )
 
@@ -47,7 +47,7 @@ class TestCaseAuthenticationMiddleware:
             return None
 
         try:
-            return {"Authorization": f"Bearer {TOKENS[request.param].decode()}"}
+            return {"access_token": f"Bearer {TOKENS[request.param].decode()}"}
         except KeyError:
             raise ValueError(f"Invalid token {request.param}")
 
@@ -57,7 +57,7 @@ class TestCaseAuthenticationMiddleware:
             return None
 
         try:
-            return {"flama_authentication": TOKENS[request.param].decode()}
+            return {"access_token": TOKENS[request.param].decode()}
         except KeyError:
             raise ValueError(f"Invalid token {request.param}")
 
