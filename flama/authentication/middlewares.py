@@ -2,7 +2,7 @@ import http
 import logging
 import typing as t
 
-from flama.authentication.jwt.jwt import JWT
+from flama import authentication
 from flama.exceptions import HTTPException
 from flama.http import APIErrorResponse, Request
 
@@ -44,7 +44,9 @@ class AuthenticationMiddleware:
             return self.app
 
         try:
-            token: JWT = await app.injector.resolve(JWT).value({"request": Request(scope, receive=receive)})
+            token: authentication.AccessToken = await app.injector.resolve(authentication.AccessToken).value(
+                {"request": Request(scope, receive=receive)}
+            )
         except HTTPException as e:
             logger.debug("JWT error: %s", e.detail)
             return APIErrorResponse(status_code=e.status_code, detail=e.detail)
