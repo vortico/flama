@@ -76,7 +76,7 @@ aiosqlite = ">=0.19.0,<1.0.0"
 Faker = "^8.2"
 SQLAlchemy = { version = "^2.0", extras = ["asyncio"] }
 gevent = "^23.9.1"
-pyright = "^1.1.370"
+pyright = "^1.1.386"
 
 [tool.poetry.group.schemas]
 optional = true
@@ -90,10 +90,10 @@ typesystem = "^0.4"
 [tool.poetry.group.ml]
 optional = true
 
-[tool.poetry.group.ml.dependencies]
-scikit-learn = "~1.5.2"
+[tool.poetry.group.ml.dependencies]  # Only testable on linux, because numpy old versions are not providing binaries
+scikit-learn = { version = "~1.5.2", platform = "linux" }
 tensorflow-cpu = { version = "~2.17.0", platform = "linux", python = ">=3.9,<3.13" }
-torch = "~2.5.0"
+torch = { version = "~2.5.0", platform = "linux" }
 
 [tool.black]
 line-length = 120

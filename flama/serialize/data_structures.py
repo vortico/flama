@@ -327,7 +327,7 @@ class ModelArtifact:
         :param kwargs: Keyword arguments passed to library dump method.
         """
         logger.info("Dump model '%s'", path)
-        with tarfile.open(path, f"w:{Compression[compression].compression_format}") as tar:
+        with tarfile.open(path, f"w:{Compression[compression].compression_format}") as tar:  # type: ignore
             if self.artifacts:
                 for name, path in self.artifacts.items():
                     tar.add(path, f"artifacts/{name}")
