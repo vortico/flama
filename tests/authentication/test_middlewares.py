@@ -105,7 +105,9 @@ class TestCaseAuthenticationMiddleware:
         indirect=["headers", "cookies"],
     )
     async def test_request(self, client, path, headers, cookies, status_code, result):
-        response = await client.request("get", path, headers=headers, cookies=cookies)
+        client.headers = headers
+        client.cookies = cookies
+        response = await client.request("get", path)
 
         assert response.status_code == status_code
         assert response.json() == result

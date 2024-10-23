@@ -395,7 +395,8 @@ class TestCaseCookiesComponent:
         cookies_jar = http.cookiejar.CookieJar()
         for cookie in cookies:
             cookies_jar.set_cookie(cookie)
-        response = await client.request(method, path, cookies=cookies_jar)
+        client.cookies = cookies_jar
+        response = await client.request(method, path)
         response_json = response.json()
 
         assert response_json == expected
