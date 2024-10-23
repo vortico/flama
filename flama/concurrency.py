@@ -4,16 +4,6 @@ import multiprocessing
 import sys
 import typing as t
 
-if sys.version_info < (3, 9):  # PORT: Remove when stop supporting 3.8 # pragma: no cover
-    import contextvars
-
-    async def to_thread(func, /, *args, **kwargs):
-        return await asyncio.get_running_loop().run_in_executor(
-            None, functools.partial(contextvars.copy_context().run, func, *args, **kwargs)
-        )
-
-    asyncio.to_thread = to_thread  # pyright: ignore
-
 if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
     from typing_extensions import ParamSpec, TypeGuard
 
@@ -58,9 +48,7 @@ async def run(
     if is_async(func):
         return await func(*args, **kwargs)
 
-    return t.cast(
-        R, await asyncio.to_thread(func, *args, **kwargs)  # PORT: Remove when stop supporting 3.8 # type: ignore
-    )
+    return t.cast(R, await asyncio.to_thread(func, *args, **kwargs))
 
 
 if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
