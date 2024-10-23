@@ -66,7 +66,7 @@ def bar_optional_schema(app, foo_schema):
         schema = type(
             "BarOptional",
             (marshmallow.Schema,),
-            {"foo": marshmallow.fields.Nested(child_schema(), required=False, default=None, allow_none=True)},
+            {"foo": marshmallow.fields.Nested(child_schema(), required=False, dump_default=None, allow_none=True)},
         )
         name = "abc.BarOptional"
     else:
