@@ -90,10 +90,10 @@ typesystem = "^0.4"
 [tool.poetry.group.ml]
 optional = true
 
-[tool.poetry.group.ml.dependencies]  # Only testable on linux, because numpy old versions are not providing binaries
-scikit-learn = { version = "~1.5.2", platform = "linux" }
+[tool.poetry.group.ml.dependencies]  # Only testable on linux and before 3.13, because numpy old versions are not providing binaries
+scikit-learn = { version = "~1.5.2", platform = "linux", python = ">=3.9,<3.13" }
 tensorflow-cpu = { version = "~2.17.0", platform = "linux", python = ">=3.9,<3.13" }
-torch = { version = "~2.5.0", platform = "linux" }
+torch = { version = "~2.5.0", platform = "linux", python = ">=3.9,<3.13" }
 
 [tool.black]
 line-length = 120
