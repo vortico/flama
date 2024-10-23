@@ -28,11 +28,19 @@ class URLComponent(Component):
     def resolve(self, scope: types.Scope) -> types.URL:
         host, port = scope.get("server", ["", None])
         scheme = scope.get("scheme", "")
+        path = scope.get("path", "")
+        query = scope.get("query_string", b"").decode()
 
         if (scheme == "http" and port in (80, None)) or (scheme == "https" and port in (443, None)):
             port = None
 
-        return types.URL(f"{scheme}://{host}{f':{port}' if port else ''}{scope.get('raw_path', b'').decode()}")
+        if port:
+            host += f":{port}"
+
+        if query:
+            path += f"?{query}"
+
+        return types.URL(f"{scheme}://{host}{path}")
 
 
 class SchemeComponent(Component):
