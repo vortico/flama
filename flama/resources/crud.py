@@ -25,8 +25,8 @@ class CreateMixin:
         async def create(
             self,
             worker: FlamaWorker,
-            resource: types.Schema[rest_schemas.input.schema],
-        ) -> types.Schema[rest_schemas.output.schema]:
+            resource: types.Schema[rest_schemas.input.schema],  # type: ignore
+        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore
             if resource.get(rest_model.primary_key.name) is None:
                 resource.pop(rest_model.primary_key.name, None)
 
@@ -76,8 +76,8 @@ class RetrieveMixin:
         async def retrieve(
             self,
             worker: FlamaWorker,
-            resource_id: rest_model.primary_key.type,
-        ) -> types.Schema[rest_schemas.output.schema]:
+            resource_id: rest_model.primary_key.type,  # type: ignore
+        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore
             try:
                 async with worker:
                     repository = worker.repositories[self._meta.name]
@@ -118,9 +118,9 @@ class UpdateMixin:
         async def update(
             self,
             worker: FlamaWorker,
-            resource_id: rest_model.primary_key.type,
-            resource: types.Schema[rest_schemas.input.schema],
-        ) -> types.Schema[rest_schemas.output.schema]:
+            resource_id: rest_model.primary_key.type,  # type: ignore
+            resource: types.Schema[rest_schemas.input.schema],  # type: ignore
+        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore
             resource[rest_model.primary_key.name] = resource_id
             async with worker:
                 try:
@@ -172,9 +172,9 @@ class PartialUpdateMixin:
         async def partial_update(
             self,
             worker: FlamaWorker,
-            resource_id: rest_model.primary_key.type,
-            resource: types.PartialSchema[rest_schemas.input.schema],
-        ) -> types.Schema[rest_schemas.output.schema]:
+            resource_id: rest_model.primary_key.type,  # type: ignore
+            resource: types.PartialSchema[rest_schemas.input.schema],  # type: ignore
+        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore
             resource[rest_model.primary_key.name] = resource_id
             async with worker:
                 repository = worker.repositories[self._meta.name]
@@ -217,7 +217,7 @@ class DeleteMixin:
         cls, name: str, verbose_name: str, rest_model: data_structures.Model, **kwargs
     ) -> t.Dict[str, t.Any]:
         @resource_method("/{resource_id}/", methods=["DELETE"], name="delete")
-        async def delete(self, worker: FlamaWorker, resource_id: rest_model.primary_key.type):
+        async def delete(self, worker: FlamaWorker, resource_id: rest_model.primary_key.type):  # type: ignore
             try:
                 async with worker:
                     repository = worker.repositories[self._meta.name]
@@ -258,7 +258,7 @@ class ListMixin:
             order_by: t.Optional[str] = None,
             order_direction: str = "asc",
             **kwargs,
-        ) -> types.Schema[rest_schemas.output.schema]:
+        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 return [  # type: ignore[return-value]
@@ -295,8 +295,8 @@ class ReplaceMixin:
         async def replace(
             self,
             worker: FlamaWorker,
-            resources: t.List[types.Schema[rest_schemas.input.schema]],
-        ) -> t.List[types.Schema[rest_schemas.output.schema]]:
+            resources: t.List[types.Schema[rest_schemas.input.schema]],  # type: ignore
+        ) -> t.List[types.Schema[rest_schemas.output.schema]]:  # type: ignore
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 await repository.drop()
@@ -338,8 +338,8 @@ class PartialReplaceMixin:
         async def partial_replace(
             self,
             worker: FlamaWorker,
-            resources: t.List[types.Schema[rest_schemas.input.schema]],
-        ) -> t.List[types.Schema[rest_schemas.output.schema]]:
+            resources: t.List[types.Schema[rest_schemas.input.schema]],  # type: ignore
+        ) -> t.List[types.Schema[rest_schemas.output.schema]]:  # type: ignore
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 await repository.drop(
@@ -375,7 +375,7 @@ class DropMixin:
     @classmethod
     def _add_drop(cls, name: str, verbose_name: str, **kwargs) -> t.Dict[str, t.Any]:
         @resource_method("/", methods=["DELETE"], name="drop")
-        async def drop(self, worker: FlamaWorker) -> types.Schema[schemas.schemas.DropCollection]:
+        async def drop(self, worker: FlamaWorker) -> types.Schema[schemas.schemas.DropCollection]:  # type: ignore
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 result = await repository.drop()
