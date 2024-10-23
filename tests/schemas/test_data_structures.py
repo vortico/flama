@@ -115,6 +115,8 @@ class TestCaseSchema:
         elif request.param == "list_of_schema":
             return t.List[types.Schema[foo_schema.schema]] if inspect.isclass(foo_schema.schema) else foo_schema.schema
         elif request.param == "schema_partial":
+            if app.schema.schema_library.lib in (typesystem,):
+                pytest.skip("Library does not support optional partial schemas")
             return types.PartialSchema[foo_schema.schema]
         elif request.param == "schema_nested":
             return types.Schema[bar_schema.schema]

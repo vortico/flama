@@ -29,7 +29,7 @@ def is_async(
     while isinstance(obj, functools.partial):
         obj = obj.func
 
-    return asyncio.iscoroutinefunction(obj) or (callable(obj) and asyncio.iscoroutinefunction(obj.__call__))
+    return asyncio.iscoroutinefunction(obj) or asyncio.iscoroutinefunction(getattr(obj, "__call__"))
 
 
 async def run(
