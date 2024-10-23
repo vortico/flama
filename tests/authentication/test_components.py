@@ -35,16 +35,18 @@ class TestCaseAccessTokenComponent:
             return token.asdict()
 
     @pytest.mark.parametrize(
-        ["params", "status_code", "result"],
+        ["headers", "cookies", "status_code", "result"],
         (
             pytest.param(
-                {"headers": {"access_token": f"Bearer {TOKEN.decode()}"}},
+                {"access_token": f"Bearer {TOKEN.decode()}"},
+                None,
                 200,
                 {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"data": {"foo": "bar"}, "iat": 0}},
                 id="headers",
             ),
             pytest.param(
-                {"headers": {"access_token": "token"}},
+                {"access_token": "token"},
+                None,
                 400,
                 {
                     "detail": {
@@ -57,7 +59,8 @@ class TestCaseAccessTokenComponent:
                 id="header_wrong_format",
             ),
             pytest.param(
-                {"headers": {"access_token": "Foo token"}},
+                {"access_token": "Foo token"},
+                None,
                 400,
                 {
                     "detail": {
@@ -70,23 +73,24 @@ class TestCaseAccessTokenComponent:
                 id="header_wrong_prefix",
             ),
             pytest.param(
-                {"cookies": {"access_token": TOKEN.decode()}},
+                None,
+                {"access_token": TOKEN.decode()},
                 200,
                 {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"data": {"foo": "bar"}, "iat": 0}},
                 id="cookies",
             ),
             pytest.param(
-                {},
+                None,
+                None,
                 401,
                 {"detail": "Unauthorized", "error": "HTTPException", "status_code": 401},
                 id="unauthorized",
             ),
             pytest.param(
+                None,
                 {
-                    "cookies": {
-                        "access_token": "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyI"
-                        "n0sICJpYXQiOiAwfQ==.0000",
-                    }
+                    "access_token": "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyI"
+                    "n0sICJpYXQiOiAwfQ==.0000",
                 },
                 401,
                 {
@@ -102,8 +106,10 @@ class TestCaseAccessTokenComponent:
             ),
         ),
     )
-    async def test_injection(self, client, status_code, result, params):
-        response = await client.request("get", "/", **params)
+    async def test_injection(self, client, status_code, result, headers, cookies):
+        client.headers = headers
+        client.cookies = cookies
+        response = await client.request("get", "/")
 
         assert response.status_code == status_code
         assert response.json() == result
@@ -117,16 +123,18 @@ class TestCaseRefreshTokenComponent:
             return token.asdict()
 
     @pytest.mark.parametrize(
-        ["params", "status_code", "result"],
+        ["headers", "cookies", "status_code", "result"],
         (
             pytest.param(
-                {"headers": {"refresh_token": f"Bearer {TOKEN.decode()}"}},
+                {"refresh_token": f"Bearer {TOKEN.decode()}"},
+                None,
                 200,
                 {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"data": {"foo": "bar"}, "iat": 0}},
                 id="headers",
             ),
             pytest.param(
-                {"headers": {"refresh_token": "token"}},
+                {"refresh_token": "token"},
+                None,
                 400,
                 {
                     "detail": {
@@ -139,7 +147,8 @@ class TestCaseRefreshTokenComponent:
                 id="header_wrong_format",
             ),
             pytest.param(
-                {"headers": {"refresh_token": "Foo token"}},
+                {"refresh_token": "Foo token"},
+                None,
                 400,
                 {
                     "detail": {
@@ -152,23 +161,24 @@ class TestCaseRefreshTokenComponent:
                 id="header_wrong_prefix",
             ),
             pytest.param(
-                {"cookies": {"refresh_token": TOKEN.decode()}},
+                None,
+                {"refresh_token": TOKEN.decode()},
                 200,
                 {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"data": {"foo": "bar"}, "iat": 0}},
                 id="cookies",
             ),
             pytest.param(
-                {},
+                None,
+                None,
                 401,
                 {"detail": "Unauthorized", "error": "HTTPException", "status_code": 401},
                 id="unauthorized",
             ),
             pytest.param(
+                None,
                 {
-                    "cookies": {
-                        "refresh_token": "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyI"
-                        "n0sICJpYXQiOiAwfQ==.0000",
-                    }
+                    "refresh_token": "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyI"
+                    "n0sICJpYXQiOiAwfQ==.0000",
                 },
                 401,
                 {
@@ -184,8 +194,10 @@ class TestCaseRefreshTokenComponent:
             ),
         ),
     )
-    async def test_injection(self, client, status_code, result, params):
-        response = await client.request("get", "/", **params)
+    async def test_injection(self, client, status_code, result, headers, cookies):
+        client.headers = headers
+        client.cookies = cookies
+        response = await client.request("get", "/")
 
         assert response.status_code == status_code
         assert response.json() == result
