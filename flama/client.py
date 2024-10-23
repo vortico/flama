@@ -119,7 +119,7 @@ class Client(httpx.AsyncClient):
         self.lifespan = LifespanContextManager(app) if app else None
         self.app = app
 
-        kwargs["app"] = app
+        kwargs.setdefault("transport", httpx.ASGITransport(app=app) if app else None)  # type: ignore
         kwargs.setdefault("base_url", "http://localapp")
         kwargs["headers"] = {"user-agent": f"flama/{importlib.metadata.version('flama')}", **kwargs.get("headers", {})}
 
