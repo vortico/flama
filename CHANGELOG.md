@@ -1,5 +1,18 @@
 # Semantic Versioning Changelog
 
+# [v1.8.0](https://github.com/vortico/flama/compare/v1.7.2...v1.8.0) (2024-10-24)
+
+## ✨ New Features
+- [`0b40328`](https://github.com/vortico/flama/commit/0b40328)  Access and refresh token components 
+- [`8343dc6`](https://github.com/vortico/flama/commit/8343dc6)  Support Python 3.13 and drop 3.8 compatibility 
+- [`1d3b7ed`](https://github.com/vortico/flama/commit/1d3b7ed)  Adapted serialization to new tensorflow version 
+
+## 🐛 Bug Fixes
+- [`ed0b685`](https://github.com/vortico/flama/commit/ed0b685)  Use path instead of raw_path from scope for URL component 
+- [`82428e4`](https://github.com/vortico/flama/commit/82428e4)  Remove explicit app warning from httpx 
+- [`7f9ec43`](https://github.com/vortico/flama/commit/7f9ec43)  Remove default parameter warning from marshmallow 
+- [`1c2248d`](https://github.com/vortico/flama/commit/1c2248d)  Remove request cookies parameter warning from httpx
+
 # [v1.7.2](https://github.com/vortico/flama/compare/v1.7.1...v1.7.2) (2024-10-10)
 
 ## 🐛 Bug Fixes
