@@ -3,7 +3,8 @@ import importlib.metadata
 import io
 import typing as t
 
-from flama.serialize import exceptions, types
+from flama import exceptions
+from flama.serialize import types
 from flama.serialize.base import Serializer
 
 try:

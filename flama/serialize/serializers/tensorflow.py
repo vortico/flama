@@ -1,12 +1,11 @@
 import codecs
 import importlib.metadata
-import io
 import json
-import tarfile
+import tempfile
 import typing as t
-from tempfile import TemporaryDirectory
 
-from flama.serialize import exceptions, types
+from flama import exceptions
+from flama.serialize import types
 from flama.serialize.base import Serializer
 
 try:
@@ -25,22 +24,17 @@ class TensorFlowSerializer(Serializer):
         if tf is None:  # noqa
             raise exceptions.FrameworkNotInstalled("tensorflow")
 
-        buffer = io.BytesIO()
-        with TemporaryDirectory() as saved_model_dir, tarfile.open(fileobj=buffer, mode="w") as model_tar:
-            tf.keras.models.save_model(obj, saved_model_dir)  # type: ignore
-            model_tar.add(saved_model_dir, arcname="")
-        buffer.seek(0)
-        return codecs.encode(buffer.read(), "base64")
+        with tempfile.NamedTemporaryFile(mode="rb", suffix=".keras") as tmp_file:
+            tf.keras.models.save_model(obj, tmp_file.name)  # type: ignore
+            return codecs.encode(tmp_file.read(), "base64")
 
     def load(self, model: bytes, **kwargs) -> t.Any:
         if tf is None:  # noqa
             raise exceptions.FrameworkNotInstalled("tensorflow")
 
-        with TemporaryDirectory() as saved_model_dir, tarfile.open(
-            fileobj=io.BytesIO(codecs.decode(model, "base64")), mode="r:"
-        ) as model_tar:
-            model_tar.extractall(saved_model_dir)
-            return tf.keras.models.load_model(saved_model_dir)  # type: ignore
+        with tempfile.NamedTemporaryFile(mode="wb", suffix=".keras") as tmp_file:
+            tmp_file.write(codecs.decode(model, "base64"))
+            return tf.keras.models.load_model(tmp_file.name)  # type: ignore
 
     def info(self, model: t.Any) -> t.Optional["JSONSchema"]:
         model_info: "JSONSchema" = json.loads(model.to_json())

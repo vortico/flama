@@ -17,8 +17,8 @@ import warnings
 import weakref
 from pathlib import Path
 
+from flama import exceptions
 from flama.serialize.base import Serializer
-from flama.serialize.exceptions import FrameworkVersionWarning
 from flama.serialize.types import Framework
 
 if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
@@ -284,7 +284,7 @@ class ModelArtifact:
             warnings.warn(
                 f"Model was built using {metadata.framework.lib.value} '{metadata.framework.version}' but detected "
                 f"version '{serializer.version()}' installed. This may cause unexpected behavior.",
-                FrameworkVersionWarning,
+                exceptions.FrameworkVersionWarning,
             )
 
         return cls(model=model, meta=metadata, artifacts=artifacts)

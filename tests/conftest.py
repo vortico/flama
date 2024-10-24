@@ -197,7 +197,7 @@ class ModelFactory:
     def _tensorflow(self):
         model = tf.keras.models.Sequential(
             [
-                tf.keras.layers.Flatten(input_shape=(2,)),
+                tf.keras.Input((2,)),
                 tf.keras.layers.Dense(10, activation="tanh"),
                 tf.keras.layers.Dense(1, activation="sigmoid"),
             ]
