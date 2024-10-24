@@ -4,6 +4,11 @@ from flama import exceptions
 from flama.models.base import Model
 
 try:
+    import numpy as np  # type: ignore
+except Exception:  # pragma: no cover
+    np = None
+
+try:
     import tensorflow as tf  # type: ignore
 except Exception:  # pragma: no cover
     tf = None
@@ -11,9 +16,13 @@ except Exception:  # pragma: no cover
 
 class TensorFlowModel(Model):
     def predict(self, x: t.List[t.List[t.Any]]) -> t.Any:
-        assert tf is not None, "`tensorflow` must be installed to use TensorFlowModel."
+        if np is None:  # noqa
+            raise exceptions.FrameworkNotInstalled("numpy")
+
+        if tf is None:  # noqa
+            raise exceptions.FrameworkNotInstalled("tensorflow")
 
         try:
-            return self.model.predict(x).tolist()
+            return self.model.predict(np.array(x)).tolist()
         except (tf.errors.OpError, ValueError):  # type: ignore
             raise exceptions.HTTPException(status_code=400)
