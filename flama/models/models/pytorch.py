@@ -11,7 +11,8 @@ except Exception:  # pragma: no cover
 
 class PyTorchModel(Model):
     def predict(self, x: t.List[t.List[t.Any]]) -> t.Any:
-        assert torch is not None, "`torch` must be installed to use PyTorchModel."
+        if torch is None:  # noqa
+            raise exceptions.FrameworkNotInstalled("pytorch")
 
         try:
             return self.model(torch.Tensor(x)).tolist()

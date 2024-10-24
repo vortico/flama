@@ -6,7 +6,8 @@ import pickle
 import typing as t
 import warnings
 
-from flama.serialize import exceptions, types
+from flama import exceptions
+from flama.serialize import types
 from flama.serialize.base import Serializer
 
 if t.TYPE_CHECKING:

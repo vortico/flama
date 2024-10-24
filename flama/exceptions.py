@@ -14,6 +14,8 @@ __all__ = [
     "WebSocketException",
     "NotFoundException",
     "MethodNotAllowedException",
+    "FrameworkNotInstalled",
+    "FrameworkVersionWarning",
 ]
 
 
@@ -139,3 +141,15 @@ class MethodNotAllowedException(Exception):
         params = ("path", "params", "method", "allowed")
         formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
         return f"{self.__class__.__name__}({formatted_params})"
+
+
+class FrameworkNotInstalled(Exception):
+    """Cannot find an installed version of the framework."""
+
+    ...
+
+
+class FrameworkVersionWarning(Warning):
+    """Warning for when a framework version does not match."""
+
+    ...
