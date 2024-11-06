@@ -21,7 +21,6 @@ class BaseTokenComponent(Component):
         self.cookie_key = cookie_key
 
     def _token_from_cookies(self, cookies: Cookies) -> bytes:
-        print(f"ERROR: {cookies}")
         try:
             token = cookies[self.cookie_key]["value"]
         except KeyError:
@@ -31,7 +30,6 @@ class BaseTokenComponent(Component):
         return token.encode()
 
     def _token_from_header(self, headers: Headers) -> bytes:
-        print(f"ERROR: {headers}")
         try:
             header_prefix, token = headers[self.header_key].split()
         except KeyError:

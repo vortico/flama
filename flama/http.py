@@ -72,14 +72,12 @@ class PlainTextResponse(starlette.responses.PlainTextResponse, Response):
 
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, o):
-        if isinstance(o, (Path, os.PathLike)):
+        if isinstance(o, (Path, os.PathLike, uuid.UUID)):
             return str(o)
         if isinstance(o, (bytes, bytearray)):
             return o.decode("utf-8")
         if isinstance(o, enum.Enum):
             return o.value
-        if isinstance(o, uuid.UUID):
-            return str(o)
         if isinstance(o, (set, frozenset)):
             return list(o)
         if isinstance(o, (datetime.datetime, datetime.date, datetime.time)):

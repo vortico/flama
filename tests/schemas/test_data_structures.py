@@ -105,7 +105,9 @@ class TestCaseField:
 
 class TestCaseSchema:
     @pytest.fixture(scope="function")
-    def schema_type(self, app, request, foo_schema, bar_schema, bar_optional_schema, bar_list_schema, bar_dict_schema):
+    def schema_type(  # noqa: C901
+        self, app, request, foo_schema, bar_schema, bar_optional_schema, bar_list_schema, bar_dict_schema
+    ):
         if request.param is None:
             return None
         elif request.param == "bare_schema":

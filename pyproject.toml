@@ -123,7 +123,7 @@ skip_glob = [
 [tool.ruff]
 line-length = 120
 # Enable Pyflakes and pycodestyle rules.
-select = ["E", "F"]
+select = ["C90", "E", "F", "G", "I", "W", "T"]
 ignore = ["E721"]
 exclude = [
     ".git",
