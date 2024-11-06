@@ -896,7 +896,7 @@ class TestCaseSchemaGenerator:
         return {"Owner": owner_schema, "Puppy": puppy_schema, "BodyParam": body_param_schema}
 
     @pytest.fixture(scope="function", autouse=True)
-    def add_endpoints(self, app, puppy_schema, body_param_schema):
+    def add_endpoints(self, app, puppy_schema, body_param_schema):  # noqa: C901
         @app.route("/endpoint/", methods=["GET"])
         class PuppyEndpoint(HTTPEndpoint):
             async def get(self) -> types.Schema[puppy_schema.schema]:

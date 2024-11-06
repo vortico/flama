@@ -1,3 +1,5 @@
+import logging
+
 import flama
 from flama import Flama, Route
 
@@ -7,13 +9,13 @@ class AppStatus:
 
 
 async def startup():
-    print("\nStarting up the ML API...\n")
+    logging.info("\nStarting up the ML API...\n")
     # Here, whatever action we want to be run at the startup of the application
     AppStatus.loaded = True
 
 
 async def shutdown():
-    print("\nShutting down the ML API...\n")
+    logging.info("\nShutting down the ML API...\n")
     # Here, whatever action we want to be run at the shutdown of the application
 
 

@@ -194,8 +194,8 @@ class PartialUpdateMixin:
             summary:
                 Partially update a resource
             description:
-                Partially update a resource in this collection. Only the specified fields will be replaced, keeping the 
-                rest, so no one is required.
+                Partially update a resource in this collection. Only the specified fields will be replaced, keeping the
+                 rest, so no one is required.
             responses:
                 200:
                     description:
