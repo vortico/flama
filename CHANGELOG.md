@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.8.1](https://github.com/vortico/flama/compare/v1.8.0...v1.8.1) (2024-11-06)
+
+## 🐛 Bug Fixes
+- [`bd9c824`](https://github.com/vortico/flama/commit/bd9c824)  Undesired print statements
+
 # [v1.8.0](https://github.com/vortico/flama/compare/v1.7.2...v1.8.0) (2024-10-24)
 
 ## ✨ New Features
