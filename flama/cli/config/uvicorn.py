@@ -309,8 +309,8 @@ class Uvicorn:
     uds: t.Optional[str] = None
     fd: t.Optional[int] = None
     loop: LoopSetupType = "auto"
-    http: t.Union[t.Type[asyncio.Protocol], HTTPProtocolType] = "auto"
-    ws: t.Union[t.Type[asyncio.Protocol], WSProtocolType] = "auto"
+    http: t.Union[type[asyncio.Protocol], HTTPProtocolType] = "auto"
+    ws: t.Union[type[asyncio.Protocol], WSProtocolType] = "auto"
     ws_max_size: int = 16777216
     ws_ping_interval: t.Optional[float] = 20.0
     ws_ping_timeout: t.Optional[float] = 20.0
@@ -318,13 +318,13 @@ class Uvicorn:
     lifespan: LifespanType = "auto"
     interface: InterfaceType = "auto"
     reload: bool = False
-    reload_dirs: t.Optional[t.Union[t.List[str], str]] = None
-    reload_includes: t.Optional[t.Union[t.List[str], str]] = None
-    reload_excludes: t.Optional[t.Union[t.List[str], str]] = None
+    reload_dirs: t.Optional[t.Union[list[str], str]] = None
+    reload_includes: t.Optional[t.Union[list[str], str]] = None
+    reload_excludes: t.Optional[t.Union[list[str], str]] = None
     reload_delay: float = 0.25
     workers: t.Optional[int] = None
     env_file: t.Optional[t.Union[str, os.PathLike]] = None
-    log_config: t.Optional[t.Union[t.Dict[str, t.Any], str]] = dataclasses.field(
+    log_config: t.Optional[t.Union[dict[str, t.Any], str]] = dataclasses.field(
         default_factory=lambda: LOGGING_CONFIG.copy()  # type: ignore[no-any-return]
     )
     log_level: t.Optional[t.Union[str, int]] = None
@@ -345,7 +345,7 @@ class Uvicorn:
     ssl_cert_reqs: int = ssl.CERT_NONE
     ssl_ca_certs: t.Optional[str] = None
     ssl_ciphers: str = "TLSv1"
-    headers: t.Optional[t.List[t.Tuple[str, str]]] = None
+    headers: t.Optional[list[tuple[str, str]]] = None
     use_colors: t.Optional[bool] = None
     app_dir: t.Optional[str] = None
     factory: bool = False
@@ -369,8 +369,8 @@ def options(command: t.Callable) -> t.Callable:
         server_uds: t.Optional[str] = None,
         server_fd: t.Optional[int] = None,
         server_loop: LoopSetupType = "auto",
-        server_http: t.Union[t.Type[asyncio.Protocol], HTTPProtocolType] = "auto",
-        server_ws: t.Union[t.Type[asyncio.Protocol], WSProtocolType] = "auto",
+        server_http: t.Union[type[asyncio.Protocol], HTTPProtocolType] = "auto",
+        server_ws: t.Union[type[asyncio.Protocol], WSProtocolType] = "auto",
         server_ws_max_size: int = 16777216,
         server_ws_ping_interval: t.Optional[float] = 20.0,
         server_ws_ping_timeout: t.Optional[float] = 20.0,
@@ -378,13 +378,13 @@ def options(command: t.Callable) -> t.Callable:
         server_lifespan: LifespanType = "auto",
         server_interface: InterfaceType = "auto",
         server_reload: bool = False,
-        server_reload_dirs: t.Optional[t.Union[t.List[str], str]] = None,
-        server_reload_includes: t.Optional[t.Union[t.List[str], str]] = None,
-        server_reload_excludes: t.Optional[t.Union[t.List[str], str]] = None,
+        server_reload_dirs: t.Optional[t.Union[list[str], str]] = None,
+        server_reload_includes: t.Optional[t.Union[list[str], str]] = None,
+        server_reload_excludes: t.Optional[t.Union[list[str], str]] = None,
         server_reload_delay: float = 0.25,
         server_workers: t.Optional[int] = None,
         server_env_file: t.Optional[t.Union[str, os.PathLike]] = None,
-        server_log_config: t.Optional[t.Union[t.Dict[str, t.Any], str]] = None,
+        server_log_config: t.Optional[t.Union[dict[str, t.Any], str]] = None,
         server_log_level: t.Optional[t.Union[str, int]] = None,
         server_access_log: bool = True,
         server_proxy_headers: bool = True,
@@ -403,13 +403,13 @@ def options(command: t.Callable) -> t.Callable:
         server_ssl_cert_reqs: int = ssl.CERT_NONE,
         server_ssl_ca_certs: t.Optional[str] = None,
         server_ssl_ciphers: str = "TLSv1",
-        server_headers: t.Optional[t.List[t.Tuple[str, str]]] = None,
+        server_headers: t.Optional[list[tuple[str, str]]] = None,
         server_use_colors: t.Optional[bool] = None,
         server_app_dir: t.Optional[str] = None,
         server_factory: bool = False,
         server_h11_max_incomplete_event_size: int = DEFAULT_MAX_INCOMPLETE_EVENT_SIZE,
         *args,
-        **kwargs
+        **kwargs,
     ):
         command(
             uvicorn=Uvicorn(
@@ -459,7 +459,7 @@ def options(command: t.Callable) -> t.Callable:
                 factory=server_factory,
             ),
             *args,
-            **kwargs
+            **kwargs,
         )
 
     return functools.reduce(lambda x, y: y(x), decorators[::-1], _inner)

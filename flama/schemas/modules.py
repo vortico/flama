@@ -24,7 +24,7 @@ class SchemaModule(Module):
     ):
         super().__init__()
         # Schema definitions
-        self.schemas: t.Dict[str, t.Any] = {}
+        self.schemas: dict[str, t.Any] = {}
 
         # Schema
         self.title = title
@@ -53,7 +53,7 @@ class SchemaModule(Module):
         )
 
     @property
-    def schema(self) -> t.Dict[str, t.Any]:
+    def schema(self) -> dict[str, t.Any]:
         """Generate the API schema.
 
         :return: API schema.

@@ -47,7 +47,7 @@ class BackgroundTask(starlette.background.BackgroundTask):
         concurrency: t.Union[Concurrency, str],
         func: t.Callable[P, t.Union[None, t.Awaitable[None]]],
         *args: P.args,
-        **kwargs: P.kwargs
+        **kwargs: P.kwargs,
     ) -> None:
         self.func = task_wrapper(func)
         self.args = args

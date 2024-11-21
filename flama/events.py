@@ -6,8 +6,8 @@ import typing as t
 class Events:
     """Application events register."""
 
-    startup: t.List[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]] = dataclasses.field(default_factory=list)
-    shutdown: t.List[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]] = dataclasses.field(default_factory=list)
+    startup: list[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]] = dataclasses.field(default_factory=list)
+    shutdown: list[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]] = dataclasses.field(default_factory=list)
 
     def register(self, event: str, handler: t.Callable) -> None:
         """Register a new event.
@@ -19,7 +19,7 @@ class Events:
         getattr(self, event).append(handler)
 
     @classmethod
-    def build(cls, **events: t.List[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]]) -> "Events":
+    def build(cls, **events: list[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]]) -> "Events":
         """Build events register from dict.
 
         :param events: Events to register.

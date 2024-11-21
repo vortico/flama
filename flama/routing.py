@@ -1,4 +1,5 @@
 import abc
+import builtins
 import enum
 import functools
 import inspect
@@ -51,7 +52,7 @@ class EndpointWrapper:
 
     def __init__(
         self,
-        handler: t.Union[t.Callable, t.Type[endpoints.HTTPEndpoint], t.Type[endpoints.WebSocketEndpoint]],
+        handler: t.Union[t.Callable, builtins.type[endpoints.HTTPEndpoint], builtins.type[endpoints.WebSocketEndpoint]],
         endpoint_type: _EndpointType,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
     ):
@@ -66,7 +67,7 @@ class EndpointWrapper:
 
         self.handler = handler
         functools.update_wrapper(self, handler)
-        decorator_select: t.Dict[t.Tuple[_EndpointType, bool], types.App] = {
+        decorator_select: dict[tuple[_EndpointType, bool], types.App] = {
             (self.type.http, False): self._http_function,
             (self.type.http, True): self._http_endpoint,
             (self.type.websocket, False): self._websocket_function,
@@ -202,7 +203,7 @@ class BaseRoute(abc.ABC, RouteParametersMixin):
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ):
         """A route definition of a http endpoint.
 
@@ -245,7 +246,7 @@ class BaseRoute(abc.ABC, RouteParametersMixin):
         if app:
             self.parameters.build(app)
 
-    def endpoint_handlers(self) -> t.Dict[str, t.Callable]:
+    def endpoint_handlers(self) -> dict[str, t.Callable]:
         """Return a mapping of all possible endpoints of this route.
 
         Useful to identify all endpoints by HTTP methods.
@@ -307,13 +308,13 @@ class Route(BaseRoute):
     def __init__(
         self,
         path: str,
-        endpoint: t.Union[t.Callable, t.Type[endpoints.HTTPEndpoint]],
+        endpoint: t.Union[t.Callable, type[endpoints.HTTPEndpoint]],
         *,
-        methods: t.Optional[t.Union[t.Set[str], t.Sequence[str]]] = None,
+        methods: t.Optional[t.Union[set[str], t.Sequence[str]]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ) -> None:
         """A route definition of a http endpoint.
 
@@ -361,13 +362,11 @@ class Route(BaseRoute):
 
     @staticmethod
     def is_endpoint(
-        x: t.Union[t.Callable, t.Type[endpoints.HTTPEndpoint]]
-    ) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
-        t.Type[endpoints.HTTPEndpoint]
-    ]:
+        x: t.Union[t.Callable, type[endpoints.HTTPEndpoint]]
+    ) -> t.TypeGuard[type[endpoints.HTTPEndpoint]]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
         return inspect.isclass(x) and issubclass(x, endpoints.HTTPEndpoint)
 
-    def endpoint_handlers(self) -> t.Dict[str, t.Callable]:
+    def endpoint_handlers(self) -> dict[str, t.Callable]:
         """Return a mapping of all possible endpoints of this route.
 
         Useful to identify all endpoints by HTTP methods.
@@ -403,12 +402,12 @@ class WebSocketRoute(BaseRoute):
     def __init__(
         self,
         path: str,
-        endpoint: t.Union[t.Callable, t.Type[endpoints.WebSocketEndpoint]],
+        endpoint: t.Union[t.Callable, type[endpoints.WebSocketEndpoint]],
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ):
         """A route definition of a websocket endpoint.
 
@@ -445,13 +444,13 @@ class WebSocketRoute(BaseRoute):
 
     @staticmethod
     def is_endpoint(
-        x: t.Union[t.Callable, t.Type[endpoints.WebSocketEndpoint]]
+        x: t.Union[t.Callable, type[endpoints.WebSocketEndpoint]]
     ) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
-        t.Type[endpoints.WebSocketEndpoint]
+        type[endpoints.WebSocketEndpoint]
     ]:
         return inspect.isclass(x) and issubclass(x, endpoints.WebSocketEndpoint)
 
-    def endpoint_handlers(self) -> t.Dict[str, t.Callable]:
+    def endpoint_handlers(self) -> dict[str, t.Callable]:
         """Return a mapping of all possible endpoints of this route.
 
         Useful to identify all endpoints by HTTP methods.
@@ -484,7 +483,7 @@ class Mount(BaseRoute):
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
         components: t.Optional[t.Sequence[Component]] = None,
         name: t.Optional[str] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ):
         """A mount point for adding a nested ASGI application or a list of routes.
 
@@ -602,7 +601,7 @@ class Mount(BaseRoute):
         raise exceptions.NotFoundException(params=params, name=name)
 
     @property
-    def routes(self) -> t.List[BaseRoute]:
+    def routes(self) -> list[BaseRoute]:
         """Get all routes registered in this Mount.
 
         :return: List of routes.
@@ -615,7 +614,7 @@ class Router:
         self,
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
         *,
-        components: t.Optional[t.Union[t.Sequence["Component"], t.Set["Component"]]] = None,
+        components: t.Optional[t.Union[t.Sequence["Component"], set["Component"]]] = None,
         lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None,
         root: t.Optional["Flama"] = None,
     ):
@@ -671,14 +670,14 @@ class Router:
         self,
         path: t.Optional[str] = None,
         endpoint: t.Optional[types.HTTPHandler] = None,
-        methods: t.Optional[t.List[str]] = None,
+        methods: t.Optional[list[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         *,
         route: t.Optional[Route] = None,
         root: t.Optional["Flama"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ) -> Route:
         """Register a new HTTP route in this router under given path.
 
@@ -715,13 +714,13 @@ class Router:
     def route(
         self,
         path: str,
-        methods: t.Optional[t.List[str]] = None,
+        methods: t.Optional[list[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         *,
         root: t.Optional["Flama"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -759,7 +758,7 @@ class Router:
         route: t.Optional[WebSocketRoute] = None,
         root: t.Optional["Flama"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ) -> WebSocketRoute:
         """Register a new websocket route in this router under given path.
 
@@ -790,7 +789,7 @@ class Router:
         *,
         root: t.Optional["Flama"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
@@ -816,7 +815,7 @@ class Router:
         *,
         mount: t.Optional[Mount] = None,
         root: t.Optional["Flama"] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ) -> Mount:
         """Register a new mount point containing an ASGI app in this router under given path.
 
@@ -839,14 +838,14 @@ class Router:
 
         return mount
 
-    def resolve_route(self, scope: types.Scope) -> t.Tuple[BaseRoute, types.Scope]:
+    def resolve_route(self, scope: types.Scope) -> tuple[BaseRoute, types.Scope]:
         """Look for a route that matches given ASGI scope.
 
         :param scope: ASGI scope.
         :return: Route and its scope.
         """
         partial = None
-        partial_allowed_methods: t.Set[str] = set()
+        partial_allowed_methods: set[str] = set()
 
         for route in self.routes:
             m = route.match(scope)

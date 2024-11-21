@@ -207,8 +207,8 @@ class MultipleConnectionManager(ConnectionManager):
         :param engine: SQLAlchemy engine.
         """
         super().__init__(engine)
-        self._connections: t.Set["AsyncConnection"] = set()
-        self._transactions: t.Dict["AsyncConnection", "AsyncTransaction"] = {}
+        self._connections: set["AsyncConnection"] = set()
+        self._transactions: dict["AsyncConnection", "AsyncTransaction"] = {}
 
     async def open(self) -> "AsyncConnection":
         """Open a new connection to the database.
@@ -289,7 +289,7 @@ class SQLAlchemyModule(Module):
     name = "sqlalchemy"
 
     def __init__(
-        self, database: str, single_connection: bool = False, engine_args: t.Optional[t.Dict[str, t.Any]] = None
+        self, database: str, single_connection: bool = False, engine_args: t.Optional[dict[str, t.Any]] = None
     ):
         """Initialize the SQLAlchemy module.
 
@@ -320,7 +320,7 @@ class SQLAlchemyModule(Module):
         self._engine: t.Optional["AsyncEngine"] = None
         self._engine_args = engine_args or {}
         self._connection_manager: t.Optional["ConnectionManager"] = None
-        self._manager_cls: t.Type["ConnectionManager"] = (
+        self._manager_cls: type["ConnectionManager"] = (
             SingleConnectionManager if single_connection else MultipleConnectionManager
         )
 

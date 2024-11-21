@@ -15,9 +15,9 @@ class ModelsModule(Module):
         path: str,
         model: t.Union[str, os.PathLike],
         name: str,
-        tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None,
+        tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
         *args,
-        **kwargs
+        **kwargs,
     ) -> ModelResource:
         """Adds a model to this application, setting its endpoints.
 
@@ -40,7 +40,7 @@ class ModelsModule(Module):
         return resource
 
     def model_resource(
-        self, path: str, tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None, *args, **kwargs
+        self, path: str, tags: t.Optional[dict[str, dict[str, t.Any]]] = None, *args, **kwargs
     ) -> t.Callable:
         """Decorator for ModelResource classes for adding them to the application.
 
@@ -49,7 +49,7 @@ class ModelsModule(Module):
         :return: Decorated resource class.
         """
 
-        def decorator(resource: t.Type[ModelResource]) -> t.Type[ModelResource]:
+        def decorator(resource: type[ModelResource]) -> type[ModelResource]:
             self.app.add_component(resource.component)
             self.app.resources.add_resource(path, resource, tags=tags, *args, **kwargs)  # type: ignore[attr-defined]
             return resource
@@ -59,10 +59,10 @@ class ModelsModule(Module):
     def add_model_resource(
         self,
         path: str,
-        resource: t.Union[ModelResource, t.Type[ModelResource]],
-        tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None,
+        resource: t.Union[ModelResource, type[ModelResource]],
+        tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
         *args,
-        **kwargs
+        **kwargs,
     ) -> ModelResource:
         """Adds a resource to this application, setting its endpoints.
 

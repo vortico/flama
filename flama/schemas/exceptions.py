@@ -4,7 +4,7 @@ __all__ = ["SchemaError", "SchemaParseError", "SchemaValidationError", "SchemaGe
 
 
 class SchemaError(Exception):
-    def __init__(self, errors: typing.Union[str, typing.Dict[str, typing.Any]], *args, **kwargs):
+    def __init__(self, errors: typing.Union[str, dict[str, typing.Any]], *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.errors = errors
 

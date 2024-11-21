@@ -18,9 +18,7 @@ __all__ = ["ModelResource", "InspectMixin", "PredictMixin", "ModelResourceType"]
 
 class InspectMixin:
     @classmethod
-    def _add_inspect(
-        cls, name: str, verbose_name: str, model_model_type: t.Type["Model"], **kwargs
-    ) -> t.Dict[str, t.Any]:
+    def _add_inspect(cls, name: str, verbose_name: str, model_model_type: type["Model"], **kwargs) -> dict[str, t.Any]:
         @resource_method("/", methods=["GET"], name="inspect")
         async def inspect(self, model: model_model_type):  # type: ignore[valid-type]
             return model.inspect()  # type: ignore[attr-defined]
@@ -43,9 +41,7 @@ class InspectMixin:
 
 class PredictMixin:
     @classmethod
-    def _add_predict(
-        cls, name: str, verbose_name: str, model_model_type: t.Type["Model"], **kwargs
-    ) -> t.Dict[str, t.Any]:
+    def _add_predict(cls, name: str, verbose_name: str, model_model_type: type["Model"], **kwargs) -> dict[str, t.Any]:
         @resource_method("/predict/", methods=["POST"], name="predict")
         async def predict(
             self,
@@ -73,7 +69,7 @@ class PredictMixin:
 class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
     METHODS = ("inspect", "predict")
 
-    def __new__(mcs, name: str, bases: t.Tuple[type], namespace: t.Dict[str, t.Any]):
+    def __new__(mcs, name: str, bases: tuple[type], namespace: dict[str, t.Any]):
         """Resource metaclass for defining basic behavior for ML resources:
         * Create _meta attribute containing some metadata (model...).
         * Adds methods related to ML resource (inspect, predict...) listed in METHODS class attribute.
@@ -100,13 +96,13 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
         return super().__new__(mcs, name, bases, namespace)
 
     @staticmethod
-    def _is_abstract(namespace: t.Dict[str, t.Any]) -> bool:
+    def _is_abstract(namespace: dict[str, t.Any]) -> bool:
         return (
             namespace.get("__module__") == "flama.models.resource" and namespace.get("__qualname__") == "ModelResource"
         )
 
     @classmethod
-    def _get_model_component(cls, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> "ModelComponent":
+    def _get_model_component(cls, bases: t.Sequence[t.Any], namespace: dict[str, t.Any]) -> "ModelComponent":
         try:
             component: "ModelComponent" = cls._get_attribute("component", bases, namespace, metadata_namespace="model")
             return component

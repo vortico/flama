@@ -96,7 +96,7 @@ class Config:
 
         raise KeyError(key)
 
-    def _build_dataclass(self, data: t.Any, dataclass: t.Type[R]) -> R:
+    def _build_dataclass(self, data: t.Any, dataclass: type[R]) -> R:
         if isinstance(data, str):
             try:
                 data = json.loads(data)
@@ -120,11 +120,11 @@ class Config:
         ...
 
     @t.overload
-    def __call__(self, key: str, *, cast: t.Type[R]) -> R:
+    def __call__(self, key: str, *, cast: type[R]) -> R:
         ...
 
     @t.overload
-    def __call__(self, key: str, *, default: t.Union[R, Unknown], cast: t.Type[R]) -> R:
+    def __call__(self, key: str, *, default: t.Union[R, Unknown], cast: type[R]) -> R:
         ...
 
     @t.overload
@@ -140,7 +140,7 @@ class Config:
         key: str,
         *,
         default: t.Union[R, Unknown] = unknown,
-        cast: t.Optional[t.Union[t.Type[R], t.Callable[[t.Any], R]]] = None
+        cast: t.Optional[t.Union[type[R], t.Callable[[t.Any], R]]] = None,
     ) -> R:
         """Get config parameter value.
 

@@ -17,7 +17,7 @@ __all__ = [
 
 class APIError(BaseModel):
     status_code: int = Field(title="status_code", description="HTTP status code")
-    detail: t.Union[str, t.Dict[str, t.Any]] = Field(title="detail", description="Error detail")
+    detail: t.Union[str, dict[str, t.Any]] = Field(title="detail", description="Error detail")
     error: t.Optional[str] = Field(title="type", description="Exception or error type")
 
 
@@ -33,7 +33,7 @@ class LimitOffsetMeta(BaseModel):
 
 class LimitOffset(BaseModel):
     meta: LimitOffsetMeta = Field(title="meta", description="Pagination metadata")
-    data: t.List[t.Any] = Field(title="data", description="Paginated data")
+    data: list[t.Any] = Field(title="data", description="Paginated data")
 
 
 class PageNumberMeta(BaseModel):
@@ -44,15 +44,15 @@ class PageNumberMeta(BaseModel):
 
 class PageNumber(BaseModel):
     meta: PageNumberMeta = Field(title="meta", description="Pagination metadata")
-    data: t.List[t.Any] = Field(title="data", description="Paginated data")
+    data: list[t.Any] = Field(title="data", description="Paginated data")
 
 
 class MLModelInput(BaseModel):
-    input: t.List[t.Any] = Field(title="input", description="Model input")
+    input: list[t.Any] = Field(title="input", description="Model input")
 
 
 class MLModelOutput(BaseModel):
-    output: t.List[t.Any] = Field(title="output", description="Model output")
+    output: list[t.Any] = Field(title="output", description="Model output")
 
 
 SCHEMAS = {

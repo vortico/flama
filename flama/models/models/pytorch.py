@@ -10,7 +10,7 @@ except Exception:  # pragma: no cover
 
 
 class PyTorchModel(Model):
-    def predict(self, x: t.List[t.List[t.Any]]) -> t.Any:
+    def predict(self, x: list[list[t.Any]]) -> t.Any:
         if torch is None:  # noqa
             raise exceptions.FrameworkNotInstalled("pytorch")
 

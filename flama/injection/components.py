@@ -49,7 +49,7 @@ class Component(metaclass=abc.ABCMeta):
 
         return parameter.annotation is return_annotation
 
-    def signature(self) -> t.Dict[str, Parameter]:
+    def signature(self) -> dict[str, Parameter]:
         """Component resolver signature.
 
         :return: Component resolver signature.
@@ -61,7 +61,7 @@ class Component(metaclass=abc.ABCMeta):
 
     @property
     def use_parameter(self) -> bool:
-        return any((x for x in self.signature().values() if x.annotation is Parameter))
+        return any(x for x in self.signature().values() if x.annotation is Parameter)
 
     async def __call__(self, *args, **kwargs):
         """Performs a resolution by calling this component's resolve method.
@@ -79,8 +79,8 @@ class Component(metaclass=abc.ABCMeta):
         return str(self.__class__.__name__)
 
 
-class Components(t.Tuple[Component, ...]):
-    def __new__(cls, components: t.Optional[t.Union[t.Sequence[Component], t.Set[Component]]] = None):
+class Components(tuple[Component, ...]):
+    def __new__(cls, components: t.Optional[t.Union[t.Sequence[Component], set[Component]]] = None):
         return super().__new__(cls, components or [])
 
     def __eq__(self, other: t.Any) -> bool:

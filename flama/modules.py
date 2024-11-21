@@ -32,9 +32,9 @@ class Module(_BaseModule, metaclass=_ModuleMeta):
     ...
 
 
-class Modules(t.Dict[str, Module]):
-    def __init__(self, app: "Flama", modules: t.Optional[t.Union[t.Sequence[Module], t.Set[Module]]]):
-        modules_map: t.Dict[str, t.List[Module]] = defaultdict(list)
+class Modules(dict[str, Module]):
+    def __init__(self, app: "Flama", modules: t.Optional[t.Union[t.Sequence[Module], set[Module]]]):
+        modules_map: dict[str, list[Module]] = defaultdict(list)
         for module in modules or []:
             module.app = app
             modules_map[module.name].append(module)

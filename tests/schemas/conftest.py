@@ -78,7 +78,7 @@ def bar_optional_schema(app, foo_schema):
 def bar_list_schema(app, foo_schema):
     child_schema = foo_schema.schema
     if app.schema.schema_library.lib == pydantic:
-        schema = pydantic.create_model("BarList", foo=(t.List[child_schema], ...), __module__="pydantic.main")
+        schema = pydantic.create_model("BarList", foo=(list[child_schema], ...), __module__="pydantic.main")
         name = "pydantic.main.BarList"
     elif app.schema.schema_library.lib == typesystem:
         schema = typesystem.Schema(
@@ -106,7 +106,7 @@ def bar_list_schema(app, foo_schema):
 def bar_dict_schema(app, foo_schema):
     child_schema = foo_schema.schema
     if app.schema.schema_library.lib == pydantic:
-        schema = pydantic.create_model("BarDict", foo=(t.Dict[str, child_schema], ...), __module__="pydantic.main")
+        schema = pydantic.create_model("BarDict", foo=(dict[str, child_schema], ...), __module__="pydantic.main")
         name = "pydantic.main.BarDict"
     elif app.schema.schema_library.lib == typesystem:
         schema = typesystem.Schema(

@@ -30,7 +30,7 @@ class AuthenticationMiddleware:
 
         await response(scope, receive, send)
 
-    def _get_permissions(self, route: "BaseRoute") -> t.Set[str]:
+    def _get_permissions(self, route: "BaseRoute") -> set[str]:
         return set(route.tags.get("permissions", []))
 
     async def _get_response(self, scope: "types.Scope", receive: "types.Receive") -> t.Union["Response", "Flama"]:

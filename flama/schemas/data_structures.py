@@ -1,3 +1,4 @@
+import builtins
 import dataclasses
 import enum
 import sys
@@ -39,7 +40,7 @@ class ParameterLocation(enum.StrEnum):  # type: ignore # PORT: Remove this comme
 @dataclasses.dataclass(frozen=True)
 class Field:
     name: str
-    type: t.Type
+    type: type
     nullable: bool = dataclasses.field(init=False)
     field: t.Any = dataclasses.field(hash=False, init=False, compare=False)
     multiple: t.Optional[bool] = dataclasses.field(hash=False, compare=False, default=None)
@@ -83,7 +84,7 @@ class Field:
         return schemas.adapter.is_field(obj)
 
     @classmethod
-    def is_http_valid_type(cls, type_: t.Type) -> bool:
+    def is_http_valid_type(cls, type_: builtins.type) -> bool:
         origin = t.get_origin(type_)
         args = t.get_args(type_)
         NoneType = type(None)
@@ -104,7 +105,7 @@ class Schema:
     schema: t.Any = dataclasses.field(hash=False, compare=False)
 
     @classmethod
-    def from_type(cls, type_: t.Optional[t.Type]) -> "Schema":
+    def from_type(cls, type_: t.Optional[type]) -> "Schema":
         if types.Schema.is_schema(type_):
             schema = (
                 type_.schema
@@ -130,7 +131,7 @@ class Schema:
         cls,
         name: t.Optional[str] = None,
         schema: t.Any = None,
-        fields: t.Optional[t.List[Field]] = None,
+        fields: t.Optional[list[Field]] = None,
     ) -> "Schema":
         return cls(
             schema=schemas.adapter.build_schema(
@@ -146,14 +147,14 @@ class Schema:
     def name(self) -> str:
         return schemas.adapter.name(self.schema)
 
-    def _fix_ref(self, value: str, refs: t.Dict[str, str]) -> str:
+    def _fix_ref(self, value: str, refs: dict[str, str]) -> str:
         try:
             prefix, name = value.rsplit("/", 1)
             return f"{prefix}/{refs[name]}"
         except KeyError:
             return value
 
-    def _replace_json_schema_refs(self, schema: types.JSONField, refs: t.Dict[str, str]) -> types.JSONField:
+    def _replace_json_schema_refs(self, schema: types.JSONField, refs: dict[str, str]) -> types.JSONField:
         if isinstance(schema, dict):
             return {
                 k: self._fix_ref(t.cast(str, v), refs) if k == "$ref" else self._replace_json_schema_refs(v, refs)
@@ -165,7 +166,7 @@ class Schema:
 
         return schema
 
-    def json_schema(self, names: t.Dict[int, str]) -> types.JSONSchema:
+    def json_schema(self, names: dict[int, str]) -> types.JSONSchema:
         return t.cast(
             types.JSONSchema,
             self._replace_json_schema_refs(
@@ -179,10 +180,10 @@ class Schema:
         return schemas.adapter.unique_schema(self.schema)
 
     @property
-    def fields(self) -> t.Dict[str, t.Tuple[t.Any, t.Any]]:
+    def fields(self) -> dict[str, tuple[t.Any, t.Any]]:
         return schemas.adapter.schema_fields(self.unique_schema)
 
-    def nested_schemas(self, schema: t.Any = UNKNOWN) -> t.List[t.Any]:
+    def nested_schemas(self, schema: t.Any = UNKNOWN) -> list[t.Any]:
         if schema == UNKNOWN:
             return self.nested_schemas(self)
 
@@ -204,29 +205,29 @@ class Schema:
         return []
 
     @t.overload
-    def validate(self, values: None, *, partial: bool = False) -> t.Dict[str, t.Any]:
+    def validate(self, values: None, *, partial: bool = False) -> dict[str, t.Any]:
         ...
 
     @t.overload
-    def validate(self, values: t.Dict[str, t.Any], *, partial: bool = False) -> t.Dict[str, t.Any]:
+    def validate(self, values: dict[str, t.Any], *, partial: bool = False) -> dict[str, t.Any]:
         ...
 
     @t.overload
-    def validate(self, values: t.List[t.Dict[str, t.Any]], *, partial: bool = False) -> t.List[t.Dict[str, t.Any]]:
+    def validate(self, values: list[dict[str, t.Any]], *, partial: bool = False) -> list[dict[str, t.Any]]:
         ...
 
-    def validate(self, values: t.Union[t.Dict[str, t.Any], t.List[t.Dict[str, t.Any]], None], *, partial=False):
+    def validate(self, values: t.Union[dict[str, t.Any], list[dict[str, t.Any]], None], *, partial=False):
         if isinstance(values, (list, tuple)):
             return [schemas.adapter.validate(self.schema, value, partial=partial) for value in values]
 
         return schemas.adapter.validate(self.schema, values or {}, partial=partial)
 
     @t.overload
-    def load(self, values: t.Dict[str, t.Any]) -> t.Any:
+    def load(self, values: dict[str, t.Any]) -> t.Any:
         ...
 
     @t.overload
-    def load(self, values: t.List[t.Dict[str, t.Any]]) -> t.List[t.Any]:
+    def load(self, values: list[dict[str, t.Any]]) -> list[t.Any]:
         ...
 
     def load(self, values):
@@ -236,11 +237,11 @@ class Schema:
         return schemas.adapter.load(self.schema, values)
 
     @t.overload
-    def dump(self, values: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    def dump(self, values: dict[str, t.Any]) -> dict[str, t.Any]:
         ...
 
     @t.overload
-    def dump(self, values: t.List[t.Dict[str, t.Any]]) -> t.List[t.Dict[str, t.Any]]:
+    def dump(self, values: list[dict[str, t.Any]]) -> list[dict[str, t.Any]]:
         ...
 
     def dump(self, values):
@@ -254,7 +255,7 @@ class Schema:
 class Parameter:
     name: str
     location: ParameterLocation
-    type: t.Type
+    type: type
     required: bool = True
     default: t.Any = InjectionParameter.empty
     nullable: bool = dataclasses.field(init=False)
@@ -316,4 +317,4 @@ class Parameter:
         return cls(name=parameter.name, location=ParameterLocation.response, type=parameter.annotation)
 
 
-Parameters = t.Dict[str, Parameter]
+Parameters = dict[str, Parameter]

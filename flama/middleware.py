@@ -114,8 +114,8 @@ class MiddlewareStack:
         self.app = app
         self.middleware = list(reversed(middleware))
         self.debug = debug
-        self._exception_handlers: t.Dict[
-            t.Union[int, t.Type[Exception]], t.Callable[["Request", Exception], "Response"]
+        self._exception_handlers: dict[
+            t.Union[int, type[Exception]], t.Callable[["Request", Exception], "Response"]
         ] = {}
         self._stack: t.Optional[t.Union["types.MiddlewareClass", "types.App"]] = None
 
@@ -141,7 +141,7 @@ class MiddlewareStack:
         self._stack = None
 
     def add_exception_handler(
-        self, key: t.Union[int, t.Type[Exception]], handler: t.Callable[["Request", Exception], "Response"]
+        self, key: t.Union[int, type[Exception]], handler: t.Callable[["Request", Exception], "Response"]
     ):
         """Adds a new handler for an exception type or a HTTP status code.
 

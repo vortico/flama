@@ -15,7 +15,7 @@ _T_Schema = t.TypeVar("_T_Schema")
 
 def _is_schema(
     obj: t.Any,
-) -> t.TypeGuard[t.Type["Schema"]]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+) -> t.TypeGuard[type["Schema"]]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
     return inspect.isclass(obj) and issubclass(obj, Schema)
 
 
@@ -37,7 +37,7 @@ class Schema(dict, t.Generic[_T_Schema], metaclass=_SchemaMeta):  # type: ignore
     @staticmethod
     def is_schema(
         obj: t.Any,
-    ) -> t.TypeGuard[t.Type["Schema"]]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+    ) -> t.TypeGuard[type["Schema"]]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
         return _is_schema(obj)
 
 

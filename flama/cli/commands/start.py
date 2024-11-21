@@ -26,7 +26,7 @@ def command(flama_config: str, create_config: str):
             fs.write(ExampleConfig.build(mode=create_config).dumps())
         return
 
-    with open(flama_config, "r") as fs:
+    with open(flama_config) as fs:
         config = Config.load(fs)  # type: ignore[arg-type]
 
     config.run()

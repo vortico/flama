@@ -18,11 +18,11 @@ def dump(
     compression: t.Union[str, Compression] = Compression.standard,
     model_id: t.Optional[t.Union[str, uuid.UUID]] = None,
     timestamp: t.Optional[datetime.datetime] = None,
-    params: t.Optional[t.Dict[str, t.Any]] = None,
-    metrics: t.Optional[t.Dict[str, t.Any]] = None,
-    extra: t.Optional[t.Dict[str, t.Any]] = None,
+    params: t.Optional[dict[str, t.Any]] = None,
+    metrics: t.Optional[dict[str, t.Any]] = None,
+    extra: t.Optional[dict[str, t.Any]] = None,
     artifacts: t.Optional["Artifacts"] = None,
-    **kwargs
+    **kwargs,
 ) -> None:
     """Serialize an ML model using Flama format to bytes stream.
 

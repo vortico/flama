@@ -86,7 +86,7 @@ class Info:
 
 @dataclasses.dataclass(frozen=True)
 class ServerVariable:
-    enum: t.List[str]
+    enum: list[str]
     default: str
     description: t.Optional[str] = None
 
@@ -94,7 +94,7 @@ class ServerVariable:
 @dataclasses.dataclass(frozen=True)
 class Server:
     url: str
-    variables: t.Dict[str, ServerVariable]
+    variables: dict[str, ServerVariable]
     description: t.Optional[str] = None
 
 
@@ -102,14 +102,14 @@ class Server:
 class Link:
     operationRef: t.Optional[str] = None
     operationId: t.Optional[str] = None
-    parameters: t.Optional[t.Dict[str, t.Any]] = None
+    parameters: t.Optional[dict[str, t.Any]] = None
     requestBody: t.Optional[t.Any] = None
     description: t.Optional[str] = None
     server: t.Optional[Server] = None
 
 
-Security = t.NewType("Security", t.Dict[str, t.List[str]])
-Callback = t.NewType("Callback", t.Dict[str, "Path"])
+Security = t.NewType("Security", dict[str, list[str]])
+Callback = t.NewType("Callback", dict[str, "Path"])
 
 
 @dataclasses.dataclass(frozen=True)
@@ -123,7 +123,7 @@ class Header:
     allowReserved: t.Optional[bool] = None
     schema: t.Optional[t.Union[Schema, Reference]] = None
     example: t.Optional[t.Any] = None
-    examples: t.Optional[t.Dict[str, t.Union[Example, Reference]]] = None
+    examples: t.Optional[dict[str, t.Union[Example, Reference]]] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -139,13 +139,13 @@ class Parameter:
     allowReserved: t.Optional[bool] = None
     schema: t.Optional[t.Union[Schema, Reference]] = None
     example: t.Optional[t.Any] = None
-    examples: t.Optional[t.Dict[str, t.Union[Example, Reference]]] = None
+    examples: t.Optional[dict[str, t.Union[Example, Reference]]] = None
 
 
 @dataclasses.dataclass(frozen=True)
 class Encoding:
     contentType: t.Optional[str] = None
-    headers: t.Optional[t.Dict[str, t.Union[Header, Reference]]] = None
+    headers: t.Optional[dict[str, t.Union[Header, Reference]]] = None
     style: t.Optional[str] = None
     explode: t.Optional[bool] = None
     allowReserved: t.Optional[bool] = None
@@ -155,13 +155,13 @@ class Encoding:
 class MediaType:
     schema: t.Optional[t.Union[Schema, Reference]] = None
     example: t.Optional[t.Any] = None
-    examples: t.Optional[t.Dict[str, t.Union[t.Any, Reference]]] = None
-    encoding: t.Optional[t.Dict[str, Encoding]] = None
+    examples: t.Optional[dict[str, t.Union[t.Any, Reference]]] = None
+    encoding: t.Optional[dict[str, Encoding]] = None
 
 
 @dataclasses.dataclass(frozen=True)
 class RequestBody:
-    content: t.Dict[str, MediaType]
+    content: dict[str, MediaType]
     description: t.Optional[str] = None
     required: t.Optional[bool] = None
 
@@ -169,28 +169,28 @@ class RequestBody:
 @dataclasses.dataclass(frozen=True)
 class Response:
     description: str
-    headers: t.Optional[t.Dict[str, t.Union[Header, Reference]]] = None
-    content: t.Optional[t.Dict[str, MediaType]] = None
-    links: t.Optional[t.Dict[str, t.Union[Link, Reference]]] = None
+    headers: t.Optional[dict[str, t.Union[Header, Reference]]] = None
+    content: t.Optional[dict[str, MediaType]] = None
+    links: t.Optional[dict[str, t.Union[Link, Reference]]] = None
 
 
-Responses = t.NewType("Responses", t.Dict[str, Response])
+Responses = t.NewType("Responses", dict[str, Response])
 
 
 @dataclasses.dataclass(frozen=True)
 class Operation:
     responses: Responses
-    tags: t.Optional[t.List[str]] = None
+    tags: t.Optional[list[str]] = None
     summary: t.Optional[str] = None
     description: t.Optional[str] = None
     externalDocs: t.Optional[ExternalDocs] = None
     operationId: t.Optional[str] = None
-    parameters: t.Optional[t.List[t.Union[Parameter, Reference]]] = None
+    parameters: t.Optional[list[t.Union[Parameter, Reference]]] = None
     requestBody: t.Optional[t.Union[RequestBody, Reference]] = None
-    callbacks: t.Optional[t.Dict[str, t.Union[Callback, Reference]]] = None
+    callbacks: t.Optional[dict[str, t.Union[Callback, Reference]]] = None
     deprecated: t.Optional[bool] = None
-    security: t.Optional[t.List[Security]] = None
-    servers: t.Optional[t.List[Server]] = None
+    security: t.Optional[list[Security]] = None
+    servers: t.Optional[list[Server]] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -206,11 +206,11 @@ class Path:
     head: t.Optional[Operation] = None
     patch: t.Optional[Operation] = None
     trace: t.Optional[Operation] = None
-    servers: t.Optional[t.List[Server]] = None
-    parameters: t.Optional[t.List[t.Union[Parameter, Reference]]] = None
+    servers: t.Optional[list[Server]] = None
+    parameters: t.Optional[list[t.Union[Parameter, Reference]]] = None
 
     @property
-    def operations(self) -> t.Dict[str, Operation]:
+    def operations(self) -> dict[str, Operation]:
         return {
             x: getattr(self, x)
             for x in ("get", "put", "post", "delete", "options", "head", "patch", "trace")
@@ -218,20 +218,20 @@ class Path:
         }
 
 
-Paths = t.NewType("Paths", t.Dict[str, Path])
+Paths = t.NewType("Paths", dict[str, Path])
 
 
 @dataclasses.dataclass(frozen=True)
 class Components:
-    schemas: t.Dict[str, t.Union[Schema, Reference]]
-    responses: t.Dict[str, t.Union[Response, Reference]]
-    parameters: t.Dict[str, t.Union[Parameter, Reference]]
-    examples: t.Dict[str, t.Union[Example, Reference]]
-    requestBodies: t.Dict[str, t.Union[RequestBody, Reference]]
-    headers: t.Dict[str, t.Union[Header, Reference]]
-    securitySchemes: t.Dict[str, t.Union[Security, Reference]]
-    links: t.Dict[str, t.Union[Link, Reference]]
-    callbacks: t.Dict[str, t.Union[Callback, Reference]]
+    schemas: dict[str, t.Union[Schema, Reference]]
+    responses: dict[str, t.Union[Response, Reference]]
+    parameters: dict[str, t.Union[Parameter, Reference]]
+    examples: dict[str, t.Union[Example, Reference]]
+    requestBodies: dict[str, t.Union[RequestBody, Reference]]
+    headers: dict[str, t.Union[Header, Reference]]
+    securitySchemes: dict[str, t.Union[Security, Reference]]
+    links: dict[str, t.Union[Link, Reference]]
+    callbacks: dict[str, t.Union[Callback, Reference]]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -240,9 +240,9 @@ class OpenAPI:
     info: Info
     paths: Paths
     components: Components
-    servers: t.Optional[t.List[Server]] = None
-    security: t.Optional[t.List[Security]] = None
-    tags: t.Optional[t.List[Tag]] = None
+    servers: t.Optional[list[Server]] = None
+    security: t.Optional[list[Security]] = None
+    tags: t.Optional[list[Tag]] = None
     externalDocs: t.Optional[ExternalDocs] = None
 
 

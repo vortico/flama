@@ -36,7 +36,7 @@ class HTTPEndpoint:
         return self.dispatch().__await__()
 
     @classmethod
-    def allowed_methods(cls) -> t.Set[str]:
+    def allowed_methods(cls) -> set[str]:
         """The list of allowed methods by this endpoint.
 
         :return: List of allowed methods.
@@ -49,7 +49,7 @@ class HTTPEndpoint:
         return methods
 
     @classmethod
-    def allowed_handlers(cls) -> t.Dict[str, t.Callable]:
+    def allowed_handlers(cls) -> dict[str, t.Callable]:
         """A mapping of handler related to each HTTP method.
 
         :return: Handlers mapping.
@@ -107,7 +107,7 @@ class WebSocketEndpoint:
         return self.dispatch().__await__()
 
     @classmethod
-    def allowed_handlers(cls) -> t.Dict[str, t.Callable]:
+    def allowed_handlers(cls) -> dict[str, t.Callable]:
         """A mapping of handler related to each WS action.
 
         :return: Handlers mapping.

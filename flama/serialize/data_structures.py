@@ -65,7 +65,7 @@ class FrameworkSerializers:
         except KeyError:  # pragma: no cover
             raise ValueError("Wrong framework")
 
-        serializer_class: t.Type[Serializer] = getattr(
+        serializer_class: type[Serializer] = getattr(
             importlib.import_module(f"flama.serialize.serializers.{module}"), class_name
         )
         return serializer_class()
@@ -76,7 +76,7 @@ class FrameworkSerializers:
 
         try:
             inspect_objs += model.__class__.__mro__
-        except AttributeError:  # noqa: safety net
+        except AttributeError:  # pragma: no cover
             ...
 
         for obj in inspect_objs:
@@ -101,10 +101,10 @@ class FrameworkInfo:
         return cls(lib=serializer.lib, version=serializer.version())
 
     @classmethod
-    def from_dict(cls, data: t.Dict[str, t.Any]) -> "FrameworkInfo":
+    def from_dict(cls, data: dict[str, t.Any]) -> "FrameworkInfo":
         return cls(lib=Framework[data["lib"]], version=data["version"])
 
-    def to_dict(self) -> t.Dict[str, t.Any]:
+    def to_dict(self) -> dict[str, t.Any]:
         return {"lib": self.lib.value, "version": self.version}
 
 
@@ -114,12 +114,12 @@ class ModelInfo:
 
     obj: str
     info: t.Optional["JSONSchema"] = None
-    params: t.Optional[t.Dict[str, t.Any]] = None
-    metrics: t.Optional[t.Dict[str, t.Any]] = None
+    params: t.Optional[dict[str, t.Any]] = None
+    metrics: t.Optional[dict[str, t.Any]] = None
 
     @classmethod
     def from_model(
-        cls, model: t.Any, params: t.Optional[t.Dict[str, t.Any]], metrics: t.Optional[t.Dict[str, t.Any]]
+        cls, model: t.Any, params: t.Optional[dict[str, t.Any]], metrics: t.Optional[dict[str, t.Any]]
     ) -> "ModelInfo":
         return cls(
             obj=model.__name__ if inspect.isclass(model) else model.__class__.__name__,
@@ -129,10 +129,10 @@ class ModelInfo:
         )
 
     @classmethod
-    def from_dict(cls, data: t.Dict[str, t.Any]):
+    def from_dict(cls, data: dict[str, t.Any]):
         return cls(obj=data["obj"], info=data["info"], params=data.get("params"), metrics=data.get("metrics"))
 
-    def to_dict(self) -> t.Dict[str, t.Any]:
+    def to_dict(self) -> dict[str, t.Any]:
         return dataclasses.asdict(self)
 
 
@@ -144,7 +144,7 @@ class Metadata:
     timestamp: datetime.datetime
     framework: FrameworkInfo
     model: ModelInfo
-    extra: t.Optional[t.Dict[str, t.Any]] = None
+    extra: t.Optional[dict[str, t.Any]] = None
 
     @classmethod
     def from_model(
@@ -153,9 +153,9 @@ class Metadata:
         *,
         model_id: t.Optional[t.Union[str, uuid.UUID]],
         timestamp: t.Optional[datetime.datetime],
-        params: t.Optional[t.Dict[str, t.Any]],
-        metrics: t.Optional[t.Dict[str, t.Any]],
-        extra: t.Optional[t.Dict[str, t.Any]],
+        params: t.Optional[dict[str, t.Any]],
+        metrics: t.Optional[dict[str, t.Any]],
+        extra: t.Optional[dict[str, t.Any]],
     ) -> "Metadata":
         return cls(
             id=model_id or uuid.uuid4(),
@@ -166,7 +166,7 @@ class Metadata:
         )
 
     @classmethod
-    def from_dict(cls, data: t.Dict[str, t.Any]) -> "Metadata":
+    def from_dict(cls, data: dict[str, t.Any]) -> "Metadata":
         try:
             id_ = uuid.UUID(data["id"])
         except ValueError:
@@ -186,7 +186,7 @@ class Metadata:
             extra=data.get("extra"),
         )
 
-    def to_dict(self) -> t.Dict[str, t.Any]:
+    def to_dict(self) -> dict[str, t.Any]:
         return {
             "id": str(self.id),
             "timestamp": self.timestamp.isoformat(),
@@ -196,7 +196,7 @@ class Metadata:
         }
 
 
-Artifacts = t.Dict[str, t.Union[str, os.PathLike]]
+Artifacts = dict[str, t.Union[str, os.PathLike]]
 
 
 class _ModelDirectory:
@@ -257,9 +257,9 @@ class ModelArtifact:
         *,
         model_id: t.Optional[t.Union[str, uuid.UUID]] = None,
         timestamp: t.Optional[datetime.datetime] = None,
-        params: t.Optional[t.Dict[str, t.Any]] = None,
-        metrics: t.Optional[t.Dict[str, t.Any]] = None,
-        extra: t.Optional[t.Dict[str, t.Any]] = None,
+        params: t.Optional[dict[str, t.Any]] = None,
+        metrics: t.Optional[dict[str, t.Any]] = None,
+        extra: t.Optional[dict[str, t.Any]] = None,
         artifacts: t.Optional[Artifacts] = None,
     ) -> "ModelArtifact":
         return cls(
@@ -271,7 +271,7 @@ class ModelArtifact:
         )
 
     @classmethod
-    def from_dict(cls, data: t.Dict[str, t.Any], **kwargs) -> "ModelArtifact":
+    def from_dict(cls, data: dict[str, t.Any], **kwargs) -> "ModelArtifact":
         try:
             metadata = Metadata.from_dict(data["meta"])
             artifacts = data.get("artifacts")
@@ -297,8 +297,8 @@ class ModelArtifact:
     def from_bytes(cls, data: bytes, **kwargs) -> "ModelArtifact":
         return cls.from_json(codecs.decode(data, "zlib"), **kwargs)  # type: ignore[arg-type]
 
-    def to_dict(self, *, artifacts: bool = True, **kwargs) -> t.Dict[str, t.Any]:
-        result: t.Dict[str, t.Any] = {
+    def to_dict(self, *, artifacts: bool = True, **kwargs) -> dict[str, t.Any]:
+        result: dict[str, t.Any] = {
             "model": FrameworkSerializers.serializer(self.meta.framework.lib).dump(self.model, **kwargs).decode(),
             "meta": self.meta.to_dict(),
         }

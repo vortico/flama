@@ -32,7 +32,7 @@ class ExceptionContext:
 
 
 class SQLAlchemyContext:
-    def __init__(self, app: Flama, tables: t.List[sqlalchemy.Table]):
+    def __init__(self, app: Flama, tables: list[sqlalchemy.Table]):
         self.app = app
         self.tables = tables
 

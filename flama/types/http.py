@@ -37,15 +37,15 @@ QueryString = t.NewType("QueryString", str)
 QueryParam = t.NewType("QueryParam", str)
 Header = t.NewType("Header", str)
 Body = t.NewType("Body", bytes)
-PathParams = t.NewType("PathParams", t.Dict[str, str])
+PathParams = t.NewType("PathParams", dict[str, str])
 PathParam = t.NewType("PathParam", str)
-RequestData = t.NewType("RequestData", t.Dict[str, t.Any])
+RequestData = t.NewType("RequestData", dict[str, t.Any])
 Headers = starlette.datastructures.Headers
 MutableHeaders = starlette.datastructures.MutableHeaders
-Cookies = t.NewType("Cookies", t.Dict[str, t.Dict[str, str]])
+Cookies = t.NewType("Cookies", dict[str, dict[str, str]])
 QueryParams = starlette.datastructures.QueryParams
 
-PARAMETERS_TYPES: t.Dict[t.Type, t.Type] = {
+PARAMETERS_TYPES: dict[type, type] = {
     int: int,
     float: float,
     str: str,

@@ -14,13 +14,13 @@ class ModelComponent(Component):
     def __init__(self, model):
         self.model = model
 
-    def get_model_type(self) -> t.Type[Model]:
+    def get_model_type(self) -> type[Model]:
         return self.model.__class__  # type: ignore[no-any-return]
 
 
 class ModelComponentBuilder:
     @classmethod
-    def _get_model_class(cls, framework: Framework) -> t.Type[Model]:
+    def _get_model_class(cls, framework: Framework) -> type[Model]:
         try:
             module, class_name = {
                 Framework.torch: ("pytorch", "PyTorchModel"),
@@ -31,7 +31,7 @@ class ModelComponentBuilder:
         except KeyError:  # pragma: no cover
             raise ValueError("Wrong framework")
 
-        model_class: t.Type[Model] = getattr(importlib.import_module(f"flama.models.models.{module}"), class_name)
+        model_class: type[Model] = getattr(importlib.import_module(f"flama.models.models.{module}"), class_name)
         return model_class
 
     @classmethod

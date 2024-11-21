@@ -10,7 +10,7 @@ __all__ = ["Resource", "ResourceType"]
 class ResourceType(type):
     METHODS: t.Sequence[str] = ()
 
-    def __new__(mcs, name: str, bases: t.Tuple[type], namespace: t.Dict[str, t.Any]):
+    def __new__(mcs, name: str, bases: tuple[type], namespace: dict[str, t.Any]):
         """Resource metaclass for defining basic behavior:
         * Create _meta attribute containing some metadata (name, verbose name...).
         * Adds methods related to resource (create, retrieve...) listed in METHODS class attribute.
@@ -37,11 +37,11 @@ class ResourceType(type):
         return super().__new__(mcs, name, bases, namespace)
 
     @staticmethod
-    def _is_abstract(namespace: t.Dict[str, t.Any]) -> bool:
+    def _is_abstract(namespace: dict[str, t.Any]) -> bool:
         return namespace.get("__module__") == "flama.resources.resource" and namespace.get("__qualname__") == "Resource"
 
     @classmethod
-    def _get_mro(cls, *classes: type) -> t.List[t.Type]:
+    def _get_mro(cls, *classes: type) -> list[type]:
         """Generate the MRO list for given base class or list of base classes.
 
         :param classes: Base classes.
@@ -56,7 +56,7 @@ class ResourceType(type):
         cls,
         attribute: str,
         bases: t.Sequence[t.Any],
-        namespace: t.Dict[str, t.Any],
+        namespace: dict[str, t.Any],
         metadata_namespace: t.Optional[str] = None,
     ) -> t.Any:
         """Look for an attribute given his name on namespace or parent classes namespace.
@@ -83,7 +83,7 @@ class ResourceType(type):
         raise AttributeError(ResourceAttributeError.ATTRIBUTE_NOT_FOUND.format(attribute=attribute))
 
     @classmethod
-    def _get_resource_name(cls, name: str, namespace: t.Dict[str, t.Any]) -> t.Tuple[str, str]:
+    def _get_resource_name(cls, name: str, namespace: dict[str, t.Any]) -> tuple[str, str]:
         """Look for a resource name in namespace and check it's a valid name.
 
         :param name: Class name.
@@ -99,7 +99,7 @@ class ResourceType(type):
         return resource_name, namespace.pop("verbose_name", resource_name)
 
     @classmethod
-    def _build_routes(cls, namespace: t.Dict[str, t.Any]) -> t.Dict[str, t.Callable]:
+    def _build_routes(cls, namespace: dict[str, t.Any]) -> dict[str, t.Callable]:
         """Builds the routes' descriptor.
 
         :param namespace: Variables namespace used to create the class.
@@ -111,7 +111,7 @@ class ResourceType(type):
         }
 
     @classmethod
-    def _build_methods(cls, namespace: t.Dict[str, t.Any]) -> t.Dict[str, t.Callable]:
+    def _build_methods(cls, namespace: dict[str, t.Any]) -> dict[str, t.Callable]:
         """Builds a namespace containing all resource methods. Look for all methods listed in METHODS attribute and
         named '_add_[method]'.
 

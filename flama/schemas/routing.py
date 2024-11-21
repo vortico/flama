@@ -23,7 +23,7 @@ class ParametersDescriptor:
         return self
 
     @property
-    def _parameters(self) -> t.Dict[str, t.List["InjectionParameter"]]:
+    def _parameters(self) -> dict[str, list["InjectionParameter"]]:
         return {
             method: sorted(
                 [
@@ -37,14 +37,14 @@ class ParametersDescriptor:
         }
 
     @property
-    def _return_values(self) -> t.Dict[str, "InjectionParameter"]:
+    def _return_values(self) -> dict[str, "InjectionParameter"]:
         return {
             method: Return.from_return_annotation(inspect.signature(handler).return_annotation)
             for method, handler in self._route.endpoint_handlers().items()
         }
 
     @property
-    def query(self) -> t.Dict[str, Parameters]:
+    def query(self) -> dict[str, Parameters]:
         return {
             method: {
                 p.name: Parameter.build("query", p)
@@ -55,14 +55,14 @@ class ParametersDescriptor:
         }
 
     @property
-    def path(self) -> t.Dict[str, Parameters]:
+    def path(self) -> dict[str, Parameters]:
         return {
             method: {p.name: Parameter.build("path", p) for p in parameters if p.name in self._route.path.parameters}
             for method, parameters in self._parameters.items()
         }
 
     @property
-    def body(self) -> t.Dict[str, t.Optional[Parameter]]:
+    def body(self) -> dict[str, t.Optional[Parameter]]:
         return {
             method: next(
                 (
@@ -77,7 +77,7 @@ class ParametersDescriptor:
         }
 
     @property
-    def response(self) -> t.Dict[str, Parameter]:
+    def response(self) -> dict[str, Parameter]:
         return {
             method: Parameter.build("response", return_value) for method, return_value in self._return_values.items()
         }

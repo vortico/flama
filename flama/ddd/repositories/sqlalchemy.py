@@ -41,7 +41,7 @@ class SQLAlchemyTableManager:
             and self.table == other.table
         )
 
-    async def create(self, *data: t.Union[t.Dict[str, t.Any], types.Schema]) -> t.List[types.Schema]:
+    async def create(self, *data: t.Union[dict[str, t.Any], types.Schema]) -> list[types.Schema]:
         """Creates new elements in the table.
 
         If the element already exists, it raises an `IntegrityError`. If the element is created, it returns
@@ -84,9 +84,7 @@ class SQLAlchemyTableManager:
 
         return types.Schema(element._asdict())
 
-    async def update(
-        self, data: t.Union[t.Dict[str, t.Any], types.Schema], *clauses, **filters
-    ) -> t.List[types.Schema]:
+    async def update(self, data: t.Union[dict[str, t.Any], types.Schema], *clauses, **filters) -> list[types.Schema]:
         """Updates elements in the table.
 
         Using clauses and filters, it filters the elements to update. If no clauses or filters are given, it updates
@@ -217,7 +215,7 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
     def __eq__(self, other):
         return isinstance(other, SQLAlchemyTableRepository) and self._table == other._table and super().__eq__(other)
 
-    async def create(self, *data: t.Union[t.Dict[str, t.Any], types.Schema]) -> t.List[types.Schema]:
+    async def create(self, *data: t.Union[dict[str, t.Any], types.Schema]) -> list[types.Schema]:
         """Creates new elements in the repository.
 
         If the element already exists, it raises an `exceptions.IntegrityError`. If the element is created, it returns
@@ -249,9 +247,7 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         """
         return await self._table_manager.retrieve(*clauses, **filters)
 
-    async def update(
-        self, data: t.Union[t.Dict[str, t.Any], types.Schema], *clauses, **filters
-    ) -> t.List[types.Schema]:
+    async def update(self, data: t.Union[dict[str, t.Any], types.Schema], *clauses, **filters) -> list[types.Schema]:
         """Updates an element in the repository.
 
         If the element does not exist, it raises a `NotFoundError`. If the element is updated, it returns the updated
