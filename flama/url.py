@@ -33,7 +33,7 @@ class URL:
         self.fragment = parsed_url.fragment
 
     @property
-    def components(self) -> t.Dict[str, t.Optional[str]]:
+    def components(self) -> dict[str, t.Optional[str]]:
         """URL components map.
 
         :return: Components.
@@ -128,7 +128,7 @@ class RegexPath:
     PARAM_REGEX: t.ClassVar[re.Pattern] = re.compile(
         r"{(?P<name>[a-zA-Z_][a-zA-Z0-9_]*)(?::(?P<type>[a-zA-Z_][a-zA-Z0-9_]*)?)?}"
     )
-    SERIALIZERS: t.ClassVar[t.Dict[str, ParamSerializer]] = {
+    SERIALIZERS: t.ClassVar[dict[str, ParamSerializer]] = {
         "str": StringParamSerializer(),
         "path": PathParamSerializer(),
         "int": IntegerParamSerializer(),
@@ -160,8 +160,8 @@ class RegexPath:
             self.path: str = path.path
             self.template: str = path.template
             self.regex: re.Pattern = path.regex
-            self.serializers: t.Dict[str, ParamSerializer] = path.serializers
-            self.parameters: t.List[str] = path.parameters
+            self.serializers: dict[str, ParamSerializer] = path.serializers
+            self.parameters: list[str] = path.parameters
         else:
             self.raw_path = path
             self.path = self.PARAM_REGEX.sub(lambda x: x.group(0) if x.group("type") != "path" else "", path)
@@ -194,7 +194,7 @@ class RegexPath:
         """
         return self.regex.match(path) is not None
 
-    def values(self, path: str) -> t.Dict[str, t.Any]:
+    def values(self, path: str) -> dict[str, t.Any]:
         """Get serialized parameters from a matching path.
 
         :param path: Path to match.
@@ -207,7 +207,7 @@ class RegexPath:
 
         return {k: self.serializers[k].load(v) for k, v in match.groupdict().items()}
 
-    def build(self, **params: t.Any) -> t.Tuple[str, t.Dict[str, t.Any]]:
+    def build(self, **params: t.Any) -> tuple[str, dict[str, t.Any]]:
         """Build a path by completing param placeholders with given values.
 
         :param params: Param values.

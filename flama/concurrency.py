@@ -53,7 +53,7 @@ async def run(
 
 if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
 
-    async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> t.List[asyncio.Task]:
+    async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> list[asyncio.Task]:
         """Run a group of tasks.
 
         :param tasks: Tasks to run.
@@ -65,7 +65,7 @@ if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragm
 
 else:  # noqa
 
-    async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> t.List[asyncio.Task]:
+    async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> list[asyncio.Task]:
         """Run a group of tasks.
 
         :param tasks: Tasks to run.
@@ -79,8 +79,8 @@ class AsyncProcess(multiprocessing.Process):
     """Multiprocessing Process class whose target is an async function."""
 
     _target: t.Optional[t.Callable[..., t.Union[t.Any, t.Coroutine]]]
-    _args: t.List[t.Any]
-    _kwargs: t.Dict[str, t.Any]
+    _args: list[t.Any]
+    _kwargs: dict[str, t.Any]
 
     def run(self) -> None:
         if self._target:

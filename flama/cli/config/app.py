@@ -82,7 +82,7 @@ class App(metaclass=abc.ABCMeta):
         ...
 
     @classmethod
-    def build(cls, app: t.Union[str, t.Dict[str, t.Any], "Flama"]) -> "App":
+    def build(cls, app: t.Union[str, dict[str, t.Any], "Flama"]) -> "App":
         if isinstance(app, str):
             return StrApp(app)
 
@@ -110,12 +110,12 @@ class DictApp(App):
     description: str = "Fire up with the flame"
     schema: str = "/schema/"
     docs: str = "/docs/"
-    models: t.List[Model] = dataclasses.field(
+    models: list[Model] = dataclasses.field(
         default_factory=lambda: [Model(url="/model-url/", path="model-path.flm", name="model-name")]
     )
 
     @classmethod
-    def from_dict(cls, data: t.Dict[str, t.Any]) -> "App":
+    def from_dict(cls, data: dict[str, t.Any]) -> "App":
         if "models" in data:
             data["models"] = [Model(**model) for model in data.pop("models")]
         return cls(**data)  # type: ignore[arg-type]

@@ -20,11 +20,11 @@ class FlamaWorker(SQLAlchemyWorker):
         """
 
         super().__init__(app)
-        self._repositories: t.Dict[str, t.Type["SQLAlchemyTableRepository"]] = {}  # type: ignore
-        self._init_repositories: t.Optional[t.Dict[str, "SQLAlchemyTableRepository"]] = None
+        self._repositories: dict[str, type["SQLAlchemyTableRepository"]] = {}  # type: ignore
+        self._init_repositories: t.Optional[dict[str, "SQLAlchemyTableRepository"]] = None
 
     @property
-    def repositories(self) -> t.Dict[str, "SQLAlchemyTableRepository"]:
+    def repositories(self) -> dict[str, "SQLAlchemyTableRepository"]:
         """Get the initialized repositories.
 
         :retirns: The initialized repositories.

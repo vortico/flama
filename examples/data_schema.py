@@ -1,5 +1,3 @@
-import typing
-
 from pydantic import BaseModel, validator
 
 import flama
@@ -34,7 +32,7 @@ def home():
     return {"hello": "world"}
 
 
-def list_puppies(name: str = None) -> typing.List[Puppy]:
+def list_puppies(name: str = None) -> list[Puppy]:
     """
     tags:
         - puppy

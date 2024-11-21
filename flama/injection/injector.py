@@ -15,7 +15,7 @@ class Injector:
 
     def __init__(
         self,
-        context_types: t.Optional[t.Dict[str, t.Type]] = None,
+        context_types: t.Optional[dict[str, type]] = None,
         components: t.Optional[t.Union[t.Sequence[Component], Components]] = None,
     ):
         """Functions dependency injector.
@@ -30,11 +30,11 @@ class Injector:
         self._resolver: t.Optional[Resolver] = None
 
     @property
-    def context_types(self) -> t.Dict[str, t.Type]:
+    def context_types(self) -> dict[str, type]:
         return self._context_types
 
     @context_types.setter
-    def context_types(self, context_types: t.Dict[str, t.Type]):
+    def context_types(self, context_types: dict[str, type]):
         self._context_types = context_types
         del self.resolver
 
@@ -96,7 +96,7 @@ class Injector:
         """
         return self.resolver.resolve(Parameter(name or ROOT_NAME, annotation, default))
 
-    def resolve_function(self, func: t.Callable) -> t.Dict[str, "ResolutionTree"]:
+    def resolve_function(self, func: t.Callable) -> dict[str, "ResolutionTree"]:
         """Generate a dependencies tree for a given function.
 
         It analyses the function signature, look for type annotations and try to resolve them.
@@ -113,7 +113,7 @@ class Injector:
 
         return parameters
 
-    async def inject(self, func: t.Callable, context: t.Optional[t.Dict[str, t.Any]] = None) -> t.Callable:
+    async def inject(self, func: t.Callable, context: t.Optional[dict[str, t.Any]] = None) -> t.Callable:
         """Inject dependencies into a given function.
 
         It analyses the function signature, look for type annotations and try to resolve them. Once all dependencies

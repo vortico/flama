@@ -22,8 +22,8 @@ class EndpointInfo:
     path: str
     method: str
     func: t.Callable = dataclasses.field(repr=False)
-    query_parameters: t.Dict[str, Parameter] = dataclasses.field(repr=False)
-    path_parameters: t.Dict[str, Parameter] = dataclasses.field(repr=False)
+    query_parameters: dict[str, Parameter] = dataclasses.field(repr=False)
+    path_parameters: dict[str, Parameter] = dataclasses.field(repr=False)
     body_parameter: t.Optional[Parameter] = dataclasses.field(repr=False)
     response_parameter: Parameter = dataclasses.field(repr=False)
 
@@ -37,12 +37,12 @@ class SchemaInfo:
     def ref(self) -> str:
         return f"#/components/schemas/{self.name}"
 
-    def json_schema(self, names: t.Dict[int, str]) -> types.JSONSchema:
+    def json_schema(self, names: dict[int, str]) -> types.JSONSchema:
         return Schema(self.schema).json_schema(names)
 
 
-class SchemaRegistry(t.Dict[int, SchemaInfo]):
-    def __init__(self, schemas: t.Optional[t.Dict[str, schemas.Schema]] = None):
+class SchemaRegistry(dict[int, SchemaInfo]):
+    def __init__(self, schemas: t.Optional[dict[str, schemas.Schema]] = None):
         super().__init__()
 
         for name, schema in (schemas or {}).items():
@@ -60,7 +60,7 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
         return super().__getitem__(id(schemas.Schema(item).unique_schema))
 
     @property
-    def names(self) -> t.Dict[int, str]:
+    def names(self) -> dict[int, str]:
         """Returns a dictionary mapping schema ids to their names.
 
         :return: Schema names.
@@ -68,7 +68,7 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
         return {k: v.name for k, v in self.items()}
 
     @t.no_type_check
-    def _get_schema_references_from_schema(self, schema: t.Union[openapi.Schema, openapi.Reference]) -> t.List[str]:
+    def _get_schema_references_from_schema(self, schema: t.Union[openapi.Schema, openapi.Reference]) -> list[str]:
         if isinstance(schema, openapi.Reference):
             return [schema.ref]
 
@@ -103,10 +103,10 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
 
         return result
 
-    def _get_schema_references_from_path(self, path: openapi.Path) -> t.List[str]:
+    def _get_schema_references_from_path(self, path: openapi.Path) -> list[str]:
         return [y for x in path.operations.values() for y in self._get_schema_references_from_operation(x)]
 
-    def _get_schema_references_from_operation(self, operation: openapi.Operation) -> t.List[str]:
+    def _get_schema_references_from_operation(self, operation: openapi.Operation) -> list[str]:
         return [
             *self._get_schema_references_from_operation_parameters(operation.parameters),
             *self._get_schema_references_from_operation_request_body(operation.requestBody),
@@ -114,7 +114,7 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
             *self._get_schema_references_from_operation_responses(operation.responses),
         ]
 
-    def _get_schema_references_from_operation_responses(self, responses: openapi.Responses) -> t.List[str]:
+    def _get_schema_references_from_operation_responses(self, responses: openapi.Responses) -> list[str]:
         refs = []
 
         for response in [x for x in responses.values() if x.content]:
@@ -128,8 +128,8 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
         return refs
 
     def _get_schema_references_from_operation_callbacks(
-        self, callbacks: t.Optional[t.Dict[str, t.Union[openapi.Callback, openapi.Reference]]]
-    ) -> t.List[str]:
+        self, callbacks: t.Optional[dict[str, t.Union[openapi.Callback, openapi.Reference]]]
+    ) -> list[str]:
         refs = []
 
         if callbacks:
@@ -144,7 +144,7 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
 
     def _get_schema_references_from_operation_request_body(
         self, request_body: t.Optional[t.Union[openapi.RequestBody, openapi.Reference]]
-    ) -> t.List[str]:
+    ) -> list[str]:
         refs = []
 
         if request_body:
@@ -157,8 +157,8 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
         return refs
 
     def _get_schema_references_from_operation_parameters(
-        self, parameters: t.Optional[t.List[t.Union[openapi.Parameter, openapi.Reference]]]
-    ) -> t.List[str]:
+        self, parameters: t.Optional[list[t.Union[openapi.Parameter, openapi.Reference]]]
+    ) -> list[str]:
         refs = []
 
         if parameters:
@@ -170,7 +170,7 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
 
         return refs
 
-    def used(self, spec: openapi.OpenAPISpec) -> t.Dict[int, SchemaInfo]:
+    def used(self, spec: openapi.OpenAPISpec) -> dict[int, SchemaInfo]:
         """
         Generate a dict containing used schemas.
 
@@ -212,7 +212,7 @@ class SchemaRegistry(t.Dict[int, SchemaInfo]):
 
         try:
             schema_name = name or s.name
-        except ValueError as e:  # noqa: safety net
+        except ValueError as e:  # pragma: no cover
             raise ValueError("Cannot infer schema name.") from e
 
         schema_instance = s.unique_schema
@@ -254,7 +254,7 @@ class SchemaGenerator:
         contact_email: t.Optional[str] = None,
         license_name: t.Optional[str] = None,
         license_url: t.Optional[str] = None,
-        schemas: t.Optional[t.Dict] = None,
+        schemas: t.Optional[dict] = None,
     ):
         contact = (
             openapi.Contact(name=contact_name, url=contact_url, email=contact_email)
@@ -277,8 +277,8 @@ class SchemaGenerator:
         self.schemas = SchemaRegistry(schemas=schemas)
 
     def get_endpoints(  # type: ignore[override]
-        self, routes: t.List[routing.BaseRoute], base_path: str = ""
-    ) -> t.Dict[str, t.List[EndpointInfo]]:
+        self, routes: list[routing.BaseRoute], base_path: str = ""
+    ) -> dict[str, list[EndpointInfo]]:
         """
         Given the routes, yields the following information:
 
@@ -293,7 +293,7 @@ class SchemaGenerator:
         :param base_path: The base endpoints path.
         :return: Data structure that contains metadata from every route.
         """
-        endpoints_info: t.Dict[str, t.List[EndpointInfo]] = defaultdict(list)
+        endpoints_info: dict[str, list[EndpointInfo]] = defaultdict(list)
 
         for route in routes:
             path = RegexPath(base_path + route.path.path).template
@@ -338,8 +338,8 @@ class SchemaGenerator:
         return endpoints_info
 
     def _build_endpoint_parameters(
-        self, endpoint: EndpointInfo, metadata: t.Dict[str, t.Any]
-    ) -> t.Optional[t.List[openapi.Parameter]]:
+        self, endpoint: EndpointInfo, metadata: dict[str, t.Any]
+    ) -> t.Optional[list[openapi.Parameter]]:
         if not endpoint.query_parameters and not endpoint.path_parameters:
             return None
 
@@ -368,7 +368,7 @@ class SchemaGenerator:
         ]
 
     def _build_endpoint_body(
-        self, endpoint: EndpointInfo, metadata: t.Dict[str, t.Any]
+        self, endpoint: EndpointInfo, metadata: dict[str, t.Any]
     ) -> t.Optional[openapi.RequestBody]:
         content = {k: v for k, v in metadata.get("requestBody", {}).get("content", {}).items()}
 
@@ -390,7 +390,7 @@ class SchemaGenerator:
             **{x: metadata.get("requestBody", {}).get(x) for x in ("description", "required")},
         )
 
-    def _build_endpoint_responses(self, endpoint: EndpointInfo, metadata: t.Dict[str, t.Any]) -> openapi.Responses:
+    def _build_endpoint_responses(self, endpoint: EndpointInfo, metadata: dict[str, t.Any]) -> openapi.Responses:
         responses = metadata.get("responses", {})
         try:
             main_response_code = next(iter(responses.keys()))
@@ -448,7 +448,7 @@ class SchemaGenerator:
             }
         )
 
-    def _parse_docstring(self, func: t.Callable) -> t.Dict[t.Any, t.Any]:
+    def _parse_docstring(self, func: t.Callable) -> dict[t.Any, t.Any]:
         """Given a function, parse the docstring as YAML and return a dictionary of info.
 
         :param func: Function to analyze docstring.
@@ -491,7 +491,7 @@ class SchemaGenerator:
             },
         )
 
-    def get_api_schema(self, routes: t.List[routing.BaseRoute]) -> t.Dict[str, t.Any]:
+    def get_api_schema(self, routes: list[routing.BaseRoute]) -> dict[str, t.Any]:
         endpoints_info = self.get_endpoints(routes)
 
         for path, endpoints in endpoints_info.items():
@@ -508,6 +508,6 @@ class SchemaGenerator:
         for schema in self.schemas.used(self.spec).values():
             self.spec.add_schema(schema.name, openapi.Schema(schema.json_schema(self.schemas.names)))
 
-        api_schema: t.Dict[str, t.Any] = self.spec.asdict()
+        api_schema: dict[str, t.Any] = self.spec.asdict()
 
         return api_schema

@@ -18,7 +18,7 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
     def build_field(
         self,
         name: str,
-        type_: t.Type,
+        type_: type,
         nullable: bool = False,
         required: bool = True,
         default: t.Any = None,
@@ -29,7 +29,7 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
 
     @t.overload
     @abc.abstractmethod
-    def build_schema(self, *, name: t.Optional[str] = None, fields: t.Dict[str, t.Any]) -> t.Any:
+    def build_schema(self, *, name: t.Optional[str] = None, fields: dict[str, t.Any]) -> t.Any:
         ...
 
     @t.overload
@@ -45,7 +45,7 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
     @t.overload
     @abc.abstractmethod
     def build_schema(
-        self, *, name: t.Optional[str] = None, schema: t.Any, fields: t.Optional[t.Dict[str, t.Any]]
+        self, *, name: t.Optional[str] = None, schema: t.Any, fields: t.Optional[dict[str, t.Any]]
     ) -> t.Any:
         ...
 
@@ -55,21 +55,21 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
         *,
         name: t.Optional[str] = None,
         schema: t.Optional[t.Any] = None,
-        fields: t.Optional[t.Dict[str, t.Any]] = None,
+        fields: t.Optional[dict[str, t.Any]] = None,
         partial: bool = False,
     ) -> t.Any:
         ...
 
     @abc.abstractmethod
-    def validate(self, schema: t.Any, values: t.Dict[str, t.Any], *, partial: bool = False) -> t.Dict[str, t.Any]:
+    def validate(self, schema: t.Any, values: dict[str, t.Any], *, partial: bool = False) -> dict[str, t.Any]:
         ...
 
     @abc.abstractmethod
-    def load(self, schema: t.Any, value: t.Dict[str, t.Any]) -> _T_Schema:
+    def load(self, schema: t.Any, value: dict[str, t.Any]) -> _T_Schema:
         ...
 
     @abc.abstractmethod
-    def dump(self, schema: t.Any, value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    def dump(self, schema: t.Any, value: dict[str, t.Any]) -> dict[str, t.Any]:
         ...
 
     @t.overload
@@ -95,7 +95,7 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def schema_fields(self, schema: t.Any) -> t.Dict[str, t.Any]:
+    def schema_fields(self, schema: t.Any) -> dict[str, t.Any]:
         ...
 
     @abc.abstractmethod

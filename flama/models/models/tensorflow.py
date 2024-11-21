@@ -15,7 +15,7 @@ except Exception:  # pragma: no cover
 
 
 class TensorFlowModel(Model):
-    def predict(self, x: t.List[t.List[t.Any]]) -> t.Any:
+    def predict(self, x: list[list[t.Any]]) -> t.Any:
         if np is None:  # noqa
             raise exceptions.FrameworkNotInstalled("numpy")
 

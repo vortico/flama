@@ -2,6 +2,9 @@
 requires = ["poetry_core"]
 build-backend = "poetry.core.masonry.api"
 
+[project]
+requires-python = ">=3.9,<3.14"
+
 [tool.poetry]
 name = "flama"
 version = "1.8.1"
@@ -123,7 +126,7 @@ skip_glob = [
 [tool.ruff]
 line-length = 120
 # Enable Pyflakes and pycodestyle rules.
-select = ["C90", "E", "F", "G", "I", "W", "T"]
+select = ["C90", "E", "F", "G", "I", "W", "T", "UP"]
 ignore = ["E721"]
 exclude = [
     ".git",

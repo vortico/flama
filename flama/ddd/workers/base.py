@@ -12,7 +12,7 @@ if t.TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-Repositories = t.NewType("Repositories", t.Dict[str, t.Type[AbstractRepository]])
+Repositories = t.NewType("Repositories", dict[str, type[AbstractRepository]])
 
 __all__ = ["WorkerType", "AbstractWorker"]
 
@@ -24,7 +24,7 @@ class WorkerType(abc.ABCMeta):
     `_repositories`.
     """
 
-    def __new__(mcs, name: str, bases: t.Tuple[type], namespace: t.Dict[str, t.Any]):
+    def __new__(mcs, name: str, bases: tuple[type], namespace: dict[str, t.Any]):
         if not mcs._is_abstract(namespace) and "__annotations__" in namespace:
             namespace["_repositories"] = Repositories(
                 {
@@ -41,7 +41,7 @@ class WorkerType(abc.ABCMeta):
         return super().__new__(mcs, name, bases, namespace)
 
     @staticmethod
-    def _is_abstract(namespace: t.Dict[str, t.Any]) -> bool:
+    def _is_abstract(namespace: dict[str, t.Any]) -> bool:
         return namespace.get("__module__") == "flama.ddd.workers" and namespace.get("__qualname__") == "AbstractWorker"
 
 
@@ -52,7 +52,7 @@ class AbstractWorker(abc.ABC, metaclass=WorkerType):
     used to interact with entities and a mechanism for isolate a single unit of work.
     """
 
-    _repositories: t.ClassVar[t.Dict[str, t.Type[AbstractRepository]]]
+    _repositories: t.ClassVar[dict[str, type[AbstractRepository]]]
 
     def __init__(self, app: t.Optional["Flama"] = None):
         """Initialize the worker.

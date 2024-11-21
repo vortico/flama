@@ -147,7 +147,7 @@ class FileResponse(starlette.responses.FileResponse, Response):
 class APIResponse(JSONResponse):
     media_type = "application/json"
 
-    def __init__(self, content: t.Any = None, schema: t.Optional[t.Type["types.Schema"]] = None, *args, **kwargs):
+    def __init__(self, content: t.Any = None, schema: t.Optional[type["types.Schema"]] = None, *args, **kwargs):
         self.schema = schema
         super().__init__(content, *args, **kwargs)
 
@@ -170,7 +170,7 @@ class APIErrorResponse(APIResponse):
         detail: t.Any,
         status_code: int = 400,
         exception: t.Optional[Exception] = None,
-        headers: t.Optional[t.Dict[str, str]] = None,
+        headers: t.Optional[dict[str, str]] = None,
         *args,
         **kwargs,
     ):
@@ -207,7 +207,7 @@ class HTMLTemplateResponse(HTMLResponse):
         )
     )
 
-    def __init__(self, template: str, context: t.Optional[t.Dict[str, t.Any]] = None, *args, **kwargs):
+    def __init__(self, template: str, context: t.Optional[dict[str, t.Any]] = None, *args, **kwargs):
         if context is None:
             context = {}
 

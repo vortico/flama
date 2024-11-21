@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 adapter: "Adapter"
-fields: t.Dict[t.Any, "Parameter"] = {}
+fields: dict[t.Any, "Parameter"] = {}
 lib: t.Optional[ModuleType] = None
 schemas: t.Any = None
 
@@ -33,7 +33,7 @@ class Module:
         self.lib: ModuleType
 
     @property
-    def installed(self) -> t.List[str]:
+    def installed(self) -> list[str]:
         return [x for x in self.SCHEMA_LIBS if x in sys.modules or importlib.util.find_spec(x) is not None]
 
     @property

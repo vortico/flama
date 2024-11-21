@@ -27,7 +27,7 @@ class TypesystemAdapter(Adapter[Schema, Field]):
     def build_field(
         self,
         name: str,
-        type_: t.Type,
+        type_: type,
         nullable: bool = False,
         required: bool = True,
         default: t.Any = None,
@@ -55,8 +55,8 @@ class TypesystemAdapter(Adapter[Schema, Field]):
         self,
         *,
         name: t.Optional[str] = None,
-        schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
-        fields: t.Optional[t.Dict[str, Field]] = None,
+        schema: t.Optional[t.Union[Schema, type[Schema]]] = None,
+        fields: t.Optional[dict[str, Field]] = None,
         partial: bool = False,
     ) -> Schema:
         fields_ = {**(self.unique_schema(schema).fields if self.is_schema(schema) else {}), **(fields or {})}
@@ -68,7 +68,7 @@ class TypesystemAdapter(Adapter[Schema, Field]):
 
         return Schema(title=name or self.DEFAULT_SCHEMA_NAME, fields=fields_)
 
-    def validate(self, schema: Schema, values: t.Dict[str, t.Any], *, partial: bool = False) -> t.Any:
+    def validate(self, schema: Schema, values: dict[str, t.Any], *, partial: bool = False) -> t.Any:
         try:
             if partial:
                 warnings.warn("Typesystem does not support partial validation")
@@ -77,10 +77,10 @@ class TypesystemAdapter(Adapter[Schema, Field]):
         except typesystem.ValidationError as errors:
             raise SchemaValidationError(errors={k: [v] for k, v in errors.items()})
 
-    def load(self, schema: Schema, value: t.Dict[str, t.Any]) -> t.Any:
+    def load(self, schema: Schema, value: dict[str, t.Any]) -> t.Any:
         return schema.validate(value)
 
-    def dump(self, schema: Schema, value: t.Dict[str, t.Any]) -> t.Any:
+    def dump(self, schema: Schema, value: dict[str, t.Any]) -> t.Any:
         return self._dump(self.validate(schema, value))
 
     def _dump(self, value: t.Any) -> t.Any:
@@ -141,10 +141,10 @@ class TypesystemAdapter(Adapter[Schema, Field]):
 
     def schema_fields(
         self, schema: Schema
-    ) -> t.Dict[
+    ) -> dict[
         str,
-        t.Tuple[
-            t.Union[t.Union[Schema, t.Type], t.List[t.Union[Schema, t.Type]], t.Dict[str, t.Union[Schema, t.Type]]],
+        tuple[
+            t.Union[t.Union[Schema, type], list[t.Union[Schema, type]], dict[str, t.Union[Schema, type]]],
             Field,
         ],
     ]:

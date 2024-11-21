@@ -40,7 +40,7 @@ class ConfigFileFactory:
             self.file.__exit__(exc_type, exc_value, traceback)
             del self.file
 
-    def generate(self, factory: str) -> t.Dict[str, t.Any]:
+    def generate(self, factory: str) -> dict[str, t.Any]:
         try:
             result = self._factories[factory]()
             self.file.seek(0)
@@ -48,23 +48,23 @@ class ConfigFileFactory:
         except KeyError:
             raise ValueError(f"Config file factory '{factory}' not found")
 
-    def _config_no_sections(self) -> t.Dict[str, t.Any]:
+    def _config_no_sections(self) -> dict[str, t.Any]:
         self.file.write("foo = 1")
         return {"foo": "1"}
 
-    def _config(self) -> t.Dict[str, t.Any]:
+    def _config(self) -> dict[str, t.Any]:
         self.file.write("[foo]\nbar = 1")
         return {"foo": {"bar": "1"}}
 
-    def _json(self) -> t.Dict[str, t.Any]:
+    def _json(self) -> dict[str, t.Any]:
         self.file.write('{"foo": 1}')
         return {"foo": 1}
 
-    def _yaml(self) -> t.Dict[str, t.Any]:
+    def _yaml(self) -> dict[str, t.Any]:
         self.file.write("foo:\n    bar: 1")
         return {"foo": {"bar": 1}}
 
-    def _toml(self) -> t.Dict[str, t.Any]:
+    def _toml(self) -> dict[str, t.Any]:
         self.file.write("[foo]\nbar = 1")
         return {"foo": {"bar": 1}}
 

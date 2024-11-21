@@ -20,7 +20,7 @@ class CreateMixin:
         rest_schemas: data_structures.Schemas,
         rest_model: data_structures.Model,
         **kwargs,
-    ) -> t.Dict[str, t.Any]:
+    ) -> dict[str, t.Any]:
         @resource_method("/", methods=["POST"], name="create")
         async def create(
             self,
@@ -71,7 +71,7 @@ class RetrieveMixin:
         rest_schemas: data_structures.Schemas,
         rest_model: data_structures.Model,
         **kwargs,
-    ) -> t.Dict[str, t.Any]:
+    ) -> dict[str, t.Any]:
         @resource_method("/{resource_id}/", methods=["GET"], name="retrieve")
         async def retrieve(
             self,
@@ -113,7 +113,7 @@ class UpdateMixin:
         rest_schemas: data_structures.Schemas,
         rest_model: data_structures.Model,
         **kwargs,
-    ) -> t.Dict[str, t.Any]:
+    ) -> dict[str, t.Any]:
         @resource_method("/{resource_id}/", methods=["PUT"], name="update")
         async def update(
             self,
@@ -167,7 +167,7 @@ class PartialUpdateMixin:
         rest_schemas: data_structures.Schemas,
         rest_model: data_structures.Model,
         **kwargs,
-    ) -> t.Dict[str, t.Any]:
+    ) -> dict[str, t.Any]:
         @resource_method("/{resource_id}/", methods=["PATCH"], name="partial-update")
         async def partial_update(
             self,
@@ -213,9 +213,7 @@ class PartialUpdateMixin:
 
 class DeleteMixin:
     @classmethod
-    def _add_delete(
-        cls, name: str, verbose_name: str, rest_model: data_structures.Model, **kwargs
-    ) -> t.Dict[str, t.Any]:
+    def _add_delete(cls, name: str, verbose_name: str, rest_model: data_structures.Model, **kwargs) -> dict[str, t.Any]:
         @resource_method("/{resource_id}/", methods=["DELETE"], name="delete")
         async def delete(self, worker: FlamaWorker, resource_id: rest_model.primary_key.type):  # type: ignore
             try:
@@ -250,7 +248,7 @@ class ListMixin:
     @classmethod
     def _add_list(
         cls, name: str, verbose_name: str, rest_schemas: data_structures.Schemas, **kwargs
-    ) -> t.Dict[str, t.Any]:
+    ) -> dict[str, t.Any]:
         @resource_method("/", methods=["GET"], name="list", pagination="page_number")
         async def list(
             self,
@@ -290,13 +288,13 @@ class ReplaceMixin:
         rest_schemas: data_structures.Schemas,
         rest_model: data_structures.Model,
         **kwargs,
-    ) -> t.Dict[str, t.Any]:
+    ) -> dict[str, t.Any]:
         @resource_method("/", methods=["PUT"], name="replace")
         async def replace(
             self,
             worker: FlamaWorker,
-            resources: t.List[types.Schema[rest_schemas.input.schema]],  # type: ignore
-        ) -> t.List[types.Schema[rest_schemas.output.schema]]:  # type: ignore
+            resources: list[types.Schema[rest_schemas.input.schema]],  # type: ignore
+        ) -> list[types.Schema[rest_schemas.output.schema]]:  # type: ignore
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 await repository.drop()
@@ -333,13 +331,13 @@ class PartialReplaceMixin:
         rest_schemas: data_structures.Schemas,
         rest_model: data_structures.Model,
         **kwargs,
-    ) -> t.Dict[str, t.Any]:
+    ) -> dict[str, t.Any]:
         @resource_method("/", methods=["PATCH"], name="partial-replace")
         async def partial_replace(
             self,
             worker: FlamaWorker,
-            resources: t.List[types.Schema[rest_schemas.input.schema]],  # type: ignore
-        ) -> t.List[types.Schema[rest_schemas.output.schema]]:  # type: ignore
+            resources: list[types.Schema[rest_schemas.input.schema]],  # type: ignore
+        ) -> list[types.Schema[rest_schemas.output.schema]]:  # type: ignore
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 await repository.drop(
@@ -373,7 +371,7 @@ class PartialReplaceMixin:
 
 class DropMixin:
     @classmethod
-    def _add_drop(cls, name: str, verbose_name: str, **kwargs) -> t.Dict[str, t.Any]:
+    def _add_drop(cls, name: str, verbose_name: str, **kwargs) -> dict[str, t.Any]:
         @resource_method("/", methods=["DELETE"], name="drop")
         async def drop(self, worker: FlamaWorker) -> types.Schema[schemas.schemas.DropCollection]:  # type: ignore
             async with worker:
@@ -415,7 +413,7 @@ class CRUDResourceType(
     METHODS = ("create", "retrieve", "update", "partial_update", "delete", "list", "replace", "partial_replace", "drop")
 
     @staticmethod
-    def _is_abstract(namespace: t.Dict[str, t.Any]) -> bool:
+    def _is_abstract(namespace: dict[str, t.Any]) -> bool:
         return namespace.get("__module__") == "flama.resources.crud" and namespace.get("__qualname__") == "CRUDResource"
 
 

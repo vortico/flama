@@ -25,10 +25,10 @@ class ResourcesModule(Module):
     def add_resource(
         self,
         path: str,
-        resource: t.Union[Resource, t.Type[Resource]],
-        tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None,
+        resource: t.Union[Resource, type[Resource]],
+        tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
         *args,
-        **kwargs
+        **kwargs,
     ) -> "Resource":
         """Adds a resource to this application, setting its endpoints.
 
@@ -47,9 +47,7 @@ class ResourcesModule(Module):
 
         return resource_instance
 
-    def resource(
-        self, path: str, tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None, *args, **kwargs
-    ) -> t.Callable:
+    def resource(self, path: str, tags: t.Optional[dict[str, dict[str, t.Any]]] = None, *args, **kwargs) -> t.Callable:
         """Decorator for Resources classes for adding them to the application.
 
         :param path: Resource base path.
@@ -57,7 +55,7 @@ class ResourcesModule(Module):
         :return: Decorated resource class.
         """
 
-        def decorator(resource: t.Type[Resource]) -> t.Type[Resource]:
+        def decorator(resource: type[Resource]) -> type[Resource]:
             self.add_resource(path, resource, tags, *args, **kwargs)
             return resource
 

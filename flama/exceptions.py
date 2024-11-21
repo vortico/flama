@@ -64,7 +64,7 @@ class HTTPException(starlette.exceptions.HTTPException):
     def __init__(
         self,
         status_code: int,
-        detail: t.Optional[t.Union[str, t.Dict[str, t.Any]]] = None,
+        detail: t.Optional[t.Union[str, dict[str, t.Any]]] = None,
         headers: t.Optional[dict] = None,
     ) -> None:
         if detail is None:
@@ -93,20 +93,20 @@ class HTTPException(starlette.exceptions.HTTPException):
 class ValidationError(HTTPException):
     def __init__(
         self,
-        detail: t.Optional[t.Union[str, t.Dict[str, t.List[str]]]] = None,
+        detail: t.Optional[t.Union[str, dict[str, list[str]]]] = None,
         status_code: int = 400,
     ) -> None:
         super().__init__(status_code, detail=detail)
 
 
 class SerializationError(HTTPException):
-    def __init__(self, detail: t.Union[None, str, t.Dict[str, t.List[str]]] = None, status_code: int = 500) -> None:
+    def __init__(self, detail: t.Union[None, str, dict[str, list[str]]] = None, status_code: int = 500) -> None:
         super().__init__(status_code, detail=detail)
 
 
 class NotFoundException(Exception):
     def __init__(
-        self, path: t.Optional[str] = None, params: t.Optional[t.Dict[str, t.Any]] = None, name: t.Optional[str] = None
+        self, path: t.Optional[str] = None, params: t.Optional[dict[str, t.Any]] = None, name: t.Optional[str] = None
     ) -> None:
         self.path = path
         self.params = params
@@ -124,9 +124,7 @@ class NotFoundException(Exception):
 
 
 class MethodNotAllowedException(Exception):
-    def __init__(
-        self, path: str, method: str, allowed: t.Set[str], params: t.Optional[t.Dict[str, t.Any]] = None
-    ) -> None:
+    def __init__(self, path: str, method: str, allowed: set[str], params: t.Optional[dict[str, t.Any]] = None) -> None:
         self.path = path
         self.params = params
         self.method = method

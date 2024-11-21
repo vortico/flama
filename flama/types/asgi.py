@@ -63,7 +63,7 @@ class MiddlewareClass(AppClass, t.Protocol[P, R]):
 MiddlewareFunction = t.Callable[
     t.Concatenate[App, P], App  # type: ignore # PORT: Remove this comment when stop supporting 3.9
 ]
-Middleware = t.Union[t.Type[MiddlewareClass], MiddlewareFunction]
+Middleware = t.Union[type[MiddlewareClass], MiddlewareFunction]
 
-HTTPHandler = t.Union[t.Callable, t.Type["endpoints.HTTPEndpoint"]]
-WebSocketHandler = t.Union[t.Callable, t.Type["endpoints.WebSocketEndpoint"]]
+HTTPHandler = t.Union[t.Callable, type["endpoints.HTTPEndpoint"]]
+WebSocketHandler = t.Union[t.Callable, type["endpoints.WebSocketEndpoint"]]

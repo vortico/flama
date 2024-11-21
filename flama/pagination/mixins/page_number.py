@@ -25,7 +25,7 @@ class PageNumberResponse(http.APIResponse):
 
     def __init__(
         self,
-        schema: t.Type[types.Schema],
+        schema: type[types.Schema],
         page: t.Optional[t.Union[int, str]] = None,
         page_size: t.Optional[t.Union[int, str]] = None,
         count: t.Optional[bool] = True,
@@ -66,7 +66,7 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
     ]
 
     @classmethod
-    def _decorate_async(cls, func: t.Callable, schema: t.Type[types.Schema]) -> t.Callable:
+    def _decorate_async(cls, func: t.Callable, schema: type[types.Schema]) -> t.Callable:
         @functools.wraps(func)
         async def decorator(
             *args,
@@ -82,7 +82,7 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
         return decorator
 
     @classmethod
-    def _decorate_sync(cls, func: t.Callable, schema: t.Type[types.Schema]) -> t.Callable:
+    def _decorate_sync(cls, func: t.Callable, schema: type[types.Schema]) -> t.Callable:
         @functools.wraps(func)
         def decorator(
             *args,
@@ -120,7 +120,7 @@ class PageNumberMixin:
         try:
             schema_module, schema_class = schema_name.rsplit(".", 1)
             paginated_schema_name = f"{schema_module}.PageNumberPaginated{schema_class}"
-        except ValueError:  # noqa: safety net
+        except ValueError:  # pragma: no cover
             paginated_schema_name = f"PageNumberPaginated{schema_name}"
         schema = schemas.Schema.build(
             paginated_schema_name,

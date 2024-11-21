@@ -35,13 +35,11 @@ class Flama:
     def __init__(
         self,
         routes: t.Optional[t.Sequence[t.Union["BaseRoute", "Mount"]]] = None,
-        components: t.Optional[t.Union[t.Sequence[injection.Component], t.Set[injection.Component]]] = None,
-        modules: t.Optional[t.Union[t.Sequence["Module"], t.Set["Module"]]] = None,
+        components: t.Optional[t.Union[t.Sequence[injection.Component], set[injection.Component]]] = None,
+        modules: t.Optional[t.Union[t.Sequence["Module"], set["Module"]]] = None,
         middleware: t.Optional[t.Sequence["Middleware"]] = None,
         debug: bool = False,
-        events: t.Optional[
-            t.Union[t.Dict[str, t.List[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]]], Events]
-        ] = None,
+        events: t.Optional[t.Union[dict[str, list[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]]], Events]] = None,
         lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None,
         title: str = "Flama",
         version: str = "0.1.0",
@@ -185,7 +183,7 @@ class Flama:
         self.router.build(self)
 
     @property
-    def routes(self) -> t.List["BaseRoute"]:
+    def routes(self) -> list["BaseRoute"]:
         """List of registered routes.
 
         :return: Routes.
@@ -196,12 +194,12 @@ class Flama:
         self,
         path: t.Optional[str] = None,
         endpoint: t.Optional[types.HTTPHandler] = None,
-        methods: t.Optional[t.List[str]] = None,
+        methods: t.Optional[list[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         route: t.Optional["Route"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ) -> "Route":
         """Register a new HTTP route or endpoint under given path.
 
@@ -229,11 +227,11 @@ class Flama:
     def route(
         self,
         path: str,
-        methods: t.Optional[t.List[str]] = None,
+        methods: t.Optional[list[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -262,7 +260,7 @@ class Flama:
         name: t.Optional[str] = None,
         route: t.Optional["WebSocketRoute"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ) -> "WebSocketRoute":
         """Register a new websocket route or endpoint under given path.
 
@@ -282,7 +280,7 @@ class Flama:
         path: str,
         name: t.Optional[str] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
@@ -300,7 +298,7 @@ class Flama:
         app: t.Optional[types.App] = None,
         name: t.Optional[str] = None,
         mount: t.Optional["Mount"] = None,
-        tags: t.Optional[t.Dict[str, t.Any]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ) -> "Mount":
         """Register a new mount point containing an ASGI app in this router under given path.
 
@@ -345,7 +343,7 @@ class Flama:
 
         return decorator
 
-    def add_exception_handler(self, exc_class_or_status_code: t.Union[int, t.Type[Exception]], handler: t.Callable):
+    def add_exception_handler(self, exc_class_or_status_code: t.Union[int, type[Exception]], handler: t.Callable):
         """Add a new exception handler for given status code or exception class.
 
         :param exc_class_or_status_code: Status code or exception class.
@@ -369,7 +367,7 @@ class Flama:
         """
         return self.router.resolve_url(name, **path_params)
 
-    def resolve_route(self, scope: types.Scope) -> t.Tuple[BaseRoute, types.Scope]:
+    def resolve_route(self, scope: types.Scope) -> tuple[BaseRoute, types.Scope]:
         """Look for a route that matches given ASGI scope.
 
         :param scope: ASGI scope.

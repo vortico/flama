@@ -45,10 +45,10 @@ class TestCaseField:
                 id="nullable",
             ),
             pytest.param(
-                {"name": "foo", "type": t.List[int]},
+                {"name": "foo", "type": list[int]},
                 {
                     "name": "foo",
-                    "type": t.List[int],
+                    "type": list[int],
                     "nullable": False,
                     "multiple": True,
                     "required": True,
@@ -89,7 +89,7 @@ class TestCaseField:
             pytest.param(types.QueryParam, True, id="query_param"),
             pytest.param(types.PathParam, True, id="path_param"),
             pytest.param(t.Optional[int], True, id="nullable"),
-            pytest.param(t.List[int], True, id="list"),
+            pytest.param(list[int], True, id="list"),
             pytest.param(Mock, False, id="not_valid"),
         ),
     )
@@ -115,7 +115,7 @@ class TestCaseSchema:
         elif request.param == "schema":
             return types.Schema[foo_schema.schema]
         elif request.param == "list_of_schema":
-            return t.List[types.Schema[foo_schema.schema]] if inspect.isclass(foo_schema.schema) else foo_schema.schema
+            return list[types.Schema[foo_schema.schema]] if inspect.isclass(foo_schema.schema) else foo_schema.schema
         elif request.param == "schema_partial":
             if app.schema.schema_library.lib in (typesystem,):
                 pytest.skip("Library does not support optional partial schemas")

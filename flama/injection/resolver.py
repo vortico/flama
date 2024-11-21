@@ -53,19 +53,19 @@ class ResolutionNode(abc.ABC):
 
     name: str
     parameter: Parameter
-    nodes: t.List["ResolutionNode"]
+    nodes: list["ResolutionNode"]
 
     @abc.abstractmethod
-    async def value(self, context: t.Dict[str, t.Any]) -> t.Any:
+    async def value(self, context: dict[str, t.Any]) -> t.Any:
         ...
 
-    def components(self) -> t.List[t.Tuple[str, "Component"]]:
+    def components(self) -> list[tuple[str, "Component"]]:
         return []
 
-    def parameters(self) -> t.List[Parameter]:
+    def parameters(self) -> list[Parameter]:
         return []
 
-    def context(self) -> t.List[t.Tuple[str, Parameter]]:
+    def context(self) -> list[tuple[str, Parameter]]:
         return []
 
 
@@ -75,18 +75,18 @@ class ComponentNode(ResolutionNode):
 
     component: "Component"
 
-    async def value(self, context: t.Dict[str, t.Any]) -> t.Any:
+    async def value(self, context: dict[str, t.Any]) -> t.Any:
         kwargs = {node.name: await node.value(context) for node in self.nodes}
 
         return await self.component(**kwargs)
 
-    def components(self) -> t.List[t.Tuple[str, "Component"]]:
+    def components(self) -> list[tuple[str, "Component"]]:
         return [(self.name, self.component), *[x for node in self.nodes for x in node.components()]]
 
-    def context(self) -> t.List[t.Tuple[str, Parameter]]:
+    def context(self) -> list[tuple[str, Parameter]]:
         return [x for node in self.nodes for x in node.context()]
 
-    def parameters(self) -> t.List[Parameter]:
+    def parameters(self) -> list[Parameter]:
         return [x for node in self.nodes for x in node.parameters()]
 
 
@@ -94,10 +94,10 @@ class ComponentNode(ResolutionNode):
 class ContextNode(ResolutionNode):
     """A node that represents a parameter that is resolved by context."""
 
-    async def value(self, context: t.Dict[str, t.Any]) -> t.Any:
+    async def value(self, context: dict[str, t.Any]) -> t.Any:
         return context[self.parameter.name]
 
-    def context(self) -> t.List[t.Tuple[str, Parameter]]:
+    def context(self) -> list[tuple[str, Parameter]]:
         return [(self.name, self.parameter)]
 
 
@@ -105,10 +105,10 @@ class ContextNode(ResolutionNode):
 class ParameterNode(ResolutionNode):
     """A node that represents a parameter that is resolved by another parameter."""
 
-    async def value(self, context: t.Dict[str, t.Any]) -> t.Any:
+    async def value(self, context: dict[str, t.Any]) -> t.Any:
         return self.parameter
 
-    def parameters(self) -> t.List[Parameter]:
+    def parameters(self) -> list[Parameter]:
         return [self.parameter]
 
 
@@ -117,9 +117,9 @@ class ResolutionTree:
     """Dependencies tree."""
 
     root: ResolutionNode
-    context: t.List[t.Tuple[str, Parameter]] = dataclasses.field(init=False)
-    parameters: t.List[Parameter] = dataclasses.field(init=False)
-    components: t.List[t.Tuple[str, "Component"]] = dataclasses.field(init=False)
+    context: list[tuple[str, Parameter]] = dataclasses.field(init=False)
+    parameters: list[Parameter] = dataclasses.field(init=False)
+    components: list[tuple[str, "Component"]] = dataclasses.field(init=False)
 
     def __post_init__(self):
         object.__setattr__(self, "context", self.root.context())
@@ -127,16 +127,14 @@ class ResolutionTree:
         object.__setattr__(self, "components", self.root.components())
 
     @classmethod
-    def build(
-        cls, parameter: Parameter, context_types: t.Dict[t.Any, str], components: "Components"
-    ) -> "ResolutionTree":
+    def build(cls, parameter: Parameter, context_types: dict[t.Any, str], components: "Components") -> "ResolutionTree":
         return cls(root=cls._build_node(parameter, context_types, components))
 
     @classmethod
     def _build_node(
         cls,
         parameter: Parameter,
-        context_types: t.Dict[t.Any, str],
+        context_types: dict[t.Any, str],
         components: "Components",
         parent: t.Optional[Parameter] = None,
     ) -> ResolutionNode:
@@ -177,9 +175,9 @@ class ResolutionTree:
                 if e.component is None:
                     raise ComponentNotFound(e.parameter, component=component) from None
 
-                raise  # noqa: safety net
+                raise  # pragma: no cover
 
-    async def value(self, context: t.Dict[str, t.Any]) -> t.Any:
+    async def value(self, context: dict[str, t.Any]) -> t.Any:
         return await self.root.value(context)
 
 
@@ -217,7 +215,7 @@ class ResolutionCache(t.Mapping[int, ResolutionTree]):
 class Resolver:
     """Provides a way to inspect a parameter and build it dependencies tree."""
 
-    def __init__(self, context_types: t.Dict[str, t.Type], components: "Components"):
+    def __init__(self, context_types: dict[str, type], components: "Components"):
         """Initialize a new resolver.
 
         The context types are used to determine if a parameter is a context value or not. The components registry will

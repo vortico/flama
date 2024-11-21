@@ -29,7 +29,7 @@ class JWS:
     }
 
     @classmethod
-    def _get_algorithm(cls, header: t.Dict[str, t.Any]) -> "SignAlgorithm":
+    def _get_algorithm(cls, header: dict[str, t.Any]) -> "SignAlgorithm":
         """Get the algorithm to sign the token.
 
         It gets the algorithm from the header, and it returns the corresponding algorithm implementation.
@@ -46,7 +46,7 @@ class JWS:
         return cls.ALGORITHMS[header["alg"]]
 
     @classmethod
-    def encode(cls, header: t.Dict[str, t.Any], payload: t.Dict[str, t.Any], key: bytes) -> bytes:
+    def encode(cls, header: dict[str, t.Any], payload: dict[str, t.Any], key: bytes) -> bytes:
         """Encode a JWS token.
 
         It generates a signed token using the given key. The result is a JWT token with a format of:
@@ -67,7 +67,7 @@ class JWS:
         return b".".join([header_segment, payload_segment, signature])
 
     @classmethod
-    def decode(cls, token: bytes, key: bytes) -> t.Tuple[t.Dict[str, t.Any], t.Dict[str, t.Any], bytes]:
+    def decode(cls, token: bytes, key: bytes) -> tuple[dict[str, t.Any], dict[str, t.Any], bytes]:
         """Decode a JWS token.
 
         It decode and validate the signature of the token. The token format must be: <header>.<payload>.<signature>
