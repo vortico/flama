@@ -15,7 +15,7 @@ except Exception:  # pragma: no cover
 
 __all__ = ["RESTResource", "RESTResourceType"]
 
-PK_MAPPING: t.Dict[t.Any, t.Any] = {
+PK_MAPPING: dict[t.Any, t.Any] = {
     sqlalchemy.Integer: int,
     sqlalchemy.String: str,
     sqlalchemy.Date: datetime.date,
@@ -25,7 +25,7 @@ PK_MAPPING: t.Dict[t.Any, t.Any] = {
 
 
 class RESTResourceType(ResourceType):
-    def __new__(mcs, name: str, bases: t.Tuple[type], namespace: t.Dict[str, t.Any]):
+    def __new__(mcs, name: str, bases: tuple[type], namespace: dict[str, t.Any]):
         """Resource metaclass for defining basic behavior for REST resources:
         * Create _meta attribute containing some metadata (model, schemas...).
         * Adds methods related to REST resource (create, retrieve, update, delete...) listed in METHODS class attribute.
@@ -58,11 +58,11 @@ class RESTResourceType(ResourceType):
         return super().__new__(mcs, name, bases, namespace)
 
     @staticmethod
-    def _is_abstract(namespace: t.Dict[str, t.Any]) -> bool:
+    def _is_abstract(namespace: dict[str, t.Any]) -> bool:
         return namespace.get("__module__") == "flama.resources.rest" and namespace.get("__qualname__") == "RESTResource"
 
     @classmethod
-    def _get_model(cls, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]) -> data_structures.Model:
+    def _get_model(cls, bases: t.Sequence[t.Any], namespace: dict[str, t.Any]) -> data_structures.Model:
         """Look for the resource model and checks if a primary key is defined with a valid type.
 
         :param bases: List of superclasses.
@@ -100,9 +100,7 @@ class RESTResourceType(ResourceType):
         raise AttributeError(ResourceAttributeError.MODEL_INVALID)
 
     @classmethod
-    def _get_schemas(
-        cls, name: str, bases: t.Sequence[t.Any], namespace: t.Dict[str, t.Any]
-    ) -> data_structures.Schemas:
+    def _get_schemas(cls, name: str, bases: t.Sequence[t.Any], namespace: dict[str, t.Any]) -> data_structures.Schemas:
         """Look for the resource schema or the pair of input and output schemas.
 
         :param name: Class name.

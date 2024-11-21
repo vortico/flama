@@ -8,7 +8,7 @@ __all__ = ["ContentTypeNegotiator", "WebSocketEncodingNegotiator"]
 
 
 class ContentTypeNegotiator:
-    def __init__(self, codecs: t.Optional[t.List[HTTPCodec]] = None):
+    def __init__(self, codecs: t.Optional[list[HTTPCodec]] = None):
         self.codecs = codecs or []
 
     def negotiate(self, content_type: t.Optional[str] = None) -> HTTPCodec:
@@ -30,7 +30,7 @@ class ContentTypeNegotiator:
 
 
 class WebSocketEncodingNegotiator:
-    def __init__(self, codecs: t.Optional[t.List[WebsocketsCodec]] = None):
+    def __init__(self, codecs: t.Optional[list[WebsocketsCodec]] = None):
         self.codecs = codecs or [BytesCodec()]
 
     def negotiate(self, encoding: t.Optional[str] = None) -> WebsocketsCodec:

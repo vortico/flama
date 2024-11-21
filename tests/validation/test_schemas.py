@@ -139,7 +139,7 @@ class TestCaseSchemaValidation:
             return place
 
         @app.route("/many-products", methods=["GET"])
-        def many_products(products: t.List[types.Schema[product_schema]]) -> types.Schema[product_schema]:
+        def many_products(products: list[types.Schema[product_schema]]) -> types.Schema[product_schema]:
             return products
 
         @app.route("/partial-product", methods=["GET"])

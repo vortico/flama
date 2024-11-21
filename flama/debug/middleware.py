@@ -100,10 +100,10 @@ class ExceptionMiddleware(BaseErrorMiddleware):
     def __init__(self, app: types.App, handlers: t.Optional[t.Mapping[t.Any, "Handler"]] = None, debug: bool = False):
         super().__init__(app, debug)
         handlers = handlers or {}
-        self._status_handlers: t.Dict[int, "Handler"] = {
+        self._status_handlers: dict[int, "Handler"] = {
             status_code: handler for status_code, handler in handlers.items() if isinstance(status_code, int)
         }
-        self._exception_handlers: t.Dict[t.Type[Exception], "Handler"] = {
+        self._exception_handlers: dict[type[Exception], "Handler"] = {
             **{e: handler for e, handler in handlers.items() if inspect.isclass(e) and issubclass(e, Exception)},
             exceptions.NotFoundException: self.not_found_handler,
             exceptions.MethodNotAllowedException: self.method_not_allowed_handler,
@@ -115,7 +115,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         self,
         handler: "Handler",
         status_code: t.Optional[int] = None,
-        exc_class: t.Optional[t.Type[Exception]] = None,
+        exc_class: t.Optional[type[Exception]] = None,
     ) -> None:
         if status_code is None and exc_class is None:
             raise ValueError("Status code or exception class must be defined")

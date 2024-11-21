@@ -37,9 +37,9 @@ class Schemas:
 class Metadata:
     name: str = dataclasses.field(init=False)
     verbose_name: str = dataclasses.field(init=False)
-    namespaces: t.Dict[str, t.Dict[str, t.Any]] = dataclasses.field(default_factory=dict)
+    namespaces: dict[str, dict[str, t.Any]] = dataclasses.field(default_factory=dict)
 
-    def to_plain_dict(self) -> t.Dict[str, t.Any]:
+    def to_plain_dict(self) -> dict[str, t.Any]:
         return {
             "name": self.name,
             "verbose_name": self.verbose_name,
@@ -50,6 +50,6 @@ class Metadata:
 @dataclasses.dataclass
 class MethodMetadata:
     path: str
-    methods: t.Set[str] = dataclasses.field(default_factory=lambda: {"GET"})
+    methods: set[str] = dataclasses.field(default_factory=lambda: {"GET"})
     name: t.Optional[str] = None
-    tags: t.Dict[str, t.Any] = dataclasses.field(default_factory=dict)
+    tags: dict[str, t.Any] = dataclasses.field(default_factory=dict)

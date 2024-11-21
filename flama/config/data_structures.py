@@ -9,7 +9,7 @@ __all__ = ["FileDict"]
 class FileDict(t.Mapping[str, t.Any]):
     """A dictionary that loads its data from a file. Supports json, toml, yaml and ini files."""
 
-    _LOADERS: t.Dict[types.FileFormat, loaders.FileLoader] = {
+    _LOADERS: dict[types.FileFormat, loaders.FileLoader] = {
         types.FileFormat.json: loaders.JSONFileLoader(),
         types.FileFormat.toml: loaders.TOMLFileLoader(),
         types.FileFormat.yaml: loaders.YAMLFileLoader(),

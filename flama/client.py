@@ -69,7 +69,7 @@ class LifespanContextManager:
 
     async def __aexit__(
         self,
-        exc_type: t.Optional[t.Type[BaseException]] = None,
+        exc_type: t.Optional[type[BaseException]] = None,
         exc_value: t.Optional[BaseException] = None,
         traceback: t.Optional[TracebackType] = None,
     ):
@@ -104,10 +104,10 @@ class Client(httpx.AsyncClient):
         self,
         /,
         app: t.Optional["Flama"] = None,
-        models: t.Optional[t.Sequence[t.Tuple[str, str, str]]] = None,
+        models: t.Optional[t.Sequence[tuple[str, str, str]]] = None,
         **kwargs,
     ):
-        self.models: t.Optional[t.Dict[str, str]] = None
+        self.models: t.Optional[dict[str, str]] = None
 
         if models:
             app = Flama() if not app else app
@@ -134,7 +134,7 @@ class Client(httpx.AsyncClient):
 
     async def __aexit__(
         self,
-        exc_type: t.Optional[t.Type[BaseException]] = None,
+        exc_type: t.Optional[type[BaseException]] = None,
         exc_value: t.Optional[BaseException] = None,
         traceback: t.Optional[TracebackType] = None,
     ):

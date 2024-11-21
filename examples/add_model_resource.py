@@ -17,11 +17,11 @@ app = Flama(
 
 
 class X(BaseModel):
-    input: typing.List[typing.Any] = Field(title="input", description="Model input")
+    input: list[typing.Any] = Field(title="input", description="Model input")
 
 
 class Y(BaseModel):
-    output: typing.List[typing.Any] = Field(title="output", description="Model output")
+    output: list[typing.Any] = Field(title="output", description="Model output")
 
 
 app.schema.register_schema("X", X)

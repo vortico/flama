@@ -24,7 +24,7 @@ class FileLoader(abc.ABC):
     """Common interface for loading a file."""
 
     @abc.abstractmethod
-    def load(self, f: t.Union[str, os.PathLike]) -> t.Dict[str, t.Any]:
+    def load(self, f: t.Union[str, os.PathLike]) -> dict[str, t.Any]:
         """Loads a file into a dict.
 
         :param f: File path.
@@ -36,7 +36,7 @@ class FileLoader(abc.ABC):
 class ConfigFileLoader(FileLoader):
     """Loads an ini formatted file into a dict."""
 
-    def load(self, f: t.Union[str, os.PathLike]) -> t.Dict[str, t.Any]:
+    def load(self, f: t.Union[str, os.PathLike]) -> dict[str, t.Any]:
         """Loads a file into a dict.
 
         :param f: File path.
@@ -56,7 +56,7 @@ class ConfigFileLoader(FileLoader):
 class JSONFileLoader(FileLoader):
     """Loads a json formatted file into a dict."""
 
-    def load(self, f: t.Union[str, os.PathLike]) -> t.Dict[str, t.Any]:
+    def load(self, f: t.Union[str, os.PathLike]) -> dict[str, t.Any]:
         """Loads a file into a dict.
 
         :param f: File path.
@@ -69,7 +69,7 @@ class JSONFileLoader(FileLoader):
 class YAMLFileLoader(FileLoader):
     """Loads a yaml formatted file into a dict."""
 
-    def load(self, f: t.Union[str, os.PathLike]) -> t.Dict[str, t.Any]:
+    def load(self, f: t.Union[str, os.PathLike]) -> dict[str, t.Any]:
         """Loads a file into a dict.
 
         :param f: File path.
@@ -82,7 +82,7 @@ class YAMLFileLoader(FileLoader):
 class TOMLFileLoader(FileLoader):
     """Loads a toml formatted file into a dict."""
 
-    def load(self, f: t.Union[str, os.PathLike]) -> t.Dict[str, t.Any]:
+    def load(self, f: t.Union[str, os.PathLike]) -> dict[str, t.Any]:
         """Loads a file into a dict.
 
         :param f: File path.

@@ -37,7 +37,7 @@ class Header:
     alg: t.Optional[str] = None
     cty: t.Optional[str] = None
 
-    def asdict(self) -> t.Dict[str, t.Any]:
+    def asdict(self) -> dict[str, t.Any]:
         """Return the header as a dictionary.
 
         The fields are sorted alphabetically and the None values are removed.
@@ -62,7 +62,7 @@ class Payload:
     standard and it is not validated when the token is decoded.
     """
 
-    data: t.Dict[str, t.Any]
+    data: dict[str, t.Any]
     iss: t.Optional[str] = None
     sub: t.Optional[str] = None
     aud: t.Optional[str] = None
@@ -73,7 +73,7 @@ class Payload:
 
     def __init__(
         self,
-        data: t.Optional[t.Dict[str, t.Any]] = None,
+        data: t.Optional[dict[str, t.Any]] = None,
         iss: t.Optional[str] = None,
         sub: t.Optional[str] = None,
         aud: t.Optional[str] = None,
@@ -113,7 +113,7 @@ class Payload:
         object.__setattr__(self, "jti", jti)
         object.__setattr__(self, "data", {**(data or {}), **kwargs})
 
-    def asdict(self) -> t.Dict[str, t.Any]:
+    def asdict(self) -> dict[str, t.Any]:
         """Return the payload as a dictionary.
 
         The fields are sorted alphabetically and the None values are removed.
@@ -138,7 +138,7 @@ class JWT:
     header: Header
     payload: Payload
 
-    def __init__(self, header: t.Dict[str, t.Any], payload: t.Dict[str, t.Any]) -> None:
+    def __init__(self, header: dict[str, t.Any], payload: dict[str, t.Any]) -> None:
         object.__setattr__(self, "header", Header(**header))
         object.__setattr__(self, "payload", Payload(**payload))
 
@@ -188,7 +188,7 @@ class JWT:
 
         return decoded_token
 
-    def validate(self, validators: t.Optional[t.List[claims.ClaimValidator]] = None, **claims: t.Any) -> None:
+    def validate(self, validators: t.Optional[list[claims.ClaimValidator]] = None, **claims: t.Any) -> None:
         """Validate the token claims.
 
         It validates all the default claims in the payload in the following order:
@@ -220,7 +220,7 @@ class JWT:
         if invalid_claims:
             raise exceptions.JWTValidateException(f"Invalid claims ({', '.join(invalid_claims)})")
 
-    def asdict(self) -> t.Dict[str, t.Any]:
+    def asdict(self) -> dict[str, t.Any]:
         """Return the JWT as a dictionary.
 
         :return: JWT as a dictionary.

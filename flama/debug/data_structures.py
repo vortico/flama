@@ -12,8 +12,8 @@ if t.TYPE_CHECKING:
 
 @dataclasses.dataclass(frozen=True)
 class RequestParams:
-    path: t.Dict[str, t.Any]
-    query: t.Dict[str, t.Any]
+    path: dict[str, t.Any]
+    query: dict[str, t.Any]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -27,8 +27,8 @@ class Request:
     path: str
     method: str
     params: RequestParams
-    headers: t.Dict[str, str]
-    cookies: t.Dict[str, str]
+    headers: dict[str, str]
+    cookies: dict[str, str]
     client: t.Optional[RequestClient] = None
 
     @classmethod
@@ -84,7 +84,7 @@ class Frame:
 class Error:
     error: str
     description: str
-    traceback: t.List[Frame]
+    traceback: list[Frame]
 
     @classmethod
     def from_exception(cls, exc: Exception, context: int = 10) -> "Error":
@@ -102,7 +102,7 @@ class Environment:
     platform: str
     python: str
     python_version: str
-    path: t.List[str]
+    path: list[str]
 
     @classmethod
     def from_system(cls) -> "Environment":
@@ -144,13 +144,13 @@ class Endpoint:
 
 @dataclasses.dataclass(frozen=True)
 class App:
-    urls: t.List[t.Union[Endpoint, "App"]]
+    urls: list[t.Union[Endpoint, "App"]]
     path: str
     name: t.Optional[str] = None
 
     @classmethod
     def from_app(cls, app: t.Any, path: str = "/", name: t.Optional[str] = None) -> "App":
-        urls: t.List[t.Union[Endpoint, "App"]] = []
+        urls: list[t.Union[Endpoint, "App"]] = []
         for route in app.routes:
             try:
                 urls.append(App.from_app(route.app, path=route.path.path, name=route.name))

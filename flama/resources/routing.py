@@ -17,8 +17,8 @@ class ResourceRoute(Mount):
     def __init__(
         self,
         path: str,
-        resource: t.Union["Resource", t.Type["Resource"]],
-        tags: t.Optional[t.Dict[str, t.Dict[str, t.Any]]] = None,
+        resource: t.Union["Resource", type["Resource"]],
+        tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
     ):
         tags = tags or {}
 
@@ -65,7 +65,7 @@ def resource_method(
     name: t.Optional[str] = None,
     *,
     pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
-    tags: t.Optional[t.Dict[str, t.Any]] = None,
+    tags: t.Optional[dict[str, t.Any]] = None,
 ) -> t.Callable:
     """Decorator for adding useful info needed for generating resource routes.
 

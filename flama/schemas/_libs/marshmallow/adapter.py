@@ -31,7 +31,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
     def build_field(
         self,
         name: str,
-        type_: t.Type,
+        type_: type,
         nullable: bool = False,
         required: bool = True,
         default: t.Any = None,
@@ -59,10 +59,10 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         self,
         *,
         name: t.Optional[str] = None,
-        schema: t.Optional[t.Union[Schema, t.Type[Schema]]] = None,
-        fields: t.Optional[t.Dict[str, Field]] = None,
+        schema: t.Optional[t.Union[Schema, type[Schema]]] = None,
+        fields: t.Optional[dict[str, Field]] = None,
         partial: bool = False,
-    ) -> t.Type[Schema]:
+    ) -> type[Schema]:
         fields_ = {**(self.unique_schema(schema)().fields if schema else {}), **(fields or {})}
 
         if partial:
@@ -73,22 +73,22 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         return Schema.from_dict(fields=fields_, name=name or self.DEFAULT_SCHEMA_NAME)  # type: ignore
 
     def validate(
-        self, schema: t.Union[t.Type[Schema], Schema], values: t.Dict[str, t.Any], *, partial: bool = False
-    ) -> t.Dict[str, t.Any]:
+        self, schema: t.Union[type[Schema], Schema], values: dict[str, t.Any], *, partial: bool = False
+    ) -> dict[str, t.Any]:
         try:
             return t.cast(
-                t.Dict[str, t.Any],
+                dict[str, t.Any],
                 self._schema_instance(schema).load(values, unknown=marshmallow.EXCLUDE, partial=partial),
             )
         except marshmallow.ValidationError as exc:
             raise SchemaValidationError(errors=exc.normalized_messages())
 
-    def load(self, schema: t.Union[t.Type[Schema], Schema], value: t.Dict[str, t.Any]) -> Schema:
+    def load(self, schema: t.Union[type[Schema], Schema], value: dict[str, t.Any]) -> Schema:
         return t.cast(Schema, self._schema_instance(schema).load(value))
 
-    def dump(self, schema: t.Union[t.Type[Schema], Schema], value: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    def dump(self, schema: t.Union[type[Schema], Schema], value: dict[str, t.Any]) -> dict[str, t.Any]:
         try:
-            dump_value = t.cast(t.Dict[str, t.Any], self._schema_instance(schema).dump(value))
+            dump_value = t.cast(dict[str, t.Any], self._schema_instance(schema).dump(value))
         except Exception as exc:
             raise SchemaValidationError(errors=str(exc))
 
@@ -96,13 +96,13 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
         return dump_value
 
-    def name(self, schema: t.Union[Schema, t.Type[Schema]], *, prefix: t.Optional[str] = None) -> str:
+    def name(self, schema: t.Union[Schema, type[Schema]], *, prefix: t.Optional[str] = None) -> str:
         s = self.unique_schema(schema)
         schema_name = f"{prefix or ''}{s.__qualname__}"
         return schema_name if s.__module__ == "builtins" else f"{s.__module__}.{schema_name}"
 
-    def to_json_schema(self, schema: t.Union[t.Type[Schema], t.Type[Field], Schema, Field]) -> JSONSchema:
-        json_schema: t.Dict[str, t.Any]
+    def to_json_schema(self, schema: t.Union[type[Schema], type[Field], Schema, Field]) -> JSONSchema:
+        json_schema: dict[str, t.Any]
         try:
             plugin = MarshmallowPlugin(schema_name_resolver=lambda x: t.cast(type, resolve_schema_cls(x)).__name__)
             APISpec("", "", "3.1.0", [plugin])
@@ -133,7 +133,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
         return json_schema
 
-    def unique_schema(self, schema: t.Union[Schema, t.Type[Schema]]) -> t.Type[Schema]:
+    def unique_schema(self, schema: t.Union[Schema, type[Schema]]) -> type[Schema]:
         if isinstance(schema, Schema):
             return schema.__class__
 
@@ -155,19 +155,19 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
             return None
 
     def schema_fields(
-        self, schema: t.Union[Schema, t.Type[Schema]]
-    ) -> t.Dict[str, t.Tuple[t.Union[None, t.Type, Schema], Field]]:
+        self, schema: t.Union[Schema, type[Schema]]
+    ) -> dict[str, tuple[t.Union[None, type, Schema], Field]]:
         return {
             name: (self._get_field_type(field), field) for name, field in self._schema_instance(schema).fields.items()
         }
 
-    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[Schema, t.Type[Schema]]]:  # type: ignore
+    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[Schema, type[Schema]]]:  # type: ignore
         return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
-    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[Field, t.Type[Field]]]:  # type: ignore
+    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[Field, type[Field]]]:  # type: ignore
         return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))
 
-    def _schema_instance(self, schema: t.Union[t.Type[Schema], Schema]) -> Schema:
+    def _schema_instance(self, schema: t.Union[type[Schema], Schema]) -> Schema:
         if inspect.isclass(schema) and issubclass(schema, Schema):
             return schema()
         elif isinstance(schema, Schema):

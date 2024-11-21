@@ -1,5 +1,4 @@
 import string
-import typing
 
 from pydantic import BaseModel, validator
 
@@ -66,7 +65,7 @@ def alphabet(**kwargs):
 
 @app.route("/puppy/", methods=["GET"])
 @app.paginator.page_number
-def puppies(name: str = None, **kwargs) -> typing.List[Puppy]:
+def puppies(name: str = None, **kwargs) -> list[Puppy]:
     """
     tags:
         - puppy

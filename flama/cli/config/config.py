@@ -19,12 +19,12 @@ class Config:
     server: Uvicorn = dataclasses.field(default_factory=Uvicorn)
 
     @classmethod
-    def from_dict(cls, data: t.Dict[str, t.Any]) -> "Config":
+    def from_dict(cls, data: dict[str, t.Any]) -> "Config":
         return cls(
             **{**data, "app": App.build(data["app"]), "server": Uvicorn(**data["server"])}  # type: ignore[arg-type]
         )
 
-    def to_dict(self) -> t.Dict[str, t.Any]:
+    def to_dict(self) -> dict[str, t.Any]:
         return dataclasses.asdict(self)
 
     @classmethod
@@ -42,7 +42,7 @@ class Config:
         fs.write(self.dumps())
 
     @classmethod
-    def dump_example(cls, type: str) -> t.Dict[str, t.Any]:
+    def dump_example(cls, type: str) -> dict[str, t.Any]:
         result = cls().to_dict()
         if type == "simple":
             result["server"] = {k: v for k, v in result["server"] if k in ("host", "port")}

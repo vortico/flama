@@ -22,7 +22,7 @@ __all__ = [
 class ClaimValidator(abc.ABC):
     claim: t.ClassVar[str]
 
-    def __init__(self, payload: "Payload", claims: t.Dict[str, t.Any]) -> None:
+    def __init__(self, payload: "Payload", claims: dict[str, t.Any]) -> None:
         self.value = claims.get(self.claim)
         self.payload = payload
 
