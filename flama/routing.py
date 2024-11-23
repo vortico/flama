@@ -177,7 +177,7 @@ class EndpointWrapper:
         :param response: The current response.
         :return: An API response.
         """
-        if isinstance(response, (types.Schema, dict, list)):
+        if isinstance(response, (dict, list)):
             try:
                 schema = schemas.Schema.from_type(inspect.signature(handler).return_annotation).unique_schema
             except Exception:

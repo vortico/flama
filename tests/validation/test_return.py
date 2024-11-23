@@ -1,10 +1,12 @@
+import typing as t
+
 import marshmallow
 import pydantic
 import pytest
 import typesystem
 import typesystem.fields
 
-from flama import endpoints, http, types
+from flama import endpoints, http, schemas, types
 
 
 class TestCaseReturnValidation:
@@ -59,17 +61,17 @@ class TestCaseReturnValidation:
 
             @app.route("/return-schema/", methods=["GET"])
             class ReturnSchemaHTTPEndpoint(endpoints.HTTPEndpoint):
-                async def get(self) -> types.Schema[output_schema]:
+                async def get(self) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(output_schema)]:
                     return {"name": "Canna"}
 
             @app.route("/return-schema-many/", methods=["GET"])
             class ReturnSchemaManyHTTPEndpoint(endpoints.HTTPEndpoint):
-                async def get(self) -> types.Schema[output_schema]:
+                async def get(self) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(output_schema)]:
                     return [{"name": "Canna"}, {"name": "Sandy"}]
 
             @app.route("/return-schema-empty/", methods=["GET"])
             class ReturnSchemaEmptyHTTPEndpoint(endpoints.HTTPEndpoint):
-                async def get(self) -> types.Schema[output_schema]:
+                async def get(self) -> None:
                     return None
 
         else:
@@ -98,15 +100,17 @@ class TestCaseReturnValidation:
                 return {"dummy": Dummy()}
 
             @app.route("/return-schema/", methods=["GET"])
-            async def return_schema() -> types.Schema[output_schema]:
+            async def return_schema() -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(output_schema)]:
                 return {"name": "Canna"}
 
             @app.route("/return-schema-many/", methods=["GET"])
-            async def return_schema_many() -> types.Schema[output_schema]:
+            async def return_schema_many() -> t.Annotated[
+                list[schemas.SchemaType], schemas.SchemaMetadata(output_schema)
+            ]:
                 return [{"name": "Canna"}, {"name": "Sandy"}]
 
             @app.route("/return-schema-empty/", methods=["GET"])
-            async def return_schema_empty() -> types.Schema[output_schema]:
+            async def return_schema_empty() -> None:
                 return None
 
     @pytest.mark.parametrize(

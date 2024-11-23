@@ -1,3 +1,4 @@
+import typing as t
 import warnings
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
 
@@ -8,7 +9,7 @@ import starlette.websockets
 import typesystem
 import typesystem.fields
 
-from flama import Component, Flama, exceptions, types, websockets
+from flama import Component, Flama, exceptions, schemas, types, websockets
 from flama.endpoints import HTTPEndpoint, WebSocketEndpoint
 
 
@@ -56,11 +57,13 @@ class TestCaseHTTPEndpoint:
     def puppy_endpoint(self, app, puppy_schema):
         @app.route("/puppy/")
         class PuppyEndpoint(HTTPEndpoint):
-            def get(self, puppy: Puppy) -> types.Schema[puppy_schema]:
-                return types.Schema({"name": puppy.name})
+            def get(self, puppy: Puppy) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(puppy_schema)]:
+                return {"name": puppy.name}
 
-            async def post(self, puppy: types.Schema[puppy_schema]) -> types.Schema[puppy_schema]:
-                return types.Schema(puppy)
+            async def post(
+                self, puppy: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(puppy_schema)]
+            ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(puppy_schema)]:
+                return puppy
 
         return PuppyEndpoint
 
