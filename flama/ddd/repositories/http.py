@@ -5,7 +5,6 @@ import uuid
 
 import httpx
 
-from flama import types
 from flama.ddd import exceptions
 from flama.ddd.repositories import AbstractRepository
 
@@ -34,7 +33,7 @@ class HTTPResourceManager:
             isinstance(other, HTTPResourceManager) and self._client == other._client and self.resource == other.resource
         )
 
-    async def create(self, data: t.Union[dict[str, t.Any], types.Schema]) -> types.Schema:
+    async def create(self, data: dict[str, t.Any]) -> dict[str, t.Any]:
         """Create a new element in the collection.
 
         :param data: The data to create the element.
@@ -49,9 +48,9 @@ class HTTPResourceManager:
                 raise exceptions.IntegrityError()
             raise
 
-        return types.Schema(response.json())
+        return response.json()
 
-    async def retrieve(self, id: t.Union[str, uuid.UUID]) -> types.Schema:
+    async def retrieve(self, id: t.Union[str, uuid.UUID]) -> dict[str, t.Any]:
         """Retrieve an element from the collection.
 
         :param id: The id of the element.
@@ -66,9 +65,9 @@ class HTTPResourceManager:
                 raise exceptions.NotFoundError()
             raise
 
-        return types.Schema(response.json())
+        return response.json()
 
-    async def update(self, id: t.Union[str, uuid.UUID], data: t.Union[dict[str, t.Any], types.Schema]) -> types.Schema:
+    async def update(self, id: t.Union[str, uuid.UUID], data: dict[str, t.Any]) -> dict[str, t.Any]:
         """Update an element in the collection.
 
         :param id: The id of the element.
@@ -86,11 +85,9 @@ class HTTPResourceManager:
             if e.response.status_code == http.HTTPStatus.BAD_REQUEST:
                 raise exceptions.IntegrityError()
             raise
-        return types.Schema(response.json())
+        return response.json()
 
-    async def partial_update(
-        self, id: t.Union[str, uuid.UUID], data: t.Union[dict[str, t.Any], types.Schema]
-    ) -> types.Schema:
+    async def partial_update(self, id: t.Union[str, uuid.UUID], data: dict[str, t.Any]) -> dict[str, t.Any]:
         """Partially update an element in the collection.
 
         :param id: The id of the element.
@@ -108,7 +105,7 @@ class HTTPResourceManager:
             if e.response.status_code == http.HTTPStatus.BAD_REQUEST:
                 raise exceptions.IntegrityError()
             raise
-        return types.Schema(response.json())
+        return response.json()
 
     async def delete(self, id: t.Union[str, uuid.UUID]) -> None:
         """Delete an element from the collection.
@@ -168,7 +165,7 @@ class HTTPResourceManager:
             except exceptions.Empty:
                 break
 
-    async def list(self, *, pagination: str = "page_number") -> t.AsyncIterable[types.Schema]:
+    async def list(self, *, pagination: str = "page_number") -> t.AsyncIterable[dict[str, t.Any]]:
         """List all the elements in the collection.
 
         :param pagination: The pagination technique.
@@ -178,9 +175,9 @@ class HTTPResourceManager:
         iterator = self._page_number_paginated() if pagination == "page_number" else self._limit_offset_paginated()
 
         async for element in iterator:
-            yield types.Schema(element)
+            yield element
 
-    async def replace(self, data: builtins.list[dict[str, t.Any]]) -> builtins.list[types.Schema]:
+    async def replace(self, data: builtins.list[dict[str, t.Any]]) -> builtins.list[dict[str, t.Any]]:
         """Replace elements in the collection.
 
         :param data: The data to replace the elements.
@@ -194,9 +191,9 @@ class HTTPResourceManager:
                 raise exceptions.IntegrityError()
             raise
 
-        return [types.Schema(element) for element in response.json()]
+        return [element for element in response.json()]
 
-    async def partial_replace(self, data: builtins.list[dict[str, t.Any]]) -> builtins.list[types.Schema]:
+    async def partial_replace(self, data: builtins.list[dict[str, t.Any]]) -> builtins.list[dict[str, t.Any]]:
         """Partially replace elements in the collection.
 
         :param data: The data to replace the elements.
@@ -210,7 +207,7 @@ class HTTPResourceManager:
                 raise exceptions.IntegrityError()
             raise
 
-        return [types.Schema(element) for element in response.json()]
+        return [element for element in response.json()]
 
     async def drop(self) -> int:
         """Drop the collection.
@@ -238,7 +235,7 @@ class HTTPResourceRepository(HTTPRepository):
         super().__init__(client)
         self._resource_manager = HTTPResourceManager(self._resource, client)
 
-    async def create(self, data: dict[str, t.Any]) -> types.Schema:
+    async def create(self, data: dict[str, t.Any]) -> dict[str, t.Any]:
         """Create a new element in the collection.
 
         :param data: The data to create the element.
@@ -246,7 +243,7 @@ class HTTPResourceRepository(HTTPRepository):
         """
         return await self._resource_manager.create(data)
 
-    async def retrieve(self, id: uuid.UUID) -> types.Schema:
+    async def retrieve(self, id: uuid.UUID) -> dict[str, t.Any]:
         """Retrieve an element from the collection.
 
         :param id: The id of the element.
@@ -254,7 +251,7 @@ class HTTPResourceRepository(HTTPRepository):
         """
         return await self._resource_manager.retrieve(id)
 
-    async def update(self, id: uuid.UUID, data: dict[str, t.Any]) -> types.Schema:
+    async def update(self, id: uuid.UUID, data: dict[str, t.Any]) -> dict[str, t.Any]:
         """Update an element in the collection.
 
         :param id: The id of the element.
@@ -263,7 +260,7 @@ class HTTPResourceRepository(HTTPRepository):
         """
         return await self._resource_manager.update(id, data)
 
-    async def partial_update(self, id: uuid.UUID, data: dict[str, t.Any]) -> types.Schema:
+    async def partial_update(self, id: uuid.UUID, data: dict[str, t.Any]) -> dict[str, t.Any]:
         """Partially update an element in the collection.
 
         :param id: The id of the element.
@@ -279,7 +276,7 @@ class HTTPResourceRepository(HTTPRepository):
         """
         return await self._resource_manager.delete(id)
 
-    def list(self, *, pagination: str = "page_number") -> t.AsyncIterable[types.Schema]:
+    def list(self, *, pagination: str = "page_number") -> t.AsyncIterable[dict[str, t.Any]]:
         """List all the elements in the collection.
 
         :param pagination: The pagination technique.
@@ -287,7 +284,7 @@ class HTTPResourceRepository(HTTPRepository):
         """
         return self._resource_manager.list(pagination=pagination)
 
-    async def replace(self, data: builtins.list[dict[str, t.Any]]) -> builtins.list[types.Schema]:
+    async def replace(self, data: builtins.list[dict[str, t.Any]]) -> builtins.list[dict[str, t.Any]]:
         """Replace elements in the collection.
 
         :param data: The data to replace the elements.
@@ -295,7 +292,7 @@ class HTTPResourceRepository(HTTPRepository):
         """
         return await self._resource_manager.replace(data)
 
-    async def partial_replace(self, data: builtins.list[dict[str, t.Any]]) -> builtins.list[types.Schema]:
+    async def partial_replace(self, data: builtins.list[dict[str, t.Any]]) -> builtins.list[dict[str, t.Any]]:
         """Partially replace elements in the collection.
 
         :param data: The data to replace the elements.

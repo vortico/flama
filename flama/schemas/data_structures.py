@@ -50,7 +50,7 @@ class Field:
     def __post_init__(self) -> None:
         object.__setattr__(self, "nullable", type(None) in t.get_args(self.type) or self.default is None)
 
-        field_type = t.get_args(self.type)[0] if t.get_origin(self.type) in (list, t.Union) else self.type
+        field_type = t.get_args(self.type)[0] if t.get_origin(self.type) in UnionType else self.type
 
         if not Schema.is_schema(field_type) and self.multiple is None:
             object.__setattr__(self, "multiple", t.get_origin(self.type) is list)
@@ -106,16 +106,13 @@ class Schema:
 
     @classmethod
     def from_type(cls, type_: t.Optional[type]) -> "Schema":
-        if types.Schema.is_schema(type_):
-            schema = (
-                type_.schema
-                if not type_.partial
-                else schemas.adapter.build_schema(
-                    name=schemas.adapter.name(type_.schema, prefix="Partial").rsplit(".", 1)[1],
-                    schema=type_.schema,
-                    partial=True,
+        if schemas.is_schema(type_):
+            schema = schemas.get_schema_metadata(type_).schema
+
+            if schemas.is_schema_partial(type_):
+                schema = schemas.adapter.build_schema(
+                    name=schemas.adapter.name(schema, prefix="Partial").rsplit(".", 1)[1], schema=schema, partial=True
                 )
-            )
         elif t.get_origin(type_) in (list, tuple, set):
             return cls.from_type(t.get_args(type_)[0])
         else:
@@ -255,7 +252,7 @@ class Schema:
 class Parameter:
     name: str
     location: ParameterLocation
-    type: type
+    type: t.Any
     required: bool = True
     default: t.Any = InjectionParameter.empty
     nullable: bool = dataclasses.field(init=False)

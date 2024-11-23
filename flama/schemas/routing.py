@@ -1,7 +1,7 @@
 import inspect
 import typing as t
 
-from flama import types
+from flama import schemas
 from flama.injection.resolver import Return
 from flama.schemas.data_structures import Field, Parameter, Parameters
 
@@ -68,7 +68,7 @@ class ParametersDescriptor:
                 (
                     Parameter.build("body", p)
                     for p in parameters
-                    if (types.Schema.is_schema(p.annotation) or t.get_origin(p.annotation) == list)
+                    if (schemas.is_schema(p.annotation) or t.get_origin(p.annotation) == list)
                     and p.name not in self._route.path.parameters
                 ),
                 None,

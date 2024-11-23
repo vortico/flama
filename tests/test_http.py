@@ -13,7 +13,7 @@ import pytest
 import typesystem
 import typesystem.fields
 
-from flama import exceptions, http, types
+from flama import exceptions, http
 
 
 @dataclasses.dataclass
@@ -87,7 +87,7 @@ class TestCaseJSONResponse:
             ),
             pytest.param({"foo": Exception}, {"foo": "Exception"}, None, id="exception_class"),
             pytest.param({"foo": Exception("bar")}, {"foo": "Exception('bar')"}, None, id="exception_obj"),
-            pytest.param(types.Schema({"foo": "bar"}), {"foo": "bar"}, None, id="schema"),
+            pytest.param({"foo": "bar"}, {"foo": "bar"}, None, id="schema"),
             pytest.param({"foo": Foo(bar=1)}, {"foo": {"bar": 1}}, None, id="dataclass"),
             pytest.param({"foo": Mock()}, None, TypeError, id="error"),
         ),
@@ -132,7 +132,7 @@ class TestCaseAPIResponse:
     )
     def test_render(self, schema, use_schema, content, expected, exception):
         with exception:
-            response = http.APIResponse(schema=types.Schema[schema] if use_schema else None, content=content)
+            response = http.APIResponse(schema=schema if use_schema else None, content=content)
             assert response.body.decode() == expected
 
 

@@ -115,9 +115,6 @@ class JSONResponse(starlette.responses.JSONResponse, Response):
         await super().__call__(scope, receive, send)  # type: ignore[arg-type]
 
     def render(self, content: t.Any) -> bytes:
-        if isinstance(content, types.Schema):
-            content = dict(content)
-
         return json.dumps(
             content, ensure_ascii=False, allow_nan=False, indent=None, separators=(",", ":"), cls=EnhancedJSONEncoder
         ).encode("utf-8")
@@ -147,7 +144,7 @@ class FileResponse(starlette.responses.FileResponse, Response):
 class APIResponse(JSONResponse):
     media_type = "application/json"
 
-    def __init__(self, content: t.Any = None, schema: t.Optional[type["types.Schema"]] = None, *args, **kwargs):
+    def __init__(self, content: t.Any = None, schema: t.Any = None, *args, **kwargs):
         self.schema = schema
         super().__init__(content, *args, **kwargs)
 
@@ -182,7 +179,11 @@ class APIErrorResponse(APIResponse):
         }
 
         super().__init__(
-            content, schema=types.Schema[schemas.schemas.APIError], status_code=status_code, *args, **kwargs
+            content,
+            schema=t.Annotated[schemas.Schema, schemas.SchemaMetadata(schemas.schemas.APIError)],
+            status_code=status_code,
+            *args,
+            **kwargs,
         )
 
         self.detail = detail

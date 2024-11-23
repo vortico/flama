@@ -1,6 +1,6 @@
 import typing as t
 
-from flama import codecs, exceptions, http, types
+from flama import codecs, exceptions, http, schemas, types
 from flama.injection import Component, Components
 from flama.injection.resolver import Parameter
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
@@ -102,7 +102,7 @@ class CompositeParamComponent(Component):
         schema = (
             t.get_args(parameter.annotation)[0] if t.get_origin(parameter.annotation) == list else parameter.annotation
         )
-        return types.Schema.is_schema(schema)
+        return schemas.is_schema(schema)
 
     def resolve(self, parameter: Parameter, request: http.Request, route: BaseRoute, data: types.RequestData):
         body_param = route.parameters.body[request.method]
@@ -112,9 +112,7 @@ class CompositeParamComponent(Component):
         ), f"Body schema parameter not defined for route '{route}' and method '{request.method}'"
 
         try:
-            return body_param.schema.validate(
-                data, partial=types.Schema.is_schema(parameter.annotation) and parameter.annotation.partial
-            )
+            return body_param.schema.validate(data, partial=schemas.is_schema_partial(parameter.annotation))
         except SchemaValidationError as exc:  # noqa: safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
 

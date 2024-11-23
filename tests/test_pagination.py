@@ -8,7 +8,7 @@ import typesystem
 import typesystem.fields
 from pytest import param
 
-from flama import types
+from flama import schemas
 from flama.pagination import paginator
 from tests.asserts import assert_recursive_contains
 
@@ -40,7 +40,9 @@ class TestCasePageNumberPagination:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app, output_schema):
         @app.route("/page-number/", methods=["GET"], pagination="page_number")
-        def page_number(**kwargs) -> types.Schema[output_schema.schema]:
+        def page_number(
+            **kwargs,
+        ) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(output_schema.schema)]:
             return [{"value": i} for i in range(25)]
 
     def test_registered_schemas(self, app, output_schema):
@@ -58,7 +60,7 @@ class TestCasePageNumberPagination:
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
             @paginator._paginate_page_number
-            def invalid() -> types.Schema[output_schema.schema]:
+            def invalid() -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(output_schema.schema)]:
                 ...
 
     def test_invalid_response(self):
@@ -123,7 +125,9 @@ class TestCasePageNumberPagination:
 
     async def test_async_function(self, app, client, output_schema):
         @app.route("/page-number-async/", methods=["GET"], pagination="page_number")
-        async def page_number_async(**kwargs) -> types.Schema[output_schema.schema]:
+        async def page_number_async(
+            **kwargs,
+        ) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(output_schema.schema)]:
             return [{"value": i} for i in range(25)]
 
         response = await client.get("/page-number-async/")
@@ -178,7 +182,9 @@ class TestCaseLimitOffsetPagination:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app, output_schema):
         @app.route("/limit-offset/", methods=["GET"], pagination="limit_offset")
-        def limit_offset(**kwargs) -> types.Schema[output_schema.schema]:
+        def limit_offset(
+            **kwargs,
+        ) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(output_schema.schema)]:
             return [{"value": i} for i in range(25)]
 
     def test_registered_schemas(self, app, output_schema):
@@ -196,7 +202,7 @@ class TestCaseLimitOffsetPagination:
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
             @paginator._paginate_limit_offset
-            def invalid() -> types.Schema[output_schema.schema]:
+            def invalid() -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(output_schema.schema)]:
                 ...
 
     def test_invalid_response(self):
@@ -262,7 +268,9 @@ class TestCaseLimitOffsetPagination:
 
     async def test_async_function(self, app, client, output_schema):
         @app.route("/limit-offset-async/", methods=["GET"], pagination="limit_offset")
-        async def limit_offset_async(**kwargs) -> types.Schema[output_schema.schema]:
+        async def limit_offset_async(
+            **kwargs,
+        ) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(output_schema.schema)]:
             return [{"value": i} for i in range(25)]
 
         response = await client.get("/limit-offset-async/")

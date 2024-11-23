@@ -2,7 +2,7 @@ import functools
 import inspect
 import typing as t
 
-from flama import http, schemas, types
+from flama import http, schemas
 
 __all__ = ["LimitOffsetMixin", "LimitOffsetResponse"]
 
@@ -23,7 +23,7 @@ class LimitOffsetResponse(http.APIResponse):
 
     def __init__(
         self,
-        schema: type[types.Schema],
+        schema: t.Any,
         offset: t.Optional[t.Union[int, str]] = None,
         limit: t.Optional[t.Union[int, str]] = None,
         count: t.Optional[bool] = True,
@@ -59,7 +59,7 @@ class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
     ]
 
     @classmethod
-    def _decorate_async(cls, func: t.Callable, schema: type[types.Schema]) -> t.Callable:
+    def _decorate_async(cls, func: t.Callable, schema: t.Any) -> t.Callable:
         @functools.wraps(func)
         async def decorator(
             *args,
@@ -75,7 +75,7 @@ class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
         return decorator
 
     @classmethod
-    def _decorate_sync(cls, func: t.Callable, schema: type[types.Schema]) -> t.Callable:
+    def _decorate_sync(cls, func: t.Callable, schema: t.Any) -> t.Callable:
         @functools.wraps(func)
         def decorator(
             *args,
