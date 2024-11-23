@@ -1,7 +1,7 @@
 import typing as t
 from http import HTTPStatus
 
-from flama import exceptions, http, schemas, types
+from flama import exceptions, http, schemas
 from flama.ddd import exceptions as ddd_exceptions
 from flama.resources import data_structures
 from flama.resources.rest import RESTResource, RESTResourceType
@@ -25,8 +25,8 @@ class CreateMixin:
         async def create(
             self,
             worker: FlamaWorker,
-            resource: types.Schema[rest_schemas.input.schema],  # type: ignore
-        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore
+            resource: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(rest_schemas.input.schema)],
+        ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(rest_schemas.output.schema)]:
             if resource.get(rest_model.primary_key.name) is None:
                 resource.pop(rest_model.primary_key.name, None)
 
@@ -77,7 +77,7 @@ class RetrieveMixin:
             self,
             worker: FlamaWorker,
             resource_id: rest_model.primary_key.type,  # type: ignore
-        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore
+        ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(rest_schemas.output.schema)]:  # type: ignore
             try:
                 async with worker:
                     repository = worker.repositories[self._meta.name]
@@ -119,8 +119,8 @@ class UpdateMixin:
             self,
             worker: FlamaWorker,
             resource_id: rest_model.primary_key.type,  # type: ignore
-            resource: types.Schema[rest_schemas.input.schema],  # type: ignore
-        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore
+            resource: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(rest_schemas.input.schema)],
+        ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(rest_schemas.output.schema)]:
             resource[rest_model.primary_key.name] = resource_id
             async with worker:
                 try:
@@ -134,7 +134,7 @@ class UpdateMixin:
                 except ddd_exceptions.IntegrityError:
                     raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Wrong input data")
 
-            return types.Schema[rest_schemas.output.schema](result[0])
+            return result[0]
 
         update.__doc__ = f"""
             tags:
@@ -173,8 +173,8 @@ class PartialUpdateMixin:
             self,
             worker: FlamaWorker,
             resource_id: rest_model.primary_key.type,  # type: ignore
-            resource: types.PartialSchema[rest_schemas.input.schema],  # type: ignore
-        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore
+            resource: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(rest_schemas.input.schema, partial=True)],
+        ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(rest_schemas.output.schema)]:
             resource[rest_model.primary_key.name] = resource_id
             async with worker:
                 repository = worker.repositories[self._meta.name]
@@ -186,7 +186,7 @@ class PartialUpdateMixin:
                 if not result:
                     raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
 
-            return types.Schema[rest_schemas.output.schema](result[0])
+            return result[0]
 
         partial_update.__doc__ = f"""
             tags:
@@ -256,7 +256,7 @@ class ListMixin:
             order_by: t.Optional[str] = None,
             order_direction: str = "asc",
             **kwargs,
-        ) -> types.Schema[rest_schemas.output.schema]:  # type: ignore
+        ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(rest_schemas.output.schema)]:
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 return [  # type: ignore[return-value]
@@ -293,8 +293,8 @@ class ReplaceMixin:
         async def replace(
             self,
             worker: FlamaWorker,
-            resources: list[types.Schema[rest_schemas.input.schema]],  # type: ignore
-        ) -> list[types.Schema[rest_schemas.output.schema]]:  # type: ignore
+            resources: t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(rest_schemas.input.schema)],
+        ) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(rest_schemas.output.schema)]:
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 await repository.drop()
@@ -336,8 +336,8 @@ class PartialReplaceMixin:
         async def partial_replace(
             self,
             worker: FlamaWorker,
-            resources: list[types.Schema[rest_schemas.input.schema]],  # type: ignore
-        ) -> list[types.Schema[rest_schemas.output.schema]]:  # type: ignore
+            resources: t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(rest_schemas.input.schema)],
+        ) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(rest_schemas.output.schema)]:
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 await repository.drop(
@@ -373,7 +373,9 @@ class DropMixin:
     @classmethod
     def _add_drop(cls, name: str, verbose_name: str, **kwargs) -> dict[str, t.Any]:
         @resource_method("/", methods=["DELETE"], name="drop")
-        async def drop(self, worker: FlamaWorker) -> types.Schema[schemas.schemas.DropCollection]:  # type: ignore
+        async def drop(
+            self, worker: FlamaWorker
+        ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(schemas.schemas.DropCollection)]:
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 result = await repository.drop()

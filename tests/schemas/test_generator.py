@@ -1,4 +1,5 @@
 import contextlib
+import typing as t
 from collections import namedtuple
 
 import marshmallow
@@ -7,7 +8,7 @@ import pytest
 import typesystem
 import typesystem.fields
 
-from flama import types
+from flama import schemas
 from flama.endpoints import HTTPEndpoint
 from flama.routing import Router
 from flama.schemas import openapi
@@ -899,7 +900,7 @@ class TestCaseSchemaGenerator:
     def add_endpoints(self, app, puppy_schema, body_param_schema):  # noqa: C901
         @app.route("/endpoint/", methods=["GET"])
         class PuppyEndpoint(HTTPEndpoint):
-            async def get(self) -> types.Schema[puppy_schema.schema]:
+            async def get(self) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(puppy_schema.schema)]:
                 """
                 description: Endpoint.
                 responses:
@@ -909,7 +910,7 @@ class TestCaseSchemaGenerator:
                 return {"name": "Canna"}
 
         @app.route("/custom-component/", methods=["GET"])
-        async def get() -> types.Schema[puppy_schema.schema]:
+        async def get() -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(puppy_schema.schema)]:
             """
             description: Custom component.
             responses:
@@ -919,7 +920,9 @@ class TestCaseSchemaGenerator:
             return {"name": "Canna"}
 
         @app.route("/many-components/", methods=["GET"])
-        async def many_components() -> types.Schema[puppy_schema.schema]:
+        async def many_components() -> t.Annotated[
+            list[schemas.SchemaType], schemas.SchemaMetadata(puppy_schema.schema)
+        ]:
             """
             description: Many custom components.
             responses:
@@ -929,7 +932,7 @@ class TestCaseSchemaGenerator:
             return [{"name": "foo"}, {"name": "bar"}]
 
         @app.route("/query-param/", methods=["GET"])
-        async def query_param(param1: int, param2: str = None, param3: bool = True):
+        async def query_param(param1: int, param2: str | None = None, param3: bool = True):
             """
             description: Query param.
             responses:
@@ -949,7 +952,7 @@ class TestCaseSchemaGenerator:
             return {"name": param}
 
         @app.route("/body-param/", methods=["POST"])
-        async def body_param(param: types.Schema[body_param_schema.schema]):
+        async def body_param(param: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(body_param_schema.schema)]):
             """
             description: Body param.
             responses:

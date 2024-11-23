@@ -3,14 +3,12 @@ import asyncio
 import inspect
 import typing as t
 
-from flama import types
-
 
 class PaginationDecoratorFactory:
     PARAMETERS: list[inspect.Parameter]
 
     @classmethod
-    def decorate(cls, func: t.Callable, schema: type[types.Schema]) -> t.Callable:
+    def decorate(cls, func: t.Callable, schema: t.Any) -> t.Callable:
         func_signature = inspect.signature(func)
         if "kwargs" not in func_signature.parameters:
             raise TypeError("Paginated views must define **kwargs param")
@@ -24,17 +22,17 @@ class PaginationDecoratorFactory:
                 *[v for k, v in func_signature.parameters.items() if k != "kwargs"],
                 *cls.PARAMETERS,
             ],
-            return_annotation=types.Schema[schema],  # type: ignore
+            return_annotation=schema,
         )
 
         return decorated_func
 
     @classmethod
     @abc.abstractmethod
-    def _decorate_async(cls, func: t.Callable, schema: type[types.Schema]) -> t.Callable:
+    def _decorate_async(cls, func: t.Callable, schema: t.Any) -> t.Callable:
         ...
 
     @classmethod
     @abc.abstractmethod
-    def _decorate_sync(cls, func: t.Callable, schema: type[types.Schema]) -> t.Callable:
+    def _decorate_sync(cls, func: t.Callable, schema: t.Any) -> t.Callable:
         ...
