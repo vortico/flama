@@ -1,5 +1,12 @@
 # Semantic Versioning Changelog
 
+# [v1.9.0](https://github.com/vortico/flama/compare/v1.8.1...v1.9.0) (2024-11-24)
+
+## ✨ New Features
+- [`de06aec`](https://github.com/vortico/flama/commit/de06aec)  Use typing.Annotated for schema types (#158) (Issues: [`#158`](https://github.com/vortico/flama/issues/))
+- [`259a873`](https://github.com/vortico/flama/commit/259a873)  Allow importing ddd without sqlalchemy installed (#161) (Issues: [`#161`](https://github.com/vortico/flama/issues/))
+- [`0b62909`](https://github.com/vortico/flama/commit/0b62909)  Compatibility lib for older python versions (#160) (Issues: [`#160`](https://github.com/vortico/flama/issues/))
+
 # [v1.8.1](https://github.com/vortico/flama/compare/v1.8.0...v1.8.1) (2024-11-06)
 
 ## 🐛 Bug Fixes
