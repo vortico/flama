@@ -5,7 +5,7 @@ import pydantic
 import pytest
 import typesystem
 
-from flama import Flama
+from flama import Flama, exceptions
 
 
 class TestCaseSetup:
@@ -41,7 +41,7 @@ class TestCaseSetup:
         from flama import schemas
 
         with patch("flama.schemas.Module.available", PropertyMock(return_value=iter(()))), pytest.raises(
-            AssertionError,
+            exceptions.DependencyNotInstalled,
             match="No schema library is installed. Install one of your preference following instructions from: "
             "https://flama.dev/docs/getting-started/installation#extras",
         ):

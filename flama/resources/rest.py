@@ -2,6 +2,7 @@ import datetime
 import typing as t
 import uuid
 
+from flama import exceptions
 from flama.ddd.repositories import SQLAlchemyTableRepository
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
@@ -11,17 +12,10 @@ try:
     import sqlalchemy
     from sqlalchemy.dialects import postgresql
 except Exception:  # pragma: no cover
-    raise AssertionError("`sqlalchemy[asyncio]` must be installed to use rest resources") from None
+    sqlalchemy = None
+    postgresql = None
 
 __all__ = ["RESTResource", "RESTResourceType"]
-
-PK_MAPPING: dict[t.Any, t.Any] = {
-    sqlalchemy.Integer: int,
-    sqlalchemy.String: str,
-    sqlalchemy.Date: datetime.date,
-    sqlalchemy.DateTime: datetime.datetime,
-    postgresql.UUID: uuid.UUID,
-}
 
 
 class RESTResourceType(ResourceType):
@@ -34,6 +28,11 @@ class RESTResourceType(ResourceType):
         :param bases: List of superclasses.
         :param namespace: Variables namespace used to create the class.
         """
+        if sqlalchemy is None:
+            raise exceptions.DependencyNotInstalled(
+                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy, dependant="RESTResourceType"
+            )
+
         if not mcs._is_abstract(namespace):
             try:
                 # Get model
@@ -69,6 +68,12 @@ class RESTResourceType(ResourceType):
         :param namespace: Variables namespace used to create the class.
         :return: Resource model.
         """
+        if sqlalchemy is None or postgresql is None:
+            raise exceptions.DependencyNotInstalled(
+                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
+                dependant=f"{cls.__module__}.{cls.__name__}",
+            )
+
         model = cls._get_attribute("model", bases, namespace, metadata_namespace="rest")
 
         # Already defined model probably because resource inheritance, so no need to create it
@@ -89,7 +94,14 @@ class RESTResourceType(ResourceType):
 
             # Check primary key is a valid type
             try:
-                model_pk_type = PK_MAPPING[model_pk.type.__class__]
+                model_pk_mapping: dict[type, type] = {
+                    sqlalchemy.Integer: int,
+                    sqlalchemy.String: str,
+                    sqlalchemy.Date: datetime.date,
+                    sqlalchemy.DateTime: datetime.datetime,
+                    postgresql.UUID: uuid.UUID,
+                }
+                model_pk_type = model_pk_mapping[model_pk.type.__class__]
             except KeyError:
                 raise AttributeError(ResourceAttributeError.PK_WRONG_TYPE)
 
@@ -142,7 +154,7 @@ class RESTResourceType(ResourceType):
 
 
 class RESTResource(Resource, metaclass=RESTResourceType):
-    model: sqlalchemy.Table
+    model: sqlalchemy.Table  # type: ignore
     schema: t.Any
     input_schema: t.Any
     output_schema: t.Any

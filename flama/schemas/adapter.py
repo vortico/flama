@@ -10,6 +10,8 @@ if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma
 
     t.TypeGuard = TypeGuard  # type: ignore
 
+__all__ = ["Adapter"]
+
 
 class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
     DEFAULT_SCHEMA_NAME = "Schema"

@@ -4,10 +4,7 @@ import typing as t
 from flama.ddd.workers.base import AbstractWorker
 
 if t.TYPE_CHECKING:
-    try:
-        from sqlalchemy.ext.asyncio import AsyncConnection, AsyncTransaction
-    except Exception:  # pragma: no cover
-        ...
+    from sqlalchemy.ext.asyncio import AsyncConnection, AsyncTransaction
 
 __all__ = ["SQLAlchemyWorker"]
 
