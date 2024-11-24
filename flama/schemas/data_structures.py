@@ -1,28 +1,10 @@
 import builtins
 import dataclasses
 import enum
-import sys
 import typing as t
 
-from flama import schemas, types
+from flama import compat, schemas, types
 from flama.injection.resolver import Parameter as InjectionParameter
-
-if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing_extensions import TypeGuard
-
-    t.TypeGuard = TypeGuard  # type: ignore
-    UnionType = [t.Union]
-else:
-    UnionType = [t.Union, type(int | str)]
-
-if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
-
-    class StrEnum(str, enum.Enum):
-        @staticmethod
-        def _generate_next_value_(name, start, count, last_values):
-            return name.lower()
-
-    enum.StrEnum = StrEnum  # type: ignore
 
 __all__ = ["Field", "Schema", "Parameter", "Parameters"]
 
@@ -30,7 +12,7 @@ __all__ = ["Field", "Schema", "Parameter", "Parameters"]
 UNKNOWN = t.TypeVar("UNKNOWN")
 
 
-class ParameterLocation(enum.StrEnum):  # type: ignore # PORT: Remove this comment when stop supporting 3.10
+class ParameterLocation(compat.StrEnum):  # PORT: Replace compat when stop supporting 3.10
     query = enum.auto()
     path = enum.auto()
     body = enum.auto()
@@ -50,7 +32,7 @@ class Field:
     def __post_init__(self) -> None:
         object.__setattr__(self, "nullable", type(None) in t.get_args(self.type) or self.default is None)
 
-        field_type = t.get_args(self.type)[0] if t.get_origin(self.type) in UnionType else self.type
+        field_type = t.get_args(self.type)[0] if t.get_origin(self.type) in (t.Union, compat.UnionType) else self.type
 
         if not Schema.is_schema(field_type) and self.multiple is None:
             object.__setattr__(self, "multiple", t.get_origin(self.type) is list)
@@ -91,7 +73,12 @@ class Field:
 
         return (
             (type_ in types.PARAMETERS_TYPES)
-            or (origin in UnionType and len(args) == 2 and args[0] in types.PARAMETERS_TYPES and args[1] is NoneType)
+            or (
+                origin in (t.Union, compat.UnionType)
+                and len(args) == 2
+                and args[0] in types.PARAMETERS_TYPES
+                and args[1] is NoneType
+            )
             or (origin is list and args[0] in types.PARAMETERS_TYPES)
         )
 
@@ -187,7 +174,7 @@ class Schema:
         if schemas.adapter.is_schema(schema):
             return [schemas.adapter.unique_schema(schema)]
 
-        if t.get_origin(schema) in UnionType:
+        if t.get_origin(schema) in (t.Union, compat.UnionType):
             return [x for field in t.get_args(schema) for x in self.nested_schemas(field)]
 
         if isinstance(schema, (list, tuple, set)):

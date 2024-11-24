@@ -1,14 +1,13 @@
-from __future__ import annotations  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-
 import typing as t
 
-from flama import types, websockets
+if t.TYPE_CHECKING:
+    from flama import types, websockets
 
 __all__ = ["EndpointProtocol", "HTTPEndpointProtocol", "WebSocketEndpointProtocol"]
 
 
 class EndpointProtocol(t.Protocol):
-    def __init__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+    def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
         ...
 
     def __await__(self) -> t.Generator:
@@ -33,13 +32,13 @@ class HTTPEndpointProtocol(EndpointProtocol, t.Protocol):
 
 
 class WebSocketEndpointProtocol(EndpointProtocol, t.Protocol):
-    encoding: types.Encoding | None = None
+    encoding: t.Union["types.Encoding", None] = None
 
-    async def on_connect(self, websocket: websockets.WebSocket) -> None:
+    async def on_connect(self, websocket: "websockets.WebSocket") -> None:
         ...
 
-    async def on_receive(self, websocket: websockets.WebSocket, data: types.Data) -> None:
+    async def on_receive(self, websocket: "websockets.WebSocket", data: "types.Data") -> None:
         ...
 
-    async def on_disconnect(self, websocket: websockets.WebSocket, websocket_code: types.Code) -> None:
+    async def on_disconnect(self, websocket: "websockets.WebSocket", websocket_code: "types.Code") -> None:
         ...

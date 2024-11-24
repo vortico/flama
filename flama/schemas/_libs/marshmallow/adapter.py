@@ -1,22 +1,17 @@
 import inspect
 import itertools
-import sys
 import typing as t
 
 import marshmallow
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin, resolve_schema_cls
 
+from flama import compat
 from flama.injection import Parameter
 from flama.schemas._libs.marshmallow.fields import MAPPING, MAPPING_TYPES
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 from flama.types import JSONSchema
-
-if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing_extensions import TypeGuard
-
-    t.TypeGuard = TypeGuard  # type: ignore
 
 if t.TYPE_CHECKING:
     from apispec.ext.marshmallow import OpenAPIConverter
@@ -161,10 +156,14 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
             name: (self._get_field_type(field), field) for name, field in self._schema_instance(schema).fields.items()
         }
 
-    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Union[Schema, type[Schema]]]:  # type: ignore
+    def is_schema(
+        self, obj: t.Any
+    ) -> compat.TypeGuard[t.Union[Schema, type[Schema]]]:  # PORT: Replace compat when stop supporting 3.9
         return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
-    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Union[Field, type[Field]]]:  # type: ignore
+    def is_field(
+        self, obj: t.Any
+    ) -> compat.TypeGuard[t.Union[Field, type[Field]]]:  # PORT: Replace compat when stop supporting 3.9
         return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))
 
     def _schema_instance(self, schema: t.Union[type[Schema], Schema]) -> Schema:

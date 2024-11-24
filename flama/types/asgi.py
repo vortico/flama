@@ -1,11 +1,6 @@
-import sys
 import typing as t
 
-if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing_extensions import Concatenate, ParamSpec
-
-    t.Concatenate = Concatenate  # type: ignore
-    t.ParamSpec = ParamSpec  # type: ignore
+from flama import compat
 
 if t.TYPE_CHECKING:
     from flama import endpoints
@@ -25,7 +20,7 @@ __all__ = [
     "WebSocketHandler",
 ]
 
-P = t.ParamSpec("P")  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+P = compat.ParamSpec("P")  # PORT: Replace compat when stop supporting 3.9
 R = t.TypeVar("R", covariant=True)
 
 Scope = t.NewType("Scope", t.MutableMapping[str, t.Any])
@@ -60,9 +55,7 @@ class MiddlewareClass(AppClass, t.Protocol[P, R]):
         ...
 
 
-MiddlewareFunction = t.Callable[
-    t.Concatenate[App, P], App  # type: ignore # PORT: Remove this comment when stop supporting 3.9
-]
+MiddlewareFunction = t.Callable[compat.Concatenate[App, P], App]  # PORT: Replace compat when stop supporting 3.9
 Middleware = t.Union[type[MiddlewareClass], MiddlewareFunction]
 
 HTTPHandler = t.Union[t.Callable, type["endpoints.HTTPEndpoint"]]

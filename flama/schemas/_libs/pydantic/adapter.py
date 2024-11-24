@@ -1,20 +1,15 @@
 import inspect
-import sys
 import typing as t
 
 import pydantic
 from pydantic.fields import FieldInfo
 from pydantic.json_schema import model_json_schema
 
+from flama import compat
 from flama.injection import Parameter
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 from flama.types import JSONSchema
-
-if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing_extensions import TypeGuard
-
-    t.TypeGuard = TypeGuard  # type: ignore
 
 __all__ = ["PydanticAdapter"]
 
@@ -138,15 +133,11 @@ class PydanticAdapter(Adapter[Schema, Field]):
     ) -> dict[str, tuple[t.Union[type, list[type], dict[str, type]], Field]]:
         return {name: (self._get_field_type(field), field) for name, field in schema.model_fields.items()}
 
-    def is_schema(
-        self, obj: t.Any
-    ) -> t.TypeGuard[type[Schema]]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+    def is_schema(self, obj: t.Any) -> compat.TypeGuard[type[Schema]]:  # PORT: Replace compat when stop supporting 3.9
         if t.get_origin(obj):
             obj = t.get_origin(obj)
 
         return inspect.isclass(obj) and issubclass(obj, Schema)
 
-    def is_field(
-        self, obj: t.Any
-    ) -> t.TypeGuard[type[Field]]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+    def is_field(self, obj: t.Any) -> compat.TypeGuard[type[Field]]:  # PORT: Replace compat when stop supporting 3.9
         return isinstance(obj, Field)

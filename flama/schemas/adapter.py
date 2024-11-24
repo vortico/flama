@@ -1,14 +1,9 @@
 import abc
-import sys
 import typing as t
 
+from flama import compat
 from flama.schemas.types import _T_Field, _T_Schema
 from flama.types import JSONSchema
-
-if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing_extensions import TypeGuard
-
-    t.TypeGuard = TypeGuard  # type: ignore
 
 __all__ = ["Adapter"]
 
@@ -101,13 +96,9 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def is_schema(
-        self, obj: t.Any
-    ) -> t.TypeGuard[t.Any]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+    def is_schema(self, obj: t.Any) -> compat.TypeGuard[t.Any]:  # PORT: Replace compat when stop supporting 3.9
         ...
 
     @abc.abstractmethod
-    def is_field(
-        self, obj: t.Any
-    ) -> t.TypeGuard[t.Any]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+    def is_field(self, obj: t.Any) -> compat.TypeGuard[t.Any]:  # PORT: Replace compat when stop supporting 3.9
         ...
