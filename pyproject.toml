@@ -64,10 +64,10 @@ flama = 'flama.cli.__main__:cli'
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4"
+pytest = "^8.3"
 pytest-xdist = { version = "^3.3", extras = ["psutil"] }
-pytest-cov = "^4.1"
-pytest-asyncio = "^0.21"
+pytest-cov = "^6.0"
+pytest-asyncio = "^0.24"
 ipython = "^8.0"
 isort = "^5.12"
 ruff = "^0.0.292"
@@ -167,6 +167,7 @@ norecursedirs = [
     "*docs*",
 ]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
 
 [tool.coverage.run]
 source = [
