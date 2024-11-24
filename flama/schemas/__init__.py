@@ -3,6 +3,7 @@ import sys
 import typing as t
 from types import ModuleType
 
+from flama.exceptions import DependencyNotInstalled
 from flama.schemas.data_structures import Field, Parameter, Schema
 from flama.schemas.exceptions import SchemaParseError, SchemaValidationError
 from flama.schemas.types import (
@@ -64,8 +65,8 @@ class Module:
             if library is None:
                 library = next(self.available)
         except StopIteration:
-            raise AssertionError(
-                "No schema library is installed. Install one of your preference following instructions from: "
+            raise DependencyNotInstalled(
+                msg="No schema library is installed. Install one of your preference following instructions from: "
                 "https://flama.dev/docs/getting-started/installation#extras"
             )
         self.lib = importlib.import_module(f"flama.schemas._libs.{library}")
@@ -82,4 +83,7 @@ _module = Module()
 _module.setup()
 
 # Check that at least one of the schema libs is installed
-assert _module.lib is not None, f"Any of the schema libraries ({', '.join(_module.SCHEMA_LIBS)}) must be installed."
+if _module.lib is None:
+    raise DependencyNotInstalled(
+        msg=f"Any of the schema libraries ({', '.join(_module.SCHEMA_LIBS)}) must be installed."
+    )

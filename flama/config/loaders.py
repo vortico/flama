@@ -7,6 +7,8 @@ import typing as t
 
 import yaml
 
+from flama import exceptions
+
 if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
     try:
         import tomli
@@ -88,7 +90,12 @@ class TOMLFileLoader(FileLoader):
         :param f: File path.
         :return: Dict with the file contents.
         """
-        assert tomllib is not None, "`tomli` must be installed to use TOMLFileLoader in Python versions older than 3.11"
+        if tomllib is None:
+            raise exceptions.DependencyNotInstalled(
+                dependency=exceptions.DependencyNotInstalled.Dependency.tomli,
+                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
+                msg="for Python versions lower than 3.11",
+            )
 
         with open(f, "rb") as fs:
             return tomllib.load(fs)

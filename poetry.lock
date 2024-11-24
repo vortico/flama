@@ -3521,4 +3521,4 @@ typesystem = ["typesystem"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.14"
-content-hash = "321c2db691cb9f2c380ed7261a8277207d400cc50d4f55434b1c131b9d7f1c15"
+content-hash = "1b86b283ff26c388b7bd1cc9a412be502991e389bf22e2a2dea42ee9b5eb18c3"

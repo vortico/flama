@@ -308,7 +308,10 @@ class SQLAlchemyModule(Module):
         :raises ApplicationError: If SQLAlchemy is not installed.
         """
         if sqlalchemy is None:
-            raise exceptions.ApplicationError("sqlalchemy[asyncio] must be installed to use SQLAlchemyModule")
+            raise exceptions.DependencyNotInstalled(
+                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
+                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
+            )
 
         if not database:
             raise exceptions.ApplicationError("Database connection string must be provided")
@@ -379,8 +382,11 @@ class SQLAlchemyModule(Module):
 
     async def on_startup(self):
         """Initialize the SQLAlchemy engine and connection manager."""
-        if create_async_engine is None:  # noqa
-            raise exceptions.ApplicationError("sqlalchemy[asyncio] must be installed to use SQLAlchemyModule")
+        if create_async_engine is None:
+            raise exceptions.DependencyNotInstalled(
+                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
+                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
+            )
 
         self._engine = create_async_engine(self.database, **self._engine_args)
         self._connection_manager = self._manager_cls(self._engine)

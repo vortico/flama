@@ -235,7 +235,8 @@ class TestCaseSQLAlchemyModule:
 
     def test_sqlalchemy_not_installed(self):
         with patch("flama.sqlalchemy.sqlalchemy", new=None), pytest.raises(
-            ApplicationError, match=r"sqlalchemy\[asyncio\] must be installed to use SQLAlchemyModule"
+            ApplicationError,
+            match=r"Dependency 'sqlalchemy\[asyncio\]' must be installed to use 'flama.sqlalchemy.SQLAlchemyModule'",
         ):
             SQLAlchemyModule("")
 

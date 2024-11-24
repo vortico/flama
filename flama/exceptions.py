@@ -1,10 +1,13 @@
+import enum
 import http
+import sys
 import typing as t
 
 import starlette.exceptions
 
 __all__ = [
     "ApplicationError",
+    "DependencyNotInstalled",
     "SQLAlchemyError",
     "DecodeError",
     "HTTPException",
@@ -18,9 +21,58 @@ __all__ = [
     "FrameworkVersionWarning",
 ]
 
+if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
+
+    class StrEnum(str, enum.Enum):
+        @staticmethod
+        def _generate_next_value_(name, start, count, last_values):
+            return name.lower()
+
+    enum.StrEnum = StrEnum  # type: ignore
+
 
 class ApplicationError(Exception):
     ...
+
+
+class DependencyNotInstalled(ApplicationError):
+    class Dependency(enum.StrEnum):  # type: ignore # PORT: Remove this comment when stop supporting 3.10
+        pydantic = "pydantic"
+        marshmallow = "marshmallow"
+        apispec = "apispec"
+        typesystem = "typesystem"
+        sqlalchemy = "sqlalchemy[asyncio]"
+        httpx = "httpx"
+        tomli = "tomli"
+
+    def __init__(
+        self,
+        *,
+        dependency: t.Optional[t.Union[str, Dependency]] = None,
+        dependant: t.Optional[str] = None,
+        msg: str = "",
+    ) -> None:
+        super().__init__()
+        self.dependency = self.Dependency(dependency) if dependency else None
+        self.dependant = dependant
+        self.msg = msg
+
+    def __str__(self) -> str:
+        if self.dependency:
+            s = f"Dependency '{self.dependency.value}' must be installed"
+            if self.dependant:
+                s += f" to use '{self.dependant}'"
+            if self.msg:
+                s += f" ({self.msg})"
+        else:
+            s = self.msg
+
+        return s
+
+    def __repr__(self) -> str:
+        params = ("msg", "dependency", "dependant")
+        formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
+        return f"{self.__class__.__name__}({formatted_params})"
 
 
 class SQLAlchemyError(ApplicationError):
