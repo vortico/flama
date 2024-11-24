@@ -7,7 +7,7 @@ from flama import concurrency, exceptions, http, types, websockets
 __all__ = ["HTTPEndpoint", "WebSocketEndpoint"]
 
 
-class HTTPEndpoint:
+class HTTPEndpoint(types.HTTPEndpointProtocol):
     def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
         """An HTTP endpoint.
 
@@ -73,7 +73,7 @@ class HTTPEndpoint:
         return await concurrency.run(handler)
 
 
-class WebSocketEndpoint:
+class WebSocketEndpoint(types.WebSocketEndpointProtocol):
     encoding: t.Optional[types.Encoding] = None
 
     def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
