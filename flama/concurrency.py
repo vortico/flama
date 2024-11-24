@@ -4,23 +4,17 @@ import multiprocessing
 import sys
 import typing as t
 
-if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing_extensions import ParamSpec, TypeGuard
-
-    t.TypeGuard = TypeGuard  # type: ignore
-    t.ParamSpec = ParamSpec  # type: ignore
+from flama import compat
 
 __all__ = ["is_async", "run", "run_task_group", "AsyncProcess"]
 
 R = t.TypeVar("R", covariant=True)
-P = t.ParamSpec("P")  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+P = compat.ParamSpec("P")  # PORT: Replace compat when stop supporting 3.9
 
 
 def is_async(
     obj: t.Any,
-) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
-    t.Callable[..., t.Awaitable[t.Any]]
-]:
+) -> compat.TypeGuard[t.Callable[..., t.Awaitable[t.Any]]]:  # PORT: Replace compat when stop supporting 3.9
     """Check if given object is an async function, callable or partialised function.
 
     :param obj: Object to check.
@@ -51,7 +45,18 @@ async def run(
     return t.cast(R, await asyncio.to_thread(func, *args, **kwargs))
 
 
-if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
+if sys.version_info >= (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
+
+    async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> list[asyncio.Task]:
+        """Run a group of tasks.
+
+        :param tasks: Tasks to run.
+        :result: Finished tasks.
+        """
+        async with asyncio.TaskGroup() as task_group:
+            return [task_group.create_task(task) for task in tasks]
+
+else:  # pragma: no cover
 
     async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> list[asyncio.Task]:
         """Run a group of tasks.
@@ -62,17 +67,6 @@ if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragm
         tasks_list = [asyncio.create_task(task) for task in tasks]
         await asyncio.wait(tasks_list)
         return tasks_list
-
-else:  # noqa
-
-    async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> list[asyncio.Task]:
-        """Run a group of tasks.
-
-        :param tasks: Tasks to run.
-        :result: Finished tasks.
-        """
-        async with asyncio.TaskGroup() as task_group:
-            return [task_group.create_task(task) for task in tasks]
 
 
 class AsyncProcess(multiprocessing.Process):

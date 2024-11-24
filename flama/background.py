@@ -1,30 +1,14 @@
 import enum
 import functools
-import sys
 import typing as t
 
 import starlette.background
 
-from flama import concurrency
-
-if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing_extensions import ParamSpec
-
-    t.ParamSpec = ParamSpec  # type: ignore
-
-if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
-
-    class StrEnum(str, enum.Enum):
-        @staticmethod
-        def _generate_next_value_(name, start, count, last_values):
-            return name.lower()
-
-    enum.StrEnum = StrEnum  # type: ignore
-
+from flama import compat, concurrency
 
 __all__ = ["BackgroundTask", "BackgroundTasks", "Concurrency", "BackgroundThreadTask", "BackgroundProcessTask"]
 
-P = t.ParamSpec("P")  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+P = compat.ParamSpec("P")  # PORT: Replace compat when stop supporting 3.9
 
 
 class task_wrapper:
@@ -36,7 +20,7 @@ class task_wrapper:
         await concurrency.run(self.target, *args, **kwargs)
 
 
-class Concurrency(enum.StrEnum):  # type: ignore # PORT: Remove this comment when stop supporting 3.10
+class Concurrency(compat.StrEnum):  # PORT: Replace compat when stop supporting 3.10
     thread = enum.auto()
     process = enum.auto()
 

@@ -4,28 +4,13 @@ import enum
 import functools
 import inspect
 import logging
-import sys
 import typing as t
 
-from flama import concurrency, endpoints, exceptions, http, schemas, types, url, websockets
+from flama import compat, concurrency, endpoints, exceptions, http, schemas, types, url, websockets
 from flama.injection import Component, Components
 from flama.lifespan import Lifespan
 from flama.pagination import paginator
 from flama.schemas.routing import RouteParametersMixin
-
-if sys.version_info < (3, 10):  # PORT: Remove when stop supporting 3.9 # pragma: no cover
-    from typing_extensions import TypeGuard
-
-    t.TypeGuard = TypeGuard  # type: ignore
-
-if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
-
-    class StrEnum(str, enum.Enum):
-        @staticmethod
-        def _generate_next_value_(name, start, count, last_values):
-            return name.lower()
-
-    enum.StrEnum = StrEnum  # type: ignore
 
 if t.TYPE_CHECKING:
     from flama.applications import Flama
@@ -36,7 +21,7 @@ __all__ = ["Route", "WebSocketRoute", "Mount", "Router"]
 logger = logging.getLogger(__name__)
 
 
-class _EndpointType(enum.StrEnum):  # type: ignore # PORT: Remove this comment when stop supporting 3.10
+class _EndpointType(compat.StrEnum):  # PORT: Replace compat when stop supporting 3.10
     http = enum.auto()
     websocket = enum.auto()
 
@@ -363,7 +348,7 @@ class Route(BaseRoute):
     @staticmethod
     def is_endpoint(
         x: t.Union[t.Callable, type[endpoints.HTTPEndpoint]]
-    ) -> t.TypeGuard[type[endpoints.HTTPEndpoint]]:  # type: ignore # PORT: Remove this comment when stop supporting 3.9
+    ) -> compat.TypeGuard[type[endpoints.HTTPEndpoint]]:  # PORT: Replace compat when stop supporting 3.9
         return inspect.isclass(x) and issubclass(x, endpoints.HTTPEndpoint)
 
     def endpoint_handlers(self) -> dict[str, t.Callable]:
@@ -445,9 +430,7 @@ class WebSocketRoute(BaseRoute):
     @staticmethod
     def is_endpoint(
         x: t.Union[t.Callable, type[endpoints.WebSocketEndpoint]]
-    ) -> t.TypeGuard[  # type: ignore # PORT: Remove this comment when stop supporting 3.9
-        type[endpoints.WebSocketEndpoint]
-    ]:
+    ) -> compat.TypeGuard[type[endpoints.WebSocketEndpoint]]:  # PORT: Replace compat when stop supporting 3.9
         return inspect.isclass(x) and issubclass(x, endpoints.WebSocketEndpoint)
 
     def endpoint_handlers(self) -> dict[str, t.Callable]:

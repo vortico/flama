@@ -8,7 +8,6 @@ import json
 import logging
 import os
 import shutil
-import sys
 import tarfile
 import tempfile
 import typing as t
@@ -17,18 +16,9 @@ import warnings
 import weakref
 from pathlib import Path
 
-from flama import exceptions
+from flama import compat, exceptions
 from flama.serialize.base import Serializer
 from flama.serialize.types import Framework
-
-if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
-
-    class StrEnum(str, enum.Enum):
-        @staticmethod
-        def _generate_next_value_(name, start, count, last_values):
-            return name.lower()
-
-    enum.StrEnum = StrEnum  # type: ignore
 
 if t.TYPE_CHECKING:
     from flama.types import JSONSchema
@@ -38,7 +28,7 @@ __all__ = ["ModelArtifact", "Compression"]
 logger = logging.getLogger(__name__)
 
 
-class Compression(enum.StrEnum):  # type: ignore # PORT: Remove this comment when stop supporting 3.10
+class Compression(compat.StrEnum):  # PORT: Replace compat when stop supporting 3.10
     fast = enum.auto()
     standard = enum.auto()
     high = enum.auto()

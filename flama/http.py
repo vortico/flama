@@ -5,7 +5,6 @@ import html
 import inspect
 import json
 import os
-import sys
 import typing as t
 import uuid
 from pathlib import Path
@@ -15,16 +14,7 @@ import starlette.requests
 import starlette.responses
 import starlette.schemas
 
-from flama import exceptions, schemas, types
-
-if sys.version_info < (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
-
-    class StrEnum(str, enum.Enum):
-        @staticmethod
-        def _generate_next_value_(name, start, count, last_values):
-            return name.lower()
-
-    enum.StrEnum = StrEnum  # type: ignore
+from flama import compat, exceptions, schemas, types
 
 __all__ = [
     "Method",
@@ -43,7 +33,7 @@ __all__ = [
     "OpenAPIResponse",
 ]
 
-Method = enum.StrEnum(  # type: ignore # PORT: Remove this comment when stop supporting 3.10
+Method = compat.StrEnum(  # PORT: Replace compat when stop supporting 3.10
     "Method", ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"]
 )
 Request = starlette.requests.Request
