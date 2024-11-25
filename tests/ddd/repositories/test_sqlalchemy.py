@@ -6,7 +6,8 @@ import sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from flama import Flama
-from flama.ddd import SQLAlchemyRepository, SQLAlchemyTableManager, SQLAlchemyTableRepository, exceptions
+from flama.ddd import exceptions
+from flama.ddd.repositories.sqlalchemy import SQLAlchemyRepository, SQLAlchemyTableManager, SQLAlchemyTableRepository
 from flama.sqlalchemy import SQLAlchemyModule
 from tests.utils import SQLAlchemyContext
 

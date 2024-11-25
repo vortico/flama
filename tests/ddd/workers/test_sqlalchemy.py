@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from flama.ddd.repositories import SQLAlchemyRepository
-from flama.ddd.workers import SQLAlchemyWorker
+from flama.ddd.repositories.sqlalchemy import SQLAlchemyRepository
+from flama.ddd.workers.sqlalchemy import SQLAlchemyWorker
 
 
 class TestCaseSQLAlchemyWorker:

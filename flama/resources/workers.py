@@ -1,11 +1,11 @@
 import typing as t
 
-from flama.ddd import SQLAlchemyWorker
+from flama.ddd.workers.sqlalchemy import SQLAlchemyWorker
 from flama.exceptions import ApplicationError
 
 if t.TYPE_CHECKING:
     from flama import Flama
-    from flama.ddd.repositories import SQLAlchemyTableRepository
+    from flama.ddd.repositories.sqlalchemy import SQLAlchemyTableRepository
 
 
 class FlamaWorker(SQLAlchemyWorker):
@@ -20,8 +20,8 @@ class FlamaWorker(SQLAlchemyWorker):
         """
 
         super().__init__(app)
-        self._repositories: dict[str, type["SQLAlchemyTableRepository"]] = {}  # type: ignore
-        self._init_repositories: t.Optional[dict[str, "SQLAlchemyTableRepository"]] = None
+        self._repositories: dict[str, type[SQLAlchemyTableRepository]] = {}  # type: ignore
+        self._init_repositories: t.Optional[dict[str, SQLAlchemyTableRepository]] = None
 
     @property
     def repositories(self) -> dict[str, "SQLAlchemyTableRepository"]:
