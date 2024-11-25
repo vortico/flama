@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 Repositories = t.NewType("Repositories", dict[str, type[AbstractRepository]])
 
-__all__ = ["WorkerType", "AbstractWorker"]
+__all__ = ["WorkerType", "AbstractWorker", "Worker"]
 
 
 class WorkerType(abc.ABCMeta):
@@ -120,6 +120,32 @@ class AbstractWorker(abc.ABC, metaclass=WorkerType):
         ...
 
     @abc.abstractmethod
+    async def rollback(self) -> None:
+        """Rollback the unit of work."""
+        ...
+
+
+class Worker(AbstractWorker):
+    """Worker class.
+
+    A basic implementation of the worker class that does not apply any specific behavior.
+    """
+
+    async def begin(self) -> None:
+        """Start a unit of work."""
+        ...
+
+    async def end(self, *, rollback: bool = False) -> None:
+        """End a unit of work.
+
+        :param rollback: If the unit of work should be rolled back.
+        """
+        ...
+
+    async def commit(self) -> None:
+        """Commit the unit of work."""
+        ...
+
     async def rollback(self) -> None:
         """Rollback the unit of work."""
         ...
