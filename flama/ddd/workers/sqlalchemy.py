@@ -1,10 +1,15 @@
 import logging
-import typing as t
 
+from flama import exceptions
 from flama.ddd.workers.base import AbstractWorker
 
-if t.TYPE_CHECKING:
+try:
     from sqlalchemy.ext.asyncio import AsyncConnection, AsyncTransaction
+except Exception:  # pragma: no cover
+    raise exceptions.DependencyNotInstalled(
+        dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy, dependant=__name__
+    )
+
 
 __all__ = ["SQLAlchemyWorker"]
 
@@ -17,11 +22,11 @@ class SQLAlchemyWorker(AbstractWorker):
     It will provide a connection and a transaction to the database and create the repositories for the entities.
     """
 
-    _connection: "AsyncConnection"
-    _transaction: "AsyncTransaction"
+    _connection: AsyncConnection
+    _transaction: AsyncTransaction
 
     @property
-    def connection(self) -> "AsyncConnection":
+    def connection(self) -> AsyncConnection:
         """Connection to the database.
 
         :return: Connection to the database.
@@ -33,7 +38,7 @@ class SQLAlchemyWorker(AbstractWorker):
             raise AttributeError("Connection not initialized")
 
     @property
-    def transaction(self) -> "AsyncTransaction":
+    def transaction(self) -> AsyncTransaction:
         """Database transaction.
 
         :return: Database transaction.

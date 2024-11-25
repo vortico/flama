@@ -233,13 +233,6 @@ class TestCaseSQLAlchemyModule:
             assert app.sqlalchemy._engine is None
             assert app.sqlalchemy._connection_manager is None
 
-    def test_sqlalchemy_not_installed(self):
-        with patch("flama.sqlalchemy.sqlalchemy", new=None), pytest.raises(
-            ApplicationError,
-            match=r"Dependency 'sqlalchemy\[asyncio\]' must be installed to use 'flama.sqlalchemy.SQLAlchemyModule'",
-        ):
-            SQLAlchemyModule("")
-
     def test_engine_not_initialized(self, app):
         with pytest.raises(ApplicationError, match="SQLAlchemyModule not initialized"):
             app.sqlalchemy.engine

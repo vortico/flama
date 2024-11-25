@@ -7,20 +7,14 @@ from flama.modules import Module
 
 try:
     import sqlalchemy
-    from sqlalchemy import MetaData
-    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncTransaction, create_async_engine
 
-    metadata = MetaData()
+    metadata = sqlalchemy.MetaData()
 except Exception:  # pragma: no cover
-    sqlalchemy = None  # type: ignore[assignment]
-    metadata = None  # type: ignore[assignment]
-    create_async_engine = None  # type: ignore[assignment]
+    raise exceptions.DependencyNotInstalled(
+        dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy, dependant=__name__
+    )
 
-if t.TYPE_CHECKING:
-    try:
-        from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncTransaction
-    except Exception:  # pragma: no cover
-        ...
 
 __all__ = ["metadata", "SQLAlchemyModule"]
 
@@ -33,7 +27,7 @@ class ConnectionManager(abc.ABC):
     It will be used to manage the connections and transactions.
     """
 
-    def __init__(self, engine: "AsyncEngine") -> None:
+    def __init__(self, engine: AsyncEngine) -> None:
         """Initialize the connection manager.
 
         :param engine: SQLAlchemy engine.
@@ -41,7 +35,7 @@ class ConnectionManager(abc.ABC):
         self._engine = engine
 
     @abc.abstractmethod
-    async def open(self) -> "AsyncConnection":
+    async def open(self) -> AsyncConnection:
         """Open a new connection to the database.
 
         :return: Database connection.
@@ -49,7 +43,7 @@ class ConnectionManager(abc.ABC):
         ...
 
     @abc.abstractmethod
-    async def close(self, connection: "AsyncConnection") -> None:
+    async def close(self, connection: AsyncConnection) -> None:
         """Close the connection to the database.
 
         :param connection: Database connection.
@@ -57,7 +51,7 @@ class ConnectionManager(abc.ABC):
         ...
 
     @abc.abstractmethod
-    async def begin(self, connection: "AsyncConnection") -> "AsyncTransaction":
+    async def begin(self, connection: AsyncConnection) -> AsyncTransaction:
         """Begin a new transaction.
 
         :param connection: Database connection to use for the transaction.
@@ -66,7 +60,7 @@ class ConnectionManager(abc.ABC):
         ...
 
     @abc.abstractmethod
-    async def end(self, transaction: "AsyncTransaction", *, rollback: bool = False) -> None:
+    async def end(self, transaction: AsyncTransaction, *, rollback: bool = False) -> None:
         """End a transaction.
 
         :param transaction: Database transaction.
@@ -85,19 +79,19 @@ class SingleConnectionManager(ConnectionManager):
     generate a nested transaction.
     """
 
-    def __init__(self, engine: "AsyncEngine") -> None:
+    def __init__(self, engine: AsyncEngine) -> None:
         """Initialize the connection manager.
 
         :param engine: SQLAlchemy engine.
         """
         super().__init__(engine)
-        self._connection: t.Optional["AsyncConnection"] = None
-        self._transaction: t.Optional["AsyncTransaction"] = None
+        self._connection: t.Optional[AsyncConnection] = None
+        self._transaction: t.Optional[AsyncTransaction] = None
         self._connection_clients = 0
         self._transaction_clients = 0
 
     @property
-    def connection(self) -> "AsyncConnection":
+    def connection(self) -> AsyncConnection:
         """Connection to the database.
 
         :return: Connection to the database.
@@ -109,7 +103,7 @@ class SingleConnectionManager(ConnectionManager):
         return self._connection
 
     @property
-    def transaction(self) -> "AsyncTransaction":
+    def transaction(self) -> AsyncTransaction:
         """Transaction to the database.
 
         :return: Transaction to the database.
@@ -120,7 +114,7 @@ class SingleConnectionManager(ConnectionManager):
 
         return self._transaction
 
-    async def open(self) -> "AsyncConnection":
+    async def open(self) -> AsyncConnection:
         """Open a new connection to the database.
 
         The first client will open a new connection, and subsequent clients will share this same connection.
@@ -136,7 +130,7 @@ class SingleConnectionManager(ConnectionManager):
         self._connection_clients += 1
         return connection
 
-    async def close(self, connection: "AsyncConnection") -> None:
+    async def close(self, connection: AsyncConnection) -> None:
         """Close the connection to the database.
 
         If this is the last client, the connection will be closed.
@@ -153,7 +147,7 @@ class SingleConnectionManager(ConnectionManager):
             await connection.__aexit__(None, None, None)
             self._connection = None
 
-    async def begin(self, connection: "AsyncConnection") -> "AsyncTransaction":
+    async def begin(self, connection: AsyncConnection) -> AsyncTransaction:
         """Begin a new transaction.
 
         The first client will create a new transaction, and subsequent clients will share this same transaction.
@@ -173,7 +167,7 @@ class SingleConnectionManager(ConnectionManager):
         self._transaction_clients += 1
         return transaction
 
-    async def end(self, transaction: "AsyncTransaction", *, rollback: bool = False) -> None:
+    async def end(self, transaction: AsyncTransaction, *, rollback: bool = False) -> None:
         """End a transaction.
 
         If this is the last client, the connection will be committed or rolled back.
@@ -198,7 +192,7 @@ class SingleConnectionManager(ConnectionManager):
 class MultipleConnectionManager(ConnectionManager):
     """Connection manager that handlers several connections and transactions."""
 
-    def __init__(self, engine: "AsyncEngine") -> None:
+    def __init__(self, engine: AsyncEngine) -> None:
         """Initialize the connection manager.
 
         This manager keeps track of the connections and transactions, and it will close the connections when requested.
@@ -207,10 +201,10 @@ class MultipleConnectionManager(ConnectionManager):
         :param engine: SQLAlchemy engine.
         """
         super().__init__(engine)
-        self._connections: set["AsyncConnection"] = set()
-        self._transactions: dict["AsyncConnection", "AsyncTransaction"] = {}
+        self._connections: set[AsyncConnection] = set()
+        self._transactions: dict[AsyncConnection, AsyncTransaction] = {}
 
-    async def open(self) -> "AsyncConnection":
+    async def open(self) -> AsyncConnection:
         """Open a new connection to the database.
 
         :return: Database connection.
@@ -220,7 +214,7 @@ class MultipleConnectionManager(ConnectionManager):
         self._connections.add(connection)
         return connection
 
-    async def close(self, connection: "AsyncConnection") -> None:
+    async def close(self, connection: AsyncConnection) -> None:
         """Close the connection to the database.
 
         :param connection: Database connection.
@@ -235,7 +229,7 @@ class MultipleConnectionManager(ConnectionManager):
         self._connections.remove(connection)
         await connection.close()
 
-    async def begin(self, connection: "AsyncConnection") -> "AsyncTransaction":
+    async def begin(self, connection: AsyncConnection) -> AsyncTransaction:
         """Begin a new transaction.
 
         :param connection: Database connection to use for the transaction.
@@ -252,7 +246,7 @@ class MultipleConnectionManager(ConnectionManager):
         self._transactions[connection] = transaction
         return transaction
 
-    async def end(self, transaction: "AsyncTransaction", *, rollback: bool = False) -> None:
+    async def end(self, transaction: AsyncTransaction, *, rollback: bool = False) -> None:
         """End a transaction.
 
         :param transaction: Database transaction.
@@ -307,28 +301,22 @@ class SQLAlchemyModule(Module):
         :param engine_args: Arguments to pass to the SQLAlchemy engine.
         :raises ApplicationError: If SQLAlchemy is not installed.
         """
-        if sqlalchemy is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            )
-
         if not database:
             raise exceptions.ApplicationError("Database connection string must be provided")
 
         super().__init__()
 
         self.database = database
-        self.metadata: "MetaData" = metadata  # type: ignore[assignment]
-        self._engine: t.Optional["AsyncEngine"] = None
+        self.metadata: sqlalchemy.MetaData = metadata
+        self._engine: t.Optional[AsyncEngine] = None
         self._engine_args = engine_args or {}
-        self._connection_manager: t.Optional["ConnectionManager"] = None
-        self._manager_cls: type["ConnectionManager"] = (
+        self._connection_manager: t.Optional[ConnectionManager] = None
+        self._manager_cls: type[ConnectionManager] = (
             SingleConnectionManager if single_connection else MultipleConnectionManager
         )
 
     @property
-    def engine(self) -> "AsyncEngine":
+    def engine(self) -> AsyncEngine:
         """SQLAlchemy engine.
 
         :return: SQLAlchemy engine.
@@ -349,21 +337,21 @@ class SQLAlchemyModule(Module):
             raise exceptions.ApplicationError("SQLAlchemyModule not initialized")
         return self._connection_manager
 
-    async def open_connection(self) -> "AsyncConnection":
+    async def open_connection(self) -> AsyncConnection:
         """Open a new connection to the database.
 
         :return: Database connection.
         """
         return await self.connection_manager.open()
 
-    async def close_connection(self, connection: "AsyncConnection") -> None:
+    async def close_connection(self, connection: AsyncConnection) -> None:
         """Close the connection to the database.
 
         :param connection: Database connection.
         """
         return await self.connection_manager.close(connection)
 
-    async def begin_transaction(self, connection: "AsyncConnection") -> "AsyncTransaction":
+    async def begin_transaction(self, connection: AsyncConnection) -> AsyncTransaction:
         """Begin a new transaction.
 
         :param connection: Database connection to use for the transaction.
@@ -371,7 +359,7 @@ class SQLAlchemyModule(Module):
         """
         return await self.connection_manager.begin(connection)
 
-    async def end_transaction(self, transaction: "AsyncTransaction", *, rollback: bool = False) -> None:
+    async def end_transaction(self, transaction: AsyncTransaction, *, rollback: bool = False) -> None:
         """End a transaction.
 
         :param transaction: Database transaction.
@@ -382,12 +370,6 @@ class SQLAlchemyModule(Module):
 
     async def on_startup(self):
         """Initialize the SQLAlchemy engine and connection manager."""
-        if create_async_engine is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            )
-
         self._engine = create_async_engine(self.database, **self._engine_args)
         self._connection_manager = self._manager_cls(self._engine)
 

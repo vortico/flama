@@ -3,7 +3,7 @@ import typing as t
 import uuid
 
 from flama import exceptions
-from flama.ddd.repositories import SQLAlchemyTableRepository
+from flama.ddd.repositories.sqlalchemy import SQLAlchemyTableRepository
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
 from flama.resources.resource import Resource, ResourceType
@@ -12,8 +12,9 @@ try:
     import sqlalchemy
     from sqlalchemy.dialects import postgresql
 except Exception:  # pragma: no cover
-    sqlalchemy = None
-    postgresql = None
+    raise exceptions.DependencyNotInstalled(
+        dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy, dependant=__name__
+    )
 
 __all__ = ["RESTResource", "RESTResourceType"]
 
@@ -28,11 +29,6 @@ class RESTResourceType(ResourceType):
         :param bases: List of superclasses.
         :param namespace: Variables namespace used to create the class.
         """
-        if sqlalchemy is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy, dependant="RESTResourceType"
-            )
-
         if not mcs._is_abstract(namespace):
             try:
                 # Get model
@@ -68,12 +64,6 @@ class RESTResourceType(ResourceType):
         :param namespace: Variables namespace used to create the class.
         :return: Resource model.
         """
-        if sqlalchemy is None or postgresql is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{cls.__module__}.{cls.__name__}",
-            )
-
         model = cls._get_attribute("model", bases, namespace, metadata_namespace="rest")
 
         # Already defined model probably because resource inheritance, so no need to create it
@@ -154,7 +144,7 @@ class RESTResourceType(ResourceType):
 
 
 class RESTResource(Resource, metaclass=RESTResourceType):
-    model: sqlalchemy.Table  # type: ignore
+    model: sqlalchemy.Table
     schema: t.Any
     input_schema: t.Any
     output_schema: t.Any

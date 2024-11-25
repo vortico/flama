@@ -2,7 +2,7 @@ import pytest
 import sqlalchemy
 
 from flama.applications import Flama
-from flama.ddd.repositories import SQLAlchemyRepository
+from flama.ddd.repositories.sqlalchemy import SQLAlchemyRepository
 from flama.resources import data_structures
 from flama.resources.crud import CRUDResource
 from flama.resources.routing import resource_method

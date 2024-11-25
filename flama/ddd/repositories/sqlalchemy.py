@@ -7,16 +7,12 @@ from flama.ddd.repositories import AbstractRepository
 try:
     import sqlalchemy
     import sqlalchemy.exc as sqlalchemy_exceptions
+    from sqlalchemy.ext.asyncio import AsyncConnection
 except Exception:  # pragma: no cover
-    sqlalchemy = None
-    sqlalchemy_exceptions = None
+    raise exceptions.DependencyNotInstalled(
+        dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy, dependant=__name__
+    )
 
-
-if t.TYPE_CHECKING:
-    try:
-        from sqlalchemy.ext.asyncio import AsyncConnection
-    except Exception:  # pragma: no cover
-        ...
 
 __all__ = ["SQLAlchemyRepository", "SQLAlchemyTableManager", "SQLAlchemyTableRepository"]
 
@@ -24,13 +20,7 @@ __all__ = ["SQLAlchemyRepository", "SQLAlchemyTableManager", "SQLAlchemyTableRep
 class SQLAlchemyRepository(AbstractRepository):
     """Base class for SQLAlchemy repositories. It provides a connection to the database."""
 
-    def __init__(self, connection: "AsyncConnection", *args, **kwargs):
-        if sqlalchemy is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            )
-
+    def __init__(self, connection: AsyncConnection, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._connection = connection
 
@@ -39,13 +29,7 @@ class SQLAlchemyRepository(AbstractRepository):
 
 
 class SQLAlchemyTableManager:
-    def __init__(self, table: sqlalchemy.Table, connection: "AsyncConnection"):  # type: ignore
-        if sqlalchemy is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            )
-
+    def __init__(self, table: sqlalchemy.Table, connection: AsyncConnection):  # type: ignore
         self._connection = connection
         self.table = table
 
@@ -66,12 +50,6 @@ class SQLAlchemyTableManager:
         :return: The created elements.
         :raises IntegrityError: If the element already exists or cannot be inserted.
         """
-        if sqlalchemy is None or sqlalchemy_exceptions is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            )
-
         try:
             result = await self._connection.execute(sqlalchemy.insert(self.table).values(data).returning(self.table))
         except sqlalchemy_exceptions.IntegrityError as e:
@@ -94,12 +72,6 @@ class SQLAlchemyTableManager:
         :raises NotFoundError: If the element does not exist.
         :raises MultipleRecordsError: If more than one element is found.
         """
-        if sqlalchemy is None or sqlalchemy_exceptions is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            )
-
         query = self._filter_query(sqlalchemy.select(self.table), *clauses, **filters)
 
         try:
@@ -121,12 +93,6 @@ class SQLAlchemyTableManager:
         :return: The updated elements.
         :raises IntegrityError: If the elements cannot be updated.
         """
-        if sqlalchemy is None or sqlalchemy_exceptions is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            )
-
         query = (
             self._filter_query(sqlalchemy.update(self.table), *clauses, **filters).values(**data).returning(self.table)
         )
@@ -152,12 +118,6 @@ class SQLAlchemyTableManager:
         :raises NotFoundError: If the element does not exist.
         :raises MultipleRecordsError: If more than one element is found.
         """
-        if sqlalchemy is None or sqlalchemy_exceptions is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            )
-
         await self.retrieve(*clauses, **filters)
 
         query = self._filter_query(sqlalchemy.delete(self.table), *clauses, **filters)
@@ -185,12 +145,6 @@ class SQLAlchemyTableManager:
         :param filters: Filters to filter the elements.
         :return: Async iterable of the elements.
         """
-        if sqlalchemy is None or sqlalchemy_exceptions is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            )
-
         query = self._filter_query(sqlalchemy.select(self.table), *clauses, **filters)
 
         if order_by:
@@ -219,12 +173,6 @@ class SQLAlchemyTableManager:
         :param filters: Filters to filter the elements.
         :return: The number of elements dropped.
         """
-        if sqlalchemy is None or sqlalchemy_exceptions is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            )
-
         query = self._filter_query(sqlalchemy.delete(self.table), *clauses, **filters)
 
         result = await self._connection.execute(query)
@@ -248,12 +196,6 @@ class SQLAlchemyTableManager:
         :param filters: Filters to filter the elements.
         :return: The filtered query.
         """
-        if sqlalchemy is None or sqlalchemy_exceptions is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            )
-
         where_clauses = tuple(clauses) + tuple(self.table.c[k] == v for k, v in filters.items())
 
         if where_clauses:
@@ -265,13 +207,7 @@ class SQLAlchemyTableManager:
 class SQLAlchemyTableRepository(SQLAlchemyRepository):
     _table: t.ClassVar[sqlalchemy.Table]  # type: ignore
 
-    def __init__(self, connection: "AsyncConnection", *args, **kwargs):
-        if sqlalchemy is None or sqlalchemy_exceptions is None:
-            raise exceptions.DependencyNotInstalled(
-                dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            )
-
+    def __init__(self, connection: AsyncConnection, *args, **kwargs):
         super().__init__(connection, *args, **kwargs)
         self._table_manager = SQLAlchemyTableManager(self._table, connection)
 
