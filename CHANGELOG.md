@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.9.1](https://github.com/vortico/flama/compare/v1.9.0...v1.9.1) (2024-11-25)
+
+## 🐛 Bug Fixes
+- [`e7ab2f4`](https://github.com/vortico/flama/commit/e7ab2f4)  DependencyNotInstalled on modules that requires sqlalchemy (#162) (Issues: [`#162`](https://github.com/vortico/flama/issues/))
+
 # [v1.9.0](https://github.com/vortico/flama/compare/v1.8.1...v1.9.0) (2024-11-24)
 
 ## ✨ New Features
