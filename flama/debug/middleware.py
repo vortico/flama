@@ -82,7 +82,7 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
         accept = request.headers.get("accept", "")
 
         if "text/html" in accept:
-            return http._ReactTemplateResponse(
+            return http._FlamaTemplateResponse(
                 "debug/error_500.html", context=dataclasses.asdict(ErrorContext.build(request, exc)), status_code=500
             )
         return http.PlainTextResponse("Internal Server Error", status_code=500)
@@ -100,10 +100,10 @@ class ExceptionMiddleware(BaseErrorMiddleware):
     def __init__(self, app: types.App, handlers: t.Optional[t.Mapping[t.Any, "Handler"]] = None, debug: bool = False):
         super().__init__(app, debug)
         handlers = handlers or {}
-        self._status_handlers: dict[int, "Handler"] = {
+        self._status_handlers: dict[int, Handler] = {
             status_code: handler for status_code, handler in handlers.items() if isinstance(status_code, int)
         }
-        self._exception_handlers: dict[type[Exception], "Handler"] = {
+        self._exception_handlers: dict[type[Exception], Handler] = {
             **{e: handler for e, handler in handlers.items() if inspect.isclass(e) and issubclass(e, Exception)},
             exceptions.NotFoundException: self.not_found_handler,
             exceptions.MethodNotAllowedException: self.method_not_allowed_handler,
@@ -164,7 +164,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         accept = request.headers.get("accept", "")
 
         if self.debug and exc.status_code == 404 and "text/html" in accept:
-            return http._ReactTemplateResponse(
+            return http._FlamaTemplateResponse(
                 template="debug/error_404.html",
                 context=dataclasses.asdict(NotFoundContext.build(request, scope["app"])),
                 status_code=404,

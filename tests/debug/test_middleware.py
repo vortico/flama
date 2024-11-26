@@ -119,12 +119,12 @@ class TestCaseServerErrorMiddleware:
         with patch(
             "flama.debug.middleware.dataclasses.asdict", return_value=context_mock
         ) as dataclasses_dict, patch.object(ErrorContext, "build", return_value=error_context_mock), patch.object(
-            http._ReactTemplateResponse, "__init__", return_value=None
+            http._FlamaTemplateResponse, "__init__", return_value=None
         ) as response_mock:
             response = middleware.debug_handler(asgi_scope, asgi_receive, asgi_send, exc)
             assert ErrorContext.build.call_count == 1
             assert dataclasses_dict.call_args_list == [call(error_context_mock)]
-            assert isinstance(response, http._ReactTemplateResponse)
+            assert isinstance(response, http._FlamaTemplateResponse)
             assert response_mock.call_args_list == [call("debug/error_500.html", context=context_mock, status_code=500)]
 
     def test_debug_response_text(self, middleware, asgi_scope, asgi_receive, asgi_send):
@@ -290,7 +290,7 @@ class TestCaseExceptionMiddleware:
                 True,
                 b"text/html",
                 exceptions.HTTPException(404, "Foo"),
-                http._ReactTemplateResponse,
+                http._FlamaTemplateResponse,
                 {"template": "debug/error_404.html", "context": {}, "status_code": 404},
                 id="debug_404",
             ),

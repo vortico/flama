@@ -170,43 +170,10 @@ class TestCaseHTMLFileResponse:
             assert exc.detail == error_detail
 
 
-class TestCaseOpenAPIResponse:
-    @pytest.mark.parametrize(
-        "test_input,expected,exception",
-        (
-            pytest.param({"foo": "bar"}, {"foo": "bar"}, None, id="success"),
-            pytest.param("foo", None, AssertionError, id="wrong_content"),
-        ),
-        indirect=("exception",),
-    )
-    def test_render(self, test_input, expected, exception):
-        with exception:
-            response = http.OpenAPIResponse(test_input)
-
-            assert json.loads(response.body.decode()) == expected
-
-
-class TestCaseHTMLTemplateResponse:
-    @pytest.mark.parametrize(
-        ["context"], (pytest.param({"foo": "bar"}, id="context"), pytest.param(None, id="no_context"))
-    )
-    def test_init(self, context):
-        template_mock = MagicMock()
-        template_mock.render.return_value = "foo"
-        environment_mock = MagicMock(spec=jinja2.Environment)
-        environment_mock.get_template.return_value = template_mock
-        with patch.object(http.HTMLTemplateResponse, "templates", new=environment_mock), patch.object(
-            http.HTMLResponse, "__init__", return_value=None
-        ) as super_mock:
-            http.HTMLTemplateResponse("foo.html", context)
-
-            assert super_mock.call_args_list == [call("foo")]
-
-
-class TestCaseReactTemplatesEnvironment:
+class TestCaseHTMLTemplatesEnvironment:
     @pytest.fixture
     def environment(self):
-        return http._ReactTemplatesEnvironment()
+        return http.HTMLTemplatesEnvironment()
 
     @pytest.mark.parametrize(
         ["value", "result"],
@@ -294,3 +261,36 @@ class TestCaseReactTemplatesEnvironment:
     )
     def test_safe_json(self, environment, value, result):
         assert environment.safe_json(value) == result
+
+
+class TestCaseHTMLTemplateResponse:
+    @pytest.mark.parametrize(
+        ["context"], (pytest.param({"foo": "bar"}, id="context"), pytest.param(None, id="no_context"))
+    )
+    def test_init(self, context):
+        template_mock = MagicMock()
+        template_mock.render.return_value = "foo"
+        environment_mock = MagicMock(spec=jinja2.Environment)
+        environment_mock.get_template.return_value = template_mock
+        with patch.object(http.HTMLTemplateResponse, "templates", new=environment_mock), patch.object(
+            http.HTMLResponse, "__init__", return_value=None
+        ) as super_mock:
+            http.HTMLTemplateResponse("foo.html", context)
+
+            assert super_mock.call_args_list == [call("foo")]
+
+
+class TestCaseOpenAPIResponse:
+    @pytest.mark.parametrize(
+        "test_input,expected,exception",
+        (
+            pytest.param({"foo": "bar"}, {"foo": "bar"}, None, id="success"),
+            pytest.param("foo", None, AssertionError, id="wrong_content"),
+        ),
+        indirect=("exception",),
+    )
+    def test_render(self, test_input, expected, exception):
+        with exception:
+            response = http.OpenAPIResponse(test_input)
+
+            assert json.loads(response.body.decode()) == expected

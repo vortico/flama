@@ -88,6 +88,6 @@ class SchemaModule(Module):
         return http.OpenAPIResponse(self.schema)
 
     def docs_view(self) -> http.HTMLResponse:
-        return http._ReactTemplateResponse(
+        return http._FlamaTemplateResponse(
             "schemas/docs.html", {"title": self.title, "schema_url": self.schema_path, "docs_url": self.docs_path}
         )
