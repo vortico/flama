@@ -1,7 +1,7 @@
 import logging
 
 from flama import exceptions
-from flama.ddd.workers.base import AbstractWorker
+from flama.ddd.workers.base import BaseWorker
 
 try:
     from sqlalchemy.ext.asyncio import AsyncConnection, AsyncTransaction
@@ -16,7 +16,7 @@ __all__ = ["SQLAlchemyWorker"]
 logger = logging.getLogger(__name__)
 
 
-class SQLAlchemyWorker(AbstractWorker):
+class SQLAlchemyWorker(BaseWorker):
     """Worker for SQLAlchemy.
 
     It will provide a connection and a transaction to the database and create the repositories for the entities.

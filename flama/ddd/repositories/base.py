@@ -1,10 +1,16 @@
 import abc
 
-__all__ = ["AbstractRepository"]
+__all__ = ["AbstractRepository", "BaseRepository"]
 
 
 class AbstractRepository(abc.ABC):
-    """Base class for repositories."""
+    """Abstract class for repositories."""
 
     def __init__(self, *args, **kwargs):
         ...
+
+
+class BaseRepository(AbstractRepository):
+    """Base class for repositories."""
+
+    ...

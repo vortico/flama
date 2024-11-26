@@ -6,7 +6,7 @@ import uuid
 import httpx
 
 from flama.ddd import exceptions
-from flama.ddd.repositories import AbstractRepository
+from flama.ddd.repositories import BaseRepository
 
 if t.TYPE_CHECKING:
     from flama.client import Client
@@ -14,7 +14,7 @@ if t.TYPE_CHECKING:
 __all__ = ["HTTPRepository", "HTTPResourceManager", "HTTPResourceRepository"]
 
 
-class HTTPRepository(AbstractRepository):
+class HTTPRepository(BaseRepository):
     def __init__(self, client: "Client", *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._client = client

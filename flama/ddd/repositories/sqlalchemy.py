@@ -2,7 +2,7 @@ import typing as t
 
 from flama import exceptions
 from flama.ddd import exceptions as ddd_exceptions
-from flama.ddd.repositories import AbstractRepository
+from flama.ddd.repositories import BaseRepository
 
 try:
     import sqlalchemy
@@ -17,7 +17,7 @@ except Exception:  # pragma: no cover
 __all__ = ["SQLAlchemyRepository", "SQLAlchemyTableManager", "SQLAlchemyTableRepository"]
 
 
-class SQLAlchemyRepository(AbstractRepository):
+class SQLAlchemyRepository(BaseRepository):
     """Base class for SQLAlchemy repositories. It provides a connection to the database."""
 
     def __init__(self, connection: AsyncConnection, *args, **kwargs):

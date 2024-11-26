@@ -1,6 +1,6 @@
 import typing as t
 
-from flama.ddd.workers.base import AbstractWorker
+from flama.ddd.workers.base import BaseWorker
 
 if t.TYPE_CHECKING:
     from flama import Flama
@@ -9,7 +9,7 @@ if t.TYPE_CHECKING:
 __all__ = ["HTTPWorker"]
 
 
-class HTTPWorker(AbstractWorker):
+class HTTPWorker(BaseWorker):
     """Worker for HTTP client.
 
     It will provide a flama Client and create the repositories for the corresponding resources.

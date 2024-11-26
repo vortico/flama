@@ -1,12 +1,39 @@
 import pytest
 
 from flama import types
-from flama.ddd import AbstractWorker
 from flama.ddd.components import WorkerComponent
+from flama.ddd.repositories.base import BaseRepository
+from flama.ddd.workers.base import BaseWorker
 from flama.injection.resolver import Parameter
 
 
 class TestCaseWorkerComponent:
+    @pytest.fixture(scope="function")
+    def repository(self):
+        class FooRepository(BaseRepository):
+            ...
+
+        return FooRepository
+
+    @pytest.fixture(scope="function")
+    def worker(self, repository):
+        class FooWorker(BaseWorker):
+            foo: repository
+
+            async def begin(self):
+                ...
+
+            async def end(self, *, rollback: bool = False):
+                ...
+
+            async def commit(self):
+                ...
+
+            async def rollback(self):
+                ...
+
+        return FooWorker()
+
     @pytest.fixture(scope="function")
     def component(self, worker):
         return WorkerComponent(worker)
@@ -17,15 +44,15 @@ class TestCaseWorkerComponent:
     @pytest.fixture(scope="function")
     def parameter_types(self, worker):
         return {
-            "abstract_worker": AbstractWorker,
-            "foo_worker": worker.__class__,
+            "abstract_worker": BaseWorker,
+            "implemented_worker": worker.__class__,
             "int": int,
         }
 
     @pytest.mark.parametrize(
         ["param_name", "param_type", "expected"],
         [
-            pytest.param("foo", "foo_worker", True, id="handle"),
+            pytest.param("foo", "implemented_worker", True, id="handle"),
             pytest.param("foo", "abstract_worker", False, id="not_handle_abstract"),
             pytest.param("foo", "int", False, id="not_handle_int"),
         ],

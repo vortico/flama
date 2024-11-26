@@ -51,8 +51,9 @@ class TestCaseResourcesModule:
                 ("/", {"PATCH"}, resource.partial_replace, {"tag": "partial-replace"}),
                 ("/", {"DELETE"}, resource.drop, {"tag": "drop"}),
             ]
+            assert PuppyResource._meta.name in app.resources.worker._resources_repositories.registered
         finally:
-            del app.resources.worker._repositories[PuppyResource._meta.name]
+            app.resources.remove_repository(PuppyResource._meta.name)
 
     def test_add_resource_decorator(self, app, puppy_model, puppy_schema, tags):
         class PuppyResource(CRUDResource):
@@ -79,8 +80,9 @@ class TestCaseResourcesModule:
                 ("/", {"PATCH"}, resource.partial_replace, {"tag": "partial-replace"}),
                 ("/", {"DELETE"}, resource.drop, {"tag": "drop"}),
             ]
+            assert PuppyResource._meta.name in app.resources.worker._resources_repositories.registered
         finally:
-            del app.resources.worker._repositories[PuppyResource._meta.name]
+            app.resources.remove_repository(PuppyResource._meta.name)
 
     def test_add_resource_wrong(self, app):
         with pytest.raises(ValueError, match=""):
@@ -113,6 +115,6 @@ class TestCaseResourcesModule:
                 ("/", {"DELETE"}, resource_route.resource.drop, {"tag": "drop"}),
             ]
             assert isinstance(resource_route.resource, PuppyResource)
-            assert PuppyResource._meta.name in app.resources.worker._repositories
+            assert PuppyResource._meta.name in app.resources.worker._resources_repositories.registered
         finally:
-            del app.resources.worker._repositories[PuppyResource._meta.name]
+            app.resources.remove_repository(PuppyResource._meta.name)
