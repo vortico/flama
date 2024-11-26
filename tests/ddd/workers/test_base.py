@@ -2,12 +2,36 @@ from unittest.mock import AsyncMock, call, patch
 
 import pytest
 
+from flama.ddd.repositories.base import BaseRepository
+from flama.ddd.workers.base import AbstractWorker, BaseWorker
 from flama.exceptions import ApplicationError
 
 
+@pytest.fixture(scope="function")
+def repository():
+    class FooRepository(BaseRepository):
+        ...
+
+    return FooRepository
+
+
 class TestCaseAbstractWorker:
-    def test_new(self, worker):
-        assert hasattr(worker, "_repositories")
+    @pytest.fixture(scope="function")
+    def worker(self):
+        class FooWorker(AbstractWorker):
+            async def begin(self):
+                ...
+
+            async def end(self, *, rollback: bool = False):
+                ...
+
+            async def commit(self):
+                ...
+
+            async def rollback(self):
+                ...
+
+        return FooWorker()
 
     def test_app(self, app, worker):
         with pytest.raises(ApplicationError, match="Worker not initialized"):
@@ -32,3 +56,28 @@ class TestCaseAbstractWorker:
 
             assert worker.begin.await_args_list == [call()]
             assert worker.end.await_args_list == [call(rollback=False)]
+
+
+class TestCaseBaseWorker:
+    @pytest.fixture(scope="function")
+    def worker(self, repository):
+        class FooWorker(BaseWorker):
+            foo: repository
+
+            async def begin(self):
+                ...
+
+            async def end(self, *, rollback: bool = False):
+                ...
+
+            async def commit(self):
+                ...
+
+            async def rollback(self):
+                ...
+
+        return FooWorker()
+
+    def test_new(self, worker, repository):
+        assert hasattr(worker, "_repositories")
+        assert worker._repositories == {"foo": repository}

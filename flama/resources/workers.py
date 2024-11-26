@@ -1,3 +1,4 @@
+import dataclasses
 import typing as t
 
 from flama.ddd.workers.sqlalchemy import SQLAlchemyWorker
@@ -6,6 +7,18 @@ from flama.exceptions import ApplicationError
 if t.TYPE_CHECKING:
     from flama import Flama
     from flama.ddd.repositories.sqlalchemy import SQLAlchemyTableRepository
+
+
+@dataclasses.dataclass
+class Repositories:
+    registered: dict[str, type["SQLAlchemyTableRepository"]] = dataclasses.field(default_factory=dict)
+    initialised: t.Optional[dict[str, "SQLAlchemyTableRepository"]] = None
+
+    def init(self, connection: t.Any) -> None:
+        self.initialised = {r: cls(connection) for r, cls in self.registered.items()}
+
+    def delete(self) -> None:
+        self.initialised = None
 
 
 class FlamaWorker(SQLAlchemyWorker):
@@ -20,8 +33,22 @@ class FlamaWorker(SQLAlchemyWorker):
         """
 
         super().__init__(app)
-        self._repositories: dict[str, type[SQLAlchemyTableRepository]] = {}  # type: ignore
-        self._init_repositories: t.Optional[dict[str, SQLAlchemyTableRepository]] = None
+        self._resources_repositories = Repositories()
+
+    def add_repository(self, name: str, repository: type["SQLAlchemyTableRepository"]) -> None:
+        """Register a repository.
+
+        :param name: The name of the repository.
+        :param repository: The repository class.
+        """
+        self._resources_repositories.registered[name] = repository
+
+    def remove_repository(self, name: str) -> None:
+        """Deregister a repository.
+
+        :param name: The name of the repository.
+        """
+        del self._resources_repositories.registered[name]
 
     @property
     def repositories(self) -> dict[str, "SQLAlchemyTableRepository"]:
@@ -30,10 +57,10 @@ class FlamaWorker(SQLAlchemyWorker):
         :retirns: The initialized repositories.
         :raises ApplicationError: If the repositories are not initialized.
         """
-        if not self._init_repositories:
+        if not self._resources_repositories.initialised:
             raise ApplicationError("Repositories not initialized")
 
-        return self._init_repositories
+        return self._resources_repositories.initialised
 
     async def begin(self) -> None:
         """Start a unit of work.
@@ -41,7 +68,7 @@ class FlamaWorker(SQLAlchemyWorker):
         Initialize the connection, begin a transaction, and create the repositories.
         """
         await self.begin_transaction()
-        self._init_repositories = {r: cls(self.connection) for r, cls in self._repositories.items()}
+        self._resources_repositories.init(self.connection)
 
     async def end(self, *, rollback: bool = False) -> None:
         """End a unit of work.
@@ -51,4 +78,4 @@ class FlamaWorker(SQLAlchemyWorker):
         :param rollback: If the unit of work should be rolled back.
         """
         await self.end_transaction(rollback=rollback)
-        del self._init_repositories
+        self._resources_repositories.delete()

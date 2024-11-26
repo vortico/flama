@@ -1,10 +1,9 @@
 import abc
 import asyncio
-import inspect
 import logging
 import typing as t
 
-from flama.ddd.repositories import AbstractRepository
+from flama.ddd.repositories import BaseRepository
 from flama.exceptions import ApplicationError
 
 if t.TYPE_CHECKING:
@@ -12,47 +11,18 @@ if t.TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-Repositories = t.NewType("Repositories", dict[str, type[AbstractRepository]])
-
-__all__ = ["WorkerType", "AbstractWorker", "Worker"]
+__all__ = ["AbstractWorker", "BaseWorker"]
 
 
-class WorkerType(abc.ABCMeta):
-    """Metaclass for workers.
-
-    It will gather all the repositories defined in the class as class attributes as a single dictionary under the name
-    `_repositories`.
-    """
-
-    def __new__(mcs, name: str, bases: tuple[type], namespace: dict[str, t.Any]):
-        if not mcs._is_abstract(namespace) and "__annotations__" in namespace:
-            namespace["_repositories"] = Repositories(
-                {
-                    k: v
-                    for k, v in namespace["__annotations__"].items()
-                    if inspect.isclass(v) and issubclass(v, AbstractRepository)
-                }
-            )
-
-            namespace["__annotations__"] = {
-                k: v for k, v in namespace["__annotations__"].items() if k not in namespace["_repositories"]
-            }
-
-        return super().__new__(mcs, name, bases, namespace)
-
-    @staticmethod
-    def _is_abstract(namespace: dict[str, t.Any]) -> bool:
-        return namespace.get("__module__") == "flama.ddd.workers" and namespace.get("__qualname__") == "AbstractWorker"
+Repositories = t.NewType("Repositories", dict[str, type[BaseRepository]])
 
 
-class AbstractWorker(abc.ABC, metaclass=WorkerType):
+class AbstractWorker(abc.ABC):
     """Abstract class for workers.
 
-    It will be used to define the workers for the application. A worker consists of a set of repositories that will be
-    used to interact with entities and a mechanism for isolate a single unit of work.
+    It will be used to define the workers for the application. A worker must provide a mechanism to isolate a single
+    unit of work that will be used to interact with the repositories and entities of the application.
     """
-
-    _repositories: t.ClassVar[dict[str, type[AbstractRepository]]]
 
     def __init__(self, app: t.Optional["Flama"] = None):
         """Initialize the worker.
@@ -125,27 +95,45 @@ class AbstractWorker(abc.ABC, metaclass=WorkerType):
         ...
 
 
-class Worker(AbstractWorker):
-    """Worker class.
+class WorkerType(abc.ABCMeta):
+    """Metaclass for workers.
 
-    A basic implementation of the worker class that does not apply any specific behavior.
+    It will gather all the repositories defined in the class as class attributes as a single dictionary under the name
+    `_repositories` and remove them from the class annotations.
     """
 
-    async def begin(self) -> None:
-        """Start a unit of work."""
-        ...
+    def __new__(mcs, name: str, bases: tuple[type], namespace: dict[str, t.Any]):
+        if not mcs._is_base(namespace) and "__annotations__" in namespace:
+            namespace["_repositories"] = Repositories(
+                {k: v for k, v in namespace["__annotations__"].items() if mcs._is_repository(v)}
+            )
 
-    async def end(self, *, rollback: bool = False) -> None:
-        """End a unit of work.
+            namespace["__annotations__"] = {
+                k: v for k, v in namespace["__annotations__"].items() if k not in namespace["_repositories"]
+            }
 
-        :param rollback: If the unit of work should be rolled back.
-        """
-        ...
+        return super().__new__(mcs, name, bases, namespace)
 
-    async def commit(self) -> None:
-        """Commit the unit of work."""
-        ...
+    @staticmethod
+    def _is_base(namespace: dict[str, t.Any]) -> bool:
+        return namespace.get("__module__") == "flama.ddd.workers" and namespace.get("__qualname__") == "BaseWorker"
 
-    async def rollback(self) -> None:
-        """Rollback the unit of work."""
-        ...
+    @staticmethod
+    def _is_repository(obj: t.Any) -> bool:
+        try:
+            return issubclass(obj, BaseRepository)
+        except TypeError:
+            return False
+
+
+class BaseWorker(AbstractWorker, metaclass=WorkerType):
+    """Base class for workers.
+
+    It will be used to define the workers for the application. A worker consists of a set of repositories that will be
+    used to interact with entities and a mechanism for isolate a single unit of work.
+
+    It will gather all the repositories defined in the class as class attributes as a single dictionary under the name
+    `_repositories` and remove them from the class annotations.
+    """
+
+    _repositories: t.ClassVar[dict[str, type[BaseRepository]]]

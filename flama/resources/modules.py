@@ -1,14 +1,16 @@
 import inspect
 import typing as t
 
+from flama import exceptions
 from flama.modules import Module
 from flama.resources.resource import Resource
 from flama.resources.routing import ResourceRoute
 
 if t.TYPE_CHECKING:
     try:
+        from flama.ddd.repositories.sqlalchemy import SQLAlchemyTableRepository
         from flama.resources.workers import FlamaWorker
-    except AssertionError:
+    except exceptions.DependencyNotInstalled:
         ...
 
 
@@ -60,3 +62,20 @@ class ResourcesModule(Module):
             return resource
 
         return decorator
+
+    def add_repository(self, name: str, repository: type["SQLAlchemyTableRepository"]) -> None:
+        """Register a repository.
+
+        :param name: The name of the repository.
+        :param repository: The repository class.
+        """
+        if self.worker:
+            self.worker.add_repository(name, repository)
+
+    def remove_repository(self, name: str) -> None:
+        """Deregister a repository.
+
+        :param name: The name of the repository.
+        """
+        if self.worker:
+            self.worker.remove_repository(name)

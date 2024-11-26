@@ -1,5 +1,5 @@
 import datetime
-import typing
+import typing as t
 import uuid
 
 import marshmallow
@@ -14,6 +14,7 @@ from flama.applications import Flama
 from flama.resources.crud import CRUDResource
 from flama.resources.routing import ResourceRoute, resource_method
 from flama.resources.workers import FlamaWorker
+from flama.schemas import SchemaMetadata, SchemaType
 from flama.sqlalchemy import SQLAlchemyModule
 from tests.conftest import DATABASE_URL
 
@@ -32,7 +33,7 @@ def add_resources(app, resource):
 
     yield
 
-    del app.resources.worker._repositories[resource._meta.name]
+    app.resources.remove_repository(resource._meta.name)
 
 
 @pytest.fixture(scope="function")
@@ -60,12 +61,12 @@ class TestCaseCRUDResource:
             async def list(
                 self,
                 worker: FlamaWorker,
-                order_by: typing.Optional[str] = None,
+                order_by: t.Optional[str] = None,
                 order_direction: str = "asc",
-                name: typing.Optional[str] = None,
-                custom_id__le: typing.Optional[int] = None,
+                name: t.Optional[str] = None,
+                custom_id__le: t.Optional[int] = None,
                 **kwargs,
-            ) -> puppy_schema:
+            ) -> t.Annotated[list[SchemaType], SchemaMetadata(puppy_schema)]:
                 """
                 description: Custom list method with filtering by name.
                 """
@@ -146,7 +147,7 @@ class TestCaseCRUDResource:
 
         yield CustomUUIDResource
 
-        del app.resources.worker._repositories[CustomUUIDResource._meta.name]
+        app.resources.remove_repository(CustomUUIDResource._meta.name)
 
     @pytest.fixture(scope="function")
     async def custom_id_uuid_model(self, app):
