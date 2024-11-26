@@ -2,12 +2,14 @@ import dataclasses
 import datetime
 import enum
 import html
+import importlib.util
 import inspect
 import json
 import os
+import pathlib
 import typing as t
 import uuid
-from pathlib import Path
+import warnings
 
 import jinja2
 import starlette.requests
@@ -29,6 +31,7 @@ __all__ = [
     "APIResponse",
     "APIErrorResponse",
     "HTMLFileResponse",
+    "HTMLTemplatesEnvironment",
     "HTMLTemplateResponse",
     "OpenAPIResponse",
 ]
@@ -62,7 +65,7 @@ class PlainTextResponse(starlette.responses.PlainTextResponse, Response):
 
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, o):
-        if isinstance(o, (Path, os.PathLike, uuid.UUID)):
+        if isinstance(o, (pathlib.Path, os.PathLike, uuid.UUID)):
             return str(o)
         if isinstance(o, (bytes, bytearray)):
             return o.decode("utf-8")
@@ -191,21 +194,7 @@ class HTMLFileResponse(HTMLResponse):
         super().__init__(content, *args, **kwargs)
 
 
-class HTMLTemplateResponse(HTMLResponse):
-    templates = jinja2.Environment(
-        loader=jinja2.ChoiceLoader(
-            [jinja2.FileSystemLoader(Path(os.curdir) / "templates"), jinja2.PackageLoader("flama", "templates")]
-        )
-    )
-
-    def __init__(self, template: str, context: t.Optional[dict[str, t.Any]] = None, *args, **kwargs):
-        if context is None:
-            context = {}
-
-        super().__init__(self.templates.get_template(template).render(**context), *args, **kwargs)
-
-
-class _ReactTemplatesEnvironment(jinja2.Environment):
+class HTMLTemplatesEnvironment(jinja2.Environment):
     def __init__(self, *args, **kwargs):
         super().__init__(
             *args,
@@ -236,12 +225,32 @@ class _ReactTemplatesEnvironment(jinja2.Environment):
         return json.dumps(self._escape(value)).replace('"', '\\"')
 
 
-class _ReactTemplateResponse(HTMLTemplateResponse):
-    templates = _ReactTemplatesEnvironment(
-        loader=jinja2.ChoiceLoader(
-            [jinja2.FileSystemLoader(Path(os.curdir) / "templates"), jinja2.PackageLoader("flama", "templates")]
-        )
-    )
+class HTMLTemplateResponse(HTMLResponse):
+    templates = HTMLTemplatesEnvironment(loader=jinja2.FileSystemLoader(pathlib.Path(os.curdir) / "templates"))
+
+    def __init__(self, template: str, context: t.Optional[dict[str, t.Any]] = None, *args, **kwargs):
+        if context is None:
+            context = {}
+
+        super().__init__(self.templates.get_template(template).render(**context), *args, **kwargs)
+
+
+class _FlamaLoader(jinja2.PackageLoader):
+    def __init__(self):
+        spec = importlib.util.find_spec("flama")
+        if spec is None or spec.origin is None:
+            raise exceptions.ApplicationError("Flama package not found.")
+
+        templates_path = pathlib.Path(spec.origin).parent.joinpath("templates")
+        if not templates_path.exists():
+            warnings.warn("Templates folder not found in the Flama package")
+            templates_path.mkdir(exist_ok=True)
+
+        super().__init__(package_name="flama", package_path="templates")
+
+
+class _FlamaTemplateResponse(HTMLTemplateResponse):
+    templates = HTMLTemplatesEnvironment(loader=_FlamaLoader())
 
 
 class OpenAPIResponse(starlette.schemas.OpenAPIResponse, Response):
