@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.9.2](https://github.com/vortico/flama/compare/v1.9.1...v1.9.2) (2024-11-26)
+
+## 🐛 Bug Fixes
+- [`89fcb87`](https://github.com/vortico/flama/commit/89fcb87)  FlamaWorker only when sqlalchemy is available
+
 # [v1.9.1](https://github.com/vortico/flama/compare/v1.9.0...v1.9.1) (2024-11-25)
 
 ## 🐛 Bug Fixes
