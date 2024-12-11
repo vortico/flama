@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.9.3](https://github.com/vortico/flama/compare/v1.9.2...v1.9.3) (2024-12-11)
+
+## 🐛 Bug Fixes
+- [`d62af45`](https://github.com/vortico/flama/commit/d62af45)  Config with dataclasses discards rest of the keys
+
 # [v1.9.2](https://github.com/vortico/flama/compare/v1.9.1...v1.9.2) (2024-11-26)
 
 ## 🐛 Bug Fixes
