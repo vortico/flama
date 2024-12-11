@@ -13,8 +13,7 @@ __all__ = ["Config"]
 logger = logging.getLogger(__name__)
 
 R = t.TypeVar("R")
-Unknown = t.NewType("Unknown", str)
-unknown = Unknown("")
+UNKNOWN = types.UnknownType("")
 
 
 class Config:
@@ -80,7 +79,7 @@ class Config:
     def _get_item_from_config_file(self, key: str) -> t.Any:
         return functools.reduce(lambda x, k: x[k], key.split("."), self.config_file)
 
-    def _get_item(self, key: str, default: t.Union[R, Unknown] = unknown) -> R:
+    def _get_item(self, key: str, default: t.Union[R, types.UnknownType] = UNKNOWN) -> R:
         try:
             return self._get_item_from_environment(key)
         except KeyError:
@@ -91,7 +90,7 @@ class Config:
         except KeyError:
             ...
 
-        if default is not unknown:
+        if default is not UNKNOWN:
             return t.cast(R, default)
 
         raise KeyError(key)
@@ -107,7 +106,8 @@ class Config:
             raise exceptions.ConfigError("Wrong value for config dataclass")
 
         try:
-            return dataclass(**(json.loads(data) if isinstance(data, str) else data))
+            fields = [f.name for f in dataclasses.fields(dataclass)]  # type: ignore
+            return dataclass(**{k: v for k, v in data.items() if k in fields})
         except Exception as e:
             raise exceptions.ConfigError("Cannot create config dataclass") from e
 
@@ -116,7 +116,7 @@ class Config:
         ...
 
     @t.overload
-    def __call__(self, key: str, *, default: t.Union[R, Unknown]) -> R:
+    def __call__(self, key: str, *, default: t.Union[R, types.UnknownType]) -> R:
         ...
 
     @t.overload
@@ -124,7 +124,7 @@ class Config:
         ...
 
     @t.overload
-    def __call__(self, key: str, *, default: t.Union[R, Unknown], cast: type[R]) -> R:
+    def __call__(self, key: str, *, default: t.Union[R, types.UnknownType], cast: type[R]) -> R:
         ...
 
     @t.overload
@@ -132,14 +132,14 @@ class Config:
         ...
 
     @t.overload
-    def __call__(self, key: str, *, default: t.Union[R, Unknown], cast: t.Callable[[t.Any], R]) -> R:
+    def __call__(self, key: str, *, default: t.Union[R, types.UnknownType], cast: t.Callable[[t.Any], R]) -> R:
         ...
 
     def __call__(
         self,
         key: str,
         *,
-        default: t.Union[R, Unknown] = unknown,
+        default: t.Union[R, types.UnknownType] = UNKNOWN,
         cast: t.Optional[t.Union[type[R], t.Callable[[t.Any], R]]] = None,
     ) -> R:
         """Get config parameter value.
