@@ -142,17 +142,17 @@ class TestCaseJWT:
             ),
             pytest.param(
                 JWT(header={"alg": "HS256", "typ": "JWT"}, payload={"foo": "bar", "iat": time.time() * 2}),
-                (exceptions.JWTValidateException, r"Invalid claims \(iat\)"),
+                exceptions.JWTValidateException("Invalid claims (iat)"),
                 id="invalid_iat",
             ),
             pytest.param(
                 JWT(header={"alg": "HS256", "typ": "JWT"}, payload={"foo": "bar", "exp": time.time() / 2}),
-                (exceptions.JWTValidateException, r"Invalid claims \(exp\)"),
+                exceptions.JWTValidateException("Invalid claims (exp)"),
                 id="invalid_exp",
             ),
             pytest.param(
                 JWT(header={"alg": "HS256", "typ": "JWT"}, payload={"foo": "bar", "nbf": time.time() * 2}),
-                (exceptions.JWTValidateException, r"Invalid claims \(nbf\)"),
+                exceptions.JWTValidateException("Invalid claims (nbf)"),
                 id="invalid_nbf",
             ),
         ),
