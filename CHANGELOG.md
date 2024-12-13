@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.9.4](https://github.com/vortico/flama/compare/v1.9.3...v1.9.4) (2024-12-13)
+
+## 🐛 Bug Fixes
+- [`8bad54e`](https://github.com/vortico/flama/commit/8bad54e)  Enhance ddd exceptions
+
 # [v1.9.3](https://github.com/vortico/flama/compare/v1.9.2...v1.9.3) (2024-12-11)
 
 ## 🐛 Bug Fixes
