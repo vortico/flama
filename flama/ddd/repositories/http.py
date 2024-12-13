@@ -45,7 +45,7 @@ class HTTPResourceManager:
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.BAD_REQUEST:
-                raise exceptions.IntegrityError()
+                raise exceptions.IntegrityError(resource=self.resource)
             raise
 
         return response.json()
@@ -62,7 +62,7 @@ class HTTPResourceManager:
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.NOT_FOUND:
-                raise exceptions.NotFoundError()
+                raise exceptions.NotFoundError(resource=self.resource, id=id)
             raise
 
         return response.json()
@@ -81,9 +81,9 @@ class HTTPResourceManager:
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.NOT_FOUND:
-                raise exceptions.NotFoundError()
+                raise exceptions.NotFoundError(resource=self.resource, id=id)
             if e.response.status_code == http.HTTPStatus.BAD_REQUEST:
-                raise exceptions.IntegrityError()
+                raise exceptions.IntegrityError(resource=self.resource)
             raise
         return response.json()
 
@@ -101,9 +101,9 @@ class HTTPResourceManager:
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.NOT_FOUND:
-                raise exceptions.NotFoundError()
+                raise exceptions.NotFoundError(resource=self.resource, id=id)
             if e.response.status_code == http.HTTPStatus.BAD_REQUEST:
-                raise exceptions.IntegrityError()
+                raise exceptions.IntegrityError(resource=self.resource)
             raise
         return response.json()
 
@@ -118,7 +118,7 @@ class HTTPResourceManager:
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.NOT_FOUND:
-                raise exceptions.NotFoundError()
+                raise exceptions.NotFoundError(resource=self.resource, id=id)
             raise
 
     async def _fetch_page_elements(self, **params: t.Any) -> t.AsyncIterator[dict[str, t.Any]]:
@@ -188,7 +188,7 @@ class HTTPResourceManager:
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.BAD_REQUEST:
-                raise exceptions.IntegrityError()
+                raise exceptions.IntegrityError(resource=self.resource)
             raise
 
         return [element for element in response.json()]
@@ -204,7 +204,7 @@ class HTTPResourceManager:
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.BAD_REQUEST:
-                raise exceptions.IntegrityError()
+                raise exceptions.IntegrityError(resource=self.resource)
             raise
 
         return [element for element in response.json()]

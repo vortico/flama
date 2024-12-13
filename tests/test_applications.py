@@ -300,7 +300,7 @@ class TestCaseFlama:
                 "not-found",
                 {},
                 None,
-                (exceptions.NotFoundException, r"Path not found \(name='not-found'\)"),
+                exceptions.NotFoundException(name="not-found"),
                 id="not_found",
             ),
         ),

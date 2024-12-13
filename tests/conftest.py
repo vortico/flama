@@ -1,3 +1,4 @@
+import re
 import tempfile
 import warnings
 from contextlib import ExitStack
@@ -49,10 +50,12 @@ def exception(request):
     if request.param is None:
         context = ExceptionContext(ExitStack())
     elif isinstance(request.param, Exception):
-        context = ExceptionContext(pytest.raises(request.param.__class__, match=str(request.param)), request.param)
+        context = ExceptionContext(
+            pytest.raises(request.param.__class__, match=re.escape(str(request.param))), request.param
+        )
     elif isinstance(request.param, (list, tuple)):
         exception, message = request.param
-        context = ExceptionContext(pytest.raises(exception, match=message), exception)
+        context = ExceptionContext(pytest.raises(exception, match=re.escape(message)), exception)
     else:
         context = ExceptionContext(pytest.raises(request.param), request.param)
     return context

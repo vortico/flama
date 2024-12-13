@@ -34,10 +34,8 @@ class CreateMixin:
                 repository = worker.repositories[self._meta.name]
                 try:
                     result = await repository.create(resource)
-                except ddd_exceptions.IntegrityError:
-                    raise exceptions.HTTPException(
-                        status_code=HTTPStatus.BAD_REQUEST, detail="Already exists or cannot be created"
-                    )
+                except ddd_exceptions.IntegrityError as e:
+                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
 
             return http.APIResponse(  # type: ignore[return-value]
                 schema=rest_schemas.output.schema, content=result[0], status_code=HTTPStatus.CREATED
@@ -82,8 +80,8 @@ class RetrieveMixin:
                 async with worker:
                     repository = worker.repositories[self._meta.name]
                     return await repository.retrieve(**{rest_model.primary_key.name: resource_id})
-            except ddd_exceptions.NotFoundError:
-                raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
+            except ddd_exceptions.NotFoundError as e:
+                raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
 
         retrieve.__doc__ = f"""
             tags:
@@ -126,13 +124,13 @@ class UpdateMixin:
                 try:
                     repository = worker.repositories[self._meta.name]
                     await repository.delete(**{rest_model.primary_key.name: resource_id})
-                except ddd_exceptions.NotFoundError:
-                    raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
+                except ddd_exceptions.NotFoundError as e:
+                    raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
 
                 try:
                     result = await repository.create(resource)
-                except ddd_exceptions.IntegrityError:
-                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Wrong input data")
+                except ddd_exceptions.IntegrityError as e:
+                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
 
             return result[0]
 
@@ -180,8 +178,8 @@ class PartialUpdateMixin:
                 repository = worker.repositories[self._meta.name]
                 try:
                     result = await repository.update(resource, **{rest_model.primary_key.name: resource_id})
-                except ddd_exceptions.IntegrityError:
-                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Wrong input data")
+                except ddd_exceptions.IntegrityError as e:
+                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
 
                 if not result:
                     raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
@@ -220,8 +218,8 @@ class DeleteMixin:
                 async with worker:
                     repository = worker.repositories[self._meta.name]
                     await repository.delete(**{rest_model.primary_key.name: resource_id})
-            except ddd_exceptions.NotFoundError:
-                raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
+            except ddd_exceptions.NotFoundError as e:
+                raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
 
             return http.APIResponse(status_code=HTTPStatus.NO_CONTENT)
 
@@ -300,8 +298,8 @@ class ReplaceMixin:
                 await repository.drop()
                 try:
                     return await repository.create(*resources)
-                except ddd_exceptions.IntegrityError:
-                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Wrong input data")
+                except ddd_exceptions.IntegrityError as e:
+                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
 
         replace.__doc__ = f"""
             tags:
@@ -347,8 +345,8 @@ class PartialReplaceMixin:
                 )
                 try:
                     return await repository.create(*resources)
-                except ddd_exceptions.IntegrityError:
-                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Wrong input data")
+                except ddd_exceptions.IntegrityError as e:
+                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
 
         partial_replace.__doc__ = f"""
             tags:

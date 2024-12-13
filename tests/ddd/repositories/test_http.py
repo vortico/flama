@@ -68,7 +68,7 @@ class TestCaseHTTPResourceManager:
                     )
                 ),
                 None,
-                exceptions.IntegrityError(),
+                exceptions.IntegrityError(resource="foo"),
                 id="bad_request",
             ),
             pytest.param(
@@ -99,7 +99,12 @@ class TestCaseHTTPResourceManager:
     @pytest.mark.parametrize(
         ["response", "expected_result", "exception"],
         [
-            pytest.param(MagicMock(json=MagicMock(return_value={})), {}, None, id="ok"),
+            pytest.param(
+                MagicMock(json=MagicMock(return_value={})),
+                {},
+                None,
+                id="ok",
+            ),
             pytest.param(
                 MagicMock(
                     raise_for_status=MagicMock(
@@ -109,7 +114,7 @@ class TestCaseHTTPResourceManager:
                     )
                 ),
                 None,
-                exceptions.NotFoundError(),
+                exceptions.NotFoundError(resource="foo", id="bar"),
                 id="not_found",
             ),
             pytest.param(
@@ -138,7 +143,12 @@ class TestCaseHTTPResourceManager:
     @pytest.mark.parametrize(
         ["response", "expected_result", "exception"],
         [
-            pytest.param(MagicMock(json=MagicMock(return_value={})), {}, None, id="ok"),
+            pytest.param(
+                MagicMock(json=MagicMock(return_value={})),
+                {},
+                None,
+                id="ok",
+            ),
             pytest.param(
                 MagicMock(
                     raise_for_status=MagicMock(
@@ -148,7 +158,7 @@ class TestCaseHTTPResourceManager:
                     )
                 ),
                 None,
-                exceptions.NotFoundError(),
+                exceptions.NotFoundError(resource="foo", id="bar"),
                 id="not_found",
             ),
             pytest.param(
@@ -160,7 +170,7 @@ class TestCaseHTTPResourceManager:
                     )
                 ),
                 None,
-                exceptions.IntegrityError(),
+                exceptions.IntegrityError(resource="foo"),
                 id="bad_request",
             ),
             pytest.param(
@@ -191,7 +201,12 @@ class TestCaseHTTPResourceManager:
     @pytest.mark.parametrize(
         ["response", "expected_result", "exception"],
         [
-            pytest.param(MagicMock(json=MagicMock(return_value={})), {}, None, id="ok"),
+            pytest.param(
+                MagicMock(json=MagicMock(return_value={})),
+                {},
+                None,
+                id="ok",
+            ),
             pytest.param(
                 MagicMock(
                     raise_for_status=MagicMock(
@@ -201,7 +216,7 @@ class TestCaseHTTPResourceManager:
                     )
                 ),
                 None,
-                exceptions.NotFoundError(),
+                exceptions.NotFoundError(resource="foo", id="bar"),
                 id="not_found",
             ),
             pytest.param(
@@ -213,7 +228,7 @@ class TestCaseHTTPResourceManager:
                     )
                 ),
                 None,
-                exceptions.IntegrityError(),
+                exceptions.IntegrityError(resource="foo"),
                 id="bad_request",
             ),
             pytest.param(
@@ -244,7 +259,12 @@ class TestCaseHTTPResourceManager:
     @pytest.mark.parametrize(
         ["response", "expected_result", "exception"],
         [
-            pytest.param(MagicMock(), None, None, id="ok"),
+            pytest.param(
+                MagicMock(),
+                None,
+                None,
+                id="ok",
+            ),
             pytest.param(
                 MagicMock(
                     raise_for_status=MagicMock(
@@ -254,7 +274,7 @@ class TestCaseHTTPResourceManager:
                     )
                 ),
                 None,
-                exceptions.NotFoundError(),
+                exceptions.NotFoundError(resource="foo", id="bar"),
                 id="not_found",
             ),
             pytest.param(
@@ -333,7 +353,7 @@ class TestCaseHTTPResourceManager:
                     )
                 ),
                 None,
-                exceptions.IntegrityError(),
+                exceptions.IntegrityError(resource="foo"),
                 id="bad_request",
             ),
             pytest.param(
@@ -373,7 +393,7 @@ class TestCaseHTTPResourceManager:
                     )
                 ),
                 None,
-                exceptions.IntegrityError(),
+                exceptions.IntegrityError(resource="foo"),
                 id="bad_request",
             ),
             pytest.param(

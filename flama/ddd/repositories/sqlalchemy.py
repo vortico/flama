@@ -32,6 +32,7 @@ class SQLAlchemyTableManager:
     def __init__(self, table: sqlalchemy.Table, connection: AsyncConnection):  # type: ignore
         self._connection = connection
         self.table = table
+        self.resource = table.name
 
     def __eq__(self, other):
         return (
@@ -52,8 +53,8 @@ class SQLAlchemyTableManager:
         """
         try:
             result = await self._connection.execute(sqlalchemy.insert(self.table).values(data).returning(self.table))
-        except sqlalchemy_exceptions.IntegrityError as e:
-            raise ddd_exceptions.IntegrityError(str(e))
+        except sqlalchemy_exceptions.IntegrityError:
+            raise ddd_exceptions.IntegrityError(resource=self.resource)
         return [dict[str, t.Any](element._asdict()) for element in result]
 
     async def retrieve(self, *clauses, **filters) -> dict[str, t.Any]:
@@ -77,9 +78,9 @@ class SQLAlchemyTableManager:
         try:
             element = (await self._connection.execute(query)).one()
         except sqlalchemy_exceptions.NoResultFound:
-            raise ddd_exceptions.NotFoundError()
+            raise ddd_exceptions.NotFoundError(resource=self.resource)
         except sqlalchemy_exceptions.MultipleResultsFound:
-            raise ddd_exceptions.MultipleRecordsError()
+            raise ddd_exceptions.MultipleRecordsError(resource=self.resource)
 
         return dict[str, t.Any](element._asdict())
 
@@ -100,7 +101,7 @@ class SQLAlchemyTableManager:
         try:
             result = await self._connection.execute(query)
         except sqlalchemy_exceptions.IntegrityError:
-            raise ddd_exceptions.IntegrityError
+            raise ddd_exceptions.IntegrityError(resource=self.resource)
 
         return [dict[str, t.Any](element._asdict()) for element in result]
 

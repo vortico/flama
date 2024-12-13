@@ -134,7 +134,7 @@ class TestCaseReturnValidation:
                 None,
                 None,
                 None,
-                TypeError(".*Object of type .?Dummy.? is not JSON serializable"),
+                TypeError("Object of type Dummy is not JSON serializable"),
                 id="unserializable_json_response",
             ),
             pytest.param("/return-schema/", 200, "application/json", b'{"name":"Canna"}', None, id="schema"),

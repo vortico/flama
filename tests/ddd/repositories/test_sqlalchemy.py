@@ -120,10 +120,26 @@ class TestCaseSQLAlchemyTableManager:
     @pytest.mark.parametrize(
         ["clauses", "filters", "result", "exception"],
         (
-            pytest.param([], {"id": 1}, {"id": 1, "name": "foo"}, None, id="ok"),
-            pytest.param([], {"id": 0}, None, exceptions.NotFoundError(), id="not_found"),
             pytest.param(
-                [lambda x: x.ilike("fo%")], {}, None, exceptions.MultipleRecordsError(), id="multiple_results"
+                [],
+                {"id": 1},
+                {"id": 1, "name": "foo"},
+                None,
+                id="ok",
+            ),
+            pytest.param(
+                [],
+                {"id": 0},
+                None,
+                exceptions.NotFoundError(resource="repository_table_single_pk"),
+                id="not_found",
+            ),
+            pytest.param(
+                [lambda x: x.ilike("fo%")],
+                {},
+                None,
+                exceptions.MultipleRecordsError(resource="repository_table_single_pk"),
+                id="multiple_results",
             ),
         ),
         indirect=["exception"],
@@ -181,9 +197,24 @@ class TestCaseSQLAlchemyTableManager:
     @pytest.mark.parametrize(
         ["clauses", "filters", "exception"],
         (
-            pytest.param([], {"id": 1}, None, id="ok"),
-            pytest.param([], {"id": 0}, exceptions.NotFoundError(), id="not_found"),
-            pytest.param([lambda x: x.ilike("fo%")], {}, exceptions.MultipleRecordsError, id="multiple_results"),
+            pytest.param(
+                [],
+                {"id": 1},
+                None,
+                id="ok",
+            ),
+            pytest.param(
+                [],
+                {"id": 0},
+                exceptions.NotFoundError(resource="repository_table_single_pk"),
+                id="not_found",
+            ),
+            pytest.param(
+                [lambda x: x.ilike("fo%")],
+                {},
+                exceptions.MultipleRecordsError,
+                id="multiple_results",
+            ),
         ),
         indirect=["exception"],
     )
@@ -233,7 +264,9 @@ class TestCaseSQLAlchemyTableManager:
 class TestCaseSQLAlchemyTableRepository:
     @pytest.fixture(scope="function")
     def table(self):
-        return Mock(spec=sqlalchemy.Table)
+        mock = Mock(spec=sqlalchemy.Table)
+        mock.name = "foo"
+        return mock
 
     @pytest.fixture(scope="function")
     def connection(self):
