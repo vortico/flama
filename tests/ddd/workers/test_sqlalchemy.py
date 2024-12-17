@@ -29,7 +29,7 @@ class TestCaseSQLAlchemyWorker:
         with pytest.raises(AttributeError, match="Transaction not started"):
             worker.transaction
 
-    async def test_begin_transaction(self, app, worker):
+    async def test_set_up(self, app, worker):
         connection_mock = AsyncMock()
         transaction_mock = AsyncMock()
 
@@ -38,7 +38,7 @@ class TestCaseSQLAlchemyWorker:
             open_connection=AsyncMock(return_value=connection_mock),
             begin_transaction=AsyncMock(return_value=transaction_mock),
         ):
-            await worker.begin_transaction()
+            await worker.set_up()
 
             assert worker._connection == connection_mock
             assert worker._transaction == transaction_mock
@@ -52,12 +52,12 @@ class TestCaseSQLAlchemyWorker:
             pytest.param(False, id="commit"),
         ),
     )
-    async def test_end_transaction(self, app, worker, rollback):
+    async def test_tear_down(self, app, worker, rollback):
         worker._connection = connection_mock = AsyncMock()
         worker._transaction = transaction_mock = AsyncMock()
 
         with patch.multiple(app.sqlalchemy, end_transaction=AsyncMock(), close_connection=AsyncMock()):
-            await worker.end_transaction(rollback=rollback)
+            await worker.tear_down(rollback=rollback)
 
             assert not hasattr(worker, "_transaction")
             assert not hasattr(worker, "_connection")
@@ -67,12 +67,12 @@ class TestCaseSQLAlchemyWorker:
     async def test_begin(self, worker):
         worker._connection = AsyncMock()
 
-        with patch.object(worker, "begin_transaction"):
+        with patch.object(worker, "set_up"):
             assert not hasattr(worker, "bar")
 
             await worker.begin()
 
-            assert worker.begin_transaction.await_args_list == [call()]
+            assert worker.set_up.await_args_list == [call()]
             assert hasattr(worker, "bar")
             assert isinstance(worker.bar, SQLAlchemyRepository)
 
@@ -86,12 +86,12 @@ class TestCaseSQLAlchemyWorker:
     async def test_end(self, worker, rollback):
         worker.bar = MagicMock()
 
-        with patch.object(worker, "end_transaction"):
+        with patch.object(worker, "tear_down"):
             assert hasattr(worker, "bar")
 
             await worker.end(rollback=rollback)
 
-            assert worker.end_transaction.await_args_list == [call(rollback=rollback)]
+            assert worker.tear_down.await_args_list == [call(rollback=rollback)]
             assert not hasattr(worker, "bar")
 
     async def test_commit(self, worker):

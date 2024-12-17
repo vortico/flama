@@ -38,39 +38,41 @@ class HTTPWorker(BaseWorker):
         except AttributeError:
             raise AttributeError("Client not initialized")
 
-    async def begin_transaction(self) -> None:
-        """Initialize the client with the URL."""
-        await self._client.__aenter__()
+    @client.setter
+    def client(self, client: "Client") -> None:
+        """Set the client to interact with an HTTP resource.
 
-    async def end_transaction(self) -> None:
-        """Close and delete the client."""
-        await self.client.__aexit__()
-
-    async def begin(self) -> None:
-        """Start a unit of work.
-
-        Initialize the client, and create the repositories.
+        :param client: Flama client.
         """
+        self._client = client
+
+    @client.deleter
+    def client(self) -> None:
+        """Delete the client."""
+        del self._client
+
+    async def set_up(self) -> None:
+        """Initialize the client with the URL."""
         from flama.client import Client
 
-        self._client = Client(base_url=self.url, **self._client_kwargs)
+        self.client = Client(base_url=self.url, **self._client_kwargs)
 
-        await self.begin_transaction()
+        await self.client.__aenter__()
 
-        for repository, repository_class in self._repositories.items():
-            setattr(self, repository, repository_class(self._client))
+    async def tear_down(self, *, rollback: bool = False) -> None:
+        """Close and delete the client.
 
-    async def end(self, *, rollback: bool = False) -> None:
-        """End a unit of work.
-
-        Close the client, and delete the repositories.
+        :param rollback: If the unit of work should be rolled back.
         """
-        await self.end_transaction()
+        await self.client.__aexit__()
+        del self.client
 
-        for repository in self._repositories.keys():
-            delattr(self, repository)
+    async def repository_params(self) -> tuple[list[t.Any], dict[str, t.Any]]:
+        """Get the parameters for initialising the repositories.
 
-        del self._client
+        :return: Parameters for initialising the repositories.
+        """
+        return [self.client], {}
 
     async def commit(self) -> None:
         ...
