@@ -1,17 +1,17 @@
 import pytest
 
-from flama.ddd.workers import NoopWorker
+from flama.ddd.workers import Worker
 
 
-class TestCaseNoopWorker:
+class TestCaseWorker:
     @pytest.fixture(scope="function")
     def worker(self, client):
-        class FooWorker(NoopWorker):
+        class FooWorker(Worker):
             ...
 
         return FooWorker(client.app)
 
     def test_init(self, app):
-        worker = NoopWorker(app)
+        worker = Worker(app)
 
         assert worker._app == app

@@ -14,8 +14,8 @@ class Repositories:
     registered: dict[str, type["SQLAlchemyTableRepository"]] = dataclasses.field(default_factory=dict)
     initialised: t.Optional[dict[str, "SQLAlchemyTableRepository"]] = None
 
-    def init(self, connection: t.Any) -> None:
-        self.initialised = {r: cls(connection) for r, cls in self.registered.items()}
+    def init(self, *args: t.Any, **kwargs: t.Any) -> None:
+        self.initialised = {r: cls(*args, **kwargs) for r, cls in self.registered.items()}
 
     def delete(self) -> None:
         self.initialised = None
@@ -67,8 +67,9 @@ class FlamaWorker(SQLAlchemyWorker):
 
         Initialize the connection, begin a transaction, and create the repositories.
         """
-        await self.begin_transaction()
-        self._resources_repositories.init(self.connection)
+        await self.set_up()
+        args, kwargs = await self.repository_params()
+        self._resources_repositories.init(*args, **kwargs)
 
     async def end(self, *, rollback: bool = False) -> None:
         """End a unit of work.
@@ -77,5 +78,5 @@ class FlamaWorker(SQLAlchemyWorker):
 
         :param rollback: If the unit of work should be rolled back.
         """
-        await self.end_transaction(rollback=rollback)
+        await self.tear_down(rollback=rollback)
         self._resources_repositories.delete()

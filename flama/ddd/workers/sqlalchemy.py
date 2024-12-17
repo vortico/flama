@@ -1,4 +1,5 @@
 import logging
+import typing as t
 
 from flama import exceptions
 from flama.ddd.workers.base import BaseWorker
@@ -37,6 +38,19 @@ class SQLAlchemyWorker(BaseWorker):
         except AttributeError:
             raise AttributeError("Connection not initialized")
 
+    @connection.setter
+    def connection(self, connection: AsyncConnection) -> None:
+        """Set the connection to the database.
+
+        :param connection: Connection to the database.
+        """
+        self._connection = connection
+
+    @connection.deleter
+    def connection(self) -> None:
+        """Delete the connection to the database."""
+        del self._connection
+
     @property
     def transaction(self) -> AsyncTransaction:
         """Database transaction.
@@ -49,45 +63,43 @@ class SQLAlchemyWorker(BaseWorker):
         except AttributeError:
             raise AttributeError("Transaction not started")
 
-    async def begin_transaction(self) -> None:
+    @transaction.setter
+    def transaction(self, transaction: AsyncTransaction) -> None:
+        """Set the transaction.
+
+        :param transaction: Database transaction.
+        """
+        self._transaction = transaction
+
+    @transaction.deleter
+    def transaction(self) -> None:
+        """Delete the transaction."""
+        del self._transaction
+
+    async def set_up(self) -> None:
         """Open a connection and begin a transaction."""
 
-        self._connection = await self.app.sqlalchemy.open_connection()
-        self._transaction = await self.app.sqlalchemy.begin_transaction(self._connection)
+        self.connection = await self.app.sqlalchemy.open_connection()
+        self.transaction = await self.app.sqlalchemy.begin_transaction(self._connection)
 
-    async def end_transaction(self, *, rollback: bool = False) -> None:
+    async def tear_down(self, *, rollback: bool = False) -> None:
         """End a transaction and close the connection.
 
         :param rollback: If the transaction should be rolled back.
         :raises AttributeError: If the connection is not initialized or the transaction is not started.
         """
         await self.app.sqlalchemy.end_transaction(self.transaction, rollback=rollback)
-        del self._transaction
+        del self.transaction
 
         await self.app.sqlalchemy.close_connection(self.connection)
-        del self._connection
+        del self.connection
 
-    async def begin(self) -> None:
-        """Start a unit of work.
+    async def repository_params(self) -> tuple[list[t.Any], dict[str, t.Any]]:
+        """Get the parameters for initialising the repositories.
 
-        Initialize the connection, begin a transaction, and create the repositories.
+        :return: Parameters for initialising the repositories.
         """
-        await self.begin_transaction()
-
-        for repository, repository_class in self._repositories.items():
-            setattr(self, repository, repository_class(self.connection))
-
-    async def end(self, *, rollback: bool = False) -> None:
-        """End a unit of work.
-
-        Close the connection, commit or rollback the transaction, and delete the repositories.
-
-        :param rollback: If the unit of work should be rolled back.
-        """
-        await self.end_transaction(rollback=rollback)
-
-        for repository in self._repositories.keys():
-            delattr(self, repository)
+        return [self.connection], {}
 
     async def commit(self):
         """Commit the unit of work."""

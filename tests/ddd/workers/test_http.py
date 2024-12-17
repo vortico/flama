@@ -19,33 +19,33 @@ class TestCaseHTTPWorker:
 
         assert worker._app == app
         assert worker._url == "foo"
-        assert not hasattr(worker, "_client")
+        assert not hasattr(worker, "client")
 
     def test_client(self, worker):
         with pytest.raises(AttributeError, match="Client not initialized"):
             worker.client
 
-    async def test_begin_transaction(self, worker):
-        worker._client = MagicMock()
+    async def test_set_up(self, worker):
+        with patch("flama.client.Client"):
+            await worker.set_up()
+            assert worker.client.__aenter__.await_args_list == [call()]
 
-        await worker.begin_transaction()
-        assert worker._client.__aenter__.await_args_list == [call()]
+    async def test_tear_down(self, worker):
+        client_mock = MagicMock()
+        worker.client = client_mock
 
-    async def test_end_transaction(self, worker):
-        worker._client = MagicMock()
-
-        await worker.end_transaction()
-        assert worker._client.__aexit__.await_args_list == [call()]
+        await worker.tear_down()
+        assert client_mock.__aexit__.await_args_list == [call()]
 
     async def test_begin(self, worker):
-        with patch.object(worker, "begin_transaction"), patch("flama.client.Client"):
+        worker.client = MagicMock()
+
+        with patch.object(worker, "set_up"):
             assert not hasattr(worker, "bar")
-            assert not hasattr(worker, "_client")
 
             await worker.begin()
 
-            assert hasattr(worker, "_client")
-            assert worker.begin_transaction.await_args_list == [call()]
+            assert worker.set_up.await_args_list == [call()]
             assert hasattr(worker, "bar")
             assert isinstance(worker.bar, HTTPRepository)
 
@@ -58,14 +58,12 @@ class TestCaseHTTPWorker:
     )
     async def test_end(self, worker, rollback):
         worker.bar = MagicMock()
-        worker._client = MagicMock()
+        worker.client = MagicMock()
 
-        with patch.object(worker, "end_transaction"):
+        with patch.object(worker, "tear_down"):
             assert hasattr(worker, "bar")
-            assert hasattr(worker, "_client")
 
             await worker.end(rollback=rollback)
 
-            assert worker.end_transaction.await_args_list == [call()]
+            assert worker.tear_down.await_args_list == [call(rollback=rollback)]
             assert not hasattr(worker, "bar")
-            assert not hasattr(worker, "_client")

@@ -64,6 +64,15 @@ class TestCaseBaseWorker:
         class FooWorker(BaseWorker):
             foo: repository
 
+            async def set_up(self):
+                ...
+
+            async def tear_down(self, *, rollback: bool = False):
+                ...
+
+            async def repository_params(self):
+                return [], {}
+
             async def begin(self):
                 ...
 

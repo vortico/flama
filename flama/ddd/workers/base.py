@@ -137,3 +137,43 @@ class BaseWorker(AbstractWorker, metaclass=WorkerType):
     """
 
     _repositories: t.ClassVar[dict[str, type[BaseRepository]]]
+
+    @abc.abstractmethod
+    async def set_up(self) -> None:
+        """First step in starting a unit of work."""
+        ...
+
+    @abc.abstractmethod
+    async def tear_down(self, *, rollback: bool = False) -> None:
+        """Last step in ending a unit of work.
+
+        :param rollback: If the unit of work should be rolled back.
+        """
+        ...
+
+    @abc.abstractmethod
+    async def repository_params(self) -> tuple[list[t.Any], dict[str, t.Any]]:
+        """Get the parameters for initialising the repositories.
+
+        :return: Parameters for initialising the repositories.
+        """
+        ...
+
+    async def begin(self) -> None:
+        """Start a unit of work."""
+        await self.set_up()
+
+        args, kwargs = await self.repository_params()
+
+        for repository, repository_class in self._repositories.items():
+            setattr(self, repository, repository_class(*args, **kwargs))
+
+    async def end(self, *, rollback: bool = False) -> None:
+        """End a unit of work.
+
+        :param rollback: If the unit of work should be rolled back.
+        """
+        await self.tear_down(rollback=rollback)
+
+        for repository in self._repositories.keys():
+            delattr(self, repository)

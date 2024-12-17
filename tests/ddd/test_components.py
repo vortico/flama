@@ -20,11 +20,14 @@ class TestCaseWorkerComponent:
         class FooWorker(BaseWorker):
             foo: repository
 
-            async def begin(self):
+            async def set_up(self):
                 ...
 
-            async def end(self, *, rollback: bool = False):
+            async def tear_down(self, *, rollback: bool = False):
                 ...
+
+            async def repository_params(self):
+                return [], {}
 
             async def commit(self):
                 ...
