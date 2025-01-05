@@ -4,24 +4,19 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 requires-python = ">=3.9,<3.14"
-
-[tool.poetry]
 name = "flama"
 version = "1.9.5"
 description = "Fire up your models with the flame 🔥"
+license = { text = "Apache-2.0" }
+readme = "README.md"
 authors = [
-    "José Antonio Perdiguero López <perdy@perdy.io>",
-    "Miguel A. Durán Olivencia <migduroli@gmail.com>"
+  { name = "José Antonio Perdiguero López", email = "perdy@perdy.io" },
+  { name = "Miguel A. Durán Olivencia", email = "migduroli@gmail.com" }
 ]
 maintainers = [
-    "José Antonio Perdiguero López <perdy@perdy.io>",
-    "Miguel A. Durán Olivencia <migduroli@gmail.com>"
+  { name = "José Antonio Perdiguero López", email = "perdy@perdy.io" },
+  { name = "Miguel A. Durán Olivencia", email = "migduroli@gmail.com" }
 ]
-license = "MIT"
-readme = "README.md"
-repository = "https://github.com/vortico/flama"
-homepage = "https://flama.dev"
-documentation = "https://flama.dev/docs/"
 keywords = ["machine-learning", "ml", "ml-ops", "mlops", "api", "rest", "restful", "openapi", "tensorflow", "pytorch", "sklearn"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -31,34 +26,49 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Application Frameworks"
 ]
+dependencies = [
+  "starlette (>=0.31,<1.0.0)",
+  "click (>=8.1,<9.0)",
+  "uvicorn[standard] (>=0.23,<1.0.0)",
+  "Jinja2 (>=3.1.2,<4.0)",
+  "pyyaml (>=6.0,<7.0)",
+  "typing-extensions (>=4.4,<5.0) ; python_version < '3.10'",
+]
 include = ["flama/py.typed", "flama/templates/**/*"]
 exclude = []
 
-[tool.poetry.dependencies]
-python = ">=3.9,<3.14"
-starlette = ">=0.31,<1.0.0"
-click = "^8.1"
-uvicorn = { version = ">=0.23,<1.0.0", extras = ["standard"] }
-Jinja2 = "^3.1.2"
-pyyaml = "^6.0"
-typing-extensions = { version = "^4.4", python = "<3.10" }
-pydantic = { version = "^2.0", optional = true }
-marshmallow = { version = "^3.0", optional = true }
-apispec = { version = "^6.0", optional = true }
-typesystem = { version = "^0.4.1", optional = true }
-SQLAlchemy = { version = "^2.0", extras = ["asyncio"], optional = true }
-httpx = { version = ">=0.25,<1.0.0", optional = true}
-tomli = { version = "^2.1.0", optional = true}
+[project.urls]
+repository = "https://github.com/vortico/flama"
+homepage = "https://flama.dev"
+documentation = "https://flama.dev/docs/"
 
-[tool.poetry.extras]
-pydantic = ["pydantic"]
-typesystem = ["typesystem"]
-marshmallow = ["marshmallow", "apispec"]
-database = ["sqlalchemy"]
-client = ["httpx"]
-full = ["pydantic", "typesystem", "marshmallow", "apispec", "sqlalchemy", "httpx"]
+[project.optional-dependencies]
+pydantic = [
+  "pydantic (>=2.0,<3.0)"
+]
+typesystem = [
+  "typesystem (>=0.4.1,<1.0)"
+]
+marshmallow = [
+  "marshmallow (>=3.0,<4.0)",
+  "apispec (>=6.0,<7.0)"
+]
+database = [
+  "SQLAlchemy[asyncio] (>=2.0,<3.0)"
+]
+client = [
+  "httpx (>=0.25,<1.0)"
+]
+full = [
+  "pydantic (>=2.0,<3.0)",
+  "typesystem (>=0.4.1,<1.0)",
+  "marshmallow (>=3.0,<4.0)",
+  "apispec (>=6.0,<7.0)",
+  "SQLAlchemy[asyncio] (>=2.0,<3.0)",
+  "httpx (>=0.25,<1.0)"
+]
 
-[tool.poetry.scripts]
+[project.scripts]
 flama = 'flama.cli.__main__:cli'
 
 [tool.poetry.group.dev]
