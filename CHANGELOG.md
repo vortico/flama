@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.9.6](https://github.com/vortico/flama/compare/v1.9.5...v1.9.6) (2025-01-05)
+
+## 🐛 Bug Fixes
+- [`de90e16`](https://github.com/vortico/flama/commit/de90e16)  Handle pydantic root validation errors
+
 # [v1.9.5](https://github.com/vortico/flama/compare/v1.9.4...v1.9.5) (2024-12-17)
 
 ## 🐛 Bug Fixes
