@@ -77,7 +77,11 @@ class PydanticAdapter(Adapter[Schema, Field]):
         try:
             return schema_cls(**values).model_dump(exclude_unset=partial)
         except pydantic.ValidationError as errors:
-            raise SchemaValidationError(errors={str(error["loc"][0]): error for error in errors.errors()})
+            raise SchemaValidationError(
+                errors={
+                    ".".join(str(x) for x in error.get("loc", [])): error for error in errors.errors(include_url=False)
+                }
+            )
 
     def load(self, schema: t.Union[Schema, type[Schema]], value: dict[str, t.Any]) -> Schema:
         schema_cls = self.unique_schema(schema)
