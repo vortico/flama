@@ -70,7 +70,10 @@ full = [
 flama = 'flama.cli.__main__:cli'
 
 [tool.poetry]
-include = ["flama/py.typed", "flama/templates/**/*"]
+include = [
+  { path = "flama", format = ["sdist", "wheel"] },
+  { path = "flama/templates/**/*", format = ["sdist", "wheel"] }
+]
 exclude = []
 
 [tool.poetry.group.dev]
