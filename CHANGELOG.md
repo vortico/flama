@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.9.8](https://github.com/vortico/flama/compare/v1.9.7...v1.9.8) (2025-01-13)
+
+## 🐛 Bug Fixes
+- [`7cd20b5`](https://github.com/vortico/flama/commit/7cd20b5)  Include templates folder during building for wheel
+
 # [v1.9.7](https://github.com/vortico/flama/compare/v1.9.6...v1.9.7) (2025-01-09)
 
 ## 🐛 Bug Fixes
