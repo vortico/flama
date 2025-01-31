@@ -32,7 +32,7 @@ class TestCaseAccessTokenComponent:
     def add_endpoints(self, app):
         @app.get("/")
         def access_token(token: authentication.AccessToken):
-            return token.asdict()
+            return token.to_dict()
 
     @pytest.mark.parametrize(
         ["headers", "cookies", "status_code", "result"],
@@ -120,7 +120,7 @@ class TestCaseRefreshTokenComponent:
     def add_endpoints(self, app):
         @app.get("/")
         def refresh_token(token: authentication.RefreshToken):
-            return token.asdict()
+            return token.to_dict()
 
     @pytest.mark.parametrize(
         ["headers", "cookies", "status_code", "result"],

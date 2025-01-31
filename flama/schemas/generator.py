@@ -508,6 +508,6 @@ class SchemaGenerator:
         for schema in self.schemas.used(self.spec).values():
             self.spec.add_schema(schema.name, openapi.Schema(schema.json_schema(self.schemas.names)))
 
-        api_schema: dict[str, t.Any] = self.spec.asdict()
+        api_schema: dict[str, t.Any] = self.spec.to_dict()
 
         return api_schema
