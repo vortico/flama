@@ -93,8 +93,8 @@ class TestCaseSchemaValidation:
                 "Location",
                 (marshmallow.Schema,),
                 {
-                    "latitude": marshmallow.fields.Number(validate=marshmallow.validate.Range(min=-90, max=90)),
-                    "longitude": marshmallow.fields.Number(validate=marshmallow.validate.Range(min=-180, max=180)),
+                    "latitude": marshmallow.fields.Float(validate=marshmallow.validate.Range(min=-90, max=90)),
+                    "longitude": marshmallow.fields.Float(validate=marshmallow.validate.Range(min=-180, max=180)),
                 },
             )
         else:
