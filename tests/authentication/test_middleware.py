@@ -4,7 +4,7 @@ import pytest
 
 from flama import Flama
 from flama.authentication.components import AccessTokenComponent
-from flama.authentication.middlewares import AuthenticationMiddleware
+from flama.authentication.middleware import AuthenticationMiddleware
 from flama.middleware import Middleware
 
 TOKENS = {
