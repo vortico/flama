@@ -37,7 +37,7 @@ class Header:
     alg: t.Optional[str] = None
     cty: t.Optional[str] = None
 
-    def asdict(self) -> dict[str, t.Any]:
+    def to_dict(self) -> dict[str, t.Any]:
         """Return the header as a dictionary.
 
         The fields are sorted alphabetically and the None values are removed.
@@ -113,7 +113,7 @@ class Payload:
         object.__setattr__(self, "jti", jti)
         object.__setattr__(self, "data", {**(data or {}), **kwargs})
 
-    def asdict(self) -> dict[str, t.Any]:
+    def to_dict(self) -> dict[str, t.Any]:
         """Return the payload as a dictionary.
 
         The fields are sorted alphabetically and the None values are removed.
@@ -151,15 +151,7 @@ class JWT:
         :param key: Secret used to sign the token.
         :return: Encoded token.
         """
-        return JWS.encode(
-            header=dataclasses.asdict(
-                self.header, dict_factory=lambda x: {k: v for k, v in sorted(x, key=lambda y: y[0]) if v is not None}
-            ),
-            payload=dataclasses.asdict(
-                self.payload, dict_factory=lambda x: {k: v for k, v in sorted(x, key=lambda y: y[0]) if v is not None}
-            ),
-            key=key,
-        )
+        return JWS.encode(header=self.header.to_dict(), payload=self.payload.to_dict(), key=key)
 
     @classmethod
     def decode(cls, token: bytes, key: bytes) -> "JWT":
@@ -220,9 +212,9 @@ class JWT:
         if invalid_claims:
             raise exceptions.JWTValidateException(f"Invalid claims ({', '.join(invalid_claims)})")
 
-    def asdict(self) -> dict[str, t.Any]:
+    def to_dict(self) -> dict[str, t.Any]:
         """Return the JWT as a dictionary.
 
         :return: JWT as a dictionary.
         """
-        return {"header": self.header.asdict(), "payload": self.payload.asdict()}
+        return {"header": self.header.to_dict(), "payload": self.payload.to_dict()}

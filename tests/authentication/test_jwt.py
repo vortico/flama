@@ -204,10 +204,10 @@ class TestCaseJWT:
             with patch.object(JWT, "validate", side_effect=validate_side_effect):
                 assert JWT.decode(token, key) == result
 
-    def test_asdict(self):
+    def test_to_dict(self):
         jwt = JWT(header={"alg": "HS256", "typ": "JWT"}, payload={"data": {"foo": "bar"}, "iat": 0})
 
-        assert jwt.asdict() == {
+        assert jwt.to_dict() == {
             "header": {"alg": "HS256", "typ": "JWT"},
             "payload": {"data": {"foo": "bar"}, "iat": 0},
         }
