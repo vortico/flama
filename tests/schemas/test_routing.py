@@ -7,7 +7,7 @@ import typesystem
 import typesystem.fields
 
 import flama.types.websockets
-from flama import Component, HTTPEndpoint, Route, WebSocketEndpoint, WebSocketRoute, schemas, websockets
+from flama import Component, endpoints, routing, schemas, websockets
 from flama.schemas.data_structures import Parameter, ParameterLocation
 
 
@@ -58,11 +58,11 @@ class TestCaseRouteFieldsMixin:
             ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)]:
                 ...
 
-            return Route("/foo/{w:int}/", endpoint=foo, methods=["GET"])
+            return routing.Route("/foo/{w:int}/", endpoint=foo, methods=["GET"])
 
-        if request.param == "http_endpoint":
+        elif request.param == "http_endpoint":
 
-            class BarEndpoint(HTTPEndpoint):
+            class FooEndpoint(endpoints.HTTPEndpoint):
                 def get(
                     self,
                     w: int,
@@ -73,11 +73,11 @@ class TestCaseRouteFieldsMixin:
                 ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)]:
                     ...
 
-            return Route("/bar/{w:int}/", endpoint=BarEndpoint, methods=["GET"])
+            return routing.Route("/bar/{w:int}/", endpoint=FooEndpoint, methods=["GET"])
 
-        if request.param == "websocket_function":
+        elif request.param == "websocket_function":
 
-            def foo(
+            def bar(
                 websocket: websockets.WebSocket,
                 data: flama.types.websockets.Data,
                 w: int,
@@ -88,12 +88,12 @@ class TestCaseRouteFieldsMixin:
             ) -> None:
                 ...
 
-            return WebSocketRoute("/foo/{w:int}/", endpoint=foo)
+            return routing.WebSocketRoute("/foo/{w:int}/", endpoint=bar)
 
-        if request.param == "websocket_endpoint":
+        elif request.param == "websocket_endpoint":
 
-            class FooWebsocket(WebSocketEndpoint):
-                def on_receive(
+            class FooWebsocket(endpoints.WebSocketEndpoint):
+                async def on_receive(
                     self,
                     websocket: websockets.WebSocket,
                     data: flama.types.websockets.Data,
@@ -105,7 +105,9 @@ class TestCaseRouteFieldsMixin:
                 ) -> None:
                     ...
 
-            return WebSocketRoute("/foo/{w:int}/", endpoint=FooWebsocket)
+            return routing.WebSocketRoute("/foo/{w:int}/", endpoint=FooWebsocket)
+        else:
+            raise ValueError("Wrong value")
 
     @pytest.fixture(scope="function", autouse=True)
     def add_component(self, app, component):

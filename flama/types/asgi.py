@@ -18,6 +18,7 @@ __all__ = [
     "Middleware",
     "HTTPHandler",
     "WebSocketHandler",
+    "Handler",
 ]
 
 P = compat.ParamSpec("P")  # PORT: Replace compat when stop supporting 3.9
@@ -60,3 +61,4 @@ Middleware = t.Union[type[MiddlewareClass], MiddlewareFunction]
 
 HTTPHandler = t.Union[t.Callable, type["endpoints.HTTPEndpoint"]]
 WebSocketHandler = t.Union[t.Callable, type["endpoints.WebSocketEndpoint"]]
+Handler = t.Union[HTTPHandler, WebSocketHandler]
