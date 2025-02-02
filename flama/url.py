@@ -1,62 +1,21 @@
 import abc
 import dataclasses
+import decimal
+import enum
 import re
 import typing as t
 import urllib.parse
 import uuid
-from decimal import Decimal
 
-T = t.TypeVar("T", bound=t.Union[int, str, float, Decimal, uuid.UUID])
+T = t.TypeVar("T", bound=t.Union[int, str, float, decimal.Decimal, uuid.UUID])
+FragmentType = t.Literal["constant", "rest", "str", "int", "float", "decimal", "uuid"]
 
-
-@dataclasses.dataclass
-class URL:
-    scheme: str
-    netloc: str
-    path: str
-    params: str
-    query: str
-    fragment: str
-
-    def __init__(self, url: str = "", **kwargs: str):
-        """URL object.
-
-        :param url: URL string to be parsed.
-        :param kwargs: Individual components to replace those parsed from string.
-        """
-        parsed_url: urllib.parse.ParseResult = urllib.parse.urlparse(url)._replace(**kwargs)
-        self.scheme = parsed_url.scheme
-        self.netloc = parsed_url.netloc
-        self.path = parsed_url.path
-        self.params = parsed_url.params
-        self.query = parsed_url.query
-        self.fragment = parsed_url.fragment
-
-    @property
-    def components(self) -> dict[str, t.Optional[str]]:
-        """URL components map.
-
-        :return: Components.
-        """
-        return dataclasses.asdict(self)
-
-    @property
-    def url(self) -> str:
-        """Build URL string.
-
-        :return: URL string.
-        """
-        return str(urllib.parse.urlunparse(tuple(self.components.values())))
-
-    def __str__(self) -> str:
-        return self.url
-
-    def __repr__(self) -> str:
-        return f"URL('{self.url}')"
+__all__ = ["Path", "URL"]
 
 
-class ParamSerializer(t.Generic[T], metaclass=abc.ABCMeta):
-    regex: t.ClassVar[str] = ""
+class Serializer(t.Generic[T], metaclass=abc.ABCMeta):
+    regex: t.ClassVar[re.Pattern]
+    type: t.ClassVar[type]
 
     @abc.abstractmethod
     def load(self, value: str) -> T:
@@ -70,8 +29,9 @@ class ParamSerializer(t.Generic[T], metaclass=abc.ABCMeta):
         return type(other) == type(self)
 
 
-class StringParamSerializer(ParamSerializer[str]):
-    regex = "[^/]+"
+class StringSerializer(Serializer[str]):
+    regex = re.compile(r"[^/]+")
+    type = str
 
     def load(self, value: str) -> str:
         return str(value)
@@ -80,12 +40,9 @@ class StringParamSerializer(ParamSerializer[str]):
         return str(value)
 
 
-class PathParamSerializer(StringParamSerializer):
-    regex = ".*"
-
-
-class IntegerParamSerializer(ParamSerializer[int]):
-    regex = "-?[0-9]+"
+class IntegerSerializer(Serializer[int]):
+    regex = re.compile(r"-?[0-9]+")
+    type = int
 
     def load(self, value: str) -> int:
         return int(value)
@@ -94,8 +51,9 @@ class IntegerParamSerializer(ParamSerializer[int]):
         return str(value)
 
 
-class FloatParamSerializer(ParamSerializer[float]):
-    regex = "-?[0-9]+(.[0-9]+)?"
+class FloatSerializer(Serializer[float]):
+    regex = re.compile(r"-?[0-9]+(.[0-9]+)?")
+    type = float
 
     def load(self, value: str) -> float:
         return float(value)
@@ -104,18 +62,20 @@ class FloatParamSerializer(ParamSerializer[float]):
         return f"{value:0.10f}".rstrip("0").rstrip(".")
 
 
-class DecimalParamSerializer(ParamSerializer[Decimal]):
-    regex = "-?[0-9]+(.[0-9]+)?"
+class DecimalSerializer(Serializer[decimal.Decimal]):
+    regex = re.compile(r"-?[0-9]+(.[0-9]+)?")
+    type = decimal.Decimal
 
-    def load(self, value: str) -> Decimal:
-        return Decimal(value)
+    def load(self, value: str) -> decimal.Decimal:
+        return decimal.Decimal(value)
 
-    def dump(self, value: Decimal) -> str:
+    def dump(self, value: decimal.Decimal) -> str:
         return str(value)
 
 
-class UUIDParamSerializer(ParamSerializer[uuid.UUID]):
-    regex = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+class UUIDSerializer(Serializer[uuid.UUID]):
+    regex = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+    type = uuid.UUID
 
     def load(self, value: str) -> uuid.UUID:
         return uuid.UUID(value)
@@ -124,124 +84,279 @@ class UUIDParamSerializer(ParamSerializer[uuid.UUID]):
         return str(value)
 
 
-class RegexPath:
-    PARAM_REGEX: t.ClassVar[re.Pattern] = re.compile(
-        r"{(?P<name>[a-zA-Z_][a-zA-Z0-9_]*)(?::(?P<type>[a-zA-Z_][a-zA-Z0-9_]*)?)?}"
+@dataclasses.dataclass
+class _Fragment(abc.ABC):
+    REGEX: t.ClassVar[re.Pattern] = re.compile(
+        r"""
+        (?P<parameter>{(?P<parameter_name>[a-zA-Z_][a-zA-Z0-9_]*)(?::(?P<parameter_type>[a-zA-Z_][a-zA-Z0-9_]*)?)?}) |
+        (?P<constant>.*)
+        """,
+        re.X,
     )
-    SERIALIZERS: t.ClassVar[dict[str, ParamSerializer]] = {
-        "str": StringParamSerializer(),
-        "path": PathParamSerializer(),
-        "int": IntegerParamSerializer(),
-        "float": FloatParamSerializer(),
-        "decimal": DecimalParamSerializer(),
-        "uuid": UUIDParamSerializer(),
+
+    value: str
+    type: FragmentType
+
+    @classmethod
+    def build(cls, fragment: str) -> "_Fragment":
+        match = cls.REGEX.match(fragment)
+
+        assert match
+
+        if match.group("parameter"):
+            return _FragmentParameter(
+                value=fragment,
+                type=t.cast(FragmentType, match.group("parameter_type") or "str"),
+                name=match.group("parameter_name"),
+            )
+        else:
+            return _FragmentConstant(value=fragment, type="constant")
+
+    @property
+    @abc.abstractmethod
+    def regex(self) -> re.Pattern:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def template(self) -> str:
+        ...
+
+
+@dataclasses.dataclass
+class _FragmentConstant(_Fragment):
+    @property
+    def regex(self) -> re.Pattern:
+        return re.compile(self.value)
+
+    @property
+    def template(self) -> str:
+        return self.value
+
+
+@dataclasses.dataclass
+class _FragmentParameter(_Fragment):
+    SERIALIZERS: t.ClassVar[dict[FragmentType, Serializer]] = {
+        "str": StringSerializer(),
+        "int": IntegerSerializer(),
+        "float": FloatSerializer(),
+        "decimal": DecimalSerializer(),
+        "uuid": UUIDSerializer(),
     }
 
-    def __init__(self, path: t.Union[str, "RegexPath"]):
+    name: str = dataclasses.field(repr=False, hash=False, compare=False)
+    serializer: Serializer = dataclasses.field(init=False, repr=False, hash=False, compare=False)
+
+    def __post_init__(self):
+        try:
+            self.serializer = self.SERIALIZERS[self.type]
+        except KeyError:
+            raise ValueError(f"Unknown path serializer '{self.type}'")
+
+    @property
+    def regex(self) -> re.Pattern:
+        return re.compile(rf"(?P<{self.name}>{self.serializer.regex.pattern})")
+
+    @property
+    def template(self) -> str:
+        return f"{{{self.name}}}"
+
+
+class _Match(enum.Enum):
+    exact = enum.auto()
+    partial = enum.auto()
+    none = enum.auto()
+
+
+@dataclasses.dataclass
+class _MatchResult:
+    match: _Match
+    parameters: t.Optional[dict[str, t.Any]]
+    matched: t.Optional[str]
+    unmatched: t.Optional[str]
+
+
+@dataclasses.dataclass
+class _BuildResult:
+    path: str
+    unused: dict[str, t.Any]
+
+
+class Path:
+    Match = _Match
+
+    def __init__(self, path: t.Union[str, "Path"]):
         """URL path with a regex to allow path params as placeholders.
 
         Given a path string like: "/foo/{bar:str}"
         path:        "/foo/{bar:str}"
         template:    "/foo/{bar}"
         regex:       "^/foo/(?P<bar>[^/]+)$"
-        serializers: {"bar": StringParamSerializer()}
-
-        Path params is a special param defined for nesting routes, it will be removed from path and template, so for a
-        path like: "/foo{path:path}" the result will be:
-        path:        "/foo"
-        template:    "/foo"
-        regex:       "^/foo(?P<path>.*)$"
-        serializers: {"path": PathParamSerializer()}
 
         :param path: URL path.
         """
-        if isinstance(path, RegexPath):
-            self.raw_path: str = path.raw_path
-            self.path: str = path.path
-            self.template: str = path.template
-            self.regex: re.Pattern = path.regex
-            self.serializers: dict[str, ParamSerializer] = path.serializers
-            self.parameters: list[str] = path.parameters
+        if isinstance(path, Path):
+            self.path = path.path
+            self._fragments = path._fragments
+            self._parameters = path._parameters
+            self._regex = path._regex
+            self._template = path._template
         else:
-            self.raw_path = path
-            self.path = self.PARAM_REGEX.sub(lambda x: x.group(0) if x.group("type") != "path" else "", path)
+            if path != "" and not path.startswith("/"):
+                raise ValueError("Path must starts with '/'")
 
-            assert self.path == "" or self.path.startswith("/"), "Routed paths must start with '/'"
-
-            self.template = self.PARAM_REGEX.sub(
-                lambda x: f"{{{x.group('name')}}}" if x.group("type") != "path" else "", path
-            )
-            regex = self.PARAM_REGEX.sub(
-                lambda x: f"(?P<{x.group('name')}>{self._serializer(x.group('type')).regex})", path
-            )
-            self.regex = re.compile(rf"^{regex}$")
-            self.serializers = {
-                param_name: self._serializer(param_type) for param_name, param_type in self.PARAM_REGEX.findall(path)
+            self.path = path
+            self._fragments = [_Fragment.build(x) for x in path.strip("/").split("/")]
+            self._parameters: dict[str, _FragmentParameter] = {
+                f.name: f for f in self._fragments if isinstance(f, _FragmentParameter)
             }
-            self.parameters = list(self.serializers.keys())
 
-    def _serializer(self, param_type: t.Optional[str]) -> ParamSerializer:
-        try:
-            return self.SERIALIZERS[param_type or "str"]
-        except KeyError:
-            raise ValueError(f"Unknown path param serializer '{param_type}'")
+            starting_slash = "/" if path != "" else ""
+            trailing_slash = "/" if self.path != "/" and self.path.endswith("/") else ""
 
-    def match(self, path: str) -> bool:
+            fragments_templates = "/".join(f.template for f in self._fragments)
+            self._template = f"{starting_slash}{fragments_templates}{trailing_slash}"
+
+            fragments_regex = "/".join(f.regex.pattern for f in self._fragments)
+            self._regex = re.compile(
+                rf"^(?P<__matched__>{starting_slash}{fragments_regex}{trailing_slash})(?P<__unmatched__>.*)$"
+            )
+
+    @property
+    def parameters(self) -> dict[str, type]:
+        return {f.name: f.serializer.type for f in self._parameters.values()}
+
+    def match(self, path: t.Union[str, "Path"]) -> _MatchResult:
         """Check if given path matches with current object.
 
         :param path: Path to match
-        :return: True if matches.
+        :return: Matching result, parameters serialized values and matching parts of the path.
         """
-        return self.regex.match(path) is not None
+        if (match := self._regex.match(str(path))) is None:
+            return _MatchResult(self.Match.none, None, None, None)
 
-    def values(self, path: str) -> dict[str, t.Any]:
-        """Get serialized parameters from a matching path.
+        return _MatchResult(
+            match=self.Match.partial if match.group("__unmatched__") else self.Match.exact,
+            parameters={
+                k: self._parameters[k].serializer.load(v)
+                for k, v in match.groupdict().items()
+                if k not in ("__matched__", "__unmatched__")
+            },
+            matched=match.group("__matched__") or None,
+            unmatched=match.group("__unmatched__") or None,
+        )
 
-        :param path: Path to match.
-        :return: Path param values.
-        """
-        match = self.regex.match(path)
-
-        if match is None:
-            raise ValueError(f"Path '{path}' does not match.")
-
-        return {k: self.serializers[k].load(v) for k, v in match.groupdict().items()}
-
-    def build(self, **params: t.Any) -> tuple[str, dict[str, t.Any]]:
+    def build(self, **params: t.Any) -> _BuildResult:
         """Build a path by completing param placeholders with given values.
 
         :param params: Param values.
         :return: Built path and unused params.
         """
-        if not set(self.serializers.keys()) <= set(params.keys()):
-            formatted_params = ", ".join(f"'{x}'" for x in self.serializers.keys())
+        if not set(self._parameters.keys()) <= set(params.keys()):
+            formatted_params = ", ".join(f"'{x}'" for x in self._parameters.keys())
             raise ValueError(f"Wrong params, expected: {formatted_params}.")
 
-        if not self.serializers:
-            return self.template, params
-
-        remaining_params = {k: v for k, v in params.items() if k not in self.serializers}
-        values = {k: self.serializers[k].dump(v) for k, v in params.items() if k in self.serializers}
-        path = re.sub(
-            pattern=f"{{({r'|'.join(values.keys())})}}",
-            repl=lambda x: values.pop(x.group(1)),
-            string=self.template,
+        return _BuildResult(
+            path=self._template.format(
+                **{k: self._parameters[k].serializer.dump(v) for k, v in params.items() if k in self._parameters}
+            ),
+            unused={k: v for k, v in params.items() if k not in self._parameters},
         )
-        return path, {**values, **remaining_params}
 
-    def __eq__(self, other) -> bool:
-        return isinstance(other, RegexPath) and self.path.__eq__(other.path) or self.path.__eq__(other)
+    def __bool__(self) -> bool:
+        return self.path != ""
+
+    def __eq__(self, other, /) -> bool:
+        return isinstance(other, Path) and self.path.__eq__(other.path) or self.path.__eq__(other)
 
     def __str__(self) -> str:
-        return self.path.__str__()
+        return self._template.__str__()
 
     def __repr__(self) -> str:
         return self.path.__repr__()
 
-    def __add__(self, other) -> "RegexPath":
-        if isinstance(other, RegexPath):
-            return RegexPath(self.path + other.path)
+    def __truediv__(self, other) -> "Path":
+        if isinstance(other, Path):
+            a, b = self.path.rstrip("/"), other.path.lstrip("/")
         elif isinstance(other, str):
-            return RegexPath(self.path + other)
+            a, b = self.path.rstrip("/"), other.lstrip("/")
+        else:
+            raise TypeError(f"Can only concatenate str or {self.__class__.__name__} to {self.__class__.__name__}")
 
-        raise TypeError("Can only concatenate str or Path to Path")
+        return Path(f"{a}/{b}")
+
+    def __rtruediv__(self, other) -> "Path":
+        if isinstance(other, Path):
+            a, b = other.path.rstrip("/"), self.path.lstrip("/")  # pragma: no cover # covered by __truediv__
+        elif isinstance(other, str):
+            a, b = other.rstrip("/"), self.path.lstrip("/")
+        else:
+            raise TypeError(f"Can only concatenate str or {self.__class__.__name__} to {self.__class__.__name__}")
+
+        return Path(f"{a}/{b}")
+
+    def __itruediv__(self, other) -> "Path":
+        path = self / other
+        self.path = path.path
+        self._fragments = path._fragments
+        self._parameters = path._parameters
+        self._regex = path._regex
+        self._template = path._template
+
+        return self
+
+
+@dataclasses.dataclass
+class URL:
+    scheme: str
+    netloc: str
+    path: Path
+    params: str
+    query: str
+    fragment: str
+
+    def __init__(self, url: t.Union[str, "URL"] = "", /, **kwargs):
+        """URL object.
+
+        :param url: URL string to be parsed.
+        :param kwargs: Individual components to replace those parsed from string.
+        """
+        parsed_url = urllib.parse.urlparse(url)._replace(**kwargs) if isinstance(url, str) else url
+        self.scheme = parsed_url.scheme
+        self.netloc = parsed_url.netloc
+        self.path = Path(parsed_url.path)
+        self.params = parsed_url.params
+        self.query = parsed_url.query
+        self.fragment = parsed_url.fragment
+
+    @property
+    def components(self) -> dict[str, t.Optional[str]]:
+        """URL components map.
+
+        :return: Components.
+        """
+        return {
+            "scheme": self.scheme,
+            "netloc": self.netloc,
+            "path": str(self.path),
+            "params": self.params,
+            "query": self.query,
+            "fragment": self.fragment,
+        }
+
+    @property
+    def url(self) -> str:
+        """Build URL string.
+
+        :return: URL string.
+        """
+        return str(urllib.parse.urlunparse(tuple(self.components.values())))
+
+    def __eq__(self, value, /) -> bool:
+        return isinstance(value, URL) and self.url == value.url or self.url == value
+
+    def __str__(self) -> str:
+        return self.url
+
+    def __repr__(self) -> str:
+        return f"URL('{self.url}')"

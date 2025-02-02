@@ -3,7 +3,7 @@ import logging
 import threading
 import typing as t
 
-from flama import asgi, exceptions, http, injection, types, url, validation, websockets
+from flama import asgi, exceptions, http, injection, routing, types, url, validation, websockets
 from flama.ddd.components import WorkerComponent
 from flama.events import Events
 from flama.middleware import MiddlewareStack
@@ -11,7 +11,6 @@ from flama.models.modules import ModelsModule
 from flama.modules import Modules
 from flama.pagination import paginator
 from flama.resources import ResourcesModule
-from flama.routing import BaseRoute, Router
 from flama.schemas.modules import SchemaModule
 
 try:
@@ -23,7 +22,6 @@ if t.TYPE_CHECKING:
     from flama.middleware import Middleware
     from flama.modules import Module
     from flama.pagination.types import PaginationType
-    from flama.routing import Mount, Route, WebSocketRoute
 
 __all__ = ["Flama"]
 
@@ -33,7 +31,7 @@ logger = logging.getLogger(__name__)
 class Flama:
     def __init__(
         self,
-        routes: t.Optional[t.Sequence[t.Union["BaseRoute", "Mount"]]] = None,
+        routes: t.Optional[t.Sequence["routing.BaseRoute"]] = None,
         components: t.Optional[t.Union[t.Sequence[injection.Component], set[injection.Component]]] = None,
         modules: t.Optional[t.Union[t.Sequence["Module"], set["Module"]]] = None,
         middleware: t.Optional[t.Sequence["Middleware"]] = None,
@@ -75,8 +73,7 @@ class Flama:
                 "send": types.Send,
                 "exc": Exception,
                 "app": Flama,
-                "path_params": types.PathParams,
-                "route": BaseRoute,
+                "route": routing.BaseRoute,
                 "request": http.Request,
                 "response": http.Response,
                 "websocket": websockets.WebSocket,
@@ -102,7 +99,7 @@ class Flama:
         self.modules = Modules(app=self, modules={*default_modules, *(modules or [])})
 
         # Initialize router
-        self.app = self.router = Router(
+        self.app = self.router = routing.Router(
             routes=routes, components=[*default_components, *(components or [])], lifespan=lifespan
         )
 
@@ -144,11 +141,12 @@ class Flama:
         :param receive: ASGI receive event.
         :param send: ASGI send event.
         """
-        if scope["type"] != "lifespan" and self.status in (types.AppStatus.NOT_STARTED, types.AppStatus.STARTING):
-            raise exceptions.ApplicationError("Application is not ready to process requests yet.")
+        if scope["type"] != "lifespan":
+            if self.status in (types.AppStatus.NOT_STARTED, types.AppStatus.STARTING):
+                raise exceptions.ApplicationError("Application is not ready to process requests yet.")
 
-        if scope["type"] != "lifespan" and self.status in (types.AppStatus.SHUT_DOWN, types.AppStatus.SHUTTING_DOWN):
-            raise exceptions.ApplicationError("Application is already shut down.")
+            elif self.status in (types.AppStatus.SHUT_DOWN, types.AppStatus.SHUTTING_DOWN):
+                raise exceptions.ApplicationError("Application is already shut down.")
 
         scope["app"] = self
         scope.setdefault("root_app", self)
@@ -182,7 +180,7 @@ class Flama:
         self.router.build(self)
 
     @property
-    def routes(self) -> list["BaseRoute"]:
+    def routes(self) -> list["routing.BaseRoute"]:
         """List of registered routes.
 
         :return: Routes.
@@ -196,10 +194,10 @@ class Flama:
         methods: t.Optional[list[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        route: t.Optional["Route"] = None,
+        route: t.Optional["routing.Route"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
-    ) -> "Route":
+    ) -> "routing.Route":
         """Register a new HTTP route or endpoint under given path.
 
         :param path: URL path.
@@ -257,10 +255,10 @@ class Flama:
         path: t.Optional[str] = None,
         endpoint: t.Optional[types.WebSocketHandler] = None,
         name: t.Optional[str] = None,
-        route: t.Optional["WebSocketRoute"] = None,
+        route: t.Optional["routing.WebSocketRoute"] = None,
         pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
-    ) -> "WebSocketRoute":
+    ) -> "routing.WebSocketRoute":
         """Register a new websocket route or endpoint under given path.
 
         :param path: URL path.
@@ -296,9 +294,9 @@ class Flama:
         path: t.Optional[str] = None,
         app: t.Optional[types.App] = None,
         name: t.Optional[str] = None,
-        mount: t.Optional["Mount"] = None,
+        mount: t.Optional["routing.Mount"] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
-    ) -> "Mount":
+    ) -> "routing.Mount":
         """Register a new mount point containing an ASGI app in this router under given path.
 
         :param path: URL path.
@@ -366,7 +364,7 @@ class Flama:
         """
         return self.router.resolve_url(name, **path_params)
 
-    def resolve_route(self, scope: types.Scope) -> tuple[BaseRoute, types.Scope]:
+    def resolve_route(self, scope: types.Scope) -> tuple[routing.BaseRoute, types.Scope]:
         """Look for a route that matches given ASGI scope.
 
         :param scope: ASGI scope.
