@@ -1,3 +1,4 @@
+import collections
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
@@ -392,9 +393,24 @@ class TestCaseMount:
     @pytest.mark.parametrize(
         ["app", "routes", "exception"],
         (
-            pytest.param(MagicMock(spec=Flama), None, None, id="app"),
-            pytest.param(None, [MagicMock(spec=Route)], None, id="routes"),
-            pytest.param(None, None, AssertionError, id="wrong"),
+            pytest.param(
+                MagicMock(spec=Flama),
+                None,
+                None,
+                id="app",
+            ),
+            pytest.param(
+                None,
+                [MagicMock(spec=Route)],
+                None,
+                id="routes",
+            ),
+            pytest.param(
+                None,
+                None,
+                exceptions.ApplicationError("Either 'path' and 'app' or 'mount' variables are needed"),
+                id="wrong",
+            ),
         ),
         indirect=["exception"],
     )
@@ -567,6 +583,95 @@ class TestCaseRouter:
     def tags(self):
         return {"tag": "foo", "list_tag": ["foo", "bar"], "dict_tag": {"foo": "bar"}}
 
+    @pytest.fixture(scope="function")
+    def endpoint(self, request, router):  # noqa: C901
+        if request.param == "function":
+
+            async def foo():
+                return "foo"
+
+            def mount(app):
+                app.add_route("/foo/", foo)
+
+            endpoint = foo
+        elif request.param == "endpoint":
+
+            class FooEndpoint(endpoints.HTTPEndpoint):
+                async def get(self):
+                    return "foo"
+
+            def mount(app):
+                app.add_route("/foo/", FooEndpoint)
+
+            endpoint = FooEndpoint
+        elif request.param == "websocket_function":
+
+            async def foo():
+                return "foo"
+
+            def mount(app):
+                app.add_websocket_route("/foo/", foo)
+
+            endpoint = foo
+        elif request.param == "websocket_endpoint":
+
+            class FooEndpoint(endpoints.WebSocketEndpoint):
+                ...
+
+            def mount(app):
+                app.add_websocket_route("/foo/", FooEndpoint)
+
+            endpoint = FooEndpoint
+        elif request.param == "nested_app":
+
+            async def foo():
+                return "foo"
+
+            nested = Flama()
+            nested.add_route("/foo/", foo)
+
+            def mount(app):
+                app.mount("/nested", app=nested)
+
+            endpoint = foo
+        elif request.param == "nested_router":
+
+            async def foo():
+                return "foo"
+
+            router.add_route("/foo/", foo)
+
+            def mount(app):
+                app.mount("/router", app=router)
+
+            endpoint = foo
+        elif request.param == "nested_app_nested_router":
+
+            async def foo():
+                return "foo"
+
+            nested = Flama()
+            router.add_route("/foo/", foo)
+            nested.mount("/router", app=router)
+
+            def mount(app):
+                app.mount("/nested", app=nested)
+
+            endpoint = foo
+        elif request.param == "wrong":
+
+            class Foo:
+                ...
+
+            def mount(app):
+                app.add_route("/wrong/", Foo)
+
+            endpoint = Foo
+        else:
+            raise ValueError(f"Wrong value: {request.param}")
+
+        return collections.namedtuple("Endpoint", ("endpoint", "mount"))(endpoint, mount)
+
     def test_init(self, app_mock):
         with patch("flama.routing.Router.build") as method_mock:
             Router([], root=app_mock)
@@ -634,137 +739,165 @@ class TestCaseRouter:
 
         assert router.components == [component_mock]
 
-    def test_add_route_function(self, router, tags):
-        async def foo():
-            return "foo"
+    @pytest.mark.parametrize(
+        ["endpoint", "path", "exception"],
+        [
+            pytest.param(
+                "function",
+                "/",
+                None,
+                id="function",
+            ),
+            pytest.param(
+                "endpoint",
+                "/",
+                None,
+                id="endpoint",
+            ),
+            pytest.param(
+                "function",
+                None,
+                exceptions.ApplicationError("Either 'path' and 'endpoint' or 'route' variables are needed"),
+                id="no_path",
+            ),
+            pytest.param(
+                "wrong",
+                "/",
+                exceptions.ApplicationError("Endpoint must be a callable or an HTTPEndpoint subclass"),
+                id="wrong_endpoint",
+            ),
+        ],
+        indirect=["endpoint", "exception"],
+    )
+    def test_add_route(self, router, tags, endpoint, path, exception):
+        with exception:
+            router.add_route(path, endpoint.endpoint, tags=tags)
 
-        router.add_route("/", foo, tags=tags)
+            assert len(router.routes) == 1
+            assert isinstance(router.routes[0], Route)
+            assert router.routes[0].path == path
+            assert router.routes[0].endpoint == endpoint.endpoint
+            assert router.routes[0].tags == tags
 
-        assert len(router.routes) == 1
-        assert isinstance(router.routes[0], Route)
-        assert router.routes[0].path == "/"
-        assert router.routes[0].endpoint == foo
-        assert router.routes[0].tags == tags
+    @pytest.mark.parametrize(
+        ["endpoint", "path", "exception"],
+        [
+            pytest.param(
+                "function",
+                "/",
+                None,
+                id="function",
+            ),
+            pytest.param(
+                "endpoint",
+                "/",
+                None,
+                id="endpoint",
+            ),
+            pytest.param(
+                "function",
+                None,
+                exceptions.ApplicationError("Either 'path' and 'endpoint' or 'route' variables are needed"),
+                id="no_path",
+            ),
+            pytest.param(
+                "wrong",
+                "/",
+                exceptions.ApplicationError("Endpoint must be a callable or an HTTPEndpoint subclass"),
+                id="wrong_endpoint",
+            ),
+        ],
+        indirect=["endpoint", "exception"],
+    )
+    def test_route(self, router, tags, endpoint, path, exception):
+        with exception:
+            router.route(path, tags=tags)(endpoint.endpoint)
 
-    def test_add_route_endpoint(self, router, tags):
-        class FooEndpoint(endpoints.HTTPEndpoint):
-            async def get(self):
-                return "foo"
+            assert len(router.routes) == 1
+            assert isinstance(router.routes[0], Route)
+            assert router.routes[0].path == path
+            assert router.routes[0].endpoint == endpoint.endpoint
+            assert router.routes[0].tags == tags
 
-        router.add_route("/", FooEndpoint, tags=tags)
+    @pytest.mark.parametrize(
+        ["endpoint", "path", "exception"],
+        [
+            pytest.param(
+                "websocket_function",
+                "/",
+                None,
+                id="function",
+            ),
+            pytest.param(
+                "websocket_endpoint",
+                "/",
+                None,
+                id="endpoint",
+            ),
+            pytest.param(
+                "function",
+                None,
+                exceptions.ApplicationError("Either 'path' and 'endpoint' or 'route' variables are needed"),
+                id="no_path",
+            ),
+            pytest.param(
+                "wrong",
+                "/",
+                exceptions.ApplicationError("Endpoint must be a callable or a WebSocketEndpoint subclass"),
+                id="wrong_endpoint",
+            ),
+        ],
+        indirect=["endpoint", "exception"],
+    )
+    def test_add_websocket(self, router, tags, endpoint, path, exception):
+        with exception:
+            router.add_websocket_route(path, endpoint.endpoint, tags=tags)
 
-        assert len(router.routes) == 1
-        assert isinstance(router.routes[0], Route)
-        assert router.routes[0].path == "/"
-        assert router.routes[0].endpoint == FooEndpoint
-        assert router.routes[0].tags == tags
+            assert len(router.routes) == 1
+            assert isinstance(router.routes[0], WebSocketRoute)
+            assert router.routes[0].path == path
+            assert router.routes[0].endpoint == endpoint.endpoint
+            assert router.routes[0].tags == tags
 
-    def test_add_route_wrong_params(self, router):
-        with pytest.raises(AssertionError, match="Either 'path' and 'endpoint' or 'route' variables are needed"):
-            router.add_route()
+    @pytest.mark.parametrize(
+        ["endpoint", "path", "exception"],
+        [
+            pytest.param(
+                "websocket_function",
+                "/",
+                None,
+                id="function",
+            ),
+            pytest.param(
+                "websocket_endpoint",
+                "/",
+                None,
+                id="endpoint",
+            ),
+            pytest.param(
+                "function",
+                None,
+                exceptions.ApplicationError("Either 'path' and 'endpoint' or 'route' variables are needed"),
+                id="no_path",
+            ),
+            pytest.param(
+                "wrong",
+                "/",
+                exceptions.ApplicationError("Endpoint must be a callable or a WebSocketEndpoint subclass"),
+                id="wrong_endpoint",
+            ),
+        ],
+        indirect=["endpoint", "exception"],
+    )
+    def test_websocket_route_function(self, router, tags, endpoint, path, exception):
+        with exception:
+            router.websocket_route(path, tags=tags)(endpoint.endpoint)
 
-    def test_add_route_wrong_endpoint(self, router):
-        class Foo:
-            ...
-
-        with pytest.raises(AssertionError, match="Endpoint must be a callable or an HTTPEndpoint subclass"):
-            router.add_route(path="/", endpoint=Foo)
-
-    def test_route_function(self, router, tags):
-        @router.route("/", tags=tags)
-        async def foo():
-            return "foo"
-
-        assert len(router.routes) == 1
-        assert isinstance(router.routes[0], Route)
-        assert router.routes[0].path == "/"
-        assert router.routes[0].endpoint == foo
-        assert router.routes[0].tags == tags
-
-    def test_route_endpoint(self, router, tags):
-        @router.route("/", tags=tags)
-        class FooEndpoint(endpoints.HTTPEndpoint):
-            async def get(self):
-                return "foo"
-
-        assert len(router.routes) == 1
-        assert isinstance(router.routes[0], Route)
-        assert router.routes[0].path == "/"
-        assert router.routes[0].endpoint == FooEndpoint
-        assert router.routes[0].tags == tags
-
-    def test_route_wrong_endpoint(self, router):
-        with pytest.raises(AssertionError, match="Endpoint must be a callable or an HTTPEndpoint subclass"):
-
-            @router.route("/")
-            class Foo:
-                ...
-
-    def test_add_websocket_route_function(self, router, tags):
-        async def foo():
-            return "foo"
-
-        router.add_websocket_route("/", foo, tags=tags)
-
-        assert len(router.routes) == 1
-        assert isinstance(router.routes[0], WebSocketRoute)
-        assert router.routes[0].path == "/"
-        assert router.routes[0].endpoint == foo
-        assert router.routes[0].tags == tags
-
-    def test_add_websocket_route_endpoint(self, router, tags):
-        class FooEndpoint(endpoints.WebSocketEndpoint):
-            async def on_receive(self, websocket):
-                return "foo"
-
-        router.add_websocket_route("/", FooEndpoint, tags=tags)
-
-        assert len(router.routes) == 1
-        assert isinstance(router.routes[0], WebSocketRoute)
-        assert router.routes[0].path == "/"
-        assert router.routes[0].endpoint == FooEndpoint
-        assert router.routes[0].tags == tags
-
-    def test_add_websocket_route_wrong_params(self, router):
-        with pytest.raises(AssertionError, match="Either 'path' and 'endpoint' or 'route' variables are needed"):
-            router.add_websocket_route()
-
-    def test_add_websocket_route_wrong_endpoint(self, router):
-        class Foo:
-            ...
-
-        with pytest.raises(AssertionError, match="Endpoint must be a callable or a WebSocketEndpoint subclass"):
-            router.add_websocket_route(path="/", endpoint=Foo)
-
-    def test_websocket_route_function(self, router, tags):
-        @router.websocket_route("/", tags=tags)
-        async def foo():
-            return "foo"
-
-        assert len(router.routes) == 1
-        assert isinstance(router.routes[0], WebSocketRoute)
-        assert router.routes[0].path == "/"
-        assert router.routes[0].endpoint == foo
-        assert router.routes[0].tags == tags
-
-    def test_websocket_route_endpoint(self, router, tags):
-        @router.websocket_route("/", tags=tags)
-        class FooEndpoint(endpoints.WebSocketEndpoint):
-            async def on_receive(self, websocket):
-                return "foo"
-
-        assert len(router.routes) == 1
-        assert isinstance(router.routes[0], WebSocketRoute)
-        assert router.routes[0].path == "/"
-        assert router.routes[0].endpoint == FooEndpoint
-        assert router.routes[0].tags == tags
-
-    def test_websocket_route_wrong_endpoint(self, router):
-        with pytest.raises(AssertionError, match="Endpoint must be a callable or a WebSocketEndpoint subclass"):
-
-            @router.websocket_route(path="/")
-            class Foo:
-                ...
+            assert len(router.routes) == 1
+            assert isinstance(router.routes[0], WebSocketRoute)
+            assert router.routes[0].path == path
+            assert router.routes[0].endpoint == endpoint.endpoint
+            assert router.routes[0].tags == tags
 
     def test_mount_app(self, app, app_mock, tags):
         app.mount("/app/", app=app_mock, tags=tags)
@@ -862,99 +995,30 @@ class TestCaseRouter:
         assert mount_with_app_route.routes[0].path == "/"
         assert mount_with_app_route.routes[1].path == "/view"
 
-    def test_resolve_route_route(self, app, asgi_scope):
-        @app.route("/foo/")
-        async def foo():
-            return "foo"
+    @pytest.mark.parametrize(
+        ["endpoint", "path", "method", "exception"],
+        [
+            pytest.param("function", "/foo/", "GET", None, id="function"),
+            pytest.param("endpoint", "/foo/", "GET", None, id="endpoint"),
+            pytest.param("nested_app", "/nested/foo/", "GET", None, id="nested_app"),
+            pytest.param("nested_router", "/router/foo/", "GET", None, id="nested_router"),
+            pytest.param("nested_app_nested_router", "/nested/router/foo/", "GET", None, id="nested_app_nested_router"),
+            pytest.param("function", "/foo/", "POST", exceptions.MethodNotAllowedException, id="partial"),
+            pytest.param("function", "/bar/", "GET", exceptions.NotFoundException, id="not_found"),
+        ],
+        indirect=["endpoint", "exception"],
+    )
+    def test_resolve_route(self, app, endpoint, path, method, asgi_scope, exception):
+        endpoint.mount(app)
 
-        asgi_scope["path"] = "/foo/"
-        asgi_scope["method"] = "GET"
+        asgi_scope["path"] = path
+        asgi_scope["method"] = method
 
-        route, route_scope = app.router.resolve_route(scope=asgi_scope)
-
-        assert route.endpoint == foo
-        assert route.path == "/foo/"
-        assert route_scope is not None
-        assert route_scope["path"] == "/foo/"
-        assert route_scope["root_path"] == ""
-        assert route_scope["endpoint"] == foo
-
-    def test_resolve_route_mount_app(self, app, asgi_scope):
-        nested = Flama()
-
-        @nested.route("/foo/")
-        async def foo():
-            return "foo"
-
-        app.mount("/router", app=nested)
-
-        asgi_scope["path"] = "/router/foo/"
-        asgi_scope["method"] = "GET"
-
-        route, route_scope = app.router.resolve_route(scope=asgi_scope)
-
-        assert route.endpoint == foo
-        assert route.path == "/foo/"
-        assert route_scope is not None
-        assert route_scope["path"] == "/foo/"
-        assert route_scope["root_path"] == ""
-        assert route_scope["endpoint"] == foo
-
-    def test_resolve_route_mount_router(self, app, router, asgi_scope):
-        @router.route("/foo/")
-        async def foo():
-            return "foo"
-
-        app.mount("/router", app=router)
-
-        asgi_scope["path"] = "/router/foo/"
-        asgi_scope["method"] = "GET"
-
-        route, route_scope = app.router.resolve_route(scope=asgi_scope)
-
-        assert route.endpoint == foo
-        assert route.path == "/foo/"
-        assert route_scope is not None
-        assert route_scope["path"] == "/foo/"
-        assert route_scope["root_path"] == "/router"
-        assert route_scope["endpoint"] == foo
-
-    def test_resolve_route_nested_mount_router(self, app, router, asgi_scope):
-        @router.route("/foo/")
-        async def foo():
-            return "foo"
-
-        app.mount("/router", app=Router(routes=[Mount("/nested", app=router)]))
-
-        asgi_scope["path"] = "/router/nested/foo/"
-        asgi_scope["method"] = "GET"
-
-        route, route_scope = app.router.resolve_route(scope=asgi_scope)
-
-        assert route_scope is not None
-        assert route.endpoint == foo
-        assert route.path == "/foo/"
-        assert route_scope["path"] == "/foo/"
-        assert route_scope["root_path"] == "/router/nested"
-        assert route_scope["endpoint"] == foo
-
-    def test_resolve_route_partial(self, app, asgi_scope):
-        @app.route("/foo/")
-        async def foo():
-            return "foo"
-
-        asgi_scope["path"] = "/foo/"
-        asgi_scope["method"] = "POST"
-
-        with pytest.raises(exceptions.MethodNotAllowedException):
+        with exception:
             route, route_scope = app.router.resolve_route(scope=asgi_scope)
 
-    def test_resolve_route_not_found(self, app, asgi_scope):
-        asgi_scope["path"] = "/foo/"
-        asgi_scope["method"] = "GET"
-
-        with pytest.raises(exceptions.NotFoundException):
-            route, route_scope = app.router.resolve_route(scope=asgi_scope)
+            assert route.endpoint == endpoint.endpoint
+            assert route.path == "/foo/"
 
     @pytest.mark.parametrize(
         ["routes", "result", "exception"],

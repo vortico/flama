@@ -311,9 +311,8 @@ class Route(BaseRoute):
         :param pagination: Apply a pagination technique.
         :param tags: Route tags.
         """
-        assert self.is_endpoint(endpoint) or (
-            not inspect.isclass(endpoint) and callable(endpoint)
-        ), "Endpoint must be a callable or an HTTPEndpoint subclass"
+        if not (self.is_endpoint(endpoint) or (not inspect.isclass(endpoint) and callable(endpoint))):
+            raise exceptions.ApplicationError("Endpoint must be a callable or an HTTPEndpoint subclass")
 
         if self.is_endpoint(endpoint):
             self.methods = endpoint.allowed_methods() if methods is None else set(methods)
@@ -404,9 +403,8 @@ class WebSocketRoute(BaseRoute):
         :param tags: Route tags.
         """
 
-        assert self.is_endpoint(endpoint) or (
-            not inspect.isclass(endpoint) and callable(endpoint)
-        ), "Endpoint must be a callable or a WebSocketEndpoint subclass"
+        if not (self.is_endpoint(endpoint) or (not inspect.isclass(endpoint) and callable(endpoint))):
+            raise exceptions.ApplicationError("Endpoint must be a callable or a WebSocketEndpoint subclass")
 
         name = endpoint.__name__ if name is None else name
 
@@ -477,7 +475,8 @@ class Mount(BaseRoute):
         :param name: Mount name.
         :param tags: Mount tags.
         """
-        assert app is not None or routes is not None, "Either 'app' or 'routes' must be specified"
+        if app is None and routes is None:
+            raise exceptions.ApplicationError("Either 'path' and 'app' or 'mount' variables are needed")
 
         if app is None:
             app = Router(routes=routes, components=components)
@@ -686,7 +685,8 @@ class Router:
                 tags=tags,
             )
 
-        assert route is not None, "Either 'path' and 'endpoint' or 'route' variables are needed"
+        if route is None:
+            raise exceptions.ApplicationError("Either 'path' and 'endpoint' or 'route' variables are needed")
 
         self.routes.append(route)
 
@@ -757,7 +757,8 @@ class Router:
         if path is not None and endpoint is not None:
             route = WebSocketRoute(path, endpoint=endpoint, name=name, pagination=pagination, tags=tags)
 
-        assert route is not None, "Either 'path' and 'endpoint' or 'route' variables are needed"
+        if route is None:
+            raise exceptions.ApplicationError("Either 'path' and 'endpoint' or 'route' variables are needed")
 
         self.routes.append(route)
 
@@ -813,7 +814,8 @@ class Router:
         if path is not None and app is not None:
             mount = Mount(path, app=app, name=name, tags=tags)
 
-        assert mount is not None, "Either 'path' and 'app' or 'mount' variables are needed"
+        if mount is None:
+            raise exceptions.ApplicationError("Either 'path' and 'app' or 'mount' variables are needed")
 
         self.routes.append(mount)
 

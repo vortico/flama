@@ -1,6 +1,7 @@
 import inspect
 import typing as t
 
+from flama import exceptions
 from flama.pagination import paginator
 from flama.resources import data_structures
 from flama.routing import Mount, Route
@@ -25,9 +26,8 @@ class ResourceRoute(Mount):
         # Handle class or instance objects
         self.resource = resource() if inspect.isclass(resource) else resource
 
-        assert set(self.resource.routes.keys()) >= set(  # type: ignore
-            tags.keys()
-        ), "Tags must be defined only for existing routes."
+        if not (set(self.resource.routes.keys()) >= set(tags.keys())):  # type: ignore
+            raise exceptions.ApplicationError("Tags must be defined only for existing routes.")
 
         routes = [
             Route(
