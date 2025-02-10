@@ -167,19 +167,18 @@ class NotFoundException(Exception):
 
 
 class MethodNotAllowedException(Exception):
-    def __init__(self, path: str, method: str, allowed: set[str], params: t.Optional[dict[str, t.Any]] = None) -> None:
+    def __init__(self, path: str, method: str, allowed: set[str]) -> None:
         self.path = path
-        self.params = params
         self.method = method
         self.allowed = allowed
 
     def __str__(self) -> str:
-        params = ("path", "params", "method", "allowed")
+        params = ("path", "method", "allowed")
         formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
         return f"Method not allowed ({formatted_params})"
 
     def __repr__(self) -> str:
-        params = ("path", "params", "method", "allowed")
+        params = ("path", "method", "allowed")
         formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
         return f"{self.__class__.__name__}({formatted_params})"
 
