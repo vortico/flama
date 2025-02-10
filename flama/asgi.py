@@ -1,7 +1,7 @@
 from http.cookies import SimpleCookie
 from urllib.parse import parse_qsl
 
-from flama import http, types
+from flama import http, routing, types
 from flama.injection.components import Component, Components
 
 __all__ = [
@@ -11,6 +11,7 @@ __all__ = [
     "HostComponent",
     "PortComponent",
     "PathComponent",
+    "PathParamsComponent",
     "QueryStringComponent",
     "QueryParamsComponent",
     "HeadersComponent",
@@ -60,7 +61,12 @@ class PortComponent(Component):
 
 class PathComponent(Component):
     def resolve(self, scope: types.Scope) -> types.Path:
-        return types.Path(scope.get("root_path", "") + scope["path"])
+        return types.Path(scope.get("root_path", "")) / types.Path(scope["path"])
+
+
+class PathParamsComponent(Component):
+    def resolve(self, scope: types.Scope, route: routing.BaseRoute) -> types.PathParams:
+        return types.PathParams(route.path.match(scope["path"]).parameters or {})
 
 
 class QueryStringComponent(Component):
@@ -69,9 +75,8 @@ class QueryStringComponent(Component):
 
 
 class QueryParamsComponent(Component):
-    def resolve(self, scope: types.Scope) -> types.QueryParams:
-        query_string = scope["query_string"].decode()
-        return types.QueryParams(parse_qsl(query_string))
+    def resolve(self, query: types.QueryString) -> types.QueryParams:
+        return types.QueryParams(parse_qsl(query))
 
 
 class HeadersComponent(Component):
@@ -113,6 +118,7 @@ ASGI_COMPONENTS = Components(
         HostComponent(),
         PortComponent(),
         PathComponent(),
+        PathParamsComponent(),
         QueryStringComponent(),
         QueryParamsComponent(),
         HeadersComponent(),

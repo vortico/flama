@@ -1,10 +1,9 @@
 import typing as t
 
-from flama import codecs, exceptions, http, schemas, types
+from flama import codecs, exceptions, http, routing, schemas, types
 from flama.injection import Component, Components
 from flama.injection.resolver import Parameter
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
-from flama.routing import BaseRoute
 from flama.schemas import Field, Schema, SchemaValidationError
 
 ValidatedPathParams = t.NewType("ValidatedPathParams", dict)
@@ -47,7 +46,7 @@ class WebSocketMessageDataComponent(Component):
 
 class ValidatePathParamsComponent(Component):
     async def resolve(
-        self, request: http.Request, route: BaseRoute, path_params: types.PathParams
+        self, request: http.Request, route: routing.BaseRoute, path_params: types.PathParams
     ) -> ValidatedPathParams:
         fields = [f.field for f in route.parameters.path[request.method].values()]
 
@@ -59,7 +58,9 @@ class ValidatePathParamsComponent(Component):
 
 
 class ValidateQueryParamsComponent(Component):
-    def resolve(self, request: http.Request, route: BaseRoute, query_params: types.QueryParams) -> ValidatedQueryParams:
+    def resolve(
+        self, request: http.Request, route: routing.BaseRoute, query_params: types.QueryParams
+    ) -> ValidatedQueryParams:
         fields = [f.field for f in route.parameters.query[request.method].values()]
 
         try:
@@ -70,7 +71,7 @@ class ValidateQueryParamsComponent(Component):
 
 
 class ValidateRequestDataComponent(Component):
-    def resolve(self, request: http.Request, route: BaseRoute, data: types.RequestData) -> ValidatedRequestData:
+    def resolve(self, request: http.Request, route: routing.BaseRoute, data: types.RequestData) -> ValidatedRequestData:
         body_param = route.parameters.body[request.method]
 
         assert (
@@ -79,7 +80,7 @@ class ValidateRequestDataComponent(Component):
 
         try:
             return ValidatedRequestData(body_param.schema.validate(dict(data)))
-        except SchemaValidationError as exc:  # noqa: safety net, just should not happen
+        except SchemaValidationError as exc:  # pragma: no cover # safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
 
 
@@ -92,7 +93,7 @@ class PrimitiveParamComponent(Component):
 
         try:
             params = Schema.build(name="ValidationSchema", fields=[Field.from_parameter(parameter)]).validate(params)
-        except SchemaValidationError as exc:  # noqa: safety net, just should not happen
+        except SchemaValidationError as exc:  # pragma: no cover # safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
         return params.get(parameter.name, parameter.default)
 
@@ -104,7 +105,7 @@ class CompositeParamComponent(Component):
         )
         return schemas.is_schema(schema)
 
-    def resolve(self, parameter: Parameter, request: http.Request, route: BaseRoute, data: types.RequestData):
+    def resolve(self, parameter: Parameter, request: http.Request, route: routing.BaseRoute, data: types.RequestData):
         body_param = route.parameters.body[request.method]
 
         assert (
@@ -113,7 +114,7 @@ class CompositeParamComponent(Component):
 
         try:
             return body_param.schema.validate(data, partial=schemas.is_schema_partial(parameter.annotation))
-        except SchemaValidationError as exc:  # noqa: safety net, just should not happen
+        except SchemaValidationError as exc:  # pragma: no cover # safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
 
 
