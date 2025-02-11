@@ -161,8 +161,7 @@ class TestCaseFlama:
         assert routes == expected_routes
 
     def test_add_route(self, app, tags):
-        def foo():
-            ...
+        def foo(): ...
 
         with patch.object(app, "router", spec=routing.Router) as router_mock:
             router_mock.add_route.return_value = foo
@@ -187,16 +186,14 @@ class TestCaseFlama:
         with patch.object(app, "router", spec=routing.Router) as router_mock:
 
             @app.route("/", tags=tags)
-            def foo():
-                ...
+            def foo(): ...
 
         assert router_mock.route.call_args_list == [
             call("/", methods=None, name=None, include_in_schema=True, root=app, pagination=None, tags=tags)
         ]
 
     def test_add_websocket_route(self, app, tags):
-        def foo():
-            ...
+        def foo(): ...
 
         with patch.object(app, "router", spec=routing.Router) as router_mock:
             router_mock.add_websocket_route.return_value = foo
@@ -211,8 +208,7 @@ class TestCaseFlama:
         with patch.object(app, "router", spec=routing.Router) as router_mock:
 
             @app.websocket_route("/", tags=tags)
-            def foo():
-                ...
+            def foo(): ...
 
         assert router_mock.websocket_route.call_args_list == [
             call("/", name=None, root=app, pagination=None, tags=tags)
@@ -236,8 +232,7 @@ class TestCaseFlama:
     def test_add_event_handler(self, app):
         handlers_before = app.events.startup.copy()
 
-        def handler():
-            ...
+        def handler(): ...
 
         app.add_event_handler("startup", handler)
 
@@ -247,8 +242,7 @@ class TestCaseFlama:
         handlers_before = app.events.startup.copy()
 
         @app.on_event("startup")
-        def handler():
-            ...
+        def handler(): ...
 
         assert app.events.startup == [*handlers_before, handler]
 
@@ -265,11 +259,9 @@ class TestCaseFlama:
 
     def test_add_middleware(self, app):
         class FooMiddleware:
-            def __init__(self, app: types.App) -> None:
-                ...
+            def __init__(self, app: types.App) -> None: ...
 
-            def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send):
-                ...
+            def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send): ...
 
         kwargs = {"foo": "bar"}
 
@@ -319,8 +311,7 @@ class TestCaseFlama:
             verbose_name = "Puppy"
 
             @resource_method("/custom")
-            def custom(self):
-                ...
+            def custom(self): ...
 
         with exception:
             assert app.resolve_url(resolve, **path_params) == resolution

@@ -18,22 +18,19 @@ class TestCaseFlamaWorker:
 
     @pytest.fixture(scope="function")
     def worker(self):
-        class FooWorker(FlamaWorker):
-            ...
+        class FooWorker(FlamaWorker): ...
 
         return FooWorker()
 
     @pytest.fixture(scope="function")
     def sqlalchemy_repository(self):
-        class FooRepository(SQLAlchemyRepository):
-            ...
+        class FooRepository(SQLAlchemyRepository): ...
 
         return FooRepository
 
     @pytest.fixture(scope="function")
     def http_repository(self):
-        class BarRepository(HTTPRepository):
-            ...
+        class BarRepository(HTTPRepository): ...
 
         return BarRepository
 

@@ -12,15 +12,13 @@ class TestCaseBaseEndpointWrapper:
     @pytest.fixture(scope="function")
     def wrapper_cls(self):
         class _Wrapper(routing.BaseEndpointWrapper):
-            async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-                ...
+            async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None: ...
 
         return _Wrapper
 
     @pytest.fixture(scope="function")
     def handler(self):
-        async def foo():
-            ...
+        async def foo(): ...
 
         return foo
 
@@ -51,8 +49,7 @@ class TestCaseBaseEndpointWrapper:
         assert isinstance(Foo.endpoint, functools.partial)
 
     def test_eq(self, wrapper_cls, handler):
-        async def bar():
-            ...
+        async def bar(): ...
 
         endpoint = wrapper_cls(handler)
         endpoint_foo = wrapper_cls(handler)
@@ -67,8 +64,7 @@ class TestCaseBaseRoute:
     @pytest.fixture(scope="function")
     def wrapper_cls(self):
         class _Wrapper(routing.BaseEndpointWrapper):
-            async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-                ...
+            async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None: ...
 
         return _Wrapper
 
@@ -85,8 +81,7 @@ class TestCaseBaseRoute:
         return route_cls("/", wrapper_cls(lambda: None), name="foo", include_in_schema=False)
 
     def test_init(self, route_cls):
-        def foo():
-            ...
+        def foo(): ...
 
         app = foo
         route = route_cls(
@@ -105,15 +100,13 @@ class TestCaseBaseRoute:
         assert route.tags == {"tag": "tag", "list_tag": ["foo", "bar"], "dict_tag": {"foo": "bar"}}
 
     def test_eq(self, route_cls):
-        def foo():
-            ...
+        def foo(): ...
 
         assert route_cls("/", foo, name="foo") == route_cls("/", foo, name="foo")
         assert route_cls("/", foo, name="foo") != route_cls("/", foo, name="bar")
 
     def test_repr(self, route_cls):
-        def foo():
-            ...
+        def foo(): ...
 
         assert repr(route_cls("/", foo, name="foo")) == "_Route(path='/', name='foo')"
 

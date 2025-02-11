@@ -12,13 +12,11 @@ class _BaseModule:
     name: str
 
     def __init__(self) -> None:
-        self.app: "Flama"
+        self.app: Flama
 
-    async def on_startup(self) -> None:
-        ...
+    async def on_startup(self) -> None: ...
 
-    async def on_shutdown(self) -> None:
-        ...
+    async def on_shutdown(self) -> None: ...
 
 
 class _ModuleMeta(abc.ABCMeta):
@@ -28,8 +26,7 @@ class _ModuleMeta(abc.ABCMeta):
         return super().__new__(mcs, name, bases, namespace)
 
 
-class Module(_BaseModule, metaclass=_ModuleMeta):
-    ...
+class Module(_BaseModule, metaclass=_ModuleMeta): ...
 
 
 class Modules(dict[str, Module]):

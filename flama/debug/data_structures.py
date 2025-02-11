@@ -150,7 +150,7 @@ class App:
 
     @classmethod
     def from_app(cls, app: t.Any, path: str = "/", name: t.Optional[str] = None) -> "App":
-        urls: list[t.Union[Endpoint, "App"]] = []
+        urls: list[t.Union[Endpoint, App]] = []
         for route in app.routes:
             try:
                 urls.append(App.from_app(route.app, path=route.path.path, name=route.name))

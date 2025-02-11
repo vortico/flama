@@ -22,8 +22,7 @@ __all__ = [
 ]
 
 
-class ApplicationError(Exception):
-    ...
+class ApplicationError(Exception): ...
 
 
 class DependencyNotInstalled(ApplicationError):
@@ -66,8 +65,7 @@ class DependencyNotInstalled(ApplicationError):
         return f"{self.__class__.__name__}({formatted_params})"
 
 
-class SQLAlchemyError(ApplicationError):
-    ...
+class SQLAlchemyError(ApplicationError): ...
 
 
 class DecodeError(Exception):
@@ -82,8 +80,7 @@ class DecodeError(Exception):
         self.base_format = base_format
 
 
-class NoCodecAvailable(Exception):
-    ...
+class NoCodecAvailable(Exception): ...
 
 
 class WebSocketException(starlette.exceptions.WebSocketException):

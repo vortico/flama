@@ -85,8 +85,7 @@ class TestCaseSchemaValidateOutput:
         def output_validation_error() -> product_schema:
             return {"name": "foo", "rating": -1}
 
-        class CustomValidationError(exceptions.ValidationError):
-            ...
+        class CustomValidationError(exceptions.ValidationError): ...
 
         @app.route("/custom-error")
         @output_validation(error_cls=CustomValidationError, error_status_code=502)
@@ -167,5 +166,4 @@ class TestCaseSchemaValidateOutput:
         with pytest.raises(TypeError, match=r"Invalid return signature for function .*"):
 
             @output_validation()
-            def foo():
-                ...
+            def foo(): ...

@@ -29,8 +29,7 @@ def home():
 error_app = flama.Router()
 
 
-class FooException(Exception):
-    ...
+class FooException(Exception): ...
 
 
 @error_app.route("/500")
@@ -56,13 +55,11 @@ bar_app = flama.Router()
 
 
 @bar_app.route("/foobar/")
-def foobar():
-    ...
+def foobar(): ...
 
 
 @bar_app.route("/barfoo/")
-def barfoo():
-    ...
+def barfoo(): ...
 
 
 foo_app = flama.Router()

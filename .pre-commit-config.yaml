@@ -1,56 +1,46 @@
 fail_fast: true
 repos:
--   repo: git@github.com:pre-commit/pre-commit-hooks
+  - repo: git@github.com:pre-commit/pre-commit-hooks
     rev: v4.2.0
     hooks:
-    -   id: check-added-large-files
+      - id: check-added-large-files
         args:
-        - --maxkb=2000
-    -   id: check-merge-conflict
-    -   id: check-xml
-    -   id: check-yaml
-    -   id: debug-statements
-    -   id: name-tests-test
+          - --maxkb=2000
+      - id: check-merge-conflict
+      - id: check-xml
+      - id: check-yaml
+      - id: debug-statements
+      - id: name-tests-test
         args:
-        - --django
+          - --django
         exclude: "asserts.py|utils.py"
-    -   id: pretty-format-json
+      - id: pretty-format-json
         args:
-        - --autofix
-        - --indent=2
+          - --autofix
+          - --indent=2
         exclude: "templates/.+\\.json"
--   repo: git@github.com:alessandrojcm/commitlint-pre-commit-hook
+  - repo: git@github.com:alessandrojcm/commitlint-pre-commit-hook
     rev: v8.0.0
     hooks:
       - id: commitlint
         stages: [commit-msg]
--   repo: local
+  - repo: local
     hooks:
-    -   id: black
-        name: Black - Code Style
-        entry: ./scripts/black
-        args:
-        - -q
-        - --safe
-        - --line-length=120
+      - id: format
+        name: Code formatting
+        entry: ./scripts/format
         language: system
         types: [file, python]
         exclude: "make"
-    -   id: isort
-        name: Isort - Sort Imports
-        entry: ./scripts/isort
+      - id: lint
+        name: Code linting
+        entry: ./scripts/lint --fix
         language: system
         types: [file, python]
         exclude: "make"
-    -   id: ruff
-        name: Ruff - Code Linter
-        entry: ./scripts/ruff --fix
-        language: system
-        types: [file, python]
-        exclude: "make"
-    -   id: pyright
-        name: Pyright - Static types check
-        entry: ./scripts/pyright
+      - id: types
+        name: Static types check
+        entry: ./scripts/types
         language: system
         types: [file, python]
         exclude: "(make|tests/|examples/)"

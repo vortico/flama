@@ -240,9 +240,10 @@ class TestCaseHTMLFileResponse:
 
     def test_init_error(self):
         error_detail = "Foo error"
-        with patch("builtins.open", side_effect=ValueError(error_detail)), pytest.raises(
-            exceptions.HTTPException
-        ) as exc:
+        with (
+            patch("builtins.open", side_effect=ValueError(error_detail)),
+            pytest.raises(exceptions.HTTPException) as exc,
+        ):
             http.HTMLFileResponse("foo.html")
 
             assert exc.status_code == 500
@@ -351,9 +352,10 @@ class TestCaseHTMLTemplateResponse:
         template_mock.render.return_value = "foo"
         environment_mock = MagicMock(spec=jinja2.Environment)
         environment_mock.get_template.return_value = template_mock
-        with patch.object(http.HTMLTemplateResponse, "templates", new=environment_mock), patch.object(
-            http.HTMLResponse, "__init__", return_value=None
-        ) as super_mock:
+        with (
+            patch.object(http.HTMLTemplateResponse, "templates", new=environment_mock),
+            patch.object(http.HTMLResponse, "__init__", return_value=None) as super_mock,
+        ):
             http.HTMLTemplateResponse("foo.html", context)
 
             assert super_mock.call_args_list == [call("foo")]
@@ -388,9 +390,13 @@ class TestCaseFlamaLoader:
         indirect=["exception"],
     )
     def test_init(self, import_mock, path_exists_mock, mkdir_call, exception):
-        with exception, patch("jinja2.PackageLoader.__init__"), patch("importlib.util", import_mock), patch.object(
-            pathlib.Path, "exists", return_value=path_exists_mock
-        ), patch.object(pathlib.Path, "mkdir") as mkdir_mock:
+        with (
+            exception,
+            patch("jinja2.PackageLoader.__init__"),
+            patch("importlib.util", import_mock),
+            patch.object(pathlib.Path, "exists", return_value=path_exists_mock),
+            patch.object(pathlib.Path, "mkdir") as mkdir_mock,
+        ):
             http._FlamaLoader()
 
             if mkdir_call:

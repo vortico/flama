@@ -101,7 +101,7 @@ class BodyComponent(Component):
         body = b""
         while True:
             message = await receive()
-            if not message["type"] == "http.request":
+            if not message["type"] == "http.request":  # pragma: no cover
                 raise Exception(f"Unexpected ASGI message type '{message['type']}'.")
             body += message.get("body", b"")
             if not message.get("more_body", False):
