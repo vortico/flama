@@ -11,8 +11,7 @@ class TestCaseMiddlewareStack:
     @pytest.fixture
     def middleware(self):
         class FooMiddleware:
-            def __init__(self, *args, **kwargs):
-                ...
+            def __init__(self, *args, **kwargs): ...
 
             def __call__(self, *args, **kwargs):
                 return None
@@ -42,8 +41,7 @@ class TestCaseMiddlewareStack:
         assert isinstance(stack._stack.app, ExceptionMiddleware)
 
     def test_add_exception_handler(self, stack):
-        def handler(request: http.Request, exc: Exception) -> http.Response:
-            ...
+        def handler(request: http.Request, exc: Exception) -> http.Response: ...
 
         assert stack._stack is None
         assert stack.stack

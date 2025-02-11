@@ -21,11 +21,9 @@ class TestCaseBaseEndpoint:
     def endpoint(self):
         class _Endpoint(endpoints.BaseEndpoint):
             @classmethod
-            def allowed_handlers(cls) -> dict[str, t.Callable]:
-                ...
+            def allowed_handlers(cls) -> dict[str, t.Callable]: ...
 
-            async def dispatch(self) -> None:
-                ...
+            async def dispatch(self) -> None: ...
 
         return _Endpoint
 

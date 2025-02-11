@@ -11,20 +11,32 @@ license = { text = "Apache-2.0" }
 readme = "README.md"
 authors = [
   { name = "José Antonio Perdiguero López", email = "perdy@perdy.io" },
-  { name = "Miguel A. Durán Olivencia", email = "migduroli@gmail.com" }
+  { name = "Miguel A. Durán Olivencia", email = "migduroli@gmail.com" },
 ]
 maintainers = [
   { name = "José Antonio Perdiguero López", email = "perdy@perdy.io" },
-  { name = "Miguel A. Durán Olivencia", email = "migduroli@gmail.com" }
+  { name = "Miguel A. Durán Olivencia", email = "migduroli@gmail.com" },
 ]
-keywords = ["machine-learning", "ml", "ml-ops", "mlops", "api", "rest", "restful", "openapi", "tensorflow", "pytorch", "sklearn"]
+keywords = [
+  "machine-learning",
+  "ml",
+  "ml-ops",
+  "mlops",
+  "api",
+  "rest",
+  "restful",
+  "openapi",
+  "tensorflow",
+  "pytorch",
+  "sklearn",
+]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Developers",
-    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
-    "Topic :: Software Development",
-    "Topic :: Software Development :: Libraries",
-    "Topic :: Software Development :: Libraries :: Application Frameworks"
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
 dependencies = [
   "starlette (>=0.31,<1.0.0)",
@@ -41,29 +53,18 @@ homepage = "https://flama.dev"
 documentation = "https://flama.dev/docs/"
 
 [project.optional-dependencies]
-pydantic = [
-  "pydantic (>=2.0,<3.0)"
-]
-typesystem = [
-  "typesystem (>=0.4.1,<1.0)"
-]
-marshmallow = [
-  "marshmallow (>=3.0,<4.0)",
-  "apispec (>=6.0,<7.0)"
-]
-database = [
-  "SQLAlchemy[asyncio] (>=2.0,<3.0)"
-]
-client = [
-  "httpx (>=0.25,<1.0)"
-]
+pydantic = ["pydantic (>=2.0,<3.0)"]
+typesystem = ["typesystem (>=0.4.1,<1.0)"]
+marshmallow = ["marshmallow (>=3.0,<4.0)", "apispec (>=6.0,<7.0)"]
+database = ["SQLAlchemy[asyncio] (>=2.0,<3.0)"]
+client = ["httpx (>=0.25,<1.0)"]
 full = [
   "pydantic (>=2.0,<3.0)",
   "typesystem (>=0.4.1,<1.0)",
   "marshmallow (>=3.0,<4.0)",
   "apispec (>=6.0,<7.0)",
   "SQLAlchemy[asyncio] (>=2.0,<3.0)",
-  "httpx (>=0.25,<1.0)"
+  "httpx (>=0.25,<1.0)",
 ]
 
 [project.scripts]
@@ -71,8 +72,14 @@ flama = 'flama.cli.__main__:cli'
 
 [tool.poetry]
 include = [
-  { path = "flama", format = ["sdist", "wheel"] },
-  { path = "flama/templates/**/*", format = ["sdist", "wheel"] }
+  { path = "flama", format = [
+    "sdist",
+    "wheel",
+  ] },
+  { path = "flama/templates/**/*", format = [
+    "sdist",
+    "wheel",
+  ] },
 ]
 exclude = []
 
@@ -85,9 +92,8 @@ pytest-xdist = { version = "^3.3", extras = ["psutil"] }
 pytest-cov = "^6.0"
 pytest-asyncio = "^0.24"
 ipython = "^8.0"
-isort = "^5.12"
-ruff = "^0.0.292"
-black = "^23.9"
+ruff = "^0.9.6"
+pyright = "^1.1.393"
 pre-commit = "^3.4"
 python-multipart = "^0.0.6"
 httpx = ">=0.25,<1.0.0"
@@ -95,7 +101,6 @@ aiosqlite = ">=0.19.0,<1.0.0"
 Faker = "^8.2"
 SQLAlchemy = { version = "^2.0", extras = ["asyncio"] }
 gevent = "^23.9.1"
-pyright = "^1.1.386"
 
 [tool.poetry.group.schemas]
 optional = true
@@ -109,125 +114,95 @@ typesystem = "^0.4"
 [tool.poetry.group.ml]
 optional = true
 
-[tool.poetry.group.ml.dependencies]  # Only testable on linux and before 3.13, because numpy old versions are not providing binaries
+[tool.poetry.group.ml.dependencies] # Only testable on linux and before 3.13, because numpy old versions are not providing binaries
 scikit-learn = { version = "~1.5.2", platform = "linux", python = ">=3.9,<3.13" }
 tensorflow-cpu = { version = "~2.17.0", platform = "linux", python = ">=3.9,<3.13" }
 torch = { version = "~2.5.0", platform = "linux", python = ">=3.9,<3.13" }
 
-[tool.black]
-line-length = 120
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.venv
-  | build
-  | dist
-)/
-'''
-
-[tool.isort]
-profile = "black"
-atomic = true
-multi_line_output = 3
-include_trailing_comma = true
-line_length = 120
-skip_glob = [
-    "*/.venv/**",
-    "*/docs/**",
-    "*/build/**",
-    "*/dist/**",
-]
-
 [tool.ruff]
 line-length = 120
-# Enable Pyflakes and pycodestyle rules.
+exclude = [
+  ".git",
+  ".pytest_cache",
+  ".mypy_cache",
+  ".ruff_cache",
+  ".venv",
+  "buck-out",
+  "build",
+  "dist",
+  "node_modules",
+]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
 select = ["C90", "E", "F", "G", "I", "W", "T", "UP"]
 ignore = ["E721"]
-exclude = [
-    ".git",
-    ".pytest_cache",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".venv",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-]
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402"]
 
-[tool.ruff.mccabe]
+[tool.ruff.lint.mccabe]
 # Unlike Flake8, default to a complexity level of 10.
 max-complexity = 10
 
 [tool.pyright]
 include = ["flama"]
-exclude = [
-    "**/node_modules",
-    "**/__pycache__",
-]
+exclude = ["**/node_modules", "**/__pycache__"]
 reportWildcardImportFromLibrary = false
 reportPrivateImportUsage = false
 
 [tool.pytest.ini_options]
 minversion = 3
 addopts = "--dist=loadfile --junitxml=./test-results/pytest/results.xml --no-cov-on-fail --cov-report=html --cov-report=xml --cov-report=term-missing --cov-config=pyproject.toml --cov=. --pdbcls=IPython.terminal.debugger:TerminalPdb -nauto"
-norecursedirs = [
-    "*settings*",
-    "*urls*",
-    "*docs*",
-]
+norecursedirs = ["*settings*", "*urls*", "*docs*"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 
 [tool.coverage.run]
-source = [
-    "flama"
-]
+source = ["flama"]
 branch = true
 omit = [
-    ".venv*",
-    "*settings*",
-    "*__init__.py",
-    "*__main__.py",
-    "tests/*",
-    "examples/*",
-    "flama/cli/*",
-    "flama/types/*",
-    "flama/*/types.py",
-    "build.py",
+  ".venv*",
+  "*settings*",
+  "*__init__.py",
+  "*__main__.py",
+  "tests/*",
+  "examples/*",
+  "flama/compat.py",
+  "flama/cli/*",
+  "flama/types/*",
+  "flama/*/types.py",
+  "build.py",
 ]
 concurrency = ["thread", "multiprocessing"]
 
 [tool.coverage.report]
 show_missing = true
+skip_covered = true
 ignore_errors = true
 fail_under = 90
 exclude_lines = [
-    "noqa",
-    "pragma: no cover",
-    "pass",
-    "\\.\\.\\.",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if 0:",
-    "if __name__ == .__main__.:",
-    "def __repr__",
-    "def __str__",
-    "if cls\\.debug",
-    "if settings\\.DEBUG",
-    "if (typing\\.|t\\.)?TYPE_CHECKING:",
+  "noqa",
+  "pragma: no cover",
+  "pass",
+  "\\.\\.\\.",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "def __repr__",
+  "def __str__",
+  "if cls\\.debug",
+  "if settings\\.DEBUG",
+  "if (typing\\.|t\\.)?TYPE_CHECKING:",
 ]
 
 [tool.coverage.paths]
-source = [
-    "./"
-]
+source = ["./"]
 
 [tool.coverage.html]
 directory = "./test-results/coverage_html/"

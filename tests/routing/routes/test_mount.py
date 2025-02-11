@@ -138,8 +138,7 @@ class TestCaseMount:
         ),
     )
     def test_route_scope(self, mount, asgi_scope, app, used):
-        def bar():
-            ...
+        def bar(): ...
 
         mount.app = app
         mount.app.add_route("/bar", bar)

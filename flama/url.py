@@ -18,12 +18,10 @@ class Serializer(t.Generic[T], metaclass=abc.ABCMeta):
     type: t.ClassVar[type]
 
     @abc.abstractmethod
-    def load(self, value: str) -> T:
-        ...
+    def load(self, value: str) -> T: ...
 
     @abc.abstractmethod
-    def dump(self, value: T) -> str:
-        ...
+    def dump(self, value: T) -> str: ...
 
     def __eq__(self, other):
         return type(other) == type(self)
@@ -114,13 +112,11 @@ class _Fragment(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def regex(self) -> re.Pattern:
-        ...
+    def regex(self) -> re.Pattern: ...
 
     @property
     @abc.abstractmethod
-    def template(self) -> str:
-        ...
+    def template(self) -> str: ...
 
 
 @dataclasses.dataclass

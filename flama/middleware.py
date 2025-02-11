@@ -114,10 +114,8 @@ class MiddlewareStack:
         self.app = app
         self.middleware = list(reversed(middleware))
         self.debug = debug
-        self._exception_handlers: dict[
-            t.Union[int, type[Exception]], t.Callable[["Request", Exception], "Response"]
-        ] = {}
-        self._stack: t.Optional[t.Union["types.MiddlewareClass", "types.App"]] = None
+        self._exception_handlers: dict[t.Union[int, type[Exception]], t.Callable[[Request, Exception], Response]] = {}
+        self._stack: t.Optional[t.Union[types.MiddlewareClass, types.App]] = None
 
     @property
     def stack(

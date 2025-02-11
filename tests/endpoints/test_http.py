@@ -28,8 +28,7 @@ class TestCaseHTTPEndpoint:
     def endpoint(self, app, asgi_scope, asgi_receive, asgi_send):
         @app.route("/")
         class FooEndpoint(endpoints.HTTPEndpoint):
-            def get(self):
-                ...
+            def get(self): ...
 
         asgi_scope["app"] = app
         asgi_scope["root_app"] = app
@@ -87,8 +86,7 @@ class TestCaseHTTPEndpoint:
         with patch("flama.http.Request") as request_mock:
 
             class FooEndpoint(endpoints.HTTPEndpoint):
-                def get(self):
-                    ...
+                def get(self): ...
 
             route = app.add_route("/", FooEndpoint)
             asgi_scope = types.Scope(
@@ -121,8 +119,7 @@ class TestCaseHTTPEndpoint:
         assert endpoint.allowed_methods() == {"GET", "HEAD"}
 
         class BarEndpoint(endpoints.HTTPEndpoint):
-            def post(self):
-                ...
+            def post(self): ...
 
         assert BarEndpoint.allowed_methods() == {"POST"}
 

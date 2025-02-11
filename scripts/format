@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -e
+
+run_format() {
+  echo "• Run format:"
+  poetry run ruff format "$@"
+  echo "↳ Format done"
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  run_format "$@"
+fi

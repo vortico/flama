@@ -68,8 +68,7 @@ class TestCaseRouter:
             endpoint = foo
         elif request.param == "websocket_endpoint":
 
-            class FooWebSocketEndpoint(WebSocketEndpoint):
-                ...
+            class FooWebSocketEndpoint(WebSocketEndpoint): ...
 
             def mount(app):
                 app.add_websocket_route("/foo/", FooWebSocketEndpoint)
@@ -113,8 +112,7 @@ class TestCaseRouter:
             endpoint = foo
         elif request.param == "wrong":
 
-            class Foo:
-                ...
+            class Foo: ...
 
             def mount(app):
                 app.add_route("/wrong/", Foo)
@@ -380,14 +378,11 @@ class TestCaseRouter:
         assert app.components == default_components
 
     def test_mount_declarative(self, component_mock, tags):
-        def root():
-            ...
+        def root(): ...
 
-        def foo():
-            ...
+        def foo(): ...
 
-        def foo_view():
-            ...
+        def foo_view(): ...
 
         routes = [
             Route("/", root, tags=tags),
