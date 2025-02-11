@@ -79,8 +79,7 @@ class BaseRoute(abc.ABC, RouteParametersMixin):
         super().__init__()
 
     @abc.abstractmethod
-    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        ...
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None: ...
 
     def __eq__(self, other: t.Any) -> bool:
         return (

@@ -12,12 +12,6 @@ install: ## Installs the package, JS requirements, and build templates needed
 build: ## Builds the package, and templates needed
 	@./scripts/build
 
-lint: ## Runs a linting pipeline: black, isort, ruff, and mypy
-	@./scripts/lint
-
-lint-fix: ## Runs a linting pipeline with auto fixing: black, isort, ruff, and mypy
-	@./scripts/lint --fix
-
 test: ## Runs all tests of the repository
 	@./scripts/test
 
@@ -27,22 +21,22 @@ publish: ## Publishes the package in PiPy if user and passwords are correct
 version: ## Gets the current version of the package
 	@./scripts/version
 
-isort: ## Runs isort on Flama
-	@./scripts/isort .
+format: ## Runs code formatting
+	@./scripts/format .
 
-black: ## Runs black on Flama
-	@./scripts/black .
+lint: ## Runs code linting
+	@./scripts/lint .
 
-ruff: ## Runs ruff on Flama
-	@./scripts/ruff .
+lint-fix: ## Runs code linting with autofixing
+	@./scripts/lint --fix .
 
-pyright: ## Runs pyright on Flama
-	@./scripts/pyright
+types: ## Runs static types checking
+	@./scripts/types
 
 docker_push: ## Push docker images to registry
 	@./scripts/docker_push .
 
-.PHONY: help check clean install build lint tests publish version isort black ruff pyright docker_push
+.PHONY: help check clean install build tests publish version format lint lint-fix types docker_push
 .DEFAULT_GOAL := help
 
 help:

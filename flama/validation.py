@@ -74,9 +74,9 @@ class ValidateRequestDataComponent(Component):
     def resolve(self, request: http.Request, route: routing.BaseRoute, data: types.RequestData) -> ValidatedRequestData:
         body_param = route.parameters.body[request.method]
 
-        assert (
-            body_param is not None
-        ), f"Body schema parameter not defined for route '{route}' and method '{request.method}'"
+        assert body_param is not None, (
+            f"Body schema parameter not defined for route '{route}' and method '{request.method}'"
+        )
 
         try:
             return ValidatedRequestData(body_param.schema.validate(dict(data)))
@@ -108,9 +108,9 @@ class CompositeParamComponent(Component):
     def resolve(self, parameter: Parameter, request: http.Request, route: routing.BaseRoute, data: types.RequestData):
         body_param = route.parameters.body[request.method]
 
-        assert (
-            body_param is not None
-        ), f"Body schema parameter not defined for route '{route}' and method '{request.method}'"
+        assert body_param is not None, (
+            f"Body schema parameter not defined for route '{route}' and method '{request.method}'"
+        )
 
         try:
             return body_param.schema.validate(data, partial=schemas.is_schema_partial(parameter.annotation))

@@ -104,7 +104,7 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
     @classmethod
     def _get_model_component(cls, bases: t.Sequence[t.Any], namespace: dict[str, t.Any]) -> "ModelComponent":
         try:
-            component: "ModelComponent" = cls._get_attribute("component", bases, namespace, metadata_namespace="model")
+            component: ModelComponent = cls._get_attribute("component", bases, namespace, metadata_namespace="model")
             return component
         except AttributeError:
             ...

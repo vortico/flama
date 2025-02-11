@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class AuthenticationMiddleware:
     def __init__(self, app: "types.App"):
-        self.app: "Flama" = t.cast("Flama", app)
+        self.app: Flama = t.cast("Flama", app)
 
     async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
         if scope["type"] not in ("http", "websocket"):
@@ -34,7 +34,7 @@ class AuthenticationMiddleware:
         return set(route.tags.get("permissions", []))
 
     async def _get_response(self, scope: "types.Scope", receive: "types.Receive") -> t.Union["Response", "Flama"]:
-        app: "Flama" = scope["app"]
+        app: Flama = scope["app"]
 
         route, _ = app.router.resolve_route(scope)
 

@@ -5,11 +5,11 @@ on:
     branches:
       - master
     paths-ignore:
-      - 'examples/**'
-      - '.github/**'
-      - 'docs/**'
-      - 'scripts/**'
-      - 'Dockerfiles/**'
+      - "examples/**"
+      - ".github/**"
+      - "docs/**"
+      - "scripts/**"
+      - "Dockerfiles/**"
 
 env:
   DEFAULT_LINUX: "slim"
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     container:
       image: python:${{ matrix.python }}
     steps:
@@ -40,18 +40,15 @@ jobs:
         run: |
           pip install pip poetry --upgrade
           ./scripts/install
-      - id: black
+      - id: format
         name: Code format checking
-        run: ./scripts/black --check .
-      - id: isort
-        name: Imports order checking
-        run: ./scripts/isort --check .
-      - id: ruff
-        name: Code style (ruff)
-        run: ./scripts/ruff .
-      - id: pyright
+        run: ./scripts/format --check .
+      - id: lint
+        name: Code linting
+        run: ./scripts/lint --output-format=github .
+      - id: types
         name: Static types check
-        run: ./scripts/pyright
+        run: ./scripts/types
       - id: tests
         name: Tests
         run: ./scripts/test

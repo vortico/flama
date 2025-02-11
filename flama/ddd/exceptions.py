@@ -10,12 +10,10 @@ __all__ = [
 ]
 
 
-class Empty(Exception):
-    ...
+class Empty(Exception): ...
 
 
-class RepositoryException(Exception):
-    ...
+class RepositoryException(Exception): ...
 
 
 class ResourceException(RepositoryException):

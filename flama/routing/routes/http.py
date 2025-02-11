@@ -138,7 +138,7 @@ class Route(BaseRoute):
 
     @staticmethod
     def is_endpoint(
-        x: t.Union[t.Callable, type[endpoints.HTTPEndpoint]]
+        x: t.Union[t.Callable, type[endpoints.HTTPEndpoint]],
     ) -> compat.TypeGuard[type[endpoints.HTTPEndpoint]]:  # PORT: Replace compat when stop supporting 3.9
         return inspect.isclass(x) and issubclass(x, endpoints.HTTPEndpoint)
 

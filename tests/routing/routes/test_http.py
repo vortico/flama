@@ -19,8 +19,7 @@ class TestCaseBaseHTTPEndpointWrapper:
     @pytest.fixture(scope="function")
     def wrapper_cls(self):
         class _Wrapper(BaseHTTPEndpointWrapper):
-            async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-                ...
+            async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None: ...
 
         return _Wrapper
 
@@ -127,19 +126,16 @@ class TestCaseRoute:
     def endpoint(self, request):
         if request.param == "function":
 
-            def foo():
-                ...
+            def foo(): ...
 
             return foo
 
         elif request.param == "endpoint":
 
             class FooEndpoint(endpoints.HTTPEndpoint):
-                def get(self):
-                    ...
+                def get(self): ...
 
-                def post(self):
-                    ...
+                def post(self): ...
 
             return FooEndpoint
         elif request.param is None:
@@ -246,15 +242,13 @@ class TestCaseRoute:
         assert handle.call_args_list == expected_calls
 
     def test_eq(self):
-        def foo():
-            ...
+        def foo(): ...
 
         assert Route("/", foo, methods={"GET"}) == Route("/", foo, methods={"GET"})
         assert Route("/", foo, methods={"GET"}) != Route("/", foo, methods={"POST"})
 
     def test_repr(self):
-        def foo():
-            ...
+        def foo(): ...
 
         assert repr(Route("/", foo)) == "Route(path='/', name='foo', methods=['GET', 'HEAD'])"
 
@@ -298,8 +292,7 @@ class TestCaseRoute:
         ),
     )
     def test_match(self, scope_type, scope_method, path_match_return, result, asgi_scope):
-        def foo():
-            ...
+        def foo(): ...
 
         route = Route("/", foo, methods={"GET"})
 

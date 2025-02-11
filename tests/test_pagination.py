@@ -60,15 +60,13 @@ class TestCasePageNumberPagination:
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
             @paginator._paginate_page_number
-            def invalid() -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(output_schema.schema)]:
-                ...
+            def invalid() -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(output_schema.schema)]: ...
 
     def test_invalid_response(self):
         with pytest.raises(ValueError, match=r"Wrong schema type"):
 
             @paginator._paginate_page_number
-            def invalid():
-                ...
+            def invalid(): ...
 
     def test_pagination_schema_parameters(self, app):
         schema = app.schema.schema["paths"]["/page-number/"]["get"]
@@ -202,15 +200,13 @@ class TestCaseLimitOffsetPagination:
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
             @paginator._paginate_limit_offset
-            def invalid() -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(output_schema.schema)]:
-                ...
+            def invalid() -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(output_schema.schema)]: ...
 
     def test_invalid_response(self):
         with pytest.raises(ValueError, match=r"Wrong schema type"):
 
             @paginator._paginate_limit_offset
-            def invalid():
-                ...
+            def invalid(): ...
 
     def test_pagination_schema_parameters(self, app):
         schema = app.schema.schema["paths"]["/limit-offset/"]["get"]
