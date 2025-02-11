@@ -15,7 +15,7 @@ from flama.schemas.modules import SchemaModule
 
 try:
     from flama.resources.workers import FlamaWorker
-except exceptions.DependencyNotInstalled:
+except exceptions.DependencyNotInstalled:  # pragma: no cover
     FlamaWorker = None
 
 if t.TYPE_CHECKING:

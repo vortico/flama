@@ -126,7 +126,7 @@ class TestCaseSchemaValidation:
     def add_endpoints(self, app, product_schema, reviewed_product_schema, place_schema):
         @app.route("/product", methods=["POST"])
         def product_identity(
-            product: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(product_schema)]
+            product: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(product_schema)],
         ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(product_schema)]:
             return product
 
@@ -138,19 +138,19 @@ class TestCaseSchemaValidation:
 
         @app.route("/place", methods=["POST"])
         def place_identity(
-            place: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(place_schema)]
+            place: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(place_schema)],
         ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(place_schema)]:
             return place
 
         @app.route("/many-products", methods=["GET"])
         def many_products(
-            products: t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(product_schema)]
+            products: t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(product_schema)],
         ) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(product_schema)]:
             return products
 
         @app.route("/partial-product", methods=["GET"])
         def partial_product(
-            product: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(product_schema, partial=True)]
+            product: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(product_schema, partial=True)],
         ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(product_schema, partial=True)]:
             return product
 

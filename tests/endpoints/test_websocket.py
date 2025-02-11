@@ -24,8 +24,7 @@ class TestCaseWebSocketEndpoint:
     def endpoint(self, app, asgi_scope, asgi_receive, asgi_send):
         @app.websocket_route("/")
         class FooEndpoint(endpoints.WebSocketEndpoint):
-            def get(self):
-                ...
+            def get(self): ...
 
         asgi_scope["app"] = app
         asgi_scope["root_app"] = app

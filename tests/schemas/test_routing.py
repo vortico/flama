@@ -11,8 +11,7 @@ from flama import Component, endpoints, routing, schemas, websockets
 from flama.schemas.data_structures import Parameter, ParameterLocation
 
 
-class Custom:
-    ...
+class Custom: ...
 
 
 class TestCaseRouteFieldsMixin:
@@ -55,8 +54,7 @@ class TestCaseRouteFieldsMixin:
                 z: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)],
                 x: int = 1,
                 y: t.Optional[str] = None,
-            ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)]:
-                ...
+            ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)]: ...
 
             return routing.Route("/foo/{w:int}/", endpoint=foo, methods=["GET"])
 
@@ -70,8 +68,7 @@ class TestCaseRouteFieldsMixin:
                     z: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)],
                     x: int = 1,
                     y: t.Optional[str] = None,
-                ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)]:
-                    ...
+                ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)]: ...
 
             return routing.Route("/bar/{w:int}/", endpoint=FooEndpoint, methods=["GET"])
 
@@ -85,8 +82,7 @@ class TestCaseRouteFieldsMixin:
                 z: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)],
                 x: int = 1,
                 y: t.Optional[str] = None,
-            ) -> None:
-                ...
+            ) -> None: ...
 
             return routing.WebSocketRoute("/foo/{w:int}/", endpoint=bar)
 
@@ -102,8 +98,7 @@ class TestCaseRouteFieldsMixin:
                     z: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)],
                     x: int = 1,
                     y: t.Optional[str] = None,
-                ) -> None:
-                    ...
+                ) -> None: ...
 
             return routing.WebSocketRoute("/foo/{w:int}/", endpoint=FooWebsocket)
         else:

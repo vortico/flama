@@ -87,8 +87,7 @@ class TestCaseWebsocketRoute:
     def endpoint(self, request):
         if request.param == "function":
 
-            def foo():
-                ...
+            def foo(): ...
 
             return foo
 
@@ -144,8 +143,7 @@ class TestCaseWebsocketRoute:
         assert handle.call_args_list == expected_calls
 
     def test_eq(self):
-        def foo():
-            ...
+        def foo(): ...
 
         assert WebSocketRoute("/", foo, name="foo") == WebSocketRoute("/", foo, name="foo")
         assert WebSocketRoute("/", foo, name="foo") != WebSocketRoute("/", foo, name="bar")
@@ -185,8 +183,7 @@ class TestCaseWebsocketRoute:
         ),
     )
     def test_match(self, scope_type, path_match_return, result, asgi_scope):
-        def foo():
-            ...
+        def foo(): ...
 
         route = WebSocketRoute("/", foo)
 

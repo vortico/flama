@@ -6,8 +6,7 @@ from flama.ddd.workers import Worker
 class TestCaseWorker:
     @pytest.fixture(scope="function")
     def worker(self, client):
-        class FooWorker(Worker):
-            ...
+        class FooWorker(Worker): ...
 
         return FooWorker(client.app)
 

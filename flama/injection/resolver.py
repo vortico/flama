@@ -56,8 +56,7 @@ class ResolutionNode(abc.ABC):
     nodes: list["ResolutionNode"]
 
     @abc.abstractmethod
-    async def value(self, context: dict[str, t.Any]) -> t.Any:
-        ...
+    async def value(self, context: dict[str, t.Any]) -> t.Any: ...
 
     def components(self) -> list[tuple[str, "Component"]]:
         return []

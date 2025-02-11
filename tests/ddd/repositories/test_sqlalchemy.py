@@ -64,8 +64,7 @@ class TestCaseSQLAlchemyRepository:
         return Mock(spec=AsyncConnection)
 
     async def test_init(self, connection):
-        class Repository(SQLAlchemyRepository):
-            ...
+        class Repository(SQLAlchemyRepository): ...
 
         repository = Repository(connection)
 

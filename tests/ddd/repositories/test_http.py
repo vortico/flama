@@ -23,8 +23,7 @@ class TestCaseHTTPRepository:
         return Mock(spec=Client)
 
     async def test_init(self, client):
-        class Repository(HTTPRepository):
-            ...
+        class Repository(HTTPRepository): ...
 
         repository = Repository(client)
 

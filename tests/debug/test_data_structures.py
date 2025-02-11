@@ -63,11 +63,9 @@ class TestCaseEnvironment:
 
 class TestCaseApp:
     def test_from_app(self):
-        def foo_handler():
-            ...
+        def foo_handler(): ...
 
-        def bar_handler():
-            ...
+        def bar_handler(): ...
 
         app = Flama(
             routes=[
@@ -100,7 +98,7 @@ class TestCaseApp:
                             "path": "/",
                             "module": "tests.debug.test_data_structures",
                             "file": "tests/debug/test_data_structures.py",
-                            "line": 69,
+                            "line": 68,
                             "endpoint": "bar_handler",
                             "name": "bar",
                         }
@@ -116,9 +114,11 @@ class TestCaseErrorContext:
         environment_mock = MagicMock(Environment)
         error_mock = MagicMock(Error)
 
-        with patch.object(Request, "from_request", return_value=request_mock), patch.object(
-            Environment, "from_system", return_value=environment_mock
-        ), patch.object(Error, "from_exception", return_value=error_mock):
+        with (
+            patch.object(Request, "from_request", return_value=request_mock),
+            patch.object(Environment, "from_system", return_value=environment_mock),
+            patch.object(Error, "from_exception", return_value=error_mock),
+        ):
             context = dataclasses.asdict(ErrorContext.build(MagicMock(), MagicMock()))
 
         assert context == {"request": request_mock, "environment": environment_mock, "error": error_mock}
@@ -130,9 +130,11 @@ class TestCaseNotFoundContext:
         environment_mock = MagicMock(Environment)
         app_mock = MagicMock(App)
 
-        with patch.object(Request, "from_request", return_value=request_mock), patch.object(
-            Environment, "from_system", return_value=environment_mock
-        ), patch.object(App, "from_app", return_value=app_mock):
+        with (
+            patch.object(Request, "from_request", return_value=request_mock),
+            patch.object(Environment, "from_system", return_value=environment_mock),
+            patch.object(App, "from_app", return_value=app_mock),
+        ):
             context = dataclasses.asdict(NotFoundContext.build(MagicMock(), MagicMock()))
 
         assert context == {"request": request_mock, "environment": environment_mock, "app": app_mock}

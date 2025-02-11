@@ -29,20 +29,17 @@ Message = t.NewType("Message", t.MutableMapping[str, t.Any])
 
 
 class Receive(t.Protocol):
-    async def __call__(self) -> Message:
-        ...
+    async def __call__(self) -> Message: ...
 
 
 class Send(t.Protocol):
-    async def __call__(self, message: Message) -> None:
-        ...
+    async def __call__(self, message: Message) -> None: ...
 
 
 # Applications
 @t.runtime_checkable
 class AppClass(t.Protocol):
-    def __call__(self, scope: Scope, receive: Receive, send: Send) -> t.Union[None, t.Awaitable[None]]:
-        ...
+    def __call__(self, scope: Scope, receive: Receive, send: Send) -> t.Union[None, t.Awaitable[None]]: ...
 
 
 AppFunction = t.Callable[[Scope, Receive, Send], t.Union[None, t.Awaitable[None]]]
@@ -52,8 +49,7 @@ App = t.Union[AppClass, AppFunction]
 # Middleware
 @t.runtime_checkable
 class MiddlewareClass(AppClass, t.Protocol[P, R]):
-    def __init__(self, app: App, *args: P.args, **kwargs: P.kwargs):
-        ...
+    def __init__(self, app: App, *args: P.args, **kwargs: P.kwargs): ...
 
 
 MiddlewareFunction = t.Callable[compat.Concatenate[App, P], App]  # PORT: Replace compat when stop supporting 3.9
