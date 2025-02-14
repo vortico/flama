@@ -11,8 +11,6 @@ jobs:
     strategy:
       matrix:
         python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-    container:
-      image: python:${{ matrix.python }}
     steps:
       - uses: actions/checkout@master
         with:
@@ -23,20 +21,24 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 16
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
       - id: install
-        name: Install requirements
-        run: |
-          pip install pip poetry --upgrade
-          ./scripts/install
+        name: Install project
+        run: ./scripts/install
       - id: format
         name: Code format checking
         run: ./scripts/format --check .
       - id: lint
         name: Code linting
         run: ./scripts/lint --output-format=github .
-      - id: types
+      - id: typecheck
         name: Static types check
-        run: ./scripts/types
+        run: ./scripts/typecheck
       - id: tests
         name: Tests
         run: ./scripts/test

@@ -23,8 +23,6 @@ jobs:
     strategy:
       matrix:
         python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-    container:
-      image: python:${{ matrix.python }}
     steps:
       - uses: actions/checkout@master
         with:
@@ -35,20 +33,24 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 16
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
       - id: install
-        name: Install requirements
-        run: |
-          pip install pip poetry --upgrade
-          ./scripts/install
+        name: Install project
+        run: ./scripts/install
       - id: format
         name: Code format checking
         run: ./scripts/format --check .
       - id: lint
         name: Code linting
         run: ./scripts/lint --output-format=github .
-      - id: types
+      - id: typecheck
         name: Static types check
-        run: ./scripts/types
+        run: ./scripts/typecheck
       - id: tests
         name: Tests
         run: ./scripts/test
@@ -56,6 +58,13 @@ jobs:
     needs: test
     name: Release a new version
     runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      packages: write
+      pull-requests: write
+      contents: write
+      issues: write
+      id-token: write
     outputs:
       published: ${{ steps.semantic.outputs.new_release_published }}
       version: ${{ steps.semantic.outputs.new_release_version }}
@@ -68,21 +77,24 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v3
         with:
-          node-version: 18
-      - name: Setup poetry
-        run: pip install pip poetry --upgrade
+          node-version: 22
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
       - id: semantic
         name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v3
+        uses: cycjimmy/semantic-release-action@v4
         with:
           extra_plugins: |
-            semantic-release-gitmoji@1.5.0
+            semantic-release-gitmoji@1.6.8
             @semantic-release/changelog
             @semantic-release/exec
             @semantic-release/git
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
       - name: New release published
         if: steps.semantic.outputs.new_release_published == 'true'
         run: |

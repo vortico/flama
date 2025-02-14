@@ -1,8 +1,65 @@
 #!/usr/bin/env bash
+set -e
+
+source scripts/str_lib.sh
+
+get_version() {
+  local version
+
+  version=$(sed -n 's/^version = "\([0-9]\{1,\}\.[0-9]\{1,\}\.[0-9]\{1,\}\)"$/\1/p' pyproject.toml)
+
+  if [[ -z "$version" ]]; then
+    message "error" "Could not find a valid version in pyproject.toml"
+    exit 1
+  fi
+
+  echo "$version"
+}
+
+bump_version() {
+  message "info" "Upgrade version"
+
+  local upgrade_type=$1
+  local current_version
+  current_version=$(get_version)
+
+  IFS='.' read -r major minor patch <<<"$current_version"
+
+  case "$upgrade_type" in
+  major)
+    ((major++))
+    minor=0
+    patch=0
+    ;;
+  minor)
+    ((minor++))
+    patch=0
+    ;;
+  patch)
+    ((patch++))
+    ;;
+  *)
+    IFS='.' read -r major minor patch <<<"$upgrade_type"
+    ;;
+  esac
+
+  # Validate new version is a valid version
+  local new_version="$major.$minor.$patch"
+  if ! [[ "$new_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$current_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    message "error" "Invalid version: $upgrade_type"
+    exit 1
+  fi
+
+  sed -i "s/version = \"$current_version\"/version = \"$new_version\"/" pyproject.toml
+  message "success" "Version upgraded: $current_version -> $new_version"
+}
 
 run_version() {
-  echo "⬆️ Upgrade version:"
-  poetry version "$@"
+  if [[ -z "$1" ]]; then
+    get_version
+  else
+    bump_version "$1"
+  fi
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
