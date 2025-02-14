@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -e
 
-run_test()
-{
-  echo "🧪 Run tests:"
-  poetry run pytest -n auto
+source scripts/str_lib.sh
+
+test() {
+  message "info" "Tests"
+  uv run pytest -n auto
+  message "success" "Tests completed"
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  run_test "$@"
+  test "$@"
 fi
+

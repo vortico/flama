@@ -29,28 +29,12 @@ feature, which is why we encourage you to follow the procedure depicted above as
 Our code formatting rules are implicitly defined by using multiple tools. You can check your code against these
 standards by running:
 
-```commandline
-make lint
-```
-
-This is a meta-rule that runs all the utilities used for checking and applying Flama coding standards, but it can be
-done individually as follows:
-
 ### Code formatting
 
-Flama uses Black for formatting the code to adhere to the Black code style ([PEP 8](https://peps.python.org/pep-0008/)
-compliant):
+Flama uses Ruff for formatting the code ([PEP 8](https://peps.python.org/pep-0008/) compliant):
 
 ```commandline
-make black
-```
-
-### Imports ordering
-
-Isort is used to reorganize library imports:
-
-```commandline
-make isort
+make format
 ```
 
 ### Code quality checking
@@ -58,15 +42,15 @@ make isort
 Ruff is used to determine if the code quality is high enough as required to be accepted:
 
 ```commandline
-make ruff
+make lint
 ```
 
 ### Static type checking
 
-Flama is completely static typed. To make sure your code fulfils this constraint, you can check it using mypy:
+Flama is completely static typed. To make sure your code fulfils this constraint, you can check it using pyright:
 
 ```commandline
-make mypy
+make typecheck
 ```
 
 This will automatically fix any style violations in your code.

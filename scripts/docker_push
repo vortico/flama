@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 set -e
 
+source scripts/str_lib.sh
+source scripts/version
+
 LINUX_VERSIONS=("slim")
-PYTHON_VERSIONS=("3.9" "3.10" "3.11" "3.12" "3.13")
+PYTHON_VERSIONS=("3.13" "3.12" "3.11" "3.10" "3.9")
 SCHEMA_LIBS=("pydantic" "marshmallow" "typesystem")
 
-DEFAULT_LINUX="slim"
-DEFAULT_PYTHON="3.12"
-DEFAULT_SCHEMA_LIB="pydantic"
+DEFAULT_LINUX="${LINUX_VERSIONS[0]}"
+DEFAULT_PYTHON="${PYTHON_VERSIONS[0]}"
+DEFAULT_SCHEMA_LIB="${SCHEMA_LIBS[0]}"
 
 docker_push() {
-  version=$(poetry version -s)
-  version=${version%\.*}
+  version=$(get_version)
 
   cd "Dockerfiles"
   for linux in "${LINUX_VERSIONS[@]}"; do
@@ -50,9 +52,11 @@ docker_push() {
 
         tags=("${tags[@]/#/vortico/flama:}")
         docker build "--build-arg=PYTHON_VERSION=${python}" "--build-arg=SCHEMAS_LIB=${schema}" "${tags[@]/#/--tag=}" .
+        message "success" "Image built (linux=$linux, python=$python, schema=$schema)"
 
         for tag in "${tags[@]}"; do
           docker push "${tag}"
+          message "success" "Image uploaded ($tag)"
         done
       done
     done

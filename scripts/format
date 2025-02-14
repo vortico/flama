@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -e
 
-run_format() {
-  echo "• Run format:"
-  poetry run ruff format "$@"
-  echo "↳ Format done"
+source scripts/str_lib.sh
+
+format() {
+  message "info" "Format code"
+  uv run ruff format "$@"
+  message "success" "Format completed"
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  run_format "$@"
+  format "$@"
 fi

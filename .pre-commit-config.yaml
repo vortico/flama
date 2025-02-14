@@ -40,7 +40,7 @@ repos:
         exclude: "make"
       - id: types
         name: Static types check
-        entry: ./scripts/types
+        entry: ./scripts/typecheck
         language: system
         types: [file, python]
         exclude: "(make|tests/|examples/)"
