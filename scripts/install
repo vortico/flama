@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 set -e
 
-install_pkg() {
-  echo "🔥 Install python requirements..."
-  poetry install --with dev,schemas,ml "$@"
+source scripts/str_lib.sh
+
+install() {
+  message "info" "Install Python requirements"
+  uv sync --all-extras --dev "$@"
   cd templates
-  echo "🔥 Install js requirements..."
+  message "info" "Install JS requirements"
   npm i
-  echo "🔥 Build templates..."
+  message "info" "Build templates"
   npm run build
   cd ..
+  message "success" "Install completed"
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  install_pkg "$@"
+  install "$@"
 fi

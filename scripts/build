@@ -4,18 +4,16 @@ set -e
 source scripts/str_lib.sh
 source scripts/clean
 
-build_pkg() {
-  local arg="$1"
-
-  if [[ "$arg" == "-c" || "$arg" == "--clean" ]]; then
-    clean_folder
+build() {
+  if [[ "$1" == "-c" || "$1" == "--clean" ]]; then
+    clean
   fi
 
-  echo "🔥 Build package:"
-  poetry build
-
+  message "info" "Build package"
+  uv build
+  message "success" "Build completed"
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  build_pkg "$@"
+  build "$@"
 fi
