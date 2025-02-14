@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -e
 
-run_ruff() {
-  echo "• Run Ruff code analysis:"
-  poetry run ruff check "$@"
-  echo "↳ Ruff done"
+source scripts/str_lib.sh
+
+lint() {
+  message "info" "Lint code"
+  uv run ruff check "$@"
+  message "success" "Lint completed"
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  run_ruff "$@"
+  lint "$@"
 fi

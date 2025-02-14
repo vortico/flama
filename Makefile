@@ -30,13 +30,13 @@ lint: ## Runs code linting
 lint-fix: ## Runs code linting with autofixing
 	@./scripts/lint --fix .
 
-types: ## Runs static types checking
-	@./scripts/types
+typecheck: ## Runs static types checking
+	@./scripts/typecheck
 
 docker_push: ## Push docker images to registry
 	@./scripts/docker_push .
 
-.PHONY: help check clean install build tests publish version format lint lint-fix types docker_push
+.PHONY: help check clean install build tests publish version format lint lint-fix typecheck docker_push
 .DEFAULT_GOAL := help
 
 help:
