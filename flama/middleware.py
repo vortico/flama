@@ -16,7 +16,6 @@ if t.TYPE_CHECKING:
     from flama.http import Request, Response
 
 __all__ = [
-    "AuthenticationMiddleware",
     "BaseHTTPMiddleware",
     "CORSMiddleware",
     "ExceptionMiddleware",
@@ -40,14 +39,6 @@ try:
 
 except ModuleNotFoundError:
     SessionMiddleware = None  # type: ignore[assignment]
-
-
-class AuthenticationMiddleware(starlette.middleware.authentication.AuthenticationMiddleware):
-    def __init__(self, app: "types.App", *args, **kwargs):
-        super().__init__(app, *args, **kwargs)  # type: ignore[arg-type]
-
-    async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:  # type: ignore[overrid]
-        return await super().__call__(scope, receive, send)  # type: ignore[assignment]
 
 
 class BaseHTTPMiddleware(starlette.middleware.base.BaseHTTPMiddleware):
