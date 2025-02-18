@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react'
-import { createRoot } from 'react-dom/client'
+
 import '@/styles/schemas/docs.css'
+
+import ReactDOM from 'react-dom/client'
 
 interface DocsPageProps {
   specUrl: string
@@ -31,9 +33,11 @@ function DocsPage({ specUrl, baseUrl }: DocsPageProps) {
       document.head.removeChild(style)
       document.head.removeChild(script)
     }
-  }, [])
+  }, [baseUrl, specUrl])
 
   return <></>
 }
 
-createRoot(document.getElementById('app')!).render(<DocsPage specUrl="||@ schema_url @||" baseUrl="||@ docs_url @||" />)
+ReactDOM.createRoot(document.getElementById('app')!).render(
+  <DocsPage specUrl="||@ schema_url @||" baseUrl="||@ docs_url @||" />,
+)

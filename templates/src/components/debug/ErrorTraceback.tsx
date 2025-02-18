@@ -34,15 +34,13 @@ function TracebackListItem({ frame, isActive }: TracebackListItemProps) {
 
   return (
     <div
-      className={`-ml-px flex h-12 w-full cursor-pointer items-center justify-start gap-4 border-l-4 border-transparent pl-4 ${
-        isActive ? 'border-brand-400 bg-brand-50' : 'hover:border-primary-400 hover:bg-primary-200'
-      }`}
+      className={`-ml-px flex h-12 w-full cursor-pointer items-center justify-start gap-4 border-l-4 border-transparent pl-4 ${isActive ? 'border-brand-400 bg-brand-50' : 'hover:border-primary-400 hover:bg-primary-200'
+        }`}
     >
       <div className={`text-5xl ${frame.vendor ? 'text-brand-400' : 'text-primary-500'}`}>&#8226;</div>
       <div
-        className={`overflow-hidden font-mono text-sm text-primary-600 ${
-          isActive ? 'border-current font-semibold' : 'hover:text-primary-800'
-        }`}
+        className={`overflow-hidden font-mono text-sm text-primary-600 ${isActive ? 'border-current font-semibold' : 'hover:text-primary-800'
+          }`}
       >
         <div>
           {filename.map((value, i) => (
@@ -101,12 +99,11 @@ interface ErrorTracebackProps extends React.ComponentProps<'div'> {
 
 export default function ErrorTraceback({ error, ...props }: ErrorTracebackProps) {
   const { traceback } = error
-  const parser = new DOMParser()
   const [selected, setSelected] = useState(traceback.length - 1)
 
   const code = useMemo(
-    () => parser.parseFromString(traceback[selected].code, 'text/html').body.textContent || '',
-    [selected]
+    () => new DOMParser().parseFromString(traceback[selected].code, 'text/html').body.textContent || '',
+    [selected, traceback]
   )
 
   return (

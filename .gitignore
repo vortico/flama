@@ -62,3 +62,4 @@ test.db
 
 # Templates
 flama/templates
+templates/out

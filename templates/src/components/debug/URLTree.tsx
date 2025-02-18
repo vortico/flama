@@ -1,7 +1,7 @@
 import { ChevronRightIcon } from '@heroicons/react/20/solid'
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-type URL = {
+interface URL {
   endpoint: string
   file: string
   line: number
@@ -10,21 +10,21 @@ type URL = {
   path: string
 }
 
-type App = {
+interface App {
   name?: string
   path: string
-  urls: Array<URL | App>
+  urls: (URL | App)[]
 }
 
 export class RootApp {
   name?: string
   path: string
-  urls: Array<URL | App>
+  urls: (URL | App)[]
 
   constructor() {
     this.name = '||@ app.name @||'
     this.path = '||@ app.path @||'
-    this.urls = JSON.parse('||@ app.urls|safe_json @||') as Array<URL | App>
+    this.urls = JSON.parse('||@ app.urls|safe_json @||') as (URL | App)[]
   }
 }
 
@@ -84,14 +84,14 @@ function App({ app }: AppProps) {
   const [isOpen, setIsOpen] = useState<boolean>(false)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  const countItems = (items: Array<App | URL>): number =>
-    items.reduce((y, x) => y + (isApp(x) ? 1 + countItems(x.urls) : 1), 0)
+  const countItems = useCallback((items: (App | URL)[]): number =>
+    items.reduce((y, x) => y + (isApp(x) ? 1 + countItems(x.urls) : 1), 0), [])
 
-  const urlsLength = useMemo(() => countItems(urls), [])
+  const urlsLength = useMemo(() => countItems(urls), [countItems, urls])
 
   useEffect(() => {
     if (contentRef.current) contentRef.current.style.maxHeight = `${isOpen ? urlsLength * 32 : 0}px`
-  }, [isOpen, contentRef])
+  }, [isOpen, contentRef, urlsLength])
 
   return (
     <div>
@@ -109,9 +109,8 @@ function App({ app }: AppProps) {
       </div>
       <div
         ref={contentRef}
-        className={`ml-1 max-h-0 pl-4 transition-all ${
-          isOpen ? 'overflow-visible opacity-100' : 'overflow-hidden opacity-0'
-        }`}
+        className={`ml-1 max-h-0 pl-4 transition-all ${isOpen ? 'overflow-visible opacity-100' : 'overflow-hidden opacity-0'
+          }`}
       >
         <URLList urls={urls} />
       </div>
@@ -120,7 +119,7 @@ function App({ app }: AppProps) {
 }
 
 interface URLListProps {
-  urls: Array<URL | App>
+  urls: (URL | App)[]
 }
 
 function URLList({ urls }: URLListProps) {
