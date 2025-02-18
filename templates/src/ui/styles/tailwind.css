@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+@import './theme.css';
+
+:root {
+  background-color: var(--color-primary-100);
+  color: var(--color-primary-600);
+  scrollbar-color: var(--color-primary-400) transparent;
+  z-index: 0;
+}
+
+body {
+  height: 100%;
+}
