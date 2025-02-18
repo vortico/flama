@@ -3,9 +3,12 @@ import ErrorTitle from '@/components/debug/ErrorTitle'
 import RequestTable, { Request } from '@/components/debug/RequestTable'
 import AppURLTree, { RootApp } from '@/components/debug/URLTree'
 import FlamaLogo from '@/components/FlamaLogo'
+
 import '@/styles/main.css'
+
 import React from 'react'
-import { createRoot } from 'react-dom/client'
+
+import ReactDOM from 'react-dom/client'
 
 function ServerErrorPage() {
   const rootApp = new RootApp()
@@ -60,4 +63,4 @@ function ServerErrorPage() {
   )
 }
 
-createRoot(document.getElementById('app')!).render(<ServerErrorPage />)
+ReactDOM.createRoot(document.getElementById('app')!).render(<ServerErrorPage />)
