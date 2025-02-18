@@ -81,7 +81,7 @@ class TestCaseApp:
         assert result == {
             "name": None,
             "path": "/",
-            "urls": [
+            "endpoints": [
                 {
                     "path": "/",
                     "endpoint": "foo_handler",
@@ -90,10 +90,13 @@ class TestCaseApp:
                     "line": 66,
                     "name": "foo",
                 },
+            ],
+            "apps": [
                 {
                     "name": "subapp",
                     "path": "/subapp",
-                    "urls": [
+                    "apps": [],
+                    "endpoints": [
                         {
                             "path": "/",
                             "module": "tests.debug.test_data_structures",
