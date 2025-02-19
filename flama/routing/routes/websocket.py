@@ -5,9 +5,6 @@ import typing as t
 from flama import compat, endpoints, exceptions, types, websockets
 from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute
 
-if t.TYPE_CHECKING:
-    from flama.pagination.types import PaginationType
-
 __all__ = ["WebSocketRoute"]
 
 logger = logging.getLogger(__name__)
@@ -62,7 +59,7 @@ class WebSocketRoute(BaseRoute):
         *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
+        pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ):
         """A route definition of a websocket endpoint.

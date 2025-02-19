@@ -21,7 +21,6 @@ except exceptions.DependencyNotInstalled:  # pragma: no cover
 if t.TYPE_CHECKING:
     from flama.middleware import Middleware
     from flama.modules import Module
-    from flama.pagination.types import PaginationType
 
 __all__ = ["Flama"]
 
@@ -195,7 +194,7 @@ class Flama:
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         route: t.Optional["routing.Route"] = None,
-        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
+        pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> "routing.Route":
         """Register a new HTTP route or endpoint under given path.
@@ -227,7 +226,7 @@ class Flama:
         methods: t.Optional[list[str]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
+        pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
@@ -256,7 +255,7 @@ class Flama:
         endpoint: t.Optional[types.WebSocketHandler] = None,
         name: t.Optional[str] = None,
         route: t.Optional["routing.WebSocketRoute"] = None,
-        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
+        pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> "routing.WebSocketRoute":
         """Register a new websocket route or endpoint under given path.
@@ -276,7 +275,7 @@ class Flama:
         self,
         path: str,
         name: t.Optional[str] = None,
-        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
+        pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
