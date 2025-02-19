@@ -10,8 +10,7 @@ from flama.routing.routes.mount import Mount
 from flama.routing.routes.websocket import WebSocketRoute
 
 if t.TYPE_CHECKING:
-    from flama.applications import Flama
-    from flama.pagination.types import PaginationType
+    from flama.applications import Flama, types
 
 
 __all__ = ["Router"]
@@ -87,7 +86,7 @@ class Router:
         *,
         route: t.Optional[Route] = None,
         root: t.Optional["Flama"] = None,
-        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
+        pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> Route:
         """Register a new HTTP route in this router under given path.
@@ -131,7 +130,7 @@ class Router:
         include_in_schema: bool = True,
         *,
         root: t.Optional["Flama"] = None,
-        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
+        pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
@@ -169,7 +168,7 @@ class Router:
         *,
         route: t.Optional[WebSocketRoute] = None,
         root: t.Optional["Flama"] = None,
-        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
+        pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> WebSocketRoute:
         """Register a new websocket route in this router under given path.
@@ -201,7 +200,7 @@ class Router:
         name: t.Optional[str] = None,
         *,
         root: t.Optional["Flama"] = None,
-        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
+        pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.

@@ -5,16 +5,13 @@ import typing as t
 from flama import compat, concurrency, endpoints, exceptions, http, schemas, types
 from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute
 
-if t.TYPE_CHECKING:
-    from flama.pagination.types import PaginationType
-
 __all__ = ["Route"]
 
 logger = logging.getLogger(__name__)
 
 
 class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
-    def __init__(self, handler: types.Handler, *, pagination: t.Optional[t.Union[str, "PaginationType"]] = None):
+    def __init__(self, handler: types.Handler, *, pagination: t.Optional[types.Pagination] = None):
         super().__init__(handler, pagination=pagination)
 
         try:
@@ -93,7 +90,7 @@ class Route(BaseRoute):
         methods: t.Optional[t.Union[set[str], t.Sequence[str]]] = None,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
+        pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> None:
         """A route definition of a http endpoint.
