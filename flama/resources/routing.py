@@ -1,14 +1,13 @@
 import inspect
 import typing as t
 
-from flama import exceptions
+from flama import exceptions, types
 from flama.pagination import paginator
 from flama.resources import data_structures
 from flama.routing import Mount, Route
 
 if t.TYPE_CHECKING:
     from flama import Flama
-    from flama.pagination.types import PaginationType
     from flama.resources import Resource
 
 __all__ = ["ResourceRoute", "resource_method"]
@@ -65,7 +64,7 @@ def resource_method(
     methods: t.Optional[t.Sequence[str]] = None,
     name: t.Optional[str] = None,
     *,
-    pagination: t.Optional[t.Union[str, "PaginationType"]] = None,
+    pagination: t.Optional[types.Pagination] = None,
     tags: t.Optional[dict[str, t.Any]] = None,
 ) -> t.Callable:
     """Decorator for adding useful info needed for generating resource routes.
