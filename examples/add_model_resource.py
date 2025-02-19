@@ -1,11 +1,11 @@
-import typing
+import typing as t
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+import pydantic
 
 import flama
-from flama import Flama
-from flama.models import ModelResource, ModelResourceType
+from flama import Flama, schemas
+from flama.models import ModelResource
 from flama.resources import resource_method
 
 app = Flama(
@@ -16,19 +16,19 @@ app = Flama(
 )
 
 
-class X(BaseModel):
-    input: list[typing.Any] = Field(title="input", description="Model input")
+class X(pydantic.BaseModel):
+    input: list[t.Any] = pydantic.Field(title="input", description="Model input")
 
 
-class Y(BaseModel):
-    output: list[typing.Any] = Field(title="output", description="Model output")
+class Y(pydantic.BaseModel):
+    output: list[t.Any] = pydantic.Field(title="output", description="Model output")
 
 
 app.schema.register_schema("X", X)
 app.schema.register_schema("Y", Y)
 
 
-class MySKModel(ModelResource, metaclass=ModelResourceType):
+class MySKModel(ModelResource):
     # special names:
     name = "sk_model"
     verbose_name = "My ScikitLearn Model"
@@ -41,7 +41,9 @@ class MySKModel(ModelResource, metaclass=ModelResourceType):
     }
 
     @resource_method("/predict/", methods=["POST"], name="model-predict")
-    def predict(self, data: X) -> Y:
+    def predict(
+        self, data: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(X)]
+    ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(Y)]:
         """
         tags:
             - My ScikitLearn Model
