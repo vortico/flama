@@ -1,6 +1,7 @@
 import flama
+from flama import Flama, routing
 
-app = flama.Flama(
+app = Flama(
     title="Hello-🔥",
     version="1.0",
     description="My first API",
@@ -26,13 +27,13 @@ def home():
     return {"message": "Hello 🔥"}
 
 
-error_app = flama.Router()
+error_app = routing.Router()
 
 
 class FooException(Exception): ...
 
 
-@error_app.route("/500")
+@error_app.route("/500/")
 def error_500():
     """
     tags:
@@ -51,7 +52,7 @@ def error_500():
 app.mount("/error", app=error_app)
 
 # Mount a complex urls tree to illustrate in 404 error page
-bar_app = flama.Router()
+bar_app = routing.Router()
 
 
 @bar_app.route("/foobar/")
@@ -62,10 +63,10 @@ def foobar(): ...
 def barfoo(): ...
 
 
-foo_app = flama.Router()
+foo_app = routing.Router()
 foo_app.mount("/bar/", bar_app)
 
 app.mount("/foo/", foo_app)
 
 if __name__ == "__main__":
-    flama.run(app, host="0.0.0.0", port=8000)
+    flama.run(flama_app=app, server_host="0.0.0.0", server_port=8080)

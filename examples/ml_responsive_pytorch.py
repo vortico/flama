@@ -2,6 +2,7 @@ import typing
 
 import torch
 
+import flama
 from flama import Flama
 from flama.models import ModelComponent, ModelResource, ModelResourceType
 from flama.models.base import Model
@@ -63,3 +64,6 @@ class CustomModelResource(ModelResource, metaclass=ModelResourceType):
 
 app.add_component(component)
 app.models.add_model_resource("/", CustomModelResource)
+
+if __name__ == "__main__":
+    flama.run(flama_app=app, server_host="0.0.0.0", server_port=8080)
