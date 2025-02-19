@@ -10,7 +10,6 @@ from flama.schemas.routing import RouteParametersMixin
 
 if t.TYPE_CHECKING:
     from flama.applications import Flama
-    from flama.pagination.types import PaginationType
 
 __all__ = ["BaseEndpointWrapper", "BaseRoute"]
 
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class BaseEndpointWrapper(abc.ABC):
-    def __init__(self, handler: types.Handler, *, pagination: t.Optional[t.Union[str, "PaginationType"]] = None):
+    def __init__(self, handler: types.Handler, *, pagination: t.Optional[types.Pagination] = None):
         """Wraps a function or endpoint into ASGI application.
 
         :param handler: Function or endpoint.
