@@ -5,13 +5,13 @@ source scripts/str_lib.sh
 
 FOLDERS="dist flama.egg-info pip-wheel-metadata site test-results .coverage .pytest_cache .mypy_cache .ruff_cache flama/templates"
 
-clean_folder() {
-  echo "🔥 Clean directory..."
+clean() {
+  message "info" "Clean project"
   for folder in $FOLDERS; do
     if [[ ! -d $folder ]]; then
-      printf "%b" "${C_YELLOW1}- Folder not found${NO_FORMAT}: $folder\n"
+      message "warning" "Not found: $folder"
     else
-      printf "%b" "🧹 ${C_SPRINGGREEN2}Deleting folder${NO_FORMAT}: $folder\n"
+      message "success" "Deleted: $folder"
       rm -r "$folder" 2>/dev/null
     fi
   done
@@ -19,5 +19,5 @@ clean_folder() {
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  clean_folder "$@"
+  clean "$@"
 fi

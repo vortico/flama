@@ -1,7 +1,9 @@
-from pydantic import BaseModel, validator
+import typing as t
+
+import pydantic
 
 import flama
-from flama import Flama
+from flama import Flama, schemas
 
 app = Flama(
     title="Puppy Register",  # API title
@@ -12,12 +14,12 @@ app = Flama(
 )
 
 
-class Puppy(BaseModel):
+class Puppy(pydantic.BaseModel):
     id: int
     name: str
     age: int
 
-    @validator("age")
+    @pydantic.field_validator("age")
     def minimum_age_validation(cls, v):
         if v < 0:
             raise ValueError("Age must be positive")
@@ -32,7 +34,7 @@ def home():
     return {"hello": "world"}
 
 
-def list_puppies(name: str = None) -> list[Puppy]:
+def list_puppies(name: t.Optional[str] = None) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(Puppy)]:
     """
     tags:
         - puppy
@@ -48,7 +50,9 @@ def list_puppies(name: str = None) -> list[Puppy]:
     ...
 
 
-def create_puppy(puppy: Puppy) -> Puppy:
+def create_puppy(
+    puppy: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(Puppy)],
+) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(Puppy)]:
     """
     tags:
         - puppy
@@ -68,4 +72,4 @@ app.add_route("/puppy/", list_puppies, methods=["GET"])
 app.add_route("/puppy/", create_puppy, methods=["POST"])
 
 if __name__ == "__main__":
-    flama.run(app, host="0.0.0.0", port=8000)
+    flama.run(flama_app=app, server_host="0.0.0.0", server_port=8080)

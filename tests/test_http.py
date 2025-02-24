@@ -4,7 +4,7 @@ import enum
 import json
 import pathlib
 import uuid
-from unittest.mock import MagicMock, Mock, call, mock_open, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, call, mock_open, patch
 
 import jinja2
 import marshmallow
@@ -13,7 +13,7 @@ import pytest
 import typesystem
 import typesystem.fields
 
-from flama import exceptions, http
+from flama import exceptions, http, types
 
 
 @dataclasses.dataclass
@@ -53,10 +53,56 @@ class TestCaseRequest:
         assert response_json == expected_response, str(response_json)
 
 
+class TestCaseResponse:
+    async def test_call(self):
+        response = http.Response()
+        scope, receive, send = types.Scope({}), AsyncMock(), AsyncMock()
+
+        with patch("starlette.responses.Response.__call__") as call_mock:
+            await response(scope, receive, send)
+
+            assert call_mock.call_args_list == [call(scope, receive, send)]
+
+    def test_eq(self):
+        assert http.Response(content="foo") == http.Response(content="foo")
+        assert http.Response(content="foo") != http.Response(content="bar")
+
+
+class TestCaseHTMLResponse:
+    async def test_call(self):
+        response = http.HTMLResponse()
+        scope, receive, send = types.Scope({}), AsyncMock(), AsyncMock()
+
+        with patch("starlette.responses.HTMLResponse.__call__") as call_mock:
+            await response(scope, receive, send)
+
+            assert call_mock.call_args_list == [call(scope, receive, send)]
+
+
+class TestCasePlainTextResponse:
+    async def test_call(self):
+        response = http.PlainTextResponse()
+        scope, receive, send = types.Scope({}), AsyncMock(), AsyncMock()
+
+        with patch("starlette.responses.PlainTextResponse.__call__") as call_mock:
+            await response(scope, receive, send)
+
+            assert call_mock.call_args_list == [call(scope, receive, send)]
+
+
 class TestCaseJSONResponse:
     @pytest.fixture
     def schema(self):
         return Mock()
+
+    async def test_call(self):
+        response = http.JSONResponse(content={})
+        scope, receive, send = types.Scope({}), AsyncMock(), AsyncMock()
+
+        with patch("starlette.responses.JSONResponse.__call__") as call_mock:
+            await response(scope, receive, send)
+
+            assert call_mock.call_args_list == [call(scope, receive, send)]
 
     @pytest.mark.parametrize(
         ["content", "result", "exception"],
@@ -98,6 +144,39 @@ class TestCaseJSONResponse:
             response = http.JSONResponse(content=content)
 
             assert json.loads(response.body.decode()) == result
+
+
+class TestCaseRedirectResponse:
+    async def test_call(self):
+        response = http.RedirectResponse(url="")
+        scope, receive, send = types.Scope({}), AsyncMock(), AsyncMock()
+
+        with patch("starlette.responses.RedirectResponse.__call__") as call_mock:
+            await response(scope, receive, send)
+
+            assert call_mock.call_args_list == [call(scope, receive, send)]
+
+
+class TestCaseStreamingResponse:
+    async def test_call(self):
+        response = http.StreamingResponse(content=(x for x in "foo"))
+        scope, receive, send = types.Scope({}), AsyncMock(), AsyncMock()
+
+        with patch("starlette.responses.StreamingResponse.__call__") as call_mock:
+            await response(scope, receive, send)
+
+            assert call_mock.call_args_list == [call(scope, receive, send)]
+
+
+class TestCaseFileResponse:
+    async def test_call(self):
+        response = http.FileResponse(path="")
+        scope, receive, send = types.Scope({}), AsyncMock(), AsyncMock()
+
+        with patch("starlette.responses.FileResponse.__call__") as call_mock:
+            await response(scope, receive, send)
+
+            assert call_mock.call_args_list == [call(scope, receive, send)]
 
 
 class TestCaseAPIResponse:
@@ -161,9 +240,10 @@ class TestCaseHTMLFileResponse:
 
     def test_init_error(self):
         error_detail = "Foo error"
-        with patch("builtins.open", side_effect=ValueError(error_detail)), pytest.raises(
-            exceptions.HTTPException
-        ) as exc:
+        with (
+            patch("builtins.open", side_effect=ValueError(error_detail)),
+            pytest.raises(exceptions.HTTPException) as exc,
+        ):
             http.HTMLFileResponse("foo.html")
 
             assert exc.status_code == 500
@@ -178,7 +258,7 @@ class TestCaseHTMLTemplatesEnvironment:
     @pytest.mark.parametrize(
         ["value", "result"],
         (
-            pytest.param("& < > \" ' \n", "&amp; &lt; &gt; &quot; &#x27; &#13;", id="str"),
+            pytest.param("& < > \" ' \n", "&amp; &lt; &gt; &quot; &#x27; &#10;&#13;", id="str"),
             pytest.param(1, 1, id="int"),
             pytest.param(1.0, 1.0, id="float"),
             pytest.param(True, True, id="bool"),
@@ -224,7 +304,20 @@ class TestCaseHTMLTemplatesEnvironment:
     @pytest.mark.parametrize(
         ["value", "result"],
         (
-            pytest.param("& < > \" ' \n", '\\"&amp; &lt; &gt; &quot; &#x27; &#13;\\"', id="str"),
+            pytest.param("& < > \" ' \n", "&amp; &lt; &gt; &quot; &#x27; &#10;&#13;", id="str"),
+            pytest.param("1", "1", id="int"),
+            pytest.param("1.0", "1.0", id="float"),
+            pytest.param("true", "true", id="bool"),
+            pytest.param("null", "null", id="none"),
+        ),
+    )
+    def test_safe(self, environment, value, result):
+        assert environment.safe(value) == result
+
+    @pytest.mark.parametrize(
+        ["value", "result"],
+        (
+            pytest.param("& < > \" ' \n", '\\"&amp; &lt; &gt; &quot; &#x27; &#10;&#13;\\"', id="str"),
             pytest.param(1, "1", id="int"),
             pytest.param(1.0, "1.0", id="float"),
             pytest.param(True, "true", id="bool"),
@@ -272,12 +365,55 @@ class TestCaseHTMLTemplateResponse:
         template_mock.render.return_value = "foo"
         environment_mock = MagicMock(spec=jinja2.Environment)
         environment_mock.get_template.return_value = template_mock
-        with patch.object(http.HTMLTemplateResponse, "templates", new=environment_mock), patch.object(
-            http.HTMLResponse, "__init__", return_value=None
-        ) as super_mock:
+        with (
+            patch.object(http.HTMLTemplateResponse, "templates", new=environment_mock),
+            patch.object(http.HTMLResponse, "__init__", return_value=None) as super_mock,
+        ):
             http.HTMLTemplateResponse("foo.html", context)
 
             assert super_mock.call_args_list == [call("foo")]
+
+
+class TestCaseFlamaLoader:
+    @pytest.mark.parametrize(
+        ["import_mock", "path_exists_mock", "mkdir_call", "exception"],
+        [
+            pytest.param(
+                MagicMock(find_spec=MagicMock()),
+                True,
+                False,
+                None,
+                id="ok",
+            ),
+            pytest.param(
+                MagicMock(find_spec=MagicMock()),
+                False,
+                True,
+                None,
+                id="ok_create_templates_path",
+            ),
+            pytest.param(
+                MagicMock(find_spec=MagicMock(return_value=None)),
+                True,
+                False,
+                exceptions.ApplicationError("Flama package not found"),
+                id="error_flama_package_not_found",
+            ),
+        ],
+        indirect=["exception"],
+    )
+    def test_init(self, import_mock, path_exists_mock, mkdir_call, exception):
+        with (
+            exception,
+            patch("jinja2.PackageLoader.__init__"),
+            patch("importlib.util", import_mock),
+            patch.object(pathlib.Path, "exists", return_value=path_exists_mock),
+            patch.object(pathlib.Path, "mkdir") as mkdir_mock,
+        ):
+            http._FlamaLoader()
+
+            if mkdir_call:
+                assert mkdir_mock.call_args_list == [call(exist_ok=True)]
 
 
 class TestCaseOpenAPIResponse:
@@ -285,7 +421,7 @@ class TestCaseOpenAPIResponse:
         "test_input,expected,exception",
         (
             pytest.param({"foo": "bar"}, {"foo": "bar"}, None, id="success"),
-            pytest.param("foo", None, AssertionError, id="wrong_content"),
+            pytest.param("foo", None, ValueError("The schema must be a dictionary"), id="wrong_content"),
         ),
         indirect=("exception",),
     )
@@ -294,3 +430,12 @@ class TestCaseOpenAPIResponse:
             response = http.OpenAPIResponse(test_input)
 
             assert json.loads(response.body.decode()) == expected
+
+    async def test_call(self):
+        response = http.OpenAPIResponse(content={})
+        scope, receive, send = types.Scope({}), AsyncMock(), AsyncMock()
+
+        with patch("starlette.schemas.OpenAPIResponse.__call__") as call_mock:
+            await response(scope, receive, send)
+
+            assert call_mock.call_args_list == [call(scope, receive, send)]

@@ -192,10 +192,30 @@ class TestCasePathComponent:
     @pytest.mark.parametrize(
         ["path", "method", "expected"],
         [
-            pytest.param("/path/", "get", {"path": "/path/"}),
+            pytest.param("/path/", "get", {"path": "/path/"}, id="path"),
         ],
     )
     async def test_path(self, client, path, method, expected):
+        response = await client.request(method, path)
+        assert response.json() == expected
+
+
+class TestCasePathParamsComponent:
+    @pytest.fixture(scope="function", autouse=True)
+    def add_endpoints(self, app):
+        @app.route("/path_params/{foo:int}/subpath/{bar:str}/")
+        def get_path_params(path_params: types.PathParams):
+            return {"path_params": path_params}
+
+    @pytest.mark.parametrize(
+        ["path", "method", "expected"],
+        [
+            pytest.param(
+                "/path_params/1/subpath/bar/", "get", {"path_params": {"foo": 1, "bar": "bar"}}, id="path_params"
+            ),
+        ],
+    )
+    async def test_path_params(self, client, path, method, expected):
         response = await client.request(method, path)
         assert response.json() == expected
 

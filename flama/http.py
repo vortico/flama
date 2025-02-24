@@ -16,7 +16,7 @@ import starlette.requests
 import starlette.responses
 import starlette.schemas
 
-from flama import compat, exceptions, schemas, types
+from flama import compat, exceptions, schemas, types, url
 
 __all__ = [
     "Method",
@@ -48,6 +48,16 @@ class Response(starlette.responses.Response):
     ) -> None:
         await super().__call__(scope, receive, send)  # type: ignore[arg-type]
 
+    def __eq__(self, value: object, /) -> bool:
+        return (
+            isinstance(value, Response)
+            and self.status_code == value.status_code
+            and getattr(self, "media_type") == getattr(value, "media_type")
+            and self.background == value.background
+            and self.body == value.body
+            and self.headers == value.headers
+        )
+
 
 class HTMLResponse(starlette.responses.HTMLResponse, Response):
     async def __call__(  # type: ignore[override]
@@ -65,7 +75,7 @@ class PlainTextResponse(starlette.responses.PlainTextResponse, Response):
 
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, o):
-        if isinstance(o, (pathlib.Path, os.PathLike, uuid.UUID)):
+        if isinstance(o, (pathlib.Path, os.PathLike, uuid.UUID, url.Path, url.URL)):
             return str(o)
         if isinstance(o, (bytes, bytearray)):
             return o.decode("utf-8")
@@ -200,6 +210,8 @@ class HTMLTemplatesEnvironment(jinja2.Environment):
             *args,
             **{
                 **kwargs,
+                "comment_start_string": "||*",
+                "comment_end_string": "*||",
                 "block_start_string": "||%",
                 "block_end_string": "%||",
                 "variable_start_string": "||@",
@@ -207,8 +219,21 @@ class HTMLTemplatesEnvironment(jinja2.Environment):
             },
         )
 
+        self.filters["safe"] = self.safe
         self.filters["safe_json"] = self.safe_json
 
+    @t.overload
+    def _escape(self, value: str) -> str: ...
+    @t.overload
+    def _escape(self, value: bool) -> bool: ...
+    @t.overload
+    def _escape(self, value: int) -> int: ...
+    @t.overload
+    def _escape(self, value: float) -> float: ...
+    @t.overload
+    def _escape(self, value: None) -> None: ...
+    @t.overload
+    def _escape(self, value: types.JSONField) -> types.JSONField: ...
     def _escape(self, value: types.JSONField) -> types.JSONField:
         if isinstance(value, (list, tuple)):
             return [self._escape(x) for x in value]
@@ -217,9 +242,12 @@ class HTMLTemplatesEnvironment(jinja2.Environment):
             return {k: self._escape(v) for k, v in value.items()}
 
         if isinstance(value, str):
-            return html.escape(value).replace("\n", "&#13;")
+            return html.escape(value).replace("\n", "&#10;&#13;")
 
         return value
+
+    def safe(self, value: str) -> str:
+        return self._escape(value)
 
     def safe_json(self, value: types.JSONField):
         return json.dumps(self._escape(value)).replace('"', '\\"')
@@ -239,7 +267,7 @@ class _FlamaLoader(jinja2.PackageLoader):
     def __init__(self):
         spec = importlib.util.find_spec("flama")
         if spec is None or spec.origin is None:
-            raise exceptions.ApplicationError("Flama package not found.")
+            raise exceptions.ApplicationError("Flama package not found")
 
         templates_path = pathlib.Path(spec.origin).parent.joinpath("templates")
         if not templates_path.exists():
@@ -260,6 +288,7 @@ class OpenAPIResponse(starlette.schemas.OpenAPIResponse, Response):
         await super().__call__(scope, receive, send)  # type: ignore[arg-type]
 
     def render(self, content: t.Any) -> bytes:
-        assert isinstance(content, dict), "The schema passed to OpenAPIResponse should be a dictionary."
+        if not isinstance(content, dict):
+            raise ValueError("The schema must be a dictionary")
 
         return json.dumps(content).encode("utf-8")

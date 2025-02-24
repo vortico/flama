@@ -4,14 +4,13 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
-from flama import Component, Flama, Module, Mount, Route, Router, exceptions, http, types, websockets
+from flama import Component, Flama, Module, exceptions, http, routing, types, websockets
 from flama.ddd.components import WorkerComponent
 from flama.events import Events
 from flama.injection.injector import Injector
 from flama.middleware import Middleware, MiddlewareStack
 from flama.models import ModelsModule
 from flama.resources import Resource, ResourcesModule, resource_method
-from flama.routing import BaseRoute
 from flama.schemas.modules import SchemaModule
 from flama.types.applications import AppStatus
 from flama.url import URL
@@ -49,8 +48,8 @@ class TestCaseFlama:
         app = Flama(components=[component_obj], modules={module()})
 
         # Check router and main app
-        assert isinstance(app.app, Router)
-        assert isinstance(app.router, Router)
+        assert isinstance(app.app, routing.Router)
+        assert isinstance(app.router, routing.Router)
         # Check injector
         assert isinstance(app._injector, Injector)
         assert app._injector.context_types == {
@@ -59,8 +58,7 @@ class TestCaseFlama:
             "send": types.Send,
             "exc": Exception,
             "app": Flama,
-            "path_params": types.PathParams,
-            "route": BaseRoute,
+            "route": routing.BaseRoute,
             "request": http.Request,
             "response": http.Response,
             "websocket": websockets.WebSocket,
@@ -148,7 +146,7 @@ class TestCaseFlama:
     def test_add_component(self, app, component):
         component_obj = component()
 
-        with patch.object(app, "router", spec=Router) as router_mock:
+        with patch.object(app, "router", spec=routing.Router) as router_mock:
             app.add_component(component_obj)
 
         assert router_mock.add_component.call_args_list == [call(component_obj)]
@@ -156,17 +154,16 @@ class TestCaseFlama:
 
     def test_routes(self, app):
         expected_routes = [MagicMock()]
-        with patch.object(app, "router", spec=Router) as router_mock:
+        with patch.object(app, "router", spec=routing.Router) as router_mock:
             router_mock.routes = expected_routes
             routes = app.routes
 
         assert routes == expected_routes
 
     def test_add_route(self, app, tags):
-        def foo():
-            ...
+        def foo(): ...
 
-        with patch.object(app, "router", spec=Router) as router_mock:
+        with patch.object(app, "router", spec=routing.Router) as router_mock:
             router_mock.add_route.return_value = foo
             route = app.add_route("/", foo, tags=tags)
 
@@ -186,21 +183,19 @@ class TestCaseFlama:
         assert route == foo
 
     def test_route(self, app, tags):
-        with patch.object(app, "router", spec=Router) as router_mock:
+        with patch.object(app, "router", spec=routing.Router) as router_mock:
 
             @app.route("/", tags=tags)
-            def foo():
-                ...
+            def foo(): ...
 
         assert router_mock.route.call_args_list == [
             call("/", methods=None, name=None, include_in_schema=True, root=app, pagination=None, tags=tags)
         ]
 
     def test_add_websocket_route(self, app, tags):
-        def foo():
-            ...
+        def foo(): ...
 
-        with patch.object(app, "router", spec=Router) as router_mock:
+        with patch.object(app, "router", spec=routing.Router) as router_mock:
             router_mock.add_websocket_route.return_value = foo
             route = app.add_websocket_route("/", foo, tags=tags)
 
@@ -210,11 +205,10 @@ class TestCaseFlama:
         assert route == foo
 
     def test_websocket_route(self, app, tags):
-        with patch.object(app, "router", spec=Router) as router_mock:
+        with patch.object(app, "router", spec=routing.Router) as router_mock:
 
             @app.websocket_route("/", tags=tags)
-            def foo():
-                ...
+            def foo(): ...
 
         assert router_mock.websocket_route.call_args_list == [
             call("/", name=None, root=app, pagination=None, tags=tags)
@@ -223,7 +217,7 @@ class TestCaseFlama:
     def test_mount(self, app, tags):
         expected_mount = MagicMock()
 
-        with patch.object(app, "router", spec=Router) as router_mock:
+        with patch.object(app, "router", spec=routing.Router) as router_mock:
             router_mock.mount.return_value = expected_mount
             mount = app.mount("/", expected_mount, tags=tags)
 
@@ -238,8 +232,7 @@ class TestCaseFlama:
     def test_add_event_handler(self, app):
         handlers_before = app.events.startup.copy()
 
-        def handler():
-            ...
+        def handler(): ...
 
         app.add_event_handler("startup", handler)
 
@@ -249,8 +242,7 @@ class TestCaseFlama:
         handlers_before = app.events.startup.copy()
 
         @app.on_event("startup")
-        def handler():
-            ...
+        def handler(): ...
 
         assert app.events.startup == [*handlers_before, handler]
 
@@ -267,8 +259,9 @@ class TestCaseFlama:
 
     def test_add_middleware(self, app):
         class FooMiddleware:
-            def __call__(self, app: types.App, *args, **kwargs):
-                ...
+            def __init__(self, app: types.App) -> None: ...
+
+            def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send): ...
 
         kwargs = {"foo": "bar"}
 
@@ -307,10 +300,10 @@ class TestCaseFlama:
         indirect=["exception"],
     )
     def test_resolve_url(self, app, resolve, path_params, resolution, exception):
-        app.add_route(route=Route("/foo", lambda: None, name="foo"))
-        app.add_route(route=Route("/foo/{x:int}", lambda: None, name="foo"))
-        app.add_route(route=Route("/bar/{x:uuid}/y/{y:uuid}", lambda: None, name="bar"))
-        app.mount(mount=Mount("/foo", routes=[Route("/bar", lambda: None, name="bar")], name="foo"))
+        app.add_route(route=routing.Route("/foo", lambda: None, name="foo"))
+        app.add_route(route=routing.Route("/foo/{x:int}", lambda: None, name="foo"))
+        app.add_route(route=routing.Route("/bar/{x:uuid}/y/{y:uuid}", lambda: None, name="bar"))
+        app.mount(mount=routing.Mount("/foo", routes=[routing.Route("/bar", lambda: None, name="bar")], name="foo"))
 
         @app.resources.resource("/puppy")
         class PuppyResource(Resource):
@@ -318,8 +311,7 @@ class TestCaseFlama:
             verbose_name = "Puppy"
 
             @resource_method("/custom")
-            def custom(self):
-                ...
+            def custom(self): ...
 
         with exception:
             assert app.resolve_url(resolve, **path_params) == resolution
@@ -347,13 +339,13 @@ class TestCaseFlama:
 
         assert len(root_app.router.routes) == 2
         # Check mount is initialized
-        assert isinstance(root_app.routes[1], Mount)
+        assert isinstance(root_app.routes[1], routing.Mount)
         mount_route = root_app.router.routes[1]
         assert mount_route.path == "/app"
         # Check router is created and initialized
         assert isinstance(mount_route.app, Flama)
         mount_app = mount_route.app
-        assert isinstance(mount_app.app, Router)
+        assert isinstance(mount_app.app, routing.Router)
         mount_router = mount_app.app
         # Check components are collected across the entire tree
         assert root_app.components == [*root_default_components, root_component]
@@ -364,21 +356,21 @@ class TestCaseFlama:
 
     def test_build_application_declarative(self, module):
         leaf_component = MagicMock(spec=Component)
-        leaf_routes = [Route("/bar", lambda: {})]
+        leaf_routes = [routing.Route("/bar", lambda: {})]
         leaf_app = Flama(routes=leaf_routes, schema=None, docs=None, components=[leaf_component], modules={module()})
         root_component = MagicMock(spec=Component)
-        root_routes = [Route("/foo", lambda: {}), Mount("/app", app=leaf_app)]
+        root_routes = [routing.Route("/foo", lambda: {}), routing.Mount("/app", app=leaf_app)]
         root_app = Flama(routes=root_routes, schema=None, docs=None, components=[root_component])
 
         assert len(root_app.router.routes) == 2
         # Check mount is initialized
-        assert isinstance(root_app.routes[1], Mount)
+        assert isinstance(root_app.routes[1], routing.Mount)
         mount_route = root_app.router.routes[1]
         assert mount_route.path == "/app"
         # Check router is created and initialized
         assert isinstance(mount_route.app, Flama)
         mount_app = mount_route.app
-        assert isinstance(mount_app.app, Router)
+        assert isinstance(mount_app.app, routing.Router)
         mount_router = mount_app.app
         # Check components are collected across the entire tree
         root_default_components = root_app.components[:1]

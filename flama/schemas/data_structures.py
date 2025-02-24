@@ -189,16 +189,13 @@ class Schema:
         return []
 
     @t.overload
-    def validate(self, values: None, *, partial: bool = False) -> dict[str, t.Any]:
-        ...
+    def validate(self, values: None, *, partial: bool = False) -> dict[str, t.Any]: ...
 
     @t.overload
-    def validate(self, values: dict[str, t.Any], *, partial: bool = False) -> dict[str, t.Any]:
-        ...
+    def validate(self, values: dict[str, t.Any], *, partial: bool = False) -> dict[str, t.Any]: ...
 
     @t.overload
-    def validate(self, values: list[dict[str, t.Any]], *, partial: bool = False) -> list[dict[str, t.Any]]:
-        ...
+    def validate(self, values: list[dict[str, t.Any]], *, partial: bool = False) -> list[dict[str, t.Any]]: ...
 
     def validate(self, values: t.Union[dict[str, t.Any], list[dict[str, t.Any]], None], *, partial=False):
         if isinstance(values, (list, tuple)):
@@ -207,12 +204,10 @@ class Schema:
         return schemas.adapter.validate(self.schema, values or {}, partial=partial)
 
     @t.overload
-    def load(self, values: dict[str, t.Any]) -> t.Any:
-        ...
+    def load(self, values: dict[str, t.Any]) -> t.Any: ...
 
     @t.overload
-    def load(self, values: list[dict[str, t.Any]]) -> list[t.Any]:
-        ...
+    def load(self, values: list[dict[str, t.Any]]) -> list[t.Any]: ...
 
     def load(self, values):
         if isinstance(values, (list, tuple)):
@@ -221,12 +216,10 @@ class Schema:
         return schemas.adapter.load(self.schema, values)
 
     @t.overload
-    def dump(self, values: dict[str, t.Any]) -> dict[str, t.Any]:
-        ...
+    def dump(self, values: dict[str, t.Any]) -> dict[str, t.Any]: ...
 
     @t.overload
-    def dump(self, values: list[dict[str, t.Any]]) -> list[dict[str, t.Any]]:
-        ...
+    def dump(self, values: list[dict[str, t.Any]]) -> list[dict[str, t.Any]]: ...
 
     def dump(self, values):
         if isinstance(values, (list, tuple)):

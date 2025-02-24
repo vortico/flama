@@ -1,7 +1,7 @@
 import logging
 
 import flama
-from flama import Flama, Route
+from flama import Flama, routing
 
 
 class AppStatus:
@@ -64,9 +64,9 @@ app = Flama(
     version="0.1.0",
     description="Machine learning API using Flama 🔥",
     routes=[
-        Route("/", home),
-        Route("/user/me", user_me),
-        Route("/user/{username}", user),
+        routing.Route("/", home),
+        routing.Route("/user/me", user_me),
+        routing.Route("/user/{username}", user),
     ],
     events={"startup": [startup], "shutdown": [shutdown]},
 )

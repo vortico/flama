@@ -7,10 +7,9 @@ from collections import defaultdict
 
 import yaml
 
-from flama import routing, schemas, types
+from flama import routing, schemas, types, url
 from flama.schemas import Schema, openapi
 from flama.schemas.data_structures import Parameter
-from flama.url import RegexPath
 
 logger = logging.getLogger(__name__)
 
@@ -296,7 +295,7 @@ class SchemaGenerator:
         endpoints_info: dict[str, list[EndpointInfo]] = defaultdict(list)
 
         for route in routes:
-            path = RegexPath(base_path + route.path.path).template
+            path = str(url.Path(base_path + route.path.path))
 
             if isinstance(route, routing.Route) and route.include_in_schema:
                 if inspect.isfunction(route.endpoint) or inspect.ismethod(route.endpoint):
@@ -508,6 +507,6 @@ class SchemaGenerator:
         for schema in self.schemas.used(self.spec).values():
             self.spec.add_schema(schema.name, openapi.Schema(schema.json_schema(self.schemas.names)))
 
-        api_schema: dict[str, t.Any] = self.spec.asdict()
+        api_schema: dict[str, t.Any] = self.spec.to_dict()
 
         return api_schema

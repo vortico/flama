@@ -17,5 +17,4 @@ class Model:
         return {"meta": self.meta.to_dict(), "artifacts": self.artifacts}
 
     @abc.abstractmethod
-    def predict(self, x: t.Any) -> t.Any:
-        ...
+    def predict(self, x: t.Any) -> t.Any: ...

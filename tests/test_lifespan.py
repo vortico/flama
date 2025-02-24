@@ -285,8 +285,10 @@ class TestCaseLifespan:
 
         lifespan = app.router.lifespan
 
-        with exception, patch.object(lifespan, "_startup", side_effect=startup_side_effect), patch.object(
-            lifespan, "_shutdown", side_effect=shutdown_side_effect
+        with (
+            exception,
+            patch.object(lifespan, "_startup", side_effect=startup_side_effect),
+            patch.object(lifespan, "_shutdown", side_effect=shutdown_side_effect),
         ):
             for receive_messages, send_messages, app_status in states:
                 for m in receive_messages:

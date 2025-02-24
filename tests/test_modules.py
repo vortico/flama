@@ -26,8 +26,7 @@ class TestCaseModule:
     def test_new_module_no_name(self):
         with pytest.raises(AssertionError, match="Module 'FooModule' does not have a 'name' attribute."):
 
-            class FooModule(Module):
-                ...
+            class FooModule(Module): ...
 
     def test_init(self, module):
         m = module()

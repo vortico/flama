@@ -1,1 +1,1 @@
-from flama.pagination.paginator import paginator  # noqa
+from flama.pagination.paginator import *  # noqa

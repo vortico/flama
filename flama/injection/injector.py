@@ -69,20 +69,16 @@ class Injector:
         self._resolver = None
 
     @t.overload
-    def resolve(self, annotation: t.Any) -> "ResolutionTree":
-        ...
+    def resolve(self, annotation: t.Any) -> "ResolutionTree": ...
 
     @t.overload
-    def resolve(self, annotation: t.Any, *, name: str) -> "ResolutionTree":
-        ...
+    def resolve(self, annotation: t.Any, *, name: str) -> "ResolutionTree": ...
 
     @t.overload
-    def resolve(self, annotation: t.Any, *, default: t.Any) -> "ResolutionTree":
-        ...
+    def resolve(self, annotation: t.Any, *, default: t.Any) -> "ResolutionTree": ...
 
     @t.overload
-    def resolve(self, annotation: t.Any, *, name: str, default: t.Any) -> "ResolutionTree":
-        ...
+    def resolve(self, annotation: t.Any, *, name: str, default: t.Any) -> "ResolutionTree": ...
 
     def resolve(
         self, annotation: t.Optional[t.Any] = None, *, name: t.Optional[str] = None, default: t.Any = EMPTY
@@ -105,9 +101,13 @@ class Injector:
         :return: Mapping of parameter names and dependencies trees.
         """
         parameters = {}
-        for p in [x for x in inspect.signature(func).parameters.values() if x.name not in ("self", "cls")]:
+        for parameter in [
+            x
+            for x in inspect.signature(func).parameters.values()
+            if not (x.name in ("self", "cls", "args", "kwargs") and x.annotation == inspect._empty)
+        ]:
             try:
-                parameters[p.name] = self.resolver.resolve(Parameter.from_parameter(p))
+                parameters[parameter.name] = self.resolver.resolve(Parameter.from_parameter(parameter))
             except ComponentNotFound as e:
                 raise ComponentNotFound(e.parameter, component=e.component, function=func) from None
 

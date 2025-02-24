@@ -78,8 +78,7 @@ class App(metaclass=abc.ABCMeta):
     @property  # type: ignore
     @abc.abstractmethod
     @contextlib.contextmanager
-    def context(self) -> t.Generator[_AppContext, None, None]:
-        ...
+    def context(self) -> t.Generator[_AppContext, None, None]: ...
 
     @classmethod
     def build(cls, app: t.Union[str, dict[str, t.Any], "Flama"]) -> "App":

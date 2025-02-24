@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+
+source scripts/str_lib.sh
+
+format() {
+  message "info" "Format code"
+  uv run ruff format "$@"
+  message "success" "Format completed"
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  format "$@"
+fi

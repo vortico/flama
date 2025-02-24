@@ -46,8 +46,7 @@ class BaseErrorMiddleware:
     @abc.abstractmethod
     async def process_exception(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception, response_started: bool
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 class ServerErrorMiddleware(BaseErrorMiddleware):
@@ -92,8 +91,7 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
     ) -> http.Response:
         return http.PlainTextResponse("Internal Server Error", status_code=500)
 
-    def noop_handler(self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception) -> None:
-        ...
+    def noop_handler(self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception) -> None: ...
 
 
 class ExceptionMiddleware(BaseErrorMiddleware):

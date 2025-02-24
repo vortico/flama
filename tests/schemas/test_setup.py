@@ -40,9 +40,12 @@ class TestCaseSetup:
     def test_setup_no_lib_installed(self):
         from flama import schemas
 
-        with patch("flama.schemas.Module.available", PropertyMock(return_value=iter(()))), pytest.raises(
-            exceptions.DependencyNotInstalled,
-            match="No schema library is installed. Install one of your preference following instructions from: "
-            "https://flama.dev/docs/getting-started/installation#extras",
+        with (
+            patch("flama.schemas.Module.available", PropertyMock(return_value=iter(()))),
+            pytest.raises(
+                exceptions.DependencyNotInstalled,
+                match="No schema library is installed. Install one of your preference following instructions from: "
+                "https://flama.dev/docs/getting-started/installation#extras",
+            ),
         ):
             schemas._module.setup()

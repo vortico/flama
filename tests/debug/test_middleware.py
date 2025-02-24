@@ -20,8 +20,7 @@ class TestCaseBaseErrorMiddleware:
                 send: types.Send,
                 exc: Exception,
                 response_started: bool,
-            ) -> None:
-                ...
+            ) -> None: ...
 
         return FooMiddleware
 
@@ -97,9 +96,10 @@ class TestCaseServerErrorMiddleware:
         middleware.debug = debug
         response_method = "debug_handler" if debug else "error_handler"
         exc = ValueError("Foo")
-        with patch.object(
-            ServerErrorMiddleware, response_method, new=MagicMock(return_value=AsyncMock())
-        ) as response, pytest.raises(ValueError, match="Foo"):
+        with (
+            patch.object(ServerErrorMiddleware, response_method, new=MagicMock(return_value=AsyncMock())) as response,
+            pytest.raises(ValueError, match="Foo"),
+        ):
             await middleware.process_exception(asgi_scope, asgi_receive, asgi_send, exc, response_started)
 
             if debug:
@@ -116,11 +116,11 @@ class TestCaseServerErrorMiddleware:
         asgi_scope["headers"].append((b"accept", b"text/html"))
         exc = ValueError()
         error_context_mock, context_mock = MagicMock(), MagicMock()
-        with patch(
-            "flama.debug.middleware.dataclasses.asdict", return_value=context_mock
-        ) as dataclasses_dict, patch.object(ErrorContext, "build", return_value=error_context_mock), patch.object(
-            http._FlamaTemplateResponse, "__init__", return_value=None
-        ) as response_mock:
+        with (
+            patch("flama.debug.middleware.dataclasses.asdict", return_value=context_mock) as dataclasses_dict,
+            patch.object(ErrorContext, "build", return_value=error_context_mock),
+            patch.object(http._FlamaTemplateResponse, "__init__", return_value=None) as response_mock,
+        ):
             response = middleware.debug_handler(asgi_scope, asgi_receive, asgi_send, exc)
             assert ErrorContext.build.call_count == 1
             assert dataclasses_dict.call_args_list == [call(error_context_mock)]
@@ -149,8 +149,7 @@ class TestCaseExceptionMiddleware:
 
     @pytest.fixture
     def handler(self):
-        def _handler():
-            ...
+        def _handler(): ...
 
         return _handler
 
@@ -245,9 +244,11 @@ class TestCaseExceptionMiddleware:
         asgi_scope["type"] = request_type
         handler_mock = MagicMock()
         response_mock = AsyncMock() if request_type == "http" else None
-        with exception, patch.object(middleware, "_get_handler", return_value=handler_mock), patch(
-            "flama.debug.middleware.concurrency.run", new=AsyncMock(return_value=response_mock)
-        ) as run_mock:
+        with (
+            exception,
+            patch.object(middleware, "_get_handler", return_value=handler_mock),
+            patch("flama.debug.middleware.concurrency.run", new=AsyncMock(return_value=response_mock)) as run_mock,
+        ):
             await middleware.process_exception(asgi_scope, asgi_receive, asgi_send, expected_exc, response_started)
 
             if request_type == "http":
@@ -317,9 +318,10 @@ class TestCaseExceptionMiddleware:
         if response_class == http.APIErrorResponse:
             response_params["exception"] = exc
 
-        with patch(
-            f"flama.debug.middleware.http.{response_class.__name__}", spec=response_class
-        ) as response_mock, patch("flama.debug.middleware.dataclasses.asdict", return_value={}):
+        with (
+            patch(f"flama.debug.middleware.http.{response_class.__name__}", spec=response_class) as response_mock,
+            patch("flama.debug.middleware.dataclasses.asdict", return_value={}),
+        ):
             response = middleware.http_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
             assert isinstance(response, response_class)

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+
+source scripts/str_lib.sh
+
+typecheck() {
+  message "info" "Types check"
+  uv run pyright "$@"
+  message "success" "Types check completed"
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  typecheck "$@"
+fi

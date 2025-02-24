@@ -47,7 +47,7 @@ decorators = (
     click.option(
         "--server-reload-dirs",
         multiple=True,
-        help="Set reload directories explicitly, instead of using the current working" " directory.",
+        help="Set reload directories explicitly, instead of using the current working directory.",
         type=click.Path(exists=True),
     ),
     click.option(
@@ -70,7 +70,7 @@ decorators = (
         type=float,
         default=0.25,
         show_default=True,
-        help="Delay between previous and next check if application needs to be." " Defaults to 0.25s.",
+        help="Delay between previous and next check if application needs to be. Defaults to 0.25s.",
     ),
     click.option(
         "--server-workers",
@@ -179,7 +179,7 @@ decorators = (
         "--server-proxy-headers/--server-no-proxy-headers",
         is_flag=True,
         default=True,
-        help="Enable/Disable X-Forwarded-Proto, X-Forwarded-For, X-Forwarded-Port to " "populate remote address info.",
+        help="Enable/Disable X-Forwarded-Proto, X-Forwarded-For, X-Forwarded-Port to populate remote address info.",
     ),
     click.option(
         "--server-server-header/--server-no-server-header",
@@ -210,7 +210,7 @@ decorators = (
         "--server-limit-concurrency",
         type=int,
         default=None,
-        help="Maximum number of concurrent connections or tasks to allow, before issuing" " HTTP 503 responses.",
+        help="Maximum number of concurrent connections or tasks to allow, before issuing HTTP 503 responses.",
     ),
     click.option(
         "--server-backlog",

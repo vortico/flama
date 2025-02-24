@@ -10,8 +10,7 @@ from flama.injection.resolver import Parameter
 class TestCaseWorkerComponent:
     @pytest.fixture(scope="function")
     def repository(self):
-        class FooRepository(BaseRepository):
-            ...
+        class FooRepository(BaseRepository): ...
 
         return FooRepository
 
@@ -20,20 +19,16 @@ class TestCaseWorkerComponent:
         class FooWorker(BaseWorker):
             foo: repository
 
-            async def set_up(self):
-                ...
+            async def set_up(self): ...
 
-            async def tear_down(self, *, rollback: bool = False):
-                ...
+            async def tear_down(self, *, rollback: bool = False): ...
 
             async def repository_params(self):
                 return [], {}
 
-            async def commit(self):
-                ...
+            async def commit(self): ...
 
-            async def rollback(self):
-                ...
+            async def rollback(self): ...
 
         return FooWorker()
 
@@ -64,8 +59,7 @@ class TestCaseWorkerComponent:
         assert component.can_handle_parameter(Parameter(param_name, parameter_types[param_type])) == expected
 
     def test_resolve(self, component, worker):
-        class App:
-            ...
+        class App: ...
 
         foo = App()
         bar = App()

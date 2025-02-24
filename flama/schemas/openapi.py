@@ -312,17 +312,17 @@ class OpenAPISpec:
     def add_callback(self, name: str, item: t.Union[Callback, Reference]):
         self.spec.components.callbacks[name] = item
 
-    def asdict(self, obj=None) -> t.Any:
+    def to_dict(self, obj=None) -> t.Any:
         if obj is None:
-            return self.asdict(dataclasses.asdict(self.spec))
+            return self.to_dict(dataclasses.asdict(self.spec))
 
         if isinstance(obj, list):
-            return [self.asdict(i) for i in obj]
+            return [self.to_dict(i) for i in obj]
 
         if isinstance(obj, dict):
-            return {{"ref": "$ref", "in_": "in"}.get(k, k): self.asdict(v) for k, v in obj.items() if v is not None}
+            return {{"ref": "$ref", "in_": "in"}.get(k, k): self.to_dict(v) for k, v in obj.items() if v is not None}
 
         if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-            return self.asdict(dataclasses.asdict(obj))
+            return self.to_dict(dataclasses.asdict(obj))
 
         return obj

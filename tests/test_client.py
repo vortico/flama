@@ -96,17 +96,36 @@ class TestCaseLifespanContextManager:
             assert lifespan_context_manager._shutdown_complete.set.call_args_list == [call()]
 
     @pytest.mark.parametrize(
-        ["exception"],
+        ["startup_mock", "shutdown_mock", "exception"],
         (
-            pytest.param(None, id="ok"),
-            pytest.param(Exception("foo"), id="exception"),
+            pytest.param(
+                AsyncMock(),
+                AsyncMock(),
+                None,
+                id="ok",
+            ),
+            pytest.param(
+                AsyncMock(side_effect=Exception("foo")),
+                AsyncMock(),
+                Exception("foo"),
+                id="startup_exception",
+            ),
+            pytest.param(
+                AsyncMock(),
+                AsyncMock(side_effect=Exception("foo")),
+                Exception("foo"),
+                id="shutdown_exception",
+            ),
         ),
         indirect=["exception"],
     )
-    async def test_context(self, lifespan_context_manager, exception):
-        with exception, patch.object(lifespan_context_manager, "_app_task"), patch.object(
-            lifespan_context_manager, "_startup", side_effect=exception.exception
-        ), patch.object(lifespan_context_manager, "_shutdown"):
+    async def test_context(self, lifespan_context_manager, startup_mock, shutdown_mock, exception):
+        with (
+            exception,
+            patch.object(lifespan_context_manager, "_app_task"),
+            patch.object(lifespan_context_manager, "_startup", startup_mock),
+            patch.object(lifespan_context_manager, "_shutdown", shutdown_mock),
+        ):
             async with lifespan_context_manager:
                 assert lifespan_context_manager._app_task.call_args_list == [call()]
                 assert lifespan_context_manager._startup.await_args_list == [call()]
@@ -160,12 +179,14 @@ class TestCaseClient:
             assert aexit_mock.await_args_list == [call(None, None, None)]
 
     async def test_model_request(self, app):
-        with patch("flama.client.Flama", return_value=app), patch("builtins.super"), patch(
-            "importlib.metadata.version", return_value="x.y.z"
+        with (
+            patch("flama.client.Flama", return_value=app),
+            patch("builtins.super"),
+            patch("importlib.metadata.version", return_value="x.y.z"),
         ):
             client = Client(models=[("foo", "/foo/", "model_foo.flm")])
 
-        with patch.object(client, "request"):
+        with patch.object(client, "request") as request_mock:
             await client.model_request("foo", "GET", "/")
 
-            assert client.request.call_args_list == [call("GET", "/foo/")]
+            assert request_mock.call_args_list == [call("GET", "/foo/")]

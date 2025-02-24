@@ -5,11 +5,11 @@ on:
     branches:
       - master
     paths-ignore:
-      - 'examples/**'
-      - '.github/**'
-      - 'docs/**'
-      - 'scripts/**'
-      - 'Dockerfiles/**'
+      - "examples/**"
+      - ".github/**"
+      - "docs/**"
+      - "scripts/**"
+      - "Dockerfiles/**"
 
 env:
   DEFAULT_LINUX: "slim"
@@ -22,9 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
-    container:
-      image: python:${{ matrix.python }}
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@master
         with:
@@ -34,24 +32,25 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 22
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
       - id: install
-        name: Install requirements
-        run: |
-          pip install pip poetry --upgrade
-          ./scripts/install
-      - id: black
+        name: Install project
+        run: ./scripts/install
+      - id: format
         name: Code format checking
-        run: ./scripts/black --check .
-      - id: isort
-        name: Imports order checking
-        run: ./scripts/isort --check .
-      - id: ruff
-        name: Code style (ruff)
-        run: ./scripts/ruff .
-      - id: pyright
+        run: ./scripts/format --check .
+      - id: lint
+        name: Code linting
+        run: ./scripts/lint --output-format=github .
+      - id: typecheck
         name: Static types check
-        run: ./scripts/pyright
+        run: ./scripts/typecheck
       - id: tests
         name: Tests
         run: ./scripts/test

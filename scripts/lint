@@ -1,27 +1,14 @@
 #!/usr/bin/env bash
 set -e
 
-source scripts/black
-source scripts/isort
-source scripts/ruff
-source scripts/pyright
+source scripts/str_lib.sh
 
-run_lint() {
-  echo "🧹 Code lint using multiple tools:"
-
-  local fix="$1"
-  if [[ "$fix" == "-f" || "$fix" == "--fix" ]]; then
-    run_black .
-    run_isort .
-    run_ruff --fix .
-  else
-    run_black --check .
-    run_isort --check .
-    run_ruff .
-  fi
-  run_pyright
+lint() {
+  message "info" "Lint code"
+  uv run ruff check "$@"
+  message "success" "Lint completed"
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  run_lint "$@"
+  lint "$@"
 fi

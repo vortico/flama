@@ -1,17 +1,18 @@
 import string
+import typing as t
 
-from pydantic import BaseModel, validator
+import pydantic
 
 import flama
 from flama import Flama
 
 
-class Puppy(BaseModel):
+class Puppy(pydantic.BaseModel):
     id: int
     name: str
     age: int
 
-    @validator("age")
+    @pydantic.field_validator("age")
     def minimum_age_validation(cls, v):
         if v < 0:
             raise ValueError("Age must be positive")
@@ -19,7 +20,7 @@ class Puppy(BaseModel):
         return v
 
 
-PUPPIES = [{"id": 1, "name": "Canna", "age": 7}, {"id": 2, "name": "Sandy", "age": 12}]
+PUPPIES: list[Puppy] = [Puppy(id=1, name="Canna", age=7), Puppy(id=2, name="Sandy", age=12)]
 
 
 app = Flama(
@@ -29,8 +30,7 @@ app = Flama(
 )
 
 
-@app.route("/number/", methods=["GET"])
-@app.paginator.page_number
+@app.route("/number/", methods=["GET"], pagination="page_number")
 def numbers(**kwargs):
     """
     tags:
@@ -46,8 +46,7 @@ def numbers(**kwargs):
     return list(range(100))
 
 
-@app.route("/alphabet/", methods=["GET"])
-@app.paginator.limit_offset
+@app.route("/alphabet/", methods=["GET"], pagination="limit_offset")
 def alphabet(**kwargs):
     """
     tags:
@@ -63,9 +62,8 @@ def alphabet(**kwargs):
     return list(string.ascii_lowercase)
 
 
-@app.route("/puppy/", methods=["GET"])
-@app.paginator.page_number
-def puppies(name: str = None, **kwargs) -> list[Puppy]:
+@app.route("/puppy/", methods=["GET"], pagination="page_number")
+def puppies(name: t.Optional[str] = None, **kwargs) -> list[Puppy]:
     """
     tags:
         - puppy
@@ -80,10 +78,10 @@ def puppies(name: str = None, **kwargs) -> list[Puppy]:
     """
     result = PUPPIES
     if name:
-        result = filter(lambda x: x["name"] == name, result)
+        result = [x for x in result if x.name == name]
 
     return result
 
 
 if __name__ == "__main__":
-    flama.run(app, host="0.0.0.0", port=8000)
+    flama.run(flama_app=app, server_host="0.0.0.0", server_port=8080)

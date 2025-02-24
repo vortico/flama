@@ -63,8 +63,7 @@ class ExampleConfig(metaclass=abc.ABCMeta):
 
     @classmethod
     @abc.abstractmethod
-    def dumps(cls) -> str:
-        ...
+    def dumps(cls) -> str: ...
 
 
 class SimpleExample(ExampleConfig):

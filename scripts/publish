@@ -4,28 +4,18 @@ set -e
 source scripts/str_lib.sh
 source scripts/clean
 source scripts/build
-source scripts/install
 
-publish_pkg() {
-  if [[ -n "${PYPI_TOKEN}" ]]; then
-    poetry config pypi-token.pypi "${PYPI_TOKEN}"
-  elif [[ -n "${PYPI_USERNAME}" ]] && [[ -n "${PYPI_PASSWORD}" ]]; then
-    poetry config http-basic.pypi "${PYPI_USERNAME}" "${PYPI_PASSWORD}"
-  else
-    printf "%b" "🆘 Error: Environment variable ${C_RED1}PYPI_TOKEN${NO_FORMAT} or the pair ${C_RED1}PYPI_USERNAME${NO_FORMAT} and ${C_RED1}PYPI_PASSWORD${NO_FORMAT} not found\n"
-    return
+publish() {
+  if [ "$1" == "--build" ]; then
+    clean
+    build
   fi
 
-  local arg="$1"
-  if [ "$arg" == "--build" ]; then
-    clean_folder
-    install_pkg
-    build_pkg
-  fi
-
-  poetry publish --skip-existing
+  message "info" "Publish package"
+  uv publish
+  message "success" "Publish completed"
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  publish_pkg "$@"
+  publish "$@"
 fi

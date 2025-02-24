@@ -1,5 +1,6 @@
 import pytest
 
+from flama import exceptions
 from flama.applications import Flama
 from flama.client import Client
 from flama.resources.crud import CRUDResource
@@ -57,7 +58,7 @@ class TestCaseResourceRoute:
         ]
 
     def test_init_wrong_tags(self, resource):
-        with pytest.raises(AssertionError, match="Tags must be defined only for existing routes."):
+        with pytest.raises(exceptions.ApplicationError, match="Tags must be defined only for existing routes."):
             ResourceRoute(
                 "/puppy/",
                 resource,

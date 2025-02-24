@@ -17,35 +17,29 @@ async def async_event_task(event):
 
 class TestCaseIsAsync:
     def test_function(self):
-        def foo_sync():
-            ...
+        def foo_sync(): ...
 
-        async def foo_async():
-            ...
+        async def foo_async(): ...
 
         assert not concurrency.is_async(foo_sync)
         assert concurrency.is_async(foo_async)
 
     def test_callable(self):
         class FooSync:
-            def __call__(self):
-                ...
+            def __call__(self): ...
 
         class FooAsync:
-            async def __call__(self):
-                ...
+            async def __call__(self): ...
 
         assert not concurrency.is_async(FooSync)
         assert concurrency.is_async(FooAsync)
 
     def test_partial(self):
-        def foo_sync(x: int):
-            ...
+        def foo_sync(x: int): ...
 
         partial_foo_sync = functools.partial(foo_sync, x=1)
 
-        async def foo_async(x: int):
-            ...
+        async def foo_async(x: int): ...
 
         partial_foo_async = functools.partial(foo_async, x=1)
 

@@ -4,7 +4,7 @@ import uuid
 
 import starlette.datastructures
 
-from flama.url import URL
+from flama.url import URL, Path
 
 __all__ = [
     "Method",
@@ -32,12 +32,11 @@ Method = t.NewType("Method", str)
 Scheme = t.NewType("Scheme", str)
 Host = t.NewType("Host", str)
 Port = t.NewType("Port", int)
-Path = t.NewType("Path", str)
 QueryString = t.NewType("QueryString", str)
 QueryParam = t.NewType("QueryParam", str)
 Header = t.NewType("Header", str)
 Body = t.NewType("Body", bytes)
-PathParams = t.NewType("PathParams", dict[str, str])
+PathParams = t.NewType("PathParams", dict[str, t.Any])
 PathParam = t.NewType("PathParam", str)
 RequestData = t.NewType("RequestData", dict[str, t.Any])
 Headers = starlette.datastructures.Headers

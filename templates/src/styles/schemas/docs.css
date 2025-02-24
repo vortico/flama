@@ -1,15 +1,15 @@
-@import "../main.css";
+@import '../main.css';
 
 .sl-elements-api {
-    min-height: 100vh;
+  min-height: 100vh;
 
-    /* Sidebar */
+  /* Sidebar */
 
-    > div:first-child {
-        @apply border-r border-brand-500/50;
+  > div:first-child {
+    @apply border-flama/50 border-r;
 
-        .sl-bg-primary-tint {
-            @apply bg-brand-500/30;
-        }
+    .sl-bg-primary-tint {
+      @apply bg-flama-500/30;
     }
+  }
 }

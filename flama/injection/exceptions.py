@@ -7,8 +7,7 @@ if t.TYPE_CHECKING:
 __all__ = ["ComponentError", "ComponentNotFound"]
 
 
-class ComponentError(Exception):
-    ...
+class ComponentError(Exception): ...
 
 
 class ComponentNotFound(ComponentError):

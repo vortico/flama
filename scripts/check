@@ -3,51 +3,40 @@ set -e
 
 source scripts/str_lib.sh
 
-POETRY_INSTALLER="/tmp/poetry_install.py"
-POETRY_URL="https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py"
+UV_URL="https://astral.sh/uv/install.sh"
 
-install_poetry() {
-  curl $POETRY_URL --output $POETRY_INSTALLER
-  python $POETRY_INSTALLER -y
-  rm $POETRY_INSTALLER
-}
-
-install_poetry_menu() {
-  printf "%b" "\n⚠️ ${C_YELLOW1} Poetry is not available:${NO_FORMAT}\n"
+install_uv() {
+  message "warning" "UV is not available"
   while true; do
-    read -p "- Do you wish to install this program? (Y/N) -> " yn
+    read -p "- Do you wish to install this program? (Y/N/q): " yn
     case $yn in
     [Yy]*)
-      install_poetry
+      curl -LsSf $UV_URL | sh
+      message "success" "UV installation completed ($(uv --version))"
       break
       ;;
     [Nn]*)
-      printf "%b" "\n🚨 ${F_BOLD}${C_RED1}Poetry won't be installed.${NO_FORMAT}"
-      printf "%b" "\n${C_YELLOW1}WARNING: ${F_ITALIC}The development team recommends the installation of Poetry for the packaging and management of dependencies.${NO_FORMAT}\n" | fold -w 99
+      message "error" "UV will not be installed"
+      message "warning" "The development team recommends the installation of UV for the packaging and management of dependencies"
       exit
       ;;
     [q]*)
-      printf "\n"
       exit
       ;;
-    *) printf "%b" "\nPlease answer yes (Y) or no (N).\n" ;;
+    *) message "Please answer yes (Y) or no (N)" ;;
     esac
   done
 }
 
-install_success_message() {
-  printf "%b" "✅ ${C_SPRINGGREEN2}Poetry is installed:${NO_FORMAT} $(poetry --version)\n"
-}
-
-check_poetry() {
-  echo "🔥 Check dependencies:"
-  if ! (command -v poetry &>/dev/null); then
-    install_poetry_menu
+check() {
+  message "info" "Check dependencies"
+  if ! (command -v uv &>/dev/null); then
+    install_uv
   else
-    install_success_message
+    message "success" "UV is available ($(uv --version))"
   fi
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  check_poetry "$@"
+  check "$@"
 fi

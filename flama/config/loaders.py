@@ -80,7 +80,7 @@ class TOMLFileLoader(FileLoader):
         :return: Dict with the file contents.
         """
         if compat.tomllib is None:  # PORT: Replace compat when stop supporting 3.10
-            raise exceptions.DependencyNotInstalled(
+            raise exceptions.DependencyNotInstalled(  # pragma: no cover
                 dependency=exceptions.DependencyNotInstalled.Dependency.tomli,
                 dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
                 msg="for Python versions lower than 3.11",

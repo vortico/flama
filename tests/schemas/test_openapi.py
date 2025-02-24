@@ -216,96 +216,96 @@ class TestCaseOpenAPISpec:
             "paths": {},
         }
 
-        assert spec.asdict() == expected_result
+        assert spec.to_dict() == expected_result
 
     def test_add_path(self, spec, path):
         path_name = "foo"
-        expected_result = spec.asdict()
-        expected_result["paths"] = {"foo": spec.asdict(dataclasses.asdict(path))}
+        expected_result = spec.to_dict()
+        expected_result["paths"] = {"foo": spec.to_dict(dataclasses.asdict(path))}
 
         spec.add_path(path_name, path)
 
-        assert spec.asdict() == expected_result
+        assert spec.to_dict() == expected_result
 
     def test_add_schema(self, spec, schema):
         schema_name = "foo"
-        expected_result = spec.asdict()
+        expected_result = spec.to_dict()
         expected_result["components"]["schemas"] = {schema_name: schema}
 
         spec.add_schema(schema_name, schema)
 
-        assert spec.asdict() == expected_result
+        assert spec.to_dict() == expected_result
 
     def test_add_response(self, spec, response):
         response_name = "foo"
-        expected_result = spec.asdict()
-        expected_result["components"]["responses"] = {response_name: spec.asdict(dataclasses.asdict(response))}
+        expected_result = spec.to_dict()
+        expected_result["components"]["responses"] = {response_name: spec.to_dict(dataclasses.asdict(response))}
 
         spec.add_response(response_name, response)
 
-        assert spec.asdict() == expected_result
+        assert spec.to_dict() == expected_result
 
     def test_add_parameter(self, spec, parameter):
         parameter_name = "foo"
-        expected_result = spec.asdict()
-        expected_result["components"]["parameters"] = {parameter_name: spec.asdict(dataclasses.asdict(parameter))}
+        expected_result = spec.to_dict()
+        expected_result["components"]["parameters"] = {parameter_name: spec.to_dict(dataclasses.asdict(parameter))}
 
         spec.add_parameter(parameter_name, parameter)
 
-        assert spec.asdict() == expected_result
+        assert spec.to_dict() == expected_result
 
     def test_add_example(self, spec, example):
         example_name = "foo"
-        expected_result = spec.asdict()
-        expected_result["components"]["examples"] = {example_name: spec.asdict(dataclasses.asdict(example))}
+        expected_result = spec.to_dict()
+        expected_result["components"]["examples"] = {example_name: spec.to_dict(dataclasses.asdict(example))}
 
         spec.add_example(example_name, example)
 
-        assert spec.asdict() == expected_result
+        assert spec.to_dict() == expected_result
 
     def test_add_request_body(self, spec, request_body):
         request_body_name = "foo"
-        expected_result = spec.asdict()
+        expected_result = spec.to_dict()
         expected_result["components"]["requestBodies"] = {
-            request_body_name: spec.asdict(dataclasses.asdict(request_body))
+            request_body_name: spec.to_dict(dataclasses.asdict(request_body))
         }
 
         spec.add_request_body(request_body_name, request_body)
 
-        assert spec.asdict() == expected_result
+        assert spec.to_dict() == expected_result
 
     def test_add_header(self, spec, header):
         header_name = "foo"
-        expected_result = spec.asdict()
-        expected_result["components"]["headers"] = {header_name: spec.asdict(dataclasses.asdict(header))}
+        expected_result = spec.to_dict()
+        expected_result["components"]["headers"] = {header_name: spec.to_dict(dataclasses.asdict(header))}
 
         spec.add_header(header_name, header)
 
-        assert spec.asdict() == expected_result
+        assert spec.to_dict() == expected_result
 
     def test_add_security(self, spec, security):
         security_name = "foo"
-        expected_result = spec.asdict()
-        expected_result["components"]["securitySchemes"] = {security_name: spec.asdict(security)}
+        expected_result = spec.to_dict()
+        expected_result["components"]["securitySchemes"] = {security_name: spec.to_dict(security)}
 
         spec.add_security(security_name, security)
 
-        assert spec.asdict() == expected_result
+        assert spec.to_dict() == expected_result
 
     def test_add_link(self, spec, link):
         link_name = "foo"
-        expected_result = spec.asdict()
-        expected_result["components"]["links"] = {link_name: spec.asdict(dataclasses.asdict(link))}
+        expected_result = spec.to_dict()
+        expected_result["components"]["links"] = {link_name: spec.to_dict(dataclasses.asdict(link))}
 
         spec.add_link(link_name, link)
 
-        assert spec.asdict() == expected_result
+        assert spec.to_dict() == expected_result
 
     def test_add_callback(self, spec, callback):
         callback_name = "foo"
-        expected_result = spec.asdict()
-        expected_result["components"]["callbacks"] = {callback_name: spec.asdict(callback)}
+        expected_result = spec.to_dict()
+        expected_result["components"]["callbacks"] = {callback_name: spec.to_dict(callback)}
 
         spec.add_callback(callback_name, callback)
 
-        assert spec.asdict() == expected_result
+        assert spec.to_dict() == expected_result

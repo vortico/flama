@@ -417,5 +417,4 @@ class CRUDResourceType(
         return namespace.get("__module__") == "flama.resources.crud" and namespace.get("__qualname__") == "CRUDResource"
 
 
-class CRUDResource(RESTResource, metaclass=CRUDResourceType):
-    ...
+class CRUDResource(RESTResource, metaclass=CRUDResourceType): ...

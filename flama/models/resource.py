@@ -13,7 +13,10 @@ if t.TYPE_CHECKING:
     from flama.models.base import Model
     from flama.models.components import ModelComponent
 
-__all__ = ["ModelResource", "InspectMixin", "PredictMixin", "ModelResourceType"]
+__all__ = ["BaseModelResource", "ModelResource", "InspectMixin", "PredictMixin", "ModelResourceType"]
+
+
+Component = t.TypeVar("Component", bound="ModelComponent")
 
 
 class InspectMixin:
@@ -97,14 +100,15 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
 
     @staticmethod
     def _is_abstract(namespace: dict[str, t.Any]) -> bool:
-        return (
-            namespace.get("__module__") == "flama.models.resource" and namespace.get("__qualname__") == "ModelResource"
+        return namespace.get("__module__") == "flama.models.resource" and namespace.get("__qualname__") in (
+            "BaseModelResource",
+            "ModelResource",
         )
 
     @classmethod
     def _get_model_component(cls, bases: t.Sequence[t.Any], namespace: dict[str, t.Any]) -> "ModelComponent":
         try:
-            component: "ModelComponent" = cls._get_attribute("component", bases, namespace, metadata_namespace="model")
+            component: ModelComponent = cls._get_attribute("component", bases, namespace, metadata_namespace="model")
             return component
         except AttributeError:
             ...
@@ -119,6 +123,10 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
         raise AttributeError(ResourceAttributeError.MODEL_NOT_FOUND)
 
 
-class ModelResource(Resource, metaclass=ModelResourceType):
-    component: "ModelComponent"
+class BaseModelResource(Resource, t.Generic[Component], metaclass=ModelResourceType):
+    component: Component
+    model: t.Any
     model_path: t.Union[str, os.PathLike]
+
+
+class ModelResource(BaseModelResource["ModelComponent"]): ...

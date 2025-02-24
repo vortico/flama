@@ -15,8 +15,8 @@ __all__ = ["RouteParametersMixin"]
 
 class ParametersDescriptor:
     def __init__(self) -> None:
-        self._route: "BaseRoute"
-        self._app: "Flama"
+        self._route: BaseRoute
+        self._app: Flama
 
     def __get__(self, instance, owner) -> "ParametersDescriptor":
         self._route = instance
