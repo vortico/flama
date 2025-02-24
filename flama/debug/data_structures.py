@@ -144,20 +144,22 @@ class Endpoint:
 
 @dataclasses.dataclass(frozen=True)
 class App:
-    urls: list[t.Union[Endpoint, "App"]]
+    apps: list["App"]
+    endpoints: list[Endpoint]
     path: str
     name: t.Optional[str] = None
 
     @classmethod
     def from_app(cls, app: t.Any, path: str = "/", name: t.Optional[str] = None) -> "App":
-        urls: list[t.Union[Endpoint, App]] = []
+        apps: list[App] = []
+        endpoints: list[Endpoint] = []
         for route in app.routes:
             try:
-                urls.append(App.from_app(route.app, path=route.path.path, name=route.name))
+                apps.append(App.from_app(route.app, path=route.path.path, name=route.name))
             except AttributeError:
-                urls.append(Endpoint.from_route(route))
+                endpoints.append(Endpoint.from_route(route))
 
-        return cls(urls=urls, path=path, name=name)
+        return cls(apps=apps, endpoints=endpoints, path=path, name=name)
 
 
 @dataclasses.dataclass(frozen=True)

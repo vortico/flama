@@ -210,6 +210,8 @@ class HTMLTemplatesEnvironment(jinja2.Environment):
             *args,
             **{
                 **kwargs,
+                "comment_start_string": "||*",
+                "comment_end_string": "*||",
                 "block_start_string": "||%",
                 "block_end_string": "%||",
                 "variable_start_string": "||@",
@@ -217,8 +219,21 @@ class HTMLTemplatesEnvironment(jinja2.Environment):
             },
         )
 
+        self.filters["safe"] = self.safe
         self.filters["safe_json"] = self.safe_json
 
+    @t.overload
+    def _escape(self, value: str) -> str: ...
+    @t.overload
+    def _escape(self, value: bool) -> bool: ...
+    @t.overload
+    def _escape(self, value: int) -> int: ...
+    @t.overload
+    def _escape(self, value: float) -> float: ...
+    @t.overload
+    def _escape(self, value: None) -> None: ...
+    @t.overload
+    def _escape(self, value: types.JSONField) -> types.JSONField: ...
     def _escape(self, value: types.JSONField) -> types.JSONField:
         if isinstance(value, (list, tuple)):
             return [self._escape(x) for x in value]
@@ -227,9 +242,12 @@ class HTMLTemplatesEnvironment(jinja2.Environment):
             return {k: self._escape(v) for k, v in value.items()}
 
         if isinstance(value, str):
-            return html.escape(value).replace("\n", "&#13;")
+            return html.escape(value).replace("\n", "&#10;&#13;")
 
         return value
+
+    def safe(self, value: str) -> str:
+        return self._escape(value)
 
     def safe_json(self, value: types.JSONField):
         return json.dumps(self._escape(value)).replace('"', '\\"')

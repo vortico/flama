@@ -9,7 +9,12 @@ const config = {
         corejs: { version: 3, proposals: true },
       },
     ],
-    '@babel/preset-react',
+    [
+      '@babel/preset-react',
+      {
+        runtime: 'automatic',
+      },
+    ],
     '@babel/preset-typescript',
   ],
   plugins: ['@babel/plugin-transform-runtime', '@babel/plugin-transform-spread'],

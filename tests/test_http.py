@@ -258,7 +258,7 @@ class TestCaseHTMLTemplatesEnvironment:
     @pytest.mark.parametrize(
         ["value", "result"],
         (
-            pytest.param("& < > \" ' \n", "&amp; &lt; &gt; &quot; &#x27; &#13;", id="str"),
+            pytest.param("& < > \" ' \n", "&amp; &lt; &gt; &quot; &#x27; &#10;&#13;", id="str"),
             pytest.param(1, 1, id="int"),
             pytest.param(1.0, 1.0, id="float"),
             pytest.param(True, True, id="bool"),
@@ -304,7 +304,20 @@ class TestCaseHTMLTemplatesEnvironment:
     @pytest.mark.parametrize(
         ["value", "result"],
         (
-            pytest.param("& < > \" ' \n", '\\"&amp; &lt; &gt; &quot; &#x27; &#13;\\"', id="str"),
+            pytest.param("& < > \" ' \n", "&amp; &lt; &gt; &quot; &#x27; &#10;&#13;", id="str"),
+            pytest.param("1", "1", id="int"),
+            pytest.param("1.0", "1.0", id="float"),
+            pytest.param("true", "true", id="bool"),
+            pytest.param("null", "null", id="none"),
+        ),
+    )
+    def test_safe(self, environment, value, result):
+        assert environment.safe(value) == result
+
+    @pytest.mark.parametrize(
+        ["value", "result"],
+        (
+            pytest.param("& < > \" ' \n", '\\"&amp; &lt; &gt; &quot; &#x27; &#10;&#13;\\"', id="str"),
             pytest.param(1, "1", id="int"),
             pytest.param(1.0, "1.0", id="float"),
             pytest.param(True, "true", id="bool"),
