@@ -1,11 +1,13 @@
-@import 'base.css';
+@import 'tailwindcss';
+@import './theme.css';
 
 /*! purgecss start ignore */
-@import 'scrollbar.css';
-@import 'prism.css';
+@import './scrollbar.css';
+@import './prism.css';
 /*! purgecss end ignore */
 
 body {
-    height: 100%;
-    @apply bg-primary-100 text-primary-600;
+  height: 100%;
+  @apply bg-primary-100 text-primary-600;
 }
+

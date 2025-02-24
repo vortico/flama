@@ -28,6 +28,7 @@ export default [
     rules: {
       // turn on errors for missing imports
       'import/no-unresolved': 'error',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^React$' }],
     },
     settings: {
       'import/parsers': {

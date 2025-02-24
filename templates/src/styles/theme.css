@@ -1,0 +1,98 @@
+@theme {
+  /* Fonts */
+  --font-sans:
+    'Lato', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
+  --font-serif: 'Lato', ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-mono:
+    'Fira Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --font-alternative:
+    'Montserrat', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
+
+  /* Colors */
+  --color-*: initial;
+  --color-vortico: #008080;
+  --color-vortico-50: #00dcdc;
+  --color-vortico-100: #00d2d2;
+  --color-vortico-200: #00bdbd;
+  --color-vortico-300: #00a9a9;
+  --color-vortico-400: #009494;
+  --color-vortico-500: #008080;
+  --color-vortico-600: #007171;
+  --color-vortico-700: #006161;
+  --color-vortico-800: #005252;
+  --color-vortico-900: #004343;
+  --color-vortico-950: #003b3b;
+
+  --color-bruma: #00bbd5;
+  --color-bruma-50: #ebfeff;
+  --color-bruma-100: #cefcff;
+  --color-bruma-200: #a2f7ff;
+  --color-bruma-300: #63effd;
+  --color-bruma-400: #1cdcf4;
+  --color-bruma-500: #00bbd5;
+  --color-bruma-600: #0398b7;
+  --color-bruma-700: #0a7994;
+  --color-bruma-800: #126178;
+  --color-bruma-900: #145165;
+  --color-bruma-950: #063646;
+
+  --color-bosque: #9e744f;
+  --color-bosque-50: #f7f4ef;
+  --color-bosque-100: #ebe3d6;
+  --color-bosque-200: #d9c8af;
+  --color-bosque-300: #c2a682;
+  --color-bosque-400: #b0895f;
+  --color-bosque-500: #9e744f;
+  --color-bosque-600: #8a5f44;
+  --color-bosque-700: #6f4939;
+  --color-bosque-800: #5f3f34;
+  --color-bosque-900: #523731;
+  --color-bosque-950: #2f1d19;
+
+  --color-ciclon: #00976e;
+  --color-ciclon-50: #ebfef6;
+  --color-ciclon-100: #d0fbe7;
+  --color-ciclon-200: #a4f6d3;
+  --color-ciclon-300: #6aebbd;
+  --color-ciclon-400: #2fd8a1;
+  --color-ciclon-500: #0abf8a;
+  --color-ciclon-600: #00976e;
+  --color-ciclon-700: #007c5e;
+  --color-ciclon-800: #03624b;
+  --color-ciclon-900: #04503f;
+  --color-ciclon-950: #012d25;
+
+  --color-flama: #e25822;
+  --color-flama-50: #fdf5ef;
+  --color-flama-100: #fbe8d9;
+  --color-flama-200: #f6cdb2;
+  --color-flama-300: #f0ac81;
+  --color-flama-400: #e9804e;
+  --color-flama-500: #e25822;
+  --color-flama-600: #d54821;
+  --color-flama-700: #b1351d;
+  --color-flama-800: #8d2d1f;
+  --color-flama-900: #72271c;
+  --color-flama-950: #3d110d;
+
+  --color-primary: #656775;
+  --color-primary-50: #f5f5f6;
+  --color-primary-100: #e5e6e8;
+  --color-primary-200: #cdced4;
+  --color-primary-300: #aaabb6;
+  --color-primary-400: #808290;
+  --color-primary-500: #656775;
+  --color-primary-600: #575863;
+  --color-primary-700: #4a4a54;
+  --color-primary-800: #3f3f46;
+  --color-primary-900: #3a3a3f;
+  --color-primary-950: #242428;
+
+  /* Sizes */
+  --breakpoint-3xl: 120rem;
+
+  --container-8xl: 96rem;
+  --container-9xl: 120rem;
+}
