@@ -9,9 +9,13 @@ from flama.models import ModelResource
 from flama.resources import resource_method
 
 app = Flama(
-    title="Flama ML",
-    version="0.1.0",
-    description="Machine learning API using Flama 🔥",
+    openapi={
+        "info": {
+            "title": "Flama ML",
+            "version": "0.1.0",
+            "description": "Machine learning API using Flama 🔥",
+        }
+    },
     docs="/docs/",
 )
 

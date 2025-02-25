@@ -117,6 +117,8 @@ class TestCaseSchema:
             return t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema.schema)]
         elif request.param == "list_of_schema":
             return t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(foo_schema.schema)]
+        elif request.param == "list_of_bare_schema":
+            return list[foo_schema.schema]
         elif request.param == "schema_partial":
             if app.schema.schema_library.lib in (typesystem,):
                 pytest.skip("Library does not support optional partial schemas")
@@ -142,6 +144,7 @@ class TestCaseSchema:
             pytest.param("schema", None, id="schema"),
             pytest.param("schema_partial", None, id="schema_partial"),
             pytest.param("list_of_schema", None, id="list_of_schema"),
+            pytest.param("list_of_bare_schema", None, id="list_of_bare_schema"),
             pytest.param("schema_nested", None, id="schema_nested"),
             pytest.param("schema_nested_optional", None, id="schema_nested_optional"),
             pytest.param("schema_nested_list", None, id="schema_nested_list"),
@@ -193,6 +196,18 @@ class TestCaseSchema:
                 {"properties": {"name": {"anyOf": [{"type": "string"}, {"type": "null"}]}}, "type": "object"},
                 None,
                 id="partial",
+            ),
+            pytest.param(
+                "list_of_schema",
+                {"properties": {"name": {"type": "string"}}, "type": "object"},
+                None,
+                id="list",
+            ),
+            pytest.param(
+                "list_of_bare_schema",
+                {"properties": {"name": {"type": "string"}}, "type": "object"},
+                None,
+                id="list_bare",
             ),
             pytest.param(
                 "schema_nested",

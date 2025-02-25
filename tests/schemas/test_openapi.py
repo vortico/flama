@@ -9,6 +9,7 @@ from flama.schemas.openapi import (
     Example,
     ExternalDocs,
     Header,
+    Info,
     License,
     Link,
     MediaType,
@@ -30,12 +31,14 @@ class TestCaseOpenAPISpec:
     @pytest.fixture
     def spec(self):
         return OpenAPISpec(
-            title="Title",
-            version="1.0.0",
-            description="Description",
-            terms_of_service="TOS",
-            contact=Contact(name="Contact name", url="https://contact.com", email="contact@contact.com"),
-            license=License(name="License name", url="https://license.com"),
+            info=Info(
+                title="Title",
+                version="1.0.0",
+                description="Description",
+                termsOfService="TOS",
+                contact=Contact(name="Contact name", url="https://contact.com", email="contact@contact.com"),
+                license=License(name="License name", url="https://license.com"),
+            )
         )
 
     @pytest.fixture
@@ -180,43 +183,186 @@ class TestCaseOpenAPISpec:
     def callback(self, fake, path):
         return Callback({fake.word(): path})
 
-    def test_init(self):
-        assert OpenAPISpec(title="Title", version="1.0.0")
+    @pytest.mark.parametrize(
+        ["spec", "result"],
+        [
+            pytest.param(
+                {"info": {"title": "Title", "version": "1.0.0"}},
+                {
+                    "openapi": "3.1.0",
+                    "info": {"title": "Title", "version": "1.0.0"},
+                    "components": {
+                        "callbacks": {},
+                        "examples": {},
+                        "headers": {},
+                        "links": {},
+                        "parameters": {},
+                        "requestBodies": {},
+                        "responses": {},
+                        "schemas": {},
+                        "securitySchemes": {},
+                    },
+                    "paths": {},
+                },
+                id="simple",
+            ),
+            pytest.param(
+                {
+                    "info": {
+                        "title": "Example API",
+                        "summary": "This is an example API specification",
+                        "description": "A detailed description of the Example API, including usage and endpoints.",
+                        "termsOfService": "https://example.com/terms",
+                        "contact": {
+                            "name": "API Support",
+                            "url": "https://example.com/contact",
+                            "email": "support@example.com",
+                        },
+                        "license": {
+                            "name": "MIT",
+                            "identifier": "MIT",
+                            "url": "https://opensource.org/licenses/MIT",
+                        },
+                        "version": "1.0.0",
+                    },
+                    "servers": [
+                        {
+                            "url": "https://api.example.com/v1",
+                            "description": "Production server",
+                            "variables": {
+                                "version": {
+                                    "default": "v1",
+                                    "enum": ["v1", "v2"],
+                                    "description": "API version",
+                                }
+                            },
+                        },
+                        {
+                            "url": "https://staging-api.example.com",
+                            "description": "Staging server",
+                        },
+                    ],
+                    "security": [
+                        {
+                            "OAuth2": ["read", "write"],
+                            "ApiKeyAuth": [],
+                        }
+                    ],
+                    "tags": [
+                        {
+                            "name": "users",
+                            "description": "Operations related to users",
+                            "externalDocs": {
+                                "url": "https://docs.example.com/users",
+                                "description": "User API documentation",
+                            },
+                        },
+                        {
+                            "name": "orders",
+                            "description": "Operations related to orders",
+                        },
+                    ],
+                    "externalDocs": {
+                        "url": "https://docs.example.com",
+                        "description": "Full API documentation",
+                    },
+                },
+                {
+                    "components": {
+                        "callbacks": {},
+                        "examples": {},
+                        "headers": {},
+                        "links": {},
+                        "parameters": {},
+                        "requestBodies": {},
+                        "responses": {},
+                        "schemas": {},
+                        "securitySchemes": {},
+                    },
+                    "externalDocs": {
+                        "description": "Full API documentation",
+                        "url": "https://docs.example.com",
+                    },
+                    "info": {
+                        "contact": {
+                            "email": "support@example.com",
+                            "name": "API Support",
+                            "url": "https://example.com/contact",
+                        },
+                        "description": "A detailed description of the Example API, including usage and endpoints.",
+                        "license": {
+                            "identifier": "MIT",
+                            "name": "MIT",
+                            "url": "https://opensource.org/licenses/MIT",
+                        },
+                        "summary": "This is an example API specification",
+                        "termsOfService": "https://example.com/terms",
+                        "title": "Example API",
+                        "version": "1.0.0",
+                    },
+                    "openapi": "3.1.0",
+                    "paths": {},
+                    "security": [
+                        {
+                            "ApiKeyAuth": [],
+                            "OAuth2": [
+                                "read",
+                                "write",
+                            ],
+                        },
+                    ],
+                    "servers": [
+                        {
+                            "description": "Production server",
+                            "url": "https://api.example.com/v1",
+                            "variables": {
+                                "version": {
+                                    "default": "v1",
+                                    "description": "API version",
+                                    "enum": [
+                                        "v1",
+                                        "v2",
+                                    ],
+                                },
+                            },
+                        },
+                        {
+                            "description": "Staging server",
+                            "url": "https://staging-api.example.com",
+                        },
+                    ],
+                    "tags": [
+                        {
+                            "description": "Operations related to users",
+                            "externalDocs": {
+                                "description": "User API documentation",
+                                "url": "https://docs.example.com/users",
+                            },
+                            "name": "users",
+                        },
+                        {
+                            "description": "Operations related to orders",
+                            "name": "orders",
+                        },
+                    ],
+                },
+                id="full",
+            ),
+        ],
+    )
+    def test_from_spec_to_dict(self, spec, result):
+        assert OpenAPISpec.from_spec(spec).to_dict() == result
+        assert OpenAPISpec(info=Info(title="Title", version="1.0.0"))
         assert OpenAPISpec(
-            title="Title",
-            version="1.0.0",
-            description="Description",
-            terms_of_service="TOS",
-            contact=Contact(name="Contact name", url="Contact url", email="Contact email"),
-            license=License(name="License name", url="License url"),
+            info=Info(
+                title="Title",
+                version="1.0.0",
+                description="Description",
+                termsOfService="TOS",
+                contact=Contact(name="Contact name", url="Contact url", email="Contact email"),
+                license=License(name="License name", url="License url"),
+            ),
         )
-
-    def test_asdict(self, spec):
-        expected_result = {
-            "openapi": "3.1.0",
-            "info": {
-                "title": "Title",
-                "version": "1.0.0",
-                "description": "Description",
-                "termsOfService": "TOS",
-                "contact": {"name": "Contact name", "url": "https://contact.com", "email": "contact@contact.com"},
-                "license": {"name": "License name", "url": "https://license.com"},
-            },
-            "components": {
-                "callbacks": {},
-                "examples": {},
-                "headers": {},
-                "links": {},
-                "parameters": {},
-                "requestBodies": {},
-                "responses": {},
-                "schemas": {},
-                "securitySchemes": {},
-            },
-            "paths": {},
-        }
-
-        assert spec.to_dict() == expected_result
 
     def test_add_path(self, spec, path):
         path_name = "foo"

@@ -1,6 +1,6 @@
 import sys
 
-__all__ = ["Concatenate", "ParamSpec", "TypeGuard", "UnionType", "StrEnum", "tomllib"]
+__all__ = ["Concatenate", "ParamSpec", "TypeGuard", "UnionType", "NotRequired", "StrEnum", "tomllib"]
 
 # PORT: Remove when stop supporting 3.9
 # Concatenate was added in Python 3.10
@@ -36,6 +36,14 @@ if sys.version_info >= (3, 10):
     from types import UnionType
 else:
     from typing import Union as UnionType
+
+# PORT: Remove when stop supporting 3.10
+# NotRequired was added in Python 3.11
+# https://docs.python.org/3/library/enum.html#enum.StrEnum
+if sys.version_info >= (3, 11):
+    from typing import NotRequired
+else:
+    from typing_extensions import NotRequired
 
 
 # PORT: Remove when stop supporting 3.10

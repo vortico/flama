@@ -1,6 +1,17 @@
 import flama
 
-app = flama.Flama(title="Hello-🔥", version="1.0", description="My first API")
+app = flama.Flama(
+    openapi={
+        "info": {
+            "title": "Hello-🔥",
+            "version": "1.0",
+            "description": "My first API",
+        },
+        "tags": [
+            {"name": "Salute", "description": "This is the salute description"},
+        ],
+    }
+)
 
 
 @app.route("/")

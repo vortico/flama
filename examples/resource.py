@@ -33,9 +33,13 @@ class PuppyResource(CRUDResource):
 
 
 app = Flama(
-    title="Puppy Register",  # API title
-    version="0.1.0",  # API version
-    description="A register of puppies",  # API description
+    openapi={
+        "info": {
+            "title": "Puppy Register",  # API title
+            "version": "0.1.0",  # API version
+            "description": "A register of puppies",  # API description
+        }
+    },
     modules=[SQLAlchemyModule(database=DATABASE_URL)],
 )
 

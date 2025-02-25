@@ -6,9 +6,13 @@ import flama
 from flama import Flama, schemas
 
 app = Flama(
-    title="Puppy Register",  # API title
-    version="0.1",  # API version
-    description="A register of puppies",  # API description
+    openapi={
+        "info": {
+            "title": "Puppy Register",  # API title
+            "version": "0.1",  # API version
+            "description": "A register of puppies",  # API description
+        }
+    },
     schema="/schema/",  # Path to expose OpenAPI schema
     docs="/docs/",  # Path to expose Docs application
 )
