@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 class Flama:
     def __init__(
         self,
+        *,
         routes: t.Optional[t.Sequence["routing.BaseRoute"]] = None,
         components: t.Optional[t.Union[t.Sequence[injection.Component], set[injection.Component]]] = None,
         modules: t.Optional[t.Union[t.Sequence["Module"], set["Module"]]] = None,
@@ -37,9 +38,14 @@ class Flama:
         debug: bool = False,
         events: t.Optional[t.Union[dict[str, list[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]]], Events]] = None,
         lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None,
-        title: str = "Flama",
-        version: str = "0.1.0",
-        description: str = "Firing up with the flame",
+        openapi: types.OpenAPISpec = {
+            "info": {
+                "title": "Flama",
+                "version": "0.1.0",
+                "summary": "Flama application",
+                "description": "Firing up with the flame",
+            },
+        },
         schema: t.Optional[str] = "/schema/",
         docs: t.Optional[str] = "/docs/",
         schema_library: t.Optional[str] = None,
@@ -92,7 +98,7 @@ class Flama:
         # Initialise modules
         default_modules = [
             ResourcesModule(worker=worker),
-            SchemaModule(title, version, description, schema=schema, docs=docs),
+            SchemaModule(openapi, schema=schema, docs=docs),
             ModelsModule(),
         ]
         self.modules = Modules(app=self, modules={*default_modules, *(modules or [])})

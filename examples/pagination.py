@@ -24,9 +24,13 @@ PUPPIES: list[Puppy] = [Puppy(id=1, name="Canna", age=7), Puppy(id=2, name="Sand
 
 
 app = Flama(
-    title="Puppy Register",  # API title
-    version="0.1",  # API version
-    description="A register of puppies",  # API description
+    openapi={
+        "info": {
+            "title": "Puppy Register",  # API title
+            "version": "0.1",  # API version
+            "description": "A register of puppies",  # API description
+        }
+    },
 )
 
 

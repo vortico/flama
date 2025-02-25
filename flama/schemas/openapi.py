@@ -1,7 +1,7 @@
 import dataclasses
 import typing as t
 
-import flama.types
+from flama import types
 
 __all__ = [
     "Schema",
@@ -32,7 +32,7 @@ __all__ = [
     "OpenAPISpec",
 ]
 
-Schema = t.NewType("Schema", flama.types.JSONSchema)
+Schema = t.NewType("Schema", types.JSONSchema)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -46,17 +46,30 @@ class Contact:
     url: t.Optional[str] = None
     email: t.Optional[str] = None
 
+    @classmethod
+    def from_spec(cls, spec: types.OpenAPISpecInfoContact, /) -> "Contact":
+        return cls(**spec)
+
 
 @dataclasses.dataclass(frozen=True)
 class License:
     name: str
+    identifier: t.Optional[str] = None
     url: t.Optional[str] = None
+
+    @classmethod
+    def from_spec(cls, spec: types.OpenAPISpecInfoLicense, /) -> "License":
+        return cls(**spec)
 
 
 @dataclasses.dataclass(frozen=True)
 class ExternalDocs:
     url: str
     description: t.Optional[str] = None
+
+    @classmethod
+    def from_spec(cls, spec: types.OpenAPISpecExternalDocs, /) -> "ExternalDocs":
+        return cls(**spec)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -73,29 +86,77 @@ class Tag:
     description: t.Optional[str] = None
     externalDocs: t.Optional[ExternalDocs] = None
 
+    @classmethod
+    def from_spec(cls, spec: types.OpenAPISpecTag, /) -> "Tag":
+        return cls(
+            name=spec["name"],
+            description=spec.get("description"),
+            externalDocs=(
+                ExternalDocs.from_spec(t.cast(types.OpenAPISpecExternalDocs, spec.get("externalDocs")))
+                if "externalDocs" in spec
+                else None
+            ),
+        )
+
 
 @dataclasses.dataclass(frozen=True)
 class Info:
     title: str
     version: str
+    summary: t.Optional[str] = None
     description: t.Optional[str] = None
     termsOfService: t.Optional[str] = None
     contact: t.Optional[Contact] = None
     license: t.Optional[License] = None
 
+    @classmethod
+    def from_spec(cls, spec: types.OpenAPISpecInfo) -> "Info":
+        return cls(
+            title=spec["title"],
+            version=spec["version"],
+            summary=spec.get("summary"),
+            description=spec.get("description"),
+            termsOfService=spec.get("termsOfService"),
+            contact=(
+                Contact.from_spec(t.cast(types.OpenAPISpecInfoContact, spec["contact"])) if "contact" in spec else None
+            ),
+            license=(
+                License.from_spec(t.cast(types.OpenAPISpecInfoLicense, spec["license"])) if "license" in spec else None
+            ),
+        )
+
 
 @dataclasses.dataclass(frozen=True)
 class ServerVariable:
-    enum: list[str]
     default: str
+    enum: t.Optional[list[str]] = None
     description: t.Optional[str] = None
+
+    @classmethod
+    def from_spec(cls, spec: types.OpenAPISpecServerVariable, /) -> "ServerVariable":
+        return cls(**spec)
 
 
 @dataclasses.dataclass(frozen=True)
 class Server:
     url: str
-    variables: dict[str, ServerVariable]
     description: t.Optional[str] = None
+    variables: t.Optional[dict[str, ServerVariable]] = None
+
+    @classmethod
+    def from_spec(cls, spec: types.OpenAPISpecServer, /) -> "Server":
+        return cls(
+            url=spec["url"],
+            description=spec.get("description"),
+            variables=(
+                {
+                    name: ServerVariable.from_spec(t.cast(types.OpenAPISpecServerVariable, variable))
+                    for name, variable in spec["variables"].items()
+                }
+                if "variables" in spec and spec["variables"]
+                else None
+            ),
+        )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -251,23 +312,16 @@ class OpenAPISpec:
 
     def __init__(
         self,
-        title: str,
-        version: str,
-        description: t.Optional[str] = None,
-        terms_of_service: t.Optional[str] = None,
-        contact: t.Optional[Contact] = None,
-        license: t.Optional[License] = None,
+        info: Info,
+        *,
+        servers: t.Optional[list[Server]] = None,
+        security: t.Optional[list[Security]] = None,
+        tags: t.Optional[list[Tag]] = None,
+        externalDocs: t.Optional[ExternalDocs] = None,
     ):
         self.spec = OpenAPI(
             openapi=self.OPENAPI_VERSION,
-            info=Info(
-                title=title,
-                version=version,
-                description=description,
-                termsOfService=terms_of_service,
-                contact=contact,
-                license=license,
-            ),
+            info=info,
             paths=Paths({}),
             components=Components(
                 schemas={},
@@ -279,6 +333,32 @@ class OpenAPISpec:
                 securitySchemes={},
                 links={},
                 callbacks={},
+            ),
+            servers=servers,
+            security=security,
+            tags=tags,
+            externalDocs=externalDocs,
+        )
+
+    @classmethod
+    def from_spec(cls, spec: types.OpenAPISpec, /) -> "OpenAPISpec":
+        return cls(
+            info=Info.from_spec(spec["info"]),
+            servers=(
+                [Server.from_spec(t.cast(types.OpenAPISpecServer, server)) for server in spec["servers"]]
+                if "servers" in spec and spec["servers"]
+                else None
+            ),
+            security=(
+                [Security(security) for security in spec["security"]]
+                if "security" in spec and spec["security"]
+                else None
+            ),
+            tags=[Tag.from_spec(tag) for tag in spec["tags"]] if "tags" in spec and spec["tags"] else None,
+            externalDocs=(
+                ExternalDocs.from_spec(t.cast(types.OpenAPISpecExternalDocs, spec.get("externalDocs")))
+                if "externalDocs" in spec
+                else None
             ),
         )
 
