@@ -242,35 +242,8 @@ class SchemaRegistry(dict[int, SchemaInfo]):
 
 
 class SchemaGenerator:
-    def __init__(
-        self,
-        title: str,
-        version: str,
-        description: t.Optional[str] = None,
-        terms_of_service: t.Optional[str] = None,
-        contact_name: t.Optional[str] = None,
-        contact_url: t.Optional[str] = None,
-        contact_email: t.Optional[str] = None,
-        license_name: t.Optional[str] = None,
-        license_url: t.Optional[str] = None,
-        schemas: t.Optional[dict] = None,
-    ):
-        contact = (
-            openapi.Contact(name=contact_name, url=contact_url, email=contact_email)
-            if contact_name or contact_url or contact_email
-            else None
-        )
-
-        license = openapi.License(name=license_name, url=license_url) if license_name else None
-
-        self.spec = openapi.OpenAPISpec(
-            title=title,
-            version=version,
-            description=description,
-            terms_of_service=terms_of_service,
-            contact=contact,
-            license=license,
-        )
+    def __init__(self, spec: types.OpenAPISpec, schemas: t.Optional[dict[str, schemas.Schema]] = None):
+        self.spec = openapi.OpenAPISpec.from_spec(spec)
 
         # Builtin definitions
         self.schemas = SchemaRegistry(schemas=schemas)

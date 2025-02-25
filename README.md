@@ -33,17 +33,17 @@ and production-ready services, offering automatic deployment for ML models.
 
 Some remarkable characteristics:
 
-* Generic classes for API resources with the convenience of standard CRUD methods over SQLAlchemy tables.
-* A schema system (based on Marshmallow or Typesystem) which allows the declaration of inputs and outputs of endpoints
+- Generic classes for API resources with the convenience of standard CRUD methods over SQLAlchemy tables.
+- A schema system (based on Marshmallow or Typesystem) which allows the declaration of inputs and outputs of endpoints
   very easily, with the convenience of reliable and automatic data-type validation.
-* Dependency injection to make ease the process of managing parameters needed in endpoints via the use of `Component`s.
+- Dependency injection to make ease the process of managing parameters needed in endpoints via the use of `Component`s.
   Flama ASGI objects like `Request`, `Response`, `Session` and so on are defined as `Component`s ready to be injected in
   your endpoints.
-* `Component`s as the base of the plugin ecosystem, allowing you to create custom or use those already defined in your
+- `Component`s as the base of the plugin ecosystem, allowing you to create custom or use those already defined in your
   endpoints, injected as parameters.
-* Auto generated API schema using OpenAPI standard.
-* Auto generated `docs`, and provides a Swagger UI and ReDoc endpoints.
-* Automatic handling of pagination, with several methods at your disposal such as `limit-offset` and `page numbering`,
+- Auto generated API schema using OpenAPI standard.
+- Auto generated `docs`, and provides a Swagger UI and ReDoc endpoints.
+- Automatic handling of pagination, with several methods at your disposal such as `limit-offset` and `page numbering`,
   to name a few.
 
 ## Installation
@@ -52,7 +52,7 @@ Flama is fully compatible with all [supported versions](https://devguide.python.
 you to use the latest version available.
 
 For a detailed explanation on how to install flama
-visit:  [https://flama.dev/docs/getting-started/installation](https://flama.dev/docs/getting-started/installation).
+visit: [https://flama.dev/docs/getting-started/installation](https://flama.dev/docs/getting-started/installation).
 
 ## Getting Started
 
@@ -68,11 +68,7 @@ Visit [https://flama.dev/docs/](https://flama.dev/docs/) to view the full docume
 ```python
 from flama import Flama
 
-app = Flama(
-    title="Hello-🔥",
-    version="1.0",
-    description="My first API",
-)
+app = Flama()
 
 
 @app.route("/")
@@ -101,8 +97,8 @@ flama run examples.hello_flama:app
 
 ## Authors
 
-* José Antonio Perdiguero López ([@perdy](https://github.com/perdy/))
-* Miguel Durán-Olivencia ([@migduroli](https://github.com/migduroli/))
+- José Antonio Perdiguero López ([@perdy](https://github.com/perdy/))
+- Miguel Durán-Olivencia ([@migduroli](https://github.com/migduroli/))
 
 ## Contributing
 

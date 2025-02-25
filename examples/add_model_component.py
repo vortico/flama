@@ -90,9 +90,13 @@ class MyCustomModelResource(BaseModelResource[MyCustomModelComponent]):
 
 
 app = Flama(
-    title="Flama ML",
-    version="0.1.0",
-    description="Machine learning API using Flama 🔥",
+    openapi={
+        "info": {
+            "title": "Flama ML",
+            "version": "0.1.0",
+            "description": "Machine learning API using Flama 🔥",
+        }
+    },
     docs="/docs/",
     components=[component],
 )

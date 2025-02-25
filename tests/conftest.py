@@ -76,6 +76,11 @@ def clear_pagination():
     paginator.schemas = {}
 
 
+@pytest.fixture
+def openapi_spec():
+    return {"info": {"title": "Foo", "version": "1.0.0", "description": "Bar"}}
+
+
 @pytest.fixture(
     scope="function",
     params=[
@@ -84,11 +89,9 @@ def clear_pagination():
         pytest.param("marshmallow", id="marshmallow"),
     ],
 )
-def app(request):
+def app(request, openapi_spec):
     return Flama(
-        title="Foo",
-        version="0.1",
-        description="Bar",
+        openapi=openapi_spec,
         schema="/schema/",
         docs="/docs/",
         modules={SQLAlchemyModule("sqlite+aiosqlite://")},
