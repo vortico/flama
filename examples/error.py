@@ -2,9 +2,16 @@ import flama
 from flama import Flama, routing
 
 app = Flama(
-    title="Hello-🔥",
-    version="1.0",
-    description="My first API",
+    openapi={
+        "info": {
+            "title": "Hello-🔥",
+            "version": "1.0",
+            "description": "My first API",
+        },
+        "tags": [
+            {"name": "Salute", "description": "This is the salute description"},
+        ],
+    },
     debug=True,
 )
 

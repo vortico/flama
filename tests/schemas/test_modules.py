@@ -8,21 +8,22 @@ from flama.schemas.modules import SchemaModule
 
 class TestCaseSchemaModule:
     @pytest.fixture
-    def module(self):
-        m = SchemaModule("title", "0.1.0", "Foo", schema="/schema/", docs="/docs/")
+    def module(self, openapi_spec):
+        m = SchemaModule(openapi=openapi_spec, schema="/schema/", docs="/docs/")
         m.app = Flama()
         return m
 
-    def test_init(self):
-        title = "title"
-        version = "0.1.0"
-        description = "Foo"
+    def test_init(self, openapi_spec):
+        module = SchemaModule(openapi_spec, schema="/schema/", docs="/docs/")
 
-        module = SchemaModule(title, version, description, "/schema/", "/docs/")
+        assert module.openapi == openapi_spec
 
-        assert module.title == title
-        assert module.version == version
-        assert module.description == description
+    def test_register_schema(self, module, foo_schema):
+        assert module.schemas == {}
+
+        module.register_schema("foo", foo_schema)
+
+        assert module.schemas == {"foo": foo_schema}
 
     def test_schema_generator(self, module):
         with patch("flama.schemas.modules.SchemaGenerator") as generator_mock:
@@ -30,9 +31,7 @@ class TestCaseSchemaModule:
 
         assert generator_mock.call_args_list == [
             call(
-                title="title",
-                version="0.1.0",
-                description="Foo",
+                spec={"info": {"title": "Foo", "version": "1.0.0", "description": "Bar"}},
                 schemas={**schemas.schemas.SCHEMAS, **pagination.paginator.schemas},
             )
         ]
@@ -40,7 +39,7 @@ class TestCaseSchemaModule:
     def test_schema(self, module):
         assert module.schema == {
             "openapi": "3.1.0",
-            "info": {"title": "title", "version": "0.1.0", "description": "Foo"},
+            "info": {"title": "Foo", "version": "1.0.0", "description": "Bar"},
             "paths": {},
             "components": {
                 "schemas": {},
@@ -56,19 +55,16 @@ class TestCaseSchemaModule:
         }
 
     @pytest.mark.parametrize(
-        ["schema", "docs", "exception"],
+        ["schema", "docs"],
         (
-            pytest.param(False, False, None, id="no_schema_no_docs"),
-            pytest.param(True, False, None, id="schema_but_no_docs"),
-            pytest.param(
-                False, True, AssertionError("Schema path must be defined to use docs view"), id="no_schema_but_docs"
-            ),
-            pytest.param(True, True, None, id="schema_and_docs"),
+            pytest.param(False, False, id="no_schema_no_docs"),
+            pytest.param(True, False, id="schema_but_no_docs"),
+            pytest.param(False, True, id="no_schema_but_docs"),
+            pytest.param(True, True, id="schema_and_docs"),
         ),
-        indirect=["exception"],
     )
-    def test_add_routes(self, schema, docs, exception):
-        module = SchemaModule("", "", "", schema, docs)
+    def test_add_routes(self, openapi_spec, schema, docs):
+        module = SchemaModule(openapi_spec, schema=schema, docs=docs)
         module.app = Mock(Flama)
         expected_calls = []
         if schema:
@@ -76,9 +72,9 @@ class TestCaseSchemaModule:
         if docs:
             expected_calls.append(call(docs, module.docs_view, methods=["GET"], include_in_schema=False))
 
-        with exception:
-            module.add_routes()
-            assert module.app.add_route.call_args_list == expected_calls
+        module.add_routes()
+
+        assert module.app.add_route.call_args_list == expected_calls
 
     async def test_view_schema(self, client):
         response = await client.request("get", "/schema/")

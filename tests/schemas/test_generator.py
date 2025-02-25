@@ -40,8 +40,8 @@ class TestCaseSchemaRegistry:
         return SchemaRegistry()
 
     @pytest.fixture(scope="function")
-    def spec(self):
-        return openapi.OpenAPISpec(title="Foo", version="1.0.0")
+    def spec(self, openapi_spec):
+        return openapi.OpenAPISpec.from_spec(openapi_spec)
 
     def test_empty_init(self):
         assert SchemaRegistry() == {}
@@ -1046,7 +1046,7 @@ class TestCaseSchemaGenerator:
         schema = app.schema.schema["info"]
 
         assert schema["title"] == "Foo"
-        assert schema["version"] == "0.1"
+        assert schema["version"] == "1.0.0"
         assert schema["description"] == "Bar"
 
     def test_components_schemas(self, app, schemas):

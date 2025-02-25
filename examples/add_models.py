@@ -60,9 +60,13 @@ def user(username: str):
 
 
 app = Flama(
-    title="Flama ML",
-    version="0.1.0",
-    description="Machine learning API using Flama 🔥",
+    openapi={
+        "info": {
+            "title": "Flama ML",
+            "version": "0.1.0",
+            "description": "Machine learning API using Flama 🔥",
+        }
+    },
     routes=[
         routing.Route("/", home),
         routing.Route("/user/me", user_me),
