@@ -19,7 +19,7 @@ export default function HighlightCode({
         <span
           key={i}
           className={`${isInline ? 'inline' : 'block w-full px-2 text-sm'} ${
-            selectedLine === i + 1 ? 'bg-flama-700' : ''
+            selectedLine === i + 1 ? 'bg-flama-500/25' : ''
           }`}
         >
           {line.length === 0 ? (
