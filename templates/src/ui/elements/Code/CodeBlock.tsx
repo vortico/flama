@@ -38,11 +38,18 @@ export default function CodeBlock({
 
   return (
     <div
-      className={`bg-primary-900 relative flex h-full w-full overflow-auto whitespace-pre ${className || ''}`}
+      className={`bg-primary-900 relative flex h-full min-h-full w-full overflow-auto whitespace-pre ${className || ''}`}
       ref={ref}
     >
-      {lines && <LineNumbers lines={code.split('\n').length - 1} type={lines.type} token={lines.token} />}
-      <pre className="bg-primary-900 h-fit w-fit flex-auto py-1">{children}</pre>
+      {lines && (
+        <LineNumbers
+          lines={code.split('\n').length - 1}
+          type={lines.type}
+          token={lines.token}
+          selectedLine={selectedLine}
+        />
+      )}
+      <pre className="bg-primary-900 h-fit min-h-full w-fit flex-auto py-1">{children}</pre>
       {copyButton && <ClipboardButton code={code} />}
     </div>
   )
