@@ -1,7 +1,0 @@
-:root {
-    scrollbar-color: theme('colors.primary.400') theme('colors.primary.100');
-
-    &.dark {
-        scrollbar-color: theme('colors.primary.600') theme('colors.primary.800');
-    }
-}

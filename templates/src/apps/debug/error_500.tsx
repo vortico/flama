@@ -4,7 +4,7 @@ import { Error, Request } from '@/data/debug'
 import { EnvironmentTable, ErrorTitle, ErrorTraceback, RequestTable } from '@/ui/components'
 import { FlamaLogo } from '@/ui/logos'
 
-import '@/styles/main.css'
+import '@/styles/debug/error_500.css'
 
 function Page() {
   const error = new Error()

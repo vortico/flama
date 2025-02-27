@@ -4,7 +4,7 @@ import { Request } from '@/data/debug'
 import { EnvironmentTable, ErrorTitle, RequestTable, URLTree } from '@/ui/components'
 import { FlamaLogo } from '@/ui/logos'
 
-import '@/styles/main.css'
+import '@/styles/debug/error_404.css'
 
 function Page() {
   const request = new Request()
