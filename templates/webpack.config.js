@@ -25,10 +25,12 @@ const config = {
       },
       {
         test: /\.(png|svg|jpg|jpeg|gif)$/i,
+        include: SRC_PATH,
         type: 'asset/resource',
       },
       {
         test: /\.(woff|woff2|eot|ttf|otf)$/i,
+        include: SRC_PATH,
         type: 'asset/resource',
       },
     ],
@@ -47,13 +49,17 @@ const config = {
       js: { inline: true },
       css: { inline: true },
       minify: 'auto',
+      hotUpdate: ENVIRONMENT === 'development',
     }),
   ],
   watchOptions: {
+    aggregateTimeout: 200,
+    poll: 1000,
     ignored: /node_modules/,
   },
   // Enable live reload
   devServer: {
+    hot: ENVIRONMENT === 'development',
     watchFiles: {
       paths: ['src/**/*.*'],
       options: {
@@ -62,6 +68,9 @@ const config = {
     },
   },
   performance: false, // Disable warning max size
+  optimization: {
+    sideEffects: true,
+  },
 }
 
 export default config

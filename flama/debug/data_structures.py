@@ -91,7 +91,11 @@ class Error:
         frames = inspect.getinnerframes(exc.__traceback__, context) if exc.__traceback__ else []
         exc_cls = exc if inspect.isclass(exc) else exc.__class__
         return cls(
-            error=f"{exc_cls.__module__}.{exc_cls.__name__}" if exc_cls.__module__ != "builtins" else exc_cls.__name__,
+            error=(
+                f"{exc_cls.__module__}.{exc_cls.__name__}"
+                if exc_cls.__module__ not in ("builtins", "__main__")
+                else exc_cls.__name__
+            ),
             description=str(exc),
             traceback=[Frame.from_frame_info(frame=frame) for frame in frames],
         )

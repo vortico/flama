@@ -2,11 +2,12 @@
   "name": "papago-templates",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "scripts": {
     "typecheck": "tsc --noEmit",
     "prebuild": "tsc --noEmit",
     "build": "webpack",
-    "dev": "webpack --watch",
+    "dev": "NODE_ENV=development webpack --watch",
     "format": "prettier . --write --ignore-path ../.gitignore --ignore-unknown",
     "lint": "eslint --max-warnings 0",
     "lint:fix": "npm run lint -- --fix"

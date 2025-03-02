@@ -32,7 +32,7 @@ export default function Window({ title, autoScroll, className, children }: Windo
       {...(state === 'full' && { 'aria-modal': true, role: 'dialog' })}
     >
       {state === 'full' && (
-        <div className="bg-primary-950/20 fixed inset-0 backdrop-blur-sm" aria-hidden={true} onClick={onMinimize} />
+        <div className="bg-primary-950/30 fixed inset-0 backdrop-blur-sm" aria-hidden={true} onClick={onMinimize} />
       )}
       <div
         className={`bg-primary-900 shadow-primary-300 border-primary-300 h-full overflow-hidden border shadow-md ${

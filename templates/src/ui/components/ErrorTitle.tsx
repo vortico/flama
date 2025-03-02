@@ -8,11 +8,13 @@ export interface ErrorTitleProps {
 export default function ErrorTitle({ error, method, path, description }: ErrorTitleProps) {
   return (
     <>
-      <div className="text-2xl">
-        <span className="text-flama-500 font-bold">{error}</span> raised at <span className="font-bold">{method}</span>{' '}
-        <span className="font-mono">{path}</span>
-      </div>
-      {description && <div className="text-xl font-medium">{description}</div>}
+      <h1 className="text-2xl">
+        <span className="text-flama-500 font-bold">{error}</span>
+        <span className="pl-2">raised at</span>
+        <span className="pl-2 font-bold">{method}</span>
+        <span className="pl-2 font-mono">{path}</span>
+      </h1>
+      {description && <h2 className="text-xl font-medium">{description}</h2>}
     </>
   )
 }

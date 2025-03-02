@@ -16,7 +16,7 @@ function TracebackListItem({ frame, isActive }: { frame: TFrame; isActive: boole
 
   return (
     <div
-      className={`border-primary-300 -mt-px border shadow-md transition duration-200 ${isActive ? 'bg-flama-300 shadow-flama/50' : 'bg-primary-100 hover:bg-primary-200 shadow-primary/50 hover:shadow-lg'}`}
+      className={`border-primary-300 -mt-px border shadow-md transition duration-200 ${isActive ? 'bg-flama-300 shadow-flama-300' : 'bg-primary-100 hover:bg-primary-200 shadow-primary-300 hover:shadow-lg'}`}
     >
       <div
         className={`flex h-12 w-full cursor-pointer items-center justify-start transition duration-200 ${
@@ -93,11 +93,11 @@ export default function ErrorTraceback() {
   const code = useMemo(() => html.decode(traceback[selected].code), [selected, traceback])
 
   return (
-    <div className="flex gap-8">
-      <div className="h-[672px] w-xs flex-none overflow-hidden">
+    <div className="flex flex-col gap-8 lg:flex-row">
+      <div className="h-[672px] max-h-[calc(85vh)] w-full flex-none overflow-hidden lg:w-xs">
         <TracebackList traceback={traceback} selected={selected} setSelected={setSelected} />
       </div>
-      <div className="h-[672px] flex-auto overflow-hidden">
+      <div className="h-[672px] max-h-[calc(85vh)] flex-auto overflow-hidden">
         <Window title={traceback[selected].filename}>
           <Code code={code} language="python" lines={{ type: 'number' }} selectedLine={traceback[selected].line} />
         </Window>
