@@ -42,6 +42,7 @@ const config = {
   output: {
     path: OUTPUT_PATH,
     clean: true,
+    chunkFormat: false,
   },
   plugins: [
     new HtmlBundlerPlugin({

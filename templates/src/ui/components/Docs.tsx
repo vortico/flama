@@ -1,15 +1,17 @@
 import { ApiReferenceReact } from '@scalar/api-reference-react'
 
-// import DocsData from '@/data/schemas/Docs'
+import { Docs as DocsData } from '@/data/schemas'
+
+import '@/ui/styles/docs.css'
 
 export default function Docs() {
-  // const docs = new DocsData()
+  const docs = new DocsData()
 
   return (
     <ApiReferenceReact
       configuration={{
         isEditable: false,
-        // spec: { content: docs.schema },
+        spec: { content: docs.schema },
         showSidebar: true,
         hideModels: false,
         hideDownloadButton: false,
