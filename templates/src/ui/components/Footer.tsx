@@ -17,7 +17,7 @@ const social: Social[] = [
 export default function Footer() {
   return (
     <footer>
-      <div className="border-vortico-500/50 border-t px-4 py-8 sm:px-6 md:px-8">
+      <div className="border-vortico-500/50 border-t px-4 py-2 sm:px-6 md:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <a href="https://vortico.tech">
             <Logo logo="vortico" color="vortico" size="lg" />

@@ -11,7 +11,7 @@ function Page() {
   return (
     <div>
       <Menu />
-      <div className="mt-[calc(3.5rem+1px)] h-[calc(100vh-9.5rem-2px)] overflow-auto">
+      <div className="mt-[calc(3.5rem+1px)] h-[calc(100vh-6.5rem-2px)] overflow-auto">
         <header>
           <Section id="error" border={false}>
             <ErrorTitle error="Not Found" path={request.path} method={request.method} />
