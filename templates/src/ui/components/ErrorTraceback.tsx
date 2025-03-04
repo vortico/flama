@@ -16,13 +16,13 @@ function TracebackListItem({ frame, isActive }: { frame: TFrame; isActive: boole
 
   return (
     <div
-      className={`border-primary-300 -mt-px border shadow-md transition duration-200 ${isActive ? 'bg-flama-300 shadow-flama-300' : 'bg-primary-100 hover:bg-primary-200 shadow-primary-300 hover:shadow-lg'}`}
+      className={`border-primary-300 shadow-primary-300 -mt-px border shadow-md transition duration-200 ${isActive ? 'bg-primary-200' : 'bg-primary-100 hover:bg-flama-300 hover:shadow-flama-300 hover:shadow-lg'}`}
     >
       <div
         className={`flex h-12 w-full cursor-pointer items-center justify-start transition duration-200 ${
           isActive
-            ? 'border-flama-500 border-l-4'
-            : 'hover:border-primary-300 border-primary-100 pl-1 hover:border-l-4 hover:pl-0'
+            ? 'border-primary-300 border-l-4'
+            : 'hover:border-flama-500 border-primary-100 pl-1 hover:border-l-4 hover:pl-0'
         }`}
       >
         <div

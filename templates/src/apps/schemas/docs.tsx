@@ -1,7 +1,5 @@
 import React, { useEffect } from 'react'
 
-import '@/styles/schemas/docs.css'
-
 import ReactDOM from 'react-dom/client'
 
 interface DocsPageProps {
