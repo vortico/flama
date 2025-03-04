@@ -1,5 +1,19 @@
 # Semantic Versioning Changelog
 
+# [v1.10.0](https://github.com/vortico/flama/compare/v1.9.8...v1.10.0) (2025-03-04)
+
+## ✨ New Features
+- [`ede5e71`](https://github.com/vortico/flama/commit/ede5e71)  Path params component (#171) (Issues: [`#171`](https://github.com/vortico/flama/issues/))
+- [`20fb505`](https://github.com/vortico/flama/commit/20fb505)  Replace black and isort with ruff (#174) (Issues: [`#174`](https://github.com/vortico/flama/issues/))
+- [`0671bfe`](https://github.com/vortico/flama/commit/0671bfe)  Replace poetry with uv (#175) (Issues: [`#175`](https://github.com/vortico/flama/issues/))
+- [`14faf81`](https://github.com/vortico/flama/commit/14faf81)  Module for gathering telemetry data (#169) (Issues: [`#169`](https://github.com/vortico/flama/issues/))
+- [`3193d63`](https://github.com/vortico/flama/commit/3193d63)  Update error pages (#178) (Issues: [`#178`](https://github.com/vortico/flama/issues/))
+- [`b771b9f`](https://github.com/vortico/flama/commit/b771b9f)  Enrich OpenAPI specification (#181) (Issues: [`#181`](https://github.com/vortico/flama/issues/))
+- [`e99a739`](https://github.com/vortico/flama/commit/e99a739)  Docs page using Scalar (#179) (Issues: [`#179`](https://github.com/vortico/flama/issues/))
+
+## 🐛 Bug Fixes
+- [`9d35c83`](https://github.com/vortico/flama/commit/9d35c83)  Remove warning from using marshmallow Number instad of Float
+
 # [v1.9.8](https://github.com/vortico/flama/compare/v1.9.7...v1.9.8) (2025-01-13)
 
 ## 🐛 Bug Fixes
