@@ -3,30 +3,32 @@ import ReactDOM from 'react-dom/client'
 import { Request } from '@/data/debug'
 import { EnvironmentTable, ErrorTitle, Footer, Menu, RequestTable, Section, URLTree } from '@/ui/components'
 
-import '@/styles/debug/error_404.css'
+import '@/ui/styles/tailwind.css'
 
 function Page() {
   const request = new Request()
 
   return (
-    <div className="min-h-screen">
+    <div>
       <Menu />
-      <header>
-        <Section id="error" border={false} className="mt-28">
-          <ErrorTitle error="Not Found" path={request.path} method={request.method} />
-        </Section>
-      </header>
-      <main>
-        <Section id="url-tree" title="Application URLs">
-          <URLTree />
-        </Section>
-        <Section id="request" title="Request">
-          <RequestTable />
-        </Section>
-        <Section id="environment" title="Environment">
-          <EnvironmentTable />
-        </Section>
-      </main>
+      <div className="mt-[calc(3.5rem+1px)] h-[calc(100vh-9.5rem-2px)] overflow-auto">
+        <header>
+          <Section id="error" border={false}>
+            <ErrorTitle error="Not Found" path={request.path} method={request.method} />
+          </Section>
+        </header>
+        <main>
+          <Section id="url-tree" title="Application URLs">
+            <URLTree />
+          </Section>
+          <Section id="request" title="Request">
+            <RequestTable />
+          </Section>
+          <Section id="environment" title="Environment">
+            <EnvironmentTable />
+          </Section>
+        </main>
+      </div>
       <Footer />
     </div>
   )

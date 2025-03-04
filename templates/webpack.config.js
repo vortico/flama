@@ -10,7 +10,7 @@ const ENVIRONMENT = process.env.NODE_ENV !== undefined ? process.env.NODE_ENV : 
 
 /** @type {import('webpack-cli').ConfigOptions} */
 const config = {
-  mode: ENVIRONMENT,
+  mode: 'production',
   module: {
     rules: [
       {
@@ -68,8 +68,9 @@ const config = {
     },
   },
   performance: false, // Disable warning max size
+  devtool: ENVIRONMENT === 'development' ? 'inline-cheap-source-map' : undefined,
   optimization: {
-    sideEffects: true,
+    splitChunks: false,
   },
 }
 

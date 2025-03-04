@@ -123,7 +123,7 @@ export default function Menu() {
   const onClose = useCallback(() => setIsOpen(false), [setIsOpen])
 
   return (
-    <div className="border-flama-500 bg-primary-100/70 fixed inset-x-0 top-0 z-10 mx-auto border-b backdrop-blur-sm transition-colors duration-200">
+    <div className="border-flama-500 bg-primary-100 fixed inset-x-0 top-0 z-10 mx-auto border-b">
       <div className="divide-flama-500/50 mx-auto w-full divide-y px-4 sm:px-6 md:px-8">
         <FixedMenu onOpen={onOpen} />
       </div>
