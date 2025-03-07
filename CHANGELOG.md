@@ -1,5 +1,11 @@
 # Semantic Versioning Changelog
 
+# [v1.10.1](https://github.com/vortico/flama/compare/v1.10.0...v1.10.1) (2025-03-07)
+
+## 🐛 Bug Fixes
+- [`9959dbb`](https://github.com/vortico/flama/commit/9959dbb)  Use schema endpoint for loading docs 
+- [`435fc87`](https://github.com/vortico/flama/commit/435fc87)  Explicit load of scalar references css
+
 # [v1.10.0](https://github.com/vortico/flama/compare/v1.9.8...v1.10.0) (2025-03-04)
 
 ## ✨ New Features
