@@ -3,6 +3,7 @@ import { ApiReferenceReact } from '@scalar/api-reference-react'
 import { Docs as DocsData } from '@/data/schemas'
 
 import '@/ui/styles/docs.css'
+import '@scalar/api-reference-react/style.css'
 
 export default function Docs() {
   const docs = new DocsData()

@@ -20,7 +20,6 @@ const config = {
       },
       {
         test: /\.css$/i,
-        include: SRC_PATH,
         use: ['css-loader', 'postcss-loader'],
       },
       {
