@@ -11,7 +11,7 @@ export default function Docs() {
     <ApiReferenceReact
       configuration={{
         isEditable: false,
-        spec: { content: docs.schema },
+        spec: { url: docs.url },
         showSidebar: true,
         hideModels: false,
         hideDownloadButton: false,

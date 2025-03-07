@@ -2,7 +2,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from flama import Flama, pagination, schemas
+from flama import Flama, exceptions, pagination, schemas
 from flama.schemas.modules import SchemaModule
 
 
@@ -55,26 +55,48 @@ class TestCaseSchemaModule:
         }
 
     @pytest.mark.parametrize(
-        ["schema", "docs"],
+        ["schema", "docs", "exception"],
         (
-            pytest.param(False, False, id="no_schema_no_docs"),
-            pytest.param(True, False, id="schema_but_no_docs"),
-            pytest.param(False, True, id="no_schema_but_docs"),
-            pytest.param(True, True, id="schema_and_docs"),
+            pytest.param(
+                False,
+                False,
+                None,
+                id="no_schema_no_docs",
+            ),
+            pytest.param(
+                True,
+                False,
+                None,
+                id="schema_but_no_docs",
+            ),
+            pytest.param(
+                False,
+                True,
+                exceptions.ApplicationError("Docs endpoint needs schema endpoint to be active"),
+                id="no_schema_but_docs",
+            ),
+            pytest.param(
+                True,
+                True,
+                None,
+                id="schema_and_docs",
+            ),
         ),
+        indirect=["exception"],
     )
-    def test_add_routes(self, openapi_spec, schema, docs):
-        module = SchemaModule(openapi_spec, schema=schema, docs=docs)
-        module.app = Mock(Flama)
-        expected_calls = []
-        if schema:
-            expected_calls.append(call(schema, module.schema_view, methods=["GET"], include_in_schema=False))
-        if docs:
-            expected_calls.append(call(docs, module.docs_view, methods=["GET"], include_in_schema=False))
+    def test_add_routes(self, openapi_spec, schema, docs, exception):
+        with exception:
+            module = SchemaModule(openapi_spec, schema=schema, docs=docs)
+            module.app = Mock(Flama)
+            expected_calls = []
+            if schema:
+                expected_calls.append(call(schema, module.schema_view, methods=["GET"], include_in_schema=False))
+            if docs:
+                expected_calls.append(call(docs, module.docs_view, methods=["GET"], include_in_schema=False))
 
-        module.add_routes()
+            module.add_routes()
 
-        assert module.app.add_route.call_args_list == expected_calls
+            assert module.app.add_route.call_args_list == expected_calls
 
     async def test_view_schema(self, client):
         response = await client.request("get", "/schema/")

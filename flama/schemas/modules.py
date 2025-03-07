@@ -2,7 +2,7 @@ import typing as t
 from pathlib import Path
 from types import ModuleType
 
-from flama import http, pagination, schemas, types
+from flama import exceptions, http, pagination, schemas, types
 from flama.modules import Module
 from flama.schemas.generator import SchemaGenerator
 
@@ -16,6 +16,10 @@ class SchemaModule(Module):
 
     def __init__(self, openapi: types.OpenAPISpec, *, schema: t.Optional[str] = None, docs: t.Optional[str] = None):
         super().__init__()
+
+        if docs and not schema:
+            raise exceptions.ApplicationError("Docs endpoint needs schema endpoint to be active")
+
         # Schema definitions
         self.schemas: dict[str, t.Any] = {}
 
@@ -76,4 +80,4 @@ class SchemaModule(Module):
         return http.OpenAPIResponse(self.schema)
 
     def docs_view(self) -> http.HTMLResponse:
-        return http._FlamaTemplateResponse("schemas/docs.html", {"schema": self.schema})
+        return http._FlamaTemplateResponse("schemas/docs.html", {"url": self.schema_path})

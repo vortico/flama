@@ -1,7 +1,7 @@
 export default class Docs {
-  schema: object
+  url: string
 
   constructor() {
-    this.schema = JSON.parse('||@ schema|safe_json @||')
+    this.url = '||@ url|safe @||'
   }
 }
