@@ -1,5 +1,6 @@
 import abc
 import logging
+import re
 import typing as t
 
 from flama import Flama, concurrency, types
@@ -121,15 +122,17 @@ class TelemetryMiddleware:
     def __init__(
         self,
         app: types.App,
-        log_level: int = logging.NOTSET,
         *,
+        log_level: int = logging.NOTSET,
         before: t.Optional[HookFunction] = None,
         after: t.Optional[HookFunction] = None,
+        ignored: list[str] = [],
     ) -> None:
         self.app: Flama = t.cast(Flama, app)
         self._log_level = log_level
         self._before = before
         self._after = after
+        self._ignored = [re.compile(x) for x in ignored]
 
     async def before(self, data: TelemetryData):
         if self._before:
@@ -140,7 +143,7 @@ class TelemetryMiddleware:
             await concurrency.run(self._after, data)
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        if scope["type"] not in ("http", "websocket"):
+        if scope["type"] not in ("http", "websocket") or any(pattern.match(scope["path"]) for pattern in self._ignored):
             await self.app(scope, receive, send)
             return
 

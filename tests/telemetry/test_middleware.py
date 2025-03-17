@@ -43,6 +43,10 @@ class TestCaseTelemetryMiddleware:
         def error():
             raise ValueError("foo")
 
+        @app.post("/ignored/", name="ignored")
+        def ignored():
+            return "ignored"
+
     @pytest.mark.parametrize(
         [
             "path",
@@ -244,13 +248,14 @@ class TestCaseTelemetryMiddleware:
                 ),
                 id="error_async_hooks",
             ),
+            pytest.param("/ignored/", {}, None, {}, "ignored", None, AsyncMock(), AsyncMock(), None, id="ignored"),
         ],
         indirect=["exception"],
     )
     async def test_request(
         self, app, client, path, request_params, request_body, request_cookies, response, exception, before, after, data
     ):
-        app.add_middleware(Middleware(TelemetryMiddleware, before=before, after=after))
+        app.add_middleware(Middleware(TelemetryMiddleware, before=before, after=after, ignored=[r"/ignored.*"]))
 
         client.cookies = request_cookies
 
@@ -270,7 +275,7 @@ class TestCaseTelemetryMiddleware:
             assert r.json() == response
 
         if before:
-            assert before.call_args_list == [call(data)]
+            assert before.call_args_list == ([call(data)] if data else [])
 
         if after:
-            assert after.call_args_list == [call(data)]
+            assert after.call_args_list == ([call(data)] if data else [])
