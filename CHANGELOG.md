@@ -1,5 +1,13 @@
 # Semantic Versioning Changelog
 
+# [v1.10.2](https://github.com/vortico/flama/compare/v1.10.1...v1.10.2) (2025-03-17)
+
+## 🐛 Bug Fixes
+- [`554bb0d`](https://github.com/vortico/flama/commit/554bb0d)  AuthenticationMiddleware continue execution on 404 or 405 
+- [`9298fcc`](https://github.com/vortico/flama/commit/9298fcc)  Blacklist for AuthenticationMiddleware (#183) (Issues: [`#183`](https://github.com/vortico/flama/issues/))
+- [`72174bd`](https://github.com/vortico/flama/commit/72174bd)  Blacklist for TelemetryMiddleware (#184) (Issues: [`#184`](https://github.com/vortico/flama/issues/))
+- [`5e7f10a`](https://github.com/vortico/flama/commit/5e7f10a)  Custom tags for Middlewares (#185) (Issues: [`#185`](https://github.com/vortico/flama/issues/))
+
 # [v1.10.1](https://github.com/vortico/flama/compare/v1.10.0...v1.10.1) (2025-03-07)
 
 ## 🐛 Bug Fixes
