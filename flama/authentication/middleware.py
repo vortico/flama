@@ -2,14 +2,13 @@ import http
 import logging
 import typing as t
 
-from flama import authentication
+from flama import authentication, exceptions
 from flama.exceptions import HTTPException
 from flama.http import APIErrorResponse, Request
 
 if t.TYPE_CHECKING:
     from flama import Flama, types
     from flama.http import Response
-    from flama.routing import BaseRoute
 
 __all__ = ["AuthenticationMiddleware"]
 
@@ -30,17 +29,19 @@ class AuthenticationMiddleware:
 
         await response(scope, receive, send)
 
-    def _get_permissions(self, route: "BaseRoute") -> set[str]:
-        return set(route.tags.get("permissions", []))
+    def _get_permissions(self, app: "Flama", scope: "types.Scope") -> set[str]:
+        try:
+            route, _ = app.router.resolve_route(scope)
+            permissions = set(route.tags.get("permissions", []))
+        except (exceptions.MethodNotAllowedException, exceptions.NotFoundException):
+            permissions = []
+
+        return set(permissions)
 
     async def _get_response(self, scope: "types.Scope", receive: "types.Receive") -> t.Union["Response", "Flama"]:
         app: Flama = scope["app"]
 
-        route, _ = app.router.resolve_route(scope)
-
-        required_permissions = self._get_permissions(route)
-
-        if not required_permissions:
+        if not (required_permissions := self._get_permissions(app, scope)):
             return self.app
 
         try:

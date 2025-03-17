@@ -62,22 +62,24 @@ class TestCaseAuthenticationMiddleware:
             raise ValueError(f"Invalid token {request.param}")
 
     @pytest.mark.parametrize(
-        ["path", "headers", "cookies", "status_code", "result"],
+        ["path", "method", "headers", "cookies", "status_code", "result"],
         (
-            pytest.param("/auth/", "permission", None, 200, {"foo": "auth"}, id="auth_header_token_permission"),
-            pytest.param("/auth/", "role", None, 200, {"foo": "auth"}, id="auth_header_token_role"),
+            pytest.param("/auth/", "get", "permission", None, 200, {"foo": "auth"}, id="auth_header_token_permission"),
+            pytest.param("/auth/", "get", "role", None, 200, {"foo": "auth"}, id="auth_header_token_role"),
             pytest.param(
                 "/auth/",
+                "get",
                 "empty",
                 None,
                 403,
                 {"detail": "Insufficient permissions", "error": None, "status_code": 403},
                 id="auth_header_token_empty",
             ),
-            pytest.param("/auth/", None, "permission", 200, {"foo": "auth"}, id="auth_cookie_token_permission"),
-            pytest.param("/auth/", None, "role", 200, {"foo": "auth"}, id="auth_cookie_token_role"),
+            pytest.param("/auth/", "get", None, "permission", 200, {"foo": "auth"}, id="auth_cookie_token_permission"),
+            pytest.param("/auth/", "get", None, "role", 200, {"foo": "auth"}, id="auth_cookie_token_role"),
             pytest.param(
                 "/auth/",
+                "get",
                 None,
                 "empty",
                 403,
@@ -86,6 +88,7 @@ class TestCaseAuthenticationMiddleware:
             ),
             pytest.param(
                 "/auth/",
+                "get",
                 None,
                 None,
                 401,
@@ -93,21 +96,39 @@ class TestCaseAuthenticationMiddleware:
                 id="auth_no_token",
             ),
             pytest.param(
-                "/no-auth/", "permission", None, 200, {"foo": "no-auth"}, id="no_auth_header_token_permission"
+                "/no-auth/", "get", "permission", None, 200, {"foo": "no-auth"}, id="no_auth_header_token_permission"
             ),
-            pytest.param("/no-auth/", "role", None, 200, {"foo": "no-auth"}, id="no_auth_header_token_role"),
+            pytest.param("/no-auth/", "get", "role", None, 200, {"foo": "no-auth"}, id="no_auth_header_token_role"),
             pytest.param(
-                "/no-auth/", None, "permission", 200, {"foo": "no-auth"}, id="no_auth_cookie_token_permission"
+                "/no-auth/", "get", None, "permission", 200, {"foo": "no-auth"}, id="no_auth_cookie_token_permission"
             ),
-            pytest.param("/no-auth/", None, "role", 200, {"foo": "no-auth"}, id="no_auth_cookie_token_role"),
-            pytest.param("/no-auth/", None, None, 200, {"foo": "no-auth"}, id="no_auth_no_token"),
+            pytest.param("/no-auth/", "get", None, "role", 200, {"foo": "no-auth"}, id="no_auth_cookie_token_role"),
+            pytest.param("/no-auth/", "get", None, None, 200, {"foo": "no-auth"}, id="no_auth_no_token"),
+            pytest.param(
+                "/not-found/",
+                "get",
+                None,
+                None,
+                404,
+                {"detail": "Not Found", "error": "HTTPException", "status_code": 404},
+                id="not_found",
+            ),
+            pytest.param(
+                "/auth/",
+                "post",
+                None,
+                None,
+                405,
+                {"detail": "Method Not Allowed", "error": "HTTPException", "status_code": 405},
+                id="method_not_allowed",
+            ),
         ),
         indirect=["headers", "cookies"],
     )
-    async def test_request(self, client, path, headers, cookies, status_code, result):
+    async def test_request(self, client, path, method, headers, cookies, status_code, result):
         client.headers = headers
         client.cookies = cookies
-        response = await client.request("get", path)
+        response = await client.request(method, path)
 
         assert response.status_code == status_code
         assert response.json() == result

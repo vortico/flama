@@ -255,6 +255,8 @@ class Router:
         """Look for a route that matches given ASGI scope.
 
         :param scope: ASGI scope.
+        :raise MethodNotAllowedException: If route is resolved but http method is not valid.
+        :raise NotFoundException: If route cannot be resolved.
         :return: Route and its scope.
         """
         partial = None
