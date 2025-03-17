@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 class AuthenticationMiddleware:
-    def __init__(self, app: "types.App", *, ignored: list[str] = []):
+    def __init__(self, app: "types.App", *, tag: str = "permissions", ignored: list[str] = []):
         self.app: Flama = t.cast("Flama", app)
+        self._tag = tag
         self._ignored = [re.compile(x) for x in ignored]
 
     async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
@@ -34,7 +35,7 @@ class AuthenticationMiddleware:
     def _get_permissions(self, app: "Flama", scope: "types.Scope") -> set[str]:
         try:
             route, _ = app.router.resolve_route(scope)
-            permissions = set(route.tags.get("permissions", []))
+            permissions = set(route.tags.get(self._tag, []))
         except (exceptions.MethodNotAllowedException, exceptions.NotFoundException):
             permissions = []
 
