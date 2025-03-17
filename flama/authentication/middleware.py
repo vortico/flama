@@ -1,5 +1,6 @@
 import http
 import logging
+import re
 import typing as t
 
 from flama import authentication, exceptions
@@ -17,11 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 class AuthenticationMiddleware:
-    def __init__(self, app: "types.App"):
+    def __init__(self, app: "types.App", *, ignored: list[str] = []):
         self.app: Flama = t.cast("Flama", app)
+        self._ignored = [re.compile(x) for x in ignored]
 
     async def __call__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
-        if scope["type"] not in ("http", "websocket"):
+        if scope["type"] not in ("http", "websocket") or any(pattern.match(scope["path"]) for pattern in self._ignored):
             await self.app(scope, receive, send)
             return
 

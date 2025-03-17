@@ -28,7 +28,7 @@ class TestCaseAuthenticationMiddleware:
             schema=None,
             docs=None,
             components=[AccessTokenComponent(secret=secret.bytes)],
-            middleware=[Middleware(AuthenticationMiddleware)],
+            middleware=[Middleware(AuthenticationMiddleware, ignored=[r"/ignored.*"])],
         )
 
     @pytest.fixture(scope="function", autouse=True)
@@ -40,6 +40,10 @@ class TestCaseAuthenticationMiddleware:
         @app.route("/auth/", tags={"permissions": ["flama.test.auth"]})
         def auth():
             return {"foo": "auth"}
+
+        @app.route("/ignored/", tags={"permissions": ["flama.test.auth"]})
+        def ignored():
+            return {"foo": "ignored"}
 
     @pytest.fixture(scope="function")
     def headers(self, request):
@@ -104,6 +108,7 @@ class TestCaseAuthenticationMiddleware:
             ),
             pytest.param("/no-auth/", "get", None, "role", 200, {"foo": "no-auth"}, id="no_auth_cookie_token_role"),
             pytest.param("/no-auth/", "get", None, None, 200, {"foo": "no-auth"}, id="no_auth_no_token"),
+            pytest.param("/ignored/", "get", None, None, 200, {"foo": "ignored"}, id="no_auth_no_token"),
             pytest.param(
                 "/not-found/",
                 "get",
