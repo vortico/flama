@@ -47,12 +47,17 @@ class TestCaseTelemetryMiddleware:
         def ignored():
             return "ignored"
 
+        @app.post("/explicit-off/", name="explicit-off", tags={"telemetry": False})
+        def explicit_off():
+            return "explicit_off"
+
     @pytest.mark.parametrize(
         [
             "path",
             "request_params",
             "request_body",
             "request_cookies",
+            "status_code",
             "response",
             "exception",
             "before",
@@ -65,6 +70,7 @@ class TestCaseTelemetryMiddleware:
                 {"y": 1},
                 b"body",
                 {"access_token": TOKEN},
+                http.HTTPStatus.OK,
                 {"x": 1, "y": 1, "body": "body"},
                 None,
                 None,
@@ -77,6 +83,7 @@ class TestCaseTelemetryMiddleware:
                 {"y": 1},
                 b"body",
                 {"access_token": TOKEN},
+                http.HTTPStatus.OK,
                 {"x": 1, "y": 1, "body": "body"},
                 None,
                 MagicMock(),
@@ -128,6 +135,7 @@ class TestCaseTelemetryMiddleware:
                 {"y": 1},
                 b"body",
                 {"access_token": TOKEN},
+                http.HTTPStatus.OK,
                 {"x": 1, "y": 1, "body": "body"},
                 None,
                 AsyncMock(),
@@ -179,6 +187,7 @@ class TestCaseTelemetryMiddleware:
                 {},
                 None,
                 {},
+                http.HTTPStatus.OK,
                 None,
                 ValueError("foo"),
                 None,
@@ -191,6 +200,7 @@ class TestCaseTelemetryMiddleware:
                 {},
                 None,
                 {},
+                http.HTTPStatus.OK,
                 None,
                 ValueError("foo"),
                 MagicMock(),
@@ -222,6 +232,7 @@ class TestCaseTelemetryMiddleware:
                 {},
                 None,
                 {},
+                http.HTTPStatus.OK,
                 None,
                 ValueError("foo"),
                 AsyncMock(),
@@ -248,12 +259,62 @@ class TestCaseTelemetryMiddleware:
                 ),
                 id="error_async_hooks",
             ),
-            pytest.param("/ignored/", {}, None, {}, "ignored", None, AsyncMock(), AsyncMock(), None, id="ignored"),
+            pytest.param(
+                "/ignored/",
+                {},
+                None,
+                {},
+                http.HTTPStatus.OK,
+                "ignored",
+                None,
+                AsyncMock(),
+                AsyncMock(),
+                None,
+                id="ignored",
+            ),
+            pytest.param(
+                "/explicit-off/",
+                {},
+                None,
+                {},
+                http.HTTPStatus.OK,
+                "explicit_off",
+                None,
+                AsyncMock(),
+                AsyncMock(),
+                None,
+                id="explicit_off",
+            ),
+            pytest.param(
+                "/not-found/",
+                {},
+                None,
+                {},
+                http.HTTPStatus.NOT_FOUND,
+                {"status_code": 404, "detail": "Not Found", "error": "HTTPException"},
+                None,
+                None,
+                None,
+                None,
+                id="not_found",
+            ),
         ],
         indirect=["exception"],
     )
     async def test_request(
-        self, app, client, path, request_params, request_body, request_cookies, response, exception, before, after, data
+        self,
+        app,
+        client,
+        path,
+        request_params,
+        request_body,
+        request_cookies,
+        status_code,
+        response,
+        exception,
+        before,
+        after,
+        data,
     ):
         app.add_middleware(Middleware(TelemetryMiddleware, before=before, after=after, ignored=[r"/ignored.*"]))
 
@@ -271,7 +332,7 @@ class TestCaseTelemetryMiddleware:
         with exception, patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
             r = await client.post(path, params=request_params, content=request_body)
 
-            assert r.status_code == http.HTTPStatus.OK
+            assert r.status_code == status_code
             assert r.json() == response
 
         if before:

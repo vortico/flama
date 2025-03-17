@@ -3,7 +3,7 @@ import logging
 import re
 import typing as t
 
-from flama import Flama, concurrency, types
+from flama import Flama, concurrency, exceptions, types
 from flama.telemetry.data_structures import Error, Response, TelemetryData
 
 logger = logging.getLogger(__name__)
@@ -126,12 +126,14 @@ class TelemetryMiddleware:
         log_level: int = logging.NOTSET,
         before: t.Optional[HookFunction] = None,
         after: t.Optional[HookFunction] = None,
+        tag: str = "telemetry",
         ignored: list[str] = [],
     ) -> None:
         self.app: Flama = t.cast(Flama, app)
         self._log_level = log_level
         self._before = before
         self._after = after
+        self._tag = tag
         self._ignored = [re.compile(x) for x in ignored]
 
     async def before(self, data: TelemetryData):
@@ -142,8 +144,20 @@ class TelemetryMiddleware:
         if self._after:
             await concurrency.run(self._after, data)
 
+    def _get_tag(self, scope: "types.Scope") -> bool:
+        try:
+            app: Flama = scope["app"]
+            route, _ = app.router.resolve_route(scope)
+            return route.tags.get(self._tag, True)
+        except (exceptions.MethodNotAllowedException, exceptions.NotFoundException):
+            return False
+
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        if scope["type"] not in ("http", "websocket") or any(pattern.match(scope["path"]) for pattern in self._ignored):
+        if (
+            scope["type"] not in ("http", "websocket")
+            or any(pattern.match(scope["path"]) for pattern in self._ignored)
+            or not self._get_tag(scope)
+        ):
             await self.app(scope, receive, send)
             return
 
