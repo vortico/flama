@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.10.3](https://github.com/vortico/flama/compare/v1.10.2...v1.10.3) (2025-03-20)
+
+## 🐛 Bug Fixes
+- [`1c8d141`](https://github.com/vortico/flama/commit/1c8d141)  Root path on mount endpoints
+
 # [v1.10.2](https://github.com/vortico/flama/compare/v1.10.1...v1.10.2) (2025-03-17)
 
 ## 🐛 Bug Fixes
