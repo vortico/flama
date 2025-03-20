@@ -355,7 +355,7 @@ class TestCaseRouter:
 
         assert len(app.routes) == 1
         assert isinstance(app.routes[0], Mount)
-        assert app.routes[0].path == "/app"
+        assert app.routes[0].path == "/app/"
         assert app.routes[0].app == app_mock
         assert app.routes[0].tags == tags
 
@@ -368,7 +368,7 @@ class TestCaseRouter:
         # Check mount is initialized
         assert isinstance(app.routes[0], Mount)
         mount_route = app.router.routes[0]
-        assert mount_route.path == "/app"
+        assert mount_route.path == "/app/"
         assert mount_route.tags == tags
         # Check router is created and initialized, also shares components and modules with main app
         assert isinstance(mount_route.app, Router)

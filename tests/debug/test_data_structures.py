@@ -94,7 +94,7 @@ class TestCaseApp:
             "apps": [
                 {
                     "name": "subapp",
-                    "path": "/subapp",
+                    "path": "/subapp/",
                     "apps": [],
                     "endpoints": [
                         {

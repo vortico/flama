@@ -271,7 +271,7 @@ class Path:
     def __repr__(self) -> str:
         return self.path.__repr__()
 
-    def __truediv__(self, other) -> "Path":
+    def __truediv__(self, other: t.Union["Path", str]) -> "Path":
         if isinstance(other, Path):
             a, b = self.path.rstrip("/"), other.path.lstrip("/")
         elif isinstance(other, str):
@@ -281,7 +281,7 @@ class Path:
 
         return Path(f"{a}/{b}")
 
-    def __rtruediv__(self, other) -> "Path":
+    def __rtruediv__(self, other: t.Union["Path", str]) -> "Path":
         if isinstance(other, Path):
             a, b = other.path.rstrip("/"), self.path.lstrip("/")  # pragma: no cover # covered by __truediv__
         elif isinstance(other, str):
@@ -291,7 +291,7 @@ class Path:
 
         return Path(f"{a}/{b}")
 
-    def __itruediv__(self, other) -> "Path":
+    def __itruediv__(self, other: t.Union["Path", str]) -> "Path":
         path = self / other
         self.path = path.path
         self._fragments = path._fragments

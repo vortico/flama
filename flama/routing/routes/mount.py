@@ -41,7 +41,7 @@ class Mount(BaseRoute):
 
             app = Router(routes=routes, components=components)
 
-        super().__init__(url.Path(path.rstrip("/")), app, name=name, tags=tags)
+        super().__init__(path, app, name=name, tags=tags)
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if scope["type"] in ("http", "websocket") or (
@@ -111,8 +111,8 @@ class Mount(BaseRoute):
             match = self.path.match(path)
             result.update(
                 {
-                    "root_path": "" if is_flama else str(url.Path(scope.get("root_path", "")) / match.matched),
-                    "path": str(url.Path("/") / match.unmatched),
+                    "root_path": "" if is_flama else str(url.Path(scope.get("root_path", "")) / (match.matched or "")),
+                    "path": str(url.Path("/") / (match.unmatched or "")),
                 }
             )
 

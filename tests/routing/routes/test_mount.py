@@ -51,7 +51,7 @@ class TestCaseMount:
                 app = Router(routes=routes)
 
             assert mount.app == app
-            assert mount.path == "/foo"
+            assert mount.path == "/foo/"
 
     @pytest.mark.parametrize(
         ["scope_type", "handle_call"],
@@ -149,19 +149,19 @@ class TestCaseMount:
         assert route_scope == {
             "app": app if used else asgi_scope["app"],
             "path": "/bar",
-            "root_path": "" if used else "/foo/1",
+            "root_path": "" if used else "/foo/1/",
         }
 
     @pytest.mark.parametrize(
         ["name", "params", "expected_url", "exception"],
         (
             pytest.param(
-                "foo", {"x": 1, "path": "/foo"}, url.URL(scheme="http", path="/foo/1"), None, id="match_full_name"
+                "foo", {"x": 1, "path": "/foo"}, url.URL(scheme="http", path="/foo/1/"), None, id="match_full_name"
             ),
             pytest.param("foo:bar", {"x": 1}, url.URL(scheme="http", path="/foo/1/bar"), None, id="match_route"),
             pytest.param(
                 "foo:nested",
-                {"x": 1, "path": "/foo"},
+                {"x": 1, "path": "/foo/"},
                 url.URL(scheme="http", path="/foo/1/nested"),
                 None,
                 id="match_nested_app",

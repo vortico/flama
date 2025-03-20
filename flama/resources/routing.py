@@ -18,7 +18,7 @@ class ResourceRoute(Mount):
         self,
         path: str,
         resource: t.Union["Resource", type["Resource"]],
-        tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
     ):
         tags = tags or {}
 

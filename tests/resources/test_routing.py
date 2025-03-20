@@ -41,7 +41,7 @@ class TestCaseResourceRoute:
             },
         )
 
-        assert resource_route.path == "/puppy"
+        assert resource_route.path == "/puppy/"
         assert resource_route.resource == resource
         for route in resource_route.routes:
             assert isinstance(route, Route)
