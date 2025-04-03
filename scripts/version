@@ -51,6 +51,7 @@ bump_version() {
   fi
 
   sed -i "s/version = \"$current_version\"/version = \"$new_version\"/" pyproject.toml
+  uv lock
   message "success" "Version upgraded: $current_version -> $new_version"
 }
 
