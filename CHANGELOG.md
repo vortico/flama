@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.11.0](https://github.com/vortico/flama/compare/v1.10.3...v1.11.0) (2025-05-18)
+
+## ✨ New Features
+- [`02e58de`](https://github.com/vortico/flama/commit/02e58de)  Cache for component resolution value
+
 # [v1.10.3](https://github.com/vortico/flama/compare/v1.10.2...v1.10.3) (2025-03-20)
 
 ## 🐛 Bug Fixes
