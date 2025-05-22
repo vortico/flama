@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.11.1](https://github.com/vortico/flama/compare/v1.11.0...v1.11.1) (2025-05-22)
+
+## 🐛 Bug Fixes
+- [`27b4b6b`](https://github.com/vortico/flama/commit/27b4b6b)  Injection cache per request
+
 # [v1.11.0](https://github.com/vortico/flama/compare/v1.10.3...v1.11.0) (2025-05-18)
 
 ## ✨ New Features
