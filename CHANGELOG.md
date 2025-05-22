@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.11.2](https://github.com/vortico/flama/compare/v1.11.1...v1.11.2) (2025-05-22)
+
+## 🐛 Bug Fixes
+- [`9d6178c`](https://github.com/vortico/flama/commit/9d6178c)  Use parameter as part of injection cache key
+
 # [v1.11.1](https://github.com/vortico/flama/compare/v1.11.0...v1.11.1) (2025-05-22)
 
 ## 🐛 Bug Fixes
