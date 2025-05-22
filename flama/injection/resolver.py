@@ -79,13 +79,13 @@ class ComponentNode(ResolutionNode):
 
     async def value(self, context: Context, *, cache: t.Optional[LRUCache] = None) -> t.Any:
         try:
-            value = (cache or {})[self.parameter.annotation, context]
+            value = (cache or {})[self.parameter, context]
         except KeyError:
             kwargs = {node.name: await node.value(context, cache=cache) for node in self.nodes}
             value = await self.component(**kwargs)
 
         if self.component.cacheable and cache is not None:
-            cache[self.parameter.annotation, context] = value
+            cache[self.parameter, context] = value
 
         return value
 

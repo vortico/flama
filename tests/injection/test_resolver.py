@@ -1,4 +1,6 @@
 import typing as t
+import uuid
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -20,6 +22,8 @@ CustomInt = t.NewType("CustomInt", int)
 Foo = t.NewType("Foo", int)
 Bar = t.NewType("Bar", int)
 Wrong = t.NewType("Wrong", int)
+Cacheable = t.NewType("Cacheable", uuid.UUID)
+NonCacheable = t.NewType("NonCacheable", uuid.UUID)
 Unhandled = t.NewType("Unhandled", int)
 
 
@@ -47,18 +51,48 @@ class WrongComponent(Component):
 wrong_component = WrongComponent()
 
 
+class CacheableComponent(Component):
+    def __init__(self, generator, /) -> None:
+        self.uuid = generator
+
+    def resolve(self) -> Cacheable:
+        return Cacheable(self.uuid.uuid4())
+
+
+class NonCacheableComponent(Component):
+    cacheable = False
+
+    def __init__(self, generator, /) -> None:
+        self.uuid = generator
+
+    def resolve(self) -> NonCacheable:
+        return NonCacheable(self.uuid.uuid4())
+
+
 class Context(BaseContext):
     types = {"x": int, "data": dict, "y": int}
 
 
 class TestCaseResolutionTree:
     @pytest.fixture(scope="function")
+    def uuid_mock(self):
+        return MagicMock(uuid4=MagicMock(side_effect=lambda: uuid.UUID(int=0)))
+
+    @pytest.fixture(scope="function")
     def context_types(self):
         return {CustomInt: "y"}
 
     @pytest.fixture(scope="function")
-    def components(self):
-        return Components([foo_component, bar_component, wrong_component])
+    def components(self, uuid_mock):
+        return Components(
+            [
+                foo_component,
+                bar_component,
+                wrong_component,
+                CacheableComponent(uuid_mock),
+                NonCacheableComponent(uuid_mock),
+            ]
+        )
 
     @pytest.mark.parametrize(
         ["parameter", "expected_tree", "expected_context", "expected_parameters", "expected_components", "exception"],
@@ -160,13 +194,14 @@ class TestCaseResolutionTree:
             assert tree.components == expected_components
 
     @pytest.mark.parametrize(
-        ["parameter", "calls"],
+        ["parameter", "calls", "uuid_calls"],
         (
             pytest.param(
                 Parameter("x", int, EMPTY),
                 [
                     (Context({"x": 1}), 1),
                 ],
+                [],
                 id="context_builtin_type",
             ),
             pytest.param(
@@ -174,15 +209,26 @@ class TestCaseResolutionTree:
                 [
                     (Context({"y": 1}), 1),
                 ],
+                [],
                 id="context_custom_type",
             ),
             pytest.param(
-                Parameter("foo", Foo, EMPTY),
+                Parameter("foo", Cacheable, EMPTY),
                 [
-                    (Context({"x": 1}), Foo(1)),
-                    (Context({"x": 2}), Foo(2)),  # Check cache is not used
+                    (Context({}), Cacheable(uuid.UUID(int=0))),
+                    (Context({}), Cacheable(uuid.UUID(int=0))),
                 ],
-                id="component",
+                [call()],
+                id="cacheable_component",
+            ),
+            pytest.param(
+                Parameter("foo", NonCacheable, EMPTY),
+                [
+                    (Context({}), Cacheable(uuid.UUID(int=0))),
+                    (Context({}), Cacheable(uuid.UUID(int=0))),
+                ],
+                [call(), call()],
+                id="non_cacheable_component",
             ),
             pytest.param(
                 Parameter("bar", Bar, EMPTY),
@@ -190,16 +236,19 @@ class TestCaseResolutionTree:
                     (Context({"data": {"bar": 2}}), Bar(2)),
                     (Context({"data": {"bar": 3}}), Bar(3)),  # Check cache is not used
                 ],
+                [],
                 id="component_using_its_parameter",
             ),
         ),
     )
-    async def test_value(self, parameter, calls, context_types, components):
+    async def test_value(self, context_types, components, uuid_mock, parameter, calls, uuid_calls):
         cache = InjectionCache()
         tree = ResolutionTree.build(parameter, context_types, components)
 
         for context, value in calls:
             assert await tree.value(context, cache=cache) == value
+
+        assert uuid_mock.uuid4.call_args_list == uuid_calls
 
 
 class TestCaseResolver:

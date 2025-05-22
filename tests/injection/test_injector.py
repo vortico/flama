@@ -109,6 +109,65 @@ class TestCaseInjector:
         }
 
     @pytest.mark.parametrize(
+        ["annotation", "context", "components", "result", "exception"],
+        (
+            pytest.param(
+                Foo,
+                FooBarContext({"foo": Foo("foo"), "bar": Bar("bar")}),
+                Components(),
+                Foo("foo"),
+                None,
+                id="context",
+            ),
+            pytest.param(
+                Foo,
+                XContext({}),
+                Components([LiteralFooComponent()]),
+                Foo("foo"),
+                None,
+                id="component",
+            ),
+            pytest.param(
+                CustomStr,
+                XContext({"x": CustomStr("bar")}),
+                Components([ContextComponent()]),
+                CustomStr("bar"),
+                None,
+                id="component_context",
+            ),
+            pytest.param(
+                Foo,
+                XContext({}),
+                Components([NestedComponent(), LiteralBarComponent()]),
+                Foo("bar"),
+                None,
+                id="component_nested",
+            ),
+            pytest.param(
+                Foo,
+                XContext({}),
+                Components(),
+                None,
+                ComponentNotFound(Parameter("_root")),
+                id="unknown_parameter",
+            ),
+            pytest.param(
+                Foo,
+                XContext({}),
+                Components([NestedComponent()]),
+                None,
+                ComponentNotFound(Parameter("x"), component=NestedComponent()),
+                id="unknown_parameter_in_component",
+            ),
+        ),
+        indirect=["exception"],
+    )
+    async def test_value(self, annotation, context, components, result, exception):
+        with exception:
+            injector = Injector(context.__class__, components)
+            assert await injector.value(annotation, context) == result
+
+    @pytest.mark.parametrize(
         ["context", "components", "result", "exception"],
         (
             pytest.param(

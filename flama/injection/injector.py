@@ -12,7 +12,7 @@ if t.TYPE_CHECKING:
     from flama.injection.resolver import ResolutionTree
 
 
-class InjectionCache(LRUCache[tuple[type, Context], t.Any]):
+class InjectionCache(LRUCache[tuple[Parameter, Context], t.Any]):
     """A cache for injected component values."""
 
     ...
@@ -36,6 +36,7 @@ class Injector:
         """
         self._context_cls = context_cls
         self.components = Components(components or [])
+        self.cache = InjectionCache()
         self._resolver: t.Optional[Resolver] = None
 
     @property
@@ -116,7 +117,7 @@ class Injector:
         return functools.partial(
             func,
             **{
-                name: await resolution.value(self._context_cls(context), cache=InjectionCache())
+                name: await resolution.value(self._context_cls(context), cache=self.cache)
                 for name, resolution in self.resolve_function(func).items()
             },
         )
@@ -142,5 +143,5 @@ class Injector:
         """
         return await self.resolve(annotation, name=name, default=default).value(
             self._context_cls(context),
-            cache=InjectionCache(),
+            cache=self.cache,
         )

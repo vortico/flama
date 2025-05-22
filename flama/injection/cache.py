@@ -11,7 +11,7 @@ class LRUCache(t.MutableMapping[K, V]):
     """A cache for keeping the N last recent used items."""
 
     def __init__(self, *, max_size: int = 2**8):
-        self._data: dict[K, V] = collections.OrderedDict({})
+        self._data = collections.OrderedDict[K, V]({})
         self.max_size = max_size
 
     def __setitem__(self, key: K, value: V) -> None:
@@ -46,3 +46,6 @@ class LRUCache(t.MutableMapping[K, V]):
 
     def _is_cacheable(self, value: V) -> bool:
         return True
+
+    def reset(self) -> None:
+        self._data = collections.OrderedDict[K, V]({})
