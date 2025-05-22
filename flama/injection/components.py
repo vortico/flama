@@ -10,6 +10,8 @@ __all__ = ["Component", "Components"]
 
 
 class Component(metaclass=abc.ABCMeta):
+    cacheable: t.ClassVar[bool] = True
+
     def identity(self, parameter: Parameter) -> str:
         """Each component needs a unique identifier string that we use for lookups from the `state` dictionary when we
         run the dependency injection.

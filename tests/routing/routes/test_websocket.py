@@ -5,19 +5,23 @@ import pytest
 
 from flama import Flama, endpoints, exceptions, types, websockets
 from flama.endpoints import WebSocketEndpoint
+from flama.injection.injector import Injector
+from flama.routing.router import Router
 from flama.routing.routes.base import BaseRoute
 from flama.routing.routes.websocket import WebSocketEndpointWrapper, WebSocketFunctionWrapper, WebSocketRoute
 
 
-class TestCaseHTTPFunctionWrapper:
+class TestCaseWebsocketFunctionWrapper:
     @pytest.fixture(scope="function")
     def app(self):
-        app = MagicMock(spec=Flama)
-        app.router = MagicMock(resolve_route=MagicMock(side_effect=lambda x: (AsyncMock(), x)))
-        app.injector = MagicMock(
-            inject=AsyncMock(side_effect=lambda x, y: functools.partial(x, y["websocket"], y["websocket_message"]))
+        return MagicMock(
+            spec=Flama,
+            router=MagicMock(spec=Router, resolve_route=MagicMock(side_effect=lambda x: (AsyncMock(), x))),
+            injector=MagicMock(
+                spec=Injector,
+                inject=AsyncMock(side_effect=lambda x, y: functools.partial(x, y["websocket"], y["websocket_message"])),
+            ),
         )
-        return app
 
     @pytest.fixture(scope="function")
     def endpoint(self):
@@ -43,15 +47,17 @@ class TestCaseHTTPFunctionWrapper:
             assert websocket.send_json.call_args_list == [call({"foo": "bar"})]
 
 
-class TestCaseHTTPEndpointWrapper:
+class TestCaseWebsocketEndpointWrapper:
     @pytest.fixture(scope="function")
     def app(self):
-        app = MagicMock(spec=Flama)
-        app.router = MagicMock(resolve_route=MagicMock(side_effect=lambda x: (AsyncMock(), x)))
-        app.injector = MagicMock(
-            inject=AsyncMock(side_effect=lambda x, y: functools.partial(x, y["websocket"], y["websocket_message"]))
+        return MagicMock(
+            spec=Flama,
+            router=MagicMock(spec=Router, resolve_route=MagicMock(side_effect=lambda x: (AsyncMock(), x))),
+            injector=MagicMock(
+                spec=Injector,
+                inject=AsyncMock(side_effect=lambda x, y: functools.partial(x, y["websocket"], y["websocket_message"])),
+            ),
         )
-        return app
 
     @pytest.fixture(scope="function")
     def endpoint(self):

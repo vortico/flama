@@ -109,8 +109,6 @@ class TestCaseHTTPEndpoint:
                 "send": asgi_send,
                 "exc": None,
                 "app": app,
-                "root_app": app,
-                "path_params": {},
                 "route": route,
                 "request": request_mock(),
             }

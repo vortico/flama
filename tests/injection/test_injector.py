@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from flama.injection.components import Component, Components
+from flama.injection.context import Context as BaseContext
 from flama.injection.exceptions import ComponentError, ComponentNotFound
 from flama.injection.injector import Injector
 from flama.injection.resolver import EMPTY, Parameter, ResolutionTree, Resolver
@@ -15,19 +16,19 @@ CustomStr = t.NewType("CustomStr", str)
 Unknown = t.NewType("Unknown", str)
 
 
-class LiteralComponent(Component):
+class LiteralFooComponent(Component):
     def resolve(self) -> Foo:
         return Foo("foo")
+
+
+class LiteralBarComponent(Component):
+    def resolve(self) -> Bar:
+        return Bar("bar")
 
 
 class ContextComponent(Component):
     def resolve(self, x: CustomStr) -> Foo:
         return Foo(x)
-
-
-class ChildNestedComponent(Component):
-    def resolve(self) -> Bar:
-        return Bar("bar")
 
 
 class NestedComponent(Component):
@@ -40,36 +41,25 @@ class UnhandledComponent(Component):
         pass
 
 
-def function(foo: Foo):
-    return foo
+def function(foo: Foo, bar: Bar):
+    return foo, bar
+
+
+class XContext(BaseContext):
+    types = {"x": CustomStr}
+
+
+class FooBarContext(BaseContext):
+    types = {"foo": Foo, "bar": Bar}
 
 
 class TestCaseInjector:
     @pytest.fixture(scope="function")
     def injector(self):
-        return Injector()
-
-    def test_context_types_property(self, injector):
-        value = {"foo": str}
-        assert injector._resolver is None
-        injector.resolver
-        assert injector._resolver is not None
-
-        # Set a value
-        injector.context_types = value
-        assert injector._resolver is None
-        injector.resolver
-        assert injector._resolver is not None
-
-        # Delete the value
-        assert injector.context_types == value
-        del injector.context_types
-        assert injector._resolver is None
-        injector.resolver
-        assert injector._resolver is not None
+        return Injector(XContext)
 
     def test_components_property(self, injector):
-        value = Components([LiteralComponent()])
+        value = Components([LiteralFooComponent()])
 
         assert injector._resolver is None
         injector.resolver
@@ -93,7 +83,7 @@ class TestCaseInjector:
         resolution_mock = MagicMock(spec=ResolutionTree)
         resolver_mock.resolve.return_value = resolution_mock
 
-        injector = Injector()
+        injector = Injector(XContext)
         with patch.object(injector, "_resolver", resolver_mock):
             resolution = injector.resolve(Foo, name="foo", default=Foo("foo"))
 
@@ -105,32 +95,52 @@ class TestCaseInjector:
         resolution_mock = MagicMock(spec=ResolutionTree)
         resolver_mock.resolve.return_value = resolution_mock
 
-        injector = Injector()
+        injector = Injector(XContext)
         with patch.object(injector, "_resolver", resolver_mock):
             resolution = injector.resolve_function(function)
 
-        assert resolver_mock.resolve.call_args_list == [call(Parameter("foo", Foo, EMPTY))]
-        assert resolution == {"foo": resolution_mock}
+        assert resolver_mock.resolve.call_args_list == [
+            call(Parameter("foo", Foo, EMPTY)),
+            call(Parameter("bar", Bar, EMPTY)),
+        ]
+        assert resolution == {
+            "foo": resolution_mock,
+            "bar": resolution_mock,
+        }
 
     @pytest.mark.parametrize(
-        ["context", "context_types", "components", "result", "exception"],
+        ["context", "components", "result", "exception"],
         (
-            pytest.param({"foo": Foo("foo")}, {"foo": Foo}, Components(), Foo("foo"), None, id="context"),
-            pytest.param({}, {}, Components([LiteralComponent()]), Foo("foo"), None, id="component"),
             pytest.param(
-                {"x": CustomStr("bar")},
-                {"x": CustomStr},
-                Components([ContextComponent()]),
-                Foo("bar"),
+                FooBarContext({"foo": Foo("foo"), "bar": Bar("bar")}),
+                Components(),
+                (Foo("foo"), Bar("bar")),
+                None,
+                id="context",
+            ),
+            pytest.param(
+                XContext({}),
+                Components([LiteralFooComponent(), LiteralBarComponent()]),
+                (Foo("foo"), Bar("bar")),
+                None,
+                id="component",
+            ),
+            pytest.param(
+                XContext({"x": CustomStr("bar")}),
+                Components([ContextComponent(), LiteralBarComponent()]),
+                (CustomStr("bar"), Bar("bar")),
                 None,
                 id="component_context",
             ),
             pytest.param(
-                {}, {}, Components([NestedComponent(), ChildNestedComponent()]), Foo("bar"), None, id="component_nested"
+                XContext({}),
+                Components([NestedComponent(), LiteralBarComponent()]),
+                (Foo("bar"), Bar("bar")),
+                None,
+                id="component_nested",
             ),
             pytest.param(
-                {},
-                {},
+                XContext({}),
                 Components([UnhandledComponent()]),
                 None,
                 ComponentError(
@@ -140,16 +150,14 @@ class TestCaseInjector:
                 id="unhandled",
             ),
             pytest.param(
-                {},
-                {},
+                XContext({}),
                 Components(),
                 None,
                 ComponentNotFound(Parameter("foo"), function=function),
                 id="unknown_parameter",
             ),
             pytest.param(
-                {},
-                {},
+                XContext({}),
                 Components([NestedComponent()]),
                 None,
                 (
@@ -161,9 +169,9 @@ class TestCaseInjector:
         ),
         indirect=["exception"],
     )
-    async def test_inject(self, context, context_types, components, result, exception):
+    async def test_inject(self, context, components, result, exception):
         with exception:
-            injector = Injector(context_types, components)
+            injector = Injector(context.__class__, components)
             injected_func = await injector.inject(function, context)
 
             assert isinstance(injected_func, functools.partial)

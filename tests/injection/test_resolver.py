@@ -2,8 +2,10 @@ import typing as t
 
 import pytest
 
-from flama.injection import ComponentNotFound
 from flama.injection.components import Component, Components
+from flama.injection.context import Context as BaseContext
+from flama.injection.exceptions import ComponentNotFound
+from flama.injection.injector import InjectionCache
 from flama.injection.resolver import (
     EMPTY,
     ComponentNode,
@@ -43,6 +45,10 @@ class WrongComponent(Component):
 
 
 wrong_component = WrongComponent()
+
+
+class Context(BaseContext):
+    types = {"x": int, "data": dict, "y": int}
 
 
 class TestCaseResolutionTree:
@@ -154,40 +160,46 @@ class TestCaseResolutionTree:
             assert tree.components == expected_components
 
     @pytest.mark.parametrize(
-        ["parameter", "context", "expected_value"],
+        ["parameter", "calls"],
         (
             pytest.param(
                 Parameter("x", int, EMPTY),
-                {"x": 1},
-                1,
+                [
+                    (Context({"x": 1}), 1),
+                ],
                 id="context_builtin_type",
             ),
             pytest.param(
                 Parameter("y", CustomInt, EMPTY),
-                {"y": 1},
-                1,
+                [
+                    (Context({"y": 1}), 1),
+                ],
                 id="context_custom_type",
             ),
             pytest.param(
                 Parameter("foo", Foo, EMPTY),
-                {"x": 1},
-                Foo(1),
+                [
+                    (Context({"x": 1}), Foo(1)),
+                    (Context({"x": 2}), Foo(2)),  # Check cache is not used
+                ],
                 id="component",
             ),
             pytest.param(
                 Parameter("bar", Bar, EMPTY),
-                {"data": {"bar": 2}},
-                Bar(2),
+                [
+                    (Context({"data": {"bar": 2}}), Bar(2)),
+                    (Context({"data": {"bar": 3}}), Bar(3)),  # Check cache is not used
+                ],
                 id="component_using_its_parameter",
             ),
         ),
     )
-    async def test_context(self, parameter, context, expected_value, context_types, components):
+    async def test_value(self, parameter, calls, context_types, components):
+        cache = InjectionCache()
         tree = ResolutionTree.build(parameter, context_types, components)
 
-        value = await tree.value(context)
-
-        assert value == expected_value
+        for context, value in calls:
+            assert await tree.value(context, cache=cache) == value
 
 
 class TestCaseResolver:
@@ -274,5 +286,5 @@ class TestCaseResolver:
             assert resolver.resolve(parameter) == expected_tree
 
             if cached:
-                assert hash(parameter.annotation) in resolver._cache
+                assert parameter.annotation in resolver._cache
                 assert resolver.resolve(parameter) == expected_tree

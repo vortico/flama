@@ -48,8 +48,8 @@ class AuthenticationMiddleware:
             return self.app
 
         try:
-            token: authentication.AccessToken = await app.injector.resolve(authentication.AccessToken).value(
-                {"request": Request(scope, receive=receive)}
+            token: authentication.AccessToken = await app.injector.value(
+                authentication.AccessToken, {"request": Request(scope, receive=receive)}
             )
         except HTTPException as e:
             logger.debug("JWT error: %s", e.detail)

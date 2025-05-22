@@ -126,7 +126,7 @@ class SQLAlchemyTableManager:
         await self._connection.execute(query)
 
     async def list(
-        self, *clauses, order_by: t.Optional[str] = None, order_direction: str = "asc", **filters
+        self, *clauses, order_by: t.Optional[str] = None, order_direction: t.Literal["asc", "desc"] = "asc", **filters
     ) -> t.AsyncIterable[dict[str, t.Any]]:
         """Lists all the elements in the table.
 
@@ -279,7 +279,7 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         return await self._table_manager.delete(*clauses, **filters)
 
     def list(
-        self, *clauses, order_by: t.Optional[str] = None, order_direction: str = "asc", **filters
+        self, *clauses, order_by: t.Optional[str] = None, order_direction: t.Literal["asc", "desc"] = "asc", **filters
     ) -> t.AsyncIterable[dict[str, t.Any]]:
         """Lists all the elements in the repository.
 

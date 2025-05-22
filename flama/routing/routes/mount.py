@@ -49,9 +49,6 @@ class Mount(BaseRoute):
         ):
             await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
 
-    def __eq__(self, other: t.Any) -> bool:
-        return super().__eq__(other) and isinstance(other, Mount)
-
     def build(self, app: t.Optional["Flama"] = None) -> None:
         """Build step for routes.
 

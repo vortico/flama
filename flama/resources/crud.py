@@ -258,7 +258,10 @@ class ListMixin:
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 return [  # type: ignore[return-value]
-                    x async for x in repository.list(order_by=order_by, order_direction=order_direction)
+                    x
+                    async for x in repository.list(
+                        order_by=order_by, order_direction=t.cast(t.Literal["asc", "desc"], order_direction)
+                    )
                 ]
 
         list.__doc__ = f"""

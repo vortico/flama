@@ -41,6 +41,9 @@ class Router:
         if root:
             self.build(root)
 
+    def __hash__(self) -> int:
+        return hash(tuple(self.routes))
+
     def __eq__(self, other: t.Any) -> bool:
         return isinstance(other, Router) and self.routes == other.routes
 

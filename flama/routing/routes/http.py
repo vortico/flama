@@ -5,6 +5,9 @@ import typing as t
 from flama import compat, concurrency, endpoints, exceptions, http, schemas, types
 from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute
 
+if t.TYPE_CHECKING:
+    from flama import Flama
+
 __all__ = ["Route"]
 
 logger = logging.getLogger(__name__)
@@ -45,22 +48,21 @@ class HTTPFunctionWrapper(BaseHTTPEndpointWrapper):
         :param receive: ASGI receive.
         :param send: ASGI send.
         """
-        app = scope["app"]
+        app: Flama = scope["app"]
         scope["path"] = scope.get("root_path", "").rstrip("/") + scope["path"]
         scope["root_path"] = ""
         route, route_scope = app.router.resolve_route(scope)
-        state = {
+        context = {
             "scope": route_scope,
             "receive": receive,
             "send": send,
             "exc": None,
             "app": app,
-            "root_app": scope["root_app"],
             "route": route,
             "request": http.Request(route_scope, receive=receive),
         }
 
-        injected_func = await app.injector.inject(self.handler, state)
+        injected_func = await app.injector.inject(self.handler, context)
         response = await concurrency.run(injected_func)
         response = self._build_api_response(response)
 
@@ -127,8 +129,17 @@ class Route(BaseRoute):
         if scope["type"] == "http":
             await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
 
+    def __hash__(self) -> int:
+        return hash((self.app, self.path, self.name, tuple(self.methods)))
+
     def __eq__(self, other: t.Any) -> bool:
-        return super().__eq__(other) and isinstance(other, Route) and self.methods == other.methods
+        return (
+            isinstance(other, Route)
+            and self.path == other.path
+            and self.app == other.app
+            and self.name == other.name
+            and self.methods == other.methods
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(path={self.path!r}, name={self.name!r}, methods={sorted(self.methods)!r})"

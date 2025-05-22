@@ -46,12 +46,12 @@ class Authentication:
         context = {"scope": scope, "request": HTTPRequest(scope, receive=receive)}
 
         try:
-            access = await app.injector.resolve(AccessToken).value(context)
+            access = await app.injector.value(AccessToken, context)
         except Exception:
             access = None
 
         try:
-            refresh = await app.injector.resolve(RefreshToken).value(context)
+            refresh = await app.injector.value(RefreshToken, context)
         except Exception:
             refresh = None
 
@@ -80,10 +80,10 @@ class Request:
         app: Flama = scope["app"]
         context = {"scope": scope, "request": HTTPRequest(scope, receive=receive), "route": app.resolve_route(scope)[0]}
 
-        headers = dict(await app.injector.resolve(types.Headers).value(context))
-        cookies = dict(await app.injector.resolve(types.Cookies).value(context))
-        query = dict(await app.injector.resolve(types.QueryParams).value(context))
-        path = dict(await app.injector.resolve(types.PathParams).value(context))
+        headers = dict(await app.injector.value(types.Headers, context))
+        cookies = dict(await app.injector.value(types.Cookies, context))
+        query = dict(await app.injector.value(types.QueryParams, context))
+        path = dict(await app.injector.value(types.PathParams, context))
 
         return cls(headers=headers, cookies=cookies, query_parameters=query, path_parameters=path)
 

@@ -1,9 +1,11 @@
 import abc
-import collections
 import dataclasses
 import inspect
 import typing as t
 
+from flama.exceptions import ApplicationError
+from flama.injection.cache import LRUCache
+from flama.injection.context import Context
 from flama.injection.exceptions import ComponentNotFound
 from flama.injection.types import BUILTIN_TYPES
 
@@ -48,63 +50,6 @@ class Return(Parameter):
         return Return(return_annotation if return_annotation is not inspect.Signature.empty else EMPTY)
 
 
-K = t.TypeVar("K")
-V = t.TypeVar("V")
-
-
-class ResolutionCache(t.Mapping[K, V]):
-    """A cache for resolution."""
-
-    max_size: t.ClassVar[int] = 128
-
-    def __init__(self):
-        self._data: dict[int, V] = collections.OrderedDict({})
-
-    @abc.abstractmethod
-    def __setitem__(self, key: K, value: V) -> None: ...
-    @abc.abstractmethod
-    def __getitem__(self, key: K) -> V: ...
-    @abc.abstractmethod
-    def __delitem__(self, key: K) -> None: ...
-
-    def _set(self, key: int, value: V) -> None:
-        if len(self._data) == self.max_size:
-            self._data.popitem()
-
-        self._data.__setitem__(key, value)
-
-    def _get(self, key: int) -> V:
-        return self._data.__getitem__(key)
-
-    def _del(self, key: int) -> None:
-        return self._data.__delitem__(key)
-
-    def __eq__(self, other: object) -> bool:
-        return self._data.__eq__(other)
-
-    def __iter__(self) -> t.Iterator:
-        return self._data.__iter__()
-
-    def __len__(self) -> int:
-        return self._data.__len__()
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self._data.__repr__()})"
-
-
-class ComponentValueCache(ResolutionCache[dict[str, t.Any], t.Any]):
-    """A cache for resolution nodes."""
-
-    def __setitem__(self, key: dict[str, t.Any], value: t.Any) -> None:
-        super()._set(hash(str(key)), value)
-
-    def __getitem__(self, key: dict[str, t.Any]) -> t.Any:
-        return super()._get(hash(str(key)))
-
-    def __delitem__(self, key: dict[str, t.Any]) -> None:
-        super()._del(hash(str(key)))
-
-
 @dataclasses.dataclass(frozen=True)
 class ResolutionNode(abc.ABC):
     """A single node in the dependencies tree."""
@@ -114,7 +59,7 @@ class ResolutionNode(abc.ABC):
     nodes: list["ResolutionNode"]
 
     @abc.abstractmethod
-    async def value(self, context: dict[str, t.Any]) -> t.Any: ...
+    async def value(self, context: Context, *, cache: t.Optional[LRUCache] = None) -> t.Any: ...
 
     def components(self) -> list[tuple[str, "Component"]]:
         return []
@@ -131,15 +76,16 @@ class ComponentNode(ResolutionNode):
     """A node that represents a parameter that is resolved by component."""
 
     component: "Component"
-    cache: ComponentValueCache = dataclasses.field(init=False, compare=False, default_factory=ComponentValueCache)
 
-    async def value(self, context: dict[str, t.Any]) -> t.Any:
+    async def value(self, context: Context, *, cache: t.Optional[LRUCache] = None) -> t.Any:
         try:
-            value = self.cache[context]
+            value = (cache or {})[self.parameter.annotation, context]
         except KeyError:
-            kwargs = {node.name: await node.value(context) for node in self.nodes}
+            kwargs = {node.name: await node.value(context, cache=cache) for node in self.nodes}
             value = await self.component(**kwargs)
-            self.cache[context] = value
+
+        if self.component.cacheable and cache is not None:
+            cache[self.parameter.annotation, context] = value
 
         return value
 
@@ -157,7 +103,7 @@ class ComponentNode(ResolutionNode):
 class ContextNode(ResolutionNode):
     """A node that represents a parameter that is resolved by context."""
 
-    async def value(self, context: dict[str, t.Any]) -> t.Any:
+    async def value(self, context: Context, *, cache: t.Optional[LRUCache] = None) -> t.Any:
         return context[self.parameter.name]
 
     def context(self) -> list[tuple[str, Parameter]]:
@@ -168,7 +114,7 @@ class ContextNode(ResolutionNode):
 class ParameterNode(ResolutionNode):
     """A node that represents a parameter that is resolved by another parameter."""
 
-    async def value(self, context: dict[str, t.Any]) -> t.Any:
+    async def value(self, context: Context, *, cache: t.Optional[LRUCache] = None) -> t.Any:
         return self.parameter
 
     def parameters(self) -> list[Parameter]:
@@ -211,7 +157,8 @@ class ResolutionTree:
 
         # The 'Parameter' annotation can be used to get the parameter itself, so it is stored as a constant.
         if parameter.annotation is Parameter:
-            assert parent is not None, "A root function cannot define an argument with Parameter type"
+            if parent is None:
+                raise ApplicationError("A root function cannot define an argument with Parameter type")
 
             return ParameterNode(parameter.name, parent, nodes=[])
 
@@ -240,27 +187,15 @@ class ResolutionTree:
 
                 raise  # pragma: no cover
 
-    async def value(self, context: dict[str, t.Any]) -> t.Any:
-        return await self.root.value(context)
+    async def value(self, context: Context, *, cache: t.Optional[LRUCache] = None) -> t.Any:
+        return await self.root.value(context, cache=cache)
 
 
-class ResolutionTreeCache(ResolutionCache[t.Hashable, ResolutionTree]):
-    """A cache for resolution trees."""
+class ResolutionCache(LRUCache[t.Hashable, ResolutionTree]):
+    """A cache for resolved trees."""
 
-    def _can_cache(self, value: ResolutionTree) -> bool:
+    def _is_cacheable(self, value: ResolutionTree) -> bool:
         return isinstance(value.root, ComponentNode) and not value.root.component.use_parameter
-
-    def __setitem__(self, key: t.Hashable, value: ResolutionTree) -> None:
-        if not self._can_cache(value):
-            raise ValueError(f"Resolution {value} cannot be cached")
-
-        super()._set(hash(key), value)
-
-    def __getitem__(self, key: t.Hashable) -> t.Any:
-        return super()._get(hash(key))
-
-    def __delitem__(self, key: t.Hashable) -> None:
-        return super()._del(hash(key))
 
 
 class Resolver:
@@ -277,7 +212,7 @@ class Resolver:
         """
         self.context_types = {v: k for k, v in context_types.items()}
         self.components = components
-        self._cache = ResolutionTreeCache()
+        self._cache = ResolutionCache()
 
     def resolve(self, parameter: Parameter) -> ResolutionTree:
         """Build a resolution tree for the given parameter.
@@ -285,13 +220,12 @@ class Resolver:
         :param parameter: The parameter to be resolved.
         :return: A resolution tree.
         """
-        key = hash(parameter.annotation)
         try:
-            resolution = self._cache[key]
+            resolution = self._cache[parameter.annotation]
         except KeyError:
             resolution = ResolutionTree.build(parameter, self.context_types, self.components)
             try:
-                self._cache[key] = resolution
+                self._cache[parameter.annotation] = resolution
             except ValueError:
                 ...
 

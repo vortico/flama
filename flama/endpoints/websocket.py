@@ -5,6 +5,9 @@ import starlette.websockets
 from flama import exceptions, types, websockets
 from flama.endpoints.base import BaseEndpoint
 
+if t.TYPE_CHECKING:
+    from flama import Flama
+
 __all__ = ["WebSocketEndpoint"]
 
 
@@ -46,7 +49,7 @@ class WebSocketEndpoint(BaseEndpoint, types.WebSocketEndpointProtocol):
 
     async def dispatch(self) -> None:
         """Dispatch a request."""
-        app = self.state["app"]
+        app: Flama = self.state["app"]
         websocket = self.state["websocket"]
 
         on_connect = await app.injector.inject(self.on_connect, self.state)

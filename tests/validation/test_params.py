@@ -167,7 +167,7 @@ class TestCaseParamsValidation:
             pytest.param("/str-path-param/123/", "123", id="str-path-param"),
             pytest.param("/int-path-param/123/", 123, id="int-path-param"),
             pytest.param("/float-path-param/123.321/", 123.321, id="float-path-param"),
-            pytest.param("/bool-path-param/true/", True, id="float-path-param"),
+            pytest.param("/bool-path-param/true/", True, id="bool-path-param"),
             pytest.param(
                 "/datetime-path-param/2018-01-01T00:00:00+00:00/", "2018-01-01T00:00:00+00:00", id="datetime-path-param"
             ),

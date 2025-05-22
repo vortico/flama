@@ -2,7 +2,9 @@ import functools
 import inspect
 import typing as t
 
+from flama.injection.cache import LRUCache
 from flama.injection.components import Component, Components
+from flama.injection.context import Context
 from flama.injection.exceptions import ComponentNotFound
 from flama.injection.resolver import EMPTY, ROOT_NAME, Parameter, Resolver
 
@@ -10,12 +12,19 @@ if t.TYPE_CHECKING:
     from flama.injection.resolver import ResolutionTree
 
 
+class InjectionCache(LRUCache[tuple[type, Context], t.Any]):
+    """A cache for injected component values."""
+
+    ...
+
+
 class Injector:
     """Functions dependency injector. It uses a resolver to generate dependencies trees and evaluate them."""
 
     def __init__(
         self,
-        context_types: t.Optional[dict[str, type]] = None,
+        context_cls: type[Context],
+        /,
         components: t.Optional[t.Union[t.Sequence[Component], Components]] = None,
     ):
         """Functions dependency injector.
@@ -25,23 +34,9 @@ class Injector:
         :param context_types: A mapping of names into types for injection contexts.
         :param components: List of components.
         """
-        self.context_types = context_types or {}
+        self._context_cls = context_cls
         self.components = Components(components or [])
         self._resolver: t.Optional[Resolver] = None
-
-    @property
-    def context_types(self) -> dict[str, type]:
-        return self._context_types
-
-    @context_types.setter
-    def context_types(self, context_types: dict[str, type]):
-        self._context_types = context_types
-        del self.resolver
-
-    @context_types.deleter
-    def context_types(self):
-        self._context_types = {}
-        del self.resolver
 
     @property
     def components(self) -> Components:
@@ -60,7 +55,7 @@ class Injector:
     @property
     def resolver(self) -> Resolver:
         if self._resolver is None:
-            self._resolver = Resolver(self.context_types, self.components)
+            self._resolver = Resolver(self._context_cls.types, self.components)
 
         return self._resolver
 
@@ -76,7 +71,7 @@ class Injector:
     def resolve(self, annotation: type, *, default: t.Any) -> "ResolutionTree": ...
     @t.overload
     def resolve(self, annotation: type, *, name: str, default: t.Any) -> "ResolutionTree": ...
-    def resolve(self, annotation: type, *, name: t.Optional[str] = None, default: t.Any = EMPTY) -> "ResolutionTree":
+    def resolve(self, annotation: type, *, name: str = ROOT_NAME, default: t.Any = EMPTY) -> "ResolutionTree":
         """Generate a dependencies tree for a given type annotation.
 
         :param annotation: Type annotation to be resolved.
@@ -84,7 +79,7 @@ class Injector:
         :param func: Function to be resolved.
         :return: Dependencies tree.
         """
-        return self.resolver.resolve(Parameter(name or ROOT_NAME, annotation, default))
+        return self.resolver.resolve(Parameter(name, annotation, default))
 
     def resolve_function(self, func: t.Callable) -> dict[str, "ResolutionTree"]:
         """Generate a dependencies tree for a given function.
@@ -107,7 +102,7 @@ class Injector:
 
         return parameters
 
-    async def inject(self, func: t.Callable, context: t.Optional[dict[str, t.Any]] = None) -> t.Callable:
+    async def inject(self, func: t.Callable, context: t.Mapping[str, t.Any]) -> t.Callable:
         """Inject dependencies into a given function.
 
         It analyses the function signature, look for type annotations and try to resolve them. Once all dependencies
@@ -118,9 +113,34 @@ class Injector:
         :param context: Mapping of names and values used to gather injection values.
         :return: Partialised function with all dependencies injected.
         """
-        if context is None:
-            context = {}
-
         return functools.partial(
-            func, **{name: await resolution.value(context) for name, resolution in self.resolve_function(func).items()}
+            func,
+            **{
+                name: await resolution.value(self._context_cls(context), cache=InjectionCache())
+                for name, resolution in self.resolve_function(func).items()
+            },
+        )
+
+    @t.overload
+    async def value(self, annotation: type, context: t.Mapping[str, t.Any]) -> t.Any: ...
+    @t.overload
+    async def value(self, annotation: type, context: t.Mapping[str, t.Any], *, name: str) -> t.Any: ...
+    @t.overload
+    async def value(self, annotation: type, context: t.Mapping[str, t.Any], *, default: t.Any) -> t.Any: ...
+    @t.overload
+    async def value(self, annotation: type, context: t.Mapping[str, t.Any], *, name: str, default: t.Any) -> t.Any: ...
+    async def value(
+        self, annotation: type, context: t.Mapping[str, t.Any], *, name: str = ROOT_NAME, default: t.Any = EMPTY
+    ) -> t.Any:
+        """Generate a value for given dependency and context.
+
+        :param annotation: Type annotation to be resolved.
+        :param context: Mapping of names and values used to gather injection values.
+        :param name: Name of the parameter to be resolved.
+        :param func: Function to be resolved.
+        :return: Dependencies tree.
+        """
+        return await self.resolve(annotation, name=name, default=default).value(
+            self._context_cls(context),
+            cache=InjectionCache(),
         )

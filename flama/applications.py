@@ -71,22 +71,7 @@ class Flama:
         self._shutdown = False
 
         # Create Dependency Injector
-        self._injector = injection.Injector(
-            context_types={
-                "scope": types.Scope,
-                "receive": types.Receive,
-                "send": types.Send,
-                "exc": Exception,
-                "app": Flama,
-                "route": routing.BaseRoute,
-                "request": http.Request,
-                "response": http.Response,
-                "websocket": websockets.WebSocket,
-                "websocket_message": types.Message,
-                "websocket_encoding": types.Encoding,
-                "websocket_code": types.Code,
-            }
-        )
+        self._injector = injection.Injector(Context)
 
         # Initialise components
         default_components = []
@@ -395,3 +380,33 @@ class Flama:
     add_options = functools.partialmethod(add_route, methods=["OPTIONS"])
     add_trace = functools.partialmethod(add_route, methods=["TRACE"])
     add_patch = functools.partialmethod(add_route, methods=["PATCH"])
+
+
+class Context(injection.Context):
+    types = {
+        "scope": types.Scope,
+        "receive": types.Receive,
+        "send": types.Send,
+        "exc": Exception,
+        "app": Flama,
+        "route": routing.BaseRoute,
+        "request": http.Request,
+        "response": http.Response,
+        "websocket": websockets.WebSocket,
+        "websocket_message": types.Message,
+        "websocket_encoding": types.Encoding,
+        "websocket_code": types.Code,
+    }
+
+    hashable = (
+        "scope",
+        "receive",
+        "send",
+        "exc",
+        "app",
+        "route",
+        "response",
+        "websocket_message",
+        "websocket_encoding",
+        "websocket_code",
+    )

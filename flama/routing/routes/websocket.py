@@ -5,6 +5,9 @@ import typing as t
 from flama import compat, endpoints, exceptions, types, websockets
 from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute
 
+if t.TYPE_CHECKING:
+    from flama import Flama
+
 __all__ = ["WebSocketRoute"]
 
 logger = logging.getLogger(__name__)
@@ -18,17 +21,16 @@ class WebSocketFunctionWrapper(BaseEndpointWrapper):
         :param receive: ASGI receive.
         :param send: ASGI send.
         """
-        app = scope["app"]
+        app: Flama = scope["app"]
         scope["path"] = scope.get("root_path", "").rstrip("/") + scope["path"]
         scope["root_path"] = ""
         route, route_scope = app.router.resolve_route(scope)
-        state = {
+        context = {
             "scope": route_scope,
             "receive": receive,
             "send": send,
             "exc": None,
             "app": app,
-            "root_app": scope["root_app"],
             "route": route,
             "websocket": websockets.WebSocket(route_scope, receive, send),
             "websocket_encoding": None,
@@ -36,7 +38,7 @@ class WebSocketFunctionWrapper(BaseEndpointWrapper):
             "websocket_message": None,
         }
 
-        injected_func = await app.injector.inject(self.handler, state)
+        injected_func = await app.injector.inject(self.handler, context)
         await injected_func(**route_scope.get("kwargs", {}))
 
 
@@ -87,9 +89,6 @@ class WebSocketRoute(BaseRoute):
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if scope["type"] == "websocket":
             await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
-
-    def __eq__(self, other: t.Any) -> bool:
-        return super().__eq__(other) and isinstance(other, WebSocketRoute)
 
     @staticmethod
     def is_endpoint(

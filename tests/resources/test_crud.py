@@ -84,7 +84,10 @@ class TestCaseCRUDResource:
                     return [
                         x
                         async for x in worker.repositories[self._meta.name].list(
-                            *clauses, order_by=order_by, order_direction=order_direction, **filters
+                            *clauses,
+                            order_by=order_by,
+                            order_direction=t.cast(t.Literal["asc", "desc"], order_direction),
+                            **filters,
                         )
                     ]
 

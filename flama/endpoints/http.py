@@ -3,6 +3,9 @@ import typing as t
 from flama import concurrency, http, types
 from flama.endpoints.base import BaseEndpoint
 
+if t.TYPE_CHECKING:
+    from flama import Flama
+
 __all__ = ["HTTPEndpoint"]
 
 
@@ -21,7 +24,7 @@ class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
 
         self.state.update(
             {
-                "request": http.Request(self.state["scope"], receive=receive),
+                "request": http.Request(scope, receive=receive),
             }
         )
 
@@ -58,6 +61,6 @@ class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
 
     async def dispatch(self) -> None:
         """Dispatch a request."""
-        app = self.state["app"]
+        app: Flama = self.state["app"]
         handler = await app.injector.inject(self.handler, self.state)
         return await concurrency.run(handler)

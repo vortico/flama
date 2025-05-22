@@ -2,6 +2,9 @@ import typing as t
 
 from flama import types
 
+if t.TYPE_CHECKING:
+    from flama import Flama
+
 __all__ = ["BaseEndpoint"]
 
 
@@ -13,7 +16,7 @@ class BaseEndpoint(types.EndpointProtocol):
         :param receive: ASGI receive function.
         :param send: ASGI send function.
         """
-        app = scope["app"]
+        app: Flama = scope["app"]
         scope["path"] = scope.get("root_path", "").rstrip("/") + scope["path"]
         scope["root_path"] = ""
         route, route_scope = app.router.resolve_route(scope)
@@ -23,8 +26,6 @@ class BaseEndpoint(types.EndpointProtocol):
             "send": send,
             "exc": None,
             "app": app,
-            "root_app": scope["root_app"],
-            "path_params": route_scope.get("path_params", {}),
             "route": route,
         }
 

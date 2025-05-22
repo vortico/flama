@@ -262,6 +262,9 @@ class Path:
     def __bool__(self) -> bool:
         return self.path != ""
 
+    def __hash__(self) -> int:
+        return hash(self.path)
+
     def __eq__(self, other, /) -> bool:
         return isinstance(other, Path) and self.path.__eq__(other.path) or self.path.__eq__(other)
 
@@ -347,6 +350,9 @@ class URL:
         :return: URL string.
         """
         return str(urllib.parse.urlunparse(tuple(self.components.values())))
+
+    def __hash__(self) -> int:
+        return hash(self.url)
 
     def __eq__(self, value, /) -> bool:
         return isinstance(value, URL) and self.url == value.url or self.url == value

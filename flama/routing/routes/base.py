@@ -42,6 +42,9 @@ class BaseEndpointWrapper(abc.ABC):
         """
         ...
 
+    def __hash__(self) -> int:
+        return hash(self.handler)
+
     def __eq__(self, other) -> bool:
         return isinstance(other, BaseEndpointWrapper) and self.handler == other.handler
 
@@ -79,6 +82,9 @@ class BaseRoute(abc.ABC, RouteParametersMixin):
 
     @abc.abstractmethod
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None: ...
+
+    def __hash__(self) -> int:
+        return hash((self.app, self.path, self.name))
 
     def __eq__(self, other: t.Any) -> bool:
         return (

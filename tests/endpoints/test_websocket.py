@@ -162,8 +162,6 @@ class TestCaseWebSocketEndpoint:
                 "send": asgi_send,
                 "exc": None,
                 "app": app,
-                "root_app": app,
-                "path_params": {},
                 "route": route,
                 "websocket": websocket_mock(),
                 "websocket_code": None,

@@ -4,7 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
-from flama import Component, Flama, Module, exceptions, http, routing, types, websockets
+from flama import Component, Module, exceptions, http, routing, types, websockets
+from flama.applications import Context, Flama
 from flama.ddd.components import WorkerComponent
 from flama.events import Events
 from flama.injection.injector import Injector
@@ -52,7 +53,8 @@ class TestCaseFlama:
         assert isinstance(app.router, routing.Router)
         # Check injector
         assert isinstance(app._injector, Injector)
-        assert app._injector.context_types == {
+        assert app._injector._context_cls == Context
+        assert app._injector._context_cls.types == {
             "scope": types.Scope,
             "receive": types.Receive,
             "send": types.Send,

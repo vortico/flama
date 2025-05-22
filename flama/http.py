@@ -48,6 +48,9 @@ class Response(starlette.responses.Response):
     ) -> None:
         await super().__call__(scope, receive, send)  # type: ignore[arg-type]
 
+    def __hash__(self) -> int:
+        return hash((self.status_code, getattr(self, "media_type"), self.background, self.body, self.headers))
+
     def __eq__(self, value: object, /) -> bool:
         return (
             isinstance(value, Response)
