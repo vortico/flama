@@ -28,6 +28,10 @@ logger = logging.getLogger(__name__)
 
 
 class Flama:
+    resources: ResourcesModule
+    schema: SchemaModule
+    models: ModelsModule
+
     def __init__(
         self,
         *,

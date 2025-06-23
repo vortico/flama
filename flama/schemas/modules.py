@@ -62,7 +62,7 @@ class SchemaModule(Module):
         return schemas._module.lib
 
     @schema_library.setter
-    def schema_library(self, library: str) -> None:
+    def schema_library(self, library: t.Optional[str]) -> None:
         """Globally set the schema library.
 
         :param library: Schema library to be used.
