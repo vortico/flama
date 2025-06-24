@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.11.4](https://github.com/vortico/flama/compare/v1.11.3...v1.11.4) (2025-06-24)
+
+## 🐛 Bug Fixes
+- [`a90ad07`](https://github.com/vortico/flama/commit/a90ad07)  Flag for including resources in schema
+
 # [v1.11.3](https://github.com/vortico/flama/compare/v1.11.2...v1.11.3) (2025-06-24)
 
 ## 🐛 Bug Fixes
