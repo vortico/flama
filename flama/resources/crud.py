@@ -5,7 +5,7 @@ from flama import exceptions, http, schemas
 from flama.ddd import exceptions as ddd_exceptions
 from flama.resources import data_structures
 from flama.resources.rest import RESTResource, RESTResourceType
-from flama.resources.routing import resource_method
+from flama.resources.routing import ResourceRoute
 from flama.resources.workers import FlamaWorker
 
 __all__ = ["CreateMixin", "RetrieveMixin", "UpdateMixin", "DeleteMixin", "ListMixin", "DropMixin", "CRUDResourceType"]
@@ -21,7 +21,7 @@ class CreateMixin:
         rest_model: data_structures.Model,
         **kwargs,
     ) -> dict[str, t.Any]:
-        @resource_method("/", methods=["POST"], name="create")
+        @ResourceRoute.method("/", methods=["POST"], name="create")
         async def create(
             self,
             worker: FlamaWorker,
@@ -70,7 +70,7 @@ class RetrieveMixin:
         rest_model: data_structures.Model,
         **kwargs,
     ) -> dict[str, t.Any]:
-        @resource_method("/{resource_id}/", methods=["GET"], name="retrieve")
+        @ResourceRoute.method("/{resource_id}/", methods=["GET"], name="retrieve")
         async def retrieve(
             self,
             worker: FlamaWorker,
@@ -112,7 +112,7 @@ class UpdateMixin:
         rest_model: data_structures.Model,
         **kwargs,
     ) -> dict[str, t.Any]:
-        @resource_method("/{resource_id}/", methods=["PUT"], name="update")
+        @ResourceRoute.method("/{resource_id}/", methods=["PUT"], name="update")
         async def update(
             self,
             worker: FlamaWorker,
@@ -166,7 +166,7 @@ class PartialUpdateMixin:
         rest_model: data_structures.Model,
         **kwargs,
     ) -> dict[str, t.Any]:
-        @resource_method("/{resource_id}/", methods=["PATCH"], name="partial-update")
+        @ResourceRoute.method("/{resource_id}/", methods=["PATCH"], name="partial-update")
         async def partial_update(
             self,
             worker: FlamaWorker,
@@ -212,7 +212,7 @@ class PartialUpdateMixin:
 class DeleteMixin:
     @classmethod
     def _add_delete(cls, name: str, verbose_name: str, rest_model: data_structures.Model, **kwargs) -> dict[str, t.Any]:
-        @resource_method("/{resource_id}/", methods=["DELETE"], name="delete")
+        @ResourceRoute.method("/{resource_id}/", methods=["DELETE"], name="delete")
         async def delete(self, worker: FlamaWorker, resource_id: rest_model.primary_key.type):  # type: ignore
             try:
                 async with worker:
@@ -247,7 +247,7 @@ class ListMixin:
     def _add_list(
         cls, name: str, verbose_name: str, rest_schemas: data_structures.Schemas, **kwargs
     ) -> dict[str, t.Any]:
-        @resource_method("/", methods=["GET"], name="list", pagination="page_number")
+        @ResourceRoute.method("/", methods=["GET"], name="list", pagination="page_number")
         async def list(
             self,
             worker: FlamaWorker,
@@ -290,7 +290,7 @@ class ReplaceMixin:
         rest_model: data_structures.Model,
         **kwargs,
     ) -> dict[str, t.Any]:
-        @resource_method("/", methods=["PUT"], name="replace")
+        @ResourceRoute.method("/", methods=["PUT"], name="replace")
         async def replace(
             self,
             worker: FlamaWorker,
@@ -333,7 +333,7 @@ class PartialReplaceMixin:
         rest_model: data_structures.Model,
         **kwargs,
     ) -> dict[str, t.Any]:
-        @resource_method("/", methods=["PATCH"], name="partial-replace")
+        @ResourceRoute.method("/", methods=["PATCH"], name="partial-replace")
         async def partial_replace(
             self,
             worker: FlamaWorker,
@@ -373,7 +373,7 @@ class PartialReplaceMixin:
 class DropMixin:
     @classmethod
     def _add_drop(cls, name: str, verbose_name: str, **kwargs) -> dict[str, t.Any]:
-        @resource_method("/", methods=["DELETE"], name="drop")
+        @ResourceRoute.method("/", methods=["DELETE"], name="drop")
         async def drop(
             self, worker: FlamaWorker
         ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(schemas.schemas.DropCollection)]:

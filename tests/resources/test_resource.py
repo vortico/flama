@@ -5,7 +5,7 @@ from flama.applications import Flama
 from flama.ddd.repositories.sqlalchemy import SQLAlchemyRepository
 from flama.resources import data_structures
 from flama.resources.crud import CRUDResource
-from flama.resources.routing import resource_method
+from flama.resources.routing import ResourceRoute
 from flama.sqlalchemy import SQLAlchemyModule, metadata
 
 
@@ -57,7 +57,7 @@ class TestCaseBaseResource:
 
     def test_override_method(self, app, resource):
         class SpecializedPuppyResource(resource):
-            @resource_method("/")
+            @ResourceRoute.method("/")
             def list(self):
                 return ["foo", "bar"]
 
@@ -167,16 +167,3 @@ class TestCaseBaseResource:
             class PuppyResource(CRUDResource):
                 model = model_
                 schema = puppy_schema
-
-
-class TestCaseResourceMethod:
-    def test_resource_method(self):
-        @resource_method(path="/", methods=["POST"], name="foo", tags={"additional": "bar"})
-        def foo(x: int):
-            return x
-
-        assert hasattr(foo, "_meta")
-        assert foo._meta.path == "/"
-        assert foo._meta.methods == {"POST"}
-        assert foo._meta.name == "foo"
-        assert foo._meta.tags == {"additional": "bar"}

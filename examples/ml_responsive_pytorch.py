@@ -6,7 +6,7 @@ import flama
 from flama import Flama
 from flama.models import ModelComponent, ModelResource, ModelResourceType
 from flama.models.base import Model
-from flama.resources.routing import resource_method
+from flama.resources.routing import ResourceRoute
 
 app = Flama()
 
@@ -20,13 +20,13 @@ app.models.add_model(
 
 
 # Adding a model using a ModelResource:
-@app.models.model("/model_resource")
+@app.models.model_resource("/model_resource")
 class PyTorchModelResource(ModelResource, metaclass=ModelResourceType):
     name = "pytorch_model"
     verbose_name = "PyTorch Logistic Regression"
     model_path = "path/to/your_model_file.flm"
 
-    @resource_method("/info", methods=["GET"], name="model-info")
+    @ResourceRoute.method("/info", methods=["GET"], name="model-info")
     def info(self):
         return {"name": self.verbose_name}
 

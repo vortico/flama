@@ -1,7 +1,7 @@
 import inspect
 import typing as t
 
-from flama import exceptions
+from flama import exceptions, types
 from flama.modules import Module
 from flama.resources.resource import Resource
 from flama.resources.routing import ResourceRoute
@@ -62,6 +62,30 @@ class ResourcesModule(Module):
             return resource
 
         return decorator
+
+    def method(
+        self,
+        path: str,
+        *,
+        methods: t.Optional[t.Sequence[str]] = None,
+        name: t.Optional[str] = None,
+        include_in_schema: bool = True,
+        pagination: t.Optional[types.Pagination] = None,
+        tags: t.Optional[dict[str, t.Any]] = None,
+    ) -> t.Callable:
+        """Decorator for adding useful info needed for generating resource routes.
+
+        :param path: Route path.
+        :param methods: HTTP methods available.
+        :param name: Route name.
+        :param include_in_schema: True if this route must be listed as part of the App schema.
+        :param pagination: Apply a pagination technique.
+        :param tags: Tags to add to the method.
+        :return: Decorated method.
+        """
+        return ResourceRoute.method(
+            path, methods=methods, name=name, include_in_schema=include_in_schema, pagination=pagination, tags=tags
+        )
 
     def add_repository(self, name: str, repository: type["SQLAlchemyTableRepository"]) -> None:
         """Register a repository.

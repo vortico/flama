@@ -5,7 +5,7 @@ from flama.applications import Flama
 from flama.client import Client
 from flama.resources.crud import CRUDResource
 from flama.resources.resource import Resource
-from flama.resources.routing import ResourceRoute, resource_method
+from flama.resources.routing import ResourceRoute
 from flama.routing import Mount, Route
 from flama.sqlalchemy import SQLAlchemyModule
 
@@ -45,7 +45,15 @@ class TestCaseResourceRoute:
         assert resource_route.resource == resource
         for route in resource_route.routes:
             assert isinstance(route, Route)
-        assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
+        assert [
+            (
+                route.path,
+                route.methods,
+                route.endpoint.__wrapped__ if route.endpoint._meta.pagination else route.endpoint,
+                route.tags,
+            )
+            for route in resource_route.routes
+        ] == [
             ("/", {"POST"}, resource_route.resource.create, {"tag": "create"}),
             ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve, {"tag": "retrieve"}),
             ("/{resource_id}/", {"PUT"}, resource_route.resource.update, {"tag": "update"}),
@@ -86,7 +94,14 @@ class TestCaseResourceRoute:
         assert len(app.routes) == 2
         resource_route = app.routes[1]
         assert isinstance(resource_route, ResourceRoute)
-        assert [(route.path, route.methods, route.endpoint) for route in resource_route.routes] == [
+        assert [
+            (
+                route.path,
+                route.methods,
+                route.endpoint.__wrapped__ if route.endpoint._meta.pagination else route.endpoint,
+            )
+            for route in resource_route.routes
+        ] == [
             ("/", {"POST"}, resource_route.resource.create),
             ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
             ("/{resource_id}/", {"PUT"}, resource_route.resource.update),
@@ -114,7 +129,14 @@ class TestCaseResourceRoute:
         assert len(mount.routes) == 1
         resource_route = mount.routes[0]
         assert isinstance(resource_route, ResourceRoute)
-        assert [(route.path, route.methods, route.endpoint) for route in resource_route.routes] == [
+        assert [
+            (
+                route.path,
+                route.methods,
+                route.endpoint.__wrapped__ if route.endpoint._meta.pagination else route.endpoint,
+            )
+            for route in resource_route.routes
+        ] == [
             ("/", {"POST"}, resource_route.resource.create),
             ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
             ("/{resource_id}/", {"PUT"}, resource_route.resource.update),
@@ -131,7 +153,7 @@ class TestCaseResourceRoute:
             name = "puppy"
             verbose_name = "Puppy"
 
-            @resource_method("/", methods=["GET"], name="puppy-list", tags={"foo": "bar"})
+            @ResourceRoute.method("/", methods=["GET"], name="puppy-list", tags={"foo": "bar"})
             async def list(self):
                 return {"name": "Canna"}
 
@@ -145,10 +167,8 @@ class TestCaseResourceRoute:
             response = await client.get("/puppy/")
             assert response.status_code == 200
 
-
-class TestCaseResourceMethod:
-    def test_resource_method(self):
-        @resource_method(path="/", methods=["POST"], name="foo", tags={"additional": "bar"})
+    def test_method(self):
+        @ResourceRoute.method(path="/", methods=["POST"], name="foo", tags={"additional": "bar"})
         def foo(x: int):
             return x
 

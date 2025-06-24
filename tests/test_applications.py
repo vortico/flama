@@ -11,7 +11,7 @@ from flama.events import Events
 from flama.injection.injector import Injector
 from flama.middleware import Middleware, MiddlewareStack
 from flama.models import ModelsModule
-from flama.resources import Resource, ResourcesModule, resource_method
+from flama.resources import Resource, ResourceRoute, ResourcesModule
 from flama.schemas.modules import SchemaModule
 from flama.types.applications import AppStatus
 from flama.url import URL
@@ -312,7 +312,7 @@ class TestCaseFlama:
             name = "puppy"
             verbose_name = "Puppy"
 
-            @resource_method("/custom")
+            @ResourceRoute.method("/custom")
             def custom(self): ...
 
         with exception:

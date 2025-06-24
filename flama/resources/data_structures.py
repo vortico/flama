@@ -1,6 +1,8 @@
 import dataclasses
 import typing as t
 
+from flama import types
+
 try:
     from sqlalchemy import Table
 except Exception:  # pragma: no cover
@@ -52,4 +54,6 @@ class MethodMetadata:
     path: str
     methods: set[str] = dataclasses.field(default_factory=lambda: {"GET"})
     name: t.Optional[str] = None
-    tags: dict[str, t.Any] = dataclasses.field(default_factory=dict)
+    include_in_schema: bool = True
+    pagination: t.Optional[types.Pagination] = None
+    tags: t.Optional[dict[str, t.Any]] = None

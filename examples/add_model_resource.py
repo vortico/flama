@@ -6,7 +6,7 @@ import pydantic
 import flama
 from flama import Flama, schemas
 from flama.models import ModelResource
-from flama.resources import resource_method
+from flama.resources import ResourceRoute
 
 app = Flama(
     openapi={
@@ -44,7 +44,7 @@ class MySKModel(ModelResource):
         "library_version": "1.0.2",
     }
 
-    @resource_method("/predict/", methods=["POST"], name="model-predict")
+    @ResourceRoute.method("/predict/", methods=["POST"], name="model-predict")
     def predict(
         self, data: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(X)]
     ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(Y)]:
@@ -61,7 +61,7 @@ class MySKModel(ModelResource):
         """
         return {"output": self.model.predict(data["input"])}
 
-    @resource_method("/inspect/", methods=["GET"], name="model-inspect-model")
+    @ResourceRoute.method("/inspect/", methods=["GET"], name="model-inspect-model")
     def inspect_model(self):
         """
         tags:
@@ -76,7 +76,7 @@ class MySKModel(ModelResource):
         """
         return {"params": self.model.inspect()}
 
-    @resource_method("/metadata/", methods=["GET"], name="metadata-method")
+    @ResourceRoute.method("/metadata/", methods=["GET"], name="metadata-method")
     def metadata(self):
         """
         tags:

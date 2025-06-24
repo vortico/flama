@@ -40,7 +40,15 @@ class TestCaseResourcesModule:
             assert len(app.routes) == 1
             assert isinstance(app.routes[0], ResourceRoute)
             resource_route = app.routes[0]
-            assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
+            assert [
+                (
+                    route.path,
+                    route.methods,
+                    route.endpoint.__wrapped__ if route.endpoint._meta.pagination else route.endpoint,
+                    route.tags,
+                )
+                for route in resource_route.routes
+            ] == [
                 ("/", {"POST"}, resource.create, {"tag": "create"}),
                 ("/{resource_id}/", {"GET", "HEAD"}, resource.retrieve, {"tag": "retrieve"}),
                 ("/{resource_id}/", {"PUT"}, resource.update, {"tag": "update"}),
@@ -69,7 +77,15 @@ class TestCaseResourcesModule:
             assert len(app.routes) == 1
             assert isinstance(app.routes[0], ResourceRoute)
             resource_route = app.routes[0]
-            assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
+            assert [
+                (
+                    route.path,
+                    route.methods,
+                    route.endpoint.__wrapped__ if route.endpoint._meta.pagination else route.endpoint,
+                    route.tags,
+                )
+                for route in resource_route.routes
+            ] == [
                 ("/", {"POST"}, resource.create, {"tag": "create"}),
                 ("/{resource_id}/", {"GET", "HEAD"}, resource.retrieve, {"tag": "retrieve"}),
                 ("/{resource_id}/", {"PUT"}, resource.update, {"tag": "update"}),
@@ -103,7 +119,15 @@ class TestCaseResourcesModule:
             assert len(app.routes) == 1
             assert isinstance(app.routes[0], ResourceRoute)
             resource_route = app.routes[0]
-            assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
+            assert [
+                (
+                    route.path,
+                    route.methods,
+                    route.endpoint.__wrapped__ if route.endpoint._meta.pagination else route.endpoint,
+                    route.tags,
+                )
+                for route in resource_route.routes
+            ] == [
                 ("/", {"POST"}, resource_route.resource.create, {"tag": "create"}),
                 ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve, {"tag": "retrieve"}),
                 ("/{resource_id}/", {"PUT"}, resource_route.resource.update, {"tag": "update"}),

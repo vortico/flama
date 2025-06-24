@@ -7,7 +7,7 @@ from flama.models.components import ModelComponentBuilder
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
 from flama.resources.resource import Resource, ResourceType
-from flama.resources.routing import resource_method
+from flama.resources.routing import ResourceRoute
 
 if t.TYPE_CHECKING:
     from flama.models.base import Model
@@ -22,7 +22,7 @@ Component = t.TypeVar("Component", bound="ModelComponent")
 class InspectMixin:
     @classmethod
     def _add_inspect(cls, name: str, verbose_name: str, model_model_type: type["Model"], **kwargs) -> dict[str, t.Any]:
-        @resource_method("/", methods=["GET"], name="inspect")
+        @ResourceRoute.method("/", methods=["GET"], name="inspect")
         async def inspect(self, model: model_model_type):  # type: ignore[valid-type]
             return model.inspect()  # type: ignore[attr-defined]
 
@@ -45,7 +45,7 @@ class InspectMixin:
 class PredictMixin:
     @classmethod
     def _add_predict(cls, name: str, verbose_name: str, model_model_type: type["Model"], **kwargs) -> dict[str, t.Any]:
-        @resource_method("/predict/", methods=["POST"], name="predict")
+        @ResourceRoute.method("/predict/", methods=["POST"], name="predict")
         async def predict(
             self,
             model: model_model_type,  # type: ignore[valid-type]

@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 from flama.applications import Flama
 from flama.resources.crud import CRUDResource
-from flama.resources.routing import ResourceRoute, resource_method
+from flama.resources.routing import ResourceRoute
 from flama.resources.workers import FlamaWorker
 from flama.schemas import SchemaMetadata, SchemaType
 from flama.sqlalchemy import SQLAlchemyModule
@@ -48,7 +48,7 @@ def another_puppy():
 
 class TestCaseCRUDResource:
     @pytest.fixture(scope="function")
-    def resource(self, puppy_model, puppy_schema):
+    def resource(self, app: Flama, puppy_model, puppy_schema):
         class PuppyResource(CRUDResource):
             name = "puppy"
             verbose_name = "Puppy"
@@ -57,7 +57,7 @@ class TestCaseCRUDResource:
             input_schema = puppy_schema
             output_schema = puppy_schema
 
-            @resource_method("/", methods=["GET"], name="list", pagination="page_number")
+            @app.resources.method("/", methods=["GET"], name="list", pagination="page_number")
             async def list(
                 self,
                 worker: FlamaWorker,
@@ -236,7 +236,10 @@ class TestCaseCRUDResource:
         assert len(app.routes) == 1
         assert isinstance(app.routes[0], ResourceRoute)
         resource_route = app.routes[0]
-        assert [(i.path, i.endpoint, i.methods, i.name) for i in resource_route.routes] == expected_routes
+        assert [
+            (i.path, i.endpoint.__wrapped__ if i.endpoint._meta.pagination else i.endpoint, i.methods, i.name)
+            for i in resource_route.routes
+        ] == expected_routes
 
     async def test_create(self, client, puppy):
         expected_puppy_id = 1

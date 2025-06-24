@@ -5,7 +5,7 @@ import flama
 from flama import Flama
 from flama.models import BaseModelResource, ModelComponent
 from flama.models.base import Model
-from flama.resources import resource_method
+from flama.resources import ResourceRoute
 
 
 class MyCustomModel(Model):
@@ -67,7 +67,7 @@ class MyCustomModelResource(BaseModelResource[MyCustomModelComponent]):
             }
         }
 
-    @resource_method("/unload/", methods=["GET"], name="unload-method")
+    @ResourceRoute.method("/unload/", methods=["GET"], name="unload-method")
     def unload(self):
         """
         tags:
@@ -78,7 +78,7 @@ class MyCustomModelResource(BaseModelResource[MyCustomModelComponent]):
         self.component.reset()
         return self._get_metadata()
 
-    @resource_method("/metadata/", methods=["GET"], name="metadata-method")
+    @ResourceRoute.method("/metadata/", methods=["GET"], name="metadata-method")
     def metadata(self):
         """
         tags:
