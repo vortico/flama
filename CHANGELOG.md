@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.11.3](https://github.com/vortico/flama/compare/v1.11.2...v1.11.3) (2025-06-24)
+
+## 🐛 Bug Fixes
+- [`0f697bb`](https://github.com/vortico/flama/commit/0f697bb)  Deprecate resource_method in favor of ResourceRoute.method
+
 # [v1.11.2](https://github.com/vortico/flama/compare/v1.11.1...v1.11.2) (2025-05-22)
 
 ## 🐛 Bug Fixes
