@@ -67,7 +67,11 @@ class PydanticAdapter(Adapter[Schema, Field]):
                 field.default = None
                 fields_[name] = (t.Optional[annotation], field)
 
-        return pydantic.create_model(name or self.DEFAULT_SCHEMA_NAME, **fields_)
+        return pydantic.create_model(
+            name or self.DEFAULT_SCHEMA_NAME,
+            __module__=self.unique_schema(schema).__module__ if schema else None,  # type: ignore
+            **fields_,
+        )
 
     def validate(
         self, schema: t.Union[Schema, type[Schema]], values: dict[str, t.Any], *, partial: bool = False
@@ -94,9 +98,10 @@ class PydanticAdapter(Adapter[Schema, Field]):
         return self.validate(schema_cls, value)
 
     def name(self, schema: t.Union[Schema, type[Schema]], *, prefix: t.Optional[str] = None) -> str:
-        s = self.unique_schema(schema)
-        schema_name = f"{prefix or ''}{s.__qualname__}"
-        return schema_name if s.__module__ == "builtins" else f"{s.__module__}.{schema_name}"
+        schema_cls = self.unique_schema(schema)
+
+        schema_name = f"{prefix or ''}{schema_cls.__qualname__}"
+        return schema_name if schema_cls.__module__ == "builtins" else f"{schema_cls.__module__}.{schema_name}"
 
     def to_json_schema(self, schema: t.Union[type[Schema], type[Field]]) -> JSONSchema:
         try:
