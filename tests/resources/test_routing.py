@@ -168,7 +168,9 @@ class TestCaseResourceRoute:
             assert response.status_code == 200
 
     def test_method(self):
-        @ResourceRoute.method(path="/", methods=["POST"], name="foo", tags={"additional": "bar"})
+        @ResourceRoute.method(
+            path="/", methods=["POST"], name="foo", include_in_schema=False, tags={"additional": "bar"}
+        )
         def foo(x: int):
             return x
 
@@ -176,4 +178,5 @@ class TestCaseResourceRoute:
         assert foo._meta.path == "/"
         assert foo._meta.methods == {"POST"}
         assert foo._meta.name == "foo"
+        assert foo._meta.include_in_schema is False
         assert foo._meta.tags == {"additional": "bar"}

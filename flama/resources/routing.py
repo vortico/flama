@@ -18,6 +18,8 @@ class ResourceRoute(Mount):
         self,
         path: str,
         resource: t.Union["Resource", type["Resource"]],
+        *,
+        include_in_schema: bool = True,
         tags: t.Optional[dict[str, t.Any]] = None,
     ):
         tags = tags or {}
@@ -34,7 +36,7 @@ class ResourceRoute(Mount):
                 endpoint=getattr(self.resource, name),
                 methods=route._meta.methods,
                 name=route._meta.name or route.__name__,
-                include_in_schema=route._meta.include_in_schema,
+                include_in_schema=include_in_schema and route._meta.include_in_schema,
                 tags=tags.get(name, route._meta.tags),
                 pagination=route._meta.pagination,
             )

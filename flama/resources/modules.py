@@ -28,15 +28,17 @@ class ResourcesModule(Module):
         self,
         path: str,
         resource: t.Union[Resource, type[Resource]],
-        tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
         *args,
+        include_in_schema: bool = True,
+        tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
         **kwargs,
     ) -> "Resource":
         """Adds a resource to this application, setting its endpoints.
 
         :param path: Resource base path.
-        :param tags: Tags to add to the resource.
         :param resource: Resource class.
+        :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
+        :param tags: Tags to add to the resource.
         """
         if inspect.isclass(resource) and issubclass(resource, Resource):
             resource_instance = resource(*args, **kwargs)
@@ -45,20 +47,28 @@ class ResourcesModule(Module):
         else:
             raise ValueError("Wrong resource")
 
-        self.app.mount(mount=ResourceRoute(path, resource_instance, tags))
+        self.app.mount(mount=ResourceRoute(path, resource_instance, include_in_schema=include_in_schema, tags=tags))
 
         return resource_instance
 
-    def resource(self, path: str, tags: t.Optional[dict[str, dict[str, t.Any]]] = None, *args, **kwargs) -> t.Callable:
+    def resource(
+        self,
+        path: str,
+        *args,
+        include_in_schema: bool = True,
+        tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
+        **kwargs,
+    ) -> t.Callable:
         """Decorator for Resources classes for adding them to the application.
 
         :param path: Resource base path.
+        :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
         :param tags: Tags to add to the resource.
         :return: Decorated resource class.
         """
 
         def decorator(resource: type[Resource]) -> type[Resource]:
-            self.add_resource(path, resource, tags, *args, **kwargs)
+            self.add_resource(path, resource, *args, include_in_schema=include_in_schema, tags=tags, **kwargs)
             return resource
 
         return decorator
