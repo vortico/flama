@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.11.5](https://github.com/vortico/flama/compare/v1.11.4...v1.11.5) (2025-06-24)
+
+## 🐛 Bug Fixes
+- [`38234fc`](https://github.com/vortico/flama/commit/38234fc)  Correct module name on built schemas from other schemas
+
 # [v1.11.4](https://github.com/vortico/flama/compare/v1.11.3...v1.11.4) (2025-06-24)
 
 ## 🐛 Bug Fixes
