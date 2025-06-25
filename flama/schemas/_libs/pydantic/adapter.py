@@ -50,6 +50,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
         self,
         *,
         name: t.Optional[str] = None,
+        module: t.Optional[str] = None,
         schema: t.Optional[t.Union[Schema, type[Schema]]] = None,
         fields: t.Optional[dict[str, type[Field]]] = None,
         partial: bool = False,
@@ -69,7 +70,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
 
         return pydantic.create_model(
             name or self.DEFAULT_SCHEMA_NAME,
-            __module__=self.unique_schema(schema).__module__ if schema else None,  # type: ignore
+            __module__=module,  # type: ignore
             **fields_,
         )
 

@@ -99,6 +99,8 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
 
 
 class PageNumberMixin:
+    schemas: dict[str, t.Any]
+
     def _paginate_page_number(self, func: t.Callable) -> t.Callable:
         """
         Decorator for adding pagination behavior to a view. That decorator produces a view based on page numbering and
@@ -113,23 +115,24 @@ class PageNumberMixin:
         :param schema_name: Name used for output field.
         :return: Decorated view.
         """
-        schema_wrapped = schemas.Schema.from_type(inspect.signature(func).return_annotation)
-        resource_schema = schema_wrapped.unique_schema
-        schema_name = schema_wrapped.name
+        schema = schemas.Schema.from_type(inspect.signature(func).return_annotation)
 
         try:
-            schema_module, schema_class = schema_name.rsplit(".", 1)
-            paginated_schema_name = f"{schema_module}.PageNumberPaginated{schema_class}"
+            module, schema_class = schema.name.rsplit(".", 1)
+            name = f"PageNumberPaginated{schema_class}"
         except ValueError:  # pragma: no cover
-            paginated_schema_name = f"PageNumberPaginated{schema_name}"
-        schema = schemas.Schema.build(
-            paginated_schema_name,
+            module = None
+            name = f"PageNumberPaginated{schema.name}"
+
+        paginated_schema = schemas.Schema.build(
+            name,
+            module,
             schema=schemas.schemas.PageNumber,
-            fields=[schemas.Field("data", resource_schema, multiple=True)],
-        ).unique_schema
+            fields=[schemas.Field("data", schema.unique_schema, multiple=True)],
+        )
 
-        decorator = PageNumberDecoratorFactory.decorate(func, schema)
+        decorator = PageNumberDecoratorFactory.decorate(func, paginated_schema.unique_schema)
 
-        self.schemas.update({schema_name: resource_schema, paginated_schema_name: schema})  # type: ignore[attr-defined]
+        self.schemas.update({schema.name: schema.unique_schema, paginated_schema.name: paginated_schema.unique_schema})
 
         return decorator

@@ -11,7 +11,7 @@ R = t.TypeVar("R", covariant=True)
 
 class Paginator(LimitOffsetMixin, PageNumberMixin):
     def __init__(self):
-        self.schemas = {}
+        self.schemas: dict[str, t.Any] = {}
 
     def paginate(self, pagination: types.Pagination, func: t.Callable[P, R]) -> t.Callable[P, R]:
         return {

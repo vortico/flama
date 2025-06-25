@@ -159,13 +159,14 @@ class TestCaseSchema:
 
     def test_build(self, foo_schema):
         n = Mock()
+        m = Mock()
         s = Mock()
         with patch("flama.schemas.data_structures.schemas") as schemas_mock:
             schemas_mock.adapter.build_schema.return_value = foo_schema.schema
 
-            schema = Schema.build(n, s)
+            schema = Schema.build(n, m, s)
 
-            assert schemas_mock.adapter.build_schema.call_args_list == [call(name=n, schema=s, fields={})]
+            assert schemas_mock.adapter.build_schema.call_args_list == [call(name=n, module=m, schema=s, fields={})]
             assert schema.schema == foo_schema.schema
 
     def test_is_schema(self):

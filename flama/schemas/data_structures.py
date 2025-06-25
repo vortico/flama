@@ -114,12 +114,13 @@ class Schema:
     def build(
         cls,
         name: t.Optional[str] = None,
+        module: t.Optional[str] = None,
         schema: t.Any = None,
         fields: t.Optional[list[Field]] = None,
     ) -> "Schema":
         return cls(
             schema=schemas.adapter.build_schema(
-                name=name, schema=schema, fields={f.name: f.field for f in (fields or [])}
+                name=name, module=module, schema=schema, fields={f.name: f.field for f in (fields or [])}
             ),
         )
 

@@ -54,6 +54,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         self,
         *,
         name: t.Optional[str] = None,
+        module: t.Optional[str] = None,
         schema: t.Optional[t.Union[Schema, type[Schema]]] = None,
         fields: t.Optional[dict[str, Field]] = None,
         partial: bool = False,

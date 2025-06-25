@@ -25,20 +25,29 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
 
     @t.overload
     @abc.abstractmethod
-    def build_schema(self, *, name: t.Optional[str] = None, fields: dict[str, t.Any]) -> t.Any: ...
+    def build_schema(
+        self, *, name: t.Optional[str] = None, module: t.Optional[str] = None, fields: dict[str, t.Any]
+    ) -> t.Any: ...
 
     @t.overload
     @abc.abstractmethod
-    def build_schema(self, *, name: t.Optional[str] = None, schema: t.Any) -> t.Any: ...
-
-    @t.overload
-    @abc.abstractmethod
-    def build_schema(self, *, name: t.Optional[str] = None, schema: t.Any, partial: bool) -> t.Any: ...
+    def build_schema(self, *, name: t.Optional[str] = None, module: t.Optional[str] = None, schema: t.Any) -> t.Any: ...
 
     @t.overload
     @abc.abstractmethod
     def build_schema(
-        self, *, name: t.Optional[str] = None, schema: t.Any, fields: t.Optional[dict[str, t.Any]]
+        self, *, name: t.Optional[str] = None, module: t.Optional[str] = None, schema: t.Any, partial: bool
+    ) -> t.Any: ...
+
+    @t.overload
+    @abc.abstractmethod
+    def build_schema(
+        self,
+        *,
+        name: t.Optional[str] = None,
+        module: t.Optional[str] = None,
+        schema: t.Any,
+        fields: t.Optional[dict[str, t.Any]],
     ) -> t.Any: ...
 
     @abc.abstractmethod
@@ -46,6 +55,7 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
         self,
         *,
         name: t.Optional[str] = None,
+        module: t.Optional[str] = None,
         schema: t.Optional[t.Any] = None,
         fields: t.Optional[dict[str, t.Any]] = None,
         partial: bool = False,
