@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.11.6](https://github.com/vortico/flama/compare/v1.11.5...v1.11.6) (2025-06-25)
+
+## 🐛 Bug Fixes
+- [`77d3655`](https://github.com/vortico/flama/commit/77d3655)  Correct names on schemas generated for pagination
+
 # [v1.11.5](https://github.com/vortico/flama/compare/v1.11.4...v1.11.5) (2025-06-24)
 
 ## 🐛 Bug Fixes
