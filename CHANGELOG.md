@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.11.7](https://github.com/vortico/flama/compare/v1.11.6...v1.11.7) (2025-06-25)
+
+## 🐛 Bug Fixes
+- [`8efc547`](https://github.com/vortico/flama/commit/8efc547)  Remove double slash in schema subapps urls
+
 # [v1.11.6](https://github.com/vortico/flama/compare/v1.11.5...v1.11.6) (2025-06-25)
 
 ## 🐛 Bug Fixes
