@@ -268,7 +268,7 @@ class SchemaGenerator:
         endpoints_info: dict[str, list[EndpointInfo]] = defaultdict(list)
 
         for route in routes:
-            path = str(url.Path(base_path + route.path.path))
+            path = str(url.Path(base_path) / route.path)
 
             if isinstance(route, routing.Route) and route.include_in_schema:
                 if inspect.isfunction(route.endpoint) or inspect.ismethod(route.endpoint):
