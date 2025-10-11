@@ -3,6 +3,7 @@ import pytest
 from flama import endpoints, http, injection, websockets
 from flama.applications import Flama
 from flama.client import Client
+from flama.routing.routes.mount import Mount
 
 
 class Puppy:
@@ -166,3 +167,39 @@ class TestCaseComponentsInjection:
         ):
             async with Client(app) as client:
                 await client.request("get", "/")
+
+    async def test_injection_mount(self, puppy_component):
+        foo_app = Flama(schema=None, docs=None, components=[puppy_component])
+        app = Flama(schema=None, docs=None, routes=[Mount("/foo/", app=foo_app)])
+
+        @foo_app.route("/puppy/")
+        async def puppy(puppy: Puppy):
+            return http.JSONResponse({"puppy": puppy.name})
+
+        async with Client(app) as client:
+            response = await client.request("get", "/foo/puppy/")
+
+        assert response.status_code == 200
+        assert response.json() == {"puppy": "Canna"}
+
+    async def test_injection_nested_mount(self, puppy_component, owner_component):
+        bar_app = Flama(schema=None, docs=None, components=[owner_component])
+        foo_app = Flama(schema=None, docs=None, components=[puppy_component], routes=[Mount("/bar", app=bar_app)])
+        app = Flama(schema=None, docs=None, routes=[Mount("/foo/", app=foo_app)])
+
+        @foo_app.route("/puppy/")
+        async def puppy(puppy: Puppy):
+            return http.JSONResponse({"puppy": puppy.name})
+
+        @bar_app.route("/owner/")
+        async def owner(puppy: Puppy, owner: Owner):
+            return http.JSONResponse({"owner": owner.name, "puppy": puppy.name})
+
+        async with Client(app) as client:
+            response_puppy = await client.request("get", "/foo/puppy/")
+            response_owner = await client.request("get", "/foo/bar/owner/")
+
+        assert response_puppy.status_code == 200
+        assert response_puppy.json() == {"puppy": "Canna"}
+        assert response_owner.status_code == 200
+        assert response_owner.json() == {"owner": "Perdy", "puppy": "Canna"}
