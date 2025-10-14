@@ -7,7 +7,7 @@ from collections import defaultdict
 
 import yaml
 
-from flama import routing, schemas, types, url
+from flama import exceptions, routing, schemas, types, url
 from flama.schemas import Schema, openapi
 from flama.schemas.data_structures import Parameter
 
@@ -205,20 +205,20 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         :return: Schema ID.
         """
         if schema in self:
-            raise ValueError("Schema is already registered.")
+            raise exceptions.ApplicationError(f"Schema '{schema}' is already registered.")
 
         s = schemas.Schema(schema)
 
         try:
             schema_name = name or s.name
         except ValueError as e:  # pragma: no cover
-            raise ValueError("Cannot infer schema name.") from e
+            raise exceptions.ApplicationError("Cannot infer schema name.") from e
 
         schema_instance = s.unique_schema
         schema_id = id(schema_instance)
         self[schema_id] = SchemaInfo(name=schema_name, schema=schema_instance)
 
-        for child_schema in [schemas.Schema(x) for x in s.nested_schemas() if x not in self]:
+        for child_schema in (schemas.Schema(x) for x in s.nested_schemas() if x not in self):
             self.register(schema=child_schema.schema, name=child_schema.name)
 
         return schema_id
