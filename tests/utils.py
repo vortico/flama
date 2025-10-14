@@ -6,6 +6,11 @@ import sqlalchemy
 
 from flama import Flama
 
+__all__ = ["NotInstalled", "installed", "ExceptionContext", "SQLAlchemyContext"]
+
+
+class NotInstalled(Exception): ...
+
 
 def installed(module: str) -> bool:
     """Check if a module is installed.

@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 import pytest
 
 from flama import exceptions, routing, types
-from flama.applications import Flama
 from flama.url import Path
 
 
@@ -110,13 +109,13 @@ class TestCaseBaseRoute:
 
         assert repr(route_cls("/", foo, name="foo")) == "_Route(path='/', name='foo')"
 
-    @pytest.mark.parametrize(["app"], (pytest.param(MagicMock(spec=Flama), id="app"), pytest.param(None, id="no_app")))
     def test_build(self, app, route):
-        expected_calls = [call(app)] if app else []
-        with patch.object(route, "parameters") as parameters_mock:
-            route.build(app)
+        expected_calls = [call(app)]
 
-        assert parameters_mock.build.call_args_list == expected_calls
+        with patch.object(route, "parameters") as parameters_mock:
+            route._build(app)
+
+        assert parameters_mock._build.call_args_list == expected_calls
 
     def test_endpoint_handlers(self, route):
         assert route.endpoint_handlers() == {}

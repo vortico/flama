@@ -23,9 +23,9 @@ class Router:
         self,
         routes: t.Optional[t.Sequence[BaseRoute]] = None,
         *,
+        app: "Flama",
         components: t.Optional[t.Union[t.Sequence["Component"], set["Component"]]] = None,
         lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None,
-        root: t.Optional["Flama"] = None,
     ):
         """A router for containing all routes and mount points.
 
@@ -34,12 +34,13 @@ class Router:
         :param lifespan: Lifespan function.
         :param root: Flama application.
         """
-        self.routes = [] if routes is None else list(routes)
+        self.app = app
+        self.routes: list[BaseRoute] = [] if routes is None else list(routes)
         self.components = Components(components if components else set())
         self.lifespan = Lifespan(lifespan)
 
-        if root:
-            self.build(root)
+        for route in self.routes:
+            route._build(self.app)
 
     def __hash__(self) -> int:
         return hash(tuple(self.routes))
@@ -62,33 +63,22 @@ class Router:
         route, route_scope = self.resolve_route(scope)
         await route(route_scope, receive, send)
 
-    def build(self, app: "Flama") -> None:
-        """Build step for routes.
-
-        Just build the parameters' descriptor part of RouteParametersMixin.
-
-        :param app: Flama app.
-        """
-        for route in self.routes:
-            route.build(app)
-
     def add_component(self, component: Component):
         """Register a new component.
 
         :param component: Component to register.
         """
-        self.components = Components(self.components + Components([component]))
+        self.components = Components(self.components + (component,))
 
     def add_route(
         self,
         path: t.Optional[str] = None,
         endpoint: t.Optional[types.HTTPHandler] = None,
         methods: t.Optional[list[str]] = None,
+        *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        *,
         route: t.Optional[Route] = None,
-        root: t.Optional["Flama"] = None,
         pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> Route:
@@ -100,7 +90,6 @@ class Router:
         :param name: Endpoint or route name.
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
         :param route: HTTP route.
-        :param root: Flama application.
         :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the route or endpoint.
         :return: Route.
@@ -117,22 +106,19 @@ class Router:
             )
 
         if route is None:
-            raise exceptions.ApplicationError("Either 'path' and 'endpoint' or 'route' variables are needed")
+            raise exceptions.ApplicationError("Either 'path' and 'endpoint', or 'route' variables are needed")
 
         self.routes.append(route)
-
-        route.build(root)
-
+        route._build(self.app)
         return route
 
     def route(
         self,
         path: str,
         methods: t.Optional[list[str]] = None,
+        *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        *,
-        root: t.Optional["Flama"] = None,
         pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
@@ -142,7 +128,6 @@ class Router:
         :param methods: List of valid HTTP methods (only applies for routes).
         :param name: Endpoint or route name.
         :param include_in_schema: True if this route or endpoint should be declared as part of the API schema.
-        :param root: Flama application.
         :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the endpoint.
         :return: Decorated route.
@@ -155,7 +140,6 @@ class Router:
                 methods=methods,
                 name=name,
                 include_in_schema=include_in_schema,
-                root=root,
                 pagination=pagination,
                 tags=tags,
             )
@@ -167,10 +151,9 @@ class Router:
         self,
         path: t.Optional[str] = None,
         endpoint: t.Optional[types.WebSocketHandler] = None,
-        name: t.Optional[str] = None,
         *,
+        name: t.Optional[str] = None,
         route: t.Optional[WebSocketRoute] = None,
-        root: t.Optional["Flama"] = None,
         pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> WebSocketRoute:
@@ -180,7 +163,6 @@ class Router:
         :param endpoint: Websocket function or endpoint.
         :param name: Websocket route name.
         :param route: Specific route class.
-        :param root: Flama application.
         :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the websocket route.
         :return: Websocket route.
@@ -189,20 +171,17 @@ class Router:
             route = WebSocketRoute(path, endpoint=endpoint, name=name, pagination=pagination, tags=tags)
 
         if route is None:
-            raise exceptions.ApplicationError("Either 'path' and 'endpoint' or 'route' variables are needed")
+            raise exceptions.ApplicationError("Either 'path' and 'endpoint', or 'route' variables are needed")
 
         self.routes.append(route)
-
-        route.build(root)
-
+        route._build(self.app)
         return route
 
     def websocket_route(
         self,
         path: str,
-        name: t.Optional[str] = None,
         *,
-        root: t.Optional["Flama"] = None,
+        name: t.Optional[str] = None,
         pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
@@ -210,14 +189,13 @@ class Router:
 
         :param path: URL path.
         :param name: Websocket route name.
-        :param root: Flama application.
         :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the websocket route.
         :return: Decorated websocket route.
         """
 
         def decorator(func: types.WebSocketHandler) -> types.WebSocketHandler:
-            self.add_websocket_route(path, func, name=name, root=root, pagination=pagination, tags=tags)
+            self.add_websocket_route(path, func, name=name, pagination=pagination, tags=tags)
             return func
 
         return decorator
@@ -226,10 +204,9 @@ class Router:
         self,
         path: t.Optional[str] = None,
         app: t.Optional[types.App] = None,
-        name: t.Optional[str] = None,
         *,
+        name: t.Optional[str] = None,
         mount: t.Optional[Mount] = None,
-        root: t.Optional["Flama"] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ) -> Mount:
         """Register a new mount point containing an ASGI app in this router under given path.
@@ -238,7 +215,6 @@ class Router:
         :param app: ASGI app to mount.
         :param name: Route name.
         :param mount: Mount.
-        :param root: Flama application.
         :param tags: Tags to add to the mount.
         :return: Mount.
         """
@@ -246,12 +222,10 @@ class Router:
             mount = Mount(path, app=app, name=name, tags=tags)
 
         if mount is None:
-            raise exceptions.ApplicationError("Either 'path' and 'app' or 'mount' variables are needed")
+            raise exceptions.ApplicationError("Either 'path' and 'app', or 'mount' variables are needed")
 
         self.routes.append(mount)
-
-        mount.build(root)
-
+        mount._build(self.app)
         return mount
 
     def resolve_route(self, scope: types.Scope) -> tuple[BaseRoute, types.Scope]:

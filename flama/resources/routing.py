@@ -21,7 +21,10 @@ class ResourceRoute(Mount):
         *,
         include_in_schema: bool = True,
         tags: t.Optional[dict[str, t.Any]] = None,
+        parent: "Flama",
     ):
+        from flama import Flama
+
         tags = tags or {}
 
         # Handle class or instance objects
@@ -30,34 +33,41 @@ class ResourceRoute(Mount):
         if not (set(self.resource.routes.keys()) >= set(tags.keys())):  # type: ignore
             raise exceptions.ApplicationError("Tags must be defined only for existing routes.")
 
-        routes = [
-            Route(
-                path=route._meta.path,
-                endpoint=getattr(self.resource, name),
-                methods=route._meta.methods,
-                name=route._meta.name or route.__name__,
-                include_in_schema=include_in_schema and route._meta.include_in_schema,
-                tags=tags.get(name, route._meta.tags),
-                pagination=route._meta.pagination,
-            )
-            for name, route in self.resource.routes.items()  # type: ignore
-        ]
+        super().__init__(
+            path=path,
+            app=Flama(
+                routes=[
+                    Route(
+                        path=route._meta.path,
+                        endpoint=getattr(self.resource, name),
+                        methods=route._meta.methods,
+                        name=route._meta.name or route.__name__,
+                        include_in_schema=include_in_schema and route._meta.include_in_schema,
+                        tags=tags.get(name, route._meta.tags),
+                        pagination=route._meta.pagination,
+                    )
+                    for name, route in self.resource.routes.items()  # type: ignore
+                ],
+                docs=None,
+                schema=None,
+                schema_library=parent.schema.schema_library.name,
+            ),
+            name=self.resource._meta.name,
+        )
 
-        super().__init__(path=path, routes=routes, name=self.resource._meta.name)  # type: ignore
+        self.app: Flama
 
-    def build(self, app: t.Optional["Flama"] = None) -> None:
+    def _build(self, app: "Flama") -> None:
         """Build step for resource routes.
 
         Add this resource's repository to Flama's worker.
 
         :param app: Flama app.
         """
-        from flama import Flama
+        super()._build(app)
 
-        super().build(app)
-
-        if (root := (self.app if isinstance(self.app, Flama) else app)) and "ddd" in self.resource._meta.namespaces:
-            root.resources.add_repository(
+        if "ddd" in self.resource._meta.namespaces:
+            self.app.resources.add_repository(
                 name=self.resource._meta.name,
                 repository=self.resource._meta.namespaces["ddd"]["repository"],
             )

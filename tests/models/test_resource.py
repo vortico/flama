@@ -1,7 +1,14 @@
+import pathlib
+import tempfile
+
 import pytest
 
+import flama
+from flama.client import Client
 from flama.models import ModelResource, ModelResourceType
 from flama.resources.exceptions import ResourceAttributeError
+from tests.conftest import model_factory
+from tests.utils import NotInstalled
 
 
 class TestCaseModelResource:
@@ -73,20 +80,34 @@ class TestCaseModelResource:
 
 
 class TestCaseModelResourceMethods:
-    @pytest.mark.parametrize(
-        ("lib", "model_path", "url"),
-        (
-            pytest.param("torch", "torch", "/torch/", id="torch"),
-            pytest.param("sklearn", "sklearn", "/sklearn/", id="sklearn"),
-            pytest.param("sklearn-pipeline", "sklearn-pipeline", "/sklearn-pipeline/", id="sklearn-pipeline"),
-            pytest.param("tensorflow", "tensorflow", "/tensorflow/", id="tensorflow"),
-        ),
-        indirect=["model_path"],
-    )
-    async def test_inspect(self, app, client, lib, model_path, url):
-        app.models.add_model(f"/{lib}/", model=model_path, name=lib)
+    @pytest.fixture(scope="function")
+    async def client(self, request, app):
+        try:
+            model = model_factory.model(request.param)
+        except NotInstalled:
+            pytest.skip(f"Lib for case '{request.param}' is not installed.")
 
-        response = await client.get(url)
+        with tempfile.NamedTemporaryFile(suffix=".flm") as f:
+            flama.dump(model, f.name)
+            f.flush()
+
+            app.models.add_model("/model/", model=pathlib.Path(f.name), name=request.param)
+
+            async with Client(app=app) as client:
+                yield client
+
+    @pytest.mark.parametrize(
+        ["client"],
+        (
+            pytest.param("torch", id="torch"),
+            pytest.param("sklearn", id="sklearn"),
+            pytest.param("sklearn-pipeline", id="sklearn-pipeline"),
+            pytest.param("tensorflow", id="tensorflow"),
+        ),
+        indirect=["client"],
+    )
+    async def test_inspect(self, client):
+        response = await client.get("/model/")
         assert response.status_code == 200, response.json()
         inspect = response.json()
         assert set(inspect.keys()) == {"meta", "artifacts"}
@@ -96,65 +117,25 @@ class TestCaseModelResourceMethods:
         assert set(meta["framework"].keys()) == {"lib", "version"}
 
     @pytest.mark.parametrize(
-        ("lib", "model_path", "url", "x", "y", "status_code"),
+        ("client", "x", "y", "status_code"),
         (
+            pytest.param("torch", [[0, 0], [0, 1], [1, 0], [1, 1]], [[0], [1], [1], [0]], 200, id="torch-200"),
+            pytest.param("torch", [["wrong"]], None, 400, id="torch-400"),
+            pytest.param("sklearn", [[0, 0], [0, 1], [1, 0], [1, 1]], [0, 1, 1, 0], 200, id="sklearn-200"),
+            pytest.param("sklearn", [["wrong"]], None, 400, id="sklearn-400"),
             pytest.param(
-                "torch",
-                "torch",
-                "/torch/predict/",
-                [[0, 0], [0, 1], [1, 0], [1, 1]],
-                [[0], [1], [1], [0]],
-                200,
-                id="torch-200",
+                "sklearn-pipeline", [[0, 0], [0, 1], [1, 0], [1, 1]], [0, 1, 1, 0], 200, id="sklearn-pipeline-200"
             ),
-            pytest.param("torch", "torch", "/torch/predict/", [["wrong"]], None, 400, id="torch-400"),
+            pytest.param("sklearn-pipeline", [["wrong"]], None, 400, id="sklearn-pipeline-400"),
             pytest.param(
-                "sklearn",
-                "sklearn",
-                "/sklearn/predict/",
-                [[0, 0], [0, 1], [1, 0], [1, 1]],
-                [0, 1, 1, 0],
-                200,
-                id="sklearn-200",
+                "tensorflow", [[0, 0], [0, 1], [1, 0], [1, 1]], [[0], [1], [1], [0]], 200, id="tensorflow-200"
             ),
-            pytest.param("sklearn", "sklearn", "/sklearn/predict/", [["wrong"]], None, 400, id="sklearn-400"),
-            pytest.param(
-                "sklearn-pipeline",
-                "sklearn-pipeline",
-                "/sklearn-pipeline/predict/",
-                [[0, 0], [0, 1], [1, 0], [1, 1]],
-                [0, 1, 1, 0],
-                200,
-                id="sklearn-pipeline-200",
-            ),
-            pytest.param(
-                "sklearn-pipeline",
-                "sklearn-pipeline",
-                "/sklearn-pipeline/predict/",
-                [["wrong"]],
-                None,
-                400,
-                id="sklearn-pipeline-400",
-            ),
-            pytest.param(
-                "tensorflow",
-                "tensorflow",
-                "/tensorflow/predict/",
-                [[0, 0], [0, 1], [1, 0], [1, 1]],
-                [[0], [1], [1], [0]],
-                200,
-                id="tensorflow-200",
-            ),
-            pytest.param(
-                "tensorflow", "tensorflow", "/tensorflow/predict/", [["wrong"]], None, 400, id="tensorflow-400"
-            ),
+            pytest.param("tensorflow", [["wrong"]], None, 400, id="tensorflow-400"),
         ),
-        indirect=["model_path"],
+        indirect=["client"],
     )
-    async def test_predict(self, app, client, lib, model_path, url, x, y, status_code):
-        app.models.add_model(f"/{lib}/", model=model_path, name=lib)
-
-        response = await client.post(url, json={"input": x})
+    async def test_predict(self, client, x, y, status_code):
+        response = await client.post("/model/predict/", json={"input": x})
 
         assert response.status_code == status_code, response.json()
         if status_code == 200:

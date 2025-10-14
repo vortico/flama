@@ -182,14 +182,14 @@ class TestCaseFileResponse:
 class TestCaseAPIResponse:
     @pytest.fixture(scope="function")
     def schema(self, app):
-        if app.schema.schema_library.lib == pydantic:
+        if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("Puppy", name=(str, ...))
-        elif app.schema.schema_library.lib == typesystem:
+        elif app.schema.schema_library.name == "typesystem":
             schema = typesystem.Schema(title="Puppy", fields={"name": typesystem.fields.String()})
-        elif app.schema.schema_library.lib == marshmallow:
+        elif app.schema.schema_library.name == "marshmallow":
             schema = type("Puppy", (marshmallow.Schema,), {"name": marshmallow.fields.String(required=True)})
         else:
-            raise ValueError("Wrong schema lib")
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
 
         return schema
 

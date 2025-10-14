@@ -4,6 +4,7 @@ import pytest
 
 from flama import exceptions, types, url
 from flama.applications import Flama
+from flama.injection.components import Component
 from flama.routing.router import Router
 from flama.routing.routes.base import BaseRoute
 from flama.routing.routes.http import Route
@@ -19,39 +20,13 @@ class TestCaseMount:
     def mount(self, app):
         return Mount("/foo/{x:int}/", app, name="foo")
 
-    @pytest.mark.parametrize(
-        ["app", "routes", "exception"],
-        (
-            pytest.param(
-                MagicMock(spec=Flama),
-                None,
-                None,
-                id="app",
-            ),
-            pytest.param(
-                None,
-                [MagicMock(spec=Route)],
-                None,
-                id="routes",
-            ),
-            pytest.param(
-                None,
-                None,
-                exceptions.ApplicationError("Either 'path' and 'app' or 'mount' variables are needed"),
-                id="wrong",
-            ),
-        ),
-        indirect=["exception"],
-    )
-    def test_init(self, app, routes, exception):
-        with exception:
-            mount = Mount("/foo/", app, routes=routes)
+    def test_init(self):
+        routes = [MagicMock(spec=Route)]
+        mount = Mount("/foo/", Flama(routes=routes, schema=None, docs=None))
 
-            if app is None and routes:
-                app = Router(routes=routes)
-
-            assert mount.app == app
-            assert mount.path == "/foo/"
+        assert isinstance(mount.app, Flama)
+        assert mount.routes == routes
+        assert mount.path == "/foo/"
 
     @pytest.mark.parametrize(
         ["scope_type", "handle_call"],
@@ -77,24 +52,15 @@ class TestCaseMount:
         assert Mount("/", app, name="app_mock") == Mount("/", app, name="app_mock")
         assert Mount("/", app, name="app_mock") != Mount("/", app, name="bar")
 
-    @pytest.mark.parametrize(
-        ["app", "used"],
-        (
-            pytest.param(MagicMock(spec=Router), False, id="router"),
-            pytest.param(MagicMock(spec=Flama, router=MagicMock(spec=Router, components=[])), True, id="app"),
-        ),
-    )
-    def test_build(self, mount, app, used):
-        root_app = MagicMock(spec=Flama)
-        expected_calls = [call(app)] if used else [call(root_app)]
+    def test_build(self, mount, app):
+        app.add_component(MagicMock(spec=Component))
+        app_components = app.components
 
-        route = MagicMock(spec=Route)
-        mount.app = app
-        mount.app.routes = [route]
+        root_app = Flama(schema=None, docs=None, components=[MagicMock(spec=Component)])
+        root_app.mount(mount=mount)
 
-        mount.build(root_app)
-
-        assert route.build.call_args_list == expected_calls
+        assert app.parent == root_app
+        assert app.components == app_components + root_app.components
 
     @pytest.mark.parametrize(
         ["scope_type", "path_match_return", "result"],
@@ -133,7 +99,7 @@ class TestCaseMount:
     @pytest.mark.parametrize(
         ["app", "used"],
         (
-            pytest.param(Router(), False, id="router"),
+            pytest.param(Router(app=MagicMock(Flama)), False, id="router"),
             pytest.param(Flama(docs=None, schema=None), True, id="app"),
         ),
     )

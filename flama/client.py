@@ -7,7 +7,7 @@ from types import TracebackType
 
 import httpx
 
-from flama import types
+from flama import exceptions, types
 from flama.applications import Flama
 
 __all__ = ["Client", "LifespanContextManager"]
@@ -83,6 +83,52 @@ class LifespanContextManager:
             await task
 
 
+class _BaseClient(httpx.AsyncClient):
+    def __init__(self, /, **kwargs):
+        kwargs.setdefault("base_url", "http://localapp")
+        kwargs["headers"] = {"user-agent": f"flama/{importlib.metadata.version('flama')}", **kwargs.get("headers", {})}
+
+        super().__init__(**kwargs)
+
+    async def __aenter__(self) -> "_BaseClient":
+        await super().__aenter__()
+
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: t.Optional[type[BaseException]] = None,
+        exc_value: t.Optional[BaseException] = None,
+        traceback: t.Optional[TracebackType] = None,
+    ):
+        await super().__aexit__(exc_type, exc_value, traceback)
+
+
+class _AppClient(_BaseClient):
+    def __init__(self, /, app: "Flama", **kwargs):
+        self.lifespan = LifespanContextManager(app)
+        self.app = app
+
+        kwargs.setdefault("transport", httpx.ASGITransport(app=app))  # type: ignore
+
+        super().__init__(**kwargs)
+
+    async def __aenter__(self) -> "_AppClient":
+        await self.lifespan.__aenter__()
+        await super().__aenter__()
+
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: t.Optional[type[BaseException]] = None,
+        exc_value: t.Optional[BaseException] = None,
+        traceback: t.Optional[TracebackType] = None,
+    ):
+        await super().__aexit__(exc_type, exc_value, traceback)
+        await self.lifespan.__aexit__(exc_type, exc_value, traceback)
+
+
 class Client(httpx.AsyncClient):
     """A client for interacting with a Flama application either remote or local.
 
@@ -100,24 +146,26 @@ class Client(httpx.AsyncClient):
     >>>     client.post(...)
     """
 
+    @t.overload
+    def __init__(self, /, *, app: "Flama", **kwargs): ...
+    @t.overload
+    def __init__(self, /, *, models: t.Sequence[tuple[str, str, str]], **kwargs): ...
     def __init__(
         self,
         /,
+        *,
         app: t.Optional["Flama"] = None,
         models: t.Optional[t.Sequence[tuple[str, str, str]]] = None,
         **kwargs,
     ):
-        self.models: t.Optional[dict[str, str]] = None
-
         if models:
-            app = Flama() if not app else app
+            app = Flama(schema=None, docs=None) if not app else app
             for name, url, path in models:
                 app.models.add_model(url, path, name)
 
-            self.models = {m[0]: m[1] for m in models or {}}
-
         self.lifespan = LifespanContextManager(app) if app else None
         self.app = app
+        self.models: dict[str, str] = {m[0]: m[1] for m in models or {}}
 
         kwargs.setdefault("transport", httpx.ASGITransport(app=app) if app else None)  # type: ignore
         kwargs.setdefault("base_url", "http://localapp")
@@ -143,8 +191,12 @@ class Client(httpx.AsyncClient):
             await self.lifespan.__aexit__(exc_type, exc_value, traceback)
 
     def model_request(self, model: str, method: str, url: str, **kwargs) -> t.Awaitable[httpx.Response]:
-        assert self.models, "No models found for request."
-        return self.request(method, f"{self.models[model].rstrip('/')}{url}", **kwargs)
+        try:
+            m = self.models[model]
+        except KeyError:
+            raise exceptions.NotFoundException()
+
+        return self.request(method, f"{m.rstrip('/')}{url}", **kwargs)
 
     model_inspect = functools.partialmethod(model_request, method="GET", url="/")
     model_predict = functools.partialmethod(model_request, method="POST", url="/predict/")

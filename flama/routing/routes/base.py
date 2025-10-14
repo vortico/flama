@@ -6,7 +6,7 @@ import typing as t
 
 from flama import concurrency, exceptions, types, url
 from flama.pagination import paginator
-from flama.schemas.routing import RouteParametersMixin
+from flama.schemas.routing import ParametersDescriptor
 
 if t.TYPE_CHECKING:
     from flama.applications import Flama
@@ -49,7 +49,7 @@ class BaseEndpointWrapper(abc.ABC):
         return isinstance(other, BaseEndpointWrapper) and self.handler == other.handler
 
 
-class BaseRoute(abc.ABC, RouteParametersMixin):
+class BaseRoute(abc.ABC):
     class Match(enum.Enum):
         none = enum.auto()
         partial = enum.auto()
@@ -78,6 +78,7 @@ class BaseRoute(abc.ABC, RouteParametersMixin):
         self.name = name
         self.include_in_schema = include_in_schema
         self.tags = tags or {}
+        self.parameters = ParametersDescriptor(self)
         super().__init__()
 
     @abc.abstractmethod
@@ -97,15 +98,14 @@ class BaseRoute(abc.ABC, RouteParametersMixin):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(path={self.path!r}, name={(self.name or '')!r})"
 
-    def build(self, app: t.Optional["Flama"] = None) -> None:
+    def _build(self, app: "Flama") -> None:
         """Build step for routes.
 
         Just build the parameters' descriptor part of RouteParametersMixin.
 
         :param app: Flama app.
         """
-        if app:
-            self.parameters.build(app)
+        self.parameters._build(app)
 
     def endpoint_handlers(self) -> dict[str, t.Callable]:
         """Return a mapping of all possible endpoints of this route.

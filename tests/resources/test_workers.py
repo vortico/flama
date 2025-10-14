@@ -13,7 +13,7 @@ class TestCaseFlamaWorker:
     @pytest.fixture(scope="function")
     async def app(self):
         app_ = Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
-        async with Client(app_):
+        async with Client(app=app_):
             yield app_
 
     @pytest.fixture(scope="function")

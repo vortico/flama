@@ -2,7 +2,6 @@ import logging
 import typing as t
 
 from flama import concurrency, exceptions, types, url
-from flama.injection import Component, Components
 from flama.routing.routes.base import BaseRoute
 
 if t.TYPE_CHECKING:
@@ -16,11 +15,9 @@ logger = logging.getLogger(__name__)
 class Mount(BaseRoute):
     def __init__(
         self,
-        path: str,
-        app: t.Optional[types.App] = None,
+        path: t.Union[str, url.Path],
+        app: types.App,
         *,
-        routes: t.Optional[t.Sequence[BaseRoute]] = None,
-        components: t.Optional[t.Sequence[Component]] = None,
         name: t.Optional[str] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
     ):
@@ -28,19 +25,9 @@ class Mount(BaseRoute):
 
         :param path: URL path.
         :param app: ASGI application.
-        :param routes: List of routes.
-        :param components: Components registered under this mount point.
         :param name: Mount name.
         :param tags: Mount tags.
         """
-        if app is None and routes is None:
-            raise exceptions.ApplicationError("Either 'path' and 'app' or 'mount' variables are needed")
-
-        if app is None:
-            from flama.routing.router import Router
-
-            app = Router(routes=routes, components=components)
-
         super().__init__(path, app, name=name, tags=tags)
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
@@ -49,19 +36,17 @@ class Mount(BaseRoute):
         ):
             await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
 
-    def build(self, app: t.Optional["Flama"] = None) -> None:
+    def _build(self, app: "Flama") -> None:
         """Build step for routes.
 
         Just build the parameters' descriptor part of RouteParametersMixin.
 
         :param app: Flama app.
         """
-        if app and types.is_flama_instance(self.app):
-            self.app.router.components = Components(self.app.router.components + app.components)
+        super()._build(app)
 
-        if root := (self.app if types.is_flama_instance(self.app) else app):
-            for route in self.routes:
-                route.build(root)
+        if types.is_flama_instance(self.app):
+            self.app.parent = app
 
     def match(self, scope: types.Scope) -> BaseRoute.Match:
         """Check if this route matches with given scope.

@@ -70,7 +70,11 @@ class TestCaseApp:
         app = Flama(
             routes=[
                 Route("/", foo_handler, name="foo"),
-                Mount("/subapp/", routes=[Route("/", bar_handler, name="bar")], name="subapp"),
+                Mount(
+                    "/subapp/",
+                    Flama(routes=[Route("/", bar_handler, name="bar")], schema=None, docs=None),
+                    name="subapp",
+                ),
             ],
             schema=None,
             docs=None,

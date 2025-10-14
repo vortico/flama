@@ -165,7 +165,7 @@ class TestCaseComponentsInjection:
             match="Component 'UnhandledComponent' must include a return annotation on the 'resolve' method, "
             "or override 'can_handle_parameter'",
         ):
-            async with Client(app) as client:
+            async with Client(app=app) as client:
                 await client.request("get", "/")
 
     async def test_injection_mount(self, puppy_component):
@@ -176,7 +176,7 @@ class TestCaseComponentsInjection:
         async def puppy(puppy: Puppy):
             return http.JSONResponse({"puppy": puppy.name})
 
-        async with Client(app) as client:
+        async with Client(app=app) as client:
             response = await client.request("get", "/foo/puppy/")
 
         assert response.status_code == 200
@@ -195,7 +195,7 @@ class TestCaseComponentsInjection:
         async def owner(puppy: Puppy, owner: Owner):
             return http.JSONResponse({"owner": owner.name, "puppy": puppy.name})
 
-        async with Client(app) as client:
+        async with Client(app=app) as client:
             response_puppy = await client.request("get", "/foo/puppy/")
             response_owner = await client.request("get", "/foo/bar/owner/")
 

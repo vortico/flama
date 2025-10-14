@@ -3,31 +3,16 @@ import pytest
 from flama import exceptions
 from flama.applications import Flama
 from flama.client import Client
-from flama.resources.crud import CRUDResource
 from flama.resources.resource import Resource
 from flama.resources.routing import ResourceRoute
 from flama.routing import Mount, Route
-from flama.sqlalchemy import SQLAlchemyModule
 
 
 class TestCaseResourceRoute:
-    @pytest.fixture(scope="function")
-    def app(self):
-        return Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
-
-    @pytest.fixture(scope="function")
-    def resource(self, puppy_model, puppy_schema):
-        class PuppyResource(CRUDResource):
-            name = "puppy"
-            model = puppy_model
-            schema = puppy_schema
-
-        return PuppyResource()
-
-    def test_init(self, resource):
+    def test_init(self, app, puppy_resource):
         resource_route = ResourceRoute(
             "/puppy/",
-            resource,
+            puppy_resource,
             tags={
                 "create": {"tag": "create"},
                 "retrieve": {"tag": "retrieve"},
@@ -39,10 +24,11 @@ class TestCaseResourceRoute:
                 "partial_replace": {"tag": "partial-replace"},
                 "drop": {"tag": "drop"},
             },
+            parent=app,
         )
 
         assert resource_route.path == "/puppy/"
-        assert resource_route.resource == resource
+        assert resource_route.resource == puppy_resource
         for route in resource_route.routes:
             assert isinstance(route, Route)
         assert [
@@ -65,11 +51,11 @@ class TestCaseResourceRoute:
             ("/", {"DELETE"}, resource_route.resource.drop, {"tag": "drop"}),
         ]
 
-    def test_init_wrong_tags(self, resource):
+    def test_init_wrong_tags(self, app, puppy_resource):
         with pytest.raises(exceptions.ApplicationError, match="Tags must be defined only for existing routes."):
             ResourceRoute(
                 "/puppy/",
-                resource,
+                puppy_resource,
                 tags={
                     "create": {"tag": "create"},
                     "retrieve": {"tag": "retrieve"},
@@ -82,43 +68,14 @@ class TestCaseResourceRoute:
                     "drop": {"tag": "drop"},
                     "wrong": "wrong",
                 },
+                parent=app,
             )
 
-    def test_mount_resource_declarative(self, resource):
-        routes = [Route("/", lambda: {"Hello": "world"}), ResourceRoute("/puppy/", resource)]
-
-        app = Flama(routes=routes, schema=None, docs=None)
-
-        assert len(app.router.routes) == 2
-
-        assert len(app.routes) == 2
-        resource_route = app.routes[1]
-        assert isinstance(resource_route, ResourceRoute)
-        assert [
-            (
-                route.path,
-                route.methods,
-                route.endpoint.__wrapped__ if route.endpoint._meta.pagination else route.endpoint,
-            )
-            for route in resource_route.routes
-        ] == [
-            ("/", {"POST"}, resource_route.resource.create),
-            ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve),
-            ("/{resource_id}/", {"PUT"}, resource_route.resource.update),
-            ("/{resource_id}/", {"PATCH"}, resource_route.resource.partial_update),
-            ("/{resource_id}/", {"DELETE"}, resource_route.resource.delete),
-            ("/", {"GET", "HEAD"}, resource_route.resource.list),
-            ("/", {"PUT"}, resource_route.resource.replace),
-            ("/", {"PATCH"}, resource_route.resource.partial_replace),
-            ("/", {"DELETE"}, resource_route.resource.drop),
-        ]
-
-    def test_nested_mount_resource(self, resource):
-        app = Flama(schema=None, docs=None)
+    def test_nested_mount_resource(self, app, puppy_resource):
         app.add_route(route=Route("/", lambda: {"Hello": "world"}))
 
-        sub_app = Flama(schema=None, docs=None)
-        sub_app.resources.add_resource("/puppy/", resource)
+        sub_app = Flama(schema=None, docs=None, schema_library=app.schema.schema_library.name)
+        sub_app.resources.add_resource("/puppy/", puppy_resource)
         app.mount("/", sub_app)
 
         assert len(app.router.routes) == 2
@@ -163,7 +120,7 @@ class TestCaseResourceRoute:
         app.mark = 1
         sub_app.mark = 2
 
-        async with Client(app) as client:
+        async with Client(app=app) as client:
             response = await client.get("/puppy/")
             assert response.status_code == 200
 

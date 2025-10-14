@@ -152,7 +152,6 @@ class TestCaseFlama:
             app.add_component(component_obj)
 
         assert router_mock.add_component.call_args_list == [call(component_obj)]
-        assert router_mock.build.call_args_list == [call(app)]
 
     def test_routes(self, app):
         expected_routes = [MagicMock()]
@@ -170,17 +169,7 @@ class TestCaseFlama:
             route = app.add_route("/", foo, tags=tags)
 
         assert router_mock.add_route.call_args_list == [
-            call(
-                "/",
-                foo,
-                methods=None,
-                name=None,
-                include_in_schema=True,
-                route=None,
-                root=app,
-                pagination=None,
-                tags=tags,
-            )
+            call("/", foo, methods=None, name=None, include_in_schema=True, route=None, pagination=None, tags=tags)
         ]
         assert route == foo
 
@@ -191,7 +180,7 @@ class TestCaseFlama:
             def foo(): ...
 
         assert router_mock.route.call_args_list == [
-            call("/", methods=None, name=None, include_in_schema=True, root=app, pagination=None, tags=tags)
+            call("/", methods=None, name=None, include_in_schema=True, pagination=None, tags=tags)
         ]
 
     def test_add_websocket_route(self, app, tags):
@@ -202,7 +191,7 @@ class TestCaseFlama:
             route = app.add_websocket_route("/", foo, tags=tags)
 
         assert router_mock.add_websocket_route.call_args_list == [
-            call("/", foo, name=None, route=None, root=app, pagination=None, tags=tags)
+            call("/", foo, name=None, route=None, pagination=None, tags=tags)
         ]
         assert route == foo
 
@@ -213,7 +202,7 @@ class TestCaseFlama:
             def foo(): ...
 
         assert router_mock.websocket_route.call_args_list == [
-            call("/", name=None, root=app, pagination=None, tags=tags)
+            call("/", name=None, pagination=None, tags=tags),
         ]
 
     def test_mount(self, app, tags):
@@ -224,7 +213,7 @@ class TestCaseFlama:
             mount = app.mount("/", expected_mount, tags=tags)
 
         assert router_mock.mount.call_args_list == [
-            call("/", expected_mount, name=None, mount=None, root=app, tags=tags)
+            call("/", expected_mount, name=None, mount=None, tags=tags),
         ]
         assert mount == expected_mount
 
@@ -305,7 +294,13 @@ class TestCaseFlama:
         app.add_route(route=routing.Route("/foo", lambda: None, name="foo"))
         app.add_route(route=routing.Route("/foo/{x:int}", lambda: None, name="foo"))
         app.add_route(route=routing.Route("/bar/{x:uuid}/y/{y:uuid}", lambda: None, name="bar"))
-        app.mount(mount=routing.Mount("/foo", routes=[routing.Route("/bar", lambda: None, name="bar")], name="foo"))
+        app.mount(
+            mount=routing.Mount(
+                "/foo",
+                app=Flama(routes=[routing.Route("/bar", lambda: None, name="bar")], schema=None, docs=None),
+                name="foo",
+            )
+        )
 
         @app.resources.resource("/puppy")
         class PuppyResource(Resource):
@@ -351,7 +346,8 @@ class TestCaseFlama:
         mount_router = mount_app.app
         # Check components are collected across the entire tree
         assert root_app.components == [*root_default_components, root_component]
-        assert mount_router.components == [*leaf_default_components, leaf_component, *root_app.components]
+        assert mount_router.components == [*leaf_default_components, leaf_component]
+        assert mount_app.components == [*leaf_default_components, leaf_component, *root_app.components]
         # Check modules are isolated for each app
         assert mount_app.modules == [*DEFAULT_MODULES, module]
         assert root_app.modules == DEFAULT_MODULES
@@ -378,7 +374,8 @@ class TestCaseFlama:
         root_default_components = root_app.components[:1]
         assert root_app.components == [*root_default_components, root_component]
         leaf_default_components = leaf_app.components[:1]
-        assert mount_router.components == [*leaf_default_components, leaf_component, *root_app.components]
+        assert mount_router.components == [*leaf_default_components, leaf_component]
+        assert mount_app.components == [*leaf_default_components, leaf_component, *root_app.components]
         # Check modules are isolated for each app
         assert mount_app.modules == [*DEFAULT_MODULES, module]
         assert root_app.modules == DEFAULT_MODULES

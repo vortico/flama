@@ -24,13 +24,12 @@ class TestCaseSerialize:
             pytest.param(Framework.sklearn, "sklearn-pipeline", "sklearn-pipeline", id="sklearn-pipeline"),
             pytest.param(Framework.tensorflow, "tensorflow", "tensorflow", id="tensorflow"),
             pytest.param(Framework.torch, "torch", "torch", id="torch"),
-            # TODO: Add keras
         ),
         indirect=["model", "serialized_model_class"],
     )
     def test_serialize(self, lib, artifact, model, serialized_model_class):
         id_ = uuid.uuid4()
-        timestamp = datetime.datetime.utcnow()
+        timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
         params = {"param": "1"}
         metrics = {"metric": "1"}
         extra = {"foo": "bar"}

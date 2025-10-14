@@ -222,7 +222,7 @@ class TestCaseSQLAlchemyModule:
     async def test_lifespan_cycle(self, uri, exception):
         with exception:
             app = Flama(modules={SQLAlchemyModule(uri)})
-            async with Client(app):  # Initialize app life-cycle
+            async with Client(app=app):  # Initialize app life-cycle
                 assert app.sqlalchemy.database == uri
                 assert isinstance(app.sqlalchemy.metadata, sqlalchemy.MetaData)
                 assert isinstance(app.sqlalchemy._engine, AsyncEngine)
