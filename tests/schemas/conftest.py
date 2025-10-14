@@ -75,6 +75,45 @@ def bar_optional_schema(app, foo_schema):
 
 
 @pytest.fixture(scope="function")
+def bar_multiple_schema(app, foo_schema):
+    child_schema = foo_schema.schema
+    if app.schema.schema_library.name == "pydantic":
+        schema = pydantic.create_model(
+            "BarMultiple",
+            first=(t.Union[child_schema, None], None),
+            second=(t.Union[child_schema, None], None),
+            __module__="pydantic.main",
+        )
+        name = "pydantic.main.BarOptional"
+    elif app.schema.schema_library.name == "typesystem":
+        schema = typesystem.Schema(
+            title="BarOptional",
+            fields={
+                "first": typesystem.Reference(
+                    to="Foo", definitions=typesystem.Definitions({"Foo": child_schema}), allow_null=True, default=None
+                ),
+                "second": typesystem.Reference(
+                    to="Foo", definitions=typesystem.Definitions({"Foo": child_schema}), allow_null=True, default=None
+                ),
+            },
+        )
+        name = "typesystem.schemas.BarOptional"
+    elif app.schema.schema_library.name == "marshmallow":
+        schema = type(
+            "BarOptional",
+            (marshmallow.Schema,),
+            {
+                "first": marshmallow.fields.Nested(child_schema(), required=False, dump_default=None, allow_none=True),
+                "second": marshmallow.fields.Nested(child_schema(), required=False, dump_default=None, allow_none=True),
+            },
+        )
+        name = "abc.BarOptional"
+    else:
+        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+    return namedtuple("BarMultipleSchema", ("schema", "name"))(schema=schema, name=name)
+
+
+@pytest.fixture(scope="function")
 def bar_list_schema(app, foo_schema):
     child_schema = foo_schema.schema
     if app.schema.schema_library.name == "pydantic":
@@ -131,5 +170,12 @@ def bar_dict_schema(app, foo_schema):
 
 
 @pytest.fixture(scope="function")
-def schemas(foo_schema, bar_schema, bar_list_schema, bar_dict_schema):
-    return {"Foo": foo_schema, "Bar": bar_schema, "BarList": bar_list_schema, "BarDict": bar_dict_schema}
+def schemas(foo_schema, bar_schema, bar_optional_schema, bar_multiple_schema, bar_list_schema, bar_dict_schema):
+    return {
+        "Foo": foo_schema,
+        "Bar": bar_schema,
+        "BarOptional": bar_optional_schema,
+        "BarMultiple": bar_multiple_schema,
+        "BarList": bar_list_schema,
+        "BarDict": bar_dict_schema,
+    }

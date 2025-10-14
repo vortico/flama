@@ -8,7 +8,7 @@ import pytest
 import typesystem
 import typesystem.fields
 
-from flama import Flama, schemas
+from flama import Flama, exceptions, schemas
 from flama.endpoints import HTTPEndpoint
 from flama.schemas import openapi
 from flama.schemas.generator import SchemaRegistry
@@ -782,30 +782,57 @@ class TestCaseSchemaRegistry:
         assert set(registry.used(spec).keys()) == expected_output
 
     @pytest.mark.parametrize(
-        ["schema", "explicit_name", "output"],
+        ["cases"],
         [
-            pytest.param("Foo", "Foo", {"Foo": "Foo"}, id="explicit_name"),
-            pytest.param("Foo", None, {"Foo": None}, id="infer_name"),
-            pytest.param("Bar", "Bar", {"Bar": "Bar"}, id="nested_schemas"),
+            pytest.param(
+                [
+                    ("Foo", "Foo", {"Foo": "Foo"}, None),
+                ],
+                id="explicit_name",
+            ),
+            pytest.param(
+                [
+                    ("Foo", None, {"Foo": None}, None),
+                ],
+                id="infer_name",
+            ),
+            pytest.param(
+                [
+                    ("Bar", "Bar", {"Bar": "Bar"}, None),
+                ],
+                id="nested_schemas",
+            ),
+            pytest.param(
+                [
+                    ("Foo", "Foo", {"Foo": "Foo"}, None),
+                    ("Foo", None, None, (exceptions.ApplicationError, r"Schema '.*' is already registered.")),
+                ],
+                id="error_already_registered",
+            ),
+            pytest.param(
+                [
+                    ("BarMultiple", "BarMultiple", {}, None),
+                ],
+                id="multiple_child_schema",
+            ),
         ],
     )
-    def test_register(self, registry, schemas, schema, explicit_name, output):
-        schema, name = schemas[schema]
-        expected_name = name if not explicit_name else explicit_name
-        exception = (
-            contextlib.ExitStack() if expected_name else pytest.raises(ValueError, match="Cannot infer schema name.")
-        )
-        with exception:
-            registry.register(schema, name=explicit_name)
-            for s, n in output.items():
-                assert schemas[s].schema in registry
-                assert registry[schemas[s].schema].name == (n or schemas[s].name)
+    def test_register(self, registry, schemas, cases):
+        for schema_key, explicit_name, output, exception in cases:
+            schema, name = schemas[schema_key]
 
-    def test_register_already_registered(self, registry, foo_schema):
-        schema = foo_schema.schema
-        registry.register(schema, name="Foo")
-        with pytest.raises(ValueError, match="Schema is already registered."):
-            registry.register(schema, name="Foo")
+            if explicit_name is None and name is None:
+                exception = pytest.raises(ValueError, match="Cannot infer schema name.")
+            elif exception is not None:
+                exception = pytest.raises(exception[0], match=exception[1])
+            else:
+                exception = contextlib.ExitStack()
+
+            with exception:
+                registry.register(schema, name=explicit_name)
+                for s, n in output.items():
+                    assert schemas[s].schema in registry
+                    assert registry[schemas[s].schema].name == (n or schemas[s].name)
 
     @pytest.mark.parametrize(
         ["multiple", "result"],

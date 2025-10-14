@@ -165,9 +165,6 @@ class ModelFactory:
         return self._models_cls[framework]
 
     def _sklearn(self):
-        assert np
-        assert sklearn
-
         model = sklearn.neural_network.MLPClassifier(activation="tanh", max_iter=2000, hidden_layer_sizes=(10,))
         model.fit(
             np.array([[0, 0], [0, 1], [1, 0], [1, 1]]),
@@ -176,9 +173,6 @@ class ModelFactory:
         return model, sklearn.neural_network.MLPClassifier
 
     def _sklearn_pipeline(self):
-        assert np
-        assert sklearn
-
         model = sklearn.neural_network.MLPClassifier(activation="tanh", max_iter=2000, hidden_layer_sizes=(10,))
         numerical_transformer = sklearn.pipeline.Pipeline(
             [
@@ -205,9 +199,6 @@ class ModelFactory:
         return pipeline, sklearn.pipeline.Pipeline
 
     def _tensorflow(self):
-        assert np
-        assert tf
-
         model = tf.keras.models.Sequential(
             [
                 tf.keras.Input((2,)),
@@ -227,9 +218,6 @@ class ModelFactory:
         return model, tf.keras.models.Sequential
 
     def _torch(self):
-        assert np
-        assert torch
-
         class Model(torch.nn.Module):
             def __init__(self):
                 super().__init__()
