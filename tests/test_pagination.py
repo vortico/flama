@@ -21,17 +21,17 @@ def app(app):
 
 @pytest.fixture(scope="function")
 def output_schema(app):
-    if app.schema.schema_library.lib == pydantic:
+    if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model("OutputSchema", value=(t.Optional[int], ...), __module__="pydantic.main")
         name = "pydantic.main.OutputSchema"
-    elif app.schema.schema_library.lib == typesystem:
+    elif app.schema.schema_library.name == "typesystem":
         schema = typesystem.Schema(title="OutputSchema", fields={"value": typesystem.fields.Integer(allow_null=True)})
         name = "typesystem.schemas.OutputSchema"
-    elif app.schema.schema_library.lib == marshmallow:
+    elif app.schema.schema_library.name == "marshmallow":
         schema = type("OutputSchema", (marshmallow.Schema,), {"value": marshmallow.fields.Integer(allow_none=True)})
         name = "abc.OutputSchema"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
+        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
 
     return namedtuple("OutputSchema", ("schema", "name"))(schema=schema, name=name)
 

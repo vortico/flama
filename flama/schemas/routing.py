@@ -1,7 +1,7 @@
 import inspect
 import typing as t
 
-from flama import schemas
+from flama import exceptions, schemas
 from flama.injection.resolver import Return
 from flama.schemas.data_structures import Field, Parameter, Parameters
 
@@ -10,17 +10,24 @@ if t.TYPE_CHECKING:
     from flama.injection.resolver import Parameter as InjectionParameter
     from flama.routing import BaseRoute
 
-__all__ = ["RouteParametersMixin"]
+__all__ = ["ParametersDescriptor"]
 
 
 class ParametersDescriptor:
-    def __init__(self) -> None:
-        self._route: BaseRoute
-        self._app: Flama
+    def __init__(self, route: "BaseRoute") -> None:
+        self._route = route
+        self._parent_app: t.Optional[Flama] = None
 
-    def __get__(self, instance, owner) -> "ParametersDescriptor":
-        self._route = instance
-        return self
+    @property
+    def _app(self) -> "Flama":
+        if self._parent_app is None:
+            raise exceptions.ApplicationError("ParametersResolver not initialised")
+
+        return self._parent_app
+
+    @_app.setter
+    def _app(self, app: "Flama"):
+        self._parent_app = app
 
     @property
     def _parameters(self) -> dict[str, list["InjectionParameter"]]:
@@ -82,14 +89,6 @@ class ParametersDescriptor:
             method: Parameter.build("response", return_value) for method, return_value in self._return_values.items()
         }
 
-    def build(self, app: "Flama") -> "ParametersDescriptor":
+    def _build(self, app: "Flama") -> "ParametersDescriptor":
         self._app = app
         return self
-
-
-class RouteParametersMixin:
-    """
-    Mixin for adding fields discovery behavior to Routes.
-    """
-
-    parameters = ParametersDescriptor()

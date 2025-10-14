@@ -10,30 +10,12 @@ import typesystem
 import typesystem.fields
 from sqlalchemy.dialects import postgresql
 
-from flama.applications import Flama
 from flama.resources.crud import CRUDResource
 from flama.resources.routing import ResourceRoute
 from flama.resources.workers import FlamaWorker
 from flama.schemas import SchemaMetadata, SchemaType
-from flama.sqlalchemy import SQLAlchemyModule
 from tests.conftest import DATABASE_URL
-
-
-@pytest.fixture(scope="function")
-def app(app):
-    # Remove schema and docs endpoint from base fixture
-    return Flama(
-        schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")}, schema_library=app.schema_library
-    )
-
-
-@pytest.fixture(scope="function", autouse=True)
-def add_resources(app, resource):
-    app.resources.add_resource("/puppy/", resource)
-
-    yield
-
-    app.resources.remove_repository(resource._meta.name)
+from tests.resources.conftest import Model
 
 
 @pytest.fixture(scope="function")
@@ -48,14 +30,84 @@ def another_puppy():
 
 class TestCaseCRUDResource:
     @pytest.fixture(scope="function")
-    def resource(self, app: Flama, puppy_model, puppy_schema):
+    async def custom_id_datetime_model(self, app):
+        if app.schema.schema_library.name == "pydantic":
+            schema = pydantic.create_model("CustomIDDatetime", custom_id=(datetime.datetime, ...), name=(str, ...))
+        elif app.schema.schema_library.name == "typesystem":
+            schema = typesystem.Schema(
+                title="CustomIDDatetime",
+                fields={
+                    "custom_id": typesystem.fields.DateTime(),
+                    "name": typesystem.fields.String(),
+                },
+            )
+        elif app.schema.schema_library.name == "marshmallow":
+            schema = type(
+                "CustomIDDatetime",
+                (marshmallow.Schema,),
+                {
+                    "custom_id": marshmallow.fields.DateTime(),
+                    "name": marshmallow.fields.String(),
+                },
+            )
+        else:
+            raise ValueError("Wrong schema lib")
+
+        model = sqlalchemy.Table(
+            "custom_id_datetime",
+            app.sqlalchemy.metadata,
+            sqlalchemy.Column("custom_id", sqlalchemy.DateTime, primary_key=True),
+            sqlalchemy.Column("name", sqlalchemy.String),
+        )
+
+        return Model(model=model, schema=schema, name="custom_id_datetime")
+
+    @pytest.fixture(scope="function")
+    def custom_id_uuid_model(self, app):
+        if app.schema.schema_library.name == "pydantic":
+            schema = pydantic.create_model("CustomIDUUID", custom_id=(uuid.UUID, ...), name=(str, ...))
+        elif app.schema.schema_library.name == "typesystem":
+            schema = typesystem.Schema(
+                title="CustomIDUUID",
+                fields={
+                    "custom_id": typesystem.fields.UUID(),
+                    "name": typesystem.fields.String(),
+                },
+            )
+        elif app.schema.schema_library.name == "marshmallow":
+            schema = type(
+                "CustomIDUUID",
+                (marshmallow.Schema,),
+                {
+                    "custom_id": marshmallow.fields.UUID(),
+                    "name": marshmallow.fields.String(),
+                },
+            )
+        else:
+            raise ValueError("Wrong schema lib")
+
+        model = sqlalchemy.Table(
+            "custom_id_uuid",
+            app.sqlalchemy.metadata,
+            sqlalchemy.Column("custom_id", postgresql.UUID, primary_key=True),
+            sqlalchemy.Column("name", sqlalchemy.String),
+        )
+
+        return Model(model=model, schema=schema, name="custom_id_uuid")
+
+    @pytest.fixture(scope="function")
+    async def tables(self, tables, custom_id_datetime_model, custom_id_uuid_model):
+        return tables + [custom_id_datetime_model.model, custom_id_uuid_model.model]
+
+    @pytest.fixture(scope="function")
+    def puppy_resource(self, app, puppy_model):
         class PuppyResource(CRUDResource):
-            name = "puppy"
+            name = puppy_model.name
             verbose_name = "Puppy"
 
-            model = puppy_model
-            input_schema = puppy_schema
-            output_schema = puppy_schema
+            model = puppy_model.model
+            input_schema = puppy_model.schema
+            output_schema = puppy_model.schema
 
             @app.resources.method("/", methods=["GET"], name="list", pagination="page_number")
             async def list(
@@ -66,7 +118,7 @@ class TestCaseCRUDResource:
                 name: t.Optional[str] = None,
                 custom_id__le: t.Optional[int] = None,
                 **kwargs,
-            ) -> t.Annotated[list[SchemaType], SchemaMetadata(puppy_schema)]:
+            ) -> t.Annotated[list[SchemaType], SchemaMetadata(puppy_model.schema)]:
                 """
                 description: Custom list method with filtering by name.
                 """
@@ -94,151 +146,58 @@ class TestCaseCRUDResource:
         return PuppyResource()
 
     @pytest.fixture(scope="function")
-    async def custom_id_datetime_model(self, app):
-        table = sqlalchemy.Table(
-            "custom_id_datetime",
-            app.sqlalchemy.metadata,
-            sqlalchemy.Column("custom_id", sqlalchemy.DateTime, primary_key=True),
-            sqlalchemy.Column("name", sqlalchemy.String),
-        )
-
-        async with app.sqlalchemy.engine.begin() as connection:
-            await connection.run_sync(app.sqlalchemy.metadata.create_all, tables=[table])
-
-        yield table
-
-        async with app.sqlalchemy.engine.begin() as connection:
-            await connection.run_sync(app.sqlalchemy.metadata.drop_all, tables=[table])
-
-    @pytest.fixture(scope="function")
-    def custom_id_datetime_schema(self, app):
-        from flama import schemas
-
-        if schemas.lib == pydantic:
-            schema_ = pydantic.create_model("CustomIDDatetime", custom_id=(datetime.datetime, ...), name=(str, ...))
-        elif schemas.lib == typesystem:
-            schema_ = typesystem.Schema(
-                title="CustomIDDatetime",
-                fields={
-                    "custom_id": typesystem.fields.DateTime(),
-                    "name": typesystem.fields.String(),
-                },
-            )
-        elif schemas.lib == marshmallow:
-            schema_ = type(
-                "CustomIDDatetime",
-                (marshmallow.Schema,),
-                {
-                    "custom_id": marshmallow.fields.DateTime(),
-                    "name": marshmallow.fields.String(),
-                },
-            )
-        else:
-            raise ValueError("Wrong schema lib")
-
-        return schema_
-
-    @pytest.fixture(scope="function")
-    def custom_id_datetime_resource(self, custom_id_datetime_model, custom_id_datetime_schema, app):
+    def custom_id_datetime_resource(self, custom_id_datetime_model):
         class CustomUUIDResource(CRUDResource):
-            model = custom_id_datetime_model
-            schema = custom_id_datetime_schema
+            model = custom_id_datetime_model.model
+            schema = custom_id_datetime_model.schema
+            name = custom_id_datetime_model.name
 
-            name = "custom_id_datetime"
-
-        app.resources.add_resource("/custom_id_datetime/", CustomUUIDResource)
-
-        yield CustomUUIDResource
-
-        app.resources.remove_repository(CustomUUIDResource._meta.name)
+        return CustomUUIDResource()
 
     @pytest.fixture(scope="function")
-    async def custom_id_uuid_model(self, app):
-        table = sqlalchemy.Table(
-            "custom_id_uuid",
-            app.database.metadata,
-            sqlalchemy.Column("custom_id", postgresql.UUID, primary_key=True),
-            sqlalchemy.Column("name", sqlalchemy.String),
-        )
-
-        async with app.database.engine.begin() as connection:
-            await connection.run_sync(app.database.metadata.create_all, tables=[table])
-
-        yield table
-
-        async with app.database.engine.begin() as connection:
-            await connection.run_sync(app.database.metadata.drop_all, tables=[table])
-
-    @pytest.fixture(scope="function")
-    def custom_id_uuid_schema(self, app):
-        from flama import schemas
-
-        if schemas.lib == pydantic:
-            schema_ = pydantic.create_model("CustomIDUUID", custom_id=(uuid.UUID, ...), name=(str, ...))
-        elif schemas.lib == typesystem:
-            schema_ = typesystem.Schema(
-                title="CustomIDUUID",
-                fields={
-                    "custom_id": typesystem.fields.UUID(),
-                    "name": typesystem.fields.String(),
-                },
-            )
-        elif schemas.lib == marshmallow:
-            schema_ = type(
-                "CustomIDUUID",
-                (marshmallow.Schema,),
-                {
-                    "custom_id": marshmallow.fields.UUID(),
-                    "name": marshmallow.fields.String(),
-                },
-            )
-        else:
-            raise ValueError("Wrong schema lib")
-
-        return schema_
-
-    @pytest.fixture(scope="function")
-    def custom_id_uuid_resource(self, custom_id_uuid_model, custom_id_uuid_schema, app):
+    def custom_id_uuid_resource(self, custom_id_uuid_model):
         class CustomUUIDResource(CRUDResource):
-            model = custom_id_uuid_model
-            schema = custom_id_uuid_schema
+            model = custom_id_uuid_model.model
+            schema = custom_id_uuid_model.schema
+            name = custom_id_uuid_model.name
 
-            name = "custom_id_uuid"
+        return CustomUUIDResource()
 
-        app.resources.add_resource("/custom_id_datetime/", CustomUUIDResource)
+    @pytest.fixture(scope="function", autouse=True)
+    def add_resources(self, app, puppy_resource, custom_id_datetime_resource, custom_id_uuid_resource):
+        app.resources.add_resource("/puppy/", puppy_resource)
+        app.resources.add_resource("/custom_id_datetime/", custom_id_datetime_resource)
+        app.resources.add_resource("/custom_id_uuid/", custom_id_uuid_resource)
 
-        yield CustomUUIDResource
-
-        del app.resources.worker._repositories[CustomUUIDResource._meta.name]
-
-    def test_crud_resource(self, resource, app):
+    def test_crud_resource(self, puppy_resource, client):
         expected_routes = [
-            ("/", resource.list, {"GET", "HEAD"}, "list"),
-            ("/", resource.create, {"POST"}, "create"),
-            ("/{resource_id}/", resource.retrieve, {"GET", "HEAD"}, "retrieve"),
-            ("/{resource_id}/", resource.update, {"PUT"}, "update"),
-            ("/{resource_id}/", resource.partial_update, {"PATCH"}, "partial-update"),
-            ("/{resource_id}/", resource.delete, {"DELETE"}, "delete"),
-            ("/", resource.replace, {"PUT"}, "replace"),
-            ("/", resource.partial_replace, {"PATCH"}, "partial-replace"),
-            ("/", resource.drop, {"DELETE"}, "drop"),
+            ("/", puppy_resource.list, {"GET", "HEAD"}, "list"),
+            ("/", puppy_resource.create, {"POST"}, "create"),
+            ("/{resource_id}/", puppy_resource.retrieve, {"GET", "HEAD"}, "retrieve"),
+            ("/{resource_id}/", puppy_resource.update, {"PUT"}, "update"),
+            ("/{resource_id}/", puppy_resource.partial_update, {"PATCH"}, "partial-update"),
+            ("/{resource_id}/", puppy_resource.delete, {"DELETE"}, "delete"),
+            ("/", puppy_resource.replace, {"PUT"}, "replace"),
+            ("/", puppy_resource.partial_replace, {"PATCH"}, "partial-replace"),
+            ("/", puppy_resource.drop, {"DELETE"}, "drop"),
         ]
 
-        assert hasattr(resource, "create")
-        assert hasattr(resource, "retrieve")
-        assert hasattr(resource, "update")
-        assert hasattr(resource, "partial_update")
-        assert hasattr(resource, "delete")
-        assert hasattr(resource, "list")
-        assert hasattr(resource, "replace")
-        assert hasattr(resource, "partial_replace")
-        assert hasattr(resource, "drop")
-        assert len(app.routes) == 1
-        assert isinstance(app.routes[0], ResourceRoute)
-        resource_route = app.routes[0]
+        assert hasattr(puppy_resource, "create")
+        assert hasattr(puppy_resource, "retrieve")
+        assert hasattr(puppy_resource, "update")
+        assert hasattr(puppy_resource, "partial_update")
+        assert hasattr(puppy_resource, "delete")
+        assert hasattr(puppy_resource, "list")
+        assert hasattr(puppy_resource, "replace")
+        assert hasattr(puppy_resource, "partial_replace")
+        assert hasattr(puppy_resource, "drop")
+
+        route = next((route for route in client.app.routes if route.path == "/puppy/"), None)
+        assert route
+        assert isinstance(route, ResourceRoute)
         assert [
             (i.path, i.endpoint.__wrapped__ if i.endpoint._meta.pagination else i.endpoint, i.methods, i.name)
-            for i in resource_route.routes
+            for i in route.routes
         ] == expected_routes
 
     async def test_create(self, client, puppy):
@@ -357,6 +316,9 @@ class TestCaseCRUDResource:
         assert response.status_code == 400, response.json()
 
     async def test_partial_update(self, client, puppy, another_puppy):
+        if client.app.schema.schema_library.name == "typesystem":
+            pytest.skip("Typesystem does not support partial validation")
+
         expected_puppy_id = 1
         created_puppy = puppy.copy()
         created_puppy["custom_id"] = expected_puppy_id
@@ -381,16 +343,25 @@ class TestCaseCRUDResource:
         assert response.json() == expected_puppy
 
     async def test_partial_update_not_found(self, client, puppy):
+        if client.app.schema.schema_library.name == "typesystem":
+            pytest.skip("Typesystem does not support partial validation")
+
         # Update wrong record
         response = await client.request("patch", "/puppy/42/", json=puppy)
         assert response.status_code == 404, response.json()
 
     async def test_partial_update_wrong_id_type(self, client, puppy):
+        if client.app.schema.schema_library.name == "typesystem":
+            pytest.skip("Typesystem does not support partial validation")
+
         # Update wrong record
         response = await client.request("patch", "/puppy/foo/", json=puppy)
         assert response.status_code == 400, response.json()
 
     async def test_partial_update_wrong_data(self, client, puppy):
+        if client.app.schema.schema_library.name == "typesystem":
+            pytest.skip("Typesystem does not support partial validation")
+
         expected_puppy_id = 1
         created_puppy = puppy.copy()
         created_puppy["custom_id"] = expected_puppy_id

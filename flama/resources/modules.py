@@ -32,7 +32,7 @@ class ResourcesModule(Module):
         include_in_schema: bool = True,
         tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
         **kwargs,
-    ) -> "Resource":
+    ) -> ResourceRoute:
         """Adds a resource to this application, setting its endpoints.
 
         :param path: Resource base path.
@@ -47,9 +47,9 @@ class ResourcesModule(Module):
         else:
             raise ValueError("Wrong resource")
 
-        self.app.mount(mount=ResourceRoute(path, resource_instance, include_in_schema=include_in_schema, tags=tags))
-
-        return resource_instance
+        route = ResourceRoute(path, resource_instance, parent=self.app, include_in_schema=include_in_schema, tags=tags)
+        self.app.mount(mount=route)
+        return route
 
     def resource(
         self,

@@ -5,9 +5,10 @@ from flama import compat
 
 if t.TYPE_CHECKING:
     from flama import Flama
+    from flama.routing import Router
 
 
-__all__ = ["AppStatus", "is_flama_instance"]
+__all__ = ["AppStatus", "is_flama_instance", "is_router_instance"]
 
 
 class AppStatus(enum.Enum):
@@ -30,3 +31,16 @@ def is_flama_instance(
     from flama import Flama
 
     return isinstance(obj, Flama)
+
+
+def is_router_instance(
+    obj: t.Any,
+) -> compat.TypeGuard["Router"]:  # PORT: Replace compat when stop supporting 3.9
+    """Checks if an object is an instance of Flama's Router.
+
+    :param obj: The object to check.
+    :return: True if the object is an instance of Router, False otherwise.
+    """
+    from flama.routing import Router
+
+    return isinstance(obj, Router)

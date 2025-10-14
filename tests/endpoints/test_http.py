@@ -37,11 +37,11 @@ class TestCaseHTTPEndpoint:
 
     @pytest.fixture(scope="class")
     def puppy_schema(self, app):
-        if app.schema.schema_library.lib == pydantic:
+        if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("Puppy", name=(str, ...))
-        elif app.schema.schema_library.lib == typesystem:
+        elif app.schema.schema_library.name == "typesystem":
             schema = typesystem.Schema(title="Puppy", fields={"name": typesystem.fields.String()})
-        elif app.schema.schema_library.lib == marshmallow:
+        elif app.schema.schema_library.name == "marshmallow":
             schema = type("Puppy", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         else:
             raise ValueError("Wrong schema lib")

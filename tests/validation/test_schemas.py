@@ -17,14 +17,14 @@ utc = datetime.timezone.utc
 class TestCaseSchemaValidation:
     @pytest.fixture(scope="function")
     def product_schema(self, app):
-        if app.schema.schema_library.lib == pydantic:
+        if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model(
                 "Product",
                 name=(str, ...),
                 rating=(t.Optional[int], None),
                 created=(t.Optional[datetime.datetime], None),
             )
-        elif app.schema.schema_library.lib == typesystem:
+        elif app.schema.schema_library.name == "typesystem":
             schema = typesystem.Schema(
                 title="Product",
                 fields={
@@ -33,7 +33,7 @@ class TestCaseSchemaValidation:
                     "created": typesystem.fields.DateTime(allow_null=True),
                 },
             )
-        elif app.schema.schema_library.lib == marshmallow:
+        elif app.schema.schema_library.name == "marshmallow":
             schema = type(
                 "Product",
                 (marshmallow.Schema,),
@@ -44,28 +44,28 @@ class TestCaseSchemaValidation:
                 },
             )
         else:
-            raise ValueError("Wrong schema lib")
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
 
         return schema
 
     @pytest.fixture(scope="function")
     def reviewed_product_schema(self, app, product_schema):
-        if app.schema.schema_library.lib == pydantic:
+        if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("ReviewedProduct", reviewer=(str, ...), __base__=product_schema)
-        elif app.schema.schema_library.lib == typesystem:
+        elif app.schema.schema_library.name == "typesystem":
             schema = typesystem.Schema(
                 title="ReviewedProduct", fields={**product_schema.fields, **{"reviewer": typesystem.fields.String()}}
             )
-        elif app.schema.schema_library.lib == marshmallow:
+        elif app.schema.schema_library.name == "marshmallow":
             schema = type("ReviewedProduct", (product_schema,), {"reviewer": marshmallow.fields.String()})
         else:
-            raise ValueError("Wrong schema lib")
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
 
         return schema
 
     @pytest.fixture(scope="function")
     def location_schema(self, app):
-        if app.schema.schema_library.lib == pydantic:
+        if app.schema.schema_library.name == "pydantic":
 
             def latitude_validator(cls, x):
                 assert -90 <= x <= 90
@@ -81,14 +81,14 @@ class TestCaseSchemaValidation:
                 longitude=(float, ...),
                 __validators__={"latitude": latitude_validator, "longitude": longitude_validator},
             )
-        elif app.schema.schema_library.lib == typesystem:
+        elif app.schema.schema_library.name == "typesystem":
             schema = typesystem.Schema(
                 fields={
                     "latitude": typesystem.fields.Number(minimum=-90, maximum=90),
                     "longitude": typesystem.fields.Number(minimum=-180, maximum=180),
                 }
             )
-        elif app.schema.schema_library.lib == marshmallow:
+        elif app.schema.schema_library.name == "marshmallow":
             schema = type(
                 "Location",
                 (marshmallow.Schema,),
@@ -98,28 +98,28 @@ class TestCaseSchemaValidation:
                 },
             )
         else:
-            raise ValueError("Wrong schema lib")
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
         return schema
 
     @pytest.fixture(scope="function")
     def place_schema(self, app, location_schema):
-        if app.schema.schema_library.lib == pydantic:
+        if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("Place", location=(location_schema, ...), name=(str, ...))
-        elif app.schema.schema_library.lib == typesystem:
+        elif app.schema.schema_library.name == "typesystem":
             schema = typesystem.Schema(
                 fields={
                     "location": typesystem.Reference("Location", typesystem.Definitions({"Location": location_schema})),
                     "name": typesystem.String(),
                 }
             )
-        elif app.schema.schema_library.lib == marshmallow:
+        elif app.schema.schema_library.name == "marshmallow":
             schema = type(
                 "Place",
                 (marshmallow.Schema,),
                 {"location": marshmallow.fields.Nested(location_schema), "name": marshmallow.fields.String()},
             )
         else:
-            raise ValueError("Wrong schema lib")
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
         return schema
 
     @pytest.fixture(scope="function", autouse=True)

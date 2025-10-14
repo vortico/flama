@@ -14,7 +14,7 @@ from flama.schemas.data_structures import Parameter, ParameterLocation
 class Custom: ...
 
 
-class TestCaseRouteFieldsMixin:
+class TestCaseParametersDescriptor:
     @pytest.fixture
     def component(self):
         class CustomComponent(Component):
@@ -45,7 +45,7 @@ class TestCaseRouteFieldsMixin:
         return schema
 
     @pytest.fixture
-    def route(self, request, foo_schema):
+    def route(self, app, request, foo_schema):
         if request.param == "http_function":
 
             def foo(
@@ -56,7 +56,7 @@ class TestCaseRouteFieldsMixin:
                 y: t.Optional[str] = None,
             ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)]: ...
 
-            return routing.Route("/foo/{w:int}/", endpoint=foo, methods=["GET"])
+            result = routing.Route("/foo/{w:int}/", endpoint=foo, methods=["GET"])
 
         elif request.param == "http_endpoint":
 
@@ -70,7 +70,7 @@ class TestCaseRouteFieldsMixin:
                     y: t.Optional[str] = None,
                 ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)]: ...
 
-            return routing.Route("/bar/{w:int}/", endpoint=FooEndpoint, methods=["GET"])
+            result = routing.Route("/bar/{w:int}/", endpoint=FooEndpoint, methods=["GET"])
 
         elif request.param == "websocket_function":
 
@@ -84,7 +84,7 @@ class TestCaseRouteFieldsMixin:
                 y: t.Optional[str] = None,
             ) -> None: ...
 
-            return routing.WebSocketRoute("/foo/{w:int}/", endpoint=bar)
+            result = routing.WebSocketRoute("/foo/{w:int}/", endpoint=bar)
 
         elif request.param == "websocket_endpoint":
 
@@ -100,9 +100,12 @@ class TestCaseRouteFieldsMixin:
                     y: t.Optional[str] = None,
                 ) -> None: ...
 
-            return routing.WebSocketRoute("/foo/{w:int}/", endpoint=FooWebsocket)
+            result = routing.WebSocketRoute("/foo/{w:int}/", endpoint=FooWebsocket)
         else:
             raise ValueError("Wrong value")
+
+        result._build(app)
+        return result
 
     @pytest.fixture(scope="function", autouse=True)
     def add_component(self, app, component):

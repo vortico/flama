@@ -8,9 +8,8 @@ import pytest
 import typesystem
 import typesystem.fields
 
-from flama import schemas
+from flama import Flama, schemas
 from flama.endpoints import HTTPEndpoint
-from flama.routing import Router
 from flama.schemas import openapi
 from flama.schemas.generator import SchemaRegistry
 from tests.asserts import assert_recursive_contains
@@ -832,27 +831,27 @@ class TestCaseSchemaRegistry:
 class TestCaseSchemaGenerator:
     @pytest.fixture(scope="function")
     def owner_schema(self, app):
-        if app.schema.schema_library.lib == pydantic:
+        if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("Owner", name=(str, ...), __module__="pydantic.main")
             name = "pydantic.main.Owner"
-        elif app.schema.schema_library.lib == typesystem:
+        elif app.schema.schema_library.name == "typesystem":
             schema = typesystem.Schema(title="Owner", fields={"name": typesystem.fields.String()})
             name = "typesystem.schemas.Owner"
-        elif app.schema.schema_library.lib == marshmallow:
+        elif app.schema.schema_library.name == "marshmallow":
             schema = type("Owner", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
             name = "abc.Owner"
         else:
-            raise ValueError("Wrong schema lib")
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
         return namedtuple("OwnerSchema", ("schema", "name"))(schema, name)
 
     @pytest.fixture(scope="function")
     def puppy_schema(self, app, owner_schema):
-        if app.schema.schema_library.lib == pydantic:
+        if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model(
                 "Puppy", name=(str, ...), owner=(owner_schema.schema, ...), __module__="pydantic.main"
             )
             name = "pydantic.main.Puppy"
-        elif app.schema.schema_library.lib == typesystem:
+        elif app.schema.schema_library.name == "typesystem":
             schema = typesystem.Schema(
                 title="Puppy",
                 fields={
@@ -863,7 +862,7 @@ class TestCaseSchemaGenerator:
                 },
             )
             name = "typesystem.schemas.Puppy"
-        elif app.schema.schema_library.lib == marshmallow:
+        elif app.schema.schema_library.name == "marshmallow":
             schema = type(
                 "Puppy",
                 (marshmallow.Schema,),
@@ -874,22 +873,22 @@ class TestCaseSchemaGenerator:
             )
             name = "abc.Puppy"
         else:
-            raise ValueError("Wrong schema lib")
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
         return namedtuple("PuppySchema", ("schema", "name"))(schema, name)
 
     @pytest.fixture(scope="function")
     def body_param_schema(self, app):
-        if app.schema.schema_library.lib == pydantic:
+        if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("BodyParam", name=(str, ...), __module__="pydantic.main")
             name = "pydantic.main.BodyParam"
-        elif app.schema.schema_library.lib == typesystem:
+        elif app.schema.schema_library.name == "typesystem":
             schema = typesystem.Schema(title="BodyParam", fields={"name": typesystem.fields.String()})
             name = "typesystem.schemas.BodyParam"
-        elif app.schema.schema_library.lib == marshmallow:
+        elif app.schema.schema_library.name == "marshmallow":
             schema = type("BodyParam", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
             name = "abc.BodyParam"
         else:
-            raise ValueError("Wrong schema lib")
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
         return namedtuple("BodyParamSchema", ("schema", "name"))(schema, name)
 
     @pytest.fixture(scope="function")
@@ -1032,15 +1031,15 @@ class TestCaseSchemaGenerator:
             """
             return {}
 
-        router = Router()
-        router.add_route("/custom-component/", endpoint=get, methods=["GET"])
-        app.mount("/mount", router)
+        sub_app = Flama(schema=None, docs=None, schema_library=app.schema.schema_library.name)
+        sub_app.add_route("/custom-component/", endpoint=get, methods=["GET"])
+        app.mount("/mount", sub_app)
 
-        nested_router = Router()
-        nested_router.add_route("/nested-component/", endpoint=get, methods=["GET"])
-        mounted_router = Router()
-        mounted_router.mount("/mount", nested_router)
-        app.mount("/nested", mounted_router)
+        nested_app = Flama(schema=None, docs=None, schema_library=app.schema.schema_library.name)
+        nested_app.add_route("/nested-component/", endpoint=get, methods=["GET"])
+        mounted_app = Flama(schema=None, docs=None, schema_library=app.schema.schema_library.name)
+        mounted_app.mount("/mount", nested_app)
+        app.mount("/nested", mounted_app)
 
     def test_schema_info(self, app):
         schema = app.schema.schema["info"]

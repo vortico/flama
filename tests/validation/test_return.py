@@ -12,14 +12,14 @@ from flama import endpoints, http, schemas, types
 class TestCaseReturnValidation:
     @pytest.fixture(scope="function")
     def output_schema(self, app):
-        if app.schema.schema_library.lib == pydantic:
+        if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("OutputSchema", name=(str, ...))
-        elif app.schema.schema_library.lib == typesystem:
+        elif app.schema.schema_library.name == "typesystem":
             schema = typesystem.Schema(title="OutputSchema", fields={"name": typesystem.fields.String()})
-        elif app.schema.schema_library.lib == marshmallow:
+        elif app.schema.schema_library.name == "marshmallow":
             schema = type("OutputSchema", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         else:
-            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
+            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
 
         return schema
 

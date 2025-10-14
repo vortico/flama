@@ -10,49 +10,49 @@ import typesystem.fields
 
 @pytest.fixture(scope="function")
 def foo_schema(app):
-    if app.schema.schema_library.lib == pydantic:
+    if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model("Foo", name=(str, ...), __module__="pydantic.main")
         name = "pydantic.main.Foo"
-    elif app.schema.schema_library.lib == typesystem:
+    elif app.schema.schema_library.name == "typesystem":
         schema = typesystem.Schema(title="Foo", fields={"name": typesystem.fields.String()})
         name = "typesystem.schemas.Foo"
-    elif app.schema.schema_library.lib == marshmallow:
+    elif app.schema.schema_library.name == "marshmallow":
         schema = type("Foo", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         name = "abc.Foo"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
+        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
     return namedtuple("FooSchema", ("schema", "name"))(schema=schema, name=name)
 
 
 @pytest.fixture(scope="function")
 def bar_schema(app, foo_schema):
     child_schema = foo_schema.schema
-    if app.schema.schema_library.lib == pydantic:
+    if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model("Bar", foo=(child_schema, ...), __module__="pydantic.main")
         name = "pydantic.main.Bar"
-    elif app.schema.schema_library.lib == typesystem:
+    elif app.schema.schema_library.name == "typesystem":
         schema = typesystem.Schema(
             title="Bar",
             fields={"foo": typesystem.Reference(to="Foo", definitions=typesystem.Definitions({"Foo": child_schema}))},
         )
         name = "typesystem.schemas.Bar"
-    elif app.schema.schema_library.lib == marshmallow:
+    elif app.schema.schema_library.name == "marshmallow":
         schema = type("Bar", (marshmallow.Schema,), {"foo": marshmallow.fields.Nested(child_schema())})
         name = "abc.Bar"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
+        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
     return namedtuple("BarSchema", ("schema", "name"))(schema=schema, name=name)
 
 
 @pytest.fixture(scope="function")
 def bar_optional_schema(app, foo_schema):
     child_schema = foo_schema.schema
-    if app.schema.schema_library.lib == pydantic:
+    if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model(
             "BarOptional", foo=(t.Union[child_schema, None], None), __module__="pydantic.main"
         )
         name = "pydantic.main.BarOptional"
-    elif app.schema.schema_library.lib == typesystem:
+    elif app.schema.schema_library.name == "typesystem":
         schema = typesystem.Schema(
             title="BarOptional",
             fields={
@@ -62,7 +62,7 @@ def bar_optional_schema(app, foo_schema):
             },
         )
         name = "typesystem.schemas.BarOptional"
-    elif app.schema.schema_library.lib == marshmallow:
+    elif app.schema.schema_library.name == "marshmallow":
         schema = type(
             "BarOptional",
             (marshmallow.Schema,),
@@ -70,17 +70,17 @@ def bar_optional_schema(app, foo_schema):
         )
         name = "abc.BarOptional"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
+        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
     return namedtuple("BarOptionalSchema", ("schema", "name"))(schema=schema, name=name)
 
 
 @pytest.fixture(scope="function")
 def bar_list_schema(app, foo_schema):
     child_schema = foo_schema.schema
-    if app.schema.schema_library.lib == pydantic:
+    if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model("BarList", foo=(list[child_schema], ...), __module__="pydantic.main")
         name = "pydantic.main.BarList"
-    elif app.schema.schema_library.lib == typesystem:
+    elif app.schema.schema_library.name == "typesystem":
         schema = typesystem.Schema(
             title="BarList",
             fields={
@@ -90,7 +90,7 @@ def bar_list_schema(app, foo_schema):
             },
         )
         name = "typesystem.schemas.BarList"
-    elif app.schema.schema_library.lib == marshmallow:
+    elif app.schema.schema_library.name == "marshmallow":
         schema = type(
             "BarList",
             (marshmallow.Schema,),
@@ -98,17 +98,17 @@ def bar_list_schema(app, foo_schema):
         )
         name = "abc.BarList"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
+        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
     return namedtuple("BarListSchema", ("schema", "name"))(schema=schema, name=name)
 
 
 @pytest.fixture(scope="function")
 def bar_dict_schema(app, foo_schema):
     child_schema = foo_schema.schema
-    if app.schema.schema_library.lib == pydantic:
+    if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model("BarDict", foo=(dict[str, child_schema], ...), __module__="pydantic.main")
         name = "pydantic.main.BarDict"
-    elif app.schema.schema_library.lib == typesystem:
+    elif app.schema.schema_library.name == "typesystem":
         schema = typesystem.Schema(
             title="BarDict",
             fields={
@@ -118,7 +118,7 @@ def bar_dict_schema(app, foo_schema):
             },
         )
         name = "typesystem.schemas.BarDict"
-    elif app.schema.schema_library.lib == marshmallow:
+    elif app.schema.schema_library.name == "marshmallow":
         schema = type(
             "BarDict",
             (marshmallow.Schema,),
@@ -126,7 +126,7 @@ def bar_dict_schema(app, foo_schema):
         )
         name = "abc.BarDict"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.lib}")
+        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
     return namedtuple("BarDictSchema", ("schema", "name"))(schema=schema, name=name)
 
 

@@ -1,5 +1,6 @@
 import re
 import tempfile
+import typing as t
 import warnings
 from contextlib import ExitStack
 from pathlib import Path
@@ -13,7 +14,7 @@ from flama import Flama, types
 from flama.client import Client
 from flama.pagination import paginator
 from flama.sqlalchemy import SQLAlchemyModule, metadata
-from tests.utils import ExceptionContext, installed
+from tests.utils import ExceptionContext, NotInstalled, installed
 
 try:
     import numpy as np
@@ -100,9 +101,9 @@ def app(request, openapi_spec):
 
 
 @pytest.fixture(scope="function")
-async def client(app):
+async def client(app: Flama):
     async with Client(app=app) as client:
-        assert client.app.status == types.AppStatus.READY
+        assert t.cast(Flama, client.app).status == types.AppStatus.READY
         yield client
 
 
@@ -132,22 +133,28 @@ def asgi_send():
 
 class ModelFactory:
     def __init__(self):
-        self._factories = {
-            "sklearn": self._sklearn,
-            "sklearn-pipeline": self._sklearn_pipeline,
-            "tensorflow": self._tensorflow,
-            "torch": self._torch,
+        self._frameworks = {
+            "sklearn": (["sklearn", "numpy"], self._sklearn),
+            "sklearn-pipeline": (["sklearn", "numpy"], self._sklearn_pipeline),
+            "tensorflow": (["tensorflow", "numpy"], self._tensorflow),
+            "torch": (["torch", "numpy"], self._torch),
         }
 
         self._models = {}
         self._models_cls = {}
 
     def _build(self, framework: str):
-        if framework not in self._factories:
+        try:
+            libs, factory = self._frameworks[framework]
+
+            for lib in libs:
+                if not installed(lib):
+                    raise NotInstalled(lib)
+        except KeyError:
             raise ValueError(f"Wrong framework: '{framework}'.")
 
         if framework not in self._models:
-            self._models[framework], self._models_cls[framework] = self._factories[framework]()
+            self._models[framework], self._models_cls[framework] = factory()
 
     def model(self, framework: str):
         self._build(framework)
@@ -158,6 +165,9 @@ class ModelFactory:
         return self._models_cls[framework]
 
     def _sklearn(self):
+        assert np
+        assert sklearn
+
         model = sklearn.neural_network.MLPClassifier(activation="tanh", max_iter=2000, hidden_layer_sizes=(10,))
         model.fit(
             np.array([[0, 0], [0, 1], [1, 0], [1, 1]]),
@@ -166,6 +176,9 @@ class ModelFactory:
         return model, sklearn.neural_network.MLPClassifier
 
     def _sklearn_pipeline(self):
+        assert np
+        assert sklearn
+
         model = sklearn.neural_network.MLPClassifier(activation="tanh", max_iter=2000, hidden_layer_sizes=(10,))
         numerical_transformer = sklearn.pipeline.Pipeline(
             [
@@ -174,7 +187,7 @@ class ModelFactory:
         )
         preprocess = sklearn.compose.ColumnTransformer(
             [
-                ("numerical", numerical_transformer[0, 1]),
+                ("numerical", numerical_transformer, [0, 1]),
             ]
         )
         pipeline = sklearn.pipeline.Pipeline(
@@ -192,6 +205,9 @@ class ModelFactory:
         return pipeline, sklearn.pipeline.Pipeline
 
     def _tensorflow(self):
+        assert np
+        assert tf
+
         model = tf.keras.models.Sequential(
             [
                 tf.keras.Input((2,)),
@@ -211,6 +227,9 @@ class ModelFactory:
         return model, tf.keras.models.Sequential
 
     def _torch(self):
+        assert np
+        assert torch
+
         class Model(torch.nn.Module):
             def __init__(self):
                 super().__init__()
@@ -255,27 +274,27 @@ model_factory = ModelFactory()
 
 @pytest.fixture(scope="function")
 def model(request):
-    if not installed(request.param) or not installed("numpy"):
-        pytest.skip(f"Lib '{request.param}' is not installed.")
-
-    return model_factory.model(request.param)
+    try:
+        return model_factory.model(request.param)
+    except NotInstalled as e:
+        pytest.skip(f"Lib '{str(e)}' is not installed.")
 
 
 @pytest.fixture(scope="function")
 def serialized_model_class(request):
-    if not installed(request.param) or not installed("numpy"):
-        pytest.skip(f"Lib '{request.param}' is not installed.")
-
-    return model_factory.model_cls(request.param)
+    try:
+        return model_factory.model_cls(request.param)
+    except NotInstalled as e:
+        pytest.skip(f"Lib '{str(e)}' is not installed.")
 
 
 @pytest.fixture(scope="function")
 def model_path(request):
-    if not installed(request.param) or not installed("numpy"):
-        pytest.skip(f"Lib '{request.param}' is not installed.")
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".flm") as f:
+            flama.dump(model_factory.model(request.param), f.name)
+            f.flush()
 
-    with tempfile.NamedTemporaryFile(suffix=".flm") as f:
-        flama.dump(model_factory.model(request.param), f.name)
-        f.flush()
-
-        yield Path(f.name)
+            yield Path(f.name)
+    except NotInstalled as e:
+        pytest.skip(f"Lib '{str(e)}' is not installed.")

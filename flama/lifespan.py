@@ -98,4 +98,6 @@ class Lifespan(types.AppClass):
         async def child_send(message: types.Message) -> None: ...
 
         if app.routes:
-            await concurrency.run_task_group(*(route(scope, child_receive, child_send) for route in app.routes))
+            await concurrency.run_task_group(
+                *(route(types.Scope({**scope, "app": app}), child_receive, child_send) for route in app.routes)
+            )

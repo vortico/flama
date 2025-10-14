@@ -6,6 +6,7 @@ import typing as t
 from flama import asgi, exceptions, http, injection, routing, types, url, validation, websockets
 from flama.ddd.components import WorkerComponent
 from flama.events import Events
+from flama.injection.components import Components
 from flama.middleware import MiddlewareStack
 from flama.models.modules import ModelsModule
 from flama.modules import Modules
@@ -53,6 +54,7 @@ class Flama:
         schema: t.Optional[str] = "/schema/",
         docs: t.Optional[str] = "/docs/",
         schema_library: t.Optional[str] = None,
+        parent: t.Optional["Flama"] = None,
     ) -> None:
         """Flama application.
 
@@ -63,16 +65,18 @@ class Flama:
         :param debug: Debug mode.
         :param events: Handlers that will be triggered after certain events.
         :param lifespan: Lifespan function.
-        :param title: API title.
-        :param version: API version.
-        :param description: API description.
+        :param openapi: OpenAPI spec.
         :param schema: OpenAPI schema endpoint path.
         :param docs: Docs endpoint path.
         :param schema_library: Schema library to use.
+        :param parent: Parent app.
         """
         self._debug = debug
         self._status = types.AppStatus.NOT_STARTED
         self._shutdown = False
+
+        # Sets parent app
+        self.parent = parent
 
         # Create Dependency Injector
         self._injector = injection.Injector(Context)
@@ -94,7 +98,7 @@ class Flama:
 
         # Initialize router
         self.app = self.router = routing.Router(
-            routes=routes, components=[*default_components, *(components or [])], lifespan=lifespan
+            routes=routes, components=[*default_components, *(components or [])], lifespan=lifespan, app=self
         )
 
         # Build middleware stack
@@ -113,9 +117,6 @@ class Flama:
 
         # Reference to paginator from within app
         self.paginator = paginator
-
-        # Build router to propagate root application
-        self.router.build(self)
 
     def __getattr__(self, item: str) -> t.Any:
         """Retrieve a module by its name.
@@ -159,11 +160,11 @@ class Flama:
 
     @property
     def components(self) -> injection.Components:
-        """Components register.
+        """List of available components for this application.
 
-        :return: Components register.
+        :return: Available components.
         """
-        return self.router.components
+        return Components(self.router.components + (self.parent.components if self.parent else ()))
 
     def add_component(self, component: injection.Component):
         """Add a new component to the register.
@@ -171,7 +172,6 @@ class Flama:
         :param component: Component to include.
         """
         self.router.add_component(component)
-        self.router.build(self)
 
     @property
     def routes(self) -> list["routing.BaseRoute"]:
@@ -186,6 +186,7 @@ class Flama:
         path: t.Optional[str] = None,
         endpoint: t.Optional[types.HTTPHandler] = None,
         methods: t.Optional[list[str]] = None,
+        *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         route: t.Optional["routing.Route"] = None,
@@ -210,7 +211,6 @@ class Flama:
             name=name,
             include_in_schema=include_in_schema,
             route=route,
-            root=self,
             pagination=pagination,
             tags=tags,
         )
@@ -219,6 +219,7 @@ class Flama:
         self,
         path: str,
         methods: t.Optional[list[str]] = None,
+        *,
         name: t.Optional[str] = None,
         include_in_schema: bool = True,
         pagination: t.Optional[types.Pagination] = None,
@@ -235,19 +236,14 @@ class Flama:
         :return: Decorated route.
         """
         return self.router.route(
-            path,
-            methods=methods,
-            name=name,
-            include_in_schema=include_in_schema,
-            root=self,
-            pagination=pagination,
-            tags=tags,
+            path, methods=methods, name=name, include_in_schema=include_in_schema, pagination=pagination, tags=tags
         )
 
     def add_websocket_route(
         self,
         path: t.Optional[str] = None,
         endpoint: t.Optional[types.WebSocketHandler] = None,
+        *,
         name: t.Optional[str] = None,
         route: t.Optional["routing.WebSocketRoute"] = None,
         pagination: t.Optional[types.Pagination] = None,
@@ -262,13 +258,12 @@ class Flama:
         :param pagination: Apply a pagination technique.
         :param tags: Tags to add to the websocket route.
         """
-        return self.router.add_websocket_route(
-            path, endpoint, name=name, route=route, root=self, pagination=pagination, tags=tags
-        )
+        return self.router.add_websocket_route(path, endpoint, name=name, route=route, pagination=pagination, tags=tags)
 
     def websocket_route(
         self,
         path: str,
+        *,
         name: t.Optional[str] = None,
         pagination: t.Optional[types.Pagination] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
@@ -281,12 +276,13 @@ class Flama:
         :param tags: Tags to add to the websocket route.
         :return: Decorated route.
         """
-        return self.router.websocket_route(path, name=name, root=self, pagination=pagination, tags=tags)
+        return self.router.websocket_route(path, name=name, pagination=pagination, tags=tags)
 
     def mount(
         self,
         path: t.Optional[str] = None,
         app: t.Optional[types.App] = None,
+        *,
         name: t.Optional[str] = None,
         mount: t.Optional["routing.Mount"] = None,
         tags: t.Optional[dict[str, t.Any]] = None,
@@ -300,7 +296,7 @@ class Flama:
         :param tags: Tags to add to the mount.
         :return: Mount.
         """
-        return self.router.mount(path, app, name=name, mount=mount, root=self, tags=tags)
+        return self.router.mount(path, app, name=name, mount=mount, tags=tags)
 
     @property
     def injector(self) -> injection.Injector:

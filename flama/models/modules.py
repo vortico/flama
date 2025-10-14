@@ -4,6 +4,9 @@ import typing as t
 from flama.models.resource import ModelResource, ModelResourceType
 from flama.modules import Module
 
+if t.TYPE_CHECKING:
+    from flama.resources import ResourceRoute
+
 __all__ = ["ModelsModule"]
 
 
@@ -18,7 +21,7 @@ class ModelsModule(Module):
         tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
         *args,
         **kwargs,
-    ) -> ModelResource:
+    ) -> "ResourceRoute":
         """Adds a model to this application, setting its endpoints.
 
         :param path: Resource base path.
@@ -36,8 +39,7 @@ class ModelsModule(Module):
 
         resource = Resource()
         self.app.add_component(resource.component)
-        self.app.resources.add_resource(path, resource, tags=tags, *args, **kwargs)  # type: ignore[attr-defined]
-        return resource
+        return self.app.resources.add_resource(path, resource, tags=tags, *args, **kwargs)
 
     def model_resource(
         self, path: str, tags: t.Optional[dict[str, dict[str, t.Any]]] = None, *args, **kwargs
@@ -50,8 +52,7 @@ class ModelsModule(Module):
         """
 
         def decorator(resource: type[ModelResource]) -> type[ModelResource]:
-            self.app.add_component(resource.component)
-            self.app.resources.add_resource(path, resource, tags=tags, *args, **kwargs)  # type: ignore[attr-defined]
+            self.app.models.add_model_resource(path, resource, tags=tags, *args, **kwargs)
             return resource
 
         return decorator
@@ -63,7 +64,7 @@ class ModelsModule(Module):
         tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
         *args,
         **kwargs,
-    ) -> ModelResource:
+    ) -> "ResourceRoute":
         """Adds a resource to this application, setting its endpoints.
 
         :param path: Resource base path.
@@ -71,7 +72,4 @@ class ModelsModule(Module):
         :param tags: Tags to add to the model methods.
         """
         self.app.add_component(resource.component)
-        resource_instance: ModelResource = self.app.resources.add_resource(  # type: ignore[attr-defined]
-            path, resource, tags=tags, *args, **kwargs
-        )
-        return resource_instance
+        return self.app.resources.add_resource(path, resource, tags=tags, *args, **kwargs)

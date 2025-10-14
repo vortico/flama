@@ -19,6 +19,7 @@ if t.TYPE_CHECKING:
     from flama.schemas.adapter import Adapter
 
 __all__ = [
+    "Module",
     "SchemaValidationError",
     "SchemaParseError",
     "Field",
@@ -45,6 +46,7 @@ class Module:
     SCHEMA_LIBS = ("pydantic", "typesystem", "marshmallow")
 
     def __init__(self) -> None:
+        self.name: str
         self.lib: ModuleType
 
     @property
@@ -69,6 +71,7 @@ class Module:
                 msg="No schema library is installed. Install one of your preference following instructions from: "
                 "https://flama.dev/docs/getting-started/installation#extras"
             )
+        self.name = library
         self.lib = importlib.import_module(f"flama.schemas._libs.{library}")
 
         global schemas, lib, fields, adapter, Field, Schema
