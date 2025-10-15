@@ -35,6 +35,9 @@ __all__ = [
 Schema = t.NewType("Schema", types.JSONSchema)
 
 
+class Empty: ...
+
+
 @dataclasses.dataclass(frozen=True)
 class Reference:
     ref: str
@@ -392,8 +395,8 @@ class OpenAPISpec:
     def add_callback(self, name: str, item: t.Union[Callback, Reference]):
         self.spec.components.callbacks[name] = item
 
-    def to_dict(self, obj=None) -> t.Any:
-        if obj is None:
+    def to_dict(self, obj: t.Any = Empty) -> t.Any:
+        if obj is Empty:
             return self.to_dict(dataclasses.asdict(self.spec))
 
         if isinstance(obj, list):
