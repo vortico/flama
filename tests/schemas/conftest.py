@@ -79,22 +79,15 @@ def bar_multiple_schema(app, foo_schema):
     child_schema = foo_schema.schema
     if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model(
-            "BarMultiple",
-            first=(t.Union[child_schema, None], None),
-            second=(t.Union[child_schema, None], None),
-            __module__="pydantic.main",
+            "BarMultiple", first=(child_schema, ...), second=(child_schema, ...), __module__="pydantic.main"
         )
         name = "pydantic.main.BarOptional"
     elif app.schema.schema_library.name == "typesystem":
         schema = typesystem.Schema(
             title="BarOptional",
             fields={
-                "first": typesystem.Reference(
-                    to="Foo", definitions=typesystem.Definitions({"Foo": child_schema}), allow_null=True, default=None
-                ),
-                "second": typesystem.Reference(
-                    to="Foo", definitions=typesystem.Definitions({"Foo": child_schema}), allow_null=True, default=None
-                ),
+                "first": typesystem.Reference(to="Foo", definitions=typesystem.Definitions({"Foo": child_schema})),
+                "second": typesystem.Reference(to="Foo", definitions=typesystem.Definitions({"Foo": child_schema})),
             },
         )
         name = "typesystem.schemas.BarOptional"
@@ -102,10 +95,7 @@ def bar_multiple_schema(app, foo_schema):
         schema = type(
             "BarOptional",
             (marshmallow.Schema,),
-            {
-                "first": marshmallow.fields.Nested(child_schema(), required=False, dump_default=None, allow_none=True),
-                "second": marshmallow.fields.Nested(child_schema(), required=False, dump_default=None, allow_none=True),
-            },
+            {"first": marshmallow.fields.Nested(child_schema()), "second": marshmallow.fields.Nested(child_schema())},
         )
         name = "abc.BarOptional"
     else:
@@ -170,7 +160,41 @@ def bar_dict_schema(app, foo_schema):
 
 
 @pytest.fixture(scope="function")
-def schemas(foo_schema, bar_schema, bar_optional_schema, bar_multiple_schema, bar_list_schema, bar_dict_schema):
+def foobar_nested_schema(app, bar_schema):
+    child_schema = bar_schema.schema
+    if app.schema.schema_library.name == "pydantic":
+        schema = pydantic.create_model("FooBarNested", foobar=(child_schema, ...), __module__="pydantic.main")
+        name = "pydantic.main.FooBarNested"
+    elif app.schema.schema_library.name == "typesystem":
+        schema = typesystem.Schema(
+            title="FooBarNested",
+            fields={
+                "foobar": typesystem.Reference(to="Bar", definitions=typesystem.Definitions({"Bar": child_schema}))
+            },
+        )
+        name = "typesystem.schemas.FooBarNested"
+    elif app.schema.schema_library.name == "marshmallow":
+        schema = type(
+            "FooBarNested",
+            (marshmallow.Schema,),
+            {"foobar": marshmallow.fields.Nested(child_schema())},
+        )
+        name = "abc.FooBarNested"
+    else:
+        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+    return namedtuple("FooBarNestedSchema", ("schema", "name"))(schema=schema, name=name)
+
+
+@pytest.fixture(scope="function")
+def schemas(
+    foo_schema,
+    bar_schema,
+    bar_optional_schema,
+    bar_multiple_schema,
+    bar_list_schema,
+    bar_dict_schema,
+    foobar_nested_schema,
+):
     return {
         "Foo": foo_schema,
         "Bar": bar_schema,
@@ -178,4 +202,5 @@ def schemas(foo_schema, bar_schema, bar_optional_schema, bar_multiple_schema, ba
         "BarMultiple": bar_multiple_schema,
         "BarList": bar_list_schema,
         "BarDict": bar_dict_schema,
+        "FooBarNested": foobar_nested_schema,
     }
