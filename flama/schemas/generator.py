@@ -66,7 +66,6 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         """
         return {k: v.name for k, v in self.items()}
 
-    @t.no_type_check
     def _get_schema_references_from_schema(self, schema: t.Union[openapi.Schema, openapi.Reference]) -> list[str]:
         if isinstance(schema, openapi.Reference):
             return [schema.ref]
@@ -176,23 +175,33 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         :param spec: API Schema.
         :return: Used schemas.
         """
-        refs_from_spec = {
+        # Get schemas from references in path
+        refs = {
             x.split("/")[-1] for path in spec.spec.paths.values() for x in self._get_schema_references_from_path(path)
         }
-        used_schemas = {k: v for k, v in self.items() if v.name in refs_from_spec}
-        refs_from_schemas = {
-            x.split("/")[-1]
-            for schema in used_schemas.values()
-            for x in self._get_schema_references_from_schema(openapi.Schema(schema.json_schema(self.names)))
-        }
-        used_schemas.update({k: v for k, v in self.items() if v.name in refs_from_schemas})
+        used_schemas = {id_: schema for id_, schema in self.items() if schema.name in refs}
 
-        for child_schema in [y for x in used_schemas.values() for y in schemas.Schema(x.schema).nested_schemas()]:
-            schema = schemas.Schema(child_schema)
-            instance = schema.unique_schema
+        # Get schemas from references in schema
+        partial_schemas = set(used_schemas.values())
+        refs = set([])
+        while partial_schemas:
+            schema = partial_schemas.pop()
+            refs_from_schema = {
+                ref.split("/")[-1]
+                for ref in self._get_schema_references_from_schema(openapi.Schema(schema.json_schema(self.names)))
+            }
+            partial_schemas |= {schema for schema in self.values() if schema.name in refs_from_schema}
+            refs |= refs_from_schema
+        used_schemas |= {id_: schema for id_, schema in self.items() if schema.name in refs}
 
-            if instance not in used_schemas:
-                used_schemas[id(instance)] = self[instance]
+        # Get schemas from schema children
+        partial_schemas = set(used_schemas.values())
+        while partial_schemas:
+            for schema in (
+                schemas.Schema(s).unique_schema for s in schemas.Schema(partial_schemas.pop().schema).nested_schemas()
+            ):
+                partial_schemas.add(self[schema])
+                used_schemas[id(schema)] = self[schema]
 
         return used_schemas
 

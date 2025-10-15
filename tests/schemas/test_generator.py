@@ -94,6 +94,25 @@ class TestCaseSchemaRegistry:
                                 description="Bar",
                                 content={
                                     "application/json": openapi.MediaType(
+                                        schema=openapi.Reference(ref="#!/components/schemas/BarMultiple")
+                                    )
+                                },
+                            )
+                        }
+                    )
+                ),
+                ["BarMultiple"],
+                ["Foo", "BarMultiple"],
+                id="response_reference_nested_multiple",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    responses=openapi.Responses(
+                        {
+                            "200": openapi.Response(
+                                description="Bar",
+                                content={
+                                    "application/json": openapi.MediaType(
                                         schema=openapi.Reference(ref="#!/components/schemas/BarList")
                                     )
                                 },
@@ -123,6 +142,25 @@ class TestCaseSchemaRegistry:
                 ["BarDict"],
                 ["Foo", "BarDict"],
                 id="response_reference_nested_dict",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    responses=openapi.Responses(
+                        {
+                            "200": openapi.Response(
+                                description="Bar",
+                                content={
+                                    "application/json": openapi.MediaType(
+                                        schema=openapi.Reference(ref="#!/components/schemas/FooBarNested")
+                                    )
+                                },
+                            )
+                        }
+                    )
+                ),
+                ["FooBarNested"],
+                ["Foo", "Bar", "FooBarNested"],
+                id="response_reference_nested_nested",
             ),
             pytest.param(
                 openapi.Operation(
@@ -177,6 +215,30 @@ class TestCaseSchemaRegistry:
                     responses=openapi.Responses(
                         {
                             "200": openapi.Response(
+                                description="BarMultiple",
+                                content={
+                                    "application/json": openapi.MediaType(
+                                        schema=openapi.Schema(
+                                            {
+                                                "type": "object",
+                                                "properties": {"bar": {"$ref": "#!/components/schemas/BarMultiple"}},
+                                            }
+                                        ),
+                                    )
+                                },
+                            )
+                        }
+                    )
+                ),
+                ["BarMultiple"],
+                ["Foo", "BarMultiple"],
+                id="response_schema_nested_multiple",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    responses=openapi.Responses(
+                        {
+                            "200": openapi.Response(
                                 description="BarList",
                                 content={
                                     "application/json": openapi.MediaType(
@@ -219,6 +281,30 @@ class TestCaseSchemaRegistry:
                 ["BarDict"],
                 ["Foo", "BarDict"],
                 id="response_schema_nested_dict",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    responses=openapi.Responses(
+                        {
+                            "200": openapi.Response(
+                                description="FooBarNested",
+                                content={
+                                    "application/json": openapi.MediaType(
+                                        schema=openapi.Schema(
+                                            {
+                                                "type": "object",
+                                                "properties": {"bar": {"$ref": "#!/components/schemas/FooBarNested"}},
+                                            }
+                                        ),
+                                    )
+                                },
+                            )
+                        }
+                    )
+                ),
+                ["FooBarNested"],
+                ["Foo", "Bar", "FooBarNested"],
+                id="response_schema_nested_nested",
             ),
             pytest.param(
                 openapi.Operation(
@@ -288,6 +374,15 @@ class TestCaseSchemaRegistry:
             ),
             pytest.param(
                 openapi.Operation(
+                    requestBody=openapi.Reference(ref="#!/components/schemas/BarMultiple"),
+                    responses=openapi.Responses({}),
+                ),
+                ["BarMultiple"],
+                ["Foo", "BarMultiple"],
+                id="body_reference_nested_multiple",
+            ),
+            pytest.param(
+                openapi.Operation(
                     requestBody=openapi.Reference(ref="#!/components/schemas/BarList"), responses=openapi.Responses({})
                 ),
                 ["BarList"],
@@ -301,6 +396,15 @@ class TestCaseSchemaRegistry:
                 ["BarDict"],
                 ["Foo", "BarDict"],
                 id="body_reference_nested_dict",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    requestBody=openapi.Reference(ref="#!/components/schemas/FooBarNested"),
+                    responses=openapi.Responses({}),
+                ),
+                ["FooBarNested"],
+                ["Foo", "Bar", "FooBarNested"],
+                id="body_reference_nested_nested",
             ),
             pytest.param(
                 openapi.Operation(
@@ -341,6 +445,27 @@ class TestCaseSchemaRegistry:
             pytest.param(
                 openapi.Operation(
                     requestBody=openapi.RequestBody(
+                        description="BarMultiple",
+                        content={
+                            "application/json": openapi.MediaType(
+                                schema=openapi.Schema(
+                                    {
+                                        "type": "object",
+                                        "properties": {"foo": {"$ref": "#!/components/schemas/BarMultiple"}},
+                                    }
+                                ),
+                            )
+                        },
+                    ),
+                    responses=openapi.Responses({}),
+                ),
+                ["BarMultiple"],
+                ["Foo", "BarMultiple"],
+                id="body_schema_nested_multiple",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    requestBody=openapi.RequestBody(
                         description="BarList",
                         content={
                             "application/json": openapi.MediaType(
@@ -373,6 +498,27 @@ class TestCaseSchemaRegistry:
                 ["BarDict"],
                 ["Foo", "BarDict"],
                 id="body_schema_nested_dict",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    requestBody=openapi.RequestBody(
+                        description="FooBarNested",
+                        content={
+                            "application/json": openapi.MediaType(
+                                schema=openapi.Schema(
+                                    {
+                                        "type": "object",
+                                        "properties": {"foo": {"$ref": "#!/components/schemas/FooBarNested"}},
+                                    }
+                                ),
+                            )
+                        },
+                    ),
+                    responses=openapi.Responses({}),
+                ),
+                ["FooBarNested"],
+                ["Foo", "Bar", "FooBarNested"],
+                id="body_schema_nested_nested",
             ),
             pytest.param(
                 openapi.Operation(
@@ -431,6 +577,15 @@ class TestCaseSchemaRegistry:
             ),
             pytest.param(
                 openapi.Operation(
+                    parameters=[openapi.Reference(ref="#!/components/schemas/BarMultiple")],
+                    responses=openapi.Responses({}),
+                ),
+                ["BarMultiple"],
+                ["Foo", "BarMultiple"],
+                id="parameter_reference_nested_multiple",
+            ),
+            pytest.param(
+                openapi.Operation(
                     parameters=[openapi.Reference(ref="#!/components/schemas/BarList")], responses=openapi.Responses({})
                 ),
                 ["BarList"],
@@ -444,6 +599,15 @@ class TestCaseSchemaRegistry:
                 ["BarDict"],
                 ["Foo", "BarDict"],
                 id="parameter_reference_nested_dict",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    parameters=[openapi.Reference(ref="#!/components/schemas/FooBarNested")],
+                    responses=openapi.Responses({}),
+                ),
+                ["FooBarNested"],
+                ["Foo", "Bar", "FooBarNested"],
+                id="parameter_reference_nested_nested",
             ),
             pytest.param(
                 openapi.Operation(
@@ -486,6 +650,23 @@ class TestCaseSchemaRegistry:
                             in_="query",
                             name="bar",
                             schema=openapi.Schema(
+                                {"type": "object", "properties": {"bar": {"$ref": "#!/components/schemas/BarMultiple"}}}
+                            ),
+                        )
+                    ],
+                    responses=openapi.Responses({}),
+                ),
+                ["BarMultiple"],
+                ["Foo", "BarMultiple"],
+                id="parameter_schema_nested_multiple",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    parameters=[
+                        openapi.Parameter(
+                            in_="query",
+                            name="bar",
+                            schema=openapi.Schema(
                                 {"type": "object", "properties": {"bar": {"$ref": "#!/components/schemas/BarList"}}}
                             ),
                         )
@@ -512,6 +693,26 @@ class TestCaseSchemaRegistry:
                 ["BarDict"],
                 ["Foo", "BarDict"],
                 id="parameter_schema_nested_dict",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    parameters=[
+                        openapi.Parameter(
+                            in_="query",
+                            name="bar",
+                            schema=openapi.Schema(
+                                {
+                                    "type": "object",
+                                    "properties": {"bar": {"$ref": "#!/components/schemas/FooBarNested"}},
+                                }
+                            ),
+                        )
+                    ],
+                    responses=openapi.Responses({}),
+                ),
+                ["FooBarNested"],
+                ["Foo", "Bar", "FooBarNested"],
+                id="parameter_schema_nested_nested",
             ),
             pytest.param(
                 openapi.Operation(
@@ -570,6 +771,15 @@ class TestCaseSchemaRegistry:
             ),
             pytest.param(
                 openapi.Operation(
+                    callbacks={"200": openapi.Reference(ref="#!/components/schemas/BarMultiple")},
+                    responses=openapi.Responses({}),
+                ),
+                ["BarMultiple"],
+                ["Foo", "BarMultiple"],
+                id="callback_reference_nested_multiple",
+            ),
+            pytest.param(
+                openapi.Operation(
                     callbacks={"200": openapi.Reference(ref="#!/components/schemas/BarList")},
                     responses=openapi.Responses({}),
                 ),
@@ -585,6 +795,15 @@ class TestCaseSchemaRegistry:
                 ["BarDict"],
                 ["Foo", "BarDict"],
                 id="callback_reference_nested_dict",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    callbacks={"200": openapi.Reference(ref="#!/components/schemas/FooBarNested")},
+                    responses=openapi.Responses({}),
+                ),
+                ["FooBarNested"],
+                ["Foo", "Bar", "FooBarNested"],
+                id="callback_reference_nested_nested",
             ),
             pytest.param(
                 openapi.Operation(
@@ -670,6 +889,45 @@ class TestCaseSchemaRegistry:
                                         responses=openapi.Responses(
                                             {
                                                 "200": openapi.Response(
+                                                    description="BarMultiple",
+                                                    content={
+                                                        "application/json": openapi.MediaType(
+                                                            schema=openapi.Schema(
+                                                                {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "bar": {
+                                                                            "$ref": "#!/components/schemas/BarMultiple"
+                                                                        }
+                                                                    },
+                                                                }
+                                                            )
+                                                        )
+                                                    },
+                                                )
+                                            }
+                                        )
+                                    )
+                                )
+                            }
+                        )
+                    },
+                    responses=openapi.Responses({}),
+                ),
+                ["BarMultiple"],
+                ["Foo", "BarMultiple"],
+                id="callback_schema_nested_multiple",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    callbacks={
+                        "foo": openapi.Callback(
+                            {
+                                "/callback": openapi.Path(
+                                    get=openapi.Operation(
+                                        responses=openapi.Responses(
+                                            {
+                                                "200": openapi.Response(
                                                     description="BarList",
                                                     content={
                                                         "application/json": openapi.MediaType(
@@ -733,6 +991,45 @@ class TestCaseSchemaRegistry:
                 ["BarDict"],
                 ["Foo", "BarDict"],
                 id="callback_schema_nested_dict",
+            ),
+            pytest.param(
+                openapi.Operation(
+                    callbacks={
+                        "foo": openapi.Callback(
+                            {
+                                "/callback": openapi.Path(
+                                    get=openapi.Operation(
+                                        responses=openapi.Responses(
+                                            {
+                                                "200": openapi.Response(
+                                                    description="FooBarNested",
+                                                    content={
+                                                        "application/json": openapi.MediaType(
+                                                            schema=openapi.Schema(
+                                                                {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "bar": {
+                                                                            "$ref": "#!/components/schemas/FooBarNested"
+                                                                        }
+                                                                    },
+                                                                }
+                                                            )
+                                                        )
+                                                    },
+                                                )
+                                            }
+                                        )
+                                    )
+                                )
+                            }
+                        )
+                    },
+                    responses=openapi.Responses({}),
+                ),
+                ["FooBarNested"],
+                ["Foo", "Bar", "FooBarNested"],
+                id="callback_schema_nested_nested",
             ),
             pytest.param(
                 openapi.Operation(
