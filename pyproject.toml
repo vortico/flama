@@ -15,8 +15,9 @@ maintainers = [
 keywords = [
   "machine-learning",
   "ml",
-  "ml-ops",
   "mlops",
+  "ai",
+  "ddd",
   "api",
   "rest",
   "restful",
@@ -27,20 +28,28 @@ keywords = [
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
+  "Environment :: Web Environment",
   "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
   "Topic :: Software Development",
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.10,<3.15"
 dependencies = [
-  "starlette>=0.31,<1.0.0",
+  "starlette>=0.48,<1.0.0",
   "click>=8.1,<9.0",
-  "uvicorn[standard]>=0.23,<1.0.0",
+  "uvicorn[standard]>=0.38,<1.0.0",
   "Jinja2>=3.1.2,<4.0",
   "pyyaml>=6.0,<7.0",
-  "typing-extensions>=4.4,<5.0; python_version < '3.10'",
+  "typing-extensions>=4.15,<5.0; python_version < '3.11'",
 ]
 
 [project.urls]
@@ -49,18 +58,18 @@ homepage = "https://flama.dev"
 documentation = "https://flama.dev/docs/"
 
 [project.optional-dependencies]
-pydantic = ["pydantic>=2.0,<3.0"]
+pydantic = ["pydantic>=2.12,<3.0"]
 typesystem = ["typesystem>=0.4.1,<1.0"]
 marshmallow = ["marshmallow>=3.0,<4.0", "apispec>=6.0,<7.0"]
 database = ["SQLAlchemy[asyncio]>=2.0,<3.0"]
-client = ["httpx>=0.25,<1.0"]
+client = ["httpx>=0.28,<1.0"]
 full = [
-  "pydantic>=2.0,<3.0",
+  "pydantic>=2.12,<3.0",
   "typesystem>=0.4.1,<1.0",
   "marshmallow>=3.0,<4.0",
   "apispec>=6.0,<7.0",
   "SQLAlchemy[asyncio]>=2.0,<3.0",
-  "httpx>=0.25,<1.0",
+  "httpx>=0.28,<1.0.0",
 ]
 
 [project.scripts]
@@ -68,22 +77,22 @@ flama = 'flama.cli.__main__:cli'
 
 [dependency-groups]
 dev = [
-  "pytest>=8.3",
-  "pytest-xdist[psutil]>=3.3",
-  "pytest-cov>=6.0",
-  "pytest-asyncio>=0.24",
-  "ipython>=8.0",
-  "ruff>=0.9.6",
-  "pyright>=1.1.393",
-  "pre-commit>=3.4",
-  "python-multipart>=0.0.6",
-  "httpx>=0.25,<1.0.0",
-  "aiosqlite>=0.19.0,<1.0.0",
-  "Faker>=8.2",
-  "gevent>=23.9.1",
-  "scikit-learn>=1.6.0",
-  "tensorflow>=2.20.0; python_version >= '3.9' and python_version < '3.13'",
-  "torch>=2.8.0",
+  "pytest>=8.4",
+  "pytest-xdist[psutil]>=3.8",
+  "pytest-cov>=7.0",
+  "pytest-asyncio>=1.2",
+  "ipython>=8.0,<9.0; python_version < '3.11'",
+  "ipython>=9.6; python_version >= '3.11'",
+  "ruff>=0.14.1",
+  "pyright>=1.1.406",
+  "pre-commit>=4.3",
+  "python-multipart>=0.0.20",
+  "aiosqlite>=0.21.0,<1.0.0",
+  "Faker>=37.11",
+  "gevent>=25.9.1",
+  "scikit-learn>=1.7.2",
+  "tensorflow>=2.20.0; python_version < '3.14'",
+  "torch>=2.9.0; python_version < '3.14'",
 ]
 
 [build-system]

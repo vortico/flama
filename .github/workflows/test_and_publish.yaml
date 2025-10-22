@@ -13,7 +13,7 @@ on:
 
 env:
   DEFAULT_LINUX: "slim"
-  DEFAULT_PYTHON: "3.13"
+  DEFAULT_PYTHON: "3.14"
   DEFAULT_SCHEMAS: "pydantic"
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@master
         with:
@@ -110,7 +110,7 @@ jobs:
     strategy:
       matrix:
         linux: ["slim"]
-        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         schemas: ["pydantic", "marshmallow", "typesystem"]
     steps:
       - name: Check out the repo

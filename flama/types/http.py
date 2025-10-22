@@ -1,3 +1,4 @@
+import dataclasses
 import datetime
 import typing as t
 import uuid
@@ -10,8 +11,7 @@ __all__ = [
     "Method",
     "Method",
     "Scheme",
-    "Host",
-    "Port",
+    "Server",
     "Path",
     "QueryString",
     "QueryParam",
@@ -28,20 +28,49 @@ __all__ = [
     "PARAMETERS_TYPES",
 ]
 
-Method = t.NewType("Method", str)
-Scheme = t.NewType("Scheme", str)
-Host = t.NewType("Host", str)
-Port = t.NewType("Port", int)
-QueryString = t.NewType("QueryString", str)
-QueryParam = t.NewType("QueryParam", str)
-Header = t.NewType("Header", str)
-Body = t.NewType("Body", bytes)
-PathParams = t.NewType("PathParams", dict[str, t.Any])
-PathParam = t.NewType("PathParam", str)
-RequestData = t.NewType("RequestData", dict[str, t.Any])
+
+class Method(str): ...
+
+
+class Scheme(str): ...
+
+
+@dataclasses.dataclass(frozen=True)
+class Server:
+    host: str
+    port: int | None
+
+
+class QueryString(str): ...
+
+
+class QueryParam(str): ...
+
+
+class Header(str): ...
+
+
+class Body(bytes): ...
+
+
+class PathParams(dict[str, t.Any]): ...
+
+
+class PathParam(str): ...
+
+
+@dataclasses.dataclass(frozen=True)
+class RequestData:
+    data: dict[str, t.Any] | None
+
+
 Headers = starlette.datastructures.Headers
 MutableHeaders = starlette.datastructures.MutableHeaders
-Cookies = t.NewType("Cookies", dict[str, dict[str, str]])
+
+
+class Cookies(dict[str, dict[str, str]]): ...
+
+
 QueryParams = starlette.datastructures.QueryParams
 
 PARAMETERS_TYPES: dict[type, type] = {

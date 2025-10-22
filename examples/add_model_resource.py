@@ -4,7 +4,7 @@ from datetime import datetime
 import pydantic
 
 import flama
-from flama import Flama, schemas
+from flama import Flama, types
 from flama.models import ModelResource
 from flama.resources import ResourceRoute
 
@@ -46,8 +46,8 @@ class MySKModel(ModelResource):
 
     @ResourceRoute.method("/predict/", methods=["POST"], name="model-predict")
     def predict(
-        self, data: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(X)]
-    ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(Y)]:
+        self, data: t.Annotated[types.Schema, types.SchemaMetadata(X)]
+    ) -> t.Annotated[types.Schema, types.SchemaMetadata(Y)]:
         """
         tags:
             - My ScikitLearn Model

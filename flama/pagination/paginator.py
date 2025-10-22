@@ -1,11 +1,11 @@
 import typing as t
 
-from flama import compat, types
+from flama import types
 from flama.pagination.mixins import LimitOffsetMixin, PageNumberMixin
 
 __all__ = ["paginator"]
 
-P = compat.ParamSpec("P")  # PORT: Replace compat when stop supporting 3.9
+P = t.ParamSpec("P")
 R = t.TypeVar("R", covariant=True)
 
 

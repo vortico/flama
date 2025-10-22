@@ -3,6 +3,7 @@ import asyncio
 import logging
 import typing as t
 
+from flama import compat
 from flama.ddd.repositories import BaseRepository
 from flama.exceptions import ApplicationError
 
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["AbstractWorker", "BaseWorker"]
 
 
-Repositories = t.NewType("Repositories", dict[str, type[BaseRepository]])
+class Repositories(dict[str, type[BaseRepository]]): ...
 
 
 class AbstractWorker(abc.ABC):
@@ -24,7 +25,7 @@ class AbstractWorker(abc.ABC):
     unit of work that will be used to interact with the repositories and entities of the application.
     """
 
-    def __init__(self, app: t.Optional["Flama"] = None):
+    def __init__(self, app: "Flama | None" = None):
         """Initialize the worker.
 
         It will receive the application instance as a parameter.
@@ -103,14 +104,25 @@ class WorkerType(abc.ABCMeta):
     """
 
     def __new__(mcs, name: str, bases: tuple[type], namespace: dict[str, t.Any]):
-        if not mcs._is_base(namespace) and "__annotations__" in namespace:
-            namespace["_repositories"] = Repositories(
-                {k: v for k, v in namespace["__annotations__"].items() if mcs._is_repository(v)}
-            )
+        if not mcs._is_base(namespace):
+            if "__annotations__" in namespace:
+                repositories = Repositories(
+                    {k: v for k, v in namespace["__annotations__"].items() if mcs._is_repository(v)}
+                )
+                annotations = {k: v for k, v in namespace["__annotations__"].items() if k not in repositories}
+            else:
+                try:
+                    resolved_annotations = compat.get_annotations(  # PORT: Replace compat when stop supporting 3.13
+                        super().__new__(mcs, name, bases, namespace), eval_str=True
+                    )
+                except Exception:
+                    resolved_annotations = {}
 
-            namespace["__annotations__"] = {
-                k: v for k, v in namespace["__annotations__"].items() if k not in namespace["_repositories"]
-            }
+                repositories = Repositories({k: v for k, v in resolved_annotations.items() if mcs._is_repository(v)})
+                annotations = {k: v for k, v in resolved_annotations.items() if k not in repositories}
+
+            namespace["_repositories"] = repositories
+            namespace["__annotations__"] = annotations
 
         return super().__new__(mcs, name, bases, namespace)
 

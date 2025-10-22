@@ -16,9 +16,9 @@ class ModelsModule(Module):
     def add_model(
         self,
         path: str,
-        model: t.Union[str, os.PathLike],
+        model: str | os.PathLike,
         name: str,
-        tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
+        tags: dict[str, dict[str, t.Any]] | None = None,
         *args,
         **kwargs,
     ) -> "ResourceRoute":
@@ -41,9 +41,7 @@ class ModelsModule(Module):
         self.app.add_component(resource.component)
         return self.app.resources.add_resource(path, resource, tags=tags, *args, **kwargs)
 
-    def model_resource(
-        self, path: str, tags: t.Optional[dict[str, dict[str, t.Any]]] = None, *args, **kwargs
-    ) -> t.Callable:
+    def model_resource(self, path: str, tags: dict[str, dict[str, t.Any]] | None = None, *args, **kwargs) -> t.Callable:
         """Decorator for ModelResource classes for adding them to the application.
 
         :param path: Resource base path.
@@ -60,8 +58,8 @@ class ModelsModule(Module):
     def add_model_resource(
         self,
         path: str,
-        resource: t.Union[ModelResource, type[ModelResource]],
-        tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
+        resource: ModelResource | type[ModelResource],
+        tags: dict[str, dict[str, t.Any]] | None = None,
         *args,
         **kwargs,
     ) -> "ResourceRoute":

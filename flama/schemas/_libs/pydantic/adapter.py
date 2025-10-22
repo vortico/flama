@@ -5,7 +5,6 @@ import pydantic
 from pydantic.fields import FieldInfo
 from pydantic.json_schema import model_json_schema
 
-from flama import compat
 from flama.injection import Parameter
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
@@ -37,7 +36,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
             annotation = list[annotation]
 
         if nullable:
-            annotation = t.Optional[annotation]
+            annotation = annotation | None
 
         if default is Parameter.empty:
             field = FieldInfo.from_annotation(annotation)
@@ -49,10 +48,10 @@ class PydanticAdapter(Adapter[Schema, Field]):
     def build_schema(
         self,
         *,
-        name: t.Optional[str] = None,
-        module: t.Optional[str] = None,
-        schema: t.Optional[t.Union[Schema, type[Schema]]] = None,
-        fields: t.Optional[dict[str, type[Field]]] = None,
+        name: str | None = None,
+        module: str | None = None,
+        schema: Schema | type[Schema] | None = None,
+        fields: dict[str, type[Field]] | None = None,
         partial: bool = False,
     ) -> type[Schema]:
         fields_ = {
@@ -66,7 +65,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
         if partial:
             for name, (annotation, field) in fields_.items():
                 field.default = None
-                fields_[name] = (t.Optional[annotation], field)
+                fields_[name] = (annotation | None, field)
 
         return pydantic.create_model(
             name or self.DEFAULT_SCHEMA_NAME,
@@ -75,7 +74,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
         )
 
     def validate(
-        self, schema: t.Union[Schema, type[Schema]], values: dict[str, t.Any], *, partial: bool = False
+        self, schema: Schema | type[Schema], values: dict[str, t.Any], *, partial: bool = False
     ) -> dict[str, t.Any]:
         schema_cls = self.unique_schema(schema)
 
@@ -88,23 +87,23 @@ class PydanticAdapter(Adapter[Schema, Field]):
                 }
             )
 
-    def load(self, schema: t.Union[Schema, type[Schema]], value: dict[str, t.Any]) -> Schema:
+    def load(self, schema: Schema | type[Schema], value: dict[str, t.Any]) -> Schema:
         schema_cls = self.unique_schema(schema)
 
         return schema_cls(**value)
 
-    def dump(self, schema: t.Union[Schema, type[Schema]], value: dict[str, t.Any]) -> dict[str, t.Any]:
+    def dump(self, schema: Schema | type[Schema], value: dict[str, t.Any]) -> dict[str, t.Any]:
         schema_cls = self.unique_schema(schema)
 
         return self.validate(schema_cls, value)
 
-    def name(self, schema: t.Union[Schema, type[Schema]], *, prefix: t.Optional[str] = None) -> str:
+    def name(self, schema: Schema | type[Schema], *, prefix: str | None = None) -> str:
         schema_cls = self.unique_schema(schema)
 
         schema_name = f"{prefix or ''}{schema_cls.__qualname__}"
         return schema_name if schema_cls.__module__ == "builtins" else f"{schema_cls.__module__}.{schema_name}"
 
-    def to_json_schema(self, schema: t.Union[type[Schema], type[Field]]) -> JSONSchema:
+    def to_json_schema(self, schema: type[Schema] | type[Field]) -> JSONSchema:
         try:
             if self.is_schema(schema):
                 json_schema = model_json_schema(schema, ref_template="#/components/schemas/{model}")
@@ -123,7 +122,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
         except Exception as e:
             raise SchemaGenerationError from e
 
-    def unique_schema(self, schema: t.Union[Schema, type[Schema]]) -> type[Schema]:
+    def unique_schema(self, schema: Schema | type[Schema]) -> type[Schema]:
         return schema.__class__ if isinstance(schema, Schema) else schema
 
     def _get_field_type(self, field: Field) -> t.Any:
@@ -138,16 +137,14 @@ class PydanticAdapter(Adapter[Schema, Field]):
 
         return field.annotation
 
-    def schema_fields(
-        self, schema: type[Schema]
-    ) -> dict[str, tuple[t.Union[type, list[type], dict[str, type]], Field]]:
+    def schema_fields(self, schema: type[Schema]) -> dict[str, tuple[type | list[type] | dict[str, type], Field]]:
         return {name: (self._get_field_type(field), field) for name, field in schema.model_fields.items()}
 
-    def is_schema(self, obj: t.Any) -> compat.TypeGuard[type[Schema]]:  # PORT: Replace compat when stop supporting 3.9
+    def is_schema(self, obj: t.Any) -> t.TypeGuard[type[Schema]]:
         if t.get_origin(obj):
             obj = t.get_origin(obj)
 
         return inspect.isclass(obj) and issubclass(obj, Schema)
 
-    def is_field(self, obj: t.Any) -> compat.TypeGuard[type[Field]]:  # PORT: Replace compat when stop supporting 3.9
+    def is_field(self, obj: t.Any) -> t.TypeGuard[type[Field]]:
         return isinstance(obj, Field)

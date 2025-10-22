@@ -20,17 +20,17 @@ __all__ = ["ResourcesModule"]
 class ResourcesModule(Module):
     name = "resources"
 
-    def __init__(self, worker: t.Optional["FlamaWorker"] = None):
+    def __init__(self, worker: "FlamaWorker | None" = None):
         super().__init__()
         self.worker = worker
 
     def add_resource(
         self,
         path: str,
-        resource: t.Union[Resource, type[Resource]],
+        resource: Resource | type[Resource],
         *args,
         include_in_schema: bool = True,
-        tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
+        tags: dict[str, dict[str, t.Any]] | None = None,
         **kwargs,
     ) -> ResourceRoute:
         """Adds a resource to this application, setting its endpoints.
@@ -56,7 +56,7 @@ class ResourcesModule(Module):
         path: str,
         *args,
         include_in_schema: bool = True,
-        tags: t.Optional[dict[str, dict[str, t.Any]]] = None,
+        tags: dict[str, dict[str, t.Any]] | None = None,
         **kwargs,
     ) -> t.Callable:
         """Decorator for Resources classes for adding them to the application.
@@ -77,11 +77,11 @@ class ResourcesModule(Module):
         self,
         path: str,
         *,
-        methods: t.Optional[t.Sequence[str]] = None,
-        name: t.Optional[str] = None,
+        methods: t.Sequence[str] | None = None,
+        name: str | None = None,
         include_in_schema: bool = True,
-        pagination: t.Optional[types.Pagination] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
+        pagination: types.Pagination | None = None,
+        tags: dict[str, t.Any] | None = None,
     ) -> t.Callable:
         """Decorator for adding useful info needed for generating resource routes.
 

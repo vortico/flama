@@ -12,7 +12,7 @@ if t.TYPE_CHECKING:
 @dataclasses.dataclass
 class Repositories:
     registered: dict[str, type["SQLAlchemyTableRepository"]] = dataclasses.field(default_factory=dict)
-    initialised: t.Optional[dict[str, "SQLAlchemyTableRepository"]] = None
+    initialised: dict[str, "SQLAlchemyTableRepository"] | None = None
 
     def init(self, *args: t.Any, **kwargs: t.Any) -> None:
         self.initialised = {r: cls(*args, **kwargs) for r, cls in self.registered.items()}
@@ -24,7 +24,7 @@ class Repositories:
 class FlamaWorker(SQLAlchemyWorker):
     """The worker used by Flama Resources."""
 
-    def __init__(self, app: t.Optional["Flama"] = None):
+    def __init__(self, app: "Flama | None" = None):
         """Initialize the worker.
 
         This special worker is used to handle the repositories created by Flama Resources.

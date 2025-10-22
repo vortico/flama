@@ -23,41 +23,41 @@ class OpenAPISpecInfoContact(t.TypedDict):
 
 class OpenAPISpecInfoLicense(t.TypedDict):
     name: str
-    identifier: compat.NotRequired[t.Optional[str]]
-    url: compat.NotRequired[t.Optional[str]]
+    identifier: compat.NotRequired[str | None]
+    url: compat.NotRequired[str | None]
 
 
 class OpenAPISpecInfo(t.TypedDict):
     title: str
-    summary: compat.NotRequired[t.Optional[str]]
-    description: compat.NotRequired[t.Optional[str]]
-    termsOfService: compat.NotRequired[t.Optional[str]]
-    contact: compat.NotRequired[t.Optional[OpenAPISpecInfoContact]]
-    license: compat.NotRequired[t.Optional[OpenAPISpecInfoLicense]]
+    summary: compat.NotRequired[str | None]
+    description: compat.NotRequired[str | None]
+    termsOfService: compat.NotRequired[str | None]
+    contact: compat.NotRequired[OpenAPISpecInfoContact | None]
+    license: compat.NotRequired[OpenAPISpecInfoLicense | None]
     version: str
 
 
 class OpenAPISpecServerVariable(t.TypedDict):
     default: str
-    enum: compat.NotRequired[t.Optional[list[str]]]
-    description: compat.NotRequired[t.Optional[str]]
+    enum: compat.NotRequired[list[str] | None]
+    description: compat.NotRequired[str | None]
 
 
 class OpenAPISpecServer(t.TypedDict):
     url: str
-    description: compat.NotRequired[t.Optional[str]]
-    variables: compat.NotRequired[t.Optional[dict[str, OpenAPISpecServerVariable]]]
+    description: compat.NotRequired[str | None]
+    variables: compat.NotRequired[dict[str, OpenAPISpecServerVariable] | None]
 
 
 class OpenAPISpecExternalDocs(t.TypedDict):
     url: str
-    description: compat.NotRequired[t.Optional[str]]
+    description: compat.NotRequired[str | None]
 
 
 class OpenAPISpecTag(t.TypedDict):
     name: str
-    description: compat.NotRequired[t.Optional[str]]
-    externalDocs: compat.NotRequired[t.Optional[OpenAPISpecExternalDocs]]
+    description: compat.NotRequired[str | None]
+    externalDocs: compat.NotRequired[OpenAPISpecExternalDocs | None]
 
 
 OpenAPISpecSecurity = dict[str, list[str]]
@@ -65,7 +65,7 @@ OpenAPISpecSecurity = dict[str, list[str]]
 
 class OpenAPISpec(t.TypedDict):
     info: OpenAPISpecInfo
-    servers: compat.NotRequired[t.Optional[list[OpenAPISpecServer]]]
-    security: compat.NotRequired[t.Optional[list[OpenAPISpecSecurity]]]
-    tags: compat.NotRequired[t.Optional[list[OpenAPISpecTag]]]
-    externalDocs: compat.NotRequired[t.Optional[OpenAPISpecExternalDocs]]
+    servers: compat.NotRequired[list[OpenAPISpecServer] | None]
+    security: compat.NotRequired[list[OpenAPISpecSecurity] | None]
+    tags: compat.NotRequired[list[OpenAPISpecTag] | None]
+    externalDocs: compat.NotRequired[OpenAPISpecExternalDocs | None]

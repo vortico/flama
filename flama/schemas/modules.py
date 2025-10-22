@@ -13,7 +13,7 @@ TEMPLATES_PATH = Path(__file__).parents[1] / "templates"
 class SchemaModule(Module):
     name = "schema"
 
-    def __init__(self, openapi: types.OpenAPISpec, *, schema: t.Optional[str] = None, docs: t.Optional[str] = None):
+    def __init__(self, openapi: types.OpenAPISpec, *, schema: str | None = None, docs: str | None = None):
         super().__init__()
 
         if docs and not schema:
@@ -61,7 +61,7 @@ class SchemaModule(Module):
         return schemas._module
 
     @schema_library.setter
-    def schema_library(self, library: t.Optional[str]) -> None:
+    def schema_library(self, library: str | None) -> None:
         """Globally set the schema library.
 
         :param library: Schema library to be used.

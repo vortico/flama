@@ -49,7 +49,7 @@ class TestCaseJWS:
     )
     def test_encode(self, key, header, payload, result, exception):
         with exception:
-            assert JWS.encode(header=header, payload=payload, key=key) == result
+            assert JWS.encode(header, payload, key=key) == result
 
     @pytest.mark.parametrize(
         ["token", "result", "exception"],
@@ -129,29 +129,29 @@ class TestCaseJWT:
     )
     def test_encode(self, key, header, payload, result, exception):
         with exception:
-            jwt = JWT(header=header, payload=payload).encode(key)
+            jwt = JWT(header, payload).encode(key)
             assert jwt == result
 
     @pytest.mark.parametrize(
         ["token", "exception"],
         (
             pytest.param(
-                JWT(header={"alg": "HS256", "typ": "JWT"}, payload={"foo": "bar", "iat": 0}),
+                JWT({"alg": "HS256", "typ": "JWT"}, {"foo": "bar", "iat": 0}),
                 None,
                 id="ok",
             ),
             pytest.param(
-                JWT(header={"alg": "HS256", "typ": "JWT"}, payload={"foo": "bar", "iat": time.time() * 2}),
+                JWT({"alg": "HS256", "typ": "JWT"}, {"foo": "bar", "iat": time.time() * 2}),
                 exceptions.JWTValidateException("Invalid claims (iat)"),
                 id="invalid_iat",
             ),
             pytest.param(
-                JWT(header={"alg": "HS256", "typ": "JWT"}, payload={"foo": "bar", "exp": time.time() / 2}),
+                JWT({"alg": "HS256", "typ": "JWT"}, {"foo": "bar", "exp": time.time() / 2}),
                 exceptions.JWTValidateException("Invalid claims (exp)"),
                 id="invalid_exp",
             ),
             pytest.param(
-                JWT(header={"alg": "HS256", "typ": "JWT"}, payload={"foo": "bar", "nbf": time.time() * 2}),
+                JWT({"alg": "HS256", "typ": "JWT"}, {"foo": "bar", "nbf": time.time() * 2}),
                 exceptions.JWTValidateException("Invalid claims (nbf)"),
                 id="invalid_nbf",
             ),
@@ -167,7 +167,7 @@ class TestCaseJWT:
         (
             pytest.param(
                 TOKEN,
-                JWT(header={"alg": "HS256", "typ": "JWT"}, payload={"data": {"foo": "bar"}, "iat": 0}),
+                JWT({"alg": "HS256", "typ": "JWT"}, {"data": {"foo": "bar"}, "iat": 0}),
                 None,
                 None,
                 id="ok",
@@ -191,7 +191,7 @@ class TestCaseJWT:
             ),
             pytest.param(
                 TOKEN,
-                JWT(header={"alg": "HS256", "typ": "JWT"}, payload={"data": {"foo": "bar"}, "iat": 0}),
+                JWT({"alg": "HS256", "typ": "JWT"}, {"data": {"foo": "bar"}, "iat": 0}),
                 exceptions.JWTClaimValidateException("exp"),
                 exceptions.JWTValidateException("Claim 'exp' is not valid"),
                 id="invalid-claims",
@@ -205,7 +205,7 @@ class TestCaseJWT:
                 assert JWT.decode(token, key) == result
 
     def test_to_dict(self):
-        jwt = JWT(header={"alg": "HS256", "typ": "JWT"}, payload={"data": {"foo": "bar"}, "iat": 0})
+        jwt = JWT({"alg": "HS256", "typ": "JWT"}, {"data": {"foo": "bar"}, "iat": 0})
 
         assert jwt.to_dict() == {
             "header": {"alg": "HS256", "typ": "JWT"},

@@ -86,7 +86,7 @@ class Middleware:
         self.middleware = middleware
         self.kwargs = kwargs
 
-    def __call__(self, app: "types.App") -> t.Union["types.MiddlewareClass", "types.App"]:
+    def __call__(self, app: "types.App") -> "types.MiddlewareClass | types.App":
         return self.middleware(app, **self.kwargs)
 
     def __repr__(self) -> str:
@@ -105,13 +105,13 @@ class MiddlewareStack:
         self.app = app
         self.middleware = list(reversed(middleware))
         self.debug = debug
-        self._exception_handlers: dict[t.Union[int, type[Exception]], t.Callable[[Request, Exception], Response]] = {}
-        self._stack: t.Optional[t.Union[types.MiddlewareClass, types.App]] = None
+        self._exception_handlers: dict[int | type[Exception], t.Callable[[Request, Exception], Response]] = {}
+        self._stack: types.MiddlewareClass | types.App | None = None
 
     @property
     def stack(
         self,
-    ) -> t.Union["types.MiddlewareClass", "types.App"]:
+    ) -> "types.MiddlewareClass | types.App":
         if self._stack is None:
             self._stack = functools.reduce(
                 lambda app, middleware: middleware(app=app),
@@ -130,7 +130,7 @@ class MiddlewareStack:
         self._stack = None
 
     def add_exception_handler(
-        self, key: t.Union[int, type[Exception]], handler: t.Callable[["Request", Exception], "Response"]
+        self, key: int | type[Exception], handler: t.Callable[["Request", Exception], "Response"]
     ):
         """Adds a new handler for an exception type or a HTTP status code.
 

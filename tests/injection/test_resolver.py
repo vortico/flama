@@ -1,4 +1,3 @@
-import typing as t
 import uuid
 from unittest.mock import MagicMock, call
 
@@ -9,22 +8,35 @@ from flama.injection.context import Context as BaseContext
 from flama.injection.exceptions import ComponentNotFound
 from flama.injection.injector import InjectionCache
 from flama.injection.resolver import (
-    EMPTY,
     ComponentNode,
     ContextNode,
+    Empty,
     Parameter,
     ParameterNode,
     ResolutionTree,
     Resolver,
 )
 
-CustomInt = t.NewType("CustomInt", int)
-Foo = t.NewType("Foo", int)
-Bar = t.NewType("Bar", int)
-Wrong = t.NewType("Wrong", int)
-Cacheable = t.NewType("Cacheable", uuid.UUID)
-NonCacheable = t.NewType("NonCacheable", uuid.UUID)
-Unhandled = t.NewType("Unhandled", int)
+
+class CustomInt(int): ...
+
+
+class Foo(int): ...
+
+
+class Bar(int): ...
+
+
+class Wrong(int): ...
+
+
+class Cacheable(uuid.UUID): ...
+
+
+class NonCacheable(uuid.UUID): ...
+
+
+class Unhandled(int): ...
 
 
 class FooComponent(Component):
@@ -56,7 +68,7 @@ class CacheableComponent(Component):
         self.uuid = generator
 
     def resolve(self) -> Cacheable:
-        return Cacheable(self.uuid.uuid4())
+        return Cacheable(str(self.uuid.uuid4()))
 
 
 class NonCacheableComponent(Component):
@@ -66,7 +78,7 @@ class NonCacheableComponent(Component):
         self.uuid = generator
 
     def resolve(self) -> NonCacheable:
-        return NonCacheable(self.uuid.uuid4())
+        return NonCacheable(str(self.uuid.uuid4()))
 
 
 class Context(BaseContext):
@@ -98,27 +110,27 @@ class TestCaseResolutionTree:
         ["parameter", "expected_tree", "expected_context", "expected_parameters", "expected_components", "exception"],
         (
             pytest.param(
-                Parameter("x", int, EMPTY),
+                Parameter("x", int, Empty),
                 ResolutionTree(root=ContextNode(name="x", parameter=Parameter(name="x", annotation=int), nodes=[])),
-                [("x", Parameter(name="x", annotation=int, default=EMPTY))],
+                [("x", Parameter(name="x", annotation=int, default=Empty))],
                 [],
                 [],
                 None,
                 id="context_builtin_type",
             ),
             pytest.param(
-                Parameter("y", CustomInt, EMPTY),
+                Parameter("y", CustomInt, Empty),
                 ResolutionTree(
                     root=ContextNode(name="y", parameter=Parameter(name="y", annotation=CustomInt), nodes=[])
                 ),
-                [("y", Parameter(name="y", annotation=CustomInt, default=EMPTY))],
+                [("y", Parameter(name="y", annotation=CustomInt, default=Empty))],
                 [],
                 [],
                 None,
                 id="context_custom_type",
             ),
             pytest.param(
-                Parameter("foo", Foo, EMPTY),
+                Parameter("foo", Foo, Empty),
                 ResolutionTree(
                     root=ComponentNode(
                         name="foo",
@@ -127,14 +139,14 @@ class TestCaseResolutionTree:
                         component=foo_component,
                     )
                 ),
-                [("x", Parameter(name="x", annotation=int, default=EMPTY))],
+                [("x", Parameter(name="x", annotation=int, default=Empty))],
                 [],
                 [("foo", foo_component)],
                 None,
                 id="component",
             ),
             pytest.param(
-                Parameter("bar", Bar, EMPTY),
+                Parameter("bar", Bar, Empty),
                 ResolutionTree(
                     root=ComponentNode(
                         name="bar",
@@ -153,7 +165,7 @@ class TestCaseResolutionTree:
                 id="component_using_its_parameter",
             ),
             pytest.param(
-                Parameter("wrong", Unhandled, EMPTY),
+                Parameter("wrong", Unhandled, Empty),
                 None,
                 None,
                 None,
@@ -162,7 +174,7 @@ class TestCaseResolutionTree:
                 id="not_found",
             ),
             pytest.param(
-                Parameter("wrong", Wrong, EMPTY),
+                Parameter("wrong", Wrong, Empty),
                 None,
                 None,
                 None,
@@ -197,7 +209,7 @@ class TestCaseResolutionTree:
         ["parameter", "calls", "uuid_calls"],
         (
             pytest.param(
-                Parameter("x", int, EMPTY),
+                Parameter("x", int, Empty),
                 [
                     (Context({"x": 1}), 1),
                 ],
@@ -205,7 +217,7 @@ class TestCaseResolutionTree:
                 id="context_builtin_type",
             ),
             pytest.param(
-                Parameter("y", CustomInt, EMPTY),
+                Parameter("y", CustomInt, Empty),
                 [
                     (Context({"y": 1}), 1),
                 ],
@@ -213,25 +225,25 @@ class TestCaseResolutionTree:
                 id="context_custom_type",
             ),
             pytest.param(
-                Parameter("foo", Cacheable, EMPTY),
+                Parameter("foo", Cacheable, Empty),
                 [
-                    (Context({}), Cacheable(uuid.UUID(int=0))),
-                    (Context({}), Cacheable(uuid.UUID(int=0))),
+                    (Context({}), Cacheable(str(uuid.UUID(int=0)))),
+                    (Context({}), Cacheable(str(uuid.UUID(int=0)))),
                 ],
                 [call()],
                 id="cacheable_component",
             ),
             pytest.param(
-                Parameter("foo", NonCacheable, EMPTY),
+                Parameter("foo", NonCacheable, Empty),
                 [
-                    (Context({}), Cacheable(uuid.UUID(int=0))),
-                    (Context({}), Cacheable(uuid.UUID(int=0))),
+                    (Context({}), Cacheable(str(uuid.UUID(int=0)))),
+                    (Context({}), Cacheable(str(uuid.UUID(int=0)))),
                 ],
                 [call(), call()],
                 id="non_cacheable_component",
             ),
             pytest.param(
-                Parameter("bar", Bar, EMPTY),
+                Parameter("bar", Bar, Empty),
                 [
                     (Context({"data": {"bar": 2}}), Bar(2)),
                     (Context({"data": {"bar": 3}}), Bar(3)),  # Check cache is not used

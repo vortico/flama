@@ -7,7 +7,7 @@ import typesystem
 import typesystem.fields
 
 import flama.types.websockets
-from flama import Component, endpoints, routing, schemas, websockets
+from flama import Component, endpoints, routing, types, websockets
 from flama.schemas.data_structures import Parameter, ParameterLocation
 
 
@@ -51,10 +51,10 @@ class TestCaseParametersDescriptor:
             def foo(
                 w: int,
                 a: Custom,
-                z: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)],
+                z: t.Annotated[types.Schema, types.SchemaMetadata(foo_schema)],
                 x: int = 1,
-                y: t.Optional[str] = None,
-            ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)]: ...
+                y: str | None = None,
+            ) -> t.Annotated[types.Schema, types.SchemaMetadata(foo_schema)]: ...
 
             result = routing.Route("/foo/{w:int}/", endpoint=foo, methods=["GET"])
 
@@ -65,10 +65,10 @@ class TestCaseParametersDescriptor:
                     self,
                     w: int,
                     a: Custom,
-                    z: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)],
+                    z: t.Annotated[types.Schema, types.SchemaMetadata(foo_schema)],
                     x: int = 1,
-                    y: t.Optional[str] = None,
-                ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)]: ...
+                    y: str | None = None,
+                ) -> t.Annotated[types.Schema, types.SchemaMetadata(foo_schema)]: ...
 
             result = routing.Route("/bar/{w:int}/", endpoint=FooEndpoint, methods=["GET"])
 
@@ -79,9 +79,9 @@ class TestCaseParametersDescriptor:
                 data: flama.types.websockets.Data,
                 w: int,
                 a: Custom,
-                z: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)],
+                z: t.Annotated[types.Schema, types.SchemaMetadata(foo_schema)],
                 x: int = 1,
-                y: t.Optional[str] = None,
+                y: str | None = None,
             ) -> None: ...
 
             result = routing.WebSocketRoute("/foo/{w:int}/", endpoint=bar)
@@ -95,9 +95,9 @@ class TestCaseParametersDescriptor:
                     data: flama.types.websockets.Data,
                     w: int,
                     a: Custom,
-                    z: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)],
+                    z: t.Annotated[types.Schema, types.SchemaMetadata(foo_schema)],
                     x: int = 1,
-                    y: t.Optional[str] = None,
+                    y: str | None = None,
                 ) -> None: ...
 
             result = routing.WebSocketRoute("/foo/{w:int}/", endpoint=FooWebsocket)
@@ -128,7 +128,7 @@ class TestCaseParametersDescriptor:
                         "y": {
                             "name": "y",
                             "location": ParameterLocation.query,
-                            "type": t.Optional[str],
+                            "type": str | None,
                             "required": False,
                             "default": None,
                         },
@@ -145,7 +145,7 @@ class TestCaseParametersDescriptor:
                         "y": {
                             "name": "y",
                             "location": ParameterLocation.query,
-                            "type": t.Optional[str],
+                            "type": str | None,
                             "required": False,
                             "default": None,
                         },
@@ -168,7 +168,7 @@ class TestCaseParametersDescriptor:
                         "y": {
                             "name": "y",
                             "location": ParameterLocation.query,
-                            "type": t.Optional[str],
+                            "type": str | None,
                             "required": False,
                             "default": None,
                         },
@@ -185,7 +185,7 @@ class TestCaseParametersDescriptor:
                         "y": {
                             "name": "y",
                             "location": ParameterLocation.query,
-                            "type": t.Optional[str],
+                            "type": str | None,
                             "required": False,
                             "default": None,
                         },
@@ -208,7 +208,7 @@ class TestCaseParametersDescriptor:
                         "y": {
                             "name": "y",
                             "location": ParameterLocation.query,
-                            "type": t.Optional[str],
+                            "type": str | None,
                             "required": False,
                             "default": None,
                         },
@@ -232,7 +232,7 @@ class TestCaseParametersDescriptor:
                         "y": {
                             "name": "y",
                             "location": ParameterLocation.query,
-                            "type": t.Optional[str],
+                            "type": str | None,
                             "required": False,
                             "default": None,
                         },
@@ -345,7 +345,7 @@ class TestCaseParametersDescriptor:
     )
     def test_body(self, route, expected_params, foo_schema):
         expected_params = {
-            k: Parameter(**{**param, "type": t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)]})
+            k: Parameter(**{**param, "type": t.Annotated[types.Schema, types.SchemaMetadata(foo_schema)]})
             if param
             else None
             for k, param in expected_params.items()
@@ -395,9 +395,7 @@ class TestCaseParametersDescriptor:
             k: Parameter(
                 **{
                     **param,
-                    "type": t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema)]
-                    if param["type"]
-                    else None,
+                    "type": t.Annotated[types.Schema, types.SchemaMetadata(foo_schema)] if param["type"] else None,
                 }
             )
             for k, param in expected_params.items()

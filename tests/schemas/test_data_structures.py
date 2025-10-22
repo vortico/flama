@@ -7,7 +7,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from flama import schemas, types
+from flama import types
 from flama.injection import Parameter as InjectionParameter
 from flama.schemas.data_structures import Field, Parameter, ParameterLocation, Schema
 from tests.schemas.test_generator import assert_recursive_contains
@@ -32,10 +32,10 @@ class TestCaseField:
                 id="default",
             ),
             pytest.param(
-                {"name": "foo", "type": t.Optional[int]},
+                {"name": "foo", "type": int | None},
                 {
                     "name": "foo",
-                    "type": t.Optional[int],
+                    "type": int | None,
                     "nullable": True,
                     "multiple": False,
                     "required": True,
@@ -87,7 +87,7 @@ class TestCaseField:
             pytest.param(datetime.datetime, True, id="datetime"),
             pytest.param(types.QueryParam, True, id="query_param"),
             pytest.param(types.PathParam, True, id="path_param"),
-            pytest.param(t.Optional[int], True, id="nullable"),
+            pytest.param(int | None, True, id="nullable"),
             pytest.param(list[int], True, id="list"),
             pytest.param(Mock, False, id="not_valid"),
         ),
@@ -112,25 +112,25 @@ class TestCaseSchema:
         elif request.param == "bare_schema":
             return foo_schema.schema
         elif request.param == "schema":
-            return t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema.schema)]
+            return t.Annotated[types.Schema, types.SchemaMetadata(foo_schema.schema)]
         elif request.param == "list_of_schema":
-            return t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(foo_schema.schema)]
+            return t.Annotated[types.SchemaList, types.SchemaMetadata(foo_schema.schema)]
         elif request.param == "list_of_bare_schema":
             return list[foo_schema.schema]
         elif request.param == "schema_partial":
             if app.schema.schema_library.name in ("typesystem",):
                 pytest.skip("Library does not support optional partial schemas")
-            return t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema.schema, partial=True)]
+            return t.Annotated[types.Schema, types.SchemaMetadata(foo_schema.schema, partial=True)]
         elif request.param == "schema_nested":
-            return t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(bar_schema.schema)]
+            return t.Annotated[types.Schema, types.SchemaMetadata(bar_schema.schema)]
         elif request.param == "schema_nested_optional":
             if app.schema.schema_library.name in ("typesystem", "marshmallow"):
                 pytest.skip("Library does not support optional nested schemas")
-            return t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(bar_optional_schema.schema)]
+            return t.Annotated[types.Schema, types.SchemaMetadata(bar_optional_schema.schema)]
         elif request.param == "schema_nested_list":
-            return t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(bar_list_schema.schema)]
+            return t.Annotated[types.Schema, types.SchemaMetadata(bar_list_schema.schema)]
         elif request.param == "schema_nested_dict":
-            return t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(bar_dict_schema.schema)]
+            return t.Annotated[types.Schema, types.SchemaMetadata(bar_dict_schema.schema)]
 
         else:
             raise ValueError("Wrong schema type")
@@ -382,13 +382,13 @@ class TestCaseParameter:
         if parameter.annotation == Unknown:
             parameter = InjectionParameter(
                 parameter.name,
-                t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema.schema)],
+                t.Annotated[types.Schema, types.SchemaMetadata(foo_schema.schema)],
                 parameter.default,
             )
             result = Parameter(
                 name=result.name,
                 location=result.location,
-                type=t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(foo_schema.schema)],
+                type=t.Annotated[types.Schema, types.SchemaMetadata(foo_schema.schema)],
                 required=result.required,
                 default=result.default,
             )

@@ -8,7 +8,7 @@ import typesystem
 import typesystem.fields
 from pytest import param
 
-from flama import schemas
+from flama import types
 from flama.pagination import paginator
 from tests.asserts import assert_recursive_contains
 
@@ -22,7 +22,7 @@ def app(app):
 @pytest.fixture(scope="function")
 def output_schema(app):
     if app.schema.schema_library.name == "pydantic":
-        schema = pydantic.create_model("OutputSchema", value=(t.Optional[int], ...), __module__="pydantic.main")
+        schema = pydantic.create_model("OutputSchema", value=(int | None, ...), __module__="pydantic.main")
         name = "pydantic.main.OutputSchema"
     elif app.schema.schema_library.name == "typesystem":
         schema = typesystem.Schema(title="OutputSchema", fields={"value": typesystem.fields.Integer(allow_null=True)})
@@ -42,7 +42,7 @@ class TestCasePageNumberPagination:
         @app.route("/page-number/", methods=["GET"], pagination="page_number")
         def page_number(
             **kwargs,
-        ) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(output_schema.schema)]:
+        ) -> t.Annotated[types.SchemaList, types.SchemaMetadata(output_schema.schema)]:
             return [{"value": i} for i in range(25)]
 
     def test_registered_schemas(self, app, output_schema):
@@ -60,7 +60,7 @@ class TestCasePageNumberPagination:
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
             @paginator._paginate_page_number
-            def invalid() -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(output_schema.schema)]: ...
+            def invalid() -> t.Annotated[types.Schema, types.SchemaMetadata(output_schema.schema)]: ...
 
     def test_invalid_response(self):
         with pytest.raises(ValueError, match=r"Wrong schema type"):
@@ -125,7 +125,7 @@ class TestCasePageNumberPagination:
         @app.route("/page-number-async/", methods=["GET"], pagination="page_number")
         async def page_number_async(
             **kwargs,
-        ) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(output_schema.schema)]:
+        ) -> t.Annotated[types.SchemaList, types.SchemaMetadata(output_schema.schema)]:
             return [{"value": i} for i in range(25)]
 
         response = await client.get("/page-number-async/")
@@ -182,7 +182,7 @@ class TestCaseLimitOffsetPagination:
         @app.route("/limit-offset/", methods=["GET"], pagination="limit_offset")
         def limit_offset(
             **kwargs,
-        ) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(output_schema.schema)]:
+        ) -> t.Annotated[types.SchemaList, types.SchemaMetadata(output_schema.schema)]:
             return [{"value": i} for i in range(25)]
 
     def test_registered_schemas(self, app, output_schema):
@@ -200,7 +200,7 @@ class TestCaseLimitOffsetPagination:
         with pytest.raises(TypeError, match=r"Paginated views must define \*\*kwargs param"):
 
             @paginator._paginate_limit_offset
-            def invalid() -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(output_schema.schema)]: ...
+            def invalid() -> t.Annotated[types.Schema, types.SchemaMetadata(output_schema.schema)]: ...
 
     def test_invalid_response(self):
         with pytest.raises(ValueError, match=r"Wrong schema type"):
@@ -266,7 +266,7 @@ class TestCaseLimitOffsetPagination:
         @app.route("/limit-offset-async/", methods=["GET"], pagination="limit_offset")
         async def limit_offset_async(
             **kwargs,
-        ) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(output_schema.schema)]:
+        ) -> t.Annotated[types.SchemaList, types.SchemaMetadata(output_schema.schema)]:
             return [{"value": i} for i in range(25)]
 
         response = await client.get("/limit-offset-async/")

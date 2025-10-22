@@ -58,6 +58,7 @@ class TestCaseBaseWorker:
     def worker(self, repository):
         class FooWorker(BaseWorker):
             foo: repository
+            bar: "int"
 
             async def set_up(self): ...
 

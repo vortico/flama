@@ -6,7 +6,6 @@ import marshmallow
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin, resolve_schema_cls
 
-from flama import compat
 from flama.injection import Parameter
 from flama.schemas._libs.marshmallow.fields import MAPPING, MAPPING_TYPES
 from flama.schemas.adapter import Adapter
@@ -53,10 +52,10 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
     def build_schema(
         self,
         *,
-        name: t.Optional[str] = None,
-        module: t.Optional[str] = None,
-        schema: t.Optional[t.Union[Schema, type[Schema]]] = None,
-        fields: t.Optional[dict[str, Field]] = None,
+        name: str | None = None,
+        module: str | None = None,
+        schema: Schema | type[Schema] | None = None,
+        fields: dict[str, Field] | None = None,
         partial: bool = False,
     ) -> type[Schema]:
         fields_ = {**(self.unique_schema(schema)().fields if schema else {}), **(fields or {})}
@@ -69,7 +68,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         return Schema.from_dict(fields=fields_, name=name or self.DEFAULT_SCHEMA_NAME)  # type: ignore
 
     def validate(
-        self, schema: t.Union[type[Schema], Schema], values: dict[str, t.Any], *, partial: bool = False
+        self, schema: type[Schema] | Schema, values: dict[str, t.Any], *, partial: bool = False
     ) -> dict[str, t.Any]:
         try:
             return t.cast(
@@ -79,10 +78,10 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         except marshmallow.ValidationError as exc:
             raise SchemaValidationError(errors=exc.normalized_messages())
 
-    def load(self, schema: t.Union[type[Schema], Schema], value: dict[str, t.Any]) -> Schema:
+    def load(self, schema: type[Schema] | Schema, value: dict[str, t.Any]) -> Schema:
         return t.cast(Schema, self._schema_instance(schema).load(value))
 
-    def dump(self, schema: t.Union[type[Schema], Schema], value: dict[str, t.Any]) -> dict[str, t.Any]:
+    def dump(self, schema: type[Schema] | Schema, value: dict[str, t.Any]) -> dict[str, t.Any]:
         try:
             dump_value = t.cast(dict[str, t.Any], self._schema_instance(schema).dump(value))
         except Exception as exc:
@@ -92,12 +91,12 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
         return dump_value
 
-    def name(self, schema: t.Union[Schema, type[Schema]], *, prefix: t.Optional[str] = None) -> str:
+    def name(self, schema: Schema | type[Schema], *, prefix: str | None = None) -> str:
         s = self.unique_schema(schema)
         schema_name = f"{prefix or ''}{s.__qualname__}"
         return schema_name if s.__module__ == "builtins" else f"{s.__module__}.{schema_name}"
 
-    def to_json_schema(self, schema: t.Union[type[Schema], type[Field], Schema, Field]) -> JSONSchema:
+    def to_json_schema(self, schema: type[Schema] | type[Field] | Schema | Field) -> JSONSchema:
         json_schema: dict[str, t.Any]
         try:
             plugin = MarshmallowPlugin(schema_name_resolver=lambda x: t.cast(type, resolve_schema_cls(x)).__name__)
@@ -129,7 +128,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
         return json_schema
 
-    def unique_schema(self, schema: t.Union[Schema, type[Schema]]) -> type[Schema]:
+    def unique_schema(self, schema: Schema | type[Schema]) -> type[Schema]:
         if isinstance(schema, Schema):
             return schema.__class__
 
@@ -150,24 +149,18 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         except KeyError:
             return None
 
-    def schema_fields(
-        self, schema: t.Union[Schema, type[Schema]]
-    ) -> dict[str, tuple[t.Union[None, type, Schema], Field]]:
+    def schema_fields(self, schema: Schema | type[Schema]) -> dict[str, tuple[None | type | Schema, Field]]:
         return {
             name: (self._get_field_type(field), field) for name, field in self._schema_instance(schema).fields.items()
         }
 
-    def is_schema(
-        self, obj: t.Any
-    ) -> compat.TypeGuard[t.Union[Schema, type[Schema]]]:  # PORT: Replace compat when stop supporting 3.9
+    def is_schema(self, obj: t.Any) -> t.TypeGuard[Schema | type[Schema]]:
         return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
-    def is_field(
-        self, obj: t.Any
-    ) -> compat.TypeGuard[t.Union[Field, type[Field]]]:  # PORT: Replace compat when stop supporting 3.9
+    def is_field(self, obj: t.Any) -> t.TypeGuard[Field | type[Field]]:
         return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))
 
-    def _schema_instance(self, schema: t.Union[type[Schema], Schema]) -> Schema:
+    def _schema_instance(self, schema: type[Schema] | Schema) -> Schema:
         if inspect.isclass(schema) and issubclass(schema, Schema):
             return schema()
         elif isinstance(schema, Schema):

@@ -1,6 +1,5 @@
 import http
 import logging
-import typing as t
 
 from flama import Component
 from flama.authentication import exceptions, jwt, types
@@ -84,7 +83,8 @@ class AccessTokenComponent(BaseTokenComponent):
         super().__init__(secret, header_prefix=header_prefix, header_key=header_key, cookie_key=cookie_key)
 
     def resolve(self, headers: Headers, cookies: Cookies) -> types.AccessToken:
-        return t.cast(types.AccessToken, self._resolve_token(headers, cookies))
+        token = self._resolve_token(headers, cookies)
+        return types.AccessToken(token.header, token.payload)
 
 
 class RefreshTokenComponent(BaseTokenComponent):
@@ -99,4 +99,5 @@ class RefreshTokenComponent(BaseTokenComponent):
         super().__init__(secret, header_prefix=header_prefix, header_key=header_key, cookie_key=cookie_key)
 
     def resolve(self, headers: Headers, cookies: Cookies) -> types.RefreshToken:
-        return t.cast(types.RefreshToken, self._resolve_token(headers, cookies))
+        token = self._resolve_token(headers, cookies)
+        return types.RefreshToken(token.header, token.payload)

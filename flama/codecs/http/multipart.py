@@ -11,5 +11,8 @@ __all__ = ["MultiPartCodec"]
 class MultiPartCodec(HTTPCodec):
     media_type = "multipart/form-data"
 
-    async def decode(self, item: "http.Request", **options) -> t.Any:
-        return await item.form()
+    async def decode(self, item: "http.Request", **options) -> dict[str, t.Any] | None:
+        if form := await item.form():
+            return dict(form)
+
+        return None

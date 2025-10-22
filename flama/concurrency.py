@@ -1,20 +1,17 @@
 import asyncio
 import functools
+import inspect
 import multiprocessing
 import sys
 import typing as t
 
-from flama import compat
-
 __all__ = ["is_async", "run", "run_task_group", "AsyncProcess"]
 
 R = t.TypeVar("R", covariant=True)
-P = compat.ParamSpec("P")  # PORT: Replace compat when stop supporting 3.9
+P = t.ParamSpec("P")
 
 
-def is_async(
-    obj: t.Any,
-) -> compat.TypeGuard[t.Callable[..., t.Awaitable[t.Any]]]:  # PORT: Replace compat when stop supporting 3.9
+def is_async(obj: t.Any) -> t.TypeGuard[t.Callable[..., t.Awaitable[t.Any]]]:
     """Check if given object is an async function, callable or partialised function.
 
     :param obj: Object to check.
@@ -23,11 +20,11 @@ def is_async(
     while isinstance(obj, functools.partial):
         obj = obj.func
 
-    return asyncio.iscoroutinefunction(obj) or asyncio.iscoroutinefunction(getattr(obj, "__call__"))
+    return inspect.iscoroutinefunction(obj) or inspect.iscoroutinefunction(getattr(obj, "__call__"))
 
 
 async def run(
-    func: t.Union[t.Callable[P, R], t.Callable[P, t.Awaitable[R]]],
+    func: t.Callable[P, R] | t.Callable[P, t.Awaitable[R]],
     *args: P.args,
     **kwargs: P.kwargs,
 ) -> R:
@@ -72,7 +69,7 @@ else:  # pragma: no cover
 class AsyncProcess(multiprocessing.Process):
     """Multiprocessing Process class whose target is an async function."""
 
-    _target: t.Optional[t.Callable[..., t.Union[t.Any, t.Coroutine]]]
+    _target: t.Callable[..., t.Any | t.Coroutine] | None
     _args: list[t.Any]
     _kwargs: dict[str, t.Any]
 

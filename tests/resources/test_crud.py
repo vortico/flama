@@ -10,10 +10,10 @@ import typesystem
 import typesystem.fields
 from sqlalchemy.dialects import postgresql
 
+from flama import types
 from flama.resources.crud import CRUDResource
 from flama.resources.routing import ResourceRoute
 from flama.resources.workers import FlamaWorker
-from flama.schemas import SchemaMetadata, SchemaType
 from tests.conftest import DATABASE_URL
 from tests.resources.conftest import Model
 
@@ -113,12 +113,12 @@ class TestCaseCRUDResource:
             async def list(
                 self,
                 worker: FlamaWorker,
-                order_by: t.Optional[str] = None,
+                order_by: str | None = None,
                 order_direction: str = "asc",
-                name: t.Optional[str] = None,
-                custom_id__le: t.Optional[int] = None,
+                name: str | None = None,
+                custom_id__le: int | None = None,
                 **kwargs,
-            ) -> t.Annotated[list[SchemaType], SchemaMetadata(puppy_model.schema)]:
+            ) -> t.Annotated[types.SchemaList, types.SchemaMetadata(puppy_model.schema)]:
                 """
                 description: Custom list method with filtering by name.
                 """

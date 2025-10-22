@@ -1,12 +1,11 @@
 import os
-import typing as t
 
 from flama.serialize.data_structures import ModelArtifact
 
 __all__ = ["load"]
 
 
-def load(path: t.Union[str, os.PathLike], **kwargs) -> ModelArtifact:
+def load(path: str | os.PathLike, **kwargs) -> ModelArtifact:
     """Deserialize a ML model using Flama format from a bytes stream.
 
     :param path: Model file path.

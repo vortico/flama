@@ -3,7 +3,7 @@ import typing as t
 import pydantic
 
 import flama
-from flama import Flama, schemas
+from flama import Flama, types
 
 app = Flama(
     openapi={
@@ -38,7 +38,7 @@ def home():
     return {"hello": "world"}
 
 
-def list_puppies(name: t.Optional[str] = None) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(Puppy)]:
+def list_puppies(name: str | None = None) -> t.Annotated[types.SchemaList, types.SchemaMetadata(Puppy)]:
     """
     tags:
         - puppy
@@ -55,8 +55,8 @@ def list_puppies(name: t.Optional[str] = None) -> t.Annotated[list[schemas.Schem
 
 
 def create_puppy(
-    puppy: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(Puppy)],
-) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(Puppy)]:
+    puppy: t.Annotated[types.Schema, types.SchemaMetadata(Puppy)],
+) -> t.Annotated[types.Schema, types.SchemaMetadata(Puppy)]:
     """
     tags:
         - puppy

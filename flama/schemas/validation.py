@@ -1,4 +1,3 @@
-import asyncio
 import inspect
 from functools import wraps
 
@@ -24,7 +23,7 @@ def output_validation(error_cls=exceptions.ValidationError, error_status_code=50
 
         @wraps(func)
         async def inner_decorator(*args, **kwargs):
-            response = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
+            response = await func(*args, **kwargs) if inspect.iscoroutinefunction(func) else func(*args, **kwargs)
 
             try:
                 # Use output schema to validate the data

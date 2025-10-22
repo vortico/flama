@@ -34,7 +34,7 @@ class PyTorchSerializer(Serializer):
 
         return torch.jit.load(io.BytesIO(codecs.decode(model, "base64")), **kwargs)
 
-    def info(self, model: t.Any) -> t.Optional["JSONSchema"]:
+    def info(self, model: t.Any) -> "JSONSchema | None":
         return {
             "modules": [str(x) for x in model.modules()],
             "parameters": {k: str(v) for k, v in model.named_parameters()},

@@ -38,8 +38,8 @@ class DependencyNotInstalled(ApplicationError):
     def __init__(
         self,
         *,
-        dependency: t.Optional[t.Union[str, Dependency]] = None,
-        dependant: t.Optional[str] = None,
+        dependency: str | Dependency | None = None,
+        dependant: str | None = None,
         msg: str = "",
     ) -> None:
         super().__init__()
@@ -84,7 +84,7 @@ class NoCodecAvailable(Exception): ...
 
 
 class WebSocketException(starlette.exceptions.WebSocketException):
-    def __init__(self, code: int, reason: t.Optional[str] = None) -> None:
+    def __init__(self, code: int, reason: str | None = None) -> None:
         self.code = code
         self.reason = reason or ""
 
@@ -104,8 +104,8 @@ class HTTPException(starlette.exceptions.HTTPException):
     def __init__(
         self,
         status_code: int,
-        detail: t.Optional[t.Union[str, dict[str, t.Any]]] = None,
-        headers: t.Optional[dict] = None,
+        detail: str | dict[str, t.Any] | None = None,
+        headers: dict | None = None,
     ) -> None:
         if detail is None:
             detail = http.HTTPStatus(status_code).phrase
@@ -133,20 +133,20 @@ class HTTPException(starlette.exceptions.HTTPException):
 class ValidationError(HTTPException):
     def __init__(
         self,
-        detail: t.Optional[t.Union[str, dict[str, list[str]]]] = None,
+        detail: str | dict[str, list[str]] | None = None,
         status_code: int = 400,
     ) -> None:
         super().__init__(status_code, detail=detail)
 
 
 class SerializationError(HTTPException):
-    def __init__(self, detail: t.Union[None, str, dict[str, list[str]]] = None, status_code: int = 500) -> None:
+    def __init__(self, detail: None | str | dict[str, list[str]] = None, status_code: int = 500) -> None:
         super().__init__(status_code, detail=detail)
 
 
 class NotFoundException(Exception):
     def __init__(
-        self, path: t.Optional[str] = None, params: t.Optional[dict[str, t.Any]] = None, name: t.Optional[str] = None
+        self, path: str | None = None, params: dict[str, t.Any] | None = None, name: str | None = None
     ) -> None:
         self.path = path
         self.params = params

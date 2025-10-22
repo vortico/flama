@@ -26,9 +26,9 @@ class PageNumberResponse(http.APIResponse):
     def __init__(
         self,
         schema: t.Any,
-        page: t.Optional[t.Union[int, str]] = None,
-        page_size: t.Optional[t.Union[int, str]] = None,
-        count: t.Optional[bool] = True,
+        page: int | str | None = None,
+        page_size: int | str | None = None,
+        count: bool | None = True,
         **kwargs,
     ):
         self.page_number = int(page) if page is not None else 1
@@ -55,13 +55,13 @@ class PageNumberResponse(http.APIResponse):
 class PageNumberDecoratorFactory(PaginationDecoratorFactory):
     PARAMETERS = [
         inspect.Parameter(
-            name="page", default=None, annotation=t.Optional[int], kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
+            name="page", default=None, annotation=int | None, kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
         ),
         inspect.Parameter(
-            name="page_size", default=None, annotation=t.Optional[int], kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
+            name="page_size", default=None, annotation=int | None, kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
         ),
         inspect.Parameter(
-            name="count", default=False, annotation=t.Optional[bool], kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
+            name="count", default=False, annotation=bool | None, kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
         ),
     ]
 
@@ -70,9 +70,9 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
         @functools.wraps(func)
         async def decorator(
             *args,
-            page: t.Optional[int] = None,
-            page_size: t.Optional[int] = None,
-            count: t.Optional[bool] = False,
+            page: int | None = None,
+            page_size: int | None = None,
+            count: bool | None = False,
             **kwargs,
         ):
             return PageNumberResponse(
@@ -86,9 +86,9 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
         @functools.wraps(func)
         def decorator(
             *args,
-            page: t.Optional[int] = None,
-            page_size: t.Optional[int] = None,
-            count: t.Optional[bool] = False,
+            page: int | None = None,
+            page_size: int | None = None,
+            count: bool | None = False,
             **kwargs,
         ):
             return PageNumberResponse(

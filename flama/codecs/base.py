@@ -2,23 +2,21 @@ import abc
 import typing as t
 
 if t.TYPE_CHECKING:
-    from flama import http, types
+    from flama import http, types  # noqa
 
 
-class Codec(metaclass=abc.ABCMeta):
+Input = t.TypeVar("Input")
+Output = t.TypeVar("Output")
+
+
+class Codec(t.Generic[Input, Output], metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    async def decode(self, item: t.Any, **options) -> t.Any: ...
+    async def decode(self, item: Input, **options) -> Output: ...
 
 
-class HTTPCodec(Codec):
-    media_type: t.Optional[str] = None
-
-    @abc.abstractmethod
-    async def decode(self, item: "http.Request", **options) -> t.Any: ...
+class HTTPCodec(Codec["http.Request", dict[str, t.Any] | None]):
+    media_type: str | None = None
 
 
-class WebsocketsCodec(Codec):
-    encoding: t.Optional[str] = None
-
-    @abc.abstractmethod
-    async def decode(self, item: "types.Message", **options) -> t.Any: ...
+class WebsocketsCodec(Codec["types.Message", bytes | str | dict[str, t.Any] | None]):
+    encoding: str | None = None

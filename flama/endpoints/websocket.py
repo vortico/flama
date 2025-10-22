@@ -12,7 +12,7 @@ __all__ = ["WebSocketEndpoint"]
 
 
 class WebSocketEndpoint(BaseEndpoint, types.WebSocketEndpointProtocol):
-    encoding: t.Optional[types.Encoding] = None
+    encoding: types.Encoding | None = None
 
     def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
         """A websocket endpoint.

@@ -1,6 +1,5 @@
 import importlib
 import os
-import typing as t
 
 from flama.injection import Component
 from flama.models.base import Model
@@ -35,7 +34,7 @@ class ModelComponentBuilder:
         return model_class
 
     @classmethod
-    def load(cls, path: t.Union[str, os.PathLike]) -> ModelComponent:
+    def load(cls, path: str | os.PathLike) -> ModelComponent:
         load_model = load(path)
         parent = cls._get_model_class(load_model.meta.framework.lib)
         model_class = type(parent.__name__, (parent,), {})

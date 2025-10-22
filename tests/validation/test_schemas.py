@@ -8,7 +8,7 @@ import pytest
 import typesystem
 import typesystem.fields
 
-from flama import schemas
+from flama import types
 from tests.asserts import assert_recursive_contains
 
 utc = datetime.timezone.utc
@@ -21,8 +21,8 @@ class TestCaseSchemaValidation:
             schema = pydantic.create_model(
                 "Product",
                 name=(str, ...),
-                rating=(t.Optional[int], None),
-                created=(t.Optional[datetime.datetime], None),
+                rating=(int | None, None),
+                created=(datetime.datetime | None, None),
             )
         elif app.schema.schema_library.name == "typesystem":
             schema = typesystem.Schema(
@@ -126,36 +126,36 @@ class TestCaseSchemaValidation:
     def add_endpoints(self, app, product_schema, reviewed_product_schema, place_schema):
         @app.route("/product", methods=["POST"])
         def product_identity(
-            product: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(product_schema)],
-        ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(product_schema)]:
+            product: t.Annotated[types.Schema, types.SchemaMetadata(product_schema)],
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(product_schema)]:
             return product
 
         @app.route("/reviewed-product", methods=["POST"])
         def reviewed_product_identity(
-            reviewed_product: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(reviewed_product_schema)],
-        ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(reviewed_product_schema)]:
+            reviewed_product: t.Annotated[types.Schema, types.SchemaMetadata(reviewed_product_schema)],
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(reviewed_product_schema)]:
             return reviewed_product
 
         @app.route("/place", methods=["POST"])
         def place_identity(
-            place: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(place_schema)],
-        ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(place_schema)]:
+            place: t.Annotated[types.Schema, types.SchemaMetadata(place_schema)],
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(place_schema)]:
             return place
 
         @app.route("/many-products", methods=["GET"])
         def many_products(
-            products: t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(product_schema)],
-        ) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(product_schema)]:
+            products: t.Annotated[types.SchemaList, types.SchemaMetadata(product_schema)],
+        ) -> t.Annotated[types.SchemaList, types.SchemaMetadata(product_schema)]:
             return products
 
         @app.route("/partial-product", methods=["GET"])
         def partial_product(
-            product: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(product_schema, partial=True)],
-        ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(product_schema, partial=True)]:
+            product: t.Annotated[types.Schema, types.SchemaMetadata(product_schema, partial=True)],
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(product_schema, partial=True)]:
             return product
 
         @app.route("/serialization-error")
-        def serialization_error() -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(product_schema)]:
+        def serialization_error() -> t.Annotated[types.Schema, types.SchemaMetadata(product_schema)]:
             return {"rating": "foo", "created": "bar"}
 
     @pytest.mark.parametrize(

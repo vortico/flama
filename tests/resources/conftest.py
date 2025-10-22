@@ -1,4 +1,3 @@
-import typing as t
 from collections import namedtuple
 
 import marshmallow
@@ -29,7 +28,7 @@ def app(app):
 async def puppy_model(app):
     if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model(
-            "Puppy", custom_id=(t.Optional[int], None), name=(str, ...), age=(int, ...), owner=(t.Optional[str], None)
+            "Puppy", custom_id=(int | None, None), name=(str, ...), age=(int, ...), owner=(str | None, None)
         )
     elif app.schema.schema_library.name == "typesystem":
         schema = typesystem.Schema(

@@ -13,15 +13,15 @@ __all__ = ["dump"]
 
 def dump(
     model: t.Any,
-    path: t.Union[str, os.PathLike],
+    path: str | os.PathLike,
     *,
-    compression: t.Union[str, Compression] = Compression.standard,
-    model_id: t.Optional[t.Union[str, uuid.UUID]] = None,
-    timestamp: t.Optional[datetime.datetime] = None,
-    params: t.Optional[dict[str, t.Any]] = None,
-    metrics: t.Optional[dict[str, t.Any]] = None,
-    extra: t.Optional[dict[str, t.Any]] = None,
-    artifacts: t.Optional["Artifacts"] = None,
+    compression: str | Compression = Compression.standard,
+    model_id: str | uuid.UUID | None = None,
+    timestamp: datetime.datetime | None = None,
+    params: dict[str, t.Any] | None = None,
+    metrics: dict[str, t.Any] | None = None,
+    extra: dict[str, t.Any] | None = None,
+    artifacts: "Artifacts | None" = None,
     **kwargs,
 ) -> None:
     """Serialize an ML model using Flama format to bytes stream.

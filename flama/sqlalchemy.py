@@ -85,8 +85,8 @@ class SingleConnectionManager(ConnectionManager):
         :param engine: SQLAlchemy engine.
         """
         super().__init__(engine)
-        self._connection: t.Optional[AsyncConnection] = None
-        self._transaction: t.Optional[AsyncTransaction] = None
+        self._connection: AsyncConnection | None = None
+        self._transaction: AsyncTransaction | None = None
         self._connection_clients = 0
         self._transaction_clients = 0
 
@@ -282,9 +282,7 @@ class SQLAlchemyModule(Module):
 
     name = "sqlalchemy"
 
-    def __init__(
-        self, database: str, single_connection: bool = False, engine_args: t.Optional[dict[str, t.Any]] = None
-    ):
+    def __init__(self, database: str, single_connection: bool = False, engine_args: dict[str, t.Any] | None = None):
         """Initialize the SQLAlchemy module.
 
         Referring to how connections and transactions are managed, it can work in two modes: single connection and
@@ -308,9 +306,9 @@ class SQLAlchemyModule(Module):
 
         self.database = database
         self.metadata: sqlalchemy.MetaData = metadata
-        self._engine: t.Optional[AsyncEngine] = None
+        self._engine: AsyncEngine | None = None
         self._engine_args = engine_args or {}
-        self._connection_manager: t.Optional[ConnectionManager] = None
+        self._connection_manager: ConnectionManager | None = None
         self._manager_cls: type[ConnectionManager] = (
             SingleConnectionManager if single_connection else MultipleConnectionManager
         )

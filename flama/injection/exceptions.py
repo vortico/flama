@@ -7,15 +7,18 @@ if t.TYPE_CHECKING:
 __all__ = ["ComponentError", "ComponentNotFound"]
 
 
-class ComponentError(Exception): ...
+class InjectionError(Exception): ...
+
+
+class ComponentError(InjectionError): ...
 
 
 class ComponentNotFound(ComponentError):
     def __init__(
         self,
         parameter: "Parameter",
-        component: t.Optional["Component"] = None,
-        function: t.Optional[t.Callable] = None,
+        component: "Component | None" = None,
+        function: t.Callable | None = None,
     ):
         self.parameter = parameter
         self.component = component

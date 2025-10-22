@@ -11,5 +11,8 @@ __all__ = ["URLEncodedCodec"]
 class URLEncodedCodec(HTTPCodec):
     media_type = "application/x-www-form-urlencoded"
 
-    async def decode(self, item: "http.Request", **options):
-        return await item.form() or None
+    async def decode(self, item: "http.Request", **options) -> dict[str, t.Any] | None:
+        if form := await item.form():
+            return dict(form)
+
+        return None

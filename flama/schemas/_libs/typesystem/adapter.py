@@ -5,7 +5,6 @@ import warnings
 
 import typesystem
 
-from flama import compat
 from flama.injection import Parameter
 from flama.schemas._libs.typesystem.fields import MAPPING, MAPPING_TYPES
 from flama.schemas.adapter import Adapter
@@ -49,10 +48,10 @@ class TypesystemAdapter(Adapter[Schema, Field]):
     def build_schema(  # type: ignore[return-value]
         self,
         *,
-        name: t.Optional[str] = None,
-        module: t.Optional[str] = None,
-        schema: t.Optional[t.Union[Schema, type[Schema]]] = None,
-        fields: t.Optional[dict[str, Field]] = None,
+        name: str | None = None,
+        module: str | None = None,
+        schema: Schema | type[Schema] | None = None,
+        fields: dict[str, Field] | None = None,
         partial: bool = False,
     ) -> Schema:
         fields_ = {**(self.unique_schema(schema).fields if self.is_schema(schema) else {}), **(fields or {})}
@@ -85,14 +84,14 @@ class TypesystemAdapter(Adapter[Schema, Field]):
 
         return value
 
-    def name(self, schema: Schema, *, prefix: t.Optional[str] = None) -> str:
+    def name(self, schema: Schema, *, prefix: str | None = None) -> str:
         if not schema.title:
             raise ValueError(f"Schema '{schema}' needs to define title attribute")
 
         schema_name = f"{prefix or ''}{schema.title}"
         return schema_name if schema.__module__ == "builtins" else f"{schema.__module__}.{schema_name}"
 
-    def to_json_schema(self, schema: t.Union[Schema, Field]) -> JSONSchema:
+    def to_json_schema(self, schema: Schema | Field) -> JSONSchema:
         try:
             json_schema = typesystem.to_json_schema(schema)
 
@@ -120,13 +119,13 @@ class TypesystemAdapter(Adapter[Schema, Field]):
         if isinstance(field, typesystem.Array):
             return (
                 [self._get_field_type(x) for x in field.items]
-                if isinstance(field.items, (list, tuple, set))
+                if isinstance(field.items, list | tuple | set)
                 else self._get_field_type(field.items)
             )
 
         if isinstance(field, typesystem.Object):
             object_fields = {k: self._get_field_type(v) for k, v in field.properties.items()}
-            if isinstance(field.additional_properties, (typesystem.Field, typesystem.Reference)):
+            if isinstance(field.additional_properties, typesystem.Field | typesystem.Reference):
                 object_fields[""] = self._get_field_type(field.additional_properties)
             return object_fields
 
@@ -140,14 +139,14 @@ class TypesystemAdapter(Adapter[Schema, Field]):
     ) -> dict[
         str,
         tuple[
-            t.Union[t.Union[Schema, type], list[t.Union[Schema, type]], dict[str, t.Union[Schema, type]]],
+            Schema | type | list[Schema | type] | dict[str, Schema | type],
             Field,
         ],
     ]:
         return {name: (self._get_field_type(field), field) for name, field in schema.fields.items()}
 
-    def is_schema(self, obj: t.Any) -> compat.TypeGuard[Schema]:  # PORT: Replace compat when stop supporting 3.9
+    def is_schema(self, obj: t.Any) -> t.TypeGuard[Schema]:
         return isinstance(obj, Schema) or (inspect.isclass(obj) and issubclass(obj, Schema))
 
-    def is_field(self, obj: t.Any) -> compat.TypeGuard[Field]:  # PORT: Replace compat when stop supporting 3.9
+    def is_field(self, obj: t.Any) -> t.TypeGuard[Field]:
         return isinstance(obj, Field) or (inspect.isclass(obj) and issubclass(obj, Field))

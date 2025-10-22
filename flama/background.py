@@ -8,11 +8,11 @@ from flama import compat, concurrency
 
 __all__ = ["BackgroundTask", "BackgroundTasks", "Concurrency", "BackgroundThreadTask", "BackgroundProcessTask"]
 
-P = compat.ParamSpec("P")  # PORT: Replace compat when stop supporting 3.9
+P = t.ParamSpec("P")
 
 
 class task_wrapper:
-    def __init__(self, target: t.Callable[P, t.Union[None, t.Awaitable[None]]]):
+    def __init__(self, target: t.Callable[P, None | t.Awaitable[None]]):
         self.target = target
         functools.update_wrapper(self, target)
 
@@ -28,8 +28,8 @@ class Concurrency(compat.StrEnum):  # PORT: Replace compat when stop supporting 
 class BackgroundTask(starlette.background.BackgroundTask):
     def __init__(
         self,
-        concurrency: t.Union[Concurrency, str],
-        func: t.Callable[P, t.Union[None, t.Awaitable[None]]],
+        concurrency: Concurrency | str,
+        func: t.Callable[P, None | t.Awaitable[None]],
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> None:
@@ -46,11 +46,11 @@ class BackgroundTask(starlette.background.BackgroundTask):
 
 
 class BackgroundTasks(BackgroundTask):
-    def __init__(self, tasks: t.Optional[t.Sequence[BackgroundTask]] = None):
+    def __init__(self, tasks: t.Sequence[BackgroundTask] | None = None):
         self.tasks = list(tasks) if tasks else []
 
     def add_task(
-        self, concurrency: t.Union[Concurrency, str], func: t.Callable[P, t.Any], *args: P.args, **kwargs: P.kwargs
+        self, concurrency: Concurrency | str, func: t.Callable[P, t.Any], *args: P.args, **kwargs: P.kwargs
     ) -> None:
         self.tasks.append(BackgroundTask(concurrency, func, *args, **kwargs))
 

@@ -60,7 +60,7 @@ class URL:
         object.__setattr__(self, "fragment", parsed_url.fragment)
 
     @property
-    def components(self) -> dict[str, t.Optional[str]]:
+    def components(self) -> dict[str, str | None]:
         """URL components map.
 
         :return: Components.

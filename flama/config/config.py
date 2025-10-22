@@ -5,7 +5,8 @@ import logging
 import os
 import typing as t
 
-from flama.config import exceptions, types
+from flama import types
+from flama.config import exceptions
 from flama.config.data_structures import FileDict
 
 __all__ = ["Config"]
@@ -13,7 +14,7 @@ __all__ = ["Config"]
 logger = logging.getLogger(__name__)
 
 R = t.TypeVar("R")
-UNKNOWN = types.UnknownType("")
+unknown = types.Unknown()
 
 
 class Config:
@@ -55,8 +56,8 @@ class Config:
 
     def __init__(
         self,
-        config_file: t.Optional[t.Union[str, os.PathLike]] = None,
-        format: t.Union[str, types.FileFormat] = types.FileFormat.ini,
+        config_file: str | os.PathLike | None = None,
+        format: str | types.FileFormat = types.FileFormat.ini,
     ) -> None:
         """Tool for retrieving config parameters from a config file or environment variables.
 
@@ -79,7 +80,7 @@ class Config:
     def _get_item_from_config_file(self, key: str) -> t.Any:
         return functools.reduce(lambda x, k: x[k], key.split("."), self.config_file)
 
-    def _get_item(self, key: str, default: t.Union[R, types.UnknownType] = UNKNOWN) -> R:
+    def _get_item(self, key: str, default: R | types.Unknown = unknown) -> R:
         try:
             return self._get_item_from_environment(key)
         except KeyError:
@@ -90,7 +91,7 @@ class Config:
         except KeyError:
             ...
 
-        if default is not UNKNOWN:
+        if default is not unknown:
             return t.cast(R, default)
 
         raise KeyError(key)
@@ -115,26 +116,26 @@ class Config:
     def __call__(self, key: str) -> t.Any: ...
 
     @t.overload
-    def __call__(self, key: str, *, default: t.Union[R, types.UnknownType]) -> R: ...
+    def __call__(self, key: str, *, default: R | types.Unknown) -> R: ...
 
     @t.overload
     def __call__(self, key: str, *, cast: type[R]) -> R: ...
 
     @t.overload
-    def __call__(self, key: str, *, default: t.Union[R, types.UnknownType], cast: type[R]) -> R: ...
+    def __call__(self, key: str, *, default: R | types.Unknown, cast: type[R]) -> R: ...
 
     @t.overload
     def __call__(self, key: str, *, cast: t.Callable[[t.Any], R]) -> R: ...
 
     @t.overload
-    def __call__(self, key: str, *, default: t.Union[R, types.UnknownType], cast: t.Callable[[t.Any], R]) -> R: ...
+    def __call__(self, key: str, *, default: R | types.Unknown, cast: t.Callable[[t.Any], R]) -> R: ...
 
     def __call__(
         self,
         key: str,
         *,
-        default: t.Union[R, types.UnknownType] = UNKNOWN,
-        cast: t.Optional[t.Union[type[R], t.Callable[[t.Any], R]]] = None,
+        default: R | types.Unknown = unknown,
+        cast: type[R] | t.Callable[[t.Any], R] | None = None,
     ) -> R:
         """Get config parameter value.
 

@@ -1,5 +1,6 @@
 import datetime
 import http
+import sys
 import uuid
 from unittest.mock import MagicMock, patch
 
@@ -206,6 +207,7 @@ class TestCaseRequest:
                             "expires": "",
                             "httponly": "",
                             "max-age": "",
+                            "partitioned": "",
                             "path": "",
                             "samesite": "",
                             "secure": "",
@@ -227,6 +229,10 @@ class TestCaseRequest:
         result["timestamp"] = now.isoformat()
         with patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
             data = await Request.from_scope(scope=asgi_scope, receive=asgi_receive, send=asgi_send)
+
+            if sys.version_info < (3, 14):  # PORT: Replace compat when stop supporting 3.13
+                for cookie in [name for name, cookie in result.get("cookies", {}).items() if "partitioned" in cookie]:
+                    del result["cookies"][cookie]["partitioned"]
 
             assert data.to_dict() == result
 
@@ -285,6 +291,7 @@ class TestCaseResponse:
                             "httponly": "",
                             "max-age": "",
                             "path": "",
+                            "partitioned": "",
                             "samesite": "",
                             "secure": "",
                             "value": "bar",
@@ -303,6 +310,10 @@ class TestCaseResponse:
         result["timestamp"] = now.isoformat()
         with patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
             data = Response(headers=headers, body=body, status_code=status_code)
+
+            if sys.version_info < (3, 14):  # PORT: Replace compat when stop supporting 3.13
+                for cookie in [name for name, cookie in result.get("cookies", {}).items() if "partitioned" in cookie]:
+                    del result["cookies"][cookie]["partitioned"]
 
             assert data.to_dict() == result
 

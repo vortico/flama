@@ -15,7 +15,7 @@ PROJECT = "vortico-core"
 SERVICE = "elektrococo"
 TOPIC_ID = "telemetry-bus"
 
-HookFunction = t.Callable[[TelemetryData], t.Union[None, t.Awaitable[None]]]
+HookFunction = t.Callable[[TelemetryData], None | t.Awaitable[None]]
 
 
 class Wrapper(abc.ABC):
@@ -124,8 +124,8 @@ class TelemetryMiddleware:
         app: types.App,
         *,
         log_level: int = logging.NOTSET,
-        before: t.Optional[HookFunction] = None,
-        after: t.Optional[HookFunction] = None,
+        before: HookFunction | None = None,
+        after: HookFunction | None = None,
         tag: str = "telemetry",
         ignored: list[str] = [],
     ) -> None:

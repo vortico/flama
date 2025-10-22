@@ -54,7 +54,7 @@ def exception(request):
         context = ExceptionContext(
             pytest.raises(request.param.__class__, match=re.escape(str(request.param))), request.param
         )
-    elif isinstance(request.param, (list, tuple)):
+    elif isinstance(request.param, list | tuple):
         exception, message = request.param
         context = ExceptionContext(pytest.raises(exception, match=re.escape(message)), exception)
     else:

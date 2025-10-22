@@ -57,7 +57,7 @@ class ResourceType(type):
         attribute: str,
         bases: t.Sequence[t.Any],
         namespace: dict[str, t.Any],
-        metadata_namespace: t.Optional[str] = None,
+        metadata_namespace: str | None = None,
     ) -> t.Any:
         """Look for an attribute given his name on namespace or parent classes namespace.
 

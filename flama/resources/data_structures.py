@@ -53,7 +53,7 @@ class Metadata:
 class MethodMetadata:
     path: str
     methods: set[str] = dataclasses.field(default_factory=lambda: {"GET"})
-    name: t.Optional[str] = None
+    name: str | None = None
     include_in_schema: bool = True
-    pagination: t.Optional[types.Pagination] = None
-    tags: t.Optional[dict[str, t.Any]] = None
+    pagination: types.Pagination | None = None
+    tags: dict[str, t.Any] | None = None

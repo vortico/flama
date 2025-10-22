@@ -1,8 +1,6 @@
 import enum
 import typing as t
 
-from flama import compat
-
 if t.TYPE_CHECKING:
     from flama import Flama
     from flama.routing import Router
@@ -20,9 +18,7 @@ class AppStatus(enum.Enum):
     FAILED = enum.auto()
 
 
-def is_flama_instance(
-    obj: t.Any,
-) -> compat.TypeGuard["Flama"]:  # PORT: Replace compat when stop supporting 3.9
+def is_flama_instance(obj: t.Any) -> t.TypeGuard["Flama"]:
     """Checks if an object is an instance of Flama.
 
     :param obj: The object to check.
@@ -33,9 +29,7 @@ def is_flama_instance(
     return isinstance(obj, Flama)
 
 
-def is_router_instance(
-    obj: t.Any,
-) -> compat.TypeGuard["Router"]:  # PORT: Replace compat when stop supporting 3.9
+def is_router_instance(obj: t.Any) -> t.TypeGuard["Router"]:
     """Checks if an object is an instance of Flama's Router.
 
     :param obj: The object to check.

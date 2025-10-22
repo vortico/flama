@@ -1,14 +1,19 @@
 import typing as t
 
-from flama import codecs, exceptions, http, routing, schemas, types
+from flama import codecs, exceptions, http, routing, types
 from flama.injection import Component, Components
 from flama.injection.resolver import Parameter
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from flama.schemas import Field, Schema, SchemaValidationError
 
-ValidatedPathParams = t.NewType("ValidatedPathParams", dict)
-ValidatedQueryParams = t.NewType("ValidatedQueryParams", dict)
-ValidatedRequestData = t.NewType("ValidatedRequestData", dict)
+
+class ValidatedPathParams(dict[str, t.Any]): ...
+
+
+class ValidatedQueryParams(dict[str, t.Any]): ...
+
+
+class ValidatedRequestData(dict[str, t.Any]): ...
 
 
 class RequestDataComponent(Component):
@@ -27,21 +32,9 @@ class RequestDataComponent(Component):
 
         try:
             data = await codec.decode(request)
-            return types.RequestData(data) if data else None  # type: ignore
+            return types.RequestData(data)
         except exceptions.DecodeError as exc:
             raise exceptions.HTTPException(400, detail=str(exc))
-
-
-class WebSocketMessageDataComponent(Component):
-    def __init__(self):
-        self.negotiator = WebSocketEncodingNegotiator([codecs.BytesCodec(), codecs.TextCodec(), codecs.JSONCodec()])
-
-    async def resolve(self, message: types.Message, websocket_encoding: types.Encoding) -> types.Data:
-        try:
-            codec = self.negotiator.negotiate(websocket_encoding)
-            return types.Data(await codec.decode(message))
-        except (exceptions.NoCodecAvailable, exceptions.DecodeError):
-            raise exceptions.WebSocketException(code=1003)
 
 
 class ValidatePathParamsComponent(Component):
@@ -80,7 +73,7 @@ class ValidateRequestDataComponent(Component):
             )
 
         try:
-            return ValidatedRequestData(body_param.schema.validate(dict(data)))
+            return ValidatedRequestData(body_param.schema.validate(data.data))
         except SchemaValidationError as exc:  # pragma: no cover # safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
 
@@ -104,7 +97,7 @@ class CompositeParamComponent(Component):
         schema = (
             t.get_args(parameter.annotation)[0] if t.get_origin(parameter.annotation) == list else parameter.annotation
         )
-        return schemas.is_schema(schema)
+        return types.is_schema(schema)
 
     def resolve(self, parameter: Parameter, request: http.Request, route: routing.BaseRoute, data: types.RequestData):
         body_param = route.parameters.body[request.method]
@@ -115,19 +108,31 @@ class CompositeParamComponent(Component):
             )
 
         try:
-            return body_param.schema.validate(data, partial=schemas.is_schema_partial(parameter.annotation))
+            return body_param.schema.validate(data.data, partial=types.is_schema_partial(parameter.annotation))
         except SchemaValidationError as exc:  # pragma: no cover # safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
+
+
+class WebSocketMessageDataComponent(Component):
+    def __init__(self):
+        self.negotiator = WebSocketEncodingNegotiator([codecs.BytesCodec(), codecs.TextCodec(), codecs.JSONCodec()])
+
+    async def resolve(self, message: types.Message, websocket_encoding: types.Encoding) -> types.Data:
+        try:
+            codec = self.negotiator.negotiate(websocket_encoding)
+            return types.Data(await codec.decode(message))
+        except (exceptions.NoCodecAvailable, exceptions.DecodeError):
+            raise exceptions.WebSocketException(code=1003)
 
 
 VALIDATION_COMPONENTS = Components(
     [
         RequestDataComponent(),
-        WebSocketMessageDataComponent(),
         ValidatePathParamsComponent(),
         ValidateQueryParamsComponent(),
         ValidateRequestDataComponent(),
         PrimitiveParamComponent(),
         CompositeParamComponent(),
+        WebSocketMessageDataComponent(),
     ]
 )

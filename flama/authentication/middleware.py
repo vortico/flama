@@ -41,7 +41,7 @@ class AuthenticationMiddleware:
 
         return set(permissions)
 
-    async def _get_response(self, scope: "types.Scope", receive: "types.Receive") -> t.Union["Response", "Flama"]:
+    async def _get_response(self, scope: "types.Scope", receive: "types.Receive") -> "Response | Flama":
         app: Flama = scope["app"]
 
         if not (required_permissions := self._get_permissions(app, scope)):

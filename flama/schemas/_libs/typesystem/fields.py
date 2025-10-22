@@ -6,7 +6,7 @@ import uuid
 from typesystem.fields import *
 from typesystem.schemas import Reference
 
-MAPPING: t.Dict[t.Union[t.Type, None], t.Type[Field]] = {
+MAPPING: t.Dict[type | None, type[Field]] = {
     None: Field,
     int: Integer,
     float: Float,

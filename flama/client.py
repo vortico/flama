@@ -22,7 +22,7 @@ class LifespanContextManager:
         self._startup_complete = asyncio.Event()
         self._shutdown_complete = asyncio.Event()
         self._receive_queue = asyncio.Queue(maxsize=2)
-        self._exception: t.Optional[BaseException] = None
+        self._exception: BaseException | None = None
 
     async def _startup(self) -> None:
         await self._receive_queue.put(types.Message({"type": "lifespan.startup"}))
@@ -69,9 +69,9 @@ class LifespanContextManager:
 
     async def __aexit__(
         self,
-        exc_type: t.Optional[type[BaseException]] = None,
-        exc_value: t.Optional[BaseException] = None,
-        traceback: t.Optional[TracebackType] = None,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
     ):
         task = asyncio.create_task(self._app_task())
 
@@ -97,9 +97,9 @@ class _BaseClient(httpx.AsyncClient):
 
     async def __aexit__(
         self,
-        exc_type: t.Optional[type[BaseException]] = None,
-        exc_value: t.Optional[BaseException] = None,
-        traceback: t.Optional[TracebackType] = None,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
     ):
         await super().__aexit__(exc_type, exc_value, traceback)
 
@@ -121,9 +121,9 @@ class _AppClient(_BaseClient):
 
     async def __aexit__(
         self,
-        exc_type: t.Optional[type[BaseException]] = None,
-        exc_value: t.Optional[BaseException] = None,
-        traceback: t.Optional[TracebackType] = None,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
     ):
         await super().__aexit__(exc_type, exc_value, traceback)
         await self.lifespan.__aexit__(exc_type, exc_value, traceback)
@@ -154,8 +154,8 @@ class Client(httpx.AsyncClient):
         self,
         /,
         *,
-        app: t.Optional["Flama"] = None,
-        models: t.Optional[t.Sequence[tuple[str, str, str]]] = None,
+        app: "Flama | None" = None,
+        models: t.Sequence[tuple[str, str, str]] | None = None,
         **kwargs,
     ):
         if models:
@@ -182,9 +182,9 @@ class Client(httpx.AsyncClient):
 
     async def __aexit__(
         self,
-        exc_type: t.Optional[type[BaseException]] = None,
-        exc_value: t.Optional[BaseException] = None,
-        traceback: t.Optional[TracebackType] = None,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
     ):
         await super().__aexit__(exc_type, exc_value, traceback)
         if self.lifespan:

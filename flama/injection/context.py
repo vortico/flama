@@ -7,7 +7,7 @@ def _hashable(obj: t.Any) -> t.Hashable:
     if isinstance(obj, dict):
         return tuple(sorted([(k, _hashable(v)) for k, v in obj.items()]))
 
-    if isinstance(obj, (list, tuple, set, frozenset)):
+    if isinstance(obj, list | tuple | set | frozenset):
         return tuple([_hashable(x) for x in obj])
 
     return obj
@@ -15,7 +15,7 @@ def _hashable(obj: t.Any) -> t.Hashable:
 
 class Context(t.MutableMapping[str, t.Any]):
     types: t.ClassVar[dict[str, type]]
-    hashable: t.ClassVar[t.Optional[t.Sequence[str]]] = None
+    hashable: t.ClassVar[t.Sequence[str] | None] = None
 
     def __init__(self, d: t.Mapping[str, t.Any], /) -> None:
         if invalid_keys := [k for k in d.keys() if k not in self.types]:

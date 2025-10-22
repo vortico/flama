@@ -3,13 +3,11 @@ import functools
 import json
 import os
 import tempfile
-import typing as t
 
 import pytest
 
+from flama import types
 from flama.config import Config, exceptions
-
-EMPTY = t.NewType("EMPTY", str)
 
 
 @dataclasses.dataclass
@@ -57,8 +55,8 @@ class TestCaseConfig:
                 {"foo": "1"},
                 {},
                 "foo",
-                EMPTY,
-                EMPTY,
+                types.Empty,
+                types.Empty,
                 "1",
                 None,
                 id="file",
@@ -67,8 +65,8 @@ class TestCaseConfig:
                 {},
                 {"foo": "1"},
                 "foo",
-                EMPTY,
-                EMPTY,
+                types.Empty,
+                types.Empty,
                 "1",
                 None,
                 id="environment",
@@ -77,8 +75,8 @@ class TestCaseConfig:
                 {"foo": "1"},
                 {"foo": "2"},
                 "foo",
-                EMPTY,
-                EMPTY,
+                types.Empty,
+                types.Empty,
                 "2",
                 None,
                 id="environment_and_file",
@@ -88,7 +86,7 @@ class TestCaseConfig:
                 {},
                 "foo",
                 "default",
-                EMPTY,
+                types.Empty,
                 "default",
                 None,
                 id="default",
@@ -97,7 +95,7 @@ class TestCaseConfig:
                 {"foo": "1"},
                 {},
                 "foo",
-                EMPTY,
+                types.Empty,
                 int,
                 1,
                 None,
@@ -107,7 +105,7 @@ class TestCaseConfig:
                 {"foo": "bar"},
                 {},
                 "foo",
-                EMPTY,
+                types.Empty,
                 lambda _: 1,
                 1,
                 None,
@@ -117,7 +115,7 @@ class TestCaseConfig:
                 {"foo": "bar"},
                 {},
                 "foo",
-                EMPTY,
+                types.Empty,
                 lambda x: int(x),
                 None,
                 exceptions.ConfigError("Cannot cast config type"),
@@ -127,7 +125,7 @@ class TestCaseConfig:
                 {"foo": '{"bar": 1}'},
                 {},
                 "foo",
-                EMPTY,
+                types.Empty,
                 Foo,
                 Foo(bar=1),
                 None,
@@ -137,7 +135,7 @@ class TestCaseConfig:
                 {"foo": '{"bar": 1, "foobar": "foobar"}'},
                 {},
                 "foo",
-                EMPTY,
+                types.Empty,
                 Foo,
                 Foo(bar=1),
                 None,
@@ -147,7 +145,7 @@ class TestCaseConfig:
                 {"foo": {"bar": 1}},
                 {},
                 "foo",
-                EMPTY,
+                types.Empty,
                 Foo,
                 Foo(bar=1),
                 None,
@@ -157,7 +155,7 @@ class TestCaseConfig:
                 {"foo": {"bar": 1, "foobar": "foobar"}},
                 {},
                 "foo",
-                EMPTY,
+                types.Empty,
                 Foo,
                 Foo(bar=1),
                 None,
@@ -177,7 +175,7 @@ class TestCaseConfig:
                 {"foo": "{wrong_data"},
                 {},
                 "foo",
-                EMPTY,
+                types.Empty,
                 Foo,
                 None,
                 exceptions.ConfigError("Cannot parse value as json for config dataclass"),
@@ -187,7 +185,7 @@ class TestCaseConfig:
                 {"foo": "[1, 2]"},
                 {},
                 "foo",
-                EMPTY,
+                types.Empty,
                 Foo,
                 None,
                 exceptions.ConfigError("Wrong value for config dataclass"),
@@ -197,23 +195,23 @@ class TestCaseConfig:
                 {"foo": '{"wrong_key": 1}'},
                 {},
                 "foo",
-                EMPTY,
+                types.Empty,
                 Foo,
                 None,
                 exceptions.ConfigError("Cannot create config dataclass"),
                 id="cast_dataclass_no_match_with_dataclass",
             ),
-            pytest.param({}, {}, "foo", EMPTY, EMPTY, None, KeyError("foo"), id="not_found"),
+            pytest.param({}, {}, "foo", types.Empty, types.Empty, None, KeyError("foo"), id="not_found"),
         ),
         indirect=["config_file", "environment", "exception"],
     )
     def test_call(self, config_file, environment, key, default, cast, result, exception):
         config = Config(config_file, "json")
 
-        if default is not EMPTY:
+        if default is not types.Empty:
             config = functools.partial(config, default=default)
 
-        if cast is not EMPTY:
+        if cast is not types.Empty:
             config = functools.partial(config, cast=cast)
 
         with exception:

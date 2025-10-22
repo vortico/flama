@@ -1,41 +1,15 @@
 import sys
 
-__all__ = ["Concatenate", "ParamSpec", "TypeGuard", "UnionType", "NotRequired", "StrEnum", "tomllib"]
+__all__ = ["Self", "NotRequired", "StrEnum", "tomllib", "get_annotations"]
 
-# PORT: Remove when stop supporting 3.9
-# Concatenate was added in Python 3.10
-# https://docs.python.org/3/library/typing.html#typing.Concatenate
-if sys.version_info >= (3, 10):
-    from typing import Concatenate
+# PORT: Remove when stop supporting 3.10
+# Self was added in Python 3.11
+# https://docs.python.org/3/library/enum.html#enum.StrEnum
+if sys.version_info >= (3, 11):
+    from typing import Self
 else:
-    from typing_extensions import Concatenate
+    from typing_extensions import Self
 
-
-# PORT: Remove when stop supporting 3.9
-# ParamSpec was added in Python 3.10
-# https://docs.python.org/3/library/typing.html#typing.ParamSpec
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
-
-
-# PORT: Remove when stop supporting 3.9
-# TypeGuard was added in Python 3.10
-# https://docs.python.org/3/library/typing.html#typing.TypeGuard
-if sys.version_info >= (3, 10):
-    from typing import TypeGuard
-else:
-    from typing_extensions import TypeGuard
-
-
-# PORT: Remove when stop supporting 3.9
-# UnionType was added in Python 3.10
-# https://docs.python.org/3/library/stdtypes.html#types-union
-if sys.version_info >= (3, 10):
-    from types import UnionType
-else:
-    from typing import Union as UnionType
 
 # PORT: Remove when stop supporting 3.10
 # NotRequired was added in Python 3.11
@@ -72,3 +46,11 @@ else:
         tomllib = tomli
     except ModuleNotFoundError:
         tomllib = None
+
+# PORT: Remove when stop supporting 3.13
+# annotationlib.get_annotations was added in Python 3.14
+# https://docs.python.org/3/library/annotationlib.html#annotationlib.get_annotations
+if sys.version_info >= (3, 14):
+    from annotationlib import get_annotations
+else:
+    from typing_extensions import get_annotations

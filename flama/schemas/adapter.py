@@ -1,11 +1,12 @@
 import abc
 import typing as t
 
-from flama import compat
-from flama.schemas.types import _T_Field, _T_Schema
 from flama.types import JSONSchema
 
 __all__ = ["Adapter"]
+
+_T_Field = t.TypeVar("_T_Field")
+_T_Schema = t.TypeVar("_T_Schema")
 
 
 class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
@@ -26,17 +27,17 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
     @t.overload
     @abc.abstractmethod
     def build_schema(
-        self, *, name: t.Optional[str] = None, module: t.Optional[str] = None, fields: dict[str, t.Any]
+        self, *, name: str | None = None, module: str | None = None, fields: dict[str, t.Any]
     ) -> t.Any: ...
 
     @t.overload
     @abc.abstractmethod
-    def build_schema(self, *, name: t.Optional[str] = None, module: t.Optional[str] = None, schema: t.Any) -> t.Any: ...
+    def build_schema(self, *, name: str | None = None, module: str | None = None, schema: t.Any) -> t.Any: ...
 
     @t.overload
     @abc.abstractmethod
     def build_schema(
-        self, *, name: t.Optional[str] = None, module: t.Optional[str] = None, schema: t.Any, partial: bool
+        self, *, name: str | None = None, module: str | None = None, schema: t.Any, partial: bool
     ) -> t.Any: ...
 
     @t.overload
@@ -44,20 +45,20 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
     def build_schema(
         self,
         *,
-        name: t.Optional[str] = None,
-        module: t.Optional[str] = None,
+        name: str | None = None,
+        module: str | None = None,
         schema: t.Any,
-        fields: t.Optional[dict[str, t.Any]],
+        fields: dict[str, t.Any] | None,
     ) -> t.Any: ...
 
     @abc.abstractmethod
     def build_schema(
         self,
         *,
-        name: t.Optional[str] = None,
-        module: t.Optional[str] = None,
-        schema: t.Optional[t.Any] = None,
-        fields: t.Optional[dict[str, t.Any]] = None,
+        name: str | None = None,
+        module: str | None = None,
+        schema: t.Any | None = None,
+        fields: dict[str, t.Any] | None = None,
         partial: bool = False,
     ) -> t.Any: ...
 
@@ -79,7 +80,7 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
     def name(self, schema: t.Any, *, prefix: str) -> str: ...
 
     @abc.abstractmethod
-    def name(self, schema: t.Any, *, prefix: t.Optional[str] = None) -> str: ...
+    def name(self, schema: t.Any, *, prefix: str | None = None) -> str: ...
 
     @abc.abstractmethod
     def to_json_schema(self, schema: t.Any) -> JSONSchema: ...
@@ -91,9 +92,7 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
     def schema_fields(self, schema: t.Any) -> dict[str, t.Any]: ...
 
     @abc.abstractmethod
-    def is_schema(self, obj: t.Any) -> compat.TypeGuard[t.Any]:  # PORT: Replace compat when stop supporting 3.9
-        ...
+    def is_schema(self, obj: t.Any) -> t.TypeGuard[t.Any]: ...
 
     @abc.abstractmethod
-    def is_field(self, obj: t.Any) -> compat.TypeGuard[t.Any]:  # PORT: Replace compat when stop supporting 3.9
-        ...
+    def is_field(self, obj: t.Any) -> t.TypeGuard[t.Any]: ...

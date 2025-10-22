@@ -30,7 +30,7 @@ class Module(_BaseModule, metaclass=_ModuleMeta): ...
 
 
 class Modules(dict[str, Module]):
-    def __init__(self, app: "Flama", modules: t.Optional[t.Union[t.Sequence[Module], set[Module]]]):
+    def __init__(self, app: "Flama", modules: t.Sequence[Module] | set[Module] | None):
         modules_map: dict[str, list[Module]] = defaultdict(list)
         for module in modules or []:
             module.app = app
@@ -44,7 +44,7 @@ class Modules(dict[str, Module]):
         super().__init__({name: mods[0] for name, mods in modules_map.items()})
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, (list, tuple, set)):
+        if isinstance(other, list | tuple | set):
             return {module.__class__ for module in self.values()} == set(other)  # type: ignore
 
         return super().__eq__(other)
