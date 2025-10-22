@@ -2,6 +2,7 @@ import builtins
 import dataclasses
 import enum
 import typing as t
+from types import UnionType
 
 from flama import compat, schemas, types
 from flama.injection.resolver import Parameter as InjectionParameter
@@ -25,14 +26,14 @@ class Field:
     type: type
     nullable: bool = dataclasses.field(init=False)
     field: t.Any = dataclasses.field(hash=False, init=False, compare=False)
-    multiple: t.Optional[bool] = dataclasses.field(hash=False, compare=False, default=None)
+    multiple: bool | None = dataclasses.field(hash=False, compare=False, default=None)
     required: bool = True
     default: t.Any = InjectionParameter.empty
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "nullable", type(None) in t.get_args(self.type) or self.default is None)
 
-        field_type = t.get_args(self.type)[0] if t.get_origin(self.type) in (t.Union, compat.UnionType) else self.type
+        field_type = t.get_args(self.type)[0] if t.get_origin(self.type) in (t.Union, UnionType) else self.type
 
         if not Schema.is_schema(field_type) and self.multiple is None:
             object.__setattr__(self, "multiple", t.get_origin(self.type) is list)
@@ -74,7 +75,7 @@ class Field:
         return (
             (type_ in types.PARAMETERS_TYPES)
             or (
-                origin in (t.Union, compat.UnionType)
+                origin in (t.Union, UnionType)
                 and len(args) == 2
                 and args[0] in types.PARAMETERS_TYPES
                 and args[1] is NoneType
@@ -92,11 +93,11 @@ class Schema:
     schema: t.Any = dataclasses.field(hash=False, compare=False)
 
     @classmethod
-    def from_type(cls, type_: t.Optional[type]) -> "Schema":
-        if schemas.is_schema(type_):
-            schema = schemas.get_schema_metadata(type_).schema
+    def from_type(cls, type_: type | None) -> "Schema":
+        if types.is_schema(type_):
+            schema = types.get_schema_metadata(type_).schema
 
-            if schemas.is_schema_partial(type_):
+            if types.is_schema_partial(type_):
                 schema = schemas.adapter.build_schema(
                     name=schemas.adapter.name(schema, prefix="Partial").rsplit(".", 1)[1], schema=schema, partial=True
                 )
@@ -113,10 +114,10 @@ class Schema:
     @classmethod
     def build(
         cls,
-        name: t.Optional[str] = None,
-        module: t.Optional[str] = None,
+        name: str | None = None,
+        module: str | None = None,
         schema: t.Any = None,
-        fields: t.Optional[list[Field]] = None,
+        fields: list[Field] | None = None,
     ) -> "Schema":
         return cls(
             schema=schemas.adapter.build_schema(
@@ -146,7 +147,7 @@ class Schema:
                 for k, v in schema.items()
             }
 
-        if isinstance(schema, (list, tuple, set)):
+        if isinstance(schema, list | tuple | set):
             return [self._replace_json_schema_refs(x, refs) for x in schema]
 
         return schema
@@ -175,10 +176,10 @@ class Schema:
         if schemas.adapter.is_schema(schema):
             return [schemas.adapter.unique_schema(schema)]
 
-        if t.get_origin(schema) in (t.Union, compat.UnionType):
+        if t.get_origin(schema) in (t.Union, UnionType):
             return [x for field in t.get_args(schema) for x in self.nested_schemas(field)]
 
-        if isinstance(schema, (list, tuple, set)):
+        if isinstance(schema, list | tuple | set):
             return [x for field in schema for x in self.nested_schemas(field)]
 
         if isinstance(schema, dict):
@@ -198,8 +199,8 @@ class Schema:
     @t.overload
     def validate(self, values: list[dict[str, t.Any]], *, partial: bool = False) -> list[dict[str, t.Any]]: ...
 
-    def validate(self, values: t.Union[dict[str, t.Any], list[dict[str, t.Any]], None], *, partial=False):
-        if isinstance(values, (list, tuple)):
+    def validate(self, values: dict[str, t.Any] | list[dict[str, t.Any]] | None, *, partial=False):
+        if isinstance(values, list | tuple):
             return [schemas.adapter.validate(self.schema, value, partial=partial) for value in values]
 
         return schemas.adapter.validate(self.schema, values or {}, partial=partial)
@@ -211,7 +212,7 @@ class Schema:
     def load(self, values: list[dict[str, t.Any]]) -> list[t.Any]: ...
 
     def load(self, values):
-        if isinstance(values, (list, tuple)):
+        if isinstance(values, list | tuple):
             return [schemas.adapter.load(self.schema, value) for value in values]
 
         return schemas.adapter.load(self.schema, values)
@@ -223,7 +224,7 @@ class Schema:
     def dump(self, values: list[dict[str, t.Any]]) -> list[dict[str, t.Any]]: ...
 
     def dump(self, values):
-        if isinstance(values, (list, tuple)):
+        if isinstance(values, list | tuple):
             return [schemas.adapter.dump(self.schema, value) for value in values]
 
         return schemas.adapter.dump(self.schema, values)

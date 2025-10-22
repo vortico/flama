@@ -26,7 +26,7 @@ class HTTPEndpointProtocol(EndpointProtocol, t.Protocol):
 
 
 class WebSocketEndpointProtocol(EndpointProtocol, t.Protocol):
-    encoding: t.Union["types.Encoding", None] = None
+    encoding: "types.Encoding | None" = None
 
     async def on_connect(self, websocket: "websockets.WebSocket") -> None: ...
 

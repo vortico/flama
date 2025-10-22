@@ -1,6 +1,5 @@
 import importlib.util
 import sys
-import typing as t
 
 import sqlalchemy
 
@@ -22,7 +21,7 @@ def installed(module: str) -> bool:
 
 
 class ExceptionContext:
-    def __init__(self, context, exception: t.Optional[Exception] = None):
+    def __init__(self, context, exception: Exception | None = None):
         self.context = context
         self.exception = exception
 

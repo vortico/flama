@@ -1,7 +1,8 @@
 import os
 import typing as t
 
-from flama.config import exceptions, loaders, types
+from flama import types
+from flama.config import exceptions, loaders
 
 __all__ = ["FileDict"]
 
@@ -16,7 +17,7 @@ class FileDict(t.Mapping[str, t.Any]):
         types.FileFormat.ini: loaders.ConfigFileLoader(),
     }
 
-    def __init__(self, config_file: t.Union[str, os.PathLike], format: t.Union[str, types.FileFormat]):
+    def __init__(self, config_file: str | os.PathLike, format: str | types.FileFormat):
         """A dictionary that loads its data from a file. Supports json, toml, yaml and ini files.
 
         :param config_file: Config file path.

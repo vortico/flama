@@ -1,4 +1,5 @@
 import http.cookiejar
+import sys
 
 import pytest
 
@@ -140,44 +141,25 @@ class TestCaseSchemeComponent:
         assert response.json() == expected
 
 
-class TestCaseHostComponent:
+class TestCaseServerComponent:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
-        @app.route("/host/")
-        def get_host(host: types.Host):
-            return {"host": host}
+        @app.route("/server/")
+        def get_server(server: types.Server):
+            return {"host": server.host, "port": server.port}
 
     @pytest.mark.parametrize(
         ["path", "method", "expected"],
         [
-            pytest.param("http://example.com/host/", "get", {"host": "example.com"}, id="host"),
-            pytest.param("http://example.com:123/host/", "get", {"host": "example.com"}, id="host_and_port"),
+            pytest.param(
+                "http://example.com/server/", "get", {"host": "example.com", "port": None}, id="host_without_port"
+            ),
+            pytest.param(
+                "http://example.com:123/server/", "get", {"host": "example.com", "port": 123}, id="host_and_port"
+            ),
         ],
     )
-    async def test_host(self, client, path, method, expected):
-        response = await client.request(method, path)
-        assert response.json() == expected
-
-
-class TestCasePortComponent:
-    @pytest.fixture(scope="function", autouse=True)
-    def add_endpoints(self, app):
-        @app.route("/port/")
-        def get_port(port: types.Port):
-            return {"port": port}
-
-    @pytest.mark.parametrize(
-        ["path", "method", "expected"],
-        [
-            pytest.param("http://example.com/port/", "get", {"port": None}, id="http_default_implicit"),
-            pytest.param("https://example.com/port/", "get", {"port": None}, id="https_default_implicit"),
-            pytest.param("http://example.com:80/port/", "get", {"port": None}, id="http_default_explicit"),
-            pytest.param("https://example.com:443/port/", "get", {"port": None}, id="https_default_explicit"),
-            pytest.param("http://example.com:123/port/", "get", {"port": 123}, id="http_custom"),
-            pytest.param("https://example.com:123/port/", "get", {"port": 123}, id="https_custom"),
-        ],
-    )
-    async def test_port(self, client, path, method, expected):
+    async def test_server(self, client, path, method, expected):
         response = await client.request(method, path)
         assert response.json() == expected
 
@@ -266,7 +248,7 @@ class TestCaseHeadersComponent:
             return {"headers": dict(headers)}
 
     @pytest.mark.parametrize(
-        "path,method,request_kwargs,expected",
+        ["path", "method", "request_kwargs", "expected"],
         [
             pytest.param(
                 "http://example.com/headers/",
@@ -373,6 +355,7 @@ class TestCaseCookiesComponent:
                             "comment": "",
                             "domain": "",
                             "max-age": "",
+                            "partitioned": "",
                             "secure": "",
                             "httponly": "",
                             "version": "",
@@ -418,6 +401,10 @@ class TestCaseCookiesComponent:
         client.cookies = cookies_jar
         response = await client.request(method, path)
         response_json = response.json()
+
+        if sys.version_info < (3, 14):  # PORT: Replace compat when stop supporting 3.13
+            for cookie in [name for name, cookie in expected.get("cookies", {}).items() if "partitioned" in cookie]:
+                del expected["cookies"][cookie]["partitioned"]
 
         assert response_json == expected
 

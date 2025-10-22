@@ -1,11 +1,14 @@
 import enum
-import typing as t
 
 from flama import compat
 
-__all__ = ["FileFormat"]
+__all__ = ["Empty", "Unknown", "FileFormat"]
 
-UnknownType = t.NewType("UnknownType", str)
+
+class Empty: ...
+
+
+class Unknown: ...
 
 
 class FileFormat(compat.StrEnum):  # PORT: Replace compat when stop supporting 3.10

@@ -2,7 +2,7 @@ import inspect
 import logging
 import typing as t
 
-from flama import compat, endpoints, exceptions, types, websockets
+from flama import endpoints, exceptions, types, websockets
 from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute
 
 if t.TYPE_CHECKING:
@@ -59,10 +59,10 @@ class WebSocketRoute(BaseRoute):
         path: str,
         endpoint: types.WebSocketHandler,
         *,
-        name: t.Optional[str] = None,
+        name: str | None = None,
         include_in_schema: bool = True,
-        pagination: t.Optional[types.Pagination] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
+        pagination: types.Pagination | None = None,
+        tags: dict[str, t.Any] | None = None,
     ):
         """A route definition of a websocket endpoint.
 
@@ -91,9 +91,7 @@ class WebSocketRoute(BaseRoute):
             await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
 
     @staticmethod
-    def is_endpoint(
-        x: types.WebSocketHandler,
-    ) -> compat.TypeGuard[type[endpoints.WebSocketEndpoint]]:  # PORT: Replace compat when stop supporting 3.9
+    def is_endpoint(x: types.WebSocketHandler) -> t.TypeGuard[type[endpoints.WebSocketEndpoint]]:
         return inspect.isclass(x) and issubclass(x, endpoints.WebSocketEndpoint)
 
     def endpoint_handlers(self) -> dict[str, t.Callable]:

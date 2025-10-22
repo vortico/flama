@@ -3,6 +3,7 @@ import logging
 import time
 import typing as t
 
+from flama import compat
 from flama.authentication import exceptions
 from flama.authentication.jwt import claims
 from flama.authentication.jwt.jws import JWS
@@ -34,8 +35,8 @@ class Header:
     """
 
     typ: str = "JWT"
-    alg: t.Optional[str] = None
-    cty: t.Optional[str] = None
+    alg: str | None = None
+    cty: str | None = None
 
     def to_dict(self) -> dict[str, t.Any]:
         """Return the header as a dictionary.
@@ -63,24 +64,24 @@ class Payload:
     """
 
     data: dict[str, t.Any]
-    iss: t.Optional[str] = None
-    sub: t.Optional[str] = None
-    aud: t.Optional[str] = None
-    exp: t.Optional[int] = None
-    nbf: t.Optional[int] = None
-    iat: t.Optional[int] = None
-    jti: t.Optional[str] = None
+    iss: str | None = None
+    sub: str | None = None
+    aud: str | None = None
+    exp: int | None = None
+    nbf: int | None = None
+    iat: int | None = None
+    jti: str | None = None
 
     def __init__(
         self,
-        data: t.Optional[dict[str, t.Any]] = None,
-        iss: t.Optional[str] = None,
-        sub: t.Optional[str] = None,
-        aud: t.Optional[str] = None,
-        exp: t.Optional[int] = None,
-        nbf: t.Optional[int] = None,
-        iat: t.Optional[int] = None,
-        jti: t.Optional[str] = None,
+        data: dict[str, t.Any] | None = None,
+        iss: str | None = None,
+        sub: str | None = None,
+        aud: str | None = None,
+        exp: int | None = None,
+        nbf: int | None = None,
+        iat: int | None = None,
+        jti: str | None = None,
         **kwargs: t.Any,
     ) -> None:
         """Initialize the payload.
@@ -135,12 +136,16 @@ class JWT:
     The token is signed using JSW, and the signature is validated using the algorithm specified in the header.
     """
 
-    header: Header
-    payload: Payload
+    header: Header = dataclasses.field(init=False)
+    payload: Payload = dataclasses.field(init=False)
+    _header = dataclasses.InitVar[Header | dict[str, t.Any] | None]
+    _payload = dataclasses.InitVar[Payload | dict[str, t.Any] | None]
 
-    def __init__(self, header: dict[str, t.Any], payload: dict[str, t.Any]) -> None:
-        object.__setattr__(self, "header", Header(**header))
-        object.__setattr__(self, "payload", Payload(**payload))
+    def __init__(
+        self, _header: Header | dict[str, t.Any] | None = None, _payload: Payload | dict[str, t.Any] | None = None
+    ) -> None:
+        object.__setattr__(self, "header", _header if isinstance(_header, Header) else Header(**(_header or {})))
+        object.__setattr__(self, "payload", _payload if isinstance(_payload, Payload) else Payload(**(_payload or {})))
 
     def encode(self, key: bytes) -> bytes:
         """Encode a JWT token.
@@ -154,7 +159,7 @@ class JWT:
         return JWS.encode(header=self.header.to_dict(), payload=self.payload.to_dict(), key=key)
 
     @classmethod
-    def decode(cls, token: bytes, key: bytes) -> "JWT":
+    def decode(cls, token: bytes, key: bytes) -> compat.Self:  # PORT: Replace compat when stop supporting 3.10
         """Decode a JWT token.
 
         The token format must be: <header>.<payload>.<signature>
@@ -167,7 +172,7 @@ class JWT:
         """
         try:
             header, payload, _ = JWS.decode(token, key)
-            decoded_token = cls(header=header, payload=payload)
+            decoded_token = cls(header, payload)
             decoded_token.validate()
         except exceptions.JWTDecodeException:
             logger.debug("Error decoding token")
@@ -180,7 +185,7 @@ class JWT:
 
         return decoded_token
 
-    def validate(self, validators: t.Optional[list[claims.ClaimValidator]] = None, **claims: t.Any) -> None:
+    def validate(self, validators: list[claims.ClaimValidator] | None = None, **claims: t.Any) -> None:
         """Validate the token claims.
 
         It validates all the default claims in the payload in the following order:

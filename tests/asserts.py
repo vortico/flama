@@ -8,7 +8,7 @@ def assert_recursive_contains(expected, value):
         if expected != value:
             for k, v in expected.items():
                 assert_recursive_contains(v, value[k])
-    elif isinstance(expected, (list, set, tuple)) and isinstance(value, (list, set, tuple)):
+    elif isinstance(expected, list | set | tuple) and isinstance(value, list | set | tuple):
         assert len(expected) <= len(value)
 
         if expected != value:

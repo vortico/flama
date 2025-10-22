@@ -1,5 +1,3 @@
-import typing as t
-
 from flama import exceptions
 from flama.codecs.base import HTTPCodec, WebsocketsCodec
 from flama.codecs.websockets import BytesCodec
@@ -8,10 +6,10 @@ __all__ = ["ContentTypeNegotiator", "WebSocketEncodingNegotiator"]
 
 
 class ContentTypeNegotiator:
-    def __init__(self, codecs: t.Optional[list[HTTPCodec]] = None):
+    def __init__(self, codecs: list[HTTPCodec] | None = None):
         self.codecs = codecs or []
 
-    def negotiate(self, content_type: t.Optional[str] = None) -> HTTPCodec:
+    def negotiate(self, content_type: str | None = None) -> HTTPCodec:
         """
         Given the value of a 'Content-Type' header, return the appropriate codec for decoding the request content.
         """
@@ -30,10 +28,10 @@ class ContentTypeNegotiator:
 
 
 class WebSocketEncodingNegotiator:
-    def __init__(self, codecs: t.Optional[list[WebsocketsCodec]] = None):
+    def __init__(self, codecs: list[WebsocketsCodec] | None = None):
         self.codecs = codecs or [BytesCodec()]
 
-    def negotiate(self, encoding: t.Optional[str] = None) -> WebsocketsCodec:
+    def negotiate(self, encoding: str | None = None) -> WebsocketsCodec:
         """
         Given a websocket encoding, return the appropriate codec for decoding the request content.
         """

@@ -1,5 +1,4 @@
 import datetime
-import typing
 
 import pytest
 
@@ -121,37 +120,37 @@ class TestCaseParamsValidation:
     @pytest.fixture(scope="function", autouse=True)
     def add_query_optional_endpoints(self, app):
         @app.route("/str-query-param-optional/")
-        def str_query_param_optional(param: typing.Optional[str] = None):
+        def str_query_param_optional(param: str | None = None):
             assert param is None
             return {"param": param}
 
         @app.route("/int-query-param-optional/")
-        def int_query_param_optional(param: typing.Optional[int] = None):
+        def int_query_param_optional(param: int | None = None):
             assert param is None
             return {"param": param}
 
         @app.route("/float-query-param-optional/")
-        def float_query_param_optional(param: typing.Optional[float] = None):
+        def float_query_param_optional(param: float | None = None):
             assert param is None
             return {"param": param}
 
         @app.route("/bool-query-param-optional/")
-        def bool_query_param_optional(param: typing.Optional[bool] = None):
+        def bool_query_param_optional(param: bool | None = None):
             assert param is None
             return {"param": param}
 
         @app.route("/datetime-query-param-optional/")
-        def datetime_query_param_optional(param: typing.Optional[datetime.datetime] = None):
+        def datetime_query_param_optional(param: datetime.datetime | None = None):
             assert param is None
             return {"param": param}
 
         @app.route("/date-query-param-optional/")
-        def date_query_param_optional(param: typing.Optional[datetime.date] = None):
+        def date_query_param_optional(param: datetime.date | None = None):
             assert param is None
             return {"param": param}
 
         @app.route("/time-query-param-optional/")
-        def time_query_param_optional(param: typing.Optional[datetime.time] = None):
+        def time_query_param_optional(param: datetime.time | None = None):
             assert param is None
             return {"param": param}
 

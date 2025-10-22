@@ -9,15 +9,15 @@ import click
 import uvicorn
 from h11._connection import DEFAULT_MAX_INCOMPLETE_EVENT_SIZE
 from uvicorn.config import (
+    LOG_LEVELS,
     LOGGING_CONFIG,
     SSL_PROTOCOL_VERSION,
     HTTPProtocolType,
     InterfaceType,
     LifespanType,
-    LoopSetupType,
+    LoopFactoryType,
     WSProtocolType,
 )
-from uvicorn.main import HTTP_CHOICES, INTERFACE_CHOICES, LEVEL_CHOICES, LIFESPAN_CHOICES, LOOP_CHOICES, WS_CHOICES
 
 if t.TYPE_CHECKING:
     from flama.applications import Flama
@@ -41,9 +41,24 @@ decorators = (
         help="Bind socket to this port.",
         show_default=True,
     ),
-    click.option("--server-reload", is_flag=True, default=False, help="Enable auto-reload."),
-    click.option("--server-uds", type=str, default=None, help="Bind to a UNIX domain socket."),
-    click.option("--server-fd", type=int, default=None, help="Bind to socket from this file descriptor."),
+    click.option(
+        "--server-reload",
+        is_flag=True,
+        default=False,
+        help="Enable auto-reload.",
+    ),
+    click.option(
+        "--server-uds",
+        type=str,
+        default=None,
+        help="Bind to a UNIX domain socket.",
+    ),
+    click.option(
+        "--server-fd",
+        type=int,
+        default=None,
+        help="Bind to socket from this file descriptor.",
+    ),
     click.option(
         "--server-reload-dirs",
         multiple=True,
@@ -81,21 +96,21 @@ decorators = (
     ),
     click.option(
         "--server-loop",
-        type=LOOP_CHOICES,
+        type=click.Choice([x for x in t.get_args(LoopFactoryType) if x != "none"]),
         default="auto",
         help="Event loop implementation.",
         show_default=True,
     ),
     click.option(
         "--server-http",
-        type=HTTP_CHOICES,
+        type=click.Choice([x for x in t.get_args(HTTPProtocolType) if x != "none"]),
         default="auto",
         help="HTTP protocol implementation.",
         show_default=True,
     ),
     click.option(
         "--server-ws",
-        type=WS_CHOICES,
+        type=click.Choice([x for x in t.get_args(WSProtocolType) if x != "none"]),
         default="auto",
         help="WebSocket protocol implementation.",
         show_default=True,
@@ -130,14 +145,14 @@ decorators = (
     ),
     click.option(
         "--server-lifespan",
-        type=LIFESPAN_CHOICES,
+        type=click.Choice([x for x in t.get_args(LifespanType) if x != "none"]),
         default="auto",
         help="Lifespan implementation.",
         show_default=True,
     ),
     click.option(
         "--server-interface",
-        type=INTERFACE_CHOICES,
+        type=click.Choice([x for x in t.get_args(InterfaceType) if x != "none"]),
         default="auto",
         help="Select ASGI3, ASGI2, or WSGI as the application interface.",
         show_default=True,
@@ -158,7 +173,7 @@ decorators = (
     ),
     click.option(
         "--server-log-level",
-        type=LEVEL_CHOICES,
+        type=click.Choice(list(LOG_LEVELS.keys())),
         default=None,
         help="Log level. [default: info]",
         show_default=True,
@@ -306,52 +321,52 @@ decorators = (
 class Uvicorn:
     host: str = "127.0.0.1"
     port: int = 8000
-    uds: t.Optional[str] = None
-    fd: t.Optional[int] = None
-    loop: LoopSetupType = "auto"
-    http: t.Union[type[asyncio.Protocol], HTTPProtocolType] = "auto"
-    ws: t.Union[type[asyncio.Protocol], WSProtocolType] = "auto"
+    uds: str | None = None
+    fd: int | None = None
+    loop: LoopFactoryType = "auto"
+    http: type[asyncio.Protocol] | HTTPProtocolType = "auto"
+    ws: type[asyncio.Protocol] | WSProtocolType = "auto"
     ws_max_size: int = 16777216
-    ws_ping_interval: t.Optional[float] = 20.0
-    ws_ping_timeout: t.Optional[float] = 20.0
+    ws_ping_interval: float | None = 20.0
+    ws_ping_timeout: float | None = 20.0
     ws_per_message_deflate: bool = True
     lifespan: LifespanType = "auto"
     interface: InterfaceType = "auto"
     reload: bool = False
-    reload_dirs: t.Optional[t.Union[list[str], str]] = None
-    reload_includes: t.Optional[t.Union[list[str], str]] = None
-    reload_excludes: t.Optional[t.Union[list[str], str]] = None
+    reload_dirs: list[str] | str | None = None
+    reload_includes: list[str] | str | None = None
+    reload_excludes: list[str] | str | None = None
     reload_delay: float = 0.25
-    workers: t.Optional[int] = None
-    env_file: t.Optional[t.Union[str, os.PathLike]] = None
-    log_config: t.Optional[t.Union[dict[str, t.Any], str]] = dataclasses.field(
+    workers: int | None = None
+    env_file: str | os.PathLike | None = None
+    log_config: dict[str, t.Any] | str | None = dataclasses.field(
         default_factory=lambda: LOGGING_CONFIG.copy()  # type: ignore[no-any-return]
     )
-    log_level: t.Optional[t.Union[str, int]] = None
+    log_level: str | int | None = None
     access_log: bool = True
     proxy_headers: bool = True
     server_header: bool = True
     date_header: bool = True
-    forwarded_allow_ips: t.Optional[str] = None
+    forwarded_allow_ips: str | None = None
     root_path: str = ""
-    limit_concurrency: t.Optional[int] = None
+    limit_concurrency: int | None = None
     backlog: int = 2048
-    limit_max_requests: t.Optional[int] = None
+    limit_max_requests: int | None = None
     timeout_keep_alive: int = 5
-    ssl_keyfile: t.Optional[str] = None
-    ssl_certfile: t.Optional[t.Union[str, os.PathLike]] = None
-    ssl_keyfile_password: t.Optional[str] = None
+    ssl_keyfile: str | None = None
+    ssl_certfile: str | os.PathLike | None = None
+    ssl_keyfile_password: str | None = None
     ssl_version: int = SSL_PROTOCOL_VERSION
     ssl_cert_reqs: int = ssl.CERT_NONE
-    ssl_ca_certs: t.Optional[str] = None
+    ssl_ca_certs: str | None = None
     ssl_ciphers: str = "TLSv1"
-    headers: t.Optional[list[tuple[str, str]]] = None
-    use_colors: t.Optional[bool] = None
-    app_dir: t.Optional[str] = None
+    headers: list[tuple[str, str]] | None = None
+    use_colors: bool | None = None
+    app_dir: str | None = None
     factory: bool = False
     h11_max_incomplete_event_size: int = DEFAULT_MAX_INCOMPLETE_EVENT_SIZE
 
-    def run(self, app: t.Union[str, "Flama"]):
+    def run(self, app: "str | Flama"):
         uvicorn.run(app, **dataclasses.asdict(self))
 
 
@@ -366,46 +381,46 @@ def options(command: t.Callable) -> t.Callable:
     def _inner(
         server_host: str = "127.0.0.1",
         server_port: int = 8000,
-        server_uds: t.Optional[str] = None,
-        server_fd: t.Optional[int] = None,
-        server_loop: LoopSetupType = "auto",
-        server_http: t.Union[type[asyncio.Protocol], HTTPProtocolType] = "auto",
-        server_ws: t.Union[type[asyncio.Protocol], WSProtocolType] = "auto",
+        server_uds: str | None = None,
+        server_fd: int | None = None,
+        server_loop: LoopFactoryType = "auto",
+        server_http: type[asyncio.Protocol] | HTTPProtocolType = "auto",
+        server_ws: type[asyncio.Protocol] | WSProtocolType = "auto",
         server_ws_max_size: int = 16777216,
-        server_ws_ping_interval: t.Optional[float] = 20.0,
-        server_ws_ping_timeout: t.Optional[float] = 20.0,
+        server_ws_ping_interval: float | None = 20.0,
+        server_ws_ping_timeout: float | None = 20.0,
         server_ws_per_message_deflate: bool = True,
         server_lifespan: LifespanType = "auto",
         server_interface: InterfaceType = "auto",
         server_reload: bool = False,
-        server_reload_dirs: t.Optional[t.Union[list[str], str]] = None,
-        server_reload_includes: t.Optional[t.Union[list[str], str]] = None,
-        server_reload_excludes: t.Optional[t.Union[list[str], str]] = None,
+        server_reload_dirs: list[str] | str | None = None,
+        server_reload_includes: list[str] | str | None = None,
+        server_reload_excludes: list[str] | str | None = None,
         server_reload_delay: float = 0.25,
-        server_workers: t.Optional[int] = None,
-        server_env_file: t.Optional[t.Union[str, os.PathLike]] = None,
-        server_log_config: t.Optional[t.Union[dict[str, t.Any], str]] = None,
-        server_log_level: t.Optional[t.Union[str, int]] = None,
+        server_workers: int | None = None,
+        server_env_file: str | os.PathLike | None = None,
+        server_log_config: dict[str, t.Any] | str | None = None,
+        server_log_level: str | int | None = None,
         server_access_log: bool = True,
         server_proxy_headers: bool = True,
         server_server_header: bool = True,
         server_date_header: bool = True,
-        server_forwarded_allow_ips: t.Optional[str] = None,
+        server_forwarded_allow_ips: str | None = None,
         server_root_path: str = "",
-        server_limit_concurrency: t.Optional[int] = None,
+        server_limit_concurrency: int | None = None,
         server_backlog: int = 2048,
-        server_limit_max_requests: t.Optional[int] = None,
+        server_limit_max_requests: int | None = None,
         server_timeout_keep_alive: int = 5,
-        server_ssl_keyfile: t.Optional[str] = None,
-        server_ssl_certfile: t.Optional[t.Union[str, os.PathLike]] = None,
-        server_ssl_keyfile_password: t.Optional[str] = None,
+        server_ssl_keyfile: str | None = None,
+        server_ssl_certfile: str | os.PathLike | None = None,
+        server_ssl_keyfile_password: str | None = None,
         server_ssl_version: int = SSL_PROTOCOL_VERSION,
         server_ssl_cert_reqs: int = ssl.CERT_NONE,
-        server_ssl_ca_certs: t.Optional[str] = None,
+        server_ssl_ca_certs: str | None = None,
         server_ssl_ciphers: str = "TLSv1",
-        server_headers: t.Optional[list[tuple[str, str]]] = None,
-        server_use_colors: t.Optional[bool] = None,
-        server_app_dir: t.Optional[str] = None,
+        server_headers: list[tuple[str, str]] | None = None,
+        server_use_colors: bool | None = None,
+        server_app_dir: str | None = None,
         server_factory: bool = False,
         server_h11_max_incomplete_event_size: int = DEFAULT_MAX_INCOMPLETE_EVENT_SIZE,
         *args,

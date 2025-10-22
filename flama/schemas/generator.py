@@ -23,7 +23,7 @@ class EndpointInfo:
     func: t.Callable = dataclasses.field(repr=False)
     query_parameters: dict[str, Parameter] = dataclasses.field(repr=False)
     path_parameters: dict[str, Parameter] = dataclasses.field(repr=False)
-    body_parameter: t.Optional[Parameter] = dataclasses.field(repr=False)
+    body_parameter: Parameter | None = dataclasses.field(repr=False)
     response_parameter: Parameter = dataclasses.field(repr=False)
 
 
@@ -41,7 +41,7 @@ class SchemaInfo:
 
 
 class SchemaRegistry(dict[int, SchemaInfo]):
-    def __init__(self, schemas: t.Optional[dict[str, schemas.Schema]] = None):
+    def __init__(self, schemas: dict[str, schemas.Schema] | None = None):
         super().__init__()
 
         for name, schema in (schemas or {}).items():
@@ -66,7 +66,7 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         """
         return {k: v.name for k, v in self.items()}
 
-    def _get_schema_references_from_schema(self, schema: t.Union[openapi.Schema, openapi.Reference]) -> list[str]:
+    def _get_schema_references_from_schema(self, schema: openapi.Schema | openapi.Reference) -> list[str]:
         if isinstance(schema, openapi.Reference):
             return [schema.ref]
 
@@ -126,7 +126,7 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         return refs
 
     def _get_schema_references_from_operation_callbacks(
-        self, callbacks: t.Optional[dict[str, t.Union[openapi.Callback, openapi.Reference]]]
+        self, callbacks: dict[str, openapi.Callback | openapi.Reference] | None
     ) -> list[str]:
         refs = []
 
@@ -141,7 +141,7 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         return refs
 
     def _get_schema_references_from_operation_request_body(
-        self, request_body: t.Optional[t.Union[openapi.RequestBody, openapi.Reference]]
+        self, request_body: openapi.RequestBody | openapi.Reference | None
     ) -> list[str]:
         refs = []
 
@@ -155,7 +155,7 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         return refs
 
     def _get_schema_references_from_operation_parameters(
-        self, parameters: t.Optional[list[t.Union[openapi.Parameter, openapi.Reference]]]
+        self, parameters: list[openapi.Parameter | openapi.Reference] | None
     ) -> list[str]:
         refs = []
 
@@ -205,7 +205,7 @@ class SchemaRegistry(dict[int, SchemaInfo]):
 
         return used_schemas
 
-    def register(self, schema: schemas.Schema, name: t.Optional[str] = None) -> int:
+    def register(self, schema: schemas.Schema, name: str | None = None) -> int:
         """
         Register a new Schema to this registry.
 
@@ -233,8 +233,8 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         return schema_id
 
     def get_openapi_ref(
-        self, element: schemas.Schema, multiple: t.Optional[bool] = None
-    ) -> t.Union[openapi.Schema, openapi.Reference]:
+        self, element: schemas.Schema, multiple: bool | None = None
+    ) -> openapi.Schema | openapi.Reference:
         """
         Builds the reference for a single schema or the array schema containing the reference.
 
@@ -251,7 +251,7 @@ class SchemaRegistry(dict[int, SchemaInfo]):
 
 
 class SchemaGenerator:
-    def __init__(self, spec: types.OpenAPISpec, schemas: t.Optional[dict[str, schemas.Schema]] = None):
+    def __init__(self, spec: types.OpenAPISpec, schemas: dict[str, schemas.Schema] | None = None):
         self.spec = openapi.OpenAPISpec.from_spec(spec)
 
         # Builtin definitions
@@ -320,7 +320,7 @@ class SchemaGenerator:
 
     def _build_endpoint_parameters(
         self, endpoint: EndpointInfo, metadata: dict[str, t.Any]
-    ) -> t.Optional[list[openapi.Parameter]]:
+    ) -> list[openapi.Parameter] | None:
         if not endpoint.query_parameters and not endpoint.path_parameters:
             return None
 
@@ -348,9 +348,7 @@ class SchemaGenerator:
             for field in itertools.chain(endpoint.query_parameters.values(), endpoint.path_parameters.values())
         ]
 
-    def _build_endpoint_body(
-        self, endpoint: EndpointInfo, metadata: dict[str, t.Any]
-    ) -> t.Optional[openapi.RequestBody]:
+    def _build_endpoint_body(self, endpoint: EndpointInfo, metadata: dict[str, t.Any]) -> openapi.RequestBody | None:
         content = {k: v for k, v in metadata.get("requestBody", {}).get("content", {}).items()}
 
         if endpoint.body_parameter:

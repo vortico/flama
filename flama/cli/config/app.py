@@ -53,7 +53,7 @@ app_decorators = (
 
 
 class _AppContext:
-    def __init__(self, app: t.Union[str, "Flama"], path: Path, module: t.Optional[str] = None):
+    def __init__(self, app: "str | Flama", path: Path, module: str | None = None):
         self._app = app
         self._module = module
         self._path = path
@@ -63,7 +63,7 @@ class _AppContext:
         return str(self._path)
 
     @property
-    def app(self) -> t.Union[str, "Flama"]:
+    def app(self) -> "str | Flama":
         return f"{self._module}:{self._app}" if isinstance(self._app, str) else self._app
 
 
@@ -81,7 +81,7 @@ class App(metaclass=abc.ABCMeta):
     def context(self) -> t.Generator[_AppContext, None, None]: ...
 
     @classmethod
-    def build(cls, app: t.Union[str, dict[str, t.Any], "Flama"]) -> "App":
+    def build(cls, app: "str | dict[str, t.Any] | Flama") -> "App":
         if isinstance(app, str):
             return StrApp(app)
 

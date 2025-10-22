@@ -17,7 +17,7 @@ __all__ = ["Endpoint", "Authentication", "Request", "Response", "Error", "Teleme
 @dataclasses.dataclass
 class Endpoint:
     path: str
-    name: t.Optional[str]
+    name: str | None
     tags: dict[str, t.Any]
 
     @classmethod
@@ -37,8 +37,8 @@ class Endpoint:
 
 @dataclasses.dataclass
 class Authentication:
-    access: t.Optional[AccessToken]
-    refresh: t.Optional[RefreshToken]
+    access: AccessToken | None
+    refresh: RefreshToken | None
 
     @classmethod
     async def from_scope(cls, *, scope: types.Scope, receive: types.Receive, send: types.Send) -> "Authentication":
@@ -100,10 +100,10 @@ class Request:
 
 @dataclasses.dataclass
 class Response:
-    headers: t.Optional[dict[str, t.Any]]
-    cookies: t.Optional[dict[str, t.Any]] = dataclasses.field(init=False)
+    headers: dict[str, t.Any] | None
+    cookies: dict[str, t.Any] | None = dataclasses.field(init=False)
     body: bytes = b""
-    status_code: t.Optional[int] = None
+    status_code: int | None = None
     timestamp: datetime.datetime = dataclasses.field(
         init=False, default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
     )
@@ -133,7 +133,7 @@ class Response:
 @dataclasses.dataclass
 class Error:
     detail: str
-    status_code: t.Optional[int] = None
+    status_code: int | None = None
     timestamp: datetime.datetime = dataclasses.field(
         init=False, default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
     )
@@ -159,8 +159,8 @@ class TelemetryData:
     endpoint: Endpoint
     authentication: Authentication
     request: Request
-    response: t.Optional[Response] = None
-    error: t.Optional[Error] = None
+    response: Response | None = None
+    error: Error | None = None
     extra: dict[t.Any, t.Any] = dataclasses.field(default_factory=dict)
 
     @classmethod

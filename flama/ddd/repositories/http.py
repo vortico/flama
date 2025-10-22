@@ -50,7 +50,7 @@ class HTTPResourceManager:
 
         return response.json()
 
-    async def retrieve(self, id: t.Union[str, uuid.UUID]) -> dict[str, t.Any]:
+    async def retrieve(self, id: str | uuid.UUID) -> dict[str, t.Any]:
         """Retrieve an element from the collection.
 
         :param id: The id of the element.
@@ -67,7 +67,7 @@ class HTTPResourceManager:
 
         return response.json()
 
-    async def update(self, id: t.Union[str, uuid.UUID], data: dict[str, t.Any]) -> dict[str, t.Any]:
+    async def update(self, id: str | uuid.UUID, data: dict[str, t.Any]) -> dict[str, t.Any]:
         """Update an element in the collection.
 
         :param id: The id of the element.
@@ -87,7 +87,7 @@ class HTTPResourceManager:
             raise
         return response.json()
 
-    async def partial_update(self, id: t.Union[str, uuid.UUID], data: dict[str, t.Any]) -> dict[str, t.Any]:
+    async def partial_update(self, id: str | uuid.UUID, data: dict[str, t.Any]) -> dict[str, t.Any]:
         """Partially update an element in the collection.
 
         :param id: The id of the element.
@@ -107,7 +107,7 @@ class HTTPResourceManager:
             raise
         return response.json()
 
-    async def delete(self, id: t.Union[str, uuid.UUID]) -> None:
+    async def delete(self, id: str | uuid.UUID) -> None:
         """Delete an element from the collection.
 
         :param id: The id of the element.

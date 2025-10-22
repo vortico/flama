@@ -6,7 +6,7 @@ import pytest
 import typesystem
 import typesystem.fields
 
-from flama import endpoints, http, schemas, types
+from flama import endpoints, http, types
 
 
 class TestCaseReturnValidation:
@@ -61,12 +61,12 @@ class TestCaseReturnValidation:
 
             @app.route("/return-schema/", methods=["GET"])
             class ReturnSchemaHTTPEndpoint(endpoints.HTTPEndpoint):
-                async def get(self) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(output_schema)]:
+                async def get(self) -> t.Annotated[types.Schema, types.SchemaMetadata(output_schema)]:
                     return {"name": "Canna"}
 
             @app.route("/return-schema-many/", methods=["GET"])
             class ReturnSchemaManyHTTPEndpoint(endpoints.HTTPEndpoint):
-                async def get(self) -> t.Annotated[list[schemas.SchemaType], schemas.SchemaMetadata(output_schema)]:
+                async def get(self) -> t.Annotated[types.SchemaList, types.SchemaMetadata(output_schema)]:
                     return [{"name": "Canna"}, {"name": "Sandy"}]
 
             @app.route("/return-schema-empty/", methods=["GET"])
@@ -100,13 +100,11 @@ class TestCaseReturnValidation:
                 return {"dummy": Dummy()}
 
             @app.route("/return-schema/", methods=["GET"])
-            async def return_schema() -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(output_schema)]:
+            async def return_schema() -> t.Annotated[types.Schema, types.SchemaMetadata(output_schema)]:
                 return {"name": "Canna"}
 
             @app.route("/return-schema-many/", methods=["GET"])
-            async def return_schema_many() -> t.Annotated[
-                list[schemas.SchemaType], schemas.SchemaMetadata(output_schema)
-            ]:
+            async def return_schema_many() -> t.Annotated[types.SchemaList, types.SchemaMetadata(output_schema)]:
                 return [{"name": "Canna"}, {"name": "Sandy"}]
 
             @app.route("/return-schema-empty/", methods=["GET"])

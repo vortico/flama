@@ -6,14 +6,6 @@ from types import ModuleType
 from flama.exceptions import DependencyNotInstalled
 from flama.schemas.data_structures import Field, Parameter, Schema
 from flama.schemas.exceptions import SchemaParseError, SchemaValidationError
-from flama.schemas.types import (
-    SchemaMetadata,
-    SchemaType,
-    get_schema_metadata,
-    is_schema,
-    is_schema_multiple,
-    is_schema_partial,
-)
 
 if t.TYPE_CHECKING:
     from flama.schemas.adapter import Adapter
@@ -28,17 +20,11 @@ __all__ = [
     "fields",
     "lib",
     "schemas",
-    "SchemaMetadata",
-    "SchemaType",
-    "get_schema_metadata",
-    "is_schema",
-    "is_schema_multiple",
-    "is_schema_partial",
 ]
 
 adapter: "Adapter"
 fields: dict[t.Any, "Parameter"] = {}
-lib: t.Optional[ModuleType] = None
+lib: ModuleType | None = None
 schemas: t.Any = None
 
 
@@ -62,7 +48,7 @@ class Module:
             except ModuleNotFoundError:
                 pass
 
-    def setup(self, library: t.Optional[str] = None):
+    def setup(self, library: str | None = None):
         try:
             if library is None:
                 library = next(self.available)

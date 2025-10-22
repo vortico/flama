@@ -36,13 +36,13 @@ class Flama:
     def __init__(
         self,
         *,
-        routes: t.Optional[t.Sequence["routing.BaseRoute"]] = None,
-        components: t.Optional[t.Union[t.Sequence[injection.Component], set[injection.Component]]] = None,
-        modules: t.Optional[t.Union[t.Sequence["Module"], set["Module"]]] = None,
-        middleware: t.Optional[t.Sequence["Middleware"]] = None,
+        routes: t.Sequence[routing.BaseRoute] | None = None,
+        components: t.Sequence[injection.Component] | set[injection.Component] | None = None,
+        modules: t.Sequence["Module"] | set["Module"] | None = None,
+        middleware: t.Sequence["Middleware"] | None = None,
         debug: bool = False,
-        events: t.Optional[t.Union[dict[str, list[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]]], Events]] = None,
-        lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None,
+        events: dict[str, list[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]]] | Events | None = None,
+        lifespan: t.Callable[["Flama | None"], t.AsyncContextManager] | None = None,
         openapi: types.OpenAPISpec = {
             "info": {
                 "title": "Flama",
@@ -51,10 +51,10 @@ class Flama:
                 "description": "Firing up with the flame",
             },
         },
-        schema: t.Optional[str] = "/schema/",
-        docs: t.Optional[str] = "/docs/",
-        schema_library: t.Optional[str] = None,
-        parent: t.Optional["Flama"] = None,
+        schema: str | None = "/schema/",
+        docs: str | None = "/docs/",
+        schema_library: str | None = None,
+        parent: "Flama | None" = None,
     ) -> None:
         """Flama application.
 
@@ -174,7 +174,7 @@ class Flama:
         self.router.add_component(component)
 
     @property
-    def routes(self) -> list["routing.BaseRoute"]:
+    def routes(self) -> list[routing.BaseRoute]:
         """List of registered routes.
 
         :return: Routes.
@@ -183,16 +183,16 @@ class Flama:
 
     def add_route(
         self,
-        path: t.Optional[str] = None,
-        endpoint: t.Optional[types.HTTPHandler] = None,
-        methods: t.Optional[list[str]] = None,
+        path: str | None = None,
+        endpoint: types.HTTPHandler | None = None,
+        methods: list[str] | None = None,
         *,
-        name: t.Optional[str] = None,
+        name: str | None = None,
         include_in_schema: bool = True,
-        route: t.Optional["routing.Route"] = None,
-        pagination: t.Optional[types.Pagination] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
-    ) -> "routing.Route":
+        route: routing.Route | None = None,
+        pagination: types.Pagination | None = None,
+        tags: dict[str, t.Any] | None = None,
+    ) -> routing.Route:
         """Register a new HTTP route or endpoint under given path.
 
         :param path: URL path.
@@ -218,12 +218,12 @@ class Flama:
     def route(
         self,
         path: str,
-        methods: t.Optional[list[str]] = None,
+        methods: list[str] | None = None,
         *,
-        name: t.Optional[str] = None,
+        name: str | None = None,
         include_in_schema: bool = True,
-        pagination: t.Optional[types.Pagination] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
+        pagination: types.Pagination | None = None,
+        tags: dict[str, t.Any] | None = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -241,14 +241,14 @@ class Flama:
 
     def add_websocket_route(
         self,
-        path: t.Optional[str] = None,
-        endpoint: t.Optional[types.WebSocketHandler] = None,
+        path: str | None = None,
+        endpoint: types.WebSocketHandler | None = None,
         *,
-        name: t.Optional[str] = None,
-        route: t.Optional["routing.WebSocketRoute"] = None,
-        pagination: t.Optional[types.Pagination] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
-    ) -> "routing.WebSocketRoute":
+        name: str | None = None,
+        route: routing.WebSocketRoute | None = None,
+        pagination: types.Pagination | None = None,
+        tags: dict[str, t.Any] | None = None,
+    ) -> routing.WebSocketRoute:
         """Register a new websocket route or endpoint under given path.
 
         :param path: URL path.
@@ -264,9 +264,9 @@ class Flama:
         self,
         path: str,
         *,
-        name: t.Optional[str] = None,
-        pagination: t.Optional[types.Pagination] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
+        name: str | None = None,
+        pagination: types.Pagination | None = None,
+        tags: dict[str, t.Any] | None = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
@@ -280,13 +280,13 @@ class Flama:
 
     def mount(
         self,
-        path: t.Optional[str] = None,
-        app: t.Optional[types.App] = None,
+        path: str | None = None,
+        app: types.App | None = None,
         *,
-        name: t.Optional[str] = None,
-        mount: t.Optional["routing.Mount"] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
-    ) -> "routing.Mount":
+        name: str | None = None,
+        mount: routing.Mount | None = None,
+        tags: dict[str, t.Any] | None = None,
+    ) -> routing.Mount:
         """Register a new mount point containing an ASGI app in this router under given path.
 
         :param path: URL path.
@@ -330,7 +330,7 @@ class Flama:
 
         return decorator
 
-    def add_exception_handler(self, exc_class_or_status_code: t.Union[int, type[Exception]], handler: t.Callable):
+    def add_exception_handler(self, exc_class_or_status_code: int | type[Exception], handler: t.Callable):
         """Add a new exception handler for given status code or exception class.
 
         :param exc_class_or_status_code: Status code or exception class.

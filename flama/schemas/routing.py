@@ -1,7 +1,7 @@
 import inspect
 import typing as t
 
-from flama import exceptions, schemas
+from flama import exceptions, types
 from flama.injection.resolver import Return
 from flama.schemas.data_structures import Field, Parameter, Parameters
 
@@ -16,7 +16,7 @@ __all__ = ["ParametersDescriptor"]
 class ParametersDescriptor:
     def __init__(self, route: "BaseRoute") -> None:
         self._route = route
-        self._parent_app: t.Optional[Flama] = None
+        self._parent_app: Flama | None = None
 
     @property
     def _app(self) -> "Flama":
@@ -69,13 +69,13 @@ class ParametersDescriptor:
         }
 
     @property
-    def body(self) -> dict[str, t.Optional[Parameter]]:
+    def body(self) -> dict[str, Parameter | None]:
         return {
             method: next(
                 (
                     Parameter.build("body", p)
                     for p in parameters
-                    if (schemas.is_schema(p.annotation) or t.get_origin(p.annotation) == list)
+                    if (types.is_schema(p.annotation) or t.get_origin(p.annotation) == list)
                     and p.name not in self._route.path.parameters
                 ),
                 None,

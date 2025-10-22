@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 class Mount(BaseRoute):
     def __init__(
         self,
-        path: t.Union[str, url.Path],
+        path: str | url.Path,
         app: types.App,
         *,
-        name: t.Optional[str] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
+        name: str | None = None,
+        tags: dict[str, t.Any] | None = None,
     ):
         """A mount point for adding a nested ASGI application or a list of routes.
 

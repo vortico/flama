@@ -30,7 +30,7 @@ class SKLearnSerializer(Serializer):
         return model
 
     def _info(self, data) -> "JSONField":
-        if isinstance(data, (int, bool, str)):
+        if isinstance(data, int | bool | str):
             return data
 
         if isinstance(data, float):
@@ -39,12 +39,12 @@ class SKLearnSerializer(Serializer):
         if isinstance(data, dict):
             return {k: self._info(v) for k, v in data.items()}
 
-        if isinstance(data, (list, tuple, set)):
+        if isinstance(data, list | tuple | set):
             return [self._info(i) for i in data]
 
         return None
 
-    def info(self, model: t.Any) -> t.Optional["JSONSchema"]:
+    def info(self, model: t.Any) -> "JSONSchema | None":
         try:
             return self._info(model.get_params())  # type: ignore
         except:  # noqa

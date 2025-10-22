@@ -2,7 +2,7 @@ import inspect
 import logging
 import typing as t
 
-from flama import compat, concurrency, endpoints, exceptions, http, schemas, types
+from flama import concurrency, endpoints, exceptions, http, schemas, types
 from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute
 
 if t.TYPE_CHECKING:
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
-    def __init__(self, handler: types.Handler, *, pagination: t.Optional[types.Pagination] = None):
+    def __init__(self, handler: types.Handler, *, pagination: types.Pagination | None = None):
         super().__init__(handler, pagination=pagination)
 
         try:
@@ -22,7 +22,7 @@ class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
         except Exception:
             self.schema = None
 
-    def _build_api_response(self, response: t.Union[http.Response, None]) -> http.Response:
+    def _build_api_response(self, response: http.Response | None) -> http.Response:
         """Build an API response given a handler and the current response.
 
         It infers the output schema from the handler signature or just wraps the response in a APIResponse object.
@@ -30,9 +30,9 @@ class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
         :param response: The current response.
         :return: An API response.
         """
-        if isinstance(response, (dict, list)):
+        if isinstance(response, dict | list):
             response = http.APIResponse(content=response, schema=self.schema)
-        elif isinstance(response, (str, bytes)):
+        elif isinstance(response, str | bytes):
             response = http.APIResponse(content=response)
         elif response is None:
             response = http.APIResponse(content="")
@@ -89,11 +89,11 @@ class Route(BaseRoute):
         path: str,
         endpoint: types.HTTPHandler,
         *,
-        methods: t.Optional[t.Union[set[str], t.Sequence[str]]] = None,
-        name: t.Optional[str] = None,
+        methods: set[str] | t.Sequence[str] | None = None,
+        name: str | None = None,
         include_in_schema: bool = True,
-        pagination: t.Optional[types.Pagination] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
+        pagination: types.Pagination | None = None,
+        tags: dict[str, t.Any] | None = None,
     ) -> None:
         """A route definition of a http endpoint.
 
@@ -145,9 +145,7 @@ class Route(BaseRoute):
         return f"{self.__class__.__name__}(path={self.path!r}, name={self.name!r}, methods={sorted(self.methods)!r})"
 
     @staticmethod
-    def is_endpoint(
-        x: t.Union[t.Callable, type[endpoints.HTTPEndpoint]],
-    ) -> compat.TypeGuard[type[endpoints.HTTPEndpoint]]:  # PORT: Replace compat when stop supporting 3.9
+    def is_endpoint(x: t.Callable | type[endpoints.HTTPEndpoint]) -> t.TypeGuard[type[endpoints.HTTPEndpoint]]:
         return inspect.isclass(x) and issubclass(x, endpoints.HTTPEndpoint)
 
     def endpoint_handlers(self) -> dict[str, t.Callable]:

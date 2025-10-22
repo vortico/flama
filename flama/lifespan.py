@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class Lifespan(types.AppClass):
-    def __init__(self, lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None):
+    def __init__(self, lifespan: t.Callable[["Flama | None"], t.AsyncContextManager] | None = None):
         """A class that handles the lifespan of an application.
 
         It is responsible for calling the startup and shutdown events and the user defined lifespan.

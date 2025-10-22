@@ -78,15 +78,15 @@ class PlainTextResponse(starlette.responses.PlainTextResponse, Response):
 
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, o):
-        if isinstance(o, (pathlib.Path, os.PathLike, uuid.UUID, url.Path, url.URL)):
+        if isinstance(o, pathlib.Path | os.PathLike | uuid.UUID | url.Path | url.URL):
             return str(o)
-        if isinstance(o, (bytes, bytearray)):
+        if isinstance(o, bytes | bytearray):
             return o.decode("utf-8")
         if isinstance(o, enum.Enum):
             return o.value
-        if isinstance(o, (set, frozenset)):
+        if isinstance(o, set | frozenset):
             return list(o)
-        if isinstance(o, (datetime.datetime, datetime.date, datetime.time)):
+        if isinstance(o, datetime.datetime | datetime.date | datetime.time):
             return o.isoformat()
         if isinstance(o, datetime.timedelta):
             # split seconds to larger units
@@ -172,8 +172,8 @@ class APIErrorResponse(APIResponse):
         self,
         detail: t.Any,
         status_code: int = 400,
-        exception: t.Optional[Exception] = None,
-        headers: t.Optional[dict[str, str]] = None,
+        exception: Exception | None = None,
+        headers: dict[str, str] | None = None,
         *args,
         **kwargs,
     ):
@@ -186,7 +186,7 @@ class APIErrorResponse(APIResponse):
 
         super().__init__(
             content,
-            schema=t.Annotated[schemas.Schema, schemas.SchemaMetadata(schemas.schemas.APIError)],
+            schema=t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.APIError)],
             status_code=status_code,
             *args,
             **kwargs,
@@ -238,7 +238,7 @@ class HTMLTemplatesEnvironment(jinja2.Environment):
     @t.overload
     def _escape(self, value: types.JSONField) -> types.JSONField: ...
     def _escape(self, value: types.JSONField) -> types.JSONField:
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, list | tuple):
             return [self._escape(x) for x in value]
 
         if isinstance(value, dict):
@@ -259,7 +259,7 @@ class HTMLTemplatesEnvironment(jinja2.Environment):
 class HTMLTemplateResponse(HTMLResponse):
     templates = HTMLTemplatesEnvironment(loader=jinja2.FileSystemLoader(pathlib.Path(os.curdir) / "templates"))
 
-    def __init__(self, template: str, context: t.Optional[dict[str, t.Any]] = None, *args, **kwargs):
+    def __init__(self, template: str, context: dict[str, t.Any] | None = None, *args, **kwargs):
         if context is None:
             context = {}
 

@@ -95,7 +95,7 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
 
 
 class ExceptionMiddleware(BaseErrorMiddleware):
-    def __init__(self, app: types.App, handlers: t.Optional[t.Mapping[t.Any, "Handler"]] = None, debug: bool = False):
+    def __init__(self, app: types.App, handlers: t.Mapping[t.Any, "Handler"] | None = None, debug: bool = False):
         super().__init__(app, debug)
         handlers = handlers or {}
         self._status_handlers: dict[int, Handler] = {
@@ -112,8 +112,8 @@ class ExceptionMiddleware(BaseErrorMiddleware):
     def add_exception_handler(
         self,
         handler: "Handler",
-        status_code: t.Optional[int] = None,
-        exc_class: t.Optional[type[Exception]] = None,
+        status_code: int | None = None,
+        exc_class: type[Exception] | None = None,
     ) -> None:
         if status_code is None and exc_class is None:
             raise ValueError("Status code or exception class must be defined")
@@ -178,7 +178,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
 
     async def not_found_handler(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.NotFoundException
-    ) -> t.Optional[http.Response]:
+    ) -> http.Response | None:
         if scope.get("type", "") == "websocket":
             await self.websocket_exception_handler(scope, receive, send, exc=exceptions.WebSocketException(1000))
             return None
@@ -194,7 +194,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         receive: types.Receive,
         send: types.Send,
         exc: exceptions.MethodNotAllowedException,
-    ) -> t.Optional[http.Response]:
+    ) -> http.Response | None:
         if scope.get("type", "") == "websocket":
             await self.websocket_exception_handler(scope, receive, send, exc=exceptions.WebSocketException(1000))
             return None

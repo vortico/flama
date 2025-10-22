@@ -44,7 +44,7 @@ class Compression(compat.StrEnum):  # PORT: Replace compat when stop supporting 
 
 class FrameworkSerializers:
     @classmethod
-    def serializer(cls, framework: t.Union[str, Framework]) -> Serializer:
+    def serializer(cls, framework: str | Framework) -> Serializer:
         try:
             module, class_name = {
                 Framework.torch: ("pytorch", "PyTorchSerializer"),
@@ -103,14 +103,12 @@ class ModelInfo:
     """Dataclass for storing model info."""
 
     obj: str
-    info: t.Optional["JSONSchema"] = None
-    params: t.Optional[dict[str, t.Any]] = None
-    metrics: t.Optional[dict[str, t.Any]] = None
+    info: "JSONSchema | None" = None
+    params: dict[str, t.Any] | None = None
+    metrics: dict[str, t.Any] | None = None
 
     @classmethod
-    def from_model(
-        cls, model: t.Any, params: t.Optional[dict[str, t.Any]], metrics: t.Optional[dict[str, t.Any]]
-    ) -> "ModelInfo":
+    def from_model(cls, model: t.Any, params: dict[str, t.Any] | None, metrics: dict[str, t.Any] | None) -> "ModelInfo":
         return cls(
             obj=model.__name__ if inspect.isclass(model) else model.__class__.__name__,
             info=FrameworkSerializers.from_model(model).info(model),
@@ -130,22 +128,22 @@ class ModelInfo:
 class Metadata:
     """Dataclass for storing model metadata."""
 
-    id: t.Union[str, uuid.UUID]
+    id: str | uuid.UUID
     timestamp: datetime.datetime
     framework: FrameworkInfo
     model: ModelInfo
-    extra: t.Optional[dict[str, t.Any]] = None
+    extra: dict[str, t.Any] | None = None
 
     @classmethod
     def from_model(
         cls,
         model: t.Any,
         *,
-        model_id: t.Optional[t.Union[str, uuid.UUID]],
-        timestamp: t.Optional[datetime.datetime],
-        params: t.Optional[dict[str, t.Any]],
-        metrics: t.Optional[dict[str, t.Any]],
-        extra: t.Optional[dict[str, t.Any]],
+        model_id: str | uuid.UUID | None,
+        timestamp: datetime.datetime | None,
+        params: dict[str, t.Any] | None,
+        metrics: dict[str, t.Any] | None,
+        extra: dict[str, t.Any] | None,
     ) -> "Metadata":
         return cls(
             id=model_id or uuid.uuid4(),
@@ -186,14 +184,14 @@ class Metadata:
         }
 
 
-Artifacts = dict[str, t.Union[str, os.PathLike]]
+Artifacts = dict[str, str | os.PathLike]
 
 
 class _ModelDirectory:
     def __init__(
         self,
-        model_file: t.Union[str, os.PathLike],
-        path: t.Optional[t.Union[str, os.PathLike]] = None,
+        model_file: str | os.PathLike,
+        path: str | os.PathLike | None = None,
         delete: bool = True,
     ):
         """Generate a model directory from a model file.
@@ -237,20 +235,20 @@ class ModelArtifact:
 
     model: t.Any
     meta: Metadata
-    artifacts: t.Optional[Artifacts] = None
-    _directory: t.Optional[_ModelDirectory] = dataclasses.field(default=None, repr=False, compare=False)
+    artifacts: Artifacts | None = None
+    _directory: _ModelDirectory | None = dataclasses.field(default=None, repr=False, compare=False)
 
     @classmethod
     def from_model(
         cls,
         model: t.Any,
         *,
-        model_id: t.Optional[t.Union[str, uuid.UUID]] = None,
-        timestamp: t.Optional[datetime.datetime] = None,
-        params: t.Optional[dict[str, t.Any]] = None,
-        metrics: t.Optional[dict[str, t.Any]] = None,
-        extra: t.Optional[dict[str, t.Any]] = None,
-        artifacts: t.Optional[Artifacts] = None,
+        model_id: str | uuid.UUID | None = None,
+        timestamp: datetime.datetime | None = None,
+        params: dict[str, t.Any] | None = None,
+        metrics: dict[str, t.Any] | None = None,
+        extra: dict[str, t.Any] | None = None,
+        artifacts: Artifacts | None = None,
     ) -> "ModelArtifact":
         return cls(
             model=model,
@@ -306,8 +304,8 @@ class ModelArtifact:
 
     def dump(
         self,
-        path: t.Union[str, os.PathLike] = "model.flm",
-        compression: t.Union[str, Compression] = Compression.standard,
+        path: str | os.PathLike = "model.flm",
+        compression: str | Compression = Compression.standard,
         **kwargs,
     ) -> None:
         """Serialize model artifact into a file.
@@ -327,7 +325,7 @@ class ModelArtifact:
                 tar.add(model.name, "model")
 
     @classmethod
-    def load(cls, path: t.Union[str, os.PathLike], **kwargs) -> "ModelArtifact":
+    def load(cls, path: str | os.PathLike, **kwargs) -> "ModelArtifact":
         """Deserialize model artifact from a file.
 
         :param path: Model file path.

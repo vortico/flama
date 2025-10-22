@@ -13,7 +13,7 @@ class JSONDataCodec(HTTPCodec):
     media_type = "application/json"
     format = "json"
 
-    async def decode(self, item: "http.Request", **options):
+    async def decode(self, item: "http.Request", **options) -> dict[str, t.Any] | None:
         try:
             if await item.body() == b"":
                 return None

@@ -36,7 +36,7 @@ class TensorFlowSerializer(Serializer):
             tmp_file.write(codecs.decode(model, "base64"))
             return tf.keras.models.load_model(tmp_file.name)  # type: ignore
 
-    def info(self, model: t.Any) -> t.Optional["JSONSchema"]:
+    def info(self, model: t.Any) -> "JSONSchema | None":
         model_info: JSONSchema = json.loads(model.to_json())
         return model_info
 

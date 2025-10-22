@@ -7,7 +7,7 @@ import pytest
 import typesystem
 import typesystem.fields
 
-from flama import Component, Flama, endpoints, schemas, types
+from flama import Component, Flama, endpoints, types
 
 
 class Puppy:
@@ -52,12 +52,12 @@ class TestCaseHTTPEndpoint:
     def puppy_endpoint(self, app, puppy_schema):
         @app.route("/puppy/")
         class PuppyEndpoint(endpoints.HTTPEndpoint):
-            def get(self, puppy: Puppy) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(puppy_schema)]:
+            def get(self, puppy: Puppy) -> t.Annotated[types.Schema, types.SchemaMetadata(puppy_schema)]:
                 return {"name": puppy.name}
 
             async def post(
-                self, puppy: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(puppy_schema)]
-            ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(puppy_schema)]:
+                self, puppy: t.Annotated[types.Schema, types.SchemaMetadata(puppy_schema)]
+            ) -> t.Annotated[types.Schema, types.SchemaMetadata(puppy_schema)]:
                 return puppy
 
         return PuppyEndpoint

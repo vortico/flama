@@ -1,28 +1,18 @@
 import dataclasses
 import typing as t
 
-__all__ = [
-    "_T_Field",
-    "_T_Schema",
-    "SchemaType",
-    "SchemaMetadata",
-    "get_schema_metadata",
-    "is_schema",
-    "is_schema_partial",
-    "is_schema_multiple",
-]
+__all__ = ["Schema", "SchemaList", "SchemaMetadata", "get_schema_metadata", "is_schema", "is_schema_partial"]
 
-_T_Field = t.TypeVar("_T_Field")
-_T_Schema = t.TypeVar("_T_Schema")
 
-SchemaType = dict[str, t.Any]
+Schema: t.TypeAlias = dict[str, t.Any]
+SchemaList: t.TypeAlias = list[Schema]
+SchemaType: t.TypeAlias = Schema
 
 
 @dataclasses.dataclass(frozen=True)
 class SchemaMetadata:
     schema: t.Any
     partial: bool = False
-    multiple: bool = False
 
 
 def get_schema_metadata(obj: t.Any) -> SchemaMetadata:
@@ -35,7 +25,3 @@ def is_schema(obj: t.Any) -> bool:
 
 def is_schema_partial(obj: t.Any) -> bool:
     return is_schema(obj) and get_schema_metadata(obj).partial
-
-
-def is_schema_multiple(obj: t.Any) -> bool:
-    return is_schema(obj) and get_schema_metadata(obj).multiple

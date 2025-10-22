@@ -2,7 +2,7 @@ import os
 import typing as t
 
 import flama.schemas
-from flama import schemas
+from flama import types
 from flama.models.components import ModelComponentBuilder
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
@@ -49,8 +49,8 @@ class PredictMixin:
         async def predict(
             self,
             model: model_model_type,  # type: ignore[valid-type]
-            data: t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(flama.schemas.schemas.MLModelInput)],
-        ) -> t.Annotated[schemas.SchemaType, schemas.SchemaMetadata(flama.schemas.schemas.MLModelOutput)]:
+            data: t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.MLModelInput)],
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.MLModelOutput)]:
             return {"output": model.predict(data["input"])}
 
         predict.__doc__ = f"""
@@ -126,7 +126,7 @@ class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
 class BaseModelResource(Resource, t.Generic[Component], metaclass=ModelResourceType):
     component: Component
     model: t.Any
-    model_path: t.Union[str, os.PathLike]
+    model_path: str | os.PathLike
 
 
 class ModelResource(BaseModelResource["ModelComponent"]): ...

@@ -1,5 +1,4 @@
 import datetime
-import typing as t
 from unittest.mock import patch
 
 import marshmallow
@@ -26,7 +25,7 @@ class TestCaseSchemaValidateOutput:
                 "Product",
                 name=(str, ...),
                 rating=(int, ...),
-                created=(t.Optional[datetime.datetime], ...),
+                created=(datetime.datetime | None, ...),
                 __validators__={"rating": rating_validator},
             )
         elif schemas.lib == typesystem:

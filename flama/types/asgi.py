@@ -1,7 +1,5 @@
 import typing as t
 
-from flama import compat
-
 if t.TYPE_CHECKING:
     from flama import endpoints
 
@@ -21,11 +19,14 @@ __all__ = [
     "Handler",
 ]
 
-P = compat.ParamSpec("P")  # PORT: Replace compat when stop supporting 3.9
+P = t.ParamSpec("P")
 R = t.TypeVar("R", covariant=True)
 
-Scope = t.NewType("Scope", t.MutableMapping[str, t.Any])
-Message = t.NewType("Message", t.MutableMapping[str, t.Any])
+
+class Scope(dict[str, t.Any]): ...
+
+
+class Message(dict[str, t.Any]): ...
 
 
 class Receive(t.Protocol):
@@ -39,11 +40,11 @@ class Send(t.Protocol):
 # Applications
 @t.runtime_checkable
 class AppClass(t.Protocol):
-    def __call__(self, scope: Scope, receive: Receive, send: Send) -> t.Union[None, t.Awaitable[None]]: ...
+    def __call__(self, scope: Scope, receive: Receive, send: Send) -> None | t.Awaitable[None]: ...
 
 
-AppFunction = t.Callable[[Scope, Receive, Send], t.Union[None, t.Awaitable[None]]]
-App = t.Union[AppClass, AppFunction]
+AppFunction = t.Callable[[Scope, Receive, Send], None | t.Awaitable[None]]
+App = AppClass | AppFunction
 
 
 # Middleware
@@ -52,9 +53,9 @@ class MiddlewareClass(AppClass, t.Protocol[P, R]):
     def __init__(self, app: App, *args: P.args, **kwargs: P.kwargs): ...
 
 
-MiddlewareFunction = t.Callable[compat.Concatenate[App, P], App]  # PORT: Replace compat when stop supporting 3.9
-Middleware = t.Union[type[MiddlewareClass], MiddlewareFunction]
+MiddlewareFunction = t.Callable[t.Concatenate[App, P], App]
+Middleware = type[MiddlewareClass] | MiddlewareFunction
 
-HTTPHandler = t.Union[t.Callable, type["endpoints.HTTPEndpoint"]]
-WebSocketHandler = t.Union[t.Callable, type["endpoints.WebSocketEndpoint"]]
-Handler = t.Union[HTTPHandler, WebSocketHandler]
+HTTPHandler = t.Callable | type["endpoints.HTTPEndpoint"]
+WebSocketHandler = t.Callable | type["endpoints.WebSocketEndpoint"]
+Handler = HTTPHandler | WebSocketHandler

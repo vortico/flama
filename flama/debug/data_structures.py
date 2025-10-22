@@ -29,7 +29,7 @@ class Request:
     params: RequestParams
     headers: dict[str, str]
     cookies: dict[str, str]
-    client: t.Optional[RequestClient] = None
+    client: RequestClient | None = None
 
     @classmethod
     def from_request(cls, request: "http.Request") -> "Request":
@@ -48,7 +48,7 @@ class Frame:
     filename: str
     function: str
     line: int
-    vendor: t.Optional[str]
+    vendor: str | None
     code: str
 
     @classmethod
@@ -117,13 +117,13 @@ class Environment:
 class Endpoint:
     path: str
     endpoint: str
-    module: t.Optional[str]
+    module: str | None
     file: str
     line: int
-    name: t.Optional[str] = None
+    name: str | None = None
 
     @classmethod
-    def from_route(cls, route: t.Union["Route", "WebSocketRoute"]) -> "Endpoint":
+    def from_route(cls, route: "Route | WebSocketRoute") -> "Endpoint":
         handler = route.app.handler
         module = inspect.getmodule(route.app.handler)
         filename = Path(inspect.getfile(route.app.handler)).resolve()
@@ -151,10 +151,10 @@ class App:
     apps: list["App"]
     endpoints: list[Endpoint]
     path: str
-    name: t.Optional[str] = None
+    name: str | None = None
 
     @classmethod
-    def from_app(cls, app: t.Any, path: str = "/", name: t.Optional[str] = None) -> "App":
+    def from_app(cls, app: t.Any, path: str = "/", name: str | None = None) -> "App":
         apps: list[App] = []
         endpoints: list[Endpoint] = []
         for route in app.routes:

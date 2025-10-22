@@ -17,8 +17,8 @@ __all__ = [
 
 class APIError(BaseModel):
     status_code: int = Field(title="status_code", description="HTTP status code")
-    detail: t.Union[str, dict[str, t.Any]] = Field(title="detail", description="Error detail")
-    error: t.Optional[str] = Field(title="type", description="Exception or error type")
+    detail: str | dict[str, t.Any] = Field(title="detail", description="Error detail")
+    error: str | None = Field(title="type", description="Exception or error type")
 
 
 class DropCollection(BaseModel):
@@ -28,7 +28,7 @@ class DropCollection(BaseModel):
 class LimitOffsetMeta(BaseModel):
     limit: int = Field(title="limit", description="Number of retrieved items")
     offset: int = Field(title="offset", description="Collection offset")
-    count: t.Optional[int] = Field(title="count", description="Total number of items")
+    count: int | None = Field(title="count", description="Total number of items")
 
 
 class LimitOffset(BaseModel):
@@ -39,7 +39,7 @@ class LimitOffset(BaseModel):
 class PageNumberMeta(BaseModel):
     page: int = Field(title="page", description="Current page number")
     page_size: int = Field(title="page_size", description="Page size")
-    count: t.Optional[int] = Field(title="count", description="Total number of items")
+    count: int | None = Field(title="count", description="Total number of items")
 
 
 class PageNumber(BaseModel):

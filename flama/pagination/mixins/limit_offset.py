@@ -24,9 +24,9 @@ class LimitOffsetResponse(http.APIResponse):
     def __init__(
         self,
         schema: t.Any,
-        offset: t.Optional[t.Union[int, str]] = None,
-        limit: t.Optional[t.Union[int, str]] = None,
-        count: t.Optional[bool] = True,
+        offset: int | str | None = None,
+        limit: int | str | None = None,
+        count: bool | None = True,
         **kwargs,
     ):
         self.offset = int(offset) if offset is not None else 0
@@ -48,13 +48,13 @@ class LimitOffsetResponse(http.APIResponse):
 class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
     PARAMETERS = [
         inspect.Parameter(
-            name="limit", default=None, annotation=t.Optional[int], kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
+            name="limit", default=None, annotation=int | None, kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
         ),
         inspect.Parameter(
-            name="offset", default=None, annotation=t.Optional[int], kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
+            name="offset", default=None, annotation=int | None, kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
         ),
         inspect.Parameter(
-            name="count", default=False, annotation=t.Optional[bool], kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
+            name="count", default=False, annotation=bool | None, kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
         ),
     ]
 
@@ -63,9 +63,9 @@ class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
         @functools.wraps(func)
         async def decorator(
             *args,
-            limit: t.Optional[int] = None,
-            offset: t.Optional[int] = None,
-            count: t.Optional[bool] = False,
+            limit: int | None = None,
+            offset: int | None = None,
+            count: bool | None = False,
             **kwargs,
         ):
             return LimitOffsetResponse(
@@ -79,9 +79,9 @@ class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
         @functools.wraps(func)
         def decorator(
             *args,
-            limit: t.Optional[int] = None,
-            offset: t.Optional[int] = None,
-            count: t.Optional[bool] = False,
+            limit: int | None = None,
+            offset: int | None = None,
+            count: bool | None = False,
             **kwargs,
         ):
             return LimitOffsetResponse(

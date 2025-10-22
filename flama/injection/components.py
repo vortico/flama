@@ -1,5 +1,4 @@
 import abc
-import asyncio
 import inspect
 import typing as t
 
@@ -72,7 +71,7 @@ class Component(metaclass=abc.ABCMeta):
         :param kwargs: Resolve keyword arguments.
         :return: Resolve result.
         """
-        if asyncio.iscoroutinefunction(self.resolve):  # type: ignore[attr-defined]
+        if inspect.iscoroutinefunction(self.resolve):  # type: ignore[attr-defined]
             return await self.resolve(*args, **kwargs)  # type: ignore[attr-defined]
 
         return self.resolve(*args, **kwargs)  # type: ignore[attr-defined]
@@ -82,7 +81,7 @@ class Component(metaclass=abc.ABCMeta):
 
 
 class Components(tuple[Component, ...]):
-    def __new__(cls, components: t.Optional[t.Union[t.Sequence[Component], set[Component]]] = None):
+    def __new__(cls, components: t.Sequence[Component] | set[Component] | None = None):
         return super().__new__(cls, components or [])
 
     def __eq__(self, other: t.Any) -> bool:

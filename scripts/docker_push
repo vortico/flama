@@ -5,7 +5,7 @@ source scripts/str_lib.sh
 source scripts/version
 
 LINUX_VERSIONS=("slim")
-PYTHON_VERSIONS=("3.13" "3.12" "3.11" "3.10" "3.9")
+PYTHON_VERSIONS=("3.14" "3.13" "3.12" "3.11" "3.10")
 SCHEMA_LIBS=("pydantic" "marshmallow" "typesystem")
 
 DEFAULT_LINUX="${LINUX_VERSIONS[0]}"

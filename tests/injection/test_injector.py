@@ -1,5 +1,4 @@
 import functools
-import typing as t
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -8,12 +7,19 @@ from flama.injection.components import Component, Components
 from flama.injection.context import Context as BaseContext
 from flama.injection.exceptions import ComponentError, ComponentNotFound
 from flama.injection.injector import Injector
-from flama.injection.resolver import EMPTY, Parameter, ResolutionTree, Resolver
+from flama.injection.resolver import Parameter, ResolutionTree, Resolver
 
-Foo = t.NewType("Foo", str)
-Bar = t.NewType("Bar", str)
-CustomStr = t.NewType("CustomStr", str)
-Unknown = t.NewType("Unknown", str)
+
+class Foo(str): ...
+
+
+class Bar(str): ...
+
+
+class CustomStr(str): ...
+
+
+class Unknown(str): ...
 
 
 class LiteralFooComponent(Component):
@@ -100,8 +106,8 @@ class TestCaseInjector:
             resolution = injector.resolve_function(function)
 
         assert resolver_mock.resolve.call_args_list == [
-            call(Parameter("foo", Foo, EMPTY)),
-            call(Parameter("bar", Bar, EMPTY)),
+            call(Parameter("foo", Foo, Parameter.empty)),
+            call(Parameter("bar", Bar, Parameter.empty)),
         ]
         assert resolution == {
             "foo": resolution_mock,

@@ -21,11 +21,11 @@ logger = logging.getLogger(__name__)
 class Router:
     def __init__(
         self,
-        routes: t.Optional[t.Sequence[BaseRoute]] = None,
+        routes: t.Sequence[BaseRoute] | None = None,
         *,
         app: "Flama",
-        components: t.Optional[t.Union[t.Sequence["Component"], set["Component"]]] = None,
-        lifespan: t.Optional[t.Callable[[t.Optional["Flama"]], t.AsyncContextManager]] = None,
+        components: t.Sequence["Component"] | set["Component"] | None = None,
+        lifespan: t.Callable[["Flama | None"], t.AsyncContextManager] | None = None,
     ):
         """A router for containing all routes and mount points.
 
@@ -72,15 +72,15 @@ class Router:
 
     def add_route(
         self,
-        path: t.Optional[str] = None,
-        endpoint: t.Optional[types.HTTPHandler] = None,
-        methods: t.Optional[list[str]] = None,
+        path: str | None = None,
+        endpoint: types.HTTPHandler | None = None,
+        methods: list[str] | None = None,
         *,
-        name: t.Optional[str] = None,
+        name: str | None = None,
         include_in_schema: bool = True,
-        route: t.Optional[Route] = None,
-        pagination: t.Optional[types.Pagination] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
+        route: Route | None = None,
+        pagination: types.Pagination | None = None,
+        tags: dict[str, t.Any] | None = None,
     ) -> Route:
         """Register a new HTTP route in this router under given path.
 
@@ -115,12 +115,12 @@ class Router:
     def route(
         self,
         path: str,
-        methods: t.Optional[list[str]] = None,
+        methods: list[str] | None = None,
         *,
-        name: t.Optional[str] = None,
+        name: str | None = None,
         include_in_schema: bool = True,
-        pagination: t.Optional[types.Pagination] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
+        pagination: types.Pagination | None = None,
+        tags: dict[str, t.Any] | None = None,
     ) -> t.Callable[[types.HTTPHandler], types.HTTPHandler]:
         """Decorator version for registering a new HTTP route in this router under given path.
 
@@ -149,13 +149,13 @@ class Router:
 
     def add_websocket_route(
         self,
-        path: t.Optional[str] = None,
-        endpoint: t.Optional[types.WebSocketHandler] = None,
+        path: str | None = None,
+        endpoint: types.WebSocketHandler | None = None,
         *,
-        name: t.Optional[str] = None,
-        route: t.Optional[WebSocketRoute] = None,
-        pagination: t.Optional[types.Pagination] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
+        name: str | None = None,
+        route: WebSocketRoute | None = None,
+        pagination: types.Pagination | None = None,
+        tags: dict[str, t.Any] | None = None,
     ) -> WebSocketRoute:
         """Register a new websocket route in this router under given path.
 
@@ -181,9 +181,9 @@ class Router:
         self,
         path: str,
         *,
-        name: t.Optional[str] = None,
-        pagination: t.Optional[types.Pagination] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
+        name: str | None = None,
+        pagination: types.Pagination | None = None,
+        tags: dict[str, t.Any] | None = None,
     ) -> t.Callable[[types.WebSocketHandler], types.WebSocketHandler]:
         """Decorator version for registering a new websocket route in this router under given path.
 
@@ -202,12 +202,12 @@ class Router:
 
     def mount(
         self,
-        path: t.Optional[str] = None,
-        app: t.Optional[types.App] = None,
+        path: str | None = None,
+        app: types.App | None = None,
         *,
-        name: t.Optional[str] = None,
-        mount: t.Optional[Mount] = None,
-        tags: t.Optional[dict[str, t.Any]] = None,
+        name: str | None = None,
+        mount: Mount | None = None,
+        tags: dict[str, t.Any] | None = None,
     ) -> Mount:
         """Register a new mount point containing an ASGI app in this router under given path.
 

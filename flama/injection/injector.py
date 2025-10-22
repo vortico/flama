@@ -6,10 +6,13 @@ from flama.injection.cache import LRUCache
 from flama.injection.components import Component, Components
 from flama.injection.context import Context
 from flama.injection.exceptions import ComponentNotFound
-from flama.injection.resolver import EMPTY, ROOT_NAME, Parameter, Resolver
+from flama.injection.resolver import Parameter, Resolver
 
 if t.TYPE_CHECKING:
     from flama.injection.resolver import ResolutionTree
+
+
+ROOT_NAME = "_root"
 
 
 class InjectionCache(LRUCache[tuple[Parameter, Context], t.Any]):
@@ -25,7 +28,7 @@ class Injector:
         self,
         context_cls: type[Context],
         /,
-        components: t.Optional[t.Union[t.Sequence[Component], Components]] = None,
+        components: t.Sequence[Component] | Components | None = None,
     ):
         """Functions dependency injector.
 
@@ -37,7 +40,7 @@ class Injector:
         self._context_cls = context_cls
         self.components = Components(components or [])
         self.cache = InjectionCache()
-        self._resolver: t.Optional[Resolver] = None
+        self._resolver: Resolver | None = None
 
     @property
     def components(self) -> Components:
@@ -72,7 +75,7 @@ class Injector:
     def resolve(self, annotation: type, *, default: t.Any) -> "ResolutionTree": ...
     @t.overload
     def resolve(self, annotation: type, *, name: str, default: t.Any) -> "ResolutionTree": ...
-    def resolve(self, annotation: type, *, name: str = ROOT_NAME, default: t.Any = EMPTY) -> "ResolutionTree":
+    def resolve(self, annotation: type, *, name: str = ROOT_NAME, default: t.Any = Parameter.empty) -> "ResolutionTree":
         """Generate a dependencies tree for a given type annotation.
 
         :param annotation: Type annotation to be resolved.
@@ -131,7 +134,12 @@ class Injector:
     @t.overload
     async def value(self, annotation: type, context: t.Mapping[str, t.Any], *, name: str, default: t.Any) -> t.Any: ...
     async def value(
-        self, annotation: type, context: t.Mapping[str, t.Any], *, name: str = ROOT_NAME, default: t.Any = EMPTY
+        self,
+        annotation: type,
+        context: t.Mapping[str, t.Any],
+        *,
+        name: str = ROOT_NAME,
+        default: t.Any = Parameter.empty,
     ) -> t.Any:
         """Generate a value for given dependency and context.
 

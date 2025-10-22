@@ -1,5 +1,4 @@
 import string
-import typing as t
 
 import pydantic
 
@@ -67,7 +66,7 @@ def alphabet(**kwargs):
 
 
 @app.route("/puppy/", methods=["GET"], pagination="page_number")
-def puppies(name: t.Optional[str] = None, **kwargs) -> list[Puppy]:
+def puppies(name: str | None = None, **kwargs) -> list[Puppy]:
     """
     tags:
         - puppy

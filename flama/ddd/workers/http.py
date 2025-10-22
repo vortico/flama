@@ -17,7 +17,7 @@ class HTTPWorker(BaseWorker):
 
     _client: "Client"
 
-    def __init__(self, url: t.Union[str, t.Callable[[], str]], app: t.Optional["Flama"] = None, **client_kwargs: t.Any):
+    def __init__(self, url: str | t.Callable[[], str], app: "Flama | None" = None, **client_kwargs: t.Any):
         super().__init__(app=app)
         self._url = url
         self._client_kwargs = client_kwargs

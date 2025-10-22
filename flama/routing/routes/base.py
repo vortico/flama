@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class BaseEndpointWrapper(abc.ABC):
-    def __init__(self, handler: types.Handler, *, pagination: t.Optional[types.Pagination] = None):
+    def __init__(self, handler: types.Handler, *, pagination: types.Pagination | None = None):
         """Wraps a function or endpoint into ASGI application.
 
         :param handler: Function or endpoint.
@@ -57,12 +57,12 @@ class BaseRoute(abc.ABC):
 
     def __init__(
         self,
-        path: t.Union[str, url.Path],
+        path: str | url.Path,
         app: types.App,
         *,
-        name: t.Optional[str] = None,
+        name: str | None = None,
         include_in_schema: bool = True,
-        tags: t.Optional[dict[str, t.Any]] = None,
+        tags: dict[str, t.Any] | None = None,
     ):
         """A route definition of a http endpoint.
 

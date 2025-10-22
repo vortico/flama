@@ -1,5 +1,4 @@
 import abc
-import asyncio
 import inspect
 import typing as t
 
@@ -14,7 +13,7 @@ class PaginationDecoratorFactory:
             raise TypeError("Paginated views must define **kwargs param")
 
         decorated_func = (
-            cls._decorate_async(func, schema) if asyncio.iscoroutinefunction(func) else cls._decorate_sync(func, schema)
+            cls._decorate_async(func, schema) if inspect.iscoroutinefunction(func) else cls._decorate_sync(func, schema)
         )
 
         decorated_func.__signature__ = inspect.Signature(  # type: ignore

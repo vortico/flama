@@ -1,4 +1,3 @@
-import typing as t
 from collections import namedtuple
 
 import marshmallow
@@ -48,9 +47,7 @@ def bar_schema(app, foo_schema):
 def bar_optional_schema(app, foo_schema):
     child_schema = foo_schema.schema
     if app.schema.schema_library.name == "pydantic":
-        schema = pydantic.create_model(
-            "BarOptional", foo=(t.Union[child_schema, None], None), __module__="pydantic.main"
-        )
+        schema = pydantic.create_model("BarOptional", foo=(child_schema | None, None), __module__="pydantic.main")
         name = "pydantic.main.BarOptional"
     elif app.schema.schema_library.name == "typesystem":
         schema = typesystem.Schema(

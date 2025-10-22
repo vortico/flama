@@ -8,8 +8,7 @@ __all__ = [
     "MethodComponent",
     "URLComponent",
     "SchemeComponent",
-    "HostComponent",
-    "PortComponent",
+    "ServerComponent",
     "PathComponent",
     "PathParamsComponent",
     "QueryStringComponent",
@@ -49,14 +48,9 @@ class SchemeComponent(Component):
         return types.Scheme(scope["scheme"])
 
 
-class HostComponent(Component):
-    def resolve(self, scope: types.Scope) -> types.Host:
-        return types.Host(scope["server"][0])
-
-
-class PortComponent(Component):
-    def resolve(self, scope: types.Scope) -> types.Port:
-        return types.Port(scope["server"][1])
+class ServerComponent(Component):
+    def resolve(self, scope: types.Scope) -> types.Server:
+        return types.Server(scope["server"][0], int(scope["server"][1]) if scope["server"][1] else None)
 
 
 class PathComponent(Component):
@@ -115,8 +109,7 @@ ASGI_COMPONENTS = Components(
         MethodComponent(),
         URLComponent(),
         SchemeComponent(),
-        HostComponent(),
-        PortComponent(),
+        ServerComponent(),
         PathComponent(),
         PathParamsComponent(),
         QueryStringComponent(),

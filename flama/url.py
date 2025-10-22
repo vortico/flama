@@ -7,7 +7,7 @@ import typing as t
 import urllib.parse
 import uuid
 
-T = t.TypeVar("T", bound=t.Union[int, str, float, decimal.Decimal, uuid.UUID])
+T = t.TypeVar("T", bound=int | str | float | decimal.Decimal | uuid.UUID)
 FragmentType = t.Literal["constant", "rest", "str", "int", "float", "decimal", "uuid"]
 
 __all__ = ["Path", "URL"]
@@ -167,9 +167,9 @@ class _Match(enum.Enum):
 @dataclasses.dataclass
 class _MatchResult:
     match: _Match
-    parameters: t.Optional[dict[str, t.Any]]
-    matched: t.Optional[str]
-    unmatched: t.Optional[str]
+    parameters: dict[str, t.Any] | None
+    matched: str | None
+    unmatched: str | None
 
 
 @dataclasses.dataclass
@@ -181,7 +181,7 @@ class _BuildResult:
 class Path:
     Match = _Match
 
-    def __init__(self, path: t.Union[str, "Path"]):
+    def __init__(self, path: "str | Path"):
         """URL path with a regex to allow path params as placeholders.
 
         Given a path string like: "/foo/{bar:str}"
@@ -222,7 +222,7 @@ class Path:
     def parameters(self) -> dict[str, type]:
         return {f.name: f.serializer.type for f in self._parameters.values()}
 
-    def match(self, path: t.Union[str, "Path"]) -> _MatchResult:
+    def match(self, path: "str | Path") -> _MatchResult:
         """Check if given path matches with current object.
 
         :param path: Path to match
@@ -274,7 +274,7 @@ class Path:
     def __repr__(self) -> str:
         return self.path.__repr__()
 
-    def __truediv__(self, other: t.Union["Path", str]) -> "Path":
+    def __truediv__(self, other: "str | Path") -> "Path":
         if isinstance(other, Path):
             a, b = self.path.rstrip("/"), other.path.lstrip("/")
         elif isinstance(other, str):
@@ -284,7 +284,7 @@ class Path:
 
         return Path(f"{a}/{b}")
 
-    def __rtruediv__(self, other: t.Union["Path", str]) -> "Path":
+    def __rtruediv__(self, other: "str | Path") -> "Path":
         if isinstance(other, Path):
             a, b = other.path.rstrip("/"), self.path.lstrip("/")  # pragma: no cover # covered by __truediv__
         elif isinstance(other, str):
@@ -294,7 +294,7 @@ class Path:
 
         return Path(f"{a}/{b}")
 
-    def __itruediv__(self, other: t.Union["Path", str]) -> "Path":
+    def __itruediv__(self, other: "str | Path") -> "Path":
         path = self / other
         self.path = path.path
         self._fragments = path._fragments
@@ -314,7 +314,7 @@ class URL:
     query: str
     fragment: str
 
-    def __init__(self, url: t.Union[str, "URL"] = "", /, **kwargs):
+    def __init__(self, url: "str | URL" = "", /, **kwargs):
         """URL object.
 
         :param url: URL string to be parsed.
@@ -329,7 +329,7 @@ class URL:
         self.fragment = parsed_url.fragment
 
     @property
-    def components(self) -> dict[str, t.Optional[str]]:
+    def components(self) -> dict[str, str | None]:
         """URL components map.
 
         :return: Components.

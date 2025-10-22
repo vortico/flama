@@ -32,10 +32,10 @@ __all__ = [
     "OpenAPISpec",
 ]
 
-Schema = t.NewType("Schema", types.JSONSchema)
+empty = types.Empty()
 
 
-class Empty: ...
+class Schema(types.JSONSchema): ...
 
 
 @dataclasses.dataclass(frozen=True)
@@ -45,9 +45,9 @@ class Reference:
 
 @dataclasses.dataclass(frozen=True)
 class Contact:
-    name: t.Optional[str] = None
-    url: t.Optional[str] = None
-    email: t.Optional[str] = None
+    name: str | None = None
+    url: str | None = None
+    email: str | None = None
 
     @classmethod
     def from_spec(cls, spec: types.OpenAPISpecInfoContact, /) -> "Contact":
@@ -57,8 +57,8 @@ class Contact:
 @dataclasses.dataclass(frozen=True)
 class License:
     name: str
-    identifier: t.Optional[str] = None
-    url: t.Optional[str] = None
+    identifier: str | None = None
+    url: str | None = None
 
     @classmethod
     def from_spec(cls, spec: types.OpenAPISpecInfoLicense, /) -> "License":
@@ -68,7 +68,7 @@ class License:
 @dataclasses.dataclass(frozen=True)
 class ExternalDocs:
     url: str
-    description: t.Optional[str] = None
+    description: str | None = None
 
     @classmethod
     def from_spec(cls, spec: types.OpenAPISpecExternalDocs, /) -> "ExternalDocs":
@@ -77,17 +77,17 @@ class ExternalDocs:
 
 @dataclasses.dataclass(frozen=True)
 class Example:
-    summary: t.Optional[str] = None
-    description: t.Optional[str] = None
-    value: t.Optional[t.Any] = None
-    externalValue: t.Optional[str] = None
+    summary: str | None = None
+    description: str | None = None
+    value: t.Any | None = None
+    externalValue: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
 class Tag:
     name: str
-    description: t.Optional[str] = None
-    externalDocs: t.Optional[ExternalDocs] = None
+    description: str | None = None
+    externalDocs: ExternalDocs | None = None
 
     @classmethod
     def from_spec(cls, spec: types.OpenAPISpecTag, /) -> "Tag":
@@ -106,11 +106,11 @@ class Tag:
 class Info:
     title: str
     version: str
-    summary: t.Optional[str] = None
-    description: t.Optional[str] = None
-    termsOfService: t.Optional[str] = None
-    contact: t.Optional[Contact] = None
-    license: t.Optional[License] = None
+    summary: str | None = None
+    description: str | None = None
+    termsOfService: str | None = None
+    contact: Contact | None = None
+    license: License | None = None
 
     @classmethod
     def from_spec(cls, spec: types.OpenAPISpecInfo) -> "Info":
@@ -132,8 +132,8 @@ class Info:
 @dataclasses.dataclass(frozen=True)
 class ServerVariable:
     default: str
-    enum: t.Optional[list[str]] = None
-    description: t.Optional[str] = None
+    enum: list[str] | None = None
+    description: str | None = None
 
     @classmethod
     def from_spec(cls, spec: types.OpenAPISpecServerVariable, /) -> "ServerVariable":
@@ -143,8 +143,8 @@ class ServerVariable:
 @dataclasses.dataclass(frozen=True)
 class Server:
     url: str
-    description: t.Optional[str] = None
-    variables: t.Optional[dict[str, ServerVariable]] = None
+    description: str | None = None
+    variables: dict[str, ServerVariable] | None = None
 
     @classmethod
     def from_spec(cls, spec: types.OpenAPISpecServer, /) -> "Server":
@@ -164,114 +164,116 @@ class Server:
 
 @dataclasses.dataclass(frozen=True)
 class Link:
-    operationRef: t.Optional[str] = None
-    operationId: t.Optional[str] = None
-    parameters: t.Optional[dict[str, t.Any]] = None
-    requestBody: t.Optional[t.Any] = None
-    description: t.Optional[str] = None
-    server: t.Optional[Server] = None
+    operationRef: str | None = None
+    operationId: str | None = None
+    parameters: dict[str, t.Any] | None = None
+    requestBody: t.Any | None = None
+    description: str | None = None
+    server: Server | None = None
 
 
-Security = t.NewType("Security", dict[str, list[str]])
-Callback = t.NewType("Callback", dict[str, "Path"])
+class Security(dict[str, list[str]]): ...
+
+
+class Callback(dict[str, "Path"]): ...
 
 
 @dataclasses.dataclass(frozen=True)
 class Header:
-    description: t.Optional[str] = None
-    required: t.Optional[bool] = None
-    deprecated: t.Optional[bool] = None
-    allowEmptyValue: t.Optional[bool] = None
-    style: t.Optional[str] = None
-    explode: t.Optional[bool] = None
-    allowReserved: t.Optional[bool] = None
-    schema: t.Optional[t.Union[Schema, Reference]] = None
-    example: t.Optional[t.Any] = None
-    examples: t.Optional[dict[str, t.Union[Example, Reference]]] = None
+    description: str | None = None
+    required: bool | None = None
+    deprecated: bool | None = None
+    allowEmptyValue: bool | None = None
+    style: str | None = None
+    explode: bool | None = None
+    allowReserved: bool | None = None
+    schema: Schema | Reference | None = None
+    example: t.Any | None = None
+    examples: dict[str, Example | Reference] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
 class Parameter:
     name: str
     in_: str
-    description: t.Optional[str] = None
-    required: t.Optional[bool] = None
-    deprecated: t.Optional[bool] = None
-    allowEmptyValue: t.Optional[bool] = None
-    style: t.Optional[str] = None
-    explode: t.Optional[bool] = None
-    allowReserved: t.Optional[bool] = None
-    schema: t.Optional[t.Union[Schema, Reference]] = None
-    example: t.Optional[t.Any] = None
-    examples: t.Optional[dict[str, t.Union[Example, Reference]]] = None
+    description: str | None = None
+    required: bool | None = None
+    deprecated: bool | None = None
+    allowEmptyValue: bool | None = None
+    style: str | None = None
+    explode: bool | None = None
+    allowReserved: bool | None = None
+    schema: Schema | Reference | None = None
+    example: t.Any | None = None
+    examples: dict[str, Example | Reference] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
 class Encoding:
-    contentType: t.Optional[str] = None
-    headers: t.Optional[dict[str, t.Union[Header, Reference]]] = None
-    style: t.Optional[str] = None
-    explode: t.Optional[bool] = None
-    allowReserved: t.Optional[bool] = None
+    contentType: str | None = None
+    headers: dict[str, Header | Reference] | None = None
+    style: str | None = None
+    explode: bool | None = None
+    allowReserved: bool | None = None
 
 
 @dataclasses.dataclass(frozen=True)
 class MediaType:
-    schema: t.Optional[t.Union[Schema, Reference]] = None
-    example: t.Optional[t.Any] = None
-    examples: t.Optional[dict[str, t.Union[t.Any, Reference]]] = None
-    encoding: t.Optional[dict[str, Encoding]] = None
+    schema: Schema | Reference | None = None
+    example: t.Any | None = None
+    examples: dict[str, t.Any | Reference] | None = None
+    encoding: dict[str, Encoding] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
 class RequestBody:
     content: dict[str, MediaType]
-    description: t.Optional[str] = None
-    required: t.Optional[bool] = None
+    description: str | None = None
+    required: bool | None = None
 
 
 @dataclasses.dataclass(frozen=True)
 class Response:
     description: str
-    headers: t.Optional[dict[str, t.Union[Header, Reference]]] = None
-    content: t.Optional[dict[str, MediaType]] = None
-    links: t.Optional[dict[str, t.Union[Link, Reference]]] = None
+    headers: dict[str, Header | Reference] | None = None
+    content: dict[str, MediaType] | None = None
+    links: dict[str, Link | Reference] | None = None
 
 
-Responses = t.NewType("Responses", dict[str, Response])
+class Responses(dict[str, Response]): ...
 
 
 @dataclasses.dataclass(frozen=True)
 class Operation:
     responses: Responses
-    tags: t.Optional[list[str]] = None
-    summary: t.Optional[str] = None
-    description: t.Optional[str] = None
-    externalDocs: t.Optional[ExternalDocs] = None
-    operationId: t.Optional[str] = None
-    parameters: t.Optional[list[t.Union[Parameter, Reference]]] = None
-    requestBody: t.Optional[t.Union[RequestBody, Reference]] = None
-    callbacks: t.Optional[dict[str, t.Union[Callback, Reference]]] = None
-    deprecated: t.Optional[bool] = None
-    security: t.Optional[list[Security]] = None
-    servers: t.Optional[list[Server]] = None
+    tags: list[str] | None = None
+    summary: str | None = None
+    description: str | None = None
+    externalDocs: ExternalDocs | None = None
+    operationId: str | None = None
+    parameters: list[Parameter | Reference] | None = None
+    requestBody: RequestBody | Reference | None = None
+    callbacks: dict[str, Callback | Reference] | None = None
+    deprecated: bool | None = None
+    security: list[Security] | None = None
+    servers: list[Server] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
 class Path:
-    ref: t.Optional[str] = None
-    summary: t.Optional[str] = None
-    description: t.Optional[str] = None
-    get: t.Optional[Operation] = None
-    put: t.Optional[Operation] = None
-    post: t.Optional[Operation] = None
-    delete: t.Optional[Operation] = None
-    options: t.Optional[Operation] = None
-    head: t.Optional[Operation] = None
-    patch: t.Optional[Operation] = None
-    trace: t.Optional[Operation] = None
-    servers: t.Optional[list[Server]] = None
-    parameters: t.Optional[list[t.Union[Parameter, Reference]]] = None
+    ref: str | None = None
+    summary: str | None = None
+    description: str | None = None
+    get: Operation | None = None
+    put: Operation | None = None
+    post: Operation | None = None
+    delete: Operation | None = None
+    options: Operation | None = None
+    head: Operation | None = None
+    patch: Operation | None = None
+    trace: Operation | None = None
+    servers: list[Server] | None = None
+    parameters: list[Parameter | Reference] | None = None
 
     @property
     def operations(self) -> dict[str, Operation]:
@@ -282,20 +284,20 @@ class Path:
         }
 
 
-Paths = t.NewType("Paths", dict[str, Path])
+class Paths(dict[str, Path]): ...
 
 
 @dataclasses.dataclass(frozen=True)
 class Components:
-    schemas: dict[str, t.Union[Schema, Reference]]
-    responses: dict[str, t.Union[Response, Reference]]
-    parameters: dict[str, t.Union[Parameter, Reference]]
-    examples: dict[str, t.Union[Example, Reference]]
-    requestBodies: dict[str, t.Union[RequestBody, Reference]]
-    headers: dict[str, t.Union[Header, Reference]]
-    securitySchemes: dict[str, t.Union[Security, Reference]]
-    links: dict[str, t.Union[Link, Reference]]
-    callbacks: dict[str, t.Union[Callback, Reference]]
+    schemas: dict[str, Schema | Reference]
+    responses: dict[str, Response | Reference]
+    parameters: dict[str, Parameter | Reference]
+    examples: dict[str, Example | Reference]
+    requestBodies: dict[str, RequestBody | Reference]
+    headers: dict[str, Header | Reference]
+    securitySchemes: dict[str, Security | Reference]
+    links: dict[str, Link | Reference]
+    callbacks: dict[str, Callback | Reference]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -304,10 +306,10 @@ class OpenAPI:
     info: Info
     paths: Paths
     components: Components
-    servers: t.Optional[list[Server]] = None
-    security: t.Optional[list[Security]] = None
-    tags: t.Optional[list[Tag]] = None
-    externalDocs: t.Optional[ExternalDocs] = None
+    servers: list[Server] | None = None
+    security: list[Security] | None = None
+    tags: list[Tag] | None = None
+    externalDocs: ExternalDocs | None = None
 
 
 class OpenAPISpec:
@@ -317,10 +319,10 @@ class OpenAPISpec:
         self,
         info: Info,
         *,
-        servers: t.Optional[list[Server]] = None,
-        security: t.Optional[list[Security]] = None,
-        tags: t.Optional[list[Tag]] = None,
-        externalDocs: t.Optional[ExternalDocs] = None,
+        servers: list[Server] | None = None,
+        security: list[Security] | None = None,
+        tags: list[Tag] | None = None,
+        externalDocs: ExternalDocs | None = None,
     ):
         self.spec = OpenAPI(
             openapi=self.OPENAPI_VERSION,
@@ -368,35 +370,35 @@ class OpenAPISpec:
     def add_path(self, path: str, item: Path):
         self.spec.paths[path] = item
 
-    def add_schema(self, name: str, item: t.Union[Schema, Reference]):
+    def add_schema(self, name: str, item: Schema | Reference):
         self.spec.components.schemas[name] = item
 
-    def add_response(self, name: str, item: t.Union[Response, Reference]):
+    def add_response(self, name: str, item: Response | Reference):
         self.spec.components.responses[name] = item
 
-    def add_parameter(self, name: str, item: t.Union[Parameter, Reference]):
+    def add_parameter(self, name: str, item: Parameter | Reference):
         self.spec.components.parameters[name] = item
 
-    def add_example(self, name: str, item: t.Union[Example, Reference]):
+    def add_example(self, name: str, item: Example | Reference):
         self.spec.components.examples[name] = item
 
-    def add_request_body(self, name: str, item: t.Union[RequestBody, Reference]):
+    def add_request_body(self, name: str, item: RequestBody | Reference):
         self.spec.components.requestBodies[name] = item
 
-    def add_header(self, name: str, item: t.Union[Header, Reference]):
+    def add_header(self, name: str, item: Header | Reference):
         self.spec.components.headers[name] = item
 
-    def add_security(self, name: str, item: t.Union[Security, Reference]):
+    def add_security(self, name: str, item: Security | Reference):
         self.spec.components.securitySchemes[name] = item
 
-    def add_link(self, name: str, item: t.Union[Link, Reference]):
+    def add_link(self, name: str, item: Link | Reference):
         self.spec.components.links[name] = item
 
-    def add_callback(self, name: str, item: t.Union[Callback, Reference]):
+    def add_callback(self, name: str, item: Callback | Reference):
         self.spec.components.callbacks[name] = item
 
-    def to_dict(self, obj: t.Any = Empty) -> t.Any:
-        if obj is Empty:
+    def to_dict(self, obj: t.Any = empty) -> t.Any:
+        if obj is empty:
             return self.to_dict(dataclasses.asdict(self.spec))
 
         if isinstance(obj, list):
