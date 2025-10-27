@@ -1,4 +1,5 @@
 import typing as t
+import warnings
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -70,7 +71,8 @@ class TestCaseBaseEndpoint:
             asgi_send,
         )
 
-        with patch.object(e, "dispatch"):
+        with patch.object(e, "dispatch"), warnings.catch_warnings():
+            warnings.simplefilter("ignore")
             e.__await__()
 
             assert e.dispatch.call_args_list == [call()]

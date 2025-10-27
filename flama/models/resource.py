@@ -10,7 +10,7 @@ from flama.resources.resource import Resource, ResourceType
 from flama.resources.routing import ResourceRoute
 
 if t.TYPE_CHECKING:
-    from flama.models.base import Model
+    from flama.models.base import BaseModel
     from flama.models.components import ModelComponent
 
 __all__ = ["BaseModelResource", "ModelResource", "InspectMixin", "PredictMixin", "ModelResourceType"]
@@ -21,7 +21,9 @@ Component = t.TypeVar("Component", bound="ModelComponent")
 
 class InspectMixin:
     @classmethod
-    def _add_inspect(cls, name: str, verbose_name: str, model_model_type: type["Model"], **kwargs) -> dict[str, t.Any]:
+    def _add_inspect(
+        cls, name: str, verbose_name: str, model_model_type: type["BaseModel"], **kwargs
+    ) -> dict[str, t.Any]:
         @ResourceRoute.method("/", methods=["GET"], name="inspect")
         async def inspect(self, model: model_model_type):  # type: ignore[valid-type]
             return model.inspect()  # type: ignore[attr-defined]
@@ -44,7 +46,9 @@ class InspectMixin:
 
 class PredictMixin:
     @classmethod
-    def _add_predict(cls, name: str, verbose_name: str, model_model_type: type["Model"], **kwargs) -> dict[str, t.Any]:
+    def _add_predict(
+        cls, name: str, verbose_name: str, model_model_type: type["BaseModel"], **kwargs
+    ) -> dict[str, t.Any]:
         @ResourceRoute.method("/predict/", methods=["POST"], name="predict")
         async def predict(
             self,

@@ -5,9 +5,9 @@ import pytest
 from flama import Flama
 from flama.injection import Parameter
 from flama.models import ModelComponent
-from flama.models.models.pytorch import PyTorchModel
-from flama.models.models.sklearn import SKLearnModel
-from flama.models.models.tensorflow import TensorFlowModel
+from flama.models.models.pytorch import Model as PyTorchModel
+from flama.models.models.sklearn import Model as SKLearnModel
+from flama.models.models.tensorflow import Model as TensorFlowModel
 
 
 @pytest.fixture(scope="function")

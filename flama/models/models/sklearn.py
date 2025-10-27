@@ -1,7 +1,7 @@
 import typing as t
 
 from flama import exceptions
-from flama.models.base import Model
+from flama.models.base import BaseModel
 
 try:
     import sklearn  # type: ignore
@@ -9,7 +9,10 @@ except Exception:  # pragma: no cover
     sklearn = None
 
 
-class SKLearnModel(Model):
+__all__ = ["Model"]
+
+
+class Model(BaseModel):
     def predict(self, x: list[list[t.Any]]) -> t.Any:
         if sklearn is None:  # noqa
             raise exceptions.FrameworkNotInstalled("scikit-learn")

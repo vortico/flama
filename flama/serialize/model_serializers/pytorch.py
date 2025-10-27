@@ -3,9 +3,8 @@ import importlib.metadata
 import io
 import typing as t
 
-from flama import exceptions
-from flama.serialize import types
-from flama.serialize.base import Serializer
+from flama import exceptions, types
+from flama.serialize.model_serializers.base import BaseModelSerializer
 
 try:
     import torch  # type: ignore
@@ -15,11 +14,13 @@ except Exception:  # pragma: no cover
 if t.TYPE_CHECKING:
     from flama.types import JSONSchema
 
+__all__ = ["ModelSerializer"]
 
-class PyTorchSerializer(Serializer):
-    lib = types.Framework.torch
 
-    def dump(self, obj: t.Any, **kwargs) -> bytes:
+class ModelSerializer(BaseModelSerializer):
+    lib: t.ClassVar[types.MLLib] = "torch"
+
+    def dump(self, obj: t.Any, /, **kwargs) -> bytes:
         if torch is None:  # noqa
             raise exceptions.FrameworkNotInstalled("pytorch")
 
@@ -28,13 +29,13 @@ class PyTorchSerializer(Serializer):
         buffer.seek(0)
         return codecs.encode(buffer.read(), "base64")
 
-    def load(self, model: bytes, **kwargs) -> t.Any:
+    def load(self, model: bytes, /, **kwargs) -> t.Any:
         if torch is None:  # noqa
             raise exceptions.FrameworkNotInstalled("pytorch")
 
         return torch.jit.load(io.BytesIO(codecs.decode(model, "base64")), **kwargs)
 
-    def info(self, model: t.Any) -> "JSONSchema | None":
+    def info(self, model: t.Any, /) -> "JSONSchema | None":
         return {
             "modules": [str(x) for x in model.modules()],
             "parameters": {k: str(v) for k, v in model.named_parameters()},

@@ -7,4 +7,5 @@ from flama.types.json import *  # noqa
 from flama.types.openapi import *  # noqa
 from flama.types.pagination import *  # noqa
 from flama.types.schemas import *  # noqa
+from flama.types.serialize import *  # noqa
 from flama.types.websockets import *  # noqa

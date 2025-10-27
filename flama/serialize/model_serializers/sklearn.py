@@ -6,9 +6,8 @@ import pickle
 import typing as t
 import warnings
 
-from flama import exceptions
-from flama.serialize import types
-from flama.serialize.base import Serializer
+from flama import exceptions, types
+from flama.serialize.model_serializers.base import BaseModelSerializer
 
 if t.TYPE_CHECKING:
     from flama.types import JSONField, JSONSchema
@@ -16,20 +15,23 @@ if t.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class SKLearnSerializer(Serializer):
-    lib = types.Framework.sklearn
+__all__ = ["ModelSerializer"]
 
-    def dump(self, obj: t.Any, **kwargs) -> bytes:
+
+class ModelSerializer(BaseModelSerializer):
+    lib: t.ClassVar[types.MLLib] = "sklearn"
+
+    def dump(self, obj: t.Any, /, **kwargs) -> bytes:
         return codecs.encode(pickle.dumps(obj), "base64")
 
-    def load(self, model: bytes, **kwargs) -> t.Any:
+    def load(self, model: bytes, /, **kwargs) -> t.Any:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             model = pickle.loads(codecs.decode(model, "base64"))
 
         return model
 
-    def _info(self, data) -> "JSONField":
+    def _info(self, data, /) -> "JSONField":
         if isinstance(data, int | bool | str):
             return data
 

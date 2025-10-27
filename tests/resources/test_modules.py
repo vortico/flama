@@ -68,5 +68,5 @@ class TestCaseResourcesModule:
         assert route.resource._meta.name in route.app.resources.worker._resources_repositories.registered
 
     def test_add_resource_wrong(self, app):
-        with pytest.raises(ValueError, match=""):
+        with pytest.raises(ValueError, match="Wrong resource"):
             app.resources.add_resource("/puppy/", Mock())

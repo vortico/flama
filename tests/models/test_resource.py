@@ -7,8 +7,8 @@ import flama
 from flama.client import Client
 from flama.models import ModelResource, ModelResourceType
 from flama.resources.exceptions import ResourceAttributeError
+from tests._utils import NotInstalled
 from tests.conftest import model_factory
-from tests.utils import NotInstalled
 
 
 class TestCaseModelResource:
@@ -88,7 +88,7 @@ class TestCaseModelResourceMethods:
             pytest.skip(f"Lib for case '{request.param}' is not installed.")
 
         with tempfile.NamedTemporaryFile(suffix=".flm") as f:
-            flama.dump(model, f.name)
+            flama.dump(model, path=f.name)
             f.flush()
 
             app.models.add_model("/model/", model=pathlib.Path(f.name), name=request.param)

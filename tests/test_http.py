@@ -4,6 +4,7 @@ import enum
 import json
 import pathlib
 import uuid
+import warnings
 from unittest.mock import AsyncMock, MagicMock, Mock, call, mock_open, patch
 
 import jinja2
@@ -409,7 +410,9 @@ class TestCaseFlamaLoader:
             patch("importlib.util", import_mock),
             patch.object(pathlib.Path, "exists", return_value=path_exists_mock),
             patch.object(pathlib.Path, "mkdir") as mkdir_mock,
+            warnings.catch_warnings(),
         ):
+            warnings.simplefilter("ignore")
             http._FlamaLoader()
 
             if mkdir_call:
