@@ -1,5 +1,16 @@
 # Semantic Versioning Changelog
 
+# [v1.12.0](https://github.com/vortico/flama/compare/v1.11.7...v1.12.0) (2025-10-27)
+
+## ✨ New Features
+- [`12b9e79`](https://github.com/vortico/flama/commit/12b9e79)  Supports 3.14 and drops 3.9 (#187) (Issues: [`#187`](https://github.com/vortico/flama/issues/))
+- [`b4fd72c`](https://github.com/vortico/flama/commit/b4fd72c)  Rebuild serialisation protocol to allow versions (#192) (Issues: [`#192`](https://github.com/vortico/flama/issues/))
+
+## 🐛 Bug Fixes
+- [`a4329fb`](https://github.com/vortico/flama/commit/a4329fb)  Do not register multiple times same child schemas (#188) (Issues: [`#188`](https://github.com/vortico/flama/issues/))
+- [`62f51fd`](https://github.com/vortico/flama/commit/62f51fd)  Allow None objects while converting schema to dict (#190) (Issues: [`#190`](https://github.com/vortico/flama/issues/))
+- [`59a752f`](https://github.com/vortico/flama/commit/59a752f)  OpenAPI generator discovers nested schemas (#189) (Issues: [`#189`](https://github.com/vortico/flama/issues/))
+
 # [v1.11.7](https://github.com/vortico/flama/compare/v1.11.6...v1.11.7) (2025-06-25)
 
 ## 🐛 Bug Fixes
