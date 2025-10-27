@@ -1,6 +1,6 @@
 import sys
 
-__all__ = ["Self", "NotRequired", "StrEnum", "tomllib", "get_annotations"]
+__all__ = ["Self", "NotRequired", "StrEnum", "tomllib", "get_annotations", "bz2", "lzma", "zlib", "zstd"]
 
 # PORT: Remove when stop supporting 3.10
 # Self was added in Python 3.11
@@ -54,3 +54,15 @@ if sys.version_info >= (3, 14):
     from annotationlib import get_annotations
 else:
     from typing_extensions import get_annotations
+
+# PORT: Remove when stop supporting 3.13
+# compression was added in Python 3.14
+# https://docs.python.org/3/library/compression.html
+if sys.version_info >= (3, 14):
+    from compression import bz2, lzma, zlib, zstd
+else:
+    import bz2
+    import lzma
+    import zlib
+
+    import zstd

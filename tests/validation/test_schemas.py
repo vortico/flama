@@ -9,7 +9,7 @@ import typesystem
 import typesystem.fields
 
 from flama import types
-from tests.asserts import assert_recursive_contains
+from tests._utils import assert_recursive_contains
 
 utc = datetime.timezone.utc
 
@@ -255,6 +255,9 @@ class TestCaseSchemaValidation:
         ],
     )
     async def test_schemas(self, client, path, method, json_data, expected_output, status_code):
+        if client.app.schema.schema_library.name == "typesystem" and path == "/partial-product":
+            pytest.skip("Typesystem does not support partial validation")
+
         response = await client.request(method, path, json=json_data)
         assert response.status_code == status_code, response.json()
         assert_recursive_contains(expected_output, response.json())

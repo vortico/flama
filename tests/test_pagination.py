@@ -10,7 +10,7 @@ from pytest import param
 
 from flama import types
 from flama.pagination import paginator
-from tests.asserts import assert_recursive_contains
+from tests._utils import assert_recursive_contains
 
 
 @pytest.fixture(scope="function")

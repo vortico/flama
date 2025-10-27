@@ -1,7 +1,7 @@
 import typing as t
 
 from flama import exceptions
-from flama.models.base import Model
+from flama.models.base import BaseModel
 
 try:
     import numpy as np  # type: ignore
@@ -14,7 +14,10 @@ except Exception:  # pragma: no cover
     tf = None
 
 
-class TensorFlowModel(Model):
+__all__ = ["Model"]
+
+
+class Model(BaseModel):
     def predict(self, x: list[list[t.Any]]) -> t.Any:
         if np is None:  # noqa
             raise exceptions.FrameworkNotInstalled("numpy")

@@ -13,7 +13,7 @@ repos:
       - id: name-tests-test
         args:
           - --django
-        exclude: "asserts.py|utils.py"
+        exclude: "_utils/.*"
       - id: pretty-format-json
         args:
           - --autofix

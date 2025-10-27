@@ -49,7 +49,9 @@ dependencies = [
   "uvicorn[standard]>=0.38,<1.0.0",
   "Jinja2>=3.1.2,<4.0",
   "pyyaml>=6.0,<7.0",
-  "typing-extensions>=4.15,<5.0; python_version < '3.11'",
+  "typing-extensions>=4.15,<5.0; python_version < '3.14'", # PORT: Replace compat when stop supporting 3.13
+  "tomli>=2.3.0,<3.0; python_version < '3.11'",            # PORT: Replace compat when stop supporting 3.10
+  "zstd>=1.5.7,<2.0; python_version < '3.14'",             # PORT: Replace compat when stop supporting 3.13
 ]
 
 [project.urls]

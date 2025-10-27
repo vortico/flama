@@ -12,7 +12,7 @@ from flama import Flama, exceptions, types
 from flama.endpoints import HTTPEndpoint
 from flama.schemas import openapi
 from flama.schemas.generator import SchemaRegistry
-from tests.asserts import assert_recursive_contains
+from tests._utils import assert_recursive_contains
 
 
 def _fix_ref(value, refs):

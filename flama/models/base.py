@@ -4,10 +4,10 @@ import typing as t
 if t.TYPE_CHECKING:
     from flama.serialize.data_structures import Artifacts, Metadata
 
-__all__ = ["Model"]
+__all__ = ["BaseModel"]
 
 
-class Model:
+class BaseModel:
     def __init__(self, model: t.Any, meta: "Metadata", artifacts: "Artifacts | None"):
         self.model = model
         self.meta = meta
