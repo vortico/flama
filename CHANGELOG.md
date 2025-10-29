@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.12.1](https://github.com/vortico/flama/compare/v1.12.0...v1.12.1) (2025-10-29)
+
+## 🐛 Bug Fixes
+- [`6785868`](https://github.com/vortico/flama/commit/6785868)  Reexport schema types from flama.schemas
+
 # [v1.12.0](https://github.com/vortico/flama/compare/v1.11.7...v1.12.0) (2025-10-27)
 
 ## ✨ New Features
