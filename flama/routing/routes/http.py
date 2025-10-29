@@ -2,8 +2,9 @@ import inspect
 import logging
 import typing as t
 
-from flama import concurrency, endpoints, exceptions, http, schemas, types
+from flama import concurrency, endpoints, exceptions, http, types
 from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute
+from flama.schemas.data_structures import Schema
 
 if t.TYPE_CHECKING:
     from flama import Flama
@@ -18,7 +19,7 @@ class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
         super().__init__(handler, pagination=pagination)
 
         try:
-            self.schema = schemas.Schema.from_type(inspect.signature(self.handler).return_annotation).unique_schema
+            self.schema = Schema.from_type(inspect.signature(self.handler).return_annotation).unique_schema
         except Exception:
             self.schema = None
 

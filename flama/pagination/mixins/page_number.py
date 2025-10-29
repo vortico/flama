@@ -3,6 +3,7 @@ import inspect
 import typing as t
 
 from flama import http, schemas
+from flama.schemas.data_structures import Field, Schema
 
 __all__ = ["PageNumberMixin", "PageNumberResponse"]
 
@@ -115,7 +116,7 @@ class PageNumberMixin:
         :param schema_name: Name used for output field.
         :return: Decorated view.
         """
-        schema = schemas.Schema.from_type(inspect.signature(func).return_annotation)
+        schema = Schema.from_type(inspect.signature(func).return_annotation)
 
         try:
             module, schema_class = schema.name.rsplit(".", 1)
@@ -124,11 +125,11 @@ class PageNumberMixin:
             module = None
             name = f"PageNumberPaginated{schema.name}"
 
-        paginated_schema = schemas.Schema.build(
+        paginated_schema = Schema.build(
             name,
             module,
             schema=schemas.schemas.PageNumber,
-            fields=[schemas.Field("data", schema.unique_schema, multiple=True)],
+            fields=[Field("data", schema.unique_schema, multiple=True)],
         )
 
         decorator = PageNumberDecoratorFactory.decorate(func, paginated_schema.unique_schema)

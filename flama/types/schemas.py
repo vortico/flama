@@ -6,7 +6,6 @@ __all__ = ["Schema", "SchemaList", "SchemaMetadata", "get_schema_metadata", "is_
 
 Schema: t.TypeAlias = dict[str, t.Any]
 SchemaList: t.TypeAlias = list[Schema]
-SchemaType: t.TypeAlias = Schema
 
 
 @dataclasses.dataclass(frozen=True)

@@ -17,6 +17,7 @@ import starlette.responses
 import starlette.schemas
 
 from flama import compat, exceptions, schemas, types, url
+from flama.schemas.data_structures import Schema
 
 __all__ = [
     "Method",
@@ -157,7 +158,7 @@ class APIResponse(JSONResponse):
     def render(self, content: t.Any):
         if self.schema is not None:
             try:
-                content = schemas.Schema.from_type(self.schema).dump(content)
+                content = Schema.from_type(self.schema).dump(content)
             except schemas.SchemaValidationError as e:
                 raise exceptions.SerializationError(status_code=500, detail=e.errors)
 

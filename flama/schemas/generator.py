@@ -8,8 +8,8 @@ from collections import defaultdict
 import yaml
 
 from flama import exceptions, routing, schemas, types, url
-from flama.schemas import Schema, openapi
-from flama.schemas.data_structures import Parameter
+from flama.schemas import openapi
+from flama.schemas.data_structures import Parameter, Schema
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +41,14 @@ class SchemaInfo:
 
 
 class SchemaRegistry(dict[int, SchemaInfo]):
-    def __init__(self, schemas: dict[str, schemas.Schema] | None = None):
+    def __init__(self, schemas: dict[str, Schema] | None = None):
         super().__init__()
 
         for name, schema in (schemas or {}).items():
             self.register(schema, name)
 
     def __contains__(self, item: t.Any) -> bool:
-        return super().__contains__(id(schemas.Schema(item).unique_schema))
+        return super().__contains__(id(Schema(item).unique_schema))
 
     def __getitem__(self, item: t.Any) -> SchemaInfo:
         """Lookup method that allows using Schema classes or instances.
@@ -56,7 +56,7 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         :param item: Schema to look for.
         :return: Registered schema.
         """
-        return super().__getitem__(id(schemas.Schema(item).unique_schema))
+        return super().__getitem__(id(Schema(item).unique_schema))
 
     @property
     def names(self) -> dict[int, str]:
@@ -197,15 +197,13 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         # Get schemas from schema children
         partial_schemas = set(used_schemas.values())
         while partial_schemas:
-            for schema in (
-                schemas.Schema(s).unique_schema for s in schemas.Schema(partial_schemas.pop().schema).nested_schemas()
-            ):
+            for schema in (Schema(s).unique_schema for s in Schema(partial_schemas.pop().schema).nested_schemas()):
                 partial_schemas.add(self[schema])
                 used_schemas[id(schema)] = self[schema]
 
         return used_schemas
 
-    def register(self, schema: schemas.Schema, name: str | None = None) -> int:
+    def register(self, schema: Schema, name: str | None = None) -> int:
         """
         Register a new Schema to this registry.
 
@@ -216,7 +214,7 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         if schema in self:
             raise exceptions.ApplicationError(f"Schema '{schema}' is already registered.")
 
-        s = schemas.Schema(schema)
+        s = Schema(schema)
 
         try:
             schema_name = name or s.name
@@ -227,14 +225,12 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         schema_id = id(schema_instance)
         self[schema_id] = SchemaInfo(name=schema_name, schema=schema_instance)
 
-        for child_schema in (schemas.Schema(x) for x in s.nested_schemas() if x not in self):
+        for child_schema in (Schema(x) for x in s.nested_schemas() if x not in self):
             self.register(schema=child_schema.schema, name=child_schema.name)
 
         return schema_id
 
-    def get_openapi_ref(
-        self, element: schemas.Schema, multiple: bool | None = None
-    ) -> openapi.Schema | openapi.Reference:
+    def get_openapi_ref(self, element: Schema, multiple: bool | None = None) -> openapi.Schema | openapi.Reference:
         """
         Builds the reference for a single schema or the array schema containing the reference.
 
@@ -251,7 +247,7 @@ class SchemaRegistry(dict[int, SchemaInfo]):
 
 
 class SchemaGenerator:
-    def __init__(self, spec: types.OpenAPISpec, schemas: dict[str, schemas.Schema] | None = None):
+    def __init__(self, spec: types.OpenAPISpec, schemas: dict[str, Schema] | None = None):
         self.spec = openapi.OpenAPISpec.from_spec(spec)
 
         # Builtin definitions

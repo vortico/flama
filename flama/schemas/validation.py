@@ -1,7 +1,9 @@
 import inspect
 from functools import wraps
 
-from flama import exceptions, schemas
+from flama import exceptions
+from flama.schemas.data_structures import Schema
+from flama.schemas.exceptions import SchemaValidationError
 
 __all__ = ["output_validation"]
 
@@ -17,7 +19,7 @@ def output_validation(error_cls=exceptions.ValidationError, error_status_code=50
 
     def outer_decorator(func):
         try:
-            schema = schemas.Schema.from_type(inspect.signature(func).return_annotation)
+            schema = Schema.from_type(inspect.signature(func).return_annotation)
         except Exception as e:
             raise TypeError(f"Invalid return signature for function '{func}'") from e
 
@@ -28,7 +30,7 @@ def output_validation(error_cls=exceptions.ValidationError, error_status_code=50
             try:
                 # Use output schema to validate the data
                 schema.validate(schema.dump(response))
-            except schemas.SchemaValidationError as e:
+            except SchemaValidationError as e:
                 raise error_cls(detail=e.errors, status_code=error_status_code)
             except Exception as e:
                 raise error_cls(

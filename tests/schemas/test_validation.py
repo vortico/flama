@@ -143,7 +143,7 @@ class TestCaseSchemaValidateOutput:
 
     async def test_validation_uncontrolled_error(self, client):
         with patch(
-            "flama.schemas.validation.schemas.adapter.dump",
+            "flama.schemas.data_structures.schemas.adapter.dump",
             side_effect=[
                 Exception,
                 {

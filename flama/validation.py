@@ -4,7 +4,8 @@ from flama import codecs, exceptions, http, routing, types
 from flama.injection import Component, Components
 from flama.injection.resolver import Parameter
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
-from flama.schemas import Field, Schema, SchemaValidationError
+from flama.schemas import SchemaValidationError
+from flama.schemas.data_structures import Field, Schema
 
 
 class ValidatedPathParams(dict[str, t.Any]): ...
