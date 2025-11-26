@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.12.2](https://github.com/vortico/flama/compare/v1.12.1...v1.12.2) (2025-11-26)
+
+## 🐛 Bug Fixes
+- [`e36db17`](https://github.com/vortico/flama/commit/e36db17)  Correct signature on resource methods
+
 # [v1.12.1](https://github.com/vortico/flama/compare/v1.12.0...v1.12.1) (2025-10-29)
 
 ## 🐛 Bug Fixes
