@@ -30,10 +30,7 @@ class TestCaseResourcesModule:
 
         assert route
         assert isinstance(route, ResourceRoute)
-        assert [
-            (r.path, r.methods, r.endpoint.__wrapped__ if r.endpoint._meta.pagination else r.endpoint, r.tags)
-            for r in route.routes
-        ] == [
+        assert [(r.path, r.methods, getattr(r.endpoint, "__wrapped__", r.endpoint), r.tags) for r in route.routes] == [
             ("/", {"POST"}, route.resource.create, {"tag": "create"}),
             ("/{resource_id}/", {"GET", "HEAD"}, route.resource.retrieve, {"tag": "retrieve"}),
             ("/{resource_id}/", {"PUT"}, route.resource.update, {"tag": "update"}),
@@ -51,10 +48,7 @@ class TestCaseResourcesModule:
 
         assert route
         assert isinstance(route, ResourceRoute)
-        assert [
-            (r.path, r.methods, r.endpoint.__wrapped__ if r.endpoint._meta.pagination else r.endpoint, r.tags)
-            for r in route.routes
-        ] == [
+        assert [(r.path, r.methods, getattr(r.endpoint, "__wrapped__", r.endpoint), r.tags) for r in route.routes] == [
             ("/", {"POST"}, puppy_resource.create, {"tag": "create"}),
             ("/{resource_id}/", {"GET", "HEAD"}, puppy_resource.retrieve, {"tag": "retrieve"}),
             ("/{resource_id}/", {"PUT"}, puppy_resource.update, {"tag": "update"}),

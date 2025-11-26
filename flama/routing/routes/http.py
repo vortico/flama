@@ -15,11 +15,24 @@ logger = logging.getLogger(__name__)
 
 
 class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
-    def __init__(self, handler: types.Handler, *, pagination: types.Pagination | None = None):
-        super().__init__(handler, pagination=pagination)
+    def __init__(
+        self,
+        handler: types.Handler,
+        /,
+        *,
+        signature: inspect.Signature | None = None,
+        pagination: types.Pagination | None = None,
+    ):
+        """Wraps an HTTP function or endpoint into ASGI application.
+
+        :param handler: Function or endpoint.
+        :param signature: Handler signature.
+        :param pagination: Apply a pagination technique.
+        """
+        super().__init__(handler, signature=signature, pagination=pagination)
 
         try:
-            self.schema = Schema.from_type(inspect.signature(self.handler).return_annotation).unique_schema
+            self.schema = Schema.from_type(signature.return_annotation).unique_schema if signature else None
         except Exception:
             self.schema = None
 
@@ -88,7 +101,7 @@ class Route(BaseRoute):
     def __init__(
         self,
         path: str,
-        endpoint: types.HTTPHandler,
+        endpoint: types.HTTPHandler | BaseHTTPEndpointWrapper,
         *,
         methods: set[str] | t.Sequence[str] | None = None,
         name: str | None = None,
@@ -118,13 +131,17 @@ class Route(BaseRoute):
             self.methods.add("HEAD")
 
         name = endpoint.__name__ if name is None else name
-        wrapper = HTTPEndpointWrapper if inspect.isclass(endpoint) else HTTPFunctionWrapper
-
-        super().__init__(
-            path, wrapper(endpoint, pagination=pagination), name=name, include_in_schema=include_in_schema, tags=tags
+        wrapped_endpoint = (
+            endpoint
+            if isinstance(endpoint, BaseHTTPEndpointWrapper)
+            else HTTPEndpointWrapper(endpoint, signature=inspect.signature(endpoint), pagination=pagination)
+            if inspect.isclass(endpoint)
+            else HTTPFunctionWrapper(endpoint, signature=inspect.signature(endpoint), pagination=pagination)
         )
 
-        self.app: BaseEndpointWrapper
+        super().__init__(path, wrapped_endpoint, name=name, include_in_schema=include_in_schema, tags=tags)
+
+        self.app: BaseHTTPEndpointWrapper
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if scope["type"] == "http":

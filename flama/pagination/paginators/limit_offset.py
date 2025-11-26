@@ -2,15 +2,17 @@ import functools
 import inspect
 import typing as t
 
-from flama import http, schemas
+from flama import schemas
+from flama.pagination.paginators.base import BasePaginator, PaginatedResponse
 from flama.schemas.data_structures import Field, Schema
 
-__all__ = ["LimitOffsetMixin", "LimitOffsetResponse"]
+__all__ = ["LimitOffsetPaginator", "LimitOffsetResponse"]
 
-from flama.pagination.decorators import PaginationDecoratorFactory
+P = t.ParamSpec("P")
+R = t.TypeVar("R", covariant=True)
 
 
-class LimitOffsetResponse(http.APIResponse):
+class LimitOffsetResponse(PaginatedResponse[R]):
     """
     Response paginated based on a limit of elements and an offset.
 
@@ -24,7 +26,7 @@ class LimitOffsetResponse(http.APIResponse):
 
     def __init__(
         self,
-        schema: t.Any,
+        schema: R,
         offset: int | str | None = None,
         limit: int | str | None = None,
         count: bool | None = True,
@@ -35,7 +37,7 @@ class LimitOffsetResponse(http.APIResponse):
         self.count = count
         super().__init__(schema=schema, **kwargs)
 
-    def render(self, content: t.Sequence[t.Any]):
+    def render(self, content: t.Sequence[t.Any]) -> bytes:
         init = self.offset
         end = self.offset + self.limit
         return super().render(
@@ -46,7 +48,7 @@ class LimitOffsetResponse(http.APIResponse):
         )
 
 
-class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
+class LimitOffsetPaginator(BasePaginator):
     PARAMETERS = [
         inspect.Parameter(
             name="limit", default=None, annotation=int | None, kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
@@ -60,7 +62,9 @@ class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
     ]
 
     @classmethod
-    def _decorate_async(cls, func: t.Callable, schema: t.Any) -> t.Callable:
+    def _decorate_async(
+        cls, func: t.Callable[P, t.Coroutine[R, t.Any, t.Any]], schema: t.Any
+    ) -> t.Callable[P, t.Coroutine[LimitOffsetResponse[R], t.Any, t.Any]]:
         @functools.wraps(func)
         async def decorator(
             *args,
@@ -76,7 +80,7 @@ class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
         return decorator
 
     @classmethod
-    def _decorate_sync(cls, func: t.Callable, schema: t.Any) -> t.Callable:
+    def _decorate_sync(cls, func: t.Callable[P, R], schema: t.Any) -> t.Callable[P, LimitOffsetResponse[R]]:
         @functools.wraps(func)
         def decorator(
             *args,
@@ -91,11 +95,10 @@ class LimitOffsetDecoratorFactory(PaginationDecoratorFactory):
 
         return decorator
 
-
-class LimitOffsetMixin:
-    schemas: dict[str, t.Any]
-
-    def _paginate_limit_offset(self, func: t.Callable) -> t.Callable:
+    @classmethod
+    def wraps(
+        cls, func: t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]], signature: inspect.Signature
+    ) -> tuple[t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]], dict[str, t.Any]]:
         """
         Decorator for adding pagination behavior to a view. That decorator produces a view based on limit-offset and
         it adds three query parameters to control the pagination: limit, offset and count. Offset has a default value of
@@ -106,10 +109,11 @@ class LimitOffsetMixin:
         The output field is also modified by :class:`LimitOffsetSchema`,
         creating a new field based on it but using the old output field as the content of its data field.
 
-        :param schema_name: Name used for output field.
-        :return: Decorated view.
+        :param func: Function to decorate.
+        :param signature: Function signature.
+        :return: Decorated view and new schemas.
         """
-        schema = Schema.from_type(inspect.signature(func).return_annotation)
+        schema = Schema.from_type(signature.return_annotation)
 
         try:
             module, schema_class = schema.name.rsplit(".", 1)
@@ -125,8 +129,7 @@ class LimitOffsetMixin:
             fields=[Field("data", schema.unique_schema, multiple=True)],
         )
 
-        decorator = LimitOffsetDecoratorFactory.decorate(func, paginated_schema.unique_schema)
+        decorator = cls._decorate(func, signature, paginated_schema.unique_schema)
+        new_schemas = {schema.name: schema.unique_schema, paginated_schema.name: paginated_schema.unique_schema}
 
-        self.schemas.update({schema.name: schema.unique_schema, paginated_schema.name: paginated_schema.unique_schema})
-
-        return decorator
+        return decorator, new_schemas

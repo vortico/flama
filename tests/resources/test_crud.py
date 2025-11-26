@@ -196,8 +196,7 @@ class TestCaseCRUDResource:
         assert route
         assert isinstance(route, ResourceRoute)
         assert [
-            (i.path, i.endpoint.__wrapped__ if i.endpoint._meta.pagination else i.endpoint, i.methods, i.name)
-            for i in route.routes
+            (i.path, getattr(i.endpoint, "__wrapped__", i.endpoint), i.methods, i.name) for i in route.routes
         ] == expected_routes
 
     async def test_create(self, client, puppy):

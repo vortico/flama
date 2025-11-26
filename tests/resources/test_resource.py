@@ -53,7 +53,7 @@ class TestCaseBaseResource:
         assert hasattr(SpecializedPuppyResource, "replace")
         assert hasattr(SpecializedPuppyResource, "partial_replace")
         assert hasattr(SpecializedPuppyResource, "drop")
-        assert len(SpecializedPuppyResource.routes) == 9
+        assert len(SpecializedPuppyResource._methods) == 9
 
         assert SpecializedPuppyResource().list() == ["foo", "bar"]
 

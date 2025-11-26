@@ -13,7 +13,10 @@ __all__ = ["WebSocketRoute"]
 logger = logging.getLogger(__name__)
 
 
-class WebSocketFunctionWrapper(BaseEndpointWrapper):
+class BaseWebSocketEndpointWrapper(BaseEndpointWrapper): ...
+
+
+class WebSocketFunctionWrapper(BaseWebSocketEndpointWrapper):
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs a request.
 
@@ -42,7 +45,7 @@ class WebSocketFunctionWrapper(BaseEndpointWrapper):
         await injected_func(**route_scope.get("kwargs", {}))
 
 
-class WebSocketEndpointWrapper(BaseEndpointWrapper):
+class WebSocketEndpointWrapper(BaseWebSocketEndpointWrapper):
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs a request.
 
@@ -78,13 +81,17 @@ class WebSocketRoute(BaseRoute):
             raise exceptions.ApplicationError("Endpoint must be a callable or a WebSocketEndpoint subclass")
 
         name = endpoint.__name__ if name is None else name
-        wrapper = WebSocketEndpointWrapper if inspect.isclass(endpoint) else WebSocketFunctionWrapper
-
-        super().__init__(
-            path, wrapper(endpoint, pagination=pagination), name=name, include_in_schema=include_in_schema, tags=tags
+        wrapped_endpoint = (
+            endpoint
+            if isinstance(endpoint, BaseWebSocketEndpointWrapper)
+            else WebSocketEndpointWrapper(endpoint, signature=inspect.signature(endpoint), pagination=pagination)
+            if inspect.isclass(endpoint)
+            else WebSocketFunctionWrapper(endpoint, signature=inspect.signature(endpoint), pagination=pagination)
         )
 
-        self.app: BaseEndpointWrapper
+        super().__init__(path, wrapped_endpoint, name=name, include_in_schema=include_in_schema, tags=tags)
+
+        self.app: BaseWebSocketEndpointWrapper
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if scope["type"] == "websocket":

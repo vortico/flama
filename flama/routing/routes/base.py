@@ -1,6 +1,7 @@
 import abc
 import enum
 import functools
+import inspect
 import logging
 import typing as t
 
@@ -17,14 +18,22 @@ logger = logging.getLogger(__name__)
 
 
 class BaseEndpointWrapper(abc.ABC):
-    def __init__(self, handler: types.Handler, *, pagination: types.Pagination | None = None):
+    def __init__(
+        self,
+        handler: types.Handler,
+        /,
+        *,
+        signature: inspect.Signature | None = None,
+        pagination: types.Pagination | None = None,
+    ):
         """Wraps a function or endpoint into ASGI application.
 
         :param handler: Function or endpoint.
+        :param signature: Handler signature.
         :param pagination: Apply a pagination technique.
         """
         if pagination:
-            handler = paginator.paginate(pagination, handler)
+            handler = paginator.apply(pagination, handler, signature=signature)
 
         self.handler = handler
         functools.update_wrapper(self, handler)

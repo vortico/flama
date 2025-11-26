@@ -5,6 +5,7 @@ import warnings
 from flama import exceptions, types
 from flama.resources import data_structures
 from flama.routing import Mount, Route
+from flama.routing.routes.http import HTTPFunctionWrapper
 
 if t.TYPE_CHECKING:
     from flama import Flama
@@ -30,7 +31,7 @@ class ResourceRoute(Mount):
         # Handle class or instance objects
         self.resource = resource() if inspect.isclass(resource) else resource
 
-        if not (set(self.resource.routes.keys()) >= set(tags.keys())):  # type: ignore
+        if not (set(self.resource._methods.keys()) >= set(tags.keys())):  # type: ignore
             raise exceptions.ApplicationError("Tags must be defined only for existing routes.")
 
         super().__init__(
@@ -38,15 +39,19 @@ class ResourceRoute(Mount):
             app=Flama(
                 routes=[
                     Route(
-                        path=route._meta.path,
-                        endpoint=getattr(self.resource, name),
-                        methods=route._meta.methods,
-                        name=route._meta.name or route.__name__,
-                        include_in_schema=include_in_schema and route._meta.include_in_schema,
-                        tags=tags.get(name, route._meta.tags),
-                        pagination=route._meta.pagination,
+                        path=route.meta.path,
+                        endpoint=HTTPFunctionWrapper(
+                            route.get_method(self.resource),
+                            signature=route.func.signature,
+                            pagination=route.meta.pagination,
+                        ),
+                        methods=route.meta.methods,
+                        name=route.meta.name,
+                        include_in_schema=include_in_schema and route.meta.include_in_schema,
+                        tags=tags.get(name, route.meta.tags),
+                        pagination=route.meta.pagination,
                     )
-                    for name, route in self.resource.routes.items()  # type: ignore
+                    for name, route in self.resource._methods.items()
                 ],
                 docs=None,
                 schema=None,
@@ -94,17 +99,16 @@ class ResourceRoute(Mount):
         :return: Decorated method.
         """
 
-        def wrapper(func: t.Callable) -> t.Callable:
-            func._meta = data_structures.MethodMetadata(  # type: ignore
+        def wrapper(func: t.Callable) -> data_structures.ResourceMethod:
+            return data_structures.ResourceMethod(
+                method=func,
                 path=path,
                 methods=set(methods) if methods is not None else {"GET"},
-                name=name,
+                name=name if name is not None else func.__name__,
                 include_in_schema=include_in_schema,
                 pagination=pagination,
-                tags=tags or {},
+                tags=tags if tags is not None else {},
             )
-
-            return func
 
         return wrapper
 

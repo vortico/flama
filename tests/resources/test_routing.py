@@ -1,8 +1,11 @@
+import inspect
+
 import pytest
 
 from flama import exceptions
 from flama.applications import Flama
 from flama.client import Client
+from flama.resources import data_structures
 from flama.resources.resource import Resource
 from flama.resources.routing import ResourceRoute
 from flama.routing import Mount, Route
@@ -32,12 +35,7 @@ class TestCaseResourceRoute:
         for route in resource_route.routes:
             assert isinstance(route, Route)
         assert [
-            (
-                route.path,
-                route.methods,
-                route.endpoint.__wrapped__ if route.endpoint._meta.pagination else route.endpoint,
-                route.tags,
-            )
+            (route.path, route.methods, getattr(route.endpoint, "__wrapped__", route.endpoint), route.tags)
             for route in resource_route.routes
         ] == [
             ("/", {"POST"}, resource_route.resource.create, {"tag": "create"}),
@@ -87,11 +85,7 @@ class TestCaseResourceRoute:
         resource_route = mount.routes[0]
         assert isinstance(resource_route, ResourceRoute)
         assert [
-            (
-                route.path,
-                route.methods,
-                route.endpoint.__wrapped__ if route.endpoint._meta.pagination else route.endpoint,
-            )
+            (route.path, route.methods, getattr(route.endpoint, "__wrapped__", route.endpoint))
             for route in resource_route.routes
         ] == [
             ("/", {"POST"}, resource_route.resource.create),
@@ -117,23 +111,25 @@ class TestCaseResourceRoute:
         sub_app = Flama(schema=None, docs=None)
         sub_app.resources.add_resource("/puppy/", PuppyResource)
         app.mount("/", sub_app)
-        app.mark = 1
-        sub_app.mark = 2
 
         async with Client(app=app) as client:
             response = await client.get("/puppy/")
             assert response.status_code == 200
 
     def test_method(self):
-        @ResourceRoute.method(
-            path="/", methods=["POST"], name="foo", include_in_schema=False, tags={"additional": "bar"}
-        )
         def foo(x: int):
             return x
 
-        assert hasattr(foo, "_meta")
-        assert foo._meta.path == "/"
-        assert foo._meta.methods == {"POST"}
-        assert foo._meta.name == "foo"
-        assert foo._meta.include_in_schema is False
-        assert foo._meta.tags == {"additional": "bar"}
+        decorated_foo = ResourceRoute.method(
+            path="/", methods=["POST"], name="foo", include_in_schema=False, tags={"additional": "bar"}
+        )(foo)
+
+        assert isinstance(decorated_foo, data_structures.ResourceMethod)
+        assert decorated_foo.func.method == foo
+        assert decorated_foo.func.name == "foo"
+        assert decorated_foo.func.signature == inspect.signature(foo)
+        assert decorated_foo.meta.path == "/"
+        assert decorated_foo.meta.methods == {"POST"}
+        assert decorated_foo.meta.name == "foo"
+        assert decorated_foo.meta.include_in_schema is False
+        assert decorated_foo.meta.tags == {"additional": "bar"}

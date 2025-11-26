@@ -1,4 +1,5 @@
 import dataclasses
+import inspect
 import typing as t
 
 from flama import types
@@ -8,7 +9,10 @@ try:
 except Exception:  # pragma: no cover
     Table = t.Any
 
-__all__ = ["Model", "PrimaryKey", "Schema", "Metadata", "MethodMetadata"]
+if t.TYPE_CHECKING:
+    from flama.resources.resource import Resource
+
+__all__ = ["Model", "PrimaryKey", "Schema", "Metadata", "_ResourceMethodMetadata", "ResourceMethod"]
 
 
 @dataclasses.dataclass
@@ -50,10 +54,58 @@ class Metadata:
 
 
 @dataclasses.dataclass
-class MethodMetadata:
+class _ResourceMethodMetadata:
     path: str
     methods: set[str] = dataclasses.field(default_factory=lambda: {"GET"})
     name: str | None = None
     include_in_schema: bool = True
     pagination: types.Pagination | None = None
     tags: dict[str, t.Any] | None = None
+
+
+@dataclasses.dataclass
+class _ResourceMethodFunction:
+    method: t.Callable
+    name: str = dataclasses.field(init=False)
+    signature: inspect.Signature = dataclasses.field(init=False)
+
+    def __post_init__(self):
+        self.name = self.method.__name__
+        self.signature = inspect.signature(self.method)
+
+
+@dataclasses.dataclass
+class ResourceMethod:
+    meta: _ResourceMethodMetadata = dataclasses.field(init=False)
+    func: _ResourceMethodFunction = dataclasses.field(init=False)
+
+    method: dataclasses.InitVar[t.Callable]
+    path: dataclasses.InitVar[str]
+    methods: dataclasses.InitVar[set[str] | None] = None
+    name: dataclasses.InitVar[str | None] = None
+    include_in_schema: dataclasses.InitVar[bool] = True
+    pagination: dataclasses.InitVar[types.Pagination | None] = None
+    tags: dataclasses.InitVar[dict[str, t.Any] | None] = None
+
+    def __post_init__(
+        self,
+        method: t.Callable,
+        path: str,
+        methods: set[str] | None = None,
+        name: str | None = None,
+        include_in_schema: bool = True,
+        pagination: types.Pagination | None = None,
+        tags: dict[str, t.Any] | None = None,
+    ):
+        self.meta = _ResourceMethodMetadata(
+            path=path,
+            methods=methods if methods is not None else {"GET"},
+            name=name,
+            include_in_schema=include_in_schema,
+            pagination=pagination,
+            tags=tags,
+        )
+        self.func = _ResourceMethodFunction(method=method)
+
+    def get_method(self, resource: "Resource") -> t.Callable:
+        return getattr(resource, self.func.name)

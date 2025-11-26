@@ -32,7 +32,7 @@ class ResourceType(type):
 
             # Create methods and routes
             namespace.update(mcs._build_methods(namespace))
-            namespace["routes"] = mcs._build_routes(namespace)
+            namespace.update(mcs._build_routes(namespace))
 
         return super().__new__(mcs, name, bases, namespace)
 
@@ -99,15 +99,19 @@ class ResourceType(type):
         return resource_name, namespace.pop("verbose_name", resource_name)
 
     @classmethod
-    def _build_routes(cls, namespace: dict[str, t.Any]) -> dict[str, t.Callable]:
+    def _build_routes(cls, namespace: dict[str, t.Any]) -> dict[str, t.Any]:
         """Builds the routes' descriptor.
 
         :param namespace: Variables namespace used to create the class.
+        :return: Routes namespace.
         """
         return {
-            name: m
-            for name, m in namespace.items()
-            if hasattr(m, "_meta") and isinstance(m._meta, data_structures.MethodMetadata) and not name.startswith("_")
+            "_methods": {
+                name: m
+                for name, m in namespace.items()
+                if isinstance(m, data_structures.ResourceMethod) and not name.startswith("_")
+            },
+            **{name: m.func.method for name, m in namespace.items() if isinstance(m, data_structures.ResourceMethod)},
         }
 
     @classmethod
@@ -139,4 +143,6 @@ class ResourceType(type):
 class Resource(metaclass=ResourceType):
     name: str
     verbose_name: str
+
+    _methods: dict[str, data_structures.ResourceMethod]
     _meta: data_structures.Metadata

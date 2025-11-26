@@ -2,15 +2,17 @@ import functools
 import inspect
 import typing as t
 
-from flama import http, schemas
+from flama import schemas
+from flama.pagination.paginators.base import BasePaginator, PaginatedResponse
 from flama.schemas.data_structures import Field, Schema
 
-__all__ = ["PageNumberMixin", "PageNumberResponse"]
+__all__ = ["PageNumberPaginator", "PageNumberResponse"]
 
-from flama.pagination.decorators import PaginationDecoratorFactory
+P = t.ParamSpec("P")
+R = t.TypeVar("R", covariant=True)
 
 
-class PageNumberResponse(http.APIResponse):
+class PageNumberResponse(PaginatedResponse[R]):
     """
     Response paginated based on a page number and a page size.
 
@@ -26,7 +28,7 @@ class PageNumberResponse(http.APIResponse):
 
     def __init__(
         self,
-        schema: t.Any,
+        schema: R,
         page: int | str | None = None,
         page_size: int | str | None = None,
         count: bool | None = True,
@@ -53,7 +55,7 @@ class PageNumberResponse(http.APIResponse):
         )
 
 
-class PageNumberDecoratorFactory(PaginationDecoratorFactory):
+class PageNumberPaginator(BasePaginator):
     PARAMETERS = [
         inspect.Parameter(
             name="page", default=None, annotation=int | None, kind=inspect.Parameter.POSITIONAL_OR_KEYWORD
@@ -67,7 +69,9 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
     ]
 
     @classmethod
-    def _decorate_async(cls, func: t.Callable, schema: t.Any) -> t.Callable:
+    def _decorate_async(
+        cls, func: t.Callable[P, t.Coroutine[R, t.Any, t.Any]], schema: t.Any
+    ) -> t.Callable[P, t.Coroutine[PageNumberResponse[R], t.Any, t.Any]]:
         @functools.wraps(func)
         async def decorator(
             *args,
@@ -83,7 +87,7 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
         return decorator
 
     @classmethod
-    def _decorate_sync(cls, func: t.Callable, schema: t.Any) -> t.Callable:
+    def _decorate_sync(cls, func: t.Callable[P, R], schema: t.Any) -> t.Callable[P, PageNumberResponse[R]]:
         @functools.wraps(func)
         def decorator(
             *args,
@@ -98,11 +102,10 @@ class PageNumberDecoratorFactory(PaginationDecoratorFactory):
 
         return decorator
 
-
-class PageNumberMixin:
-    schemas: dict[str, t.Any]
-
-    def _paginate_page_number(self, func: t.Callable) -> t.Callable:
+    @classmethod
+    def wraps(
+        cls, func: t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]], signature: inspect.Signature
+    ) -> tuple[t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]], dict[str, t.Any]]:
         """
         Decorator for adding pagination behavior to a view. That decorator produces a view based on page numbering and
         it adds three query parameters to control the pagination: page, page_size and count. Page has a default value of
@@ -113,10 +116,11 @@ class PageNumberMixin:
         The output field is also modified by :class:`PageNumberSchema`, creating
         a new field based on it but using the old output field as the content of its data field.
 
-        :param schema_name: Name used for output field.
-        :return: Decorated view.
+        :param func: Function to decorate.
+        :param signature: Function signature.
+        :return: Decorated view and new schemas.
         """
-        schema = Schema.from_type(inspect.signature(func).return_annotation)
+        schema = Schema.from_type(signature.return_annotation)
 
         try:
             module, schema_class = schema.name.rsplit(".", 1)
@@ -132,8 +136,7 @@ class PageNumberMixin:
             fields=[Field("data", schema.unique_schema, multiple=True)],
         )
 
-        decorator = PageNumberDecoratorFactory.decorate(func, paginated_schema.unique_schema)
+        decorator = cls._decorate(func, signature, paginated_schema.unique_schema)
+        new_schemas = {schema.name: schema.unique_schema, paginated_schema.name: paginated_schema.unique_schema}
 
-        self.schemas.update({schema.name: schema.unique_schema, paginated_schema.name: paginated_schema.unique_schema})
-
-        return decorator
+        return decorator, new_schemas

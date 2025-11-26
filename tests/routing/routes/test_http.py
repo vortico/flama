@@ -1,3 +1,4 @@
+import inspect
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
@@ -55,7 +56,7 @@ class TestCaseHTTPFunctionWrapper:
         async def foo():
             return {"foo": "bar"}
 
-        return HTTPFunctionWrapper(foo)
+        return HTTPFunctionWrapper(foo, signature=inspect.signature(foo))
 
     async def test_call(self, app, endpoint):
         scope, receive, send = (
