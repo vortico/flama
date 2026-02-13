@@ -1,6 +1,6 @@
 [project]
 name = "flama"
-version = "1.12.2"
+version = "1.12.3"
 description = "Fire up your models with the flame 🔥"
 license = { text = "Apache-2.0" }
 readme = "README.md"

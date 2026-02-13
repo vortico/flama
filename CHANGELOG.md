@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.12.3](https://github.com/vortico/flama/compare/v1.12.2...v1.12.3) (2026-02-13)
+
+## 🐛 Bug Fixes
+- [`36ba280`](https://github.com/vortico/flama/commit/36ba280)  Flama client optional httpx dependency
+
 # [v1.12.2](https://github.com/vortico/flama/compare/v1.12.1...v1.12.2) (2025-11-26)
 
 ## 🐛 Bug Fixes
