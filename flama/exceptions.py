@@ -33,7 +33,7 @@ class DependencyNotInstalled(ApplicationError):
         typesystem = "typesystem"
         sqlalchemy = "sqlalchemy[asyncio]"
         httpx = "httpx"
-        tomli = "tomli"
+        tomli = "tomli"  # PORT: Remove when stop supporting 3.10
 
     def __init__(
         self,

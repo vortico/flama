@@ -8,7 +8,7 @@ import pytest
 from flama import Flama
 from flama.client import Client
 from flama.ddd import exceptions
-from flama.ddd.repositories import HTTPRepository, HTTPResourceManager, HTTPResourceRepository
+from flama.ddd.repositories.http import HTTPRepository, HTTPResourceManager, HTTPResourceRepository
 from flama.sqlalchemy import SQLAlchemyModule
 
 

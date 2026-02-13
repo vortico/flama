@@ -5,12 +5,18 @@ import logging
 import typing as t
 from types import TracebackType
 
-import httpx
-
 from flama import exceptions, types
 from flama.applications import Flama
 
-__all__ = ["Client", "LifespanContextManager"]
+try:
+    import httpx
+    from httpx import HTTPError, HTTPStatusError
+except Exception:  # pragma: no cover
+    raise exceptions.DependencyNotInstalled(
+        dependency=exceptions.DependencyNotInstalled.Dependency.httpx, dependant=__name__
+    )
+
+__all__ = ["Client", "LifespanContextManager", "HTTPError", "HTTPStatusError"]
 
 logger = logging.getLogger(__name__)
 

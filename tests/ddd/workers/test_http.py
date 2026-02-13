@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from flama.ddd.repositories import HTTPRepository
+from flama.ddd.repositories.http import HTTPRepository
 from flama.ddd.workers import HTTPWorker
 
 

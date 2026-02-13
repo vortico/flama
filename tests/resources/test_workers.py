@@ -2,7 +2,7 @@ import pytest
 
 from flama import Flama
 from flama.client import Client
-from flama.ddd.repositories import HTTPRepository
+from flama.ddd.repositories.http import HTTPRepository
 from flama.ddd.repositories.sqlalchemy import SQLAlchemyRepository
 from flama.exceptions import ApplicationError
 from flama.resources.workers import FlamaWorker

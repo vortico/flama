@@ -3,19 +3,15 @@ import http
 import typing as t
 import uuid
 
-import httpx
-
+from flama import client
 from flama.ddd import exceptions
 from flama.ddd.repositories import BaseRepository
-
-if t.TYPE_CHECKING:
-    from flama.client import Client
 
 __all__ = ["HTTPRepository", "HTTPResourceManager", "HTTPResourceRepository"]
 
 
 class HTTPRepository(BaseRepository):
-    def __init__(self, client: "Client", *args, **kwargs):
+    def __init__(self, client: "client.Client", *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._client = client
 
@@ -24,7 +20,7 @@ class HTTPRepository(BaseRepository):
 
 
 class HTTPResourceManager:
-    def __init__(self, resource: str, client: "Client"):
+    def __init__(self, resource: str, client: "client.Client"):
         self._client = client
         self.resource = resource.rstrip("/")
 
@@ -43,7 +39,7 @@ class HTTPResourceManager:
         try:
             response = await self._client.post(f"{self.resource}/", json=data)
             response.raise_for_status()
-        except httpx.HTTPStatusError as e:
+        except client.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.BAD_REQUEST:
                 raise exceptions.IntegrityError(resource=self.resource)
             raise
@@ -60,7 +56,7 @@ class HTTPResourceManager:
         try:
             response = await self._client.get(f"{self.resource}/{id}/")
             response.raise_for_status()
-        except httpx.HTTPStatusError as e:
+        except client.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.NOT_FOUND:
                 raise exceptions.NotFoundError(resource=self.resource, id=id)
             raise
@@ -79,7 +75,7 @@ class HTTPResourceManager:
         try:
             response = await self._client.put(f"{self.resource}/{id}/", json=data)
             response.raise_for_status()
-        except httpx.HTTPStatusError as e:
+        except client.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.NOT_FOUND:
                 raise exceptions.NotFoundError(resource=self.resource, id=id)
             if e.response.status_code == http.HTTPStatus.BAD_REQUEST:
@@ -99,7 +95,7 @@ class HTTPResourceManager:
         try:
             response = await self._client.patch(f"{self.resource}/{id}/", json=data)
             response.raise_for_status()
-        except httpx.HTTPStatusError as e:
+        except client.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.NOT_FOUND:
                 raise exceptions.NotFoundError(resource=self.resource, id=id)
             if e.response.status_code == http.HTTPStatus.BAD_REQUEST:
@@ -116,7 +112,7 @@ class HTTPResourceManager:
         try:
             response = await self._client.delete(f"{self.resource}/{id}/")
             response.raise_for_status()
-        except httpx.HTTPStatusError as e:
+        except client.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.NOT_FOUND:
                 raise exceptions.NotFoundError(resource=self.resource, id=id)
             raise
@@ -186,7 +182,7 @@ class HTTPResourceManager:
         try:
             response = await self._client.put(f"{self.resource}/", json=data)
             response.raise_for_status()
-        except httpx.HTTPStatusError as e:
+        except client.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.BAD_REQUEST:
                 raise exceptions.IntegrityError(resource=self.resource)
             raise
@@ -202,7 +198,7 @@ class HTTPResourceManager:
         try:
             response = await self._client.patch(f"{self.resource}/", json=data)
             response.raise_for_status()
-        except httpx.HTTPStatusError as e:
+        except client.HTTPStatusError as e:
             if e.response.status_code == http.HTTPStatus.BAD_REQUEST:
                 raise exceptions.IntegrityError(resource=self.resource)
             raise
@@ -227,7 +223,7 @@ class HTTPResourceRepository(HTTPRepository):
 
     _resource: str
 
-    def __init__(self, client: "Client"):
+    def __init__(self, client: "client.Client"):
         """Initialise the repository.
 
         :param client: The client to use to make the requests.
