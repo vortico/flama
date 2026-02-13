@@ -1,0 +1,75 @@
+name: Manual Docker Multi-Arch Build
+
+on:
+  workflow_dispatch:
+
+env:
+  DEFAULT_LINUX: "slim"
+  DEFAULT_PYTHON: "3.14"
+  DEFAULT_SCHEMAS: "pydantic"
+
+jobs:
+  get_version:
+    name: Get PyPI Version
+    runs-on: ubuntu-latest
+    outputs:
+      major_version: ${{ steps.fetch.outputs.major_version }}
+      minor_version: ${{ steps.fetch.outputs.minor_version }}
+    steps:
+      - id: fetch
+        run: curl -s https://pypi.org/pypi/flama/json | jq -r '.info.version | split(".") | "major_version=\(.[0])\nminor_version=\(.[1])"' >> "$GITHUB_OUTPUT"
+  docker_push_manual:
+    name: Manual Docker Push (${{ matrix.linux }}, ${{ matrix.python }}, ${{ matrix.schemas }})
+    needs: get_version
+    environment:
+      name: dockerhub
+      url: https://hub.docker.com/r/vortico/flama
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        linux: ["slim"]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        schemas: ["pydantic", "marshmallow", "typesystem"]
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@master
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/flama
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,enable=true,value=${{ matrix.linux }}-${{ needs.get_version.outputs.major_version }}.${{ needs.get_version.outputs.minor_version }}-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=true,value=${{ matrix.linux }}-latest-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},value=${{ matrix.linux }}-${{ needs.get_version.outputs.major_version }}.${{ needs.get_version.outputs.minor_version }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},value=${{ matrix.linux }}-latest-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=${{ needs.get_version.outputs.major_version }}.${{ needs.get_version.outputs.minor_version }}-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=latest-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false' }},value=${{ matrix.linux }}-${{ needs.get_version.outputs.major_version }}.${{ needs.get_version.outputs.minor_version }}-python${{ matrix.python }}
+            type=raw,enable=${{ matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false' }},value=${{ matrix.linux }}-latest-python${{ matrix.python }}
+            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && (matrix.linux == env.DEFAULT_LINUX && 'true' || 'false') || 'false' }},value=latest-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false' }},value=latest-python${{ matrix.python }}
+            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false' }},value=${{ matrix.linux }}-latest
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && (matrix.python == env.DEFAULT_PYTHON && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false') || 'false' }},value=latest
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          build-args: |
+            PYTHON_VERSION=${{ matrix.python }}
+            SCHEMAS_LIB=${{ matrix.schemas }}
+          context: Dockerfiles/${{ matrix.linux }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
