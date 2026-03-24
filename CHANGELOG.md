@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v1.12.4](https://github.com/vortico/flama/compare/v1.12.3...v1.12.4) (2026-03-24)
+
+## 🐛 Bug Fixes
+- [`2921860`](https://github.com/vortico/flama/commit/2921860)  Use EnhancedJSONEncoder for templates safe_json
+
 # [v1.12.3](https://github.com/vortico/flama/compare/v1.12.2...v1.12.3) (2026-02-13)
 
 ## 🐛 Bug Fixes
