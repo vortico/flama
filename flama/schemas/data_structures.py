@@ -1,6 +1,7 @@
 import builtins
 import dataclasses
 import enum
+import inspect
 import typing as t
 from types import UnionType
 
@@ -61,6 +62,19 @@ class Field:
             if parameter.default is not InjectionParameter.empty
             else InjectionParameter.empty,
         )
+
+    @classmethod
+    def from_handler(cls, func: t.Callable) -> list["Field"]:
+        return [
+            cls.from_parameter(
+                InjectionParameter(
+                    name=p.name,
+                    annotation=p.annotation if p.annotation is not inspect.Parameter.empty else str,
+                    default=p.default if p.default is not inspect.Parameter.empty else InjectionParameter.empty,
+                )
+            )
+            for p in inspect.signature(func).parameters.values()
+        ]
 
     @classmethod
     def is_field(cls, obj: t.Any) -> bool:
