@@ -147,7 +147,7 @@ exclude = ["**/node_modules", "**/__pycache__"]
 
 [tool.pytest.ini_options]
 minversion = "3"
-addopts = "--dist=loadfile --junitxml=./test-results/pytest/results.xml --no-cov-on-fail --cov-report=html --cov-report=xml --cov-report=term-missing --cov-config=pyproject.toml --cov=. --pdbcls=IPython.terminal.debugger:TerminalPdb -nauto"
+addopts = "--dist=loadfile --junitxml=./test-results/pytest/results.xml --no-cov-on-fail --cov-report=html --cov-report=xml --cov-report=term-missing --cov-config=pyproject.toml --cov=. --pdbcls=IPython.terminal.debugger:TerminalPdb -nauto --import-mode=importlib"
 testpaths = ["tests/unit"]
 norecursedirs = ["*settings*", "*urls*", "*docs*", "benchmarks", "tests/performance"]
 markers = ["benchmark: performance benchmark tests (deselect with '-m \"not benchmark\"')"]

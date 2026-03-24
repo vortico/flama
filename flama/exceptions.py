@@ -11,6 +11,7 @@ __all__ = [
     "SQLAlchemyError",
     "DecodeError",
     "HTTPException",
+    "JSONRPCException",
     "NoCodecAvailable",
     "SerializationError",
     "ValidationError",
@@ -178,6 +179,33 @@ class MethodNotAllowedException(Exception):
         params = ("path", "method", "allowed")
         formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
         return f"{self.__class__.__name__}({formatted_params})"
+
+
+class JSONRPCException(Exception):
+    """Base exception for JSON-RPC protocol errors."""
+
+    def __init__(self, status_code: int, detail: str | None = None, request_id: t.Any = None) -> None:
+        from flama.http import JSONRPCStatus
+
+        super().__init__()
+        self.status_code = status_code
+        self.detail = detail if detail is not None else JSONRPCStatus(status_code).phrase
+        self.request_id = request_id
+
+    def __str__(self) -> str:
+        return str(self.detail)
+
+    def __repr__(self) -> str:
+        params = ("status_code", "detail")
+        formatted_params = ", ".join([f"{x}={getattr(self, x)!r}" for x in params if getattr(self, x)])
+        return f"{self.__class__.__name__}({formatted_params})"
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, JSONRPCException)
+            and self.status_code == other.status_code
+            and self.detail == other.detail
+        )
 
 
 class FrameworkNotInstalled(Exception):
