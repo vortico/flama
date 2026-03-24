@@ -62,7 +62,7 @@ class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
         h: t.Callable = getattr(self, handler_name)
         return h
 
-    async def dispatch(self) -> None:
+    async def dispatch(self) -> t.Any:
         """Dispatch a request."""
         assert self.state.app is not None
         handler = await self.state.app.injector.inject(self.handler, self.state)

@@ -9,13 +9,14 @@ import sqlalchemy
 import typesystem
 import typesystem.fields
 from sqlalchemy.dialects import postgresql
-from tests.resources.conftest import Model
 
 from flama import types
 from flama.resources.crud import CRUDResource
 from flama.resources.routing import ResourceRoute
 from flama.resources.workers import FlamaWorker
-from tests.conftest import DATABASE_URL
+from tests.unit.resources.conftest import Model
+
+DATABASE_URL = "sqlite+aiosqlite://"
 
 
 @pytest.fixture(scope="function")
