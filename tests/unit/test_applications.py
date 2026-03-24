@@ -10,6 +10,7 @@ from flama.context import Context
 from flama.ddd.components import WorkerComponent
 from flama.events import Events
 from flama.injection.injector import Injector
+from flama.mcp.module import MCPModule
 from flama.middleware import Middleware, MiddlewareStack
 from flama.models import ModelsModule
 from flama.resources import Resource, ResourceRoute, ResourcesModule
@@ -17,7 +18,7 @@ from flama.schemas.modules import SchemaModule
 from flama.types.applications import AppStatus
 from flama.url import URL
 
-DEFAULT_MODULES = [ResourcesModule, SchemaModule, ModelsModule]
+DEFAULT_MODULES = [MCPModule, ResourcesModule, SchemaModule, ModelsModule]
 
 
 class TestCaseFlama:

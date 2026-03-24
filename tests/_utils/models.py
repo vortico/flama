@@ -116,6 +116,8 @@ class ModelFactory:
         return pipeline, sklearn.pipeline.Pipeline
 
     def _tensorflow(self):
+        tf.random.set_seed(42)
+
         model = tf.keras.models.Sequential(
             [
                 tf.keras.Input((2,)),

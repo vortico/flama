@@ -8,6 +8,7 @@ from flama.context import Context
 from flama.ddd.components import WorkerComponent
 from flama.events import Events
 from flama.injection.components import Components
+from flama.mcp.module import MCPModule
 from flama.middleware import MiddlewareStack
 from flama.models.modules import ModelsModule
 from flama.modules import Modules
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class Flama(types.App):
+    mcp: MCPModule
     resources: ResourcesModule
     schema: SchemaModule
     models: ModelsModule
@@ -92,6 +94,7 @@ class Flama(types.App):
 
         # Initialise modules
         default_modules = [
+            MCPModule(),
             ResourcesModule(worker=worker),
             SchemaModule(openapi, schema=schema, docs=docs),
             ModelsModule(),

@@ -5,7 +5,7 @@ if t.TYPE_CHECKING:
     from flama.http.websocket import WebSocket
     from flama.types.http import Method
 
-__all__ = ["EndpointProtocol", "HTTPEndpointProtocol", "WebSocketEndpointProtocol"]
+__all__ = ["EndpointProtocol", "HTTPEndpointProtocol", "WebSocketEndpointProtocol", "JSONRPCEndpointProtocol"]
 
 
 class EndpointProtocol(t.Protocol):
@@ -16,7 +16,7 @@ class EndpointProtocol(t.Protocol):
     @classmethod
     def allowed_handlers(cls) -> dict[str, t.Callable]: ...
 
-    async def dispatch(self) -> None: ...
+    async def dispatch(self) -> t.Any: ...
 
 
 class HTTPEndpointProtocol(EndpointProtocol, t.Protocol):
@@ -35,3 +35,7 @@ class WebSocketEndpointProtocol(EndpointProtocol, t.Protocol):
     async def on_receive(self, websocket: "WebSocket", data: "types.Data") -> None: ...
 
     async def on_disconnect(self, websocket: "WebSocket", websocket_code: "types.Code") -> None: ...
+
+
+class JSONRPCEndpointProtocol(EndpointProtocol, t.Protocol):
+    def handler(self, method: str) -> t.Callable[..., t.Awaitable[t.Any] | t.Any]: ...

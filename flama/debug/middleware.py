@@ -9,6 +9,7 @@ import starlette.exceptions
 from flama import concurrency, exceptions, http, types
 from flama.debug.data_structures import ErrorContext, NotFoundContext
 from flama.http.api import APIErrorResponse
+from flama.http.json_rpc import JSONRPCErrorResponse
 from flama.http.templates import _FlamaTemplateResponse
 
 if t.TYPE_CHECKING:
@@ -102,6 +103,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         }
         self._exception_handlers: dict[type[Exception], Handler] = {
             **{e: handler for e, handler in handlers.items() if inspect.isclass(e) and issubclass(e, Exception)},
+            exceptions.JSONRPCException: self.jsonrpc_exception_handler,
             exceptions.NotFoundException: self.not_found_handler,
             exceptions.MethodNotAllowedException: self.method_not_allowed_handler,
             starlette.exceptions.HTTPException: self.http_exception_handler,
@@ -170,6 +172,11 @@ class ExceptionMiddleware(BaseErrorMiddleware):
             )
 
         return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
+
+    def jsonrpc_exception_handler(
+        self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.JSONRPCException
+    ) -> JSONRPCErrorResponse:
+        return JSONRPCErrorResponse(status_code=exc.status_code, message=exc.detail, id=exc.request_id)
 
     async def websocket_exception_handler(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.WebSocketException
