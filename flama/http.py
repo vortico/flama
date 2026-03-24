@@ -38,7 +38,8 @@ __all__ = [
 ]
 
 Method = compat.StrEnum(  # PORT: Replace compat when stop supporting 3.10
-    "Method", ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"]
+    "Method",
+    ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"],
 )
 Request = starlette.requests.Request
 
@@ -50,7 +51,15 @@ class Response(starlette.responses.Response):
         await super().__call__(scope, receive, send)  # type: ignore[arg-type]
 
     def __hash__(self) -> int:
-        return hash((self.status_code, getattr(self, "media_type"), self.background, self.body, self.headers))
+        return hash(
+            (
+                self.status_code,
+                getattr(self, "media_type"),
+                self.background,
+                self.body,
+                self.headers,
+            )
+        )
 
     def __eq__(self, value: object, /) -> bool:
         return (
@@ -123,7 +132,12 @@ class JSONResponse(starlette.responses.JSONResponse, Response):
 
     def render(self, content: t.Any) -> bytes:
         return json.dumps(
-            content, ensure_ascii=False, allow_nan=False, indent=None, separators=(",", ":"), cls=EnhancedJSONEncoder
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+            cls=EnhancedJSONEncoder,
         ).encode("utf-8")
 
 
@@ -180,7 +194,7 @@ class APIErrorResponse(APIResponse):
     ):
         content = {
             "detail": detail,
-            "error": str(exception.__class__.__name__) if exception is not None else None,
+            "error": (str(exception.__class__.__name__) if exception is not None else None),
             "status_code": status_code,
             "headers": headers,
         }
@@ -254,7 +268,7 @@ class HTMLTemplatesEnvironment(jinja2.Environment):
         return self._escape(value)
 
     def safe_json(self, value: types.JSONField):
-        return json.dumps(self._escape(value)).replace('"', '\\"')
+        return json.dumps(self._escape(value), cls=EnhancedJSONEncoder).replace('"', '\\"')
 
 
 class HTMLTemplateResponse(HTMLResponse):
