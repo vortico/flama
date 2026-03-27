@@ -75,7 +75,7 @@ class RetrieveMixin:
             self,
             worker: FlamaWorker,
             resource_id: rest_model.primary_key.type,  # type: ignore
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(rest_schemas.output.schema)]:  # type: ignore
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(rest_schemas.output.schema)]:
             try:
                 async with worker:
                     repository = worker.repositories[self._meta.name]

@@ -4,7 +4,7 @@ from flama import exceptions
 from flama.models.base import BaseModel
 
 try:
-    import numpy as np  # type: ignore
+    import numpy as np
 except Exception:  # pragma: no cover
     np = None
 
@@ -27,5 +27,5 @@ class Model(BaseModel):
 
         try:
             return self.model.predict(np.array(x)).tolist()
-        except (tf.errors.OpError, ValueError):  # type: ignore
+        except (tf.errors.OpError, ValueError):
             raise exceptions.HTTPException(status_code=400)
