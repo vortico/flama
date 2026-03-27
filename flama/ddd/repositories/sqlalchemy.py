@@ -29,7 +29,7 @@ class SQLAlchemyRepository(BaseRepository):
 
 
 class SQLAlchemyTableManager:
-    def __init__(self, table: sqlalchemy.Table, connection: AsyncConnection):  # type: ignore
+    def __init__(self, table: sqlalchemy.Table, connection: AsyncConnection):
         self._connection = connection
         self.table = table
         self.resource = table.name
@@ -206,7 +206,7 @@ class SQLAlchemyTableManager:
 
 
 class SQLAlchemyTableRepository(SQLAlchemyRepository):
-    _table: t.ClassVar[sqlalchemy.Table]  # type: ignore
+    _table: t.ClassVar[sqlalchemy.Table]
 
     def __init__(self, connection: AsyncConnection, *args, **kwargs):
         super().__init__(connection, *args, **kwargs)
