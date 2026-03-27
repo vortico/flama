@@ -1,21 +1,22 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
-source scripts/str_lib.sh
-source scripts/clean
-source scripts/build
+source "./scripts/clean"
+source "./scripts/build"
 
-publish() {
-  if [ "$1" == "--build" ]; then
-    clean
-    build
+# ─── Publish ─────────────────────────────────────────────────────────────────
+
+run_publish() {
+  if [[ "$1" == "--build" ]]; then
+    run_clean
+    run_build
   fi
 
-  message "info" "Publish package"
+  echo "📤 Publishing package..."
   uv publish
-  message "success" "Publish completed"
+  echo "✅ Publish complete."
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  publish "$@"
+  run_publish "$@"
 fi
