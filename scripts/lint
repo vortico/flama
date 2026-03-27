@@ -1,14 +1,14 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
-source scripts/str_lib.sh
+# ─── Lint ────────────────────────────────────────────────────────────────────
 
-lint() {
-  message "info" "Lint code"
-  uv run ruff check "$@"
-  message "success" "Lint completed"
+run_lint() {
+  echo "🔍 Linting project..."
+  uvx ruff check "$@"
+  echo "✅ Lint complete."
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  lint "$@"
+  run_lint "$@"
 fi
