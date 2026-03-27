@@ -1,14 +1,14 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
-source scripts/str_lib.sh
+# ─── Typecheck ────────────────────────────────────────────────────────────────
 
-typecheck() {
-  message "info" "Types check"
-  uv run pyright "$@"
-  message "success" "Types check completed"
+run_typecheck() {
+  echo "🔍 Typechecking project..."
+  uv run --all-extras --group dev ty check "$@"
+  echo "✅ Typecheck complete."
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  typecheck "$@"
+  run_typecheck "$@"
 fi

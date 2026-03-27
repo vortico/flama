@@ -86,7 +86,7 @@ dev = [
   "ipython>=8.0,<9.0; python_version < '3.11'",
   "ipython>=9.6; python_version >= '3.11'",
   "ruff>=0.14.1",
-  "pyright>=1.1.406",
+  "ty>=0.0.25; python_version >= '3.13'",
   "pre-commit>=4.3",
   "python-multipart>=0.0.20",
   "aiosqlite>=0.21.0,<1.0.0",
@@ -148,11 +148,9 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 # Unlike Flake8, default to a complexity level of 10.
 max-complexity = 10
 
-[tool.pyright]
+[tool.ty.src]
 include = ["flama"]
 exclude = ["**/node_modules", "**/__pycache__"]
-reportWildcardImportFromLibrary = false
-reportPrivateImportUsage = false
 
 [tool.pytest.ini_options]
 minversion = "3"
@@ -201,7 +199,7 @@ exclude_lines = [
 ]
 
 [tool.coverage.paths]
-source = ["./"]
+source = ["./flama/"]
 
 [tool.coverage.html]
 directory = "./test-results/coverage_html/"

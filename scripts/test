@@ -1,15 +1,14 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
-source scripts/str_lib.sh
+# ─── Test ────────────────────────────────────────────────────────────────────
 
-test() {
-  message "info" "Tests"
-  uv run pytest -n auto
-  message "success" "Tests completed"
+run_test() {
+  echo "🧪 Testing project..."
+  uv run pytest -n auto "$@"
+  echo "✅ Test complete."
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  test "$@"
+  run_test "$@"
 fi
-

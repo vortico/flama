@@ -1,20 +1,21 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
-source scripts/str_lib.sh
+# ─── Install ─────────────────────────────────────────────────────────────────
 
-install() {
-  message "info" "Install Python requirements"
+run_install() {
+  echo "📦 Installing Python dependencies..."
   uv sync --all-extras --dev "$@"
+
+  echo "📦 Installing JS dependencies and building templates..."
   cd templates
-  message "info" "Install JS requirements"
   npm i
-  message "info" "Build templates"
   npm run build
   cd ..
-  message "success" "Install completed"
+
+  echo "✅ Install complete."
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  install "$@"
+  run_install "$@"
 fi

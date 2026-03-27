@@ -1,4 +1,5 @@
-all: check
+build: ## Builds the package
+	@./scripts/build
 
 check: ## Checks the dependencies of the project and install those missing
 	@./scripts/check
@@ -6,23 +7,14 @@ check: ## Checks the dependencies of the project and install those missing
 clean: ## Removes artifact folders and files which are cached
 	@./scripts/clean
 
-install: ## Installs the package, JS requirements, and build templates needed
-	@./scripts/install
-
-build: ## Builds the package, and templates needed
-	@./scripts/build
-
-test: ## Runs all tests of the repository
-	@./scripts/test
-
-publish: ## Publishes the package in PiPy if user and passwords are correct
-	@./scripts/publish
-
-version: ## Gets the current version of the package
-	@./scripts/version
+docker_push: ## Push docker images to registry
+	@./scripts/docker_push .
 
 format: ## Runs code formatting
 	@./scripts/format .
+
+install: ## Installs the package, JS requirements, and build templates needed
+	@./scripts/install
 
 lint: ## Runs code linting
 	@./scripts/lint .
@@ -30,13 +22,19 @@ lint: ## Runs code linting
 lint-fix: ## Runs code linting with autofixing
 	@./scripts/lint --fix .
 
+publish: ## Publishes the package to PyPI
+	@./scripts/publish
+
+test: ## Runs all tests of the repository
+	@./scripts/test
+
 typecheck: ## Runs static types checking
 	@./scripts/typecheck
 
-docker_push: ## Push docker images to registry
-	@./scripts/docker_push .
+version: ## Gets the current version of the package
+	@./scripts/version
 
-.PHONY: help check clean install build tests publish version format lint lint-fix typecheck docker_push
+.PHONY: help build check clean docker_push format install lint lint-fix publish test typecheck version
 .DEFAULT_GOAL := help
 
 help:

@@ -1,14 +1,14 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
-source scripts/str_lib.sh
+# ─── Format ──────────────────────────────────────────────────────────────────
 
-format() {
-  message "info" "Format code"
-  uv run ruff format "$@"
-  message "success" "Format completed"
+run_format() {
+  echo "🎨 Formatting project..."
+  uvx ruff format "$@"
+  echo "✅ Format complete."
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  format "$@"
+  run_format "$@"
 fi

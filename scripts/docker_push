@@ -1,8 +1,9 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
-source scripts/str_lib.sh
-source scripts/version
+source "./scripts/version"
+
+# ─── Docker Push ─────────────────────────────────────────────────────────────
 
 LINUX_VERSIONS=("slim")
 PYTHON_VERSIONS=("3.14" "3.13" "3.12" "3.11" "3.10")
@@ -12,8 +13,11 @@ DEFAULT_LINUX="${LINUX_VERSIONS[0]}"
 DEFAULT_PYTHON="${PYTHON_VERSIONS[0]}"
 DEFAULT_SCHEMA_LIB="${SCHEMA_LIBS[0]}"
 
-docker_push() {
+run_docker_push() {
+  local version
   version=$(get_version)
+
+  echo "📤 Building and pushing Docker images (v${version})..."
 
   cd "Dockerfiles"
   for linux in "${LINUX_VERSIONS[@]}"; do
@@ -52,19 +56,21 @@ docker_push() {
 
         tags=("${tags[@]/#/vortico/flama:}")
         docker build "--build-arg=PYTHON_VERSION=${python}" "--build-arg=SCHEMAS_LIB=${schema}" "${tags[@]/#/--tag=}" .
-        message "success" "Image built (linux=$linux, python=$python, schema=$schema)"
+        echo "  ✅ Image built (linux=$linux, python=$python, schema=$schema)"
 
         for tag in "${tags[@]}"; do
           docker push "${tag}"
-          message "success" "Image uploaded ($tag)"
+          echo "  → Pushed $tag"
         done
       done
     done
     cd ..
   done
   cd ..
+
+  echo "✅ Docker push complete."
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  docker_push "$@"
+  run_docker_push "$@"
 fi
