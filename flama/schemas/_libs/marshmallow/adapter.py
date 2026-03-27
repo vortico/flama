@@ -39,7 +39,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         }
 
         if not required:
-            field_args["load_default"] = default if default is not Parameter.empty else None
+            field_args["load_default"] = default if default is not Parameter.empty else None  # ty: ignore[invalid-assignment]
 
         if multiple:
             return marshmallow.fields.List(
@@ -47,7 +47,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
                 **field_args,
             )
 
-        return MAPPING[type_](**field_args)
+        return MAPPING[type_](**field_args)  # ty: ignore[invalid-argument-type]
 
     def build_schema(
         self,

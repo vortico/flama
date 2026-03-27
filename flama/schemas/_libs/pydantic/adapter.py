@@ -33,15 +33,15 @@ class PydanticAdapter(Adapter[Schema, Field]):
         annotation: t.Any = type_
 
         if multiple:
-            annotation = list[annotation]
+            annotation = list[annotation]  # ty: ignore[invalid-type-form]
 
         if nullable:
             annotation = annotation | None
 
         if default is Parameter.empty:
-            field = FieldInfo.from_annotation(annotation)
+            field = FieldInfo.from_annotation(annotation)  # ty: ignore[invalid-argument-type]
         else:
-            field = FieldInfo.from_annotated_attribute(annotation, default)
+            field = FieldInfo.from_annotated_attribute(annotation, default)  # ty: ignore[invalid-argument-type]
 
         return field
 
@@ -65,9 +65,9 @@ class PydanticAdapter(Adapter[Schema, Field]):
         if partial:
             for name, (annotation, field) in fields_.items():
                 field.default = None
-                fields_[name] = (annotation | None, field)
+                fields_[name] = (annotation | None, field)  # ty: ignore[unsupported-operator]
 
-        return pydantic.create_model(
+        return pydantic.create_model(  # ty: ignore[no-matching-overload]
             name or self.DEFAULT_SCHEMA_NAME,
             __module__=module,
             **fields_,

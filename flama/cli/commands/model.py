@@ -94,4 +94,5 @@ def predict(model: "ModelComponent", input_file, output_file, pretty: bool):
     click.echo(dump_func(model.model.predict(data)), output_file)
 
 
-model: t.Callable = command.callback  # type: ignore[assignment]
+assert command.callback is not None
+model = command.callback
