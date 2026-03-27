@@ -118,7 +118,7 @@ class TypesystemAdapter(Adapter[Schema, Field]):
 
         if isinstance(field, typesystem.Array):
             return (
-                [self._get_field_type(x) for x in field.items]
+                [self._get_field_type(x) for x in field.items]  # ty: ignore[invalid-argument-type]
                 if isinstance(field.items, list | tuple | set)
                 else self._get_field_type(field.items)
             )

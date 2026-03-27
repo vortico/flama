@@ -6,7 +6,7 @@ from flama.models.base import BaseModel
 try:
     import sklearn
 except Exception:  # pragma: no cover
-    sklearn = None
+    sklearn = None  # ty: ignore[invalid-assignment]
 
 
 __all__ = ["Model"]
