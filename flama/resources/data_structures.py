@@ -70,7 +70,7 @@ class _ResourceMethodFunction:
     signature: inspect.Signature = dataclasses.field(init=False)
 
     def __post_init__(self):
-        self.name = self.method.__name__
+        self.name = getattr(self.method, "__name__", "")
         self.signature = inspect.signature(self.method)
 
 

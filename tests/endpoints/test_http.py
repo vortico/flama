@@ -8,6 +8,7 @@ import typesystem
 import typesystem.fields
 
 from flama import Component, Flama, endpoints, types
+from flama.endpoints.state import HTTPEndpointState
 
 
 class Puppy:
@@ -103,15 +104,14 @@ class TestCaseHTTPEndpoint:
                 }
             )
             endpoint = endpoints.HTTPEndpoint(asgi_scope, asgi_receive, asgi_send)
-            assert endpoint.state == {
-                "scope": asgi_scope,
-                "receive": asgi_receive,
-                "send": asgi_send,
-                "exc": None,
-                "app": app,
-                "route": route,
-                "request": request_mock(),
-            }
+            assert endpoint.state == HTTPEndpointState(
+                scope=asgi_scope,
+                receive=asgi_receive,
+                send=asgi_send,
+                app=app,
+                route=route,
+                request=request_mock(),
+            )
 
     def test_allowed_methods(self, endpoint):
         assert endpoint.allowed_methods() == {"GET", "HEAD"}
@@ -122,7 +122,7 @@ class TestCaseHTTPEndpoint:
         assert BarEndpoint.allowed_methods() == {"POST"}
 
     def test_handler(self, endpoint):
-        endpoint.state["request"].scope["method"] = "GET"
+        endpoint.state.request.scope["method"] = "GET"
         assert endpoint.handler == endpoint.get
 
     async def test_dispatch(self, app, endpoint):
@@ -131,5 +131,5 @@ class TestCaseHTTPEndpoint:
         with patch("flama.concurrency.run") as run_mock:
             await endpoint.dispatch()
 
-            assert app.injector.inject.call_args_list == [call(endpoint.get, endpoint.state)]
+            assert app.injector.inject.call_args_list == [call(endpoint.get, vars(endpoint.state))]
             assert run_mock.call_args_list == [call(injected_mock)]

@@ -39,7 +39,7 @@ class ModelsModule(Module):
 
         resource = Resource()
         self.app.add_component(resource.component)
-        return self.app.resources.add_resource(path, resource, tags=tags, *args, **kwargs)
+        return self.app.resources.add_resource(path, resource, *args, tags=tags, **kwargs)
 
     def model_resource(self, path: str, tags: dict[str, dict[str, t.Any]] | None = None, *args, **kwargs) -> t.Callable:
         """Decorator for ModelResource classes for adding them to the application.
@@ -50,7 +50,7 @@ class ModelsModule(Module):
         """
 
         def decorator(resource: type[ModelResource]) -> type[ModelResource]:
-            self.app.models.add_model_resource(path, resource, tags=tags, *args, **kwargs)
+            self.app.models.add_model_resource(path, resource, tags, *args, **kwargs)
             return resource
 
         return decorator
@@ -70,4 +70,4 @@ class ModelsModule(Module):
         :param tags: Tags to add to the model methods.
         """
         self.app.add_component(resource.component)
-        return self.app.resources.add_resource(path, resource, tags=tags, *args, **kwargs)
+        return self.app.resources.add_resource(path, resource, *args, tags=tags, **kwargs)

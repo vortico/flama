@@ -116,7 +116,10 @@ class ModelSerializer:
 
         for obj in inspect_objs:
             try:
-                return cls.from_lib(inspect.getmodule(obj).__name__.split(".", 1)[0])  # type: ignore[union-attr]
+                module = inspect.getmodule(obj)
+                if module is None:
+                    continue
+                return cls.from_lib(t.cast(types.MLLib, module.__name__.split(".", 1)[0]))
             except (ValueError, AttributeError):
                 ...
         else:  # pragma: no cover

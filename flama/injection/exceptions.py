@@ -29,6 +29,6 @@ class ComponentNotFound(ComponentError):
         if self.component:
             msg += f" in component '{self.component.__str__()}'"
         if self.function:
-            msg += f" for function '{self.function.__name__}'"
+            msg += f" for function '{getattr(self.function, '__name__', '')}'"
 
         return msg

@@ -8,5 +8,5 @@ if t.TYPE_CHECKING:
 HandlerException = t.TypeVar("HandlerException", bound=Exception)
 Handler = t.Callable[
     [types.Scope, types.Receive, types.Send, HandlerException],
-    "http.Response | None" | t.Awaitable["http.Response | None"],
+    "http.Response | None | t.Awaitable[http.Response | None]",
 ]

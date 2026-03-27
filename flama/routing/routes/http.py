@@ -130,7 +130,7 @@ class Route(BaseRoute):
         if "GET" in self.methods:
             self.methods.add("HEAD")
 
-        name = endpoint.__name__ if name is None else name
+        name = getattr(endpoint, "__name__", "") if name is None else name
         wrapped_endpoint = (
             endpoint
             if isinstance(endpoint, BaseHTTPEndpointWrapper)

@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from flama import Flama, endpoints, types
+from flama.endpoints.state import BaseEndpointState
 
 
 class TestCaseBaseEndpoint:
@@ -43,14 +44,13 @@ class TestCaseBaseEndpoint:
             }
         )
         e = endpoint(asgi_scope, asgi_receive, asgi_send)
-        assert e.state == {
-            "scope": asgi_scope,
-            "receive": asgi_receive,
-            "send": asgi_send,
-            "exc": None,
-            "app": app,
-            "route": route,
-        }
+        assert e.state == BaseEndpointState(
+            scope=asgi_scope,
+            receive=asgi_receive,
+            send=asgi_send,
+            app=app,
+            route=route,
+        )
 
     def test_await(self, endpoint, app, route, asgi_scope, asgi_receive, asgi_send):
         e = endpoint(

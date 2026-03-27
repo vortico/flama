@@ -115,13 +115,17 @@ class SchemaRegistry(dict[int, SchemaInfo]):
     def _get_schema_references_from_operation_responses(self, responses: openapi.Responses) -> list[str]:
         refs = []
 
-        for response in [x for x in responses.values() if x.content]:
-            for media_type in [
-                x
-                for x in response.content.values()  # type: ignore[union-attr]
-                if isinstance(x, openapi.MediaType) and x.schema
-            ]:
-                refs += self._get_schema_references_from_schema(media_type.schema)  # type: ignore[arg-type]
+        for response in responses.values():
+            content = response.content
+            if not content:
+                continue
+            for media_type in content.values():
+                if not isinstance(media_type, openapi.MediaType):
+                    continue
+                schema = media_type.schema
+                if schema is None:
+                    continue
+                refs += self._get_schema_references_from_schema(schema)
 
         return refs
 
@@ -149,8 +153,13 @@ class SchemaRegistry(dict[int, SchemaInfo]):
             if isinstance(request_body, openapi.Reference):
                 refs.append(request_body.ref)
             else:
-                for media_type in [x for x in request_body.content.values() if isinstance(x, openapi.MediaType)]:
-                    refs += self._get_schema_references_from_schema(media_type.schema)  # type: ignore[arg-type]
+                for media_type in request_body.content.values():
+                    if not isinstance(media_type, openapi.MediaType):
+                        continue
+                    schema = media_type.schema
+                    if schema is None:
+                        continue
+                    refs += self._get_schema_references_from_schema(schema)
 
         return refs
 
@@ -163,8 +172,8 @@ class SchemaRegistry(dict[int, SchemaInfo]):
             for param in parameters:
                 if isinstance(param, openapi.Reference):
                     refs.append(param.ref)
-                else:
-                    refs += self._get_schema_references_from_schema(param.schema)  # type: ignore[arg-type]
+                elif param.schema is not None:
+                    refs += self._get_schema_references_from_schema(param.schema)
 
         return refs
 
@@ -316,7 +325,7 @@ class SchemaGenerator:
 
     def _build_endpoint_parameters(
         self, endpoint: EndpointInfo, metadata: dict[str, t.Any]
-    ) -> list[openapi.Parameter] | None:
+    ) -> list[openapi.Parameter | openapi.Reference] | None:
         if not endpoint.query_parameters and not endpoint.path_parameters:
             return None
 
@@ -432,7 +441,7 @@ class SchemaGenerator:
         try:
             # It's possible to define a standard docstring along with the schema definition, for doing so the schema
             # should start with a line with three dashes "---" as it's the usual notation for starting a yaml file.
-            schema = yaml.safe_load(func.__doc__.split("---")[-1])  # type: ignore[union-attr]
+            schema = yaml.safe_load((func.__doc__ or "").split("---")[-1])
         except AttributeError:
             schema = None
 
@@ -458,7 +467,7 @@ class SchemaGenerator:
 
         return openapi.Operation(
             responses=responses,
-            parameters=parameters,  # type: ignore[arg-type]
+            parameters=parameters,
             requestBody=request_body,
             **{
                 x: docstring_info.get(x)

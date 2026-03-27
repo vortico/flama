@@ -1,7 +1,6 @@
 import abc
 import dataclasses
 import functools
-import io
 import json
 import typing as t
 
@@ -20,9 +19,7 @@ class Config:
 
     @classmethod
     def from_dict(cls, data: dict[str, t.Any]) -> "Config":
-        return cls(
-            **{**data, "app": App.build(data["app"]), "server": Uvicorn(**data["server"])}  # type: ignore[arg-type]
-        )
+        return cls(App.build(data["app"]), Uvicorn(**data["server"]))
 
     def to_dict(self) -> dict[str, t.Any]:
         return dataclasses.asdict(self)
@@ -32,13 +29,13 @@ class Config:
         return cls.from_dict(json.loads(data))
 
     @classmethod
-    def load(cls, fs: io.StringIO) -> "Config":
+    def load(cls, fs: t.TextIO) -> "Config":
         return cls.loads(fs.read())
 
     def dumps(self) -> str:
         return json.dumps(self.to_dict())
 
-    def dump(self, fs: io.StringIO) -> None:
+    def dump(self, fs: t.TextIO) -> None:
         fs.write(self.dumps())
 
     @classmethod

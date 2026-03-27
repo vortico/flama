@@ -27,7 +27,7 @@ def command(flama_config: str, create_config: str):
         return
 
     with open(flama_config) as fs:
-        config = Config.load(fs)  # type: ignore[arg-type]
+        config = Config.load(fs)
 
     config.run()
 

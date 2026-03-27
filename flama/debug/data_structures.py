@@ -138,7 +138,7 @@ class Endpoint:
 
         return cls(
             path=str(route.path),
-            endpoint=handler.__name__,
+            endpoint=getattr(handler, "__name__", ""),
             module=module.__name__ if module else None,
             file=str(relative_filename),
             line=inspect.getsourcelines(route.app.handler)[1],
