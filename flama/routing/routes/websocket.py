@@ -80,7 +80,7 @@ class WebSocketRoute(BaseRoute):
         if not (self.is_endpoint(endpoint) or (not inspect.isclass(endpoint) and callable(endpoint))):
             raise exceptions.ApplicationError("Endpoint must be a callable or a WebSocketEndpoint subclass")
 
-        name = endpoint.__name__ if name is None else name
+        name = getattr(endpoint, "__name__", "") if name is None else name
         wrapped_endpoint = (
             endpoint
             if isinstance(endpoint, BaseWebSocketEndpointWrapper)

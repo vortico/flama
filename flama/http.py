@@ -201,9 +201,9 @@ class APIErrorResponse(APIResponse):
 
         super().__init__(
             content,
-            schema=t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.APIError)],
-            status_code=status_code,
+            t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.APIError)],
             *args,
+            status_code=status_code,
             **kwargs,
         )
 

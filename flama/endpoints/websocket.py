@@ -4,15 +4,14 @@ import starlette.websockets
 
 from flama import exceptions, types, websockets
 from flama.endpoints.base import BaseEndpoint
-
-if t.TYPE_CHECKING:
-    from flama import Flama
+from flama.endpoints.state import WebSocketEndpointState
 
 __all__ = ["WebSocketEndpoint"]
 
 
 class WebSocketEndpoint(BaseEndpoint, types.WebSocketEndpointProtocol):
     encoding: types.Encoding | None = None
+    state: WebSocketEndpointState
 
     def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
         """A websocket endpoint.
@@ -26,13 +25,14 @@ class WebSocketEndpoint(BaseEndpoint, types.WebSocketEndpointProtocol):
 
         super().__init__(scope, receive, send)
 
-        self.state.update(
-            {
-                "websocket": websockets.WebSocket(self.state["scope"], receive, send),
-                "websocket_encoding": self.encoding,
-                "websocket_code": None,
-                "websocket_message": None,
-            }
+        self.state = WebSocketEndpointState(
+            scope=self.state.scope,
+            receive=self.state.receive,
+            send=self.state.send,
+            app=self.state.app,
+            route=self.state.route,
+            websocket=websockets.WebSocket(self.state.scope, receive, send),
+            websocket_encoding=self.encoding,
         )
 
     @classmethod
@@ -49,32 +49,33 @@ class WebSocketEndpoint(BaseEndpoint, types.WebSocketEndpointProtocol):
 
     async def dispatch(self) -> None:
         """Dispatch a request."""
-        app: Flama = self.state["app"]
-        websocket = self.state["websocket"]
+        app = self.state.app
+        websocket = self.state.websocket
 
-        on_connect = await app.injector.inject(self.on_connect, self.state)
+        on_connect = await app.injector.inject(self.on_connect, vars(self.state))
         await on_connect()
 
         try:
-            self.state["websocket_message"] = await websocket.receive()
+            self.state.websocket_message = t.cast(types.Message, await websocket.receive())
 
             while websocket.is_connected:
-                on_receive = await app.injector.inject(self.on_receive, self.state)
+                on_receive = await app.injector.inject(self.on_receive, vars(self.state))
                 await on_receive()
-                self.state["websocket_message"] = await websocket.receive()
+                self.state.websocket_message = t.cast(types.Message, await websocket.receive())
 
-            self.state["websocket_code"] = types.Code(int(self.state["websocket_message"].get("code", 1000)))
+            if self.state.websocket_message is not None:
+                self.state.websocket_code = types.Code(int(self.state.websocket_message.get("code", 1000)))
         except starlette.websockets.WebSocketDisconnect as e:
-            self.state["websocket_code"] = types.Code(e.code)
+            self.state.websocket_code = types.Code(e.code)
             raise exceptions.WebSocketException(e.code, e.reason) from None
         except exceptions.WebSocketException as e:
-            self.state["websocket_code"] = types.Code(e.code)
+            self.state.websocket_code = types.Code(e.code)
             raise e from None
         except Exception as e:
-            self.state["websocket_code"] = types.Code(1011)
+            self.state.websocket_code = types.Code(1011)
             raise e from None
         finally:
-            on_disconnect = await app.injector.inject(self.on_disconnect, self.state)
+            on_disconnect = await app.injector.inject(self.on_disconnect, vars(self.state))
             await on_disconnect()
 
     async def on_connect(self, websocket: websockets.WebSocket, *args, **kwargs) -> None:
