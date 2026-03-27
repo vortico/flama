@@ -69,7 +69,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
 
         return pydantic.create_model(
             name or self.DEFAULT_SCHEMA_NAME,
-            __module__=module,  # type: ignore
+            __module__=module,
             **fields_,
         )
 

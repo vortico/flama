@@ -31,7 +31,7 @@ class ResourceRoute(Mount):
         # Handle class or instance objects
         self.resource = resource() if inspect.isclass(resource) else resource
 
-        if not (set(self.resource._methods.keys()) >= set(tags.keys())):  # type: ignore
+        if not (set(self.resource._methods.keys()) >= set(tags.keys())):
             raise exceptions.ApplicationError("Tags must be defined only for existing routes.")
 
         super().__init__(
