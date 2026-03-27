@@ -37,7 +37,7 @@ class CreateMixin:
                 except ddd_exceptions.IntegrityError as e:
                     raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
 
-            return http.APIResponse(  # type: ignore[return-value]
+            return http.APIResponse(  # ty: ignore[invalid-return-type]
                 schema=rest_schemas.output.schema, content=result[0], status_code=HTTPStatus.CREATED
             )
 
@@ -381,7 +381,7 @@ class DropMixin:
                 repository = worker.repositories[self._meta.name]
                 result = await repository.drop()
 
-            return http.APIResponse(  # type: ignore[return-value]
+            return http.APIResponse(  # ty: ignore[invalid-return-type]
                 schema=schemas.schemas.DropCollection, content={"deleted": result}, status_code=HTTPStatus.NO_CONTENT
             )
 

@@ -6,7 +6,7 @@ from flama.models.base import BaseModel
 try:
     import numpy as np
 except Exception:  # pragma: no cover
-    np = None
+    np = None  # ty: ignore[invalid-assignment]
 
 try:
     import tensorflow as tf  # type: ignore

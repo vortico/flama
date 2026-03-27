@@ -71,8 +71,8 @@ class ResourceType(type):
         except KeyError:
             for base in cls._get_mro(*bases):
                 if hasattr(base, "_meta"):
-                    if attribute in base._meta.namespaces.get(metadata_namespace, {}):
-                        return base._meta.namespaces[metadata_namespace][attribute]
+                    if attribute in base._meta.namespaces.get(metadata_namespace, {}):  # ty: ignore[unresolved-attribute]
+                        return base._meta.namespaces[metadata_namespace][attribute]  # ty: ignore[unresolved-attribute]
 
                     if hasattr(base._meta, attribute):
                         return getattr(base._meta, attribute)

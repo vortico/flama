@@ -86,7 +86,7 @@ class App(metaclass=abc.ABCMeta):
             return StrApp(app)
 
         if isinstance(app, dict):
-            return DictApp.from_dict(app)
+            return DictApp.from_dict(app)  # ty: ignore[invalid-argument-type]
 
         return FlamaApp(app)
 

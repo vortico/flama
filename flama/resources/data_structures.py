@@ -7,7 +7,7 @@ from flama import types
 try:
     from sqlalchemy import Table
 except Exception:  # pragma: no cover
-    Table = t.Any
+    Table = t.Any  # ty: ignore[invalid-assignment]
 
 if t.TYPE_CHECKING:
     from flama.resources.resource import Resource

@@ -17,7 +17,7 @@ from flama.schemas.modules import SchemaModule
 try:
     from flama.resources.workers import FlamaWorker
 except exceptions.DependencyNotInstalled:  # pragma: no cover
-    FlamaWorker = None
+    FlamaWorker = None  # ty: ignore[invalid-assignment]
 
 if t.TYPE_CHECKING:
     from flama.middleware import Middleware

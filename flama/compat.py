@@ -41,7 +41,7 @@ if sys.version_info >= (3, 11):  # PORT: Remove when stop supporting 3.10
     import tomllib
 else:
     try:
-        import tomli
+        import tomli  # ty: ignore[unresolved-import]
 
         tomllib = tomli
     except ModuleNotFoundError:
@@ -65,4 +65,4 @@ else:
     import lzma
     import zlib
 
-    import zstd
+    import zstd  # ty: ignore[unresolved-import]

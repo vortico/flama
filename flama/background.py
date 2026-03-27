@@ -42,7 +42,7 @@ class BackgroundTask(starlette.background.BackgroundTask):
         if self.concurrency == Concurrency.process:
             concurrency.AsyncProcess(target=self.func, args=self.args, kwargs=self.kwargs).start()
         else:
-            await self.func(*self.args, **self.kwargs)
+            await self.func(*self.args, **self.kwargs)  # ty: ignore[invalid-argument-type]
 
 
 class BackgroundTasks(BackgroundTask):

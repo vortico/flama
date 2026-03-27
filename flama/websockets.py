@@ -11,8 +11,8 @@ State = starlette.websockets.WebSocketState
 
 
 class WebSocket(starlette.websockets.WebSocket):
-    def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send"):  # type: ignore[override]
-        super().__init__(scope, receive, send)  # type: ignore[arg-type]
+    def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send"):
+        super().__init__(scope, receive, send)  # ty: ignore[invalid-argument-type]
 
     @property
     def is_connecting(self) -> bool:
@@ -40,7 +40,7 @@ class WebSocket(starlette.websockets.WebSocket):
 
 
 class Close(starlette.websockets.WebSocketClose):
-    async def __call__(  # type: ignore[override]
+    async def __call__(  # ty: ignore[invalid-method-override]
         self, scope: "types.Scope", receive: "types.Receive", send: "types.Send"
     ) -> None:
-        await super().__call__(scope, receive, send)  # type: ignore[arg-type]
+        await super().__call__(scope, receive, send)  # ty: ignore[invalid-argument-type]

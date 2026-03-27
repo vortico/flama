@@ -246,7 +246,7 @@ class Router:
 
                 if isinstance(route, Mount):
                     try:
-                        return route.app.resolve_route(route_scope)  # type: ignore[no-any-return,union-attr]
+                        return route.app.resolve_route(route_scope)  # ty: ignore[unresolved-attribute]
                     except AttributeError:
                         ...
 

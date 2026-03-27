@@ -45,10 +45,10 @@ Request = starlette.requests.Request
 
 
 class Response(starlette.responses.Response):
-    async def __call__(  # type: ignore[override]
+    async def __call__(  # ty: ignore[invalid-method-override]
         self, scope: types.Scope, receive: types.Receive, send: types.Send
     ) -> None:
-        await super().__call__(scope, receive, send)  # type: ignore[arg-type]
+        await super().__call__(scope, receive, send)  # ty: ignore[invalid-argument-type]
 
     def __hash__(self) -> int:
         return hash(
@@ -73,17 +73,13 @@ class Response(starlette.responses.Response):
 
 
 class HTMLResponse(starlette.responses.HTMLResponse, Response):
-    async def __call__(  # type: ignore[override]
-        self, scope: types.Scope, receive: types.Receive, send: types.Send
-    ) -> None:
-        await super().__call__(scope, receive, send)  # type: ignore[arg-type]
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        await super().__call__(scope, receive, send)
 
 
 class PlainTextResponse(starlette.responses.PlainTextResponse, Response):
-    async def __call__(  # type: ignore[override]
-        self, scope: types.Scope, receive: types.Receive, send: types.Send
-    ) -> None:
-        await super().__call__(scope, receive, send)  # type: ignore[arg-type]
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        await super().__call__(scope, receive, send)
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):
@@ -125,10 +121,8 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 
 class JSONResponse(starlette.responses.JSONResponse, Response):
-    async def __call__(  # type: ignore[override]
-        self, scope: types.Scope, receive: types.Receive, send: types.Send
-    ) -> None:
-        await super().__call__(scope, receive, send)  # type: ignore[arg-type]
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        await super().__call__(scope, receive, send)
 
     def render(self, content: t.Any) -> bytes:
         return json.dumps(
@@ -142,24 +136,22 @@ class JSONResponse(starlette.responses.JSONResponse, Response):
 
 
 class RedirectResponse(starlette.responses.RedirectResponse, Response):
-    async def __call__(  # type: ignore[override]
-        self, scope: types.Scope, receive: types.Receive, send: types.Send
-    ) -> None:
-        await super().__call__(scope, receive, send)  # type: ignore[arg-type]
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        await super().__call__(scope, receive, send)
 
 
 class StreamingResponse(starlette.responses.StreamingResponse, Response):
-    async def __call__(  # type: ignore[override]
+    async def __call__(  # ty: ignore[invalid-method-override]
         self, scope: types.Scope, receive: types.Receive, send: types.Send
     ) -> None:
-        await super().__call__(scope, receive, send)  # type: ignore[arg-type]
+        await super().__call__(scope, receive, send)  # ty: ignore[invalid-argument-type]
 
 
 class FileResponse(starlette.responses.FileResponse, Response):
-    async def __call__(  # type: ignore[override]
+    async def __call__(  # ty: ignore[invalid-method-override]
         self, scope: types.Scope, receive: types.Receive, send: types.Send
     ) -> None:
-        await super().__call__(scope, receive, send)  # type: ignore[arg-type]
+        await super().__call__(scope, receive, send)  # ty: ignore[invalid-argument-type]
 
 
 class APIResponse(JSONResponse):
@@ -300,10 +292,8 @@ class _FlamaTemplateResponse(HTMLTemplateResponse):
 
 
 class OpenAPIResponse(starlette.schemas.OpenAPIResponse, Response):
-    async def __call__(  # type: ignore[override]
-        self, scope: types.Scope, receive: types.Receive, send: types.Send
-    ) -> None:
-        await super().__call__(scope, receive, send)  # type: ignore[arg-type]
+    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        await super().__call__(scope, receive, send)
 
     def render(self, content: t.Any) -> bytes:
         if not isinstance(content, dict):
