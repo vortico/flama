@@ -8,7 +8,6 @@ from flama.schemas.exceptions import SchemaParseError, SchemaValidationError
 from flama.types import Schema, SchemaList, SchemaMetadata
 
 if t.TYPE_CHECKING:
-    from flama.schemas.adapter import Adapter
     from flama.schemas.data_structures import Parameter
 
 __all__ = [
@@ -24,7 +23,7 @@ __all__ = [
     "schemas",
 ]
 
-adapter: "Adapter"
+adapter: t.Any
 fields: dict[t.Any, "Parameter"] = {}
 lib: ModuleType | None = None
 schemas: t.Any = None
@@ -62,7 +61,7 @@ class Module:
         self.name = library
         self.lib = importlib.import_module(f"flama.schemas._libs.{library}")
 
-        global schemas, lib, fields, adapter, Field, Schema
+        global schemas, lib, fields, adapter
         schemas = self.lib.schemas
         lib = self.lib.lib
         fields = self.lib.fields

@@ -4,6 +4,7 @@ import pytest
 import starlette.websockets
 
 from flama import Component, Flama, endpoints, exceptions, types, websockets
+from flama.endpoints.state import WebSocketEndpointState
 
 
 class Puppy:
@@ -156,18 +157,17 @@ class TestCaseWebSocketEndpoint:
                 }
             )
             endpoint = endpoints.WebSocketEndpoint(asgi_scope, asgi_receive, asgi_send)
-            assert endpoint.state == {
-                "scope": asgi_scope,
-                "receive": asgi_receive,
-                "send": asgi_send,
-                "exc": None,
-                "app": app,
-                "route": route,
-                "websocket": websocket_mock(),
-                "websocket_code": None,
-                "websocket_encoding": None,
-                "websocket_message": None,
-            }
+            assert endpoint.state == WebSocketEndpointState(
+                scope=asgi_scope,
+                receive=asgi_receive,
+                send=asgi_send,
+                app=app,
+                route=route,
+                websocket=websocket_mock(),
+                websocket_code=None,
+                websocket_encoding=None,
+                websocket_message=None,
+            )
 
     def test_allowed_handlers(self, endpoint):
         assert endpoint.allowed_handlers() == {
@@ -224,14 +224,14 @@ class TestCaseWebSocketEndpoint:
         self, app, endpoint, endpoint_receive, websocket_receive, exception, result_code, result_message
     ):
         app.injector.inject = AsyncMock(side_effect=[AsyncMock(side_effect=x) for x in endpoint_receive])
-        endpoint.state["websocket"].receive = AsyncMock(side_effect=websocket_receive)
-        type(endpoint.state["websocket"]).is_connected = PropertyMock(side_effect=[True, False])
+        endpoint.state.websocket.receive = AsyncMock(side_effect=websocket_receive)
+        type(endpoint.state.websocket).is_connected = PropertyMock(side_effect=[True, False])
 
         with exception:
             await endpoint.dispatch()
 
-        assert endpoint.state["websocket_code"] == result_code
-        assert endpoint.state["websocket_message"] == result_message
+        assert endpoint.state.websocket_code == result_code
+        assert endpoint.state.websocket_message == result_message
 
     async def test_on_connect(self, endpoint):
         websocket = MagicMock(websockets.WebSocket)

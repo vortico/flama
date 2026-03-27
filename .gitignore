@@ -1,33 +1,44 @@
+# Cursor:
+.cursor/
+
+# PyCharm:
+.idea/
+
+# MacOS:
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# App data and logs
+.data/
+.logs/
 
 # C extensions
 *.so
 
 # Distribution / packaging
 .Python
-env/
-.venv/
-.idea/
 build/
 develop-eggs/
 dist/
 downloads/
 eggs/
 .eggs/
-./lib/
+lib/
 lib64/
 parts/
 sdist/
 var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-*dist/
-pip-wheel-metadata/
-.python-version
+MANIFEST
 
 # Installer logs
 pip-log.txt
@@ -36,29 +47,50 @@ pip-delete-this-directory.txt
 # Unit test / coverage reports
 htmlcov/
 .tox/
-.coverage_report/
-.coverage.*
+.nox/
 .coverage
+.coverage.*
 .cache
 nosetests.xml
 coverage.xml
-*,cover
+*.cover
+*.py,cover
+.hypothesis/
 .pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.test_report/
 test-results/
 
-## Docs
-docs/_build/
-site/
+# Translations
+*.mo
+*.pot
 
-node_modules
-*.vscode
+# Jupyter Notebook
+.ipynb_checkpoints
 
-## Demo & Tests
-demo.db
-test.db
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow
+__pypackages__/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Backup folder
+.backup/
+
+# Templates
+templates/node_modules/
+templates/out/
 
 # Templates
 flama/templates

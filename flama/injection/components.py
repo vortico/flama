@@ -11,6 +11,9 @@ __all__ = ["Component", "Components"]
 class Component(metaclass=abc.ABCMeta):
     cacheable: t.ClassVar[bool] = True
 
+    @abc.abstractmethod
+    def resolve(self, *args, **kwargs) -> t.Any: ...
+
     def identity(self, parameter: Parameter) -> str:
         """Each component needs a unique identifier string that we use for lookups from the `state` dictionary when we
         run the dependency injection.
@@ -25,7 +28,7 @@ class Component(metaclass=abc.ABCMeta):
         component_id = f"{id(parameter.annotation)}:{parameter_type}"
 
         # If `resolve` includes `Parameter` then use an id that is additionally parameterized by the parameter name.
-        args = inspect.signature(self.resolve).parameters.values()  # type: ignore[attr-defined]
+        args = inspect.signature(self.resolve).parameters.values()
         if Parameter in [arg.annotation for arg in args]:
             component_id += f":{parameter.name.lower()}"
 
@@ -41,7 +44,7 @@ class Component(metaclass=abc.ABCMeta):
         :param parameter: The parameter to check if that component can handle it.
         :return: True if this component can handle the given parameter.
         """
-        return_annotation = inspect.signature(self.resolve).return_annotation  # type: ignore[attr-defined]
+        return_annotation = inspect.signature(self.resolve).return_annotation
         if return_annotation is inspect.Signature.empty:
             raise ComponentError(
                 f"Component '{self.__class__.__name__}' must include a return annotation on the 'resolve' method, or "
@@ -57,7 +60,7 @@ class Component(metaclass=abc.ABCMeta):
         """
         return {
             k: Parameter.from_parameter(v)
-            for k, v in inspect.signature(self.resolve).parameters.items()  # type: ignore[attr-defined]
+            for k, v in inspect.signature(self.resolve).parameters.items()
         }
 
     @property
@@ -71,10 +74,10 @@ class Component(metaclass=abc.ABCMeta):
         :param kwargs: Resolve keyword arguments.
         :return: Resolve result.
         """
-        if inspect.iscoroutinefunction(self.resolve):  # type: ignore[attr-defined]
-            return await self.resolve(*args, **kwargs)  # type: ignore[attr-defined]
+        if inspect.iscoroutinefunction(self.resolve):
+            return await self.resolve(*args, **kwargs)
 
-        return self.resolve(*args, **kwargs)  # type: ignore[attr-defined]
+        return self.resolve(*args, **kwargs)
 
     def __str__(self) -> str:
         return str(self.__class__.__name__)
