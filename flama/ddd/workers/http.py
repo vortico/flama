@@ -24,7 +24,7 @@ class HTTPWorker(BaseWorker):
 
     @property
     def url(self) -> str:
-        return self._url() if callable(self._url) else self._url
+        return self._url() if callable(self._url) else self._url  # ty: ignore[call-top-callable]
 
     @property
     def client(self) -> "Client":

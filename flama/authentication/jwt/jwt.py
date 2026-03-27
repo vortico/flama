@@ -209,7 +209,7 @@ class JWT:
 
         for validator in [*VALIDATORS, *(validators or [])]:
             try:
-                validator(self.payload, claims).validate()
+                validator(self.payload, claims).validate()  # ty: ignore[call-non-callable]
             except exceptions.JWTClaimValidateException as e:
                 logger.debug("Claim '%s' is not valid", e.claim)
                 invalid_claims.append(e.claim)

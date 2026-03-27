@@ -58,10 +58,7 @@ class Component(metaclass=abc.ABCMeta):
 
         :return: Component resolver signature.
         """
-        return {
-            k: Parameter.from_parameter(v)
-            for k, v in inspect.signature(self.resolve).parameters.items()
-        }
+        return {k: Parameter.from_parameter(v) for k, v in inspect.signature(self.resolve).parameters.items()}
 
     @property
     def use_parameter(self) -> bool:

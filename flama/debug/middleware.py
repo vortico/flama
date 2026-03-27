@@ -130,7 +130,9 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         else:
             try:
                 return next(
-                    self._exception_handlers[cls] for cls in type(exc).__mro__ if cls in self._exception_handlers
+                    self._exception_handlers[cls]  # ty: ignore[invalid-argument-type]
+                    for cls in type(exc).__mro__
+                    if cls in self._exception_handlers
                 )
             except StopIteration:
                 raise exc
