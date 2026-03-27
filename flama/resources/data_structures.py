@@ -23,7 +23,7 @@ class PrimaryKey:
 
 @dataclasses.dataclass
 class Model:
-    table: Table  # type: ignore
+    table: Table
     primary_key: PrimaryKey
 
 

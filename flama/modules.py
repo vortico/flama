@@ -45,6 +45,6 @@ class Modules(dict[str, Module]):
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, list | tuple | set):
-            return {module.__class__ for module in self.values()} == set(other)  # type: ignore
+            return {module.__class__ for module in self.values()} == set(other)
 
         return super().__eq__(other)

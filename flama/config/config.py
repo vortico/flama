@@ -107,7 +107,7 @@ class Config:
             raise exceptions.ConfigError("Wrong value for config dataclass")
 
         try:
-            fields = [f.name for f in dataclasses.fields(dataclass)]  # type: ignore
+            fields = [f.name for f in dataclasses.fields(dataclass)]
             return dataclass(**{k: v for k, v in data.items() if k in fields})
         except Exception as e:
             raise exceptions.ConfigError("Cannot create config dataclass") from e

@@ -65,7 +65,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
                 fields_[field].required = False
                 fields_[field].allow_none = True
 
-        return Schema.from_dict(fields=fields_, name=name or self.DEFAULT_SCHEMA_NAME)  # type: ignore
+        return Schema.from_dict(fields=fields_, name=name or self.DEFAULT_SCHEMA_NAME)
 
     def validate(
         self, schema: type[Schema] | Schema, values: dict[str, t.Any], *, partial: bool = False

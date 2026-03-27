@@ -152,10 +152,7 @@ class Server:
             url=spec["url"],
             description=spec.get("description"),
             variables=(
-                {
-                    name: ServerVariable.from_spec(t.cast(types.OpenAPISpecServerVariable, variable))
-                    for name, variable in spec["variables"].items()
-                }
+                {name: ServerVariable.from_spec(variable) for name, variable in spec["variables"].items()}
                 if "variables" in spec and spec["variables"]
                 else None
             ),
@@ -350,7 +347,7 @@ class OpenAPISpec:
         return cls(
             info=Info.from_spec(spec["info"]),
             servers=(
-                [Server.from_spec(t.cast(types.OpenAPISpecServer, server)) for server in spec["servers"]]
+                [Server.from_spec(server) for server in spec["servers"]]
                 if "servers" in spec and spec["servers"]
                 else None
             ),

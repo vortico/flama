@@ -4,7 +4,7 @@ from flama import exceptions
 from flama.models.base import BaseModel
 
 try:
-    import sklearn  # type: ignore
+    import sklearn
 except Exception:  # pragma: no cover
     sklearn = None
 

@@ -75,7 +75,7 @@ class Model:
 
 
 class App(metaclass=abc.ABCMeta):
-    @property  # type: ignore
+    @property
     @abc.abstractmethod
     @contextlib.contextmanager
     def context(self) -> t.Generator[_AppContext, None, None]: ...
@@ -95,7 +95,7 @@ class App(metaclass=abc.ABCMeta):
 class FlamaApp(App):
     app: "Flama"
 
-    @property  # type: ignore
+    @property
     @contextlib.contextmanager
     def context(self) -> t.Generator[_AppContext, None, None]:
         yield _AppContext(app=self.app, path=Path(os.getcwd()))
@@ -119,7 +119,7 @@ class DictApp(App):
             data["models"] = [Model(**model) for model in data.pop("models")]
         return cls(**data)  # type: ignore[arg-type]
 
-    @property  # type: ignore
+    @property
     @contextlib.contextmanager
     def context(self) -> t.Generator[_AppContext, None, None]:
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".py") as f:
@@ -131,7 +131,7 @@ class DictApp(App):
 
 
 class StrApp(str, App):
-    @property  # type: ignore
+    @property
     @contextlib.contextmanager
     def context(self) -> t.Generator[_AppContext, None, None]:
         module, app = self.split(":")
