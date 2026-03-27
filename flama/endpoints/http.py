@@ -2,14 +2,14 @@ import typing as t
 
 from flama import concurrency, http, types
 from flama.endpoints.base import BaseEndpoint
-
-if t.TYPE_CHECKING:
-    from flama import Flama
+from flama.endpoints.state import HTTPEndpointState
 
 __all__ = ["HTTPEndpoint"]
 
 
 class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
+    state: HTTPEndpointState
+
     def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
         """An HTTP endpoint.
 
@@ -22,10 +22,13 @@ class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
 
         super().__init__(scope, receive, send)
 
-        self.state.update(
-            {
-                "request": http.Request(scope, receive=receive),
-            }
+        self.state = HTTPEndpointState(
+            scope=self.state.scope,
+            receive=self.state.receive,
+            send=self.state.send,
+            app=self.state.app,
+            route=self.state.route,
+            request=http.Request(scope, receive=receive),
         )
 
     @classmethod
@@ -34,9 +37,7 @@ class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
 
         :return: List of allowed methods.
         """
-        methods = {
-            method for method in http.Method.__members__.keys() if getattr(cls, method.lower(), None) is not None
-        }
+        methods = {member.upper() for member in http.Method if getattr(cls, member.lower(), None) is not None}
         if "GET" in methods:
             methods.add("HEAD")
         return methods
@@ -55,12 +56,11 @@ class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
 
         :return: Handler.
         """
-        handler_name = "get" if self.state["request"].method == "HEAD" else self.state["request"].method.lower()
+        handler_name = "get" if self.state.request.method == "HEAD" else self.state.request.method.lower()
         h: t.Callable = getattr(self, handler_name)
         return h
 
     async def dispatch(self) -> None:
         """Dispatch a request."""
-        app: Flama = self.state["app"]
-        handler = await app.injector.inject(self.handler, self.state)
+        handler = await self.state.app.injector.inject(self.handler, vars(self.state))
         return await concurrency.run(handler)

@@ -104,7 +104,7 @@ class ResourceRoute(Mount):
                 method=func,
                 path=path,
                 methods=set(methods) if methods is not None else {"GET"},
-                name=name if name is not None else func.__name__,
+                name=name if name is not None else getattr(func, "__name__", ""),
                 include_in_schema=include_in_schema,
                 pagination=pagination,
                 tags=tags if tags is not None else {},

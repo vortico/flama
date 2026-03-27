@@ -1,3 +1,4 @@
+import builtins
 import typing as t
 
 from flama import exceptions
@@ -41,7 +42,7 @@ class SQLAlchemyTableManager:
             and self.table == other.table
         )
 
-    async def create(self, *data: dict[str, t.Any]) -> list[dict[str, t.Any]]:
+    async def create(self, *data: dict[str, t.Any]) -> builtins.list[dict[str, t.Any]]:
         """Creates new elements in the table.
 
         If the element already exists, it raises an `IntegrityError`. If the element is created, it returns
@@ -84,7 +85,7 @@ class SQLAlchemyTableManager:
 
         return dict[str, t.Any](element._asdict())
 
-    async def update(self, data: dict[str, t.Any], *clauses, **filters) -> list[dict[str, t.Any]]:
+    async def update(self, data: dict[str, t.Any], *clauses, **filters) -> builtins.list[dict[str, t.Any]]:
         """Updates elements in the table.
 
         Using clauses and filters, it filters the elements to update. If no clauses or filters are given, it updates
@@ -215,7 +216,7 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
     def __eq__(self, other):
         return isinstance(other, SQLAlchemyTableRepository) and self._table == other._table and super().__eq__(other)
 
-    async def create(self, *data: dict[str, t.Any]) -> list[dict[str, t.Any]]:
+    async def create(self, *data: dict[str, t.Any]) -> builtins.list[dict[str, t.Any]]:
         """Creates new elements in the repository.
 
         If the element already exists, it raises an `exceptions.IntegrityError`. If the element is created, it returns
@@ -247,7 +248,7 @@ class SQLAlchemyTableRepository(SQLAlchemyRepository):
         """
         return await self._table_manager.retrieve(*clauses, **filters)
 
-    async def update(self, data: dict[str, t.Any], *clauses, **filters) -> list[dict[str, t.Any]]:
+    async def update(self, data: dict[str, t.Any], *clauses, **filters) -> builtins.list[dict[str, t.Any]]:
         """Updates an element in the repository.
 
         If the element does not exist, it raises a `NotFoundError`. If the element is updated, it returns the updated

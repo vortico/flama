@@ -94,7 +94,7 @@ class Middleware:
         middleware_name = (
             self.middleware.__class__.__name__
             if isinstance(self.middleware, types.MiddlewareClass)
-            else self.middleware.__name__
+            else getattr(self.middleware, "__name__", "")
         )
         args = ", ".join([middleware_name] + [f"{key}={value!r}" for key, value in self.kwargs.items()])
         return f"{name}({args})"
