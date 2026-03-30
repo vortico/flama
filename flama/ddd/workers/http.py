@@ -1,9 +1,9 @@
 import typing as t
 
+from flama import types
 from flama.ddd.workers.base import BaseWorker
 
 if t.TYPE_CHECKING:
-    from flama import Flama
     from flama.client import Client
 
 __all__ = ["HTTPWorker"]
@@ -17,7 +17,7 @@ class HTTPWorker(BaseWorker):
 
     _client: "Client"
 
-    def __init__(self, url: str | t.Callable[[], str], app: "Flama | None" = None, **client_kwargs: t.Any):
+    def __init__(self, url: str | t.Callable[[], str], app: types.App | None = None, **client_kwargs: t.Any):
         super().__init__(app=app)
         self._url = url
         self._client_kwargs = client_kwargs

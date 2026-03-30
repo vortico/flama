@@ -1,15 +1,15 @@
-import http
+import http as stdlib_http
 import logging
 import re
 import typing as t
 
-from flama import authentication, exceptions
+from flama import authentication, exceptions, http, types
+from flama.context import Context
 from flama.exceptions import HTTPException
-from flama.http import APIErrorResponse, Request
+from flama.http.api import APIErrorResponse
 
 if t.TYPE_CHECKING:
-    from flama import Flama, types
-    from flama.http import Response
+    from flama.http.response import Response
 
 __all__ = ["AuthenticationMiddleware"]
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class AuthenticationMiddleware:
     def __init__(self, app: "types.App", *, tag: str = "permissions", ignored: list[str] = []):
-        self.app: Flama = t.cast("Flama", app)
+        self.app = app
         self._tag = tag
         self._ignored = [re.compile(x) for x in ignored]
 
@@ -32,7 +32,7 @@ class AuthenticationMiddleware:
 
         await response(scope, receive, send)
 
-    def _get_permissions(self, app: "Flama", scope: "types.Scope") -> set[str]:
+    def _get_permissions(self, app: types.App, scope: "types.Scope") -> set[str]:
         try:
             route, _ = app.router.resolve_route(scope)
             permissions = set(route.tags.get(self._tag, []))
@@ -41,15 +41,15 @@ class AuthenticationMiddleware:
 
         return set(permissions)
 
-    async def _get_response(self, scope: "types.Scope", receive: "types.Receive") -> "Response | Flama":
-        app: Flama = scope["app"]
+    async def _get_response(self, scope: "types.Scope", receive: "types.Receive") -> "Response | types.App":
+        app: types.App = scope["app"]
 
         if not (required_permissions := self._get_permissions(app, scope)):
             return self.app
 
         try:
             token: authentication.AccessToken = await app.injector.value(
-                authentication.AccessToken, {"request": Request(scope, receive=receive)}
+                authentication.AccessToken, Context(request=http.Request(scope, receive=receive))
             )
         except HTTPException as e:
             logger.debug("JWT error: %s", e.detail)
@@ -60,6 +60,6 @@ class AuthenticationMiddleware:
         }
         if not (user_permissions >= required_permissions):
             logger.debug("User does not have the required permissions: %s", required_permissions)
-            return APIErrorResponse(status_code=http.HTTPStatus.FORBIDDEN, detail="Insufficient permissions")
+            return APIErrorResponse(status_code=stdlib_http.HTTPStatus.FORBIDDEN, detail="Insufficient permissions")
 
         return self.app

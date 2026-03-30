@@ -2,11 +2,9 @@ import inspect
 import logging
 import typing as t
 
-from flama import endpoints, exceptions, types, websockets
+from flama import endpoints, exceptions, http, types
+from flama.context import Context
 from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute
-
-if t.TYPE_CHECKING:
-    from flama import Flama
 
 __all__ = ["WebSocketRoute"]
 
@@ -24,22 +22,22 @@ class WebSocketFunctionWrapper(BaseWebSocketEndpointWrapper):
         :param receive: ASGI receive.
         :param send: ASGI send.
         """
-        app: Flama = scope["app"]
+        app: types.App = scope["app"]
         scope["path"] = scope.get("root_path", "").rstrip("/") + scope["path"]
         scope["root_path"] = ""
         route, route_scope = app.router.resolve_route(scope)
-        context = {
-            "scope": route_scope,
-            "receive": receive,
-            "send": send,
-            "exc": None,
-            "app": app,
-            "route": route,
-            "websocket": websockets.WebSocket(route_scope, receive, send),
-            "websocket_encoding": None,
-            "websocket_code": None,
-            "websocket_message": None,
-        }
+        context = Context(
+            scope=route_scope,
+            receive=receive,
+            send=send,
+            exc=None,
+            app=app,
+            route=route,
+            websocket=http.WebSocket(route_scope, receive, send),
+            websocket_encoding=None,
+            websocket_code=None,
+            websocket_message=None,
+        )
 
         injected_func = await app.injector.inject(self.handler, context)
         await injected_func(**route_scope.get("kwargs", {}))

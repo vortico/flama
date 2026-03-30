@@ -9,7 +9,6 @@ from flama.url import URL, Path
 
 __all__ = [
     "Method",
-    "Method",
     "Scheme",
     "Server",
     "Path",

@@ -5,6 +5,7 @@ import pytest
 
 from flama import endpoints, exceptions, http, types
 from flama.applications import Flama
+from flama.http.api import APIResponse
 from flama.routing.routes.base import BaseRoute
 from flama.routing.routes.http import BaseHTTPEndpointWrapper, HTTPEndpointWrapper, HTTPFunctionWrapper, Route
 
@@ -31,12 +32,12 @@ class TestCaseBaseHTTPEndpointWrapper:
     @pytest.mark.parametrize(
         ["response", "result"],
         [
-            pytest.param({"foo": "bar"}, http.APIResponse(content={"foo": "bar"}), id="dict"),
-            pytest.param(["foo"], http.APIResponse(content=["foo"]), id="list"),
-            pytest.param("foo", http.APIResponse(content="foo"), id="str"),
-            pytest.param(b"foo", http.APIResponse(content=b"foo"), id="bytes"),
+            pytest.param({"foo": "bar"}, APIResponse(content={"foo": "bar"}), id="dict"),
+            pytest.param(["foo"], APIResponse(content=["foo"]), id="list"),
+            pytest.param("foo", APIResponse(content="foo"), id="str"),
+            pytest.param(b"foo", APIResponse(content=b"foo"), id="bytes"),
             pytest.param(http.Response(content=b"foo"), http.Response(content=b"foo"), id="response"),
-            pytest.param(None, http.APIResponse(content=""), id="none"),
+            pytest.param(None, APIResponse(content=""), id="none"),
         ],
     )
     def test_build_api_response(self, endpoint, response, result):

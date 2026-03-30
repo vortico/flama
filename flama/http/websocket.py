@@ -1,9 +1,7 @@
-import typing as t
 
 import starlette.websockets
 
-if t.TYPE_CHECKING:
-    from flama import types
+from flama.types.asgi import Receive, Scope, Send
 
 __all__ = ["WebSocket", "Close", "State"]
 
@@ -11,7 +9,7 @@ State = starlette.websockets.WebSocketState
 
 
 class WebSocket(starlette.websockets.WebSocket):
-    def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send"):
+    def __init__(self, scope: Scope, receive: Receive, send: Send):
         super().__init__(scope, receive, send)  # ty: ignore[invalid-argument-type]
 
     @property
@@ -41,6 +39,6 @@ class WebSocket(starlette.websockets.WebSocket):
 
 class Close(starlette.websockets.WebSocketClose):
     async def __call__(  # ty: ignore[invalid-method-override]
-        self, scope: "types.Scope", receive: "types.Receive", send: "types.Send"
+        self, scope: Scope, receive: Receive, send: Send
     ) -> None:
         await super().__call__(scope, receive, send)  # ty: ignore[invalid-argument-type]
