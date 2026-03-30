@@ -1,11 +1,11 @@
 import dataclasses
 import typing as t
 
+from flama import types
 from flama.ddd.workers.sqlalchemy import SQLAlchemyWorker
 from flama.exceptions import ApplicationError
 
 if t.TYPE_CHECKING:
-    from flama import Flama
     from flama.ddd.repositories.sqlalchemy import SQLAlchemyTableRepository
 
 
@@ -24,7 +24,7 @@ class Repositories:
 class FlamaWorker(SQLAlchemyWorker):
     """The worker used by Flama Resources."""
 
-    def __init__(self, app: "Flama | None" = None):
+    def __init__(self, app: types.App | None = None):
         """Initialize the worker.
 
         This special worker is used to handle the repositories created by Flama Resources.

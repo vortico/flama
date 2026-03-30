@@ -1,14 +1,14 @@
 import typing as t
 
 from flama import concurrency, http, types
+from flama.context import Context
 from flama.endpoints.base import BaseEndpoint
-from flama.endpoints.state import HTTPEndpointState
 
 __all__ = ["HTTPEndpoint"]
 
 
 class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
-    state: HTTPEndpointState
+    state: Context
 
     def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
         """An HTTP endpoint.
@@ -22,7 +22,7 @@ class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
 
         super().__init__(scope, receive, send)
 
-        self.state = HTTPEndpointState(
+        self.state = Context(
             scope=self.state.scope,
             receive=self.state.receive,
             send=self.state.send,
@@ -56,11 +56,13 @@ class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
 
         :return: Handler.
         """
+        assert self.state.request is not None
         handler_name = "get" if self.state.request.method == "HEAD" else self.state.request.method.lower()
         h: t.Callable = getattr(self, handler_name)
         return h
 
     async def dispatch(self) -> None:
         """Dispatch a request."""
-        handler = await self.state.app.injector.inject(self.handler, vars(self.state))
+        assert self.state.app is not None
+        handler = await self.state.app.injector.inject(self.handler, self.state)
         return await concurrency.run(handler)

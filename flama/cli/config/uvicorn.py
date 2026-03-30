@@ -20,7 +20,7 @@ from uvicorn.config import (
 )
 
 if t.TYPE_CHECKING:
-    from flama.applications import Flama
+    from flama import types
 
 __all__ = ["options", "Uvicorn"]
 
@@ -366,7 +366,7 @@ class Uvicorn:
     factory: bool = False
     h11_max_incomplete_event_size: int = DEFAULT_MAX_INCOMPLETE_EVENT_SIZE
 
-    def run(self, app: "str | Flama"):
+    def run(self, app: "str | types.App"):
         uvicorn.run(app, **dataclasses.asdict(self))
 
 

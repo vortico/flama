@@ -1,8 +1,9 @@
 import typing as t
 from http import HTTPStatus
 
-from flama import exceptions, http, schemas, types
+from flama import exceptions, schemas, types
 from flama.ddd import exceptions as ddd_exceptions
+from flama.http.api import APIResponse
 from flama.resources import data_structures
 from flama.resources.rest import RESTResource, RESTResourceType
 from flama.resources.routing import ResourceRoute
@@ -37,7 +38,7 @@ class CreateMixin:
                 except ddd_exceptions.IntegrityError as e:
                     raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
 
-            return http.APIResponse(  # ty: ignore[invalid-return-type]
+            return APIResponse(  # ty: ignore[invalid-return-type]
                 schema=rest_schemas.output.schema, content=result[0], status_code=HTTPStatus.CREATED
             )
 
@@ -221,7 +222,7 @@ class DeleteMixin:
             except ddd_exceptions.NotFoundError as e:
                 raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
 
-            return http.APIResponse(status_code=HTTPStatus.NO_CONTENT)
+            return APIResponse(status_code=HTTPStatus.NO_CONTENT)
 
         delete.__doc__ = f"""
             tags:
@@ -381,7 +382,7 @@ class DropMixin:
                 repository = worker.repositories[self._meta.name]
                 result = await repository.drop()
 
-            return http.APIResponse(  # ty: ignore[invalid-return-type]
+            return APIResponse(  # ty: ignore[invalid-return-type]
                 schema=schemas.schemas.DropCollection, content={"deleted": result}, status_code=HTTPStatus.NO_CONTENT
             )
 

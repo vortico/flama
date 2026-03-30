@@ -4,9 +4,10 @@ import sys
 import typing as t
 from pathlib import Path
 
+from flama import types
+
 if t.TYPE_CHECKING:
     from flama import http
-    from flama.applications import Flama
     from flama.routing import Route, WebSocketRoute
 
 
@@ -188,5 +189,5 @@ class NotFoundContext:
     app: App
 
     @classmethod
-    def build(cls, request: "http.Request", app: "Flama") -> "NotFoundContext":
+    def build(cls, request: "http.Request", app: types.App) -> "NotFoundContext":
         return cls(request=Request.from_request(request), environment=Environment.from_system(), app=App.from_app(app))

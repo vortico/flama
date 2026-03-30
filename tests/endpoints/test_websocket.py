@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
 import pytest
 import starlette.websockets
 
-from flama import Component, Flama, endpoints, exceptions, types, websockets
-from flama.endpoints.state import WebSocketEndpointState
+from flama import Component, Flama, endpoints, exceptions, http, types
+from flama.context import Context
 
 
 class Puppy:
@@ -30,7 +30,7 @@ class TestCaseWebSocketEndpoint:
         asgi_scope["app"] = app
         asgi_scope["root_app"] = app
         asgi_scope["type"] = "websocket"
-        with patch("flama.websockets.WebSocket", spec=websockets.WebSocket):
+        with patch("flama.http.WebSocket", spec=http.WebSocket):
             return FooEndpoint(asgi_scope, asgi_receive, asgi_send)
 
     @pytest.mark.skip(reason="Cannot test websockets with current client")  # CAVEAT: Client doesn't support websockets
@@ -88,7 +88,7 @@ class TestCaseWebSocketEndpoint:
         class FooWebSocketEndpoint(endpoints.WebSocketEndpoint):
             encoding = encoding_
 
-            async def on_receive(self, websocket: websockets.WebSocket, data: types.Data):
+            async def on_receive(self, websocket: http.WebSocket, data: types.Data):
                 await getattr(websocket, f"send_{encoding_ or 'bytes'}")(data)
 
         with client.websocket_connect("/") as ws:
@@ -103,13 +103,13 @@ class TestCaseWebSocketEndpoint:
         class FooWebSocketEndpoint(endpoints.WebSocketEndpoint):
             encoding = types.Encoding("bytes")
 
-            async def on_connect(self, websocket: websockets.WebSocket):
+            async def on_connect(self, websocket: http.WebSocket):
                 await websocket.accept()
 
-            async def on_receive(self, websocket: websockets.WebSocket, data: types.Data, puppy: Puppy):
+            async def on_receive(self, websocket: http.WebSocket, data: types.Data, puppy: Puppy):
                 await websocket.send_json({"puppy": puppy.name})
 
-            async def on_disconnect(self, websocket: websockets.WebSocket, websocket_code: types.Code):
+            async def on_disconnect(self, websocket: http.WebSocket, websocket_code: types.Code):
                 pass
 
         with client.websocket_connect("/") as ws:
@@ -122,7 +122,7 @@ class TestCaseWebSocketEndpoint:
     def test_fail_connecting(self, app, client):
         @app.websocket_route("/")
         class FooWebSocketEndpoint(endpoints.WebSocketEndpoint):
-            async def on_connect(self, websocket: websockets.WebSocket):
+            async def on_connect(self, websocket: http.WebSocket):
                 raise Exception("Error connecting socket")
 
         with pytest.raises(Exception, match="Error connecting socket"), client.websocket_connect("/") as ws:
@@ -132,7 +132,7 @@ class TestCaseWebSocketEndpoint:
     def test_fail_receiving(self, app, client):
         @app.websocket_route("/")
         class FooWebSocketEndpoint(endpoints.WebSocketEndpoint):
-            async def on_receive(self, websocket: websockets.WebSocket, data: types.Data):
+            async def on_receive(self, websocket: http.WebSocket, data: types.Data):
                 raise ValueError("Foo")
 
         with pytest.raises(ValueError, match="Foo"), client.websocket_connect("/") as ws:
@@ -142,7 +142,7 @@ class TestCaseWebSocketEndpoint:
             assert result == {"code": 1011, "type": "websocket.close", "reason": ""}
 
     def test_init(self, app, asgi_scope, asgi_receive, asgi_send):
-        with patch("flama.websockets.WebSocket") as websocket_mock:
+        with patch("flama.http.WebSocket") as websocket_mock:
             route = app.add_websocket_route("/", endpoints.WebSocketEndpoint)
             asgi_scope = types.Scope(
                 {
@@ -157,7 +157,7 @@ class TestCaseWebSocketEndpoint:
                 }
             )
             endpoint = endpoints.WebSocketEndpoint(asgi_scope, asgi_receive, asgi_send)
-            assert endpoint.state == WebSocketEndpointState(
+            assert endpoint.state == Context(
                 scope=asgi_scope,
                 receive=asgi_receive,
                 send=asgi_send,
@@ -234,19 +234,19 @@ class TestCaseWebSocketEndpoint:
         assert endpoint.state.websocket_message == result_message
 
     async def test_on_connect(self, endpoint):
-        websocket = MagicMock(websockets.WebSocket)
+        websocket = MagicMock(http.WebSocket)
 
         await endpoint.on_connect(websocket)
 
         assert websocket.accept.call_args_list == [call()]
 
     async def test_on_receive(self, endpoint):
-        websocket = MagicMock(websockets.WebSocket)
+        websocket = MagicMock(http.WebSocket)
 
         await endpoint.on_receive(websocket, b"foo")
 
     async def test_on_disconnect(self, endpoint):
-        websocket = MagicMock(websockets.WebSocket)
+        websocket = MagicMock(http.WebSocket)
 
         await endpoint.on_disconnect(websocket, types.Code(1000))
 

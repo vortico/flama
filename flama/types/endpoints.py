@@ -1,7 +1,8 @@
 import typing as t
 
 if t.TYPE_CHECKING:
-    from flama import types, websockets
+    from flama import types
+    from flama.http.websocket import WebSocket
 
 __all__ = ["EndpointProtocol", "HTTPEndpointProtocol", "WebSocketEndpointProtocol"]
 
@@ -28,8 +29,8 @@ class HTTPEndpointProtocol(EndpointProtocol, t.Protocol):
 class WebSocketEndpointProtocol(EndpointProtocol, t.Protocol):
     encoding: "types.Encoding | None" = None
 
-    async def on_connect(self, websocket: "websockets.WebSocket") -> None: ...
+    async def on_connect(self, websocket: "WebSocket") -> None: ...
 
-    async def on_receive(self, websocket: "websockets.WebSocket", data: "types.Data") -> None: ...
+    async def on_receive(self, websocket: "WebSocket", data: "types.Data") -> None: ...
 
-    async def on_disconnect(self, websocket: "websockets.WebSocket", websocket_code: "types.Code") -> None: ...
+    async def on_disconnect(self, websocket: "WebSocket", websocket_code: "types.Code") -> None: ...

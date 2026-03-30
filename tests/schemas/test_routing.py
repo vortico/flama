@@ -7,7 +7,7 @@ import typesystem
 import typesystem.fields
 
 import flama.types.websockets
-from flama import Component, endpoints, routing, types, websockets
+from flama import Component, endpoints, http, routing, types
 from flama.schemas.data_structures import Parameter, ParameterLocation
 
 
@@ -75,7 +75,7 @@ class TestCaseParametersDescriptor:
         elif request.param == "websocket_function":
 
             def bar(
-                websocket: websockets.WebSocket,
+                websocket: http.WebSocket,
                 data: flama.types.websockets.Data,
                 w: int,
                 a: Custom,
@@ -91,7 +91,7 @@ class TestCaseParametersDescriptor:
             class FooWebsocket(endpoints.WebSocketEndpoint):
                 async def on_receive(
                     self,
-                    websocket: websockets.WebSocket,
+                    websocket: http.WebSocket,
                     data: flama.types.websockets.Data,
                     w: int,
                     a: Custom,

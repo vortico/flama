@@ -8,7 +8,7 @@ import typesystem
 import typesystem.fields
 
 from flama import Component, Flama, endpoints, types
-from flama.endpoints.state import HTTPEndpointState
+from flama.context import Context
 
 
 class Puppy:
@@ -104,7 +104,7 @@ class TestCaseHTTPEndpoint:
                 }
             )
             endpoint = endpoints.HTTPEndpoint(asgi_scope, asgi_receive, asgi_send)
-            assert endpoint.state == HTTPEndpointState(
+            assert endpoint.state == Context(
                 scope=asgi_scope,
                 receive=asgi_receive,
                 send=asgi_send,
@@ -131,5 +131,5 @@ class TestCaseHTTPEndpoint:
         with patch("flama.concurrency.run") as run_mock:
             await endpoint.dispatch()
 
-            assert app.injector.inject.call_args_list == [call(endpoint.get, vars(endpoint.state))]
+            assert app.injector.inject.call_args_list == [call(endpoint.get, endpoint.state)]
             assert run_mock.call_args_list == [call(injected_mock)]

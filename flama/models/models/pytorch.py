@@ -4,9 +4,9 @@ from flama import exceptions
 from flama.models.base import BaseModel
 
 try:
-    import torch  # type: ignore
+    import torch
 except Exception:  # pragma: no cover
-    torch = None
+    torch = None  # ty: ignore[invalid-assignment]
 
 __all__ = ["Model"]
 
