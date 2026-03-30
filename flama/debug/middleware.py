@@ -7,8 +7,10 @@ from pathlib import Path
 
 import starlette.exceptions
 
-from flama import concurrency, exceptions, http, types, websockets
+from flama import concurrency, exceptions, http, types
 from flama.debug.data_structures import ErrorContext, NotFoundContext
+from flama.http.api import APIErrorResponse
+from flama.http.templates import _FlamaTemplateResponse
 
 if t.TYPE_CHECKING:
     from flama.debug.types import Handler
@@ -21,7 +23,7 @@ TEMPLATES_PATH = Path(__file__).parents[1].resolve() / "templates" / "debug"
 
 
 class BaseErrorMiddleware:
-    def __init__(self, app: types.App, debug: bool = False) -> None:
+    def __init__(self, app: types.ASGIApp, debug: bool = False) -> None:
         self.app = app
         self.debug = debug
 
@@ -81,7 +83,7 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
         accept = request.headers.get("accept", "")
 
         if "text/html" in accept:
-            return http._FlamaTemplateResponse(
+            return _FlamaTemplateResponse(
                 "debug/error_500.html", context=dataclasses.asdict(ErrorContext.build(request, exc)), status_code=500
             )
         return http.PlainTextResponse("Internal Server Error", status_code=500)
@@ -95,7 +97,7 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
 
 
 class ExceptionMiddleware(BaseErrorMiddleware):
-    def __init__(self, app: types.App, handlers: t.Mapping[t.Any, "Handler"] | None = None, debug: bool = False):
+    def __init__(self, app: types.ASGIApp, handlers: t.Mapping[t.Any, "Handler"] | None = None, debug: bool = False):
         super().__init__(app, debug)
         handlers = handlers or {}
         self._status_handlers: dict[int, Handler] = {
@@ -164,18 +166,18 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         accept = request.headers.get("accept", "")
 
         if self.debug and exc.status_code == 404 and "text/html" in accept:
-            return http._FlamaTemplateResponse(
+            return _FlamaTemplateResponse(
                 template="debug/error_404.html",
                 context=dataclasses.asdict(NotFoundContext.build(request, scope["app"])),
                 status_code=404,
             )
 
-        return http.APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
+        return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
 
     async def websocket_exception_handler(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.WebSocketException
     ) -> None:
-        websocket = websockets.WebSocket(scope, receive=receive, send=send)
+        websocket = http.WebSocket(scope, receive=receive, send=send)
         await websocket.close(code=exc.code, reason=exc.reason)
 
     async def not_found_handler(

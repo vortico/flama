@@ -1,8 +1,8 @@
-import http
+from http import HTTPStatus
 
 import pytest
 
-from flama import endpoints, types, websockets
+from flama import endpoints, http, types
 
 
 class TestCaseRequestDataValidation:
@@ -28,7 +28,7 @@ class TestCaseRequestDataValidation:
             pytest.param(
                 {"json": {"abc": 123}},
                 (
-                    http.HTTPStatus.OK,
+                    HTTPStatus.OK,
                     {"data": {"abc": 123}},
                 ),
                 id="valid json body",
@@ -36,7 +36,7 @@ class TestCaseRequestDataValidation:
             pytest.param(
                 {},
                 (
-                    http.HTTPStatus.OK,
+                    HTTPStatus.OK,
                     {"data": None},
                 ),
                 id="empty json body",
@@ -45,7 +45,7 @@ class TestCaseRequestDataValidation:
             pytest.param(
                 {"data": {"abc": 123}},
                 (
-                    http.HTTPStatus.OK,
+                    HTTPStatus.OK,
                     {"data": {"abc": "123"}},
                 ),
                 id="valid urlencoded body",
@@ -53,7 +53,7 @@ class TestCaseRequestDataValidation:
             pytest.param(
                 {"headers": {"content-type": "application/x-www-form-urlencoded"}},
                 (
-                    http.HTTPStatus.OK,
+                    HTTPStatus.OK,
                     {"data": None},
                 ),
                 id="empty urlencoded body",
@@ -62,7 +62,7 @@ class TestCaseRequestDataValidation:
             pytest.param(
                 {"files": {"a": ("b", b"123")}, "data": {"b": "42"}},
                 (
-                    http.HTTPStatus.OK,
+                    HTTPStatus.OK,
                     {"data": {"a": {"filename": "b", "content": "123"}, "b": "42"}},
                 ),
                 id="multipart",
@@ -71,7 +71,7 @@ class TestCaseRequestDataValidation:
             pytest.param(
                 {"content": b"...", "headers": {"content-type": "unknown"}},
                 (
-                    http.HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+                    HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
                     None,
                 ),
                 id="unknown body type",
@@ -79,7 +79,7 @@ class TestCaseRequestDataValidation:
             pytest.param(
                 {"content": b"...", "headers": {"content-type": "application/json"}},
                 (
-                    http.HTTPStatus.BAD_REQUEST,
+                    HTTPStatus.BAD_REQUEST,
                     None,
                 ),
                 id="json parse failure",
@@ -151,7 +151,7 @@ class TestCaseWebsocketDataValidation:
         class Endpoint(endpoints.WebSocketEndpoint):
             encoding = encoding_
 
-            async def on_receive(self, websocket: websockets.WebSocket, data: types.Data):
+            async def on_receive(self, websocket: http.WebSocket, data: types.Data):
                 await getattr(websocket, f"send_{encoding}")(data)
 
         with client.websocket_connect("/websocket/") as ws:

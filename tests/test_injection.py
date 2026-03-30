@@ -1,6 +1,6 @@
 import pytest
 
-from flama import endpoints, http, injection, websockets
+from flama import endpoints, http, injection
 from flama.applications import Flama
 from flama.client import Client
 from flama.routing.routes.mount import Mount
@@ -67,7 +67,7 @@ class TestCaseComponentsInjection:
                 return http.JSONResponse({"puppy": puppy.name})
 
         @app.websocket_route("/websocket-view/")
-        async def puppy_websocket_view(session: websockets.WebSocket, puppy: Puppy):
+        async def puppy_websocket_view(session: http.WebSocket, puppy: Puppy):
             await session.accept()
             await session.send_json({"puppy": puppy.name})
             await session.close()

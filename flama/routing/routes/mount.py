@@ -4,9 +4,6 @@ import typing as t
 from flama import concurrency, exceptions, types, url
 from flama.routing.routes.base import BaseRoute
 
-if t.TYPE_CHECKING:
-    from flama.applications import Flama
-
 __all__ = ["Mount"]
 
 logger = logging.getLogger(__name__)
@@ -36,7 +33,7 @@ class Mount(BaseRoute):
         ):
             await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
 
-    def _build(self, app: "Flama") -> None:
+    def _build(self, app: types.App) -> None:
         """Build step for routes.
 
         Just build the parameters' descriptor part of RouteParametersMixin.

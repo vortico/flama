@@ -147,11 +147,25 @@ class ResolutionTree:
     ) -> ResolutionNode:
         assert parameter.name not in ("self", "cls")
 
-        # Check if the parameter annotation exists in context types.
-        if parameter.annotation in context_types:
-            return ContextNode(
-                parameter.name, Parameter(context_types[parameter.annotation], parameter.annotation), nodes=[]
-            )
+        # Check if the parameter annotation exists in context types (exact match or subclass).
+        context_name = context_types.get(parameter.annotation)
+        if context_name is None:
+            for ctx_type, ctx_name in context_types.items():
+                try:
+                    is_subclass = (
+                        isinstance(ctx_type, type)
+                        and isinstance(parameter.annotation, type)
+                        and issubclass(parameter.annotation, ctx_type)
+                    )
+                except TypeError:
+                    continue
+
+                if is_subclass:
+                    context_name = ctx_name
+                    break
+
+        if context_name is not None:
+            return ContextNode(parameter.name, Parameter(context_name, parameter.annotation), nodes=[])
 
         # The 'Parameter' annotation can be used to get the parameter itself, so it is stored as a constant.
         if parameter.annotation is Parameter:

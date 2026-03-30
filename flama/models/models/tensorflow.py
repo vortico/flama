@@ -9,9 +9,9 @@ except Exception:  # pragma: no cover
     np = None  # ty: ignore[invalid-assignment]
 
 try:
-    import tensorflow as tf  # type: ignore
+    import tensorflow as tf
 except Exception:  # pragma: no cover
-    tf = None
+    tf = None  # ty: ignore[invalid-assignment]
 
 
 __all__ = ["Model"]

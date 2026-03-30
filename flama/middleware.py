@@ -1,18 +1,16 @@
 import functools
 import typing as t
 
-import starlette.middleware.authentication
 import starlette.middleware.base
 import starlette.middleware.cors
 import starlette.middleware.gzip
 import starlette.middleware.httpsredirect
 import starlette.middleware.trustedhost
 
-from flama import concurrency
+from flama import concurrency, types
 from flama.debug.middleware import ExceptionMiddleware, ServerErrorMiddleware
 
 if t.TYPE_CHECKING:
-    from flama import Flama, types
     from flama.http import Request, Response
 
 __all__ = [
@@ -86,7 +84,7 @@ class Middleware:
         self.middleware = middleware
         self.kwargs = kwargs
 
-    def __call__(self, app: "types.App") -> "types.MiddlewareClass | types.App":
+    def __call__(self, app: "types.ASGIApp") -> "types.ASGIApp":
         return self.middleware(app, **self.kwargs)
 
     def __repr__(self) -> str:
@@ -101,17 +99,17 @@ class Middleware:
 
 
 class MiddlewareStack:
-    def __init__(self, app: "Flama", middleware: t.Sequence[Middleware], debug: bool):
+    def __init__(self, app: "types.App", middleware: t.Sequence[Middleware], debug: bool):
         self.app = app
         self.middleware = list(reversed(middleware))
         self.debug = debug
         self._exception_handlers: dict[int | type[Exception], t.Callable[[Request, Exception], Response]] = {}
-        self._stack: types.MiddlewareClass | types.App | None = None
+        self._stack: types.ASGIApp | None = None
 
     @property
     def stack(
         self,
-    ) -> "types.MiddlewareClass | types.App":
+    ) -> "types.ASGIApp":
         if self._stack is None:
             self._stack = functools.reduce(
                 lambda app, middleware: middleware(app=app),

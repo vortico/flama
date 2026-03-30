@@ -2,6 +2,8 @@ import typing as t
 from pathlib import Path
 
 from flama import exceptions, http, pagination, schemas, types
+from flama.http.openapi import OpenAPIResponse
+from flama.http.templates import _FlamaTemplateResponse
 from flama.modules import Module
 from flama.schemas.generator import SchemaGenerator
 
@@ -75,8 +77,8 @@ class SchemaModule(Module):
         if self.docs_path:
             self.app.add_route(self.docs_path, self.docs_view, methods=["GET"], include_in_schema=False)
 
-    def schema_view(self) -> http.OpenAPIResponse:
-        return http.OpenAPIResponse(self.schema)
+    def schema_view(self) -> OpenAPIResponse:
+        return OpenAPIResponse(self.schema)
 
     def docs_view(self) -> http.HTMLResponse:
-        return http._FlamaTemplateResponse("schemas/docs.html", {"url": self.schema_path})
+        return _FlamaTemplateResponse("schemas/docs.html", {"url": self.schema_path})

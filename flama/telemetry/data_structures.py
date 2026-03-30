@@ -4,7 +4,7 @@ import logging
 import typing as t
 from http.cookies import SimpleCookie
 
-from flama import Flama, types
+from flama import types
 from flama.authentication.types import AccessToken, RefreshToken
 from flama.exceptions import HTTPException
 from flama.http import Request as HTTPRequest
@@ -22,7 +22,7 @@ class Endpoint:
 
     @classmethod
     async def from_scope(cls, *, scope: types.Scope, receive: types.Receive, send: types.Send) -> "Endpoint":
-        app: Flama = scope["app"]
+        app: types.App = scope["app"]
         route, _ = app.router.resolve_route(scope)
 
         return cls(path=str(route.path), name=route.name, tags=route.tags)
@@ -42,7 +42,7 @@ class Authentication:
 
     @classmethod
     async def from_scope(cls, *, scope: types.Scope, receive: types.Receive, send: types.Send) -> "Authentication":
-        app: Flama = scope["app"]
+        app: types.App = scope["app"]
         context = {"scope": scope, "request": HTTPRequest(scope, receive=receive)}
 
         try:
@@ -77,7 +77,7 @@ class Request:
 
     @classmethod
     async def from_scope(cls, *, scope: types.Scope, receive: types.Receive, send: types.Send) -> "Request":
-        app: Flama = scope["app"]
+        app: types.App = scope["app"]
         context = {"scope": scope, "request": HTTPRequest(scope, receive=receive), "route": app.resolve_route(scope)[0]}
 
         headers = dict(await app.injector.value(types.Headers, context))

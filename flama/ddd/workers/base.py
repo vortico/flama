@@ -3,12 +3,9 @@ import asyncio
 import logging
 import typing as t
 
-from flama import compat
+from flama import compat, types
 from flama.ddd.repositories import BaseRepository
 from flama.exceptions import ApplicationError
-
-if t.TYPE_CHECKING:
-    from flama import Flama
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +22,7 @@ class AbstractWorker(abc.ABC):
     unit of work that will be used to interact with the repositories and entities of the application.
     """
 
-    def __init__(self, app: "Flama | None" = None):
+    def __init__(self, app: types.App | None = None):
         """Initialize the worker.
 
         It will receive the application instance as a parameter.
@@ -36,7 +33,7 @@ class AbstractWorker(abc.ABC):
         self._lock = asyncio.Lock()
 
     @property
-    def app(self) -> "Flama":
+    def app(self) -> types.App:
         """Application instance.
 
         :return: Application instance.
@@ -47,7 +44,7 @@ class AbstractWorker(abc.ABC):
         return self._app
 
     @app.setter
-    def app(self, app: "Flama") -> None:
+    def app(self, app: types.App) -> None:
         """Set the application instance.
 
         :param app: Application instance.

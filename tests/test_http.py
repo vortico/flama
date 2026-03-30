@@ -15,6 +15,9 @@ import typesystem
 import typesystem.fields
 
 from flama import exceptions, http, types
+from flama.http.api import APIErrorResponse, APIResponse
+from flama.http.openapi import OpenAPIResponse
+from flama.http.templates import HTMLFileResponse, HTMLTemplateResponse, HTMLTemplatesEnvironment, _FlamaLoader
 
 
 @dataclasses.dataclass
@@ -195,8 +198,8 @@ class TestCaseAPIResponse:
         return schema
 
     def test_init(self, schema):
-        with patch("flama.http.starlette.responses.JSONResponse.__init__"):
-            response = http.APIResponse(schema=schema)
+        with patch("starlette.responses.JSONResponse.__init__"):
+            response = APIResponse(schema=schema)
 
         assert response.schema == schema
 
@@ -212,7 +215,7 @@ class TestCaseAPIResponse:
     )
     def test_render(self, schema, use_schema, content, expected, exception):
         with exception:
-            response = http.APIResponse(schema=schema if use_schema else None, content=content)
+            response = APIResponse(schema=schema if use_schema else None, content=content)
             assert response.body.decode() == expected
 
 
@@ -223,7 +226,7 @@ class TestCaseAPIErrorResponse:
         status_code = 401
         expected_result = {"detail": "foo", "error": "ValueError", "status_code": 401}
 
-        response = http.APIErrorResponse(detail=detail, status_code=status_code, exception=exception)
+        response = APIErrorResponse(detail=detail, status_code=status_code, exception=exception)
 
         assert response.detail == detail
         assert response.exception == exception
@@ -235,7 +238,7 @@ class TestCaseHTMLFileResponse:
     def test_init(self):
         content = "<html></html>"
         with patch("builtins.open", mock_open(read_data=content)):
-            response = http.HTMLFileResponse("foo.html")
+            response = HTMLFileResponse("foo.html")
 
         assert response.body == content.encode()
 
@@ -245,7 +248,7 @@ class TestCaseHTMLFileResponse:
             patch("builtins.open", side_effect=ValueError(error_detail)),
             pytest.raises(exceptions.HTTPException) as exc,
         ):
-            http.HTMLFileResponse("foo.html")
+            HTMLFileResponse("foo.html")
 
             assert exc.status_code == 500
             assert exc.detail == error_detail
@@ -254,7 +257,7 @@ class TestCaseHTMLFileResponse:
 class TestCaseHTMLTemplatesEnvironment:
     @pytest.fixture
     def environment(self):
-        return http.HTMLTemplatesEnvironment()
+        return HTMLTemplatesEnvironment()
 
     @pytest.mark.parametrize(
         ["value", "result"],
@@ -367,10 +370,10 @@ class TestCaseHTMLTemplateResponse:
         environment_mock = MagicMock(spec=jinja2.Environment)
         environment_mock.get_template.return_value = template_mock
         with (
-            patch.object(http.HTMLTemplateResponse, "templates", new=environment_mock),
+            patch.object(HTMLTemplateResponse, "templates", new=environment_mock),
             patch.object(http.HTMLResponse, "__init__", return_value=None) as super_mock,
         ):
-            http.HTMLTemplateResponse("foo.html", context)
+            HTMLTemplateResponse("foo.html", context)
 
             assert super_mock.call_args_list == [call("foo")]
 
@@ -413,7 +416,7 @@ class TestCaseFlamaLoader:
             warnings.catch_warnings(),
         ):
             warnings.simplefilter("ignore")
-            http._FlamaLoader()
+            _FlamaLoader()
 
             if mkdir_call:
                 assert mkdir_mock.call_args_list == [call(exist_ok=True)]
@@ -430,12 +433,12 @@ class TestCaseOpenAPIResponse:
     )
     def test_render(self, test_input, expected, exception):
         with exception:
-            response = http.OpenAPIResponse(test_input)
+            response = OpenAPIResponse(test_input)
 
             assert json.loads(response.body.decode()) == expected
 
     async def test_call(self):
-        response = http.OpenAPIResponse(content={})
+        response = OpenAPIResponse(content={})
         scope, receive, send = types.Scope({}), AsyncMock(), AsyncMock()
 
         with patch("starlette.schemas.OpenAPIResponse.__call__") as call_mock:

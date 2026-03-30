@@ -10,7 +10,7 @@ __all__ = [
     "Send",
     "AppClass",
     "AppFunction",
-    "App",
+    "ASGIApp",
     "MiddlewareClass",
     "MiddlewareFunction",
     "Middleware",
@@ -44,16 +44,16 @@ class AppClass(t.Protocol):
 
 
 AppFunction = t.Callable[[Scope, Receive, Send], None | t.Awaitable[None]]
-App = AppClass | AppFunction
+ASGIApp = AppClass | AppFunction
 
 
 # Middleware
 @t.runtime_checkable
 class MiddlewareClass(AppClass, t.Protocol[P, R]):
-    def __init__(self, app: App, *args: P.args, **kwargs: P.kwargs): ...
+    def __init__(self, app: ASGIApp, *args: P.args, **kwargs: P.kwargs): ...
 
 
-MiddlewareFunction = t.Callable[t.Concatenate[App, P], App]
+MiddlewareFunction = t.Callable[t.Concatenate[ASGIApp, P], ASGIApp]
 Middleware = type[MiddlewareClass] | MiddlewareFunction
 
 HTTPHandler = t.Callable | type["endpoints.HTTPEndpoint"]

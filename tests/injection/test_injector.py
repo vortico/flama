@@ -1,3 +1,4 @@
+import dataclasses
 import functools
 from unittest.mock import MagicMock, call, patch
 
@@ -51,12 +52,15 @@ def function(foo: Foo, bar: Bar):
     return foo, bar
 
 
+@dataclasses.dataclass(eq=False)
 class XContext(BaseContext):
-    types = {"x": CustomStr}
+    x: CustomStr | None = None
 
 
+@dataclasses.dataclass(eq=False)
 class FooBarContext(BaseContext):
-    types = {"foo": Foo, "bar": Bar}
+    foo: Foo | None = None
+    bar: Bar | None = None
 
 
 class TestCaseInjector:
@@ -119,7 +123,7 @@ class TestCaseInjector:
         (
             pytest.param(
                 Foo,
-                FooBarContext({"foo": Foo("foo"), "bar": Bar("bar")}),
+                FooBarContext(foo=Foo("foo"), bar=Bar("bar")),
                 Components(),
                 Foo("foo"),
                 None,
@@ -127,7 +131,7 @@ class TestCaseInjector:
             ),
             pytest.param(
                 Foo,
-                XContext({}),
+                XContext(),
                 Components([LiteralFooComponent()]),
                 Foo("foo"),
                 None,
@@ -135,7 +139,7 @@ class TestCaseInjector:
             ),
             pytest.param(
                 CustomStr,
-                XContext({"x": CustomStr("bar")}),
+                XContext(x=CustomStr("bar")),
                 Components([ContextComponent()]),
                 CustomStr("bar"),
                 None,
@@ -143,7 +147,7 @@ class TestCaseInjector:
             ),
             pytest.param(
                 Foo,
-                XContext({}),
+                XContext(),
                 Components([NestedComponent(), LiteralBarComponent()]),
                 Foo("bar"),
                 None,
@@ -151,7 +155,7 @@ class TestCaseInjector:
             ),
             pytest.param(
                 Foo,
-                XContext({}),
+                XContext(),
                 Components(),
                 None,
                 ComponentNotFound(Parameter("_root")),
@@ -159,7 +163,7 @@ class TestCaseInjector:
             ),
             pytest.param(
                 Foo,
-                XContext({}),
+                XContext(),
                 Components([NestedComponent()]),
                 None,
                 ComponentNotFound(Parameter("x"), component=NestedComponent()),
@@ -177,35 +181,35 @@ class TestCaseInjector:
         ["context", "components", "result", "exception"],
         (
             pytest.param(
-                FooBarContext({"foo": Foo("foo"), "bar": Bar("bar")}),
+                FooBarContext(foo=Foo("foo"), bar=Bar("bar")),
                 Components(),
                 (Foo("foo"), Bar("bar")),
                 None,
                 id="context",
             ),
             pytest.param(
-                XContext({}),
+                XContext(),
                 Components([LiteralFooComponent(), LiteralBarComponent()]),
                 (Foo("foo"), Bar("bar")),
                 None,
                 id="component",
             ),
             pytest.param(
-                XContext({"x": CustomStr("bar")}),
+                XContext(x=CustomStr("bar")),
                 Components([ContextComponent(), LiteralBarComponent()]),
                 (CustomStr("bar"), Bar("bar")),
                 None,
                 id="component_context",
             ),
             pytest.param(
-                XContext({}),
+                XContext(),
                 Components([NestedComponent(), LiteralBarComponent()]),
                 (Foo("bar"), Bar("bar")),
                 None,
                 id="component_nested",
             ),
             pytest.param(
-                XContext({}),
+                XContext(),
                 Components([UnhandledComponent()]),
                 None,
                 ComponentError(
@@ -215,14 +219,14 @@ class TestCaseInjector:
                 id="unhandled",
             ),
             pytest.param(
-                XContext({}),
+                XContext(),
                 Components(),
                 None,
                 ComponentNotFound(Parameter("foo"), function=function),
                 id="unknown_parameter",
             ),
             pytest.param(
-                XContext({}),
+                XContext(),
                 Components([NestedComponent()]),
                 None,
                 (

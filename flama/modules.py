@@ -2,8 +2,7 @@ import abc
 import typing as t
 from collections import defaultdict
 
-if t.TYPE_CHECKING:
-    from flama import Flama
+from flama import types
 
 __all__ = ["Module", "Modules"]
 
@@ -12,7 +11,7 @@ class _BaseModule:
     name: str
 
     def __init__(self) -> None:
-        self.app: Flama
+        self.app: types.App
 
     async def on_startup(self) -> None: ...
 
@@ -30,7 +29,7 @@ class Module(_BaseModule, metaclass=_ModuleMeta): ...
 
 
 class Modules(dict[str, Module]):
-    def __init__(self, app: "Flama", modules: t.Sequence[Module] | set[Module] | None):
+    def __init__(self, app: types.App, modules: t.Sequence[Module] | set[Module] | None):
         modules_map: dict[str, list[Module]] = defaultdict(list)
         for module in modules or []:
             module.app = app

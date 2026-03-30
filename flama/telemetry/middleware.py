@@ -3,7 +3,7 @@ import logging
 import re
 import typing as t
 
-from flama import Flama, concurrency, exceptions, types
+from flama import concurrency, exceptions, types
 from flama.telemetry.data_structures import Error, Response, TelemetryData
 
 logger = logging.getLogger(__name__)
@@ -19,12 +19,12 @@ HookFunction = t.Callable[[TelemetryData], None | t.Awaitable[None]]
 
 
 class Wrapper(abc.ABC):
-    def __init__(self, app: Flama, data: TelemetryData) -> None:
+    def __init__(self, app: types.App, data: TelemetryData) -> None:
         self.app = app
         self.data = data
 
     @classmethod
-    def build(cls, type: t.Literal["http", "websocket"], app: Flama, data: TelemetryData) -> "Wrapper":
+    def build(cls, type: t.Literal["http", "websocket"], app: types.App, data: TelemetryData) -> "Wrapper":
         if type == "websocket":
             return WebSocketWrapper(app, data)
 
@@ -98,7 +98,7 @@ class WebSocketWrapper(Wrapper):
 class TelemetryDataCollector:
     data: TelemetryData
 
-    def __init__(self, app: Flama, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+    def __init__(self, app: types.App, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         self.app = app
         self._scope = scope
         self._receive = receive
@@ -106,7 +106,7 @@ class TelemetryDataCollector:
 
     @classmethod
     async def build(
-        cls, app: Flama, scope: types.Scope, receive: types.Receive, send: types.Send
+        cls, app: types.App, scope: types.Scope, receive: types.Receive, send: types.Send
     ) -> "TelemetryDataCollector":
         self = cls(app, scope, receive, send)
         self.data = await TelemetryData.from_scope(scope=scope, receive=receive, send=send)
@@ -129,7 +129,7 @@ class TelemetryMiddleware:
         tag: str = "telemetry",
         ignored: list[str] = [],
     ) -> None:
-        self.app: Flama = t.cast(Flama, app)
+        self.app = app
         self._log_level = log_level
         self._before = before
         self._after = after
@@ -146,7 +146,7 @@ class TelemetryMiddleware:
 
     def _get_tag(self, scope: "types.Scope") -> bool:
         try:
-            app: Flama = scope["app"]
+            app: types.App = scope["app"]
             route, _ = app.router.resolve_route(scope)
             return route.tags.get(self._tag, True)
         except (exceptions.MethodNotAllowedException, exceptions.NotFoundException):

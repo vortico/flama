@@ -2,7 +2,7 @@ import abc
 import inspect
 import typing as t
 
-from flama import http
+from flama.http.api import APIResponse
 
 __all__ = ["BasePaginator", "PaginatedResponse"]
 
@@ -10,7 +10,7 @@ P = t.ParamSpec("P")
 R = t.TypeVar("R", covariant=True)
 
 
-class PaginatedResponse(t.Generic[R], abc.ABC, http.APIResponse):
+class PaginatedResponse(t.Generic[R], abc.ABC, APIResponse):
     def __init__(self, schema: R, **kwargs):
         super().__init__(schema=schema, **kwargs)
 

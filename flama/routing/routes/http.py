@@ -3,11 +3,10 @@ import logging
 import typing as t
 
 from flama import concurrency, endpoints, exceptions, http, types
+from flama.context import Context
+from flama.http.api import APIResponse
 from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute
 from flama.schemas.data_structures import Schema
-
-if t.TYPE_CHECKING:
-    from flama import Flama
 
 __all__ = ["Route"]
 
@@ -45,11 +44,11 @@ class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
         :return: An API response.
         """
         if isinstance(response, dict | list):
-            response = http.APIResponse(content=response, schema=self.schema)
+            response = APIResponse(content=response, schema=self.schema)
         elif isinstance(response, str | bytes):
-            response = http.APIResponse(content=response)
+            response = APIResponse(content=response)
         elif response is None:
-            response = http.APIResponse(content="")
+            response = APIResponse(content="")
 
         return response
 
@@ -62,19 +61,19 @@ class HTTPFunctionWrapper(BaseHTTPEndpointWrapper):
         :param receive: ASGI receive.
         :param send: ASGI send.
         """
-        app: Flama = scope["app"]
+        app: types.App = scope["app"]
         scope["path"] = scope.get("root_path", "").rstrip("/") + scope["path"]
         scope["root_path"] = ""
         route, route_scope = app.router.resolve_route(scope)
-        context = {
-            "scope": route_scope,
-            "receive": receive,
-            "send": send,
-            "exc": None,
-            "app": app,
-            "route": route,
-            "request": http.Request(route_scope, receive=receive),
-        }
+        context = Context(
+            scope=route_scope,
+            receive=receive,
+            send=send,
+            exc=None,
+            app=app,
+            route=route,
+            request=http.Request(route_scope, receive=receive),
+        )
 
         injected_func = await app.injector.inject(self.handler, context)
         response = await concurrency.run(injected_func)

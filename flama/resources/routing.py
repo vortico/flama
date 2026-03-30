@@ -8,7 +8,6 @@ from flama.routing import Mount, Route
 from flama.routing.routes.http import HTTPFunctionWrapper
 
 if t.TYPE_CHECKING:
-    from flama import Flama
     from flama.resources import Resource
 
 __all__ = ["ResourceRoute", "resource_method"]
@@ -22,7 +21,7 @@ class ResourceRoute(Mount):
         *,
         include_in_schema: bool = True,
         tags: dict[str, t.Any] | None = None,
-        parent: "Flama",
+        parent: types.App,
     ):
         from flama import Flama
 
@@ -62,7 +61,7 @@ class ResourceRoute(Mount):
 
         self.app: Flama
 
-    def _build(self, app: "Flama") -> None:
+    def _build(self, app: types.App) -> None:
         """Build step for resource routes.
 
         Add this resource's repository to Flama's worker.

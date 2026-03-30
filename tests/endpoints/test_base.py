@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from flama import Flama, endpoints, types
-from flama.endpoints.state import BaseEndpointState
+from flama.context import Context
 
 
 class TestCaseBaseEndpoint:
@@ -44,7 +44,7 @@ class TestCaseBaseEndpoint:
             }
         )
         e = endpoint(asgi_scope, asgi_receive, asgi_send)
-        assert e.state == BaseEndpointState(
+        assert e.state == Context(
             scope=asgi_scope,
             receive=asgi_receive,
             send=asgi_send,

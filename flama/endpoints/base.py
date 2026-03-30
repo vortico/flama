@@ -1,16 +1,13 @@
 import typing as t
 
 from flama import types
-from flama.endpoints.state import BaseEndpointState
-
-if t.TYPE_CHECKING:
-    from flama import Flama
+from flama.context import Context
 
 __all__ = ["BaseEndpoint"]
 
 
 class BaseEndpoint(types.EndpointProtocol):
-    state: BaseEndpointState
+    state: Context
 
     def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
         """An endpoint.
@@ -19,11 +16,11 @@ class BaseEndpoint(types.EndpointProtocol):
         :param receive: ASGI receive function.
         :param send: ASGI send function.
         """
-        app: Flama = scope["app"]
+        app: types.App = scope["app"]
         scope["path"] = scope.get("root_path", "").rstrip("/") + scope["path"]
         scope["root_path"] = ""
         route, route_scope = app.router.resolve_route(scope)
-        self.state = BaseEndpointState(
+        self.state = Context(
             scope=route_scope,
             receive=receive,
             send=send,

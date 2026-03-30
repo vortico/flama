@@ -9,10 +9,6 @@ from flama.routing.routes.http import Route
 from flama.routing.routes.mount import Mount
 from flama.routing.routes.websocket import WebSocketRoute
 
-if t.TYPE_CHECKING:
-    from flama.applications import Flama, types
-
-
 __all__ = ["Router"]
 
 logger = logging.getLogger(__name__)
@@ -23,9 +19,9 @@ class Router:
         self,
         routes: t.Sequence[BaseRoute] | None = None,
         *,
-        app: "Flama",
+        app: types.App,
         components: t.Sequence["Component"] | set["Component"] | None = None,
-        lifespan: t.Callable[["Flama | None"], t.AsyncContextManager] | None = None,
+        lifespan: t.Callable[[types.App | None], t.AsyncContextManager] | None = None,
     ):
         """A router for containing all routes and mount points.
 
@@ -246,7 +242,7 @@ class Router:
 
                 if isinstance(route, Mount):
                     try:
-                        return route.app.resolve_route(route_scope)  # ty: ignore[unresolved-attribute]
+                        return route.app.resolve_route(route_scope)
                     except AttributeError:
                         ...
 

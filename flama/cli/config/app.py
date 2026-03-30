@@ -12,7 +12,7 @@ import click
 import jinja2
 
 if t.TYPE_CHECKING:
-    from flama.applications import Flama
+    from flama import types
 
 __all__ = ["Model", "App", "options"]
 
@@ -53,7 +53,7 @@ app_decorators = (
 
 
 class _AppContext:
-    def __init__(self, app: "str | Flama", path: Path, module: str | None = None):
+    def __init__(self, app: "str | types.App", path: Path, module: str | None = None):
         self._app = app
         self._module = module
         self._path = path
@@ -63,7 +63,7 @@ class _AppContext:
         return str(self._path)
 
     @property
-    def app(self) -> "str | Flama":
+    def app(self) -> "str | types.App":
         return f"{self._module}:{self._app}" if isinstance(self._app, str) else self._app
 
 
@@ -81,7 +81,7 @@ class App(metaclass=abc.ABCMeta):
     def context(self) -> t.Generator[_AppContext, None, None]: ...
 
     @classmethod
-    def build(cls, app: "str | dict[str, t.Any] | Flama") -> "App":
+    def build(cls, app: "str | dict[str, t.Any] | types.App") -> "App":
         if isinstance(app, str):
             return StrApp(app)
 
@@ -93,7 +93,7 @@ class App(metaclass=abc.ABCMeta):
 
 @dataclasses.dataclass
 class FlamaApp(App):
-    app: "Flama"
+    app: "types.App"
 
     @property
     @contextlib.contextmanager

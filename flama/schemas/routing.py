@@ -6,7 +6,6 @@ from flama.injection.resolver import Return
 from flama.schemas.data_structures import Field, Parameter, Parameters
 
 if t.TYPE_CHECKING:
-    from flama.applications import Flama
     from flama.injection.resolver import Parameter as InjectionParameter
     from flama.routing import BaseRoute
 
@@ -16,17 +15,17 @@ __all__ = ["ParametersDescriptor"]
 class ParametersDescriptor:
     def __init__(self, route: "BaseRoute") -> None:
         self._route = route
-        self._parent_app: Flama | None = None
+        self._parent_app: types.App | None = None
 
     @property
-    def _app(self) -> "Flama":
+    def _app(self) -> types.App:
         if self._parent_app is None:
             raise exceptions.ApplicationError("ParametersResolver not initialised")
 
         return self._parent_app
 
     @_app.setter
-    def _app(self, app: "Flama"):
+    def _app(self, app: types.App):
         self._parent_app = app
 
     @property
@@ -89,6 +88,6 @@ class ParametersDescriptor:
             method: Parameter.build("response", return_value) for method, return_value in self._return_values.items()
         }
 
-    def _build(self, app: "Flama") -> "ParametersDescriptor":
+    def _build(self, app: types.App) -> "ParametersDescriptor":
         self._app = app
         return self
