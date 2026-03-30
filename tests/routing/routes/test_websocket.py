@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
-from flama import Flama, endpoints, exceptions, types, websockets
+from flama import Flama, endpoints, exceptions, http, types
 from flama.endpoints import WebSocketEndpoint
 from flama.injection.injector import Injector
 from flama.routing.router import Router
@@ -25,14 +25,14 @@ class TestCaseWebsocketFunctionWrapper:
 
     @pytest.fixture(scope="function")
     def endpoint(self):
-        async def foo(websocket: websockets.WebSocket, data: types.Data):
+        async def foo(websocket: http.WebSocket, data: types.Data):
             await websocket.send_json({"foo": "bar"})
 
         return WebSocketFunctionWrapper(foo)
 
     @pytest.fixture(scope="function")
     def websocket(self):
-        return MagicMock(spec=websockets.WebSocket)
+        return MagicMock(spec=http.WebSocket)
 
     async def test_call(self, app, endpoint, websocket):
         scope, receive, send = (
@@ -41,7 +41,7 @@ class TestCaseWebsocketFunctionWrapper:
             AsyncMock(),
         )
 
-        with patch("flama.websockets.WebSocket", return_value=websocket):
+        with patch("flama.http.WebSocket", return_value=websocket):
             await endpoint(scope, receive, send)
 
             assert websocket.send_json.call_args_list == [call({"foo": "bar"})]
@@ -62,14 +62,14 @@ class TestCaseWebsocketEndpointWrapper:
     @pytest.fixture(scope="function")
     def endpoint(self):
         class Endpoint(endpoints.WebSocketEndpoint):
-            async def on_receive(self, websocket: websockets.WebSocket, data: types.Data) -> None:
+            async def on_receive(self, websocket: http.WebSocket, data: types.Data) -> None:
                 await websocket.send_json({"foo": "bar"})
 
         return WebSocketEndpointWrapper(Endpoint)
 
     @pytest.fixture(scope="function")
     def websocket(self):
-        return MagicMock(spec=websockets.WebSocket)
+        return MagicMock(spec=http.WebSocket)
 
     async def test_call(self, app, endpoint, websocket):
         scope, receive, send = (
@@ -80,7 +80,7 @@ class TestCaseWebsocketEndpointWrapper:
 
         websocket.is_connected = False
         websocket.receive = AsyncMock(return_value={})
-        with patch("flama.websockets.WebSocket", return_value=websocket):
+        with patch("flama.http.WebSocket", return_value=websocket):
             await endpoint(scope, receive, send)
 
 
@@ -100,7 +100,7 @@ class TestCaseWebsocketRoute:
         elif request.param == "endpoint":
 
             class FooEndpoint(WebSocketEndpoint):
-                async def on_receive(self, websocket: websockets.WebSocket, data: types.Data) -> None:
+                async def on_receive(self, websocket: http.WebSocket, data: types.Data) -> None:
                     await websocket.send_text("foo")
 
             return FooEndpoint

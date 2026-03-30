@@ -3,7 +3,8 @@ import logging
 import threading
 import typing as t
 
-from flama import asgi, exceptions, http, injection, routing, types, url, validation, websockets
+from flama import asgi, exceptions, injection, routing, types, url, validation
+from flama.context import Context
 from flama.ddd.components import WorkerComponent
 from flama.events import Events
 from flama.injection.components import Components
@@ -28,7 +29,7 @@ __all__ = ["Flama"]
 logger = logging.getLogger(__name__)
 
 
-class Flama:
+class Flama(types.App):
     resources: ResourcesModule
     schema: SchemaModule
     models: ModelsModule
@@ -42,7 +43,7 @@ class Flama:
         middleware: t.Sequence["Middleware"] | None = None,
         debug: bool = False,
         events: dict[str, list[t.Callable[..., t.Coroutine[t.Any, t.Any, None]]]] | Events | None = None,
-        lifespan: t.Callable[["Flama | None"], t.AsyncContextManager] | None = None,
+        lifespan: t.Callable[[types.App | None], t.AsyncContextManager] | None = None,
         openapi: types.OpenAPISpec = {
             "info": {
                 "title": "Flama",
@@ -380,33 +381,3 @@ class Flama:
     add_options = functools.partialmethod(add_route, methods=["OPTIONS"])
     add_trace = functools.partialmethod(add_route, methods=["TRACE"])
     add_patch = functools.partialmethod(add_route, methods=["PATCH"])
-
-
-class Context(injection.Context):
-    types = {
-        "scope": types.Scope,
-        "receive": types.Receive,
-        "send": types.Send,
-        "exc": Exception,
-        "app": Flama,
-        "route": routing.BaseRoute,
-        "request": http.Request,
-        "response": http.Response,
-        "websocket": websockets.WebSocket,
-        "websocket_message": types.Message,
-        "websocket_encoding": types.Encoding,
-        "websocket_code": types.Code,
-    }
-
-    hashable = (
-        "scope",
-        "receive",
-        "send",
-        "exc",
-        "app",
-        "route",
-        "response",
-        "websocket_message",
-        "websocket_encoding",
-        "websocket_code",
-    )

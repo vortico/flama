@@ -9,9 +9,6 @@ from flama import concurrency, exceptions, types, url
 from flama.pagination import paginator
 from flama.schemas.routing import ParametersDescriptor
 
-if t.TYPE_CHECKING:
-    from flama.applications import Flama
-
 __all__ = ["BaseEndpointWrapper", "BaseRoute"]
 
 logger = logging.getLogger(__name__)
@@ -58,7 +55,7 @@ class BaseEndpointWrapper(abc.ABC):
         return isinstance(other, BaseEndpointWrapper) and self.handler == other.handler
 
 
-class BaseRoute(abc.ABC):
+class BaseRoute(types.BaseRoute, abc.ABC):
     class Match(enum.Enum):
         none = enum.auto()
         partial = enum.auto()
@@ -67,7 +64,7 @@ class BaseRoute(abc.ABC):
     def __init__(
         self,
         path: str | url.Path,
-        app: types.App,
+        app: t.Any,
         *,
         name: str | None = None,
         include_in_schema: bool = True,
@@ -107,7 +104,7 @@ class BaseRoute(abc.ABC):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(path={self.path!r}, name={(self.name or '')!r})"
 
-    def _build(self, app: "Flama") -> None:
+    def _build(self, app: types.App) -> None:
         """Build step for routes.
 
         Just build the parameters' descriptor part of RouteParametersMixin.

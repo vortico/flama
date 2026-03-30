@@ -3,14 +3,14 @@ from unittest.mock import AsyncMock, call, patch
 import pytest
 import starlette.websockets
 
-from flama import websockets
+from flama import http
 
 
 class TestCaseWebSocket:
     @pytest.fixture
     def websocket(self, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "websocket"
-        return websockets.WebSocket(asgi_scope, asgi_receive, asgi_send)
+        return http.WebSocket(asgi_scope, asgi_receive, asgi_send)
 
     @pytest.mark.skip(reason="Cannot test websockets with current client")  # CAVEAT: Client doesn't support websockets
     @pytest.mark.parametrize(
@@ -55,7 +55,7 @@ class TestCaseWebSocket:
     )
     def test_receive(self, app, client, encoding, send_method, data, expected_result, exception):
         @app.websocket_route("/")
-        async def foo_websocket(websocket: websockets.WebSocket):
+        async def foo_websocket(websocket: http.WebSocket):
             try:
                 await websocket.accept()
                 if exception.exception:
@@ -92,7 +92,7 @@ class TestCaseWebSocket:
 class TestCaseClose:
     @pytest.fixture
     def close(self):
-        return websockets.Close()
+        return http.Close()
 
     async def test_call(self, close, asgi_scope, asgi_receive, asgi_send):
         with patch.object(starlette.websockets.WebSocketClose, "__call__", new=AsyncMock()) as super_call_mock:
