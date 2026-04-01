@@ -5,7 +5,7 @@ import typing as t
 
 from flama.injection import exceptions
 from flama.injection.cache import LRUCache
-from flama.injection.context import Context
+from flama.injection.context import C
 from flama.injection.types import BUILTIN_TYPES
 
 if t.TYPE_CHECKING:
@@ -49,15 +49,15 @@ class Return(Parameter):
 
 
 @dataclasses.dataclass(frozen=True)
-class ResolutionNode(abc.ABC):
+class ResolutionNode(abc.ABC, t.Generic[C]):
     """A single node in the dependencies tree."""
 
     name: str
     parameter: Parameter
-    nodes: list["ResolutionNode"]
+    nodes: list["ResolutionNode[C]"]
 
     @abc.abstractmethod
-    async def value(self, context: Context, *, cache: LRUCache | None = None) -> t.Any: ...
+    async def value(self, context: C, *, cache: LRUCache | None = None) -> t.Any: ...
 
     def components(self) -> list[tuple[str, "Component"]]:
         return []
@@ -70,12 +70,12 @@ class ResolutionNode(abc.ABC):
 
 
 @dataclasses.dataclass(frozen=True)
-class ComponentNode(ResolutionNode):
+class ComponentNode(ResolutionNode[C]):
     """A node that represents a parameter that is resolved by component."""
 
     component: "Component"
 
-    async def value(self, context: Context, *, cache: LRUCache | None = None) -> t.Any:
+    async def value(self, context: C, *, cache: LRUCache | None = None) -> t.Any:
         try:
             value = (cache or {})[self.parameter, context]
         except KeyError:
@@ -98,10 +98,10 @@ class ComponentNode(ResolutionNode):
 
 
 @dataclasses.dataclass(frozen=True)
-class ContextNode(ResolutionNode):
+class ContextNode(ResolutionNode[C]):
     """A node that represents a parameter that is resolved by context."""
 
-    async def value(self, context: Context, *, cache: LRUCache | None = None) -> t.Any:
+    async def value(self, context: C, *, cache: LRUCache | None = None) -> t.Any:
         return context[self.parameter.name]
 
     def context(self) -> list[tuple[str, Parameter]]:
@@ -109,10 +109,10 @@ class ContextNode(ResolutionNode):
 
 
 @dataclasses.dataclass(frozen=True)
-class ParameterNode(ResolutionNode):
+class ParameterNode(ResolutionNode[C]):
     """A node that represents a parameter that is resolved by another parameter."""
 
-    async def value(self, context: Context, *, cache: LRUCache | None = None) -> t.Any:
+    async def value(self, context: C, *, cache: LRUCache | None = None) -> t.Any:
         return self.parameter
 
     def parameters(self) -> list[Parameter]:
@@ -120,10 +120,10 @@ class ParameterNode(ResolutionNode):
 
 
 @dataclasses.dataclass(frozen=True)
-class ResolutionTree:
+class ResolutionTree(t.Generic[C]):
     """Dependencies tree."""
 
-    root: ResolutionNode
+    root: ResolutionNode[C]
     context: list[tuple[str, Parameter]] = dataclasses.field(init=False)
     parameters: list[Parameter] = dataclasses.field(init=False)
     components: list[tuple[str, "Component"]] = dataclasses.field(init=False)
@@ -134,35 +134,20 @@ class ResolutionTree:
         object.__setattr__(self, "components", self.root.components())
 
     @classmethod
-    def build(cls, parameter: Parameter, context_types: dict[t.Any, str], components: "Components") -> "ResolutionTree":
-        return cls(root=cls._build_node(parameter, context_types, components))
+    def build(cls, parameter: Parameter, context_cls: type[C], components: "Components") -> "ResolutionTree[C]":
+        return cls(root=cls._build_node(parameter, context_cls, components))
 
     @classmethod
     def _build_node(
         cls,
         parameter: Parameter,
-        context_types: dict[t.Any, str],
+        context_cls: type[C],
         components: "Components",
         parent: Parameter | None = None,
-    ) -> ResolutionNode:
+    ) -> ResolutionNode[C]:
         assert parameter.name not in ("self", "cls")
 
-        # Check if the parameter annotation exists in context types (exact match or subclass).
-        context_name = context_types.get(parameter.annotation)
-        if context_name is None:
-            for ctx_type, ctx_name in context_types.items():
-                try:
-                    is_subclass = (
-                        isinstance(ctx_type, type)
-                        and isinstance(parameter.annotation, type)
-                        and issubclass(parameter.annotation, ctx_type)
-                    )
-                except TypeError:
-                    continue
-
-                if is_subclass:
-                    context_name = ctx_name
-                    break
+        context_name = context_cls.lookup(parameter.annotation)
 
         if context_name is not None:
             return ContextNode(parameter.name, Parameter(context_name, parameter.annotation), nodes=[])
@@ -188,7 +173,7 @@ class ResolutionTree:
             # There is a component that can handles the parameter
             try:
                 nodes = [
-                    cls._build_node(p, context_types, components, parent=parameter)
+                    cls._build_node(p, context_cls, components, parent=parameter)
                     for p in component.signature().values()
                     if p.name not in ("self", "cls")
                 ]
@@ -199,7 +184,7 @@ class ResolutionTree:
 
                 raise  # pragma: no cover
 
-    async def value(self, context: Context, *, cache: LRUCache | None = None) -> t.Any:
+    async def value(self, context: C, *, cache: LRUCache | None = None) -> t.Any:
         return await self.root.value(context, cache=cache)
 
 
@@ -210,23 +195,23 @@ class ResolutionCache(LRUCache[t.Hashable, ResolutionTree]):
         return isinstance(value.root, ComponentNode) and not value.root.component.use_parameter
 
 
-class Resolver:
+class Resolver(t.Generic[C]):
     """Provides a way to inspect a parameter and build it dependencies tree."""
 
-    def __init__(self, context_types: dict[str, type], components: "Components"):
+    def __init__(self, context_cls: type[C], components: "Components"):
         """Initialize a new resolver.
 
-        The context types are used to determine if a parameter is a context value or not. The components registry will
+        The context class is used to determine if a parameter is a context value or not. The components registry will
         be used to determine if a parameter can be handled by a component or not.
 
-        :param context_types: A dictionary that maps a context type name to a type.
+        :param context_cls: The context class used for type resolution.
         :param components: A components registry.
         """
-        self.context_types = {v: k for k, v in context_types.items()}
+        self.context_cls = context_cls
         self.components = components
-        self._cache = ResolutionCache()
+        self._cache: ResolutionCache = ResolutionCache()
 
-    def resolve(self, parameter: Parameter) -> ResolutionTree:
+    def resolve(self, parameter: Parameter) -> "ResolutionTree[C]":
         """Build a resolution tree for the given parameter.
 
         :param parameter: The parameter to be resolved.
@@ -235,7 +220,7 @@ class Resolver:
         try:
             resolution = self._cache[parameter.annotation]
         except KeyError:
-            resolution = ResolutionTree.build(parameter, self.context_types, self.components)
+            resolution = ResolutionTree.build(parameter, self.context_cls, self.components)
             try:
                 self._cache[parameter.annotation] = resolution
             except ValueError:
