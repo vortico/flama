@@ -1,4 +1,3 @@
-
 import starlette.websockets
 
 from flama.types.asgi import Receive, Scope, Send

@@ -6,6 +6,7 @@ from http.cookies import SimpleCookie
 
 from flama import types
 from flama.authentication.types import AccessToken, RefreshToken
+from flama.context import Context
 from flama.exceptions import HTTPException
 from flama.http import Request as HTTPRequest
 
@@ -43,7 +44,7 @@ class Authentication:
     @classmethod
     async def from_scope(cls, *, scope: types.Scope, receive: types.Receive, send: types.Send) -> "Authentication":
         app: types.App = scope["app"]
-        context = {"scope": scope, "request": HTTPRequest(scope, receive=receive)}
+        context = Context(scope=scope, request=HTTPRequest(scope, receive=receive))
 
         try:
             access = await app.injector.value(AccessToken, context)
@@ -78,7 +79,7 @@ class Request:
     @classmethod
     async def from_scope(cls, *, scope: types.Scope, receive: types.Receive, send: types.Send) -> "Request":
         app: types.App = scope["app"]
-        context = {"scope": scope, "request": HTTPRequest(scope, receive=receive), "route": app.resolve_route(scope)[0]}
+        context = Context(scope=scope, request=HTTPRequest(scope, receive=receive), route=app.resolve_route(scope)[0])
 
         headers = dict(await app.injector.value(types.Headers, context))
         cookies = dict(await app.injector.value(types.Cookies, context))
