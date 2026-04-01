@@ -1,7 +1,9 @@
 import dataclasses
 import typing as t
 
-__all__ = ["Context"]
+__all__ = ["C", "Context"]
+
+C = t.TypeVar("C", bound="Context")
 
 
 def _hashable(obj: t.Any) -> t.Hashable:
@@ -14,6 +16,7 @@ def _hashable(obj: t.Any) -> t.Hashable:
     return obj
 
 
+@dataclasses.dataclass(eq=False)
 class Context:
     __hashable__: t.ClassVar[tuple[str, ...] | None] = None
 
@@ -31,28 +34,38 @@ class Context:
             result[f.name] = hint
         return result
 
+    @classmethod
+    def lookup(cls, annotation: type) -> str | None:
+        """Look up the context field name matching the given annotation type.
+
+        Checks for an exact type match first, then falls back to subclass matching.
+
+        :param annotation: The type annotation to look up.
+        :return: The matching context field name, or None if no match is found.
+        """
+        context_types = cls.types()
+
+        for name, ctx_type in context_types.items():
+            if ctx_type == annotation:
+                return name
+
+        for name, ctx_type in context_types.items():
+            try:
+                if isinstance(ctx_type, type) and isinstance(annotation, type) and issubclass(annotation, ctx_type):
+                    return name
+            except TypeError:
+                continue
+
+        return None
+
     def __getitem__(self, key: str, /) -> t.Any:
         return getattr(self, key)
-
-    def __setitem__(self, key: str, value: t.Any, /) -> None:
-        setattr(self, key, value)
-
-    def __hash__(self) -> int:
-        keys = self.__hashable__ or tuple(f.name for f in dataclasses.fields(self))
-        return hash(_hashable([(k, getattr(self, k)) for k in keys]))
 
     def __eq__(self, other: object, /) -> bool:
         if not isinstance(other, self.__class__):
             return NotImplemented
         return all(getattr(self, f.name) == getattr(other, f.name) for f in dataclasses.fields(self))
 
-    def __len__(self) -> int:
-        return len(dataclasses.fields(self))
-
-    def __str__(self) -> str:
-        data = {f.name: getattr(self, f.name) for f in dataclasses.fields(self)}
-        return f"{self.__class__.__name__}({data})"
-
-    def __repr__(self) -> str:
-        data = {f.name: getattr(self, f.name) for f in dataclasses.fields(self)}
-        return f"{self.__class__.__name__}({data!r})"
+    def __hash__(self) -> int:
+        keys = self.__hashable__ or tuple(f.name for f in dataclasses.fields(self))
+        return hash(_hashable([(k, getattr(self, k)) for k in keys]))
