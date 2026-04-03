@@ -1,5 +1,4 @@
 import typing as t
-from pathlib import Path
 
 from flama import exceptions, http, pagination, schemas, types
 from flama.http.openapi import OpenAPIResponse
@@ -8,8 +7,6 @@ from flama.modules import Module
 from flama.schemas.generator import SchemaGenerator
 
 __all__ = ["SchemaModule"]
-
-TEMPLATES_PATH = Path(__file__).parents[1] / "templates"
 
 
 class SchemaModule(Module):

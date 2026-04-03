@@ -10,8 +10,11 @@ run_build() {
     run_clean
   fi
 
+  echo "📦 Building templates..."
+  (cd lib/templates && npm i && npm run build)
+
   echo "📦 Building package..."
-  uv build
+  uv run maturin build --release
   echo "✅ Build complete."
 }
 

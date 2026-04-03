@@ -31,7 +31,6 @@ module.exports = {
       "@semantic-release/exec",
       {
         prepareCmd: "./scripts/version ${nextRelease.version}",
-        publishCmd: "./scripts/publish --build",
       },
     ],
     [
@@ -42,15 +41,6 @@ module.exports = {
         assets: ["CHANGELOG.md", "pyproject.toml", "uv.lock"],
       },
     ],
-    [
-      "@semantic-release/github",
-      {
-        assets: [
-          {
-            path: "dist/**",
-          },
-        ],
-      },
-    ],
+    ["@semantic-release/github"],
   ],
 };

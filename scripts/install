@@ -8,10 +8,10 @@ run_install() {
   uv sync --all-extras --dev "$@"
 
   echo "📦 Installing JS dependencies and building templates..."
-  cd templates
-  npm i
-  npm run build
-  cd ..
+  (cd lib/templates && npm i && npm run build)
+
+  echo "🦀 Building Rust extension (dev)..."
+  uv run maturin develop
 
   echo "✅ Install complete."
 }
