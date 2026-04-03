@@ -7,6 +7,8 @@ import typing as t
 import urllib.parse
 import uuid
 
+from flama._core.url import PathMatcher
+
 T = t.TypeVar("T", bound=int | str | float | decimal.Decimal | uuid.UUID)
 FragmentType = t.Literal["constant", "rest", "str", "int", "float", "decimal", "uuid"]
 
@@ -197,6 +199,8 @@ class Path:
             self._parameters = path._parameters
             self._regex = path._regex
             self._template = path._template
+            self._matcher = path._matcher
+            self._param_order = path._param_order
         else:
             if path != "" and not path.startswith("/"):
                 raise ValueError("Path must starts with '/'")
@@ -218,6 +222,13 @@ class Path:
                 rf"^(?P<__matched__>{starting_slash}{fragments_regex}{trailing_slash})(?P<__unmatched__>.*)$"
             )
 
+            segments = [
+                (True, f.name, f.type) if isinstance(f, _FragmentParameter) else (False, f.value, "")
+                for f in self._fragments
+            ]
+            self._matcher = PathMatcher(starting_slash != "", trailing_slash != "", segments)
+            self._param_order = [f.name for f in self._fragments if isinstance(f, _FragmentParameter)]
+
     @property
     def parameters(self) -> dict[str, type]:
         return {f.name: f.serializer.type for f in self._parameters.values()}
@@ -228,18 +239,18 @@ class Path:
         :param path: Path to match
         :return: Matching result, parameters serialized values and matching parts of the path.
         """
-        if (match := self._regex.match(str(path))) is None:
+        result = self._matcher.match_path(str(path))
+        if result is None:
             return _MatchResult(self.Match.none, None, None, None)
 
+        match_type, raw_values, matched, unmatched = result
         return _MatchResult(
-            match=self.Match.partial if match.group("__unmatched__") else self.Match.exact,
+            match=self.Match.partial if match_type == 2 else self.Match.exact,
             parameters={
-                k: self._parameters[k].serializer.load(v)
-                for k, v in match.groupdict().items()
-                if k not in ("__matched__", "__unmatched__")
+                name: self._parameters[name].serializer.load(raw_values[i]) for i, name in enumerate(self._param_order)
             },
-            matched=match.group("__matched__") or None,
-            unmatched=match.group("__unmatched__") or None,
+            matched=matched,
+            unmatched=unmatched,
         )
 
     def build(self, **params: t.Any) -> _BuildResult:
@@ -301,6 +312,8 @@ class Path:
         self._parameters = path._parameters
         self._regex = path._regex
         self._template = path._template
+        self._matcher = path._matcher
+        self._param_order = path._param_order
 
         return self
 
