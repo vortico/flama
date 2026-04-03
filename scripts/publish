@@ -13,7 +13,7 @@ run_publish() {
   fi
 
   echo "📤 Publishing package..."
-  uv publish
+  uv run maturin publish
   echo "✅ Publish complete."
 }
 

@@ -16,8 +16,14 @@ __pycache__/
 .data/
 .logs/
 
-# C extensions
+# Compiled extensions
 *.so
+*.pyd
+*.dll
+*.dylib.*
+
+# Rust build output
+target/
 
 # Distribution / packaging
 .Python
@@ -27,7 +33,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -89,9 +94,6 @@ venv.bak/
 .backup/
 
 # Templates
-templates/node_modules/
-templates/out/
-
-# Templates
-flama/templates
-templates/out
+lib/templates/node_modules/
+lib/templates/out/
+flama/_templates

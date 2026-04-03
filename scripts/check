@@ -4,6 +4,7 @@ set -e
 # ─── Check ───────────────────────────────────────────────────────────────────
 
 UV_URL="https://astral.sh/uv/install.sh"
+RUSTUP_URL="https://sh.rustup.rs"
 
 install_uv() {
   echo "⚠️  UV is not available"
@@ -28,6 +29,30 @@ install_uv() {
   done
 }
 
+install_rust() {
+  echo "⚠️  Rust is not available"
+  while true; do
+    read -p "Do you wish to install it? (Y/N/q): " yn
+    case $yn in
+    [Yy]*)
+      curl --proto '=https' --tlsv1.2 -sSf $RUSTUP_URL | sh -s -- -y
+      source "$HOME/.cargo/env"
+      echo "✅ Rust installation completed ($(cargo --version))"
+      break
+      ;;
+    [Nn]*)
+      echo "❌ Rust will not be installed"
+      echo "💡 Rust is required to build native extensions"
+      exit 1
+      ;;
+    [q]*)
+      exit 0
+      ;;
+    *) echo "Please answer yes (Y) or no (N)" ;;
+    esac
+  done
+}
+
 run_check() {
   echo "🔍 Checking dependencies..."
 
@@ -35,6 +60,12 @@ run_check() {
     install_uv
   else
     echo "✅ UV is available ($(uv --version))"
+  fi
+
+  if ! command -v cargo &>/dev/null; then
+    install_rust
+  else
+    echo "✅ Rust is available ($(cargo --version))"
   fi
 }
 

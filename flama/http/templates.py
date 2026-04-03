@@ -96,12 +96,12 @@ class _FlamaLoader(jinja2.PackageLoader):
         if spec is None or spec.origin is None:
             raise exceptions.ApplicationError("Flama package not found")
 
-        templates_path = pathlib.Path(spec.origin).parent.joinpath("templates")
+        templates_path = pathlib.Path(spec.origin).parent.joinpath("_templates")
         if not templates_path.exists():
             warnings.warn("Templates folder not found in the Flama package")
             templates_path.mkdir(exist_ok=True)
 
-        super().__init__(package_name="flama", package_path="templates")
+        super().__init__(package_name="flama", package_path="_templates")
 
 
 class _FlamaTemplateResponse(HTMLTemplateResponse):

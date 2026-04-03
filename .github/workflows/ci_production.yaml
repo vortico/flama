@@ -47,6 +47,14 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: lib/core
+
       - name: Code format checking
         run: ./scripts/format --check .
 
@@ -81,6 +89,14 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
           cache-dependency-glob: "uv.lock"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: lib/core
 
       - name: Install project
         run: ./scripts/install
@@ -138,10 +154,102 @@ jobs:
         run: |
           echo "New version: ${{ steps.semantic.outputs.new_release_version }}"
 
+  build-wheels:
+    name: Build wheels (${{ matrix.os }}, ${{ matrix.target }})
+    needs: [release]
+    if: needs.release.outputs.published == 'true'
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest,  target: x86_64 }
+          - { os: ubuntu-latest,  target: aarch64 }
+          - { os: macos-13,       target: x86_64 }
+          - { os: macos-latest,   target: aarch64 }
+          - { os: windows-latest, target: x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: master
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build templates
+        shell: bash
+        run: cd lib/templates && npm i && npm run build
+
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist
+          manylinux: auto
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.target }}
+          path: dist/
+
+  build-sdist:
+    name: Build sdist
+    needs: [release]
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: master
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build templates
+        run: cd lib/templates && npm i && npm run build
+
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: [build-wheels, build-sdist]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          merge-multiple: true
+
+      - name: Publish to PyPI
+        uses: PyO3/maturin-action@v1
+        with:
+          command: upload
+          args: --non-interactive --skip-existing dist/*
+
   docker_push:
     name: Docker Push (${{ matrix.linux }}, ${{ matrix.python }}, ${{ matrix.schemas }})
-    needs: [release]
-    if: ${{ needs.release.outputs.published }} == 'true'
+    needs: [release, publish]
+    if: needs.release.outputs.published == 'true'
     environment:
       name: dockerhub
       url: https://hub.docker.com/r/vortico/flama

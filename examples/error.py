@@ -1,5 +1,5 @@
 import flama
-from flama import Flama, routing
+from flama import Flama
 
 app = Flama(
     openapi={
@@ -34,7 +34,7 @@ def home():
     return {"message": "Hello 🔥"}
 
 
-error_app = routing.Router()
+error_app = Flama(docs=None, schema=None)
 
 
 class FooException(Exception): ...
@@ -59,7 +59,7 @@ def error_500():
 app.mount("/error", app=error_app)
 
 # Mount a complex urls tree to illustrate in 404 error page
-bar_app = routing.Router()
+bar_app = Flama(docs=None, schema=None)
 
 
 @bar_app.route("/foobar/")
@@ -70,7 +70,7 @@ def foobar(): ...
 def barfoo(): ...
 
 
-foo_app = routing.Router()
+foo_app = Flama(docs=None, schema=None)
 foo_app.mount("/bar/", bar_app)
 
 app.mount("/foo/", foo_app)

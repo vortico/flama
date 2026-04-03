@@ -98,25 +98,17 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling", "hatch-build-scripts"]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
 
-[tool.hatch.build]
-exclude = [
-  ".github",
-  ".gitignore",
-  ".dockerignore",
-  "CHANGELOG.md",
-  "CODE_OF_CONDUCT.md",
-  "CONTRIBUTING.md",
-  "SECURITY.md",
+[tool.maturin]
+module-name = "flama._core"
+manifest-path = "lib/core/Cargo.toml"
+python-source = "."
+features = ["pyo3/extension-module"]
+include = [
+    { path = "flama/_templates/**", format = "wheel" },
 ]
-artifacts = ["flama/templates/**/*"]
-
-[[tool.hatch.build.hooks.build-scripts.scripts]]
-work_dir = "templates"
-commands = ["npm i", "npm run build"]
-artifacts = ["flama/templates/"]
 
 [tool.ruff]
 line-length = 120
