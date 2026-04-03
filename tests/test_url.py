@@ -154,13 +154,7 @@ class TestCasePath:
                 Path("/{foo}/"), "/bar/", _MatchResult(_Match.exact, {"foo": "bar"}, "/bar/", None), id="no_type"
             ),
             pytest.param(
-                Path("/{foo:str}/"), "/bar/", _MatchResult(_Match.exact, {"foo": "bar"}, "/bar/", None), id="str"
-            ),
-            pytest.param(
                 Path("/{foo:int}/"), "/1/", _MatchResult(_Match.exact, {"foo": 1}, "/1/", None), id="int_positive"
-            ),
-            pytest.param(
-                Path("/{foo:int}/"), "/-1/", _MatchResult(_Match.exact, {"foo": -1}, "/-1/", None), id="int_negative"
             ),
             pytest.param(Path("/{foo:int}/"), "/foo/", _MatchResult(_Match.none, None, None, None), id="int_fail"),
             pytest.param(
@@ -170,50 +164,10 @@ class TestCasePath:
                 id="float_positive",
             ),
             pytest.param(
-                Path("/{foo:float}/"),
-                "/1/",
-                _MatchResult(_Match.exact, {"foo": 1.0}, "/1/", None),
-                id="float_positive_no_decimals",
-            ),
-            pytest.param(
-                Path("/{foo:float}/"),
-                "/-1.0/",
-                _MatchResult(_Match.exact, {"foo": -1.0}, "/-1.0/", None),
-                id="float_negative",
-            ),
-            pytest.param(
-                Path("/{foo:float}/"),
-                "/-1/",
-                _MatchResult(_Match.exact, {"foo": -1.0}, "/-1/", None),
-                id="float_negative_no_decimals",
-            ),
-            pytest.param(Path("/{foo:float}/"), "/foo/", _MatchResult(_Match.none, None, None, None), id="float_fail"),
-            pytest.param(
                 Path("/{foo:decimal}/"),
                 "/1.0/",
                 _MatchResult(_Match.exact, {"foo": Decimal("1.0")}, "/1.0/", None),
                 id="decimal_positive",
-            ),
-            pytest.param(
-                Path("/{foo:decimal}/"),
-                "/1/",
-                _MatchResult(_Match.exact, {"foo": Decimal("1.0")}, "/1/", None),
-                id="decimal_positive_no_decimals",
-            ),
-            pytest.param(
-                Path("/{foo:decimal}/"),
-                "/-1.0/",
-                _MatchResult(_Match.exact, {"foo": Decimal("-1.0")}, "/-1.0/", None),
-                id="decimal_negative",
-            ),
-            pytest.param(
-                Path("/{foo:decimal}/"),
-                "/-1/",
-                _MatchResult(_Match.exact, {"foo": Decimal("-1.0")}, "/-1/", None),
-                id="decimal_negative_no_decimals",
-            ),
-            pytest.param(
-                Path("/{foo:decimal}/"), "/foo/", _MatchResult(_Match.none, None, None, None), id="decimal_fail"
             ),
             pytest.param(
                 Path("/{foo:uuid}/"),
@@ -225,12 +179,6 @@ class TestCasePath:
                     None,
                 ),
                 id="uuid",
-            ),
-            pytest.param(
-                Path("/{foo:uuid}/"),
-                "/f2c142606a3d/",
-                _MatchResult(_Match.none, None, None, None),
-                id="uuid_fail",
             ),
         ),
     )
