@@ -3,7 +3,7 @@ set -e
 
 # ─── Clean ───────────────────────────────────────────────────────────────────
 
-FOLDERS="dist flama.egg-info pip-wheel-metadata site test-results .coverage .pytest_cache .mypy_cache .ruff_cache flama/templates"
+FOLDERS="dist flama.egg-info pip-wheel-metadata site test-results .coverage .pytest_cache .mypy_cache .ruff_cache flama/_templates target"
 
 run_clean() {
   echo "🧹 Cleaning project..."
