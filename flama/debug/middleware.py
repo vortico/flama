@@ -3,7 +3,6 @@ import dataclasses
 import inspect
 import logging
 import typing as t
-from pathlib import Path
 
 import starlette.exceptions
 
@@ -18,8 +17,6 @@ if t.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __all__ = ["ServerErrorMiddleware", "ExceptionMiddleware"]
-
-TEMPLATES_PATH = Path(__file__).parents[1].resolve() / "templates" / "debug"
 
 
 class BaseErrorMiddleware:
