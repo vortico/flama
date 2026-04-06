@@ -3,6 +3,7 @@ import typing as t
 if t.TYPE_CHECKING:
     from flama import types
     from flama.http.websocket import WebSocket
+    from flama.types.http import Method
 
 __all__ = ["EndpointProtocol", "HTTPEndpointProtocol", "WebSocketEndpointProtocol"]
 
@@ -20,7 +21,7 @@ class EndpointProtocol(t.Protocol):
 
 class HTTPEndpointProtocol(EndpointProtocol, t.Protocol):
     @classmethod
-    def allowed_methods(cls) -> set[str]: ...
+    def allowed_methods(cls) -> "set[Method]": ...
 
     @property
     def handler(self) -> t.Callable: ...

@@ -9,6 +9,7 @@ import typing as t
 from flama import concurrency, exceptions, types, url
 from flama.pagination import paginator
 from flama.schemas.routing import ParametersDescriptor
+from flama.types.http import Method
 
 __all__ = ["BaseEndpointWrapper", "BaseRoute", "ResolveResult", "ResolveType", "RouteTableParams", "ScopeType"]
 
@@ -25,7 +26,7 @@ class ScopeType(enum.IntFlag):
 class RouteTableParams:
     scope_type: ScopeType
     accept_partial_path: bool = False
-    methods: list[str] | None = None
+    methods: tuple[Method, ...] | None = None
 
 
 class ResolveType(enum.Enum):
@@ -41,7 +42,7 @@ class ResolveResult:
     params: tuple[str, ...] = ()
     matched: str | None = None
     unmatched: str | None = None
-    allowed_methods: list[str] | None = None
+    allowed_methods: tuple[Method, ...] | None = None
 
 
 class BaseEndpointWrapper(abc.ABC):

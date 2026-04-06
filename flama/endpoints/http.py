@@ -3,6 +3,7 @@ import typing as t
 from flama import concurrency, http, types
 from flama.context import Context
 from flama.endpoints.base import BaseEndpoint
+from flama.types.http import ALL_METHODS, Method
 
 __all__ = ["HTTPEndpoint"]
 
@@ -32,12 +33,12 @@ class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
         )
 
     @classmethod
-    def allowed_methods(cls) -> set[str]:
+    def allowed_methods(cls) -> set[Method]:
         """The list of allowed methods by this endpoint.
 
         :return: List of allowed methods.
         """
-        methods = {member.upper() for member in http.Method if getattr(cls, member.lower(), None) is not None}
+        methods = {m for m in ALL_METHODS if getattr(cls, m.lower(), None) is not None}
         if "GET" in methods:
             methods.add("HEAD")
         return methods

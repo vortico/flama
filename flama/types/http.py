@@ -8,6 +8,7 @@ import starlette.datastructures
 from flama.url import URL, Path
 
 __all__ = [
+    "ALL_METHODS",
     "Method",
     "Scheme",
     "Server",
@@ -28,7 +29,8 @@ __all__ = [
 ]
 
 
-class Method(str): ...
+Method = t.Literal["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"]
+ALL_METHODS: tuple[Method, ...] = t.get_args(Method)
 
 
 class Scheme(str): ...

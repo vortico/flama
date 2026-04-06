@@ -9,6 +9,7 @@ from flama.routing.routes.base import BaseRoute, ResolveResult, ResolveType, Sco
 from flama.routing.routes.http import Route
 from flama.routing.routes.mount import Mount
 from flama.routing.routes.websocket import WebSocketRoute
+from flama.types.http import Method
 
 __all__ = ["Router"]
 
@@ -19,7 +20,7 @@ def _parse_resolve_result(raw: t.Any) -> ResolveResult | None:
     if raw is None:
         return None
     if raw[0] == 2:
-        return ResolveResult(type=ResolveType.method_not_allowed, index=raw[1], allowed_methods=list(raw[2]))
+        return ResolveResult(type=ResolveType.method_not_allowed, index=raw[1], allowed_methods=tuple(raw[2]))
     return ResolveResult(
         type=ResolveType.mount if raw[0] == 1 else ResolveType.full,
         index=raw[1],
@@ -96,7 +97,7 @@ class Router:
         self,
         path: str | None = None,
         endpoint: types.HTTPHandler | None = None,
-        methods: list[str] | None = None,
+        methods: t.Sequence[Method] | None = None,
         *,
         name: str | None = None,
         include_in_schema: bool = True,
@@ -138,7 +139,7 @@ class Router:
     def route(
         self,
         path: str,
-        methods: list[str] | None = None,
+        methods: t.Sequence[Method] | None = None,
         *,
         name: str | None = None,
         include_in_schema: bool = True,

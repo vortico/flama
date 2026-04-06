@@ -21,7 +21,7 @@ __all__ = [
 
 class MethodComponent(Component):
     def resolve(self, scope: types.Scope) -> types.Method:
-        return types.Method(scope["method"])
+        return scope["method"]
 
 
 class URLComponent(Component):

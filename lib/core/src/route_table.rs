@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyTuple};
+use pyo3::types::PyTuple;
 
 use crate::url::PathMatcher;
 
@@ -103,8 +103,8 @@ impl RouteTable {
         }
 
         if let Some(idx) = partial_index {
-            let methods_list = PyList::new(py, &allowed_methods)?;
-            let result = (2i32, idx as i64, methods_list);
+            let methods_tuple = PyTuple::new(py, &allowed_methods)?;
+            let result = (2i32, idx as i64, methods_tuple);
             return Ok(result.into_pyobject(py)?.into_any().unbind());
         }
 

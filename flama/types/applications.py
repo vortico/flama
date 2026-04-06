@@ -16,6 +16,7 @@ if t.TYPE_CHECKING:
     from flama.schemas.modules import SchemaModule
     from flama.sqlalchemy import SQLAlchemyModule
     from flama.types.asgi import HTTPHandler, WebSocketHandler
+    from flama.types.http import Method
     from flama.types.pagination import Pagination
     from flama.url import URL
 
@@ -87,7 +88,7 @@ class App(abc.ABC):
         self,
         path: str | None = None,
         endpoint: "HTTPHandler | None" = None,
-        methods: list[str] | None = None,
+        methods: "t.Sequence[Method] | None" = None,
         *,
         name: str | None = None,
         include_in_schema: bool = True,
