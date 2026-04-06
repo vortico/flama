@@ -1,6 +1,5 @@
 import html
 import importlib.util
-import json
 import os
 import pathlib
 import typing as t
@@ -9,7 +8,8 @@ import warnings
 import jinja2
 
 from flama import exceptions, types
-from flama.http.response import EnhancedJSONEncoder, HTMLResponse
+from flama._core.json_encoder import encode_json
+from flama.http.response import HTMLResponse
 
 __all__ = [
     "HTMLFileResponse",
@@ -77,7 +77,7 @@ class HTMLTemplatesEnvironment(jinja2.Environment):
         return self._escape(value)
 
     def safe_json(self, value: types.JSONField):
-        return json.dumps(self._escape(value), cls=EnhancedJSONEncoder).replace('"', '\\"')
+        return encode_json(self._escape(value)).decode("utf-8").replace('"', '\\"')
 
 
 class HTMLTemplateResponse(HTMLResponse):
