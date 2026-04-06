@@ -29,7 +29,7 @@ class Response(starlette.responses.Response):
                 getattr(self, "media_type"),
                 self.background,
                 self.body,
-                self.headers,
+                tuple(sorted(self.headers.items())),
             )
         )
 
