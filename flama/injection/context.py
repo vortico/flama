@@ -22,17 +22,19 @@ class Context:
 
     @classmethod
     def types(cls) -> dict[str, type]:
-        hints = t.get_type_hints(cls)
-        result: dict[str, type] = {}
-        for f in dataclasses.fields(cls):
-            hint = hints[f.name]
-            args = t.get_args(hint)
-            if args and type(None) in args:
-                non_none = [a for a in args if a is not type(None)]
-                if len(non_none) == 1:
-                    hint = non_none[0]
-            result[f.name] = hint
-        return result
+        if not hasattr(cls, "__types_cache__") or cls.__types_cache__ is None:
+            hints = t.get_type_hints(cls)
+            result: dict[str, type] = {}
+            for f in dataclasses.fields(cls):
+                hint = hints[f.name]
+                args = t.get_args(hint)
+                if args and type(None) in args:
+                    non_none = [a for a in args if a is not type(None)]
+                    if len(non_none) == 1:
+                        hint = non_none[0]
+                result[f.name] = hint
+            cls.__types_cache__ = result
+        return cls.__types_cache__
 
     @classmethod
     def lookup(cls, annotation: type) -> str | None:
