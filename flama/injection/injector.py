@@ -21,6 +21,12 @@ class InjectionCache(LRUCache[tuple[Parameter, Context], t.Any]):
     ...
 
 
+class FunctionCache(LRUCache[int, dict[str, "ResolutionTree"]]):
+    """A cache for resolved function signatures."""
+
+    ...
+
+
 class Injector(t.Generic[C]):
     """Functions dependency injector. It uses a resolver to generate dependencies trees and evaluate them."""
 
@@ -33,9 +39,10 @@ class Injector(t.Generic[C]):
         :param components: List of components.
         """
         self._context_cls = context_cls
+        self._resolver: Resolver[C] | None = None
+        self._function_cache: FunctionCache = FunctionCache()
         self.components = Components(components or [])
         self.cache = InjectionCache()
-        self._resolver: Resolver[C] | None = None
 
     @property
     def components(self) -> Components:
@@ -61,6 +68,7 @@ class Injector(t.Generic[C]):
     @resolver.deleter
     def resolver(self):
         self._resolver = None
+        self._function_cache.reset()
 
     @t.overload
     def resolve(self, annotation: type) -> "ResolutionTree[C]": ...
@@ -89,6 +97,12 @@ class Injector(t.Generic[C]):
         :param func: Function to be resolved.
         :return: Mapping of parameter names and dependencies trees.
         """
+        func_id = id(func)
+        try:
+            return self._function_cache[func_id]
+        except KeyError:
+            pass
+
         parameters = {}
         for parameter in [
             x
@@ -100,6 +114,7 @@ class Injector(t.Generic[C]):
             except ComponentNotFound as e:
                 raise ComponentNotFound(e.parameter, component=e.component, function=func) from None
 
+        self._function_cache[func_id] = parameters
         return parameters
 
     async def inject(self, func: t.Callable, context: C) -> t.Callable:

@@ -27,9 +27,7 @@ class Component(metaclass=abc.ABCMeta):
             parameter_type = parameter.annotation.__class__.__name__
         component_id = f"{id(parameter.annotation)}:{parameter_type}"
 
-        # If `resolve` includes `Parameter` then use an id that is additionally parameterized by the parameter name.
-        args = inspect.signature(self.resolve).parameters.values()
-        if Parameter in [arg.annotation for arg in args]:
+        if self.use_parameter:
             component_id += f":{parameter.name.lower()}"
 
         return component_id
@@ -44,8 +42,7 @@ class Component(metaclass=abc.ABCMeta):
         :param parameter: The parameter to check if that component can handle it.
         :return: True if this component can handle the given parameter.
         """
-        return_annotation = inspect.signature(self.resolve).return_annotation
-        if return_annotation is inspect.Signature.empty:
+        if (return_annotation := self._resolve_signature.return_annotation) is inspect.Signature.empty:
             raise ComponentError(
                 f"Component '{self.__class__.__name__}' must include a return annotation on the 'resolve' method, or "
                 f"override 'can_handle_parameter'"
@@ -53,16 +50,32 @@ class Component(metaclass=abc.ABCMeta):
 
         return parameter.annotation is return_annotation
 
+    @property
+    def _resolve_signature(self) -> inspect.Signature:
+        if not hasattr(self, "__resolve_signature_cache__"):
+            self.__resolve_signature_cache__ = inspect.signature(self.resolve)
+        return self.__resolve_signature_cache__
+
     def signature(self) -> dict[str, Parameter]:
         """Component resolver signature.
 
         :return: Component resolver signature.
         """
-        return {k: Parameter.from_parameter(v) for k, v in inspect.signature(self.resolve).parameters.items()}
+        if not hasattr(self, "__signature_cache__"):
+            self.__signature_cache__ = {
+                k: Parameter.from_parameter(v) for k, v in self._resolve_signature.parameters.items()
+            }
+        return self.__signature_cache__
 
     @property
     def use_parameter(self) -> bool:
         return any(x for x in self.signature().values() if x.annotation is Parameter)
+
+    @property
+    def _is_resolve_async(self) -> bool:
+        if not hasattr(self, "__is_resolve_async__"):
+            self.__is_resolve_async__ = inspect.iscoroutinefunction(self.resolve)
+        return self.__is_resolve_async__
 
     async def __call__(self, *args, **kwargs):
         """Performs a resolution by calling this component's resolve method.
@@ -71,7 +84,7 @@ class Component(metaclass=abc.ABCMeta):
         :param kwargs: Resolve keyword arguments.
         :return: Resolve result.
         """
-        if inspect.iscoroutinefunction(self.resolve):
+        if self._is_resolve_async:
             return await self.resolve(*args, **kwargs)
 
         return self.resolve(*args, **kwargs)
@@ -81,8 +94,38 @@ class Component(metaclass=abc.ABCMeta):
 
 
 class Components(tuple[Component, ...]):
+    _type_map: dict[int, int]
+    _custom_indices: list[int]
+
     def __new__(cls, components: t.Sequence[Component] | set[Component] | None = None):
-        return super().__new__(cls, components or [])
+        instance = super().__new__(cls, components or [])
+        instance._type_map, instance._custom_indices = cls._build_index(instance)
+        return instance
+
+    @staticmethod
+    def _build_index(components: "Components") -> tuple[dict[int, int], list[int]]:
+        type_map: dict[int, int] = {}
+        custom_indices: list[int] = []
+        for i, component in enumerate(components):
+            try:
+                is_default = type(component).can_handle_parameter is Component.can_handle_parameter
+            except AttributeError:
+                custom_indices.append(i)
+                continue
+
+            if is_default:
+                try:
+                    return_annotation = component._resolve_signature.return_annotation
+                except (AttributeError, TypeError, ValueError):
+                    custom_indices.append(i)
+                    continue
+                if return_annotation is not inspect.Signature.empty:
+                    type_map[id(return_annotation)] = i
+                else:
+                    custom_indices.append(i)
+            else:
+                custom_indices.append(i)
+        return type_map, custom_indices
 
     def __eq__(self, other: t.Any) -> bool:
         try:
@@ -96,8 +139,12 @@ class Components(tuple[Component, ...]):
         :param parameter: a parameter.
         :return: the component that handles the parameter.
         """
-        for component in self:
-            if component.can_handle_parameter(parameter):
-                return component
-        else:
-            raise ComponentNotFound(parameter)
+        hit = self._type_map.get(id(parameter.annotation))
+        if hit is not None:
+            return self[hit]
+
+        for i in self._custom_indices:
+            if self[i].can_handle_parameter(parameter):
+                return self[i]
+
+        raise ComponentNotFound(parameter)
