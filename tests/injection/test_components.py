@@ -56,3 +56,22 @@ class TestCaseComponent:
 
     async def test_call(self, foo_component):
         assert await foo_component(1) == Foo(1)
+
+    async def test_call_sync_resolve(self):
+        class SyncComponent(Component):
+            def resolve(self, x: int) -> int:
+                return x * 2
+
+        component = SyncComponent()
+        assert await component(5) == 10
+
+    async def test_call_async_resolve(self):
+        class AsyncComponent(Component):
+            async def resolve(self, x: int) -> int:
+                return x * 2
+
+        component = AsyncComponent()
+        assert await component(5) == 10
+
+    def test_str(self, foo_component):
+        assert str(foo_component) == "FooComponent"

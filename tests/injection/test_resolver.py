@@ -1,21 +1,28 @@
 import dataclasses
+import inspect
 import uuid
 from unittest.mock import MagicMock, call
 
 import pytest
 
+from flama.injection.cache import LRUCache
 from flama.injection.components import Component, Components
 from flama.injection.context import Context as BaseContext
-from flama.injection.exceptions import ComponentNotFound
+from flama.injection.exceptions import ComponentNotFound, InjectionError
 from flama.injection.injector import InjectionCache
 from flama.injection.resolver import (
     ComponentNode,
+    ComponentStep,
     ContextNode,
+    ContextStep,
     Empty,
     Parameter,
     ParameterNode,
+    ParameterStep,
     ResolutionTree,
     Resolver,
+    Return,
+    Step,
 )
 
 
@@ -358,3 +365,141 @@ class TestCaseResolver:
             if cached:
                 assert parameter.annotation in resolver._cache
                 assert resolver.resolve(parameter) == expected_tree
+
+
+class TestCaseReturn:
+    def test_from_return_annotation(self):
+        ret = Return.from_return_annotation(int)
+        assert ret.name == "_return"
+        assert ret.annotation is int
+        assert ret.default is Empty
+
+    def test_from_return_annotation_empty(self):
+        ret = Return.from_return_annotation(inspect.Signature.empty)
+        assert ret.annotation is Empty
+
+
+class TestCaseNodeValue:
+    """Tests for the recursive ResolutionNode.value() methods (public API)."""
+
+    @pytest.fixture
+    def context(self):
+        return Context(x=42, data={"bar": 7})
+
+    async def test_context_node_value(self, context):
+        node = ContextNode(name="x", parameter=Parameter("x", int), nodes=[])
+        assert await node.value(context) == 42
+
+    async def test_parameter_node_value(self, context):
+        param = Parameter("bar", Bar)
+        node = ParameterNode(name="parameter", parameter=param, nodes=[])
+        assert await node.value(context) is param
+
+    async def test_component_node_value(self, context):
+        node = ComponentNode(
+            name="foo",
+            parameter=Parameter("foo", Foo),
+            nodes=[ContextNode(name="x", parameter=Parameter("x", int), nodes=[])],
+            component=foo_component,
+        )
+        assert await node.value(context) == Foo(42)
+
+    async def test_component_node_value_with_cache(self, context):
+        cache = InjectionCache()
+        node = ComponentNode(
+            name="foo",
+            parameter=Parameter("foo", Foo),
+            nodes=[ContextNode(name="x", parameter=Parameter("x", int), nodes=[])],
+            component=foo_component,
+        )
+        first = await node.value(context, cache=cache)
+        second = await node.value(context, cache=cache)
+        assert first == second == Foo(42)
+
+
+class TestCaseStep:
+    """Tests for Step.build() and polymorphic execute()."""
+
+    @pytest.fixture
+    def context(self):
+        return Context(x=42, data={"bar": 7})
+
+    def test_build_context_step(self):
+        node = ContextNode(name="x", parameter=Parameter("x", int), nodes=[])
+        steps = Step.build(node, [])
+        assert len(steps) == 1
+        assert isinstance(steps[0], ContextStep)
+        assert steps[0].context_key == "x"
+
+    def test_build_parameter_step(self):
+        param = Parameter("bar", Bar)
+        node = ParameterNode(name="parameter", parameter=param, nodes=[])
+        steps = Step.build(node, [])
+        assert len(steps) == 1
+        assert isinstance(steps[0], ParameterStep)
+        assert steps[0].parameter is param
+
+    def test_build_component_step(self):
+        node = ComponentNode(
+            name="foo",
+            parameter=Parameter("foo", Foo),
+            nodes=[ContextNode(name="x", parameter=Parameter("x", int), nodes=[])],
+            component=foo_component,
+        )
+        steps = Step.build(node, [])
+        assert len(steps) == 2
+        assert isinstance(steps[0], ContextStep)
+        assert isinstance(steps[1], ComponentStep)
+        assert steps[1].deps == (("x", 0),)
+        assert steps[1].component is foo_component
+
+    async def test_execute_context_step(self, context):
+        step = ContextStep(context_key="x")
+        assert await step.execute([], context, None) == 42
+
+    async def test_execute_parameter_step(self, context):
+        param = Parameter("bar", Bar)
+        step = ParameterStep(parameter=param)
+        assert await step.execute([], context, None) is param
+
+    async def test_execute_component_step(self, context):
+        node = ComponentNode(
+            name="foo",
+            parameter=Parameter("foo", Foo),
+            nodes=[ContextNode(name="x", parameter=Parameter("x", int), nodes=[])],
+            component=foo_component,
+        )
+        steps = Step.build(node, [])
+        results = []
+        for step in steps:
+            results.append(await step.execute(results, context, None))
+        assert results[-1] == Foo(42)
+
+    async def test_execute_component_step_with_cache(self, context):
+        cache = LRUCache()
+        node = ComponentNode(
+            name="foo",
+            parameter=Parameter("foo", Foo),
+            nodes=[ContextNode(name="x", parameter=Parameter("x", int), nodes=[])],
+            component=foo_component,
+        )
+        steps = Step.build(node, [])
+
+        results = []
+        for step in steps:
+            results.append(await step.execute(results, context, cache))
+        first = results[-1]
+
+        results = []
+        for step in steps:
+            results.append(await step.execute(results, context, cache))
+        second = results[-1]
+
+        assert first == second == Foo(42)
+
+
+class TestCaseResolutionTreeBuildNode:
+    def test_root_parameter_annotation_raises(self):
+        components = Components([foo_component])
+        with pytest.raises(InjectionError, match="root function cannot define an argument with Parameter type"):
+            ResolutionTree.build(Parameter("p", Parameter), Context, components)

@@ -120,6 +120,95 @@ class ParameterNode(ResolutionNode[C]):
 
 
 @dataclasses.dataclass(frozen=True)
+class Step(abc.ABC, t.Generic[C]):
+    """A single pre-compiled step in a flat execution plan."""
+
+    @staticmethod
+    def build(node: ResolutionNode, steps: list["Step"]) -> list["Step"]:
+        """Flatten a resolution node into the steps list (post-order)."""
+        if isinstance(node, ContextNode):
+            ContextStep._build(node, steps)
+        elif isinstance(node, ParameterNode):
+            ParameterStep._build(node, steps)
+        else:
+            assert isinstance(node, ComponentNode)
+            ComponentStep._build(node, steps)
+        return steps
+
+    @staticmethod
+    @abc.abstractmethod
+    def _build(node: ResolutionNode, steps: list["Step"]) -> list["Step"]: ...
+
+    @abc.abstractmethod
+    async def execute(self, results: list, context: C, cache: LRUCache | None) -> t.Any: ...
+
+
+@dataclasses.dataclass(frozen=True)
+class ContextStep(Step):
+    """A step that reads a value from the injection context."""
+
+    context_key: str
+
+    @staticmethod
+    def _build(node: ResolutionNode, steps: list[Step]) -> list[Step]:
+        assert isinstance(node, ContextNode)
+        steps.append(ContextStep(context_key=node.parameter.name))
+        return steps
+
+    async def execute(self, results: list, context: C, cache: LRUCache | None) -> t.Any:
+        return context[self.context_key]
+
+
+@dataclasses.dataclass(frozen=True)
+class ParameterStep(Step):
+    """A step that returns a stored Parameter value."""
+
+    parameter: Parameter
+
+    @staticmethod
+    def _build(node: ResolutionNode, steps: list[Step]) -> list[Step]:
+        assert isinstance(node, ParameterNode)
+        steps.append(ParameterStep(parameter=node.parameter))
+        return steps
+
+    async def execute(self, results: list, context: C, cache: LRUCache | None) -> t.Any:
+        return self.parameter
+
+
+@dataclasses.dataclass(frozen=True)
+class ComponentStep(Step):
+    """A step that calls a component's resolve method with pre-computed dependencies."""
+
+    component: "Component"
+    parameter: Parameter
+    deps: tuple[tuple[str, int], ...]
+
+    @staticmethod
+    def _build(node: ResolutionNode, steps: list[Step]) -> list[Step]:
+        assert isinstance(node, ComponentNode)
+        deps: list[tuple[str, int]] = []
+        for child in node.nodes:
+            Step.build(child, steps)
+            deps.append((child.name, len(steps) - 1))
+        steps.append(ComponentStep(component=node.component, parameter=node.parameter, deps=tuple(deps)))
+        return steps
+
+    async def execute(self, results: list, context: C, cache: LRUCache | None) -> t.Any:
+        if self.component.cacheable and cache is not None:
+            try:
+                return cache[(self.parameter, context)]
+            except KeyError:
+                pass
+
+        value = await self.component(**{name: results[idx] for name, idx in self.deps})
+
+        if self.component.cacheable and cache is not None:
+            cache[(self.parameter, context)] = value
+
+        return value
+
+
+@dataclasses.dataclass(frozen=True)
 class ResolutionTree(t.Generic[C]):
     """Dependencies tree."""
 
@@ -127,11 +216,13 @@ class ResolutionTree(t.Generic[C]):
     context: list[tuple[str, Parameter]] = dataclasses.field(init=False)
     parameters: list[Parameter] = dataclasses.field(init=False)
     components: list[tuple[str, "Component"]] = dataclasses.field(init=False)
+    _steps: list[Step] = dataclasses.field(init=False)
 
     def __post_init__(self):
         object.__setattr__(self, "context", self.root.context())
         object.__setattr__(self, "parameters", self.root.parameters())
         object.__setattr__(self, "components", self.root.components())
+        object.__setattr__(self, "_steps", Step.build(self.root, []))
 
     @classmethod
     def build(cls, parameter: Parameter, context_cls: type[C], components: "Components") -> "ResolutionTree[C]":
@@ -185,7 +276,10 @@ class ResolutionTree(t.Generic[C]):
                 raise  # pragma: no cover
 
     async def value(self, context: C, *, cache: LRUCache | None = None) -> t.Any:
-        return await self.root.value(context, cache=cache)
+        results = []
+        for step in self._steps:
+            results.append(await step.execute(results, context, cache))
+        return results[-1]
 
 
 class ResolutionCache(LRUCache[t.Hashable, ResolutionTree]):
