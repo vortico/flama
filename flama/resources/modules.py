@@ -5,6 +5,7 @@ from flama import exceptions, types
 from flama.modules import Module
 from flama.resources.resource import Resource
 from flama.resources.routing import ResourceRoute
+from flama.types.http import Method
 
 if t.TYPE_CHECKING:
     try:
@@ -77,7 +78,7 @@ class ResourcesModule(Module):
         self,
         path: str,
         *,
-        methods: t.Sequence[str] | None = None,
+        methods: t.Sequence[Method] | None = None,
         name: str | None = None,
         include_in_schema: bool = True,
         pagination: types.Pagination | None = None,

@@ -6,6 +6,7 @@ from flama import exceptions, types
 from flama.resources import data_structures
 from flama.routing import Mount, Route
 from flama.routing.routes.http import HTTPFunctionWrapper
+from flama.types.http import Method
 
 if t.TYPE_CHECKING:
     from flama.resources import Resource
@@ -44,7 +45,7 @@ class ResourceRoute(Mount):
                             signature=route.func.signature,
                             pagination=route.meta.pagination,
                         ),
-                        methods=route.meta.methods,
+                        methods=tuple(route.meta.methods),
                         name=route.meta.name,
                         include_in_schema=include_in_schema and route.meta.include_in_schema,
                         tags=tags.get(name, route.meta.tags),
@@ -81,7 +82,7 @@ class ResourceRoute(Mount):
         cls,
         path: str,
         *,
-        methods: t.Sequence[str] | None = None,
+        methods: t.Sequence[Method] | None = None,
         name: str | None = None,
         include_in_schema: bool = True,
         pagination: types.Pagination | None = None,
@@ -102,7 +103,7 @@ class ResourceRoute(Mount):
             return data_structures.ResourceMethod(
                 method=func,
                 path=path,
-                methods=set(methods) if methods is not None else {"GET"},
+                methods=methods if methods is not None else ("GET",),
                 name=name if name is not None else getattr(func, "__name__", ""),
                 include_in_schema=include_in_schema,
                 pagination=pagination,
@@ -115,7 +116,7 @@ class ResourceRoute(Mount):
 def resource_method(
     path: str,
     *,
-    methods: t.Sequence[str] | None = None,
+    methods: t.Sequence[Method] | None = None,
     name: str | None = None,
     include_in_schema: bool = True,
     pagination: types.Pagination | None = None,
