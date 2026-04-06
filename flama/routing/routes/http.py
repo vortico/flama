@@ -7,6 +7,7 @@ from flama.context import Context
 from flama.http.api import APIResponse
 from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute, RouteTableParams, ScopeType
 from flama.schemas.data_structures import Schema
+from flama.types.http import Method
 
 __all__ = ["Route"]
 
@@ -102,7 +103,7 @@ class Route(BaseRoute):
         path: str,
         endpoint: types.HTTPHandler | BaseHTTPEndpointWrapper,
         *,
-        methods: set[str] | t.Sequence[str] | None = None,
+        methods: t.Sequence[Method] | None = None,
         name: str | None = None,
         include_in_schema: bool = True,
         pagination: types.Pagination | None = None,
@@ -183,7 +184,7 @@ class Route(BaseRoute):
 
     @property
     def _route_table_params(self) -> RouteTableParams:
-        return RouteTableParams(scope_type=ScopeType.http, methods=sorted(self.methods))
+        return RouteTableParams(scope_type=ScopeType.http, methods=tuple(sorted(self.methods)))
 
     def match(self, scope: types.Scope) -> BaseRoute.Match:
         """Check if this route matches with given scope.

@@ -14,6 +14,7 @@ from flama.modules import Modules
 from flama.pagination import paginator
 from flama.resources import ResourcesModule
 from flama.schemas.modules import SchemaModule
+from flama.types.http import Method
 
 try:
     from flama.resources.workers import FlamaWorker
@@ -186,7 +187,7 @@ class Flama(types.App):
         self,
         path: str | None = None,
         endpoint: types.HTTPHandler | None = None,
-        methods: list[str] | None = None,
+        methods: t.Sequence[Method] | None = None,
         *,
         name: str | None = None,
         include_in_schema: bool = True,
@@ -219,7 +220,7 @@ class Flama(types.App):
     def route(
         self,
         path: str,
-        methods: list[str] | None = None,
+        methods: t.Sequence[Method] | None = None,
         *,
         name: str | None = None,
         include_in_schema: bool = True,

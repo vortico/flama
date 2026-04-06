@@ -3,6 +3,7 @@ import inspect
 import typing as t
 
 from flama import types
+from flama.types.http import Method
 
 try:
     from sqlalchemy import Table
@@ -56,7 +57,7 @@ class Metadata:
 @dataclasses.dataclass
 class _ResourceMethodMetadata:
     path: str
-    methods: set[str] = dataclasses.field(default_factory=lambda: {"GET"})
+    methods: set[Method] = dataclasses.field(default_factory=lambda: {"GET"})
     name: str | None = None
     include_in_schema: bool = True
     pagination: types.Pagination | None = None
@@ -81,7 +82,7 @@ class ResourceMethod:
 
     method: dataclasses.InitVar[t.Callable]
     path: dataclasses.InitVar[str]
-    methods: dataclasses.InitVar[set[str] | None] = None
+    methods: dataclasses.InitVar[t.Sequence[Method] | None] = None
     name: dataclasses.InitVar[str | None] = None
     include_in_schema: dataclasses.InitVar[bool] = True
     pagination: dataclasses.InitVar[types.Pagination | None] = None
@@ -91,7 +92,7 @@ class ResourceMethod:
         self,
         method: t.Callable,
         path: str,
-        methods: set[str] | None = None,
+        methods: t.Sequence[Method] | None = None,
         name: str | None = None,
         include_in_schema: bool = True,
         pagination: types.Pagination | None = None,
@@ -99,7 +100,7 @@ class ResourceMethod:
     ):
         self.meta = _ResourceMethodMetadata(
             path=path,
-            methods=methods if methods is not None else {"GET"},
+            methods=set(methods) if methods is not None else {"GET"},
             name=name,
             include_in_schema=include_in_schema,
             pagination=pagination,
