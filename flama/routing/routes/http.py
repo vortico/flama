@@ -5,7 +5,7 @@ import typing as t
 from flama import concurrency, endpoints, exceptions, http, types
 from flama.context import Context
 from flama.http.api import APIResponse
-from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute
+from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute, RouteTableParams, ScopeType
 from flama.schemas.data_structures import Schema
 
 __all__ = ["Route"]
@@ -180,6 +180,10 @@ class Route(BaseRoute):
             }
 
         return {method: self.endpoint for method in self.methods}
+
+    @property
+    def _route_table_params(self) -> RouteTableParams:
+        return RouteTableParams(scope_type=ScopeType.http, methods=sorted(self.methods))
 
     def match(self, scope: types.Scope) -> BaseRoute.Match:
         """Check if this route matches with given scope.

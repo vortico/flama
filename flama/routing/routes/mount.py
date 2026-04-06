@@ -2,7 +2,7 @@ import logging
 import typing as t
 
 from flama import concurrency, exceptions, types, url
-from flama.routing.routes.base import BaseRoute
+from flama.routing.routes.base import BaseRoute, RouteTableParams, ScopeType
 
 __all__ = ["Mount"]
 
@@ -44,6 +44,10 @@ class Mount(BaseRoute):
 
         if types.is_flama_instance(self.app):
             self.app.parent = app
+
+    @property
+    def _route_table_params(self) -> RouteTableParams:
+        return RouteTableParams(scope_type=ScopeType.all, accept_partial_path=True)
 
     def match(self, scope: types.Scope) -> BaseRoute.Match:
         """Check if this route matches with given scope.
