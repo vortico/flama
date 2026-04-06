@@ -4,7 +4,7 @@ import typing as t
 
 from flama import endpoints, exceptions, http, types
 from flama.context import Context
-from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute
+from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute, RouteTableParams, ScopeType
 
 __all__ = ["WebSocketRoute"]
 
@@ -110,6 +110,10 @@ class WebSocketRoute(BaseRoute):
             return self.endpoint.allowed_handlers()
 
         return {"WEBSOCKET": self.endpoint}
+
+    @property
+    def _route_table_params(self) -> RouteTableParams:
+        return RouteTableParams(scope_type=ScopeType.websocket)
 
     def match(self, scope: types.Scope) -> BaseRoute.Match:
         """Check if this route matches with given scope.

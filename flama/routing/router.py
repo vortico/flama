@@ -2,9 +2,10 @@ import logging
 import typing as t
 
 from flama import exceptions, types, url
+from flama._core.route_table import RouteTable
 from flama.injection import Component, Components
 from flama.lifespan import Lifespan
-from flama.routing.routes.base import BaseRoute
+from flama.routing.routes.base import BaseRoute, ResolveResult, ResolveType, ScopeType
 from flama.routing.routes.http import Route
 from flama.routing.routes.mount import Mount
 from flama.routing.routes.websocket import WebSocketRoute
@@ -12,6 +13,20 @@ from flama.routing.routes.websocket import WebSocketRoute
 __all__ = ["Router"]
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_resolve_result(raw: t.Any) -> ResolveResult | None:
+    if raw is None:
+        return None
+    if raw[0] == 2:
+        return ResolveResult(type=ResolveType.method_not_allowed, index=raw[1], allowed_methods=list(raw[2]))
+    return ResolveResult(
+        type=ResolveType.mount if raw[0] == 1 else ResolveType.full,
+        index=raw[1],
+        params=tuple(raw[2]),
+        matched=raw[3],
+        unmatched=raw[4],
+    )
 
 
 class Router:
@@ -34,9 +49,11 @@ class Router:
         self.routes: list[BaseRoute] = [] if routes is None else list(routes)
         self.components = Components(components if components else set())
         self.lifespan = Lifespan(lifespan)
+        self._route_table = RouteTable()
 
         for route in self.routes:
             route._build(self.app)
+            self._register_route_entry(route)
 
     def __hash__(self) -> int:
         return hash(tuple(self.routes))
@@ -58,6 +75,15 @@ class Router:
 
         route, route_scope = self.resolve_route(scope)
         await route(route_scope, receive, send)
+
+    def _register_route_entry(self, route: BaseRoute) -> None:
+        try:
+            params = route._route_table_params
+            self._route_table.add_entry(
+                route.path._matcher, params.scope_type, params.accept_partial_path, params.methods
+            )
+        except (AttributeError, TypeError, ValueError):
+            pass
 
     def add_component(self, component: Component):
         """Register a new component.
@@ -106,6 +132,7 @@ class Router:
 
         self.routes.append(route)
         route._build(self.app)
+        self._register_route_entry(route)
         return route
 
     def route(
@@ -171,6 +198,7 @@ class Router:
 
         self.routes.append(route)
         route._build(self.app)
+        self._register_route_entry(route)
         return route
 
     def websocket_route(
@@ -222,6 +250,7 @@ class Router:
 
         self.routes.append(mount)
         mount._build(self.app)
+        self._register_route_entry(mount)
         return mount
 
     def resolve_route(self, scope: types.Scope) -> tuple[BaseRoute, types.Scope]:
@@ -232,35 +261,40 @@ class Router:
         :raise NotFoundException: If route cannot be resolved.
         :return: Route and its scope.
         """
-        partial = None
-        partial_allowed_methods: set[str] = set()
+        scope_type = ScopeType.__members__.get(scope["type"], ScopeType(0))
+        result = _parse_resolve_result(self._route_table.resolve(scope["path"], scope_type, scope.get("method", "")))
 
-        for route in self.routes:
-            m = route.match(scope)
-            if m == route.Match.full:
-                route_scope = types.Scope({**scope, **route.route_scope(scope)})
-
-                if isinstance(route, Mount):
-                    try:
-                        return route.app.resolve_route(route_scope)
-                    except AttributeError:
-                        ...
-
-                return route, route_scope
-            elif m == route.Match.partial:
-                partial = route
-                if isinstance(route, Route):
-                    partial_allowed_methods |= route.methods
-
-        if partial:
-            route_scope = types.Scope({**scope, **partial.route_scope(scope)})
-            raise exceptions.MethodNotAllowedException(
-                route_scope.get("root_path", "") + route_scope["path"], route_scope["method"], partial_allowed_methods
+        if result is None:
+            raise exceptions.NotFoundException(
+                path=scope.get("root_path", "") + scope["path"], params=scope.get("path_params")
             )
 
-        raise exceptions.NotFoundException(
-            path=scope.get("root_path", "") + scope["path"], params=scope.get("path_params")
-        )
+        route = self.routes[result.index]
+
+        if result.type == ResolveType.method_not_allowed:
+            route_scope = types.Scope({**scope, **route.route_scope(scope)})
+            raise exceptions.MethodNotAllowedException(
+                route_scope.get("root_path", "") + route_scope["path"],
+                route_scope["method"],
+                set(result.allowed_methods or []),
+            )
+
+        if result.type == ResolveType.mount:
+            is_flama = types.is_flama_instance(route.app)
+            mount_scope = {"app": route.app if is_flama else scope["app"]}
+            if "path" in scope:
+                mount_scope["root_path"] = (
+                    "" if is_flama else str(url.Path(scope.get("root_path", "")) / (result.matched or ""))
+                )
+                mount_scope["path"] = str(url.Path("/") / (result.unmatched or ""))
+            route_scope = types.Scope({**scope, **mount_scope})
+            try:
+                return route.app.resolve_route(route_scope)
+            except AttributeError:
+                return route, route_scope
+
+        route_scope = types.Scope({**scope, **route.route_scope(scope)})
+        return route, route_scope
 
     def resolve_url(self, name: str, **path_params: t.Any) -> url.URL:
         """Look for a route URL given the route name and path params.

@@ -41,6 +41,75 @@ pub struct PathMatcher {
 }
 
 impl PathMatcher {
+    /// Pure-Rust path matching without Python object creation.
+    /// Returns (match_type, param_values, matched, unmatched) or None.
+    pub fn match_path_raw<'a>(
+        &self,
+        input: &'a str,
+    ) -> Option<(i32, Vec<&'a str>, &'a str, &'a str)> {
+        let ib = input.as_bytes();
+        let ilen = ib.len();
+        let mut cursor: usize = 0;
+
+        if self.has_starting_slash {
+            if cursor >= ilen || ib[cursor] != b'/' {
+                return None;
+            }
+            cursor += 1;
+        }
+
+        let mut param_vals: Vec<&str> = Vec::with_capacity(self.param_count);
+
+        for (i, segment) in self.segments.iter().enumerate() {
+            if i > 0 {
+                if cursor >= ilen || ib[cursor] != b'/' {
+                    return None;
+                }
+                cursor += 1;
+            }
+
+            match segment {
+                Segment::Constant(value) => {
+                    if value.is_empty() {
+                        continue;
+                    }
+                    let vb = value.as_bytes();
+                    let vlen = vb.len();
+                    if cursor + vlen > ilen || &ib[cursor..cursor + vlen] != vb {
+                        return None;
+                    }
+                    cursor += vlen;
+                }
+                Segment::Parameter { type_tag } => {
+                    let remaining = &ib[cursor..];
+                    let seg_len = remaining
+                        .iter()
+                        .position(|&b| b == b'/')
+                        .unwrap_or(remaining.len());
+                    let seg = &remaining[..seg_len];
+                    if !Self::validate(seg, *type_tag) {
+                        return None;
+                    }
+                    param_vals.push(&input[cursor..cursor + seg_len]);
+                    cursor += seg_len;
+                }
+            }
+        }
+
+        if self.has_trailing_slash {
+            if cursor >= ilen || ib[cursor] != b'/' {
+                return None;
+            }
+            cursor += 1;
+        }
+
+        let matched = &input[..cursor];
+        let unmatched = &input[cursor..];
+        let match_type: i32 = if unmatched.is_empty() { 1 } else { 2 };
+
+        Some((match_type, param_vals, matched, unmatched))
+    }
+
     #[inline]
     fn is_valid_int(s: &[u8]) -> bool {
         let s = if !s.is_empty() && s[0] == b'-' {
@@ -146,66 +215,13 @@ impl PathMatcher {
     /// match_type: 1=exact, 2=partial.
     /// param_values: raw strings in parameter declaration order (Python converts to typed values).
     fn match_path<'py>(&self, py: Python<'py>, input: &'py str) -> PyResult<MatchResult<'py>> {
-        let ib = input.as_bytes();
-        let ilen = ib.len();
-        let mut cursor: usize = 0;
+        let raw = match self.match_path_raw(input) {
+            Some(r) => r,
+            None => return Ok(None),
+        };
 
-        if self.has_starting_slash {
-            if cursor >= ilen || ib[cursor] != b'/' {
-                return Ok(None);
-            }
-            cursor += 1;
-        }
-
-        let mut param_vals: Vec<&str> = Vec::with_capacity(self.param_count);
-
-        for (i, segment) in self.segments.iter().enumerate() {
-            if i > 0 {
-                if cursor >= ilen || ib[cursor] != b'/' {
-                    return Ok(None);
-                }
-                cursor += 1;
-            }
-
-            match segment {
-                Segment::Constant(value) => {
-                    if value.is_empty() {
-                        continue;
-                    }
-                    let vb = value.as_bytes();
-                    let vlen = vb.len();
-                    if cursor + vlen > ilen || &ib[cursor..cursor + vlen] != vb {
-                        return Ok(None);
-                    }
-                    cursor += vlen;
-                }
-                Segment::Parameter { type_tag } => {
-                    let remaining = &ib[cursor..];
-                    let seg_len = remaining
-                        .iter()
-                        .position(|&b| b == b'/')
-                        .unwrap_or(remaining.len());
-                    let seg = &remaining[..seg_len];
-                    if !Self::validate(seg, *type_tag) {
-                        return Ok(None);
-                    }
-                    param_vals.push(&input[cursor..cursor + seg_len]);
-                    cursor += seg_len;
-                }
-            }
-        }
-
-        if self.has_trailing_slash {
-            if cursor >= ilen || ib[cursor] != b'/' {
-                return Ok(None);
-            }
-            cursor += 1;
-        }
-
-        let matched = &input[..cursor];
-        let unmatched = &input[cursor..];
-
-        let match_type: i32 = if unmatched.is_empty() { 1 } else { 2 };
+        let (match_type, param_vals, matched, unmatched) = raw;
+        let vals_tuple = PyTuple::new(py, param_vals)?;
         let matched_opt = if matched.is_empty() {
             None
         } else {
@@ -216,7 +232,6 @@ impl PathMatcher {
         } else {
             Some(unmatched)
         };
-        let vals_tuple = PyTuple::new(py, param_vals)?;
 
         Ok(Some((match_type, vals_tuple, matched_opt, unmatched_opt)))
     }
