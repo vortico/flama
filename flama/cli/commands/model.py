@@ -4,7 +4,7 @@ import typing as t
 
 import click
 
-from flama.http import EnhancedJSONEncoder
+from flama._core.json_encoder import encode_json
 from flama.models import ModelComponentBuilder
 
 if t.TYPE_CHECKING:
@@ -40,11 +40,11 @@ def inspect(model: "ModelComponent", pretty: bool):
     ML model metadata, including the ID, time when the model was created, information of the
     framework, and the model info; and the list of artifacts packaged with the model.
     """
-    dump_func = functools.partial(json.dumps, cls=EnhancedJSONEncoder)
+    dump_func = encode_json
     if pretty:
-        dump_func = functools.partial(dump_func, sort_keys=True, indent=4)
+        dump_func = functools.partial(encode_json, sort_keys=True, indent=4)
 
-    click.echo(dump_func(model.model.inspect()))
+    click.echo(dump_func(model.model.inspect()).decode("utf-8"))
 
 
 @command.command(name="predict", context_settings={"auto_envvar_prefix": "FLAMA"})
@@ -87,11 +87,11 @@ def predict(model: "ModelComponent", input_file, output_file, pretty: bool):
     except json.JSONDecodeError:
         raise click.BadParameter("Input file must be a valid json file.")
 
-    dump_func = functools.partial(json.dumps, cls=EnhancedJSONEncoder)
+    dump_func = encode_json
     if pretty:
-        dump_func = functools.partial(dump_func, sort_keys=True, indent=4)
+        dump_func = functools.partial(encode_json, sort_keys=True, indent=4)
 
-    click.echo(dump_func(model.model.predict(data)), output_file)
+    click.echo(dump_func(model.model.predict(data)).decode("utf-8"), output_file)
 
 
 assert command.callback is not None
