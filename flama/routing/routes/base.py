@@ -1,4 +1,5 @@
 import abc
+import dataclasses
 import enum
 import functools
 import inspect
@@ -9,9 +10,38 @@ from flama import concurrency, exceptions, types, url
 from flama.pagination import paginator
 from flama.schemas.routing import ParametersDescriptor
 
-__all__ = ["BaseEndpointWrapper", "BaseRoute"]
+__all__ = ["BaseEndpointWrapper", "BaseRoute", "ResolveResult", "ResolveType", "RouteTableParams", "ScopeType"]
 
 logger = logging.getLogger(__name__)
+
+
+class ScopeType(enum.IntFlag):
+    http = 0b01
+    websocket = 0b10
+    all = http | websocket
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class RouteTableParams:
+    scope_type: ScopeType
+    accept_partial_path: bool = False
+    methods: list[str] | None = None
+
+
+class ResolveType(enum.Enum):
+    full = enum.auto()
+    mount = enum.auto()
+    method_not_allowed = enum.auto()
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class ResolveResult:
+    type: ResolveType
+    index: int
+    params: tuple[str, ...] = ()
+    matched: str | None = None
+    unmatched: str | None = None
+    allowed_methods: list[str] | None = None
 
 
 class BaseEndpointWrapper(abc.ABC):
@@ -146,6 +176,11 @@ class BaseRoute(types.BaseRoute, abc.ABC):
         :return: Route scope.
         """
         return types.Scope({})
+
+    @property
+    def _route_table_params(self) -> RouteTableParams:
+        """Configuration for the Rust RouteTable entry."""
+        return RouteTableParams(scope_type=ScopeType(0))
 
     def resolve_url(self, name: str, **params: t.Any) -> url.URL:
         """Builds URL path for given name and params.
