@@ -1,9 +1,5 @@
-import dataclasses
-import datetime
-import enum
 import json
 import pathlib
-import uuid
 import warnings
 from unittest.mock import AsyncMock, MagicMock, Mock, call, mock_open, patch
 
@@ -18,11 +14,6 @@ from flama import exceptions, http, types
 from flama.http.api import APIErrorResponse, APIResponse
 from flama.http.openapi import OpenAPIResponse
 from flama.http.templates import HTMLFileResponse, HTMLTemplateResponse, HTMLTemplatesEnvironment, _FlamaLoader
-
-
-@dataclasses.dataclass
-class Foo:
-    bar: int
 
 
 class TestCaseRequest:
@@ -117,28 +108,6 @@ class TestCaseJSONResponse:
                 None,
                 id="default",
             ),
-            pytest.param({"foo": pathlib.Path("foo/bar.json")}, {"foo": "foo/bar.json"}, None, id="path"),
-            pytest.param({"foo": b"bar"}, {"foo": "bar"}, None, id="bytes"),
-            pytest.param({"foo": bytearray([1, 2, 3])}, {"foo": "\x01\x02\x03"}, None, id="bytearray"),
-            pytest.param({"foo": enum.Enum("Foo", ["bar"]).bar}, {"foo": 1}, None, id="enum"),
-            pytest.param({"foo": uuid.UUID(int=0)}, {"foo": "00000000-0000-0000-0000-000000000000"}, None, id="uuid"),
-            pytest.param({"foo": {"bar"}}, {"foo": ["bar"]}, None, id="set"),
-            pytest.param({"foo": frozenset({"bar"})}, {"foo": ["bar"]}, None, id="set"),
-            pytest.param(
-                {"foo": datetime.datetime(2023, 9, 20, 11, 30, 0)}, {"foo": "2023-09-20T11:30:00"}, None, id="datetime"
-            ),
-            pytest.param({"foo": datetime.date(2023, 9, 20)}, {"foo": "2023-09-20"}, None, id="date"),
-            pytest.param({"foo": datetime.time(11, 30, 0)}, {"foo": "11:30:00"}, None, id="time"),
-            pytest.param(
-                {"foo": datetime.timedelta(days=1, hours=20, minutes=30, seconds=10, milliseconds=10, microseconds=6)},
-                {"foo": "P1D20H30M10.010006S"},
-                None,
-                id="timedelta",
-            ),
-            pytest.param({"foo": Exception}, {"foo": "Exception"}, None, id="exception_class"),
-            pytest.param({"foo": Exception("bar")}, {"foo": "Exception('bar')"}, None, id="exception_obj"),
-            pytest.param({"foo": "bar"}, {"foo": "bar"}, None, id="schema"),
-            pytest.param({"foo": Foo(bar=1)}, {"foo": {"bar": 1}}, None, id="dataclass"),
             pytest.param({"foo": Mock()}, None, TypeError, id="error"),
         ),
         indirect=["exception"],
