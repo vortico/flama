@@ -6,11 +6,11 @@ from copy import deepcopy
 from unittest.mock import Mock, call, patch
 
 import pytest
+from tests.schemas.test_generator import assert_recursive_contains
 
 from flama import types
 from flama.injection import Parameter as InjectionParameter
 from flama.schemas.data_structures import Field, Parameter, ParameterLocation, Schema
-from tests.schemas.test_generator import assert_recursive_contains
 
 Unknown = t.NewType("Unknown", None)
 

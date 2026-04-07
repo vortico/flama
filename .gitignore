@@ -63,6 +63,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 test-results/
+benchmark-results.json
+.benchmarks/
 
 # Translations
 *.mo
