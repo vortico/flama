@@ -154,6 +154,58 @@ jobs:
         run: |
           echo "New version: ${{ steps.semantic.outputs.new_release_version }}"
 
+  benchmark:
+    name: Benchmark
+    needs: [release]
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: lib/core
+
+      - name: Install project
+        run: ./scripts/install
+
+      - name: Run performance tests
+        run: ./scripts/performance --output "benchmarks/results/${{ needs.release.outputs.version }}.json"
+
+      - name: Generate report
+        run: ./scripts/benchmark
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add benchmarks/
+          git commit -m "perf: add benchmark results for v${{ needs.release.outputs.version }}" || true
+          git push
+
   build-wheels:
     name: Build wheels (${{ matrix.os }}, ${{ matrix.target }})
     needs: [release]

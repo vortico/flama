@@ -1,0 +1,42 @@
+#!/bin/bash
+set -e
+
+source "./scripts/version"
+
+# ─── Performance ──────────────────────────────────────────────────────────────
+
+run_performance() {
+  local output=""
+  local args=()
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --output)
+      output="$2"
+      shift 2
+      ;;
+    *)
+      args+=("$1")
+      shift
+      ;;
+    esac
+  done
+
+  if [[ -z "$output" ]]; then
+    local version
+    version=$(get_version)
+    output="benchmarks/results/${version}.json"
+  fi
+
+  mkdir -p "$(dirname "$output")"
+
+  echo "🏋️ Running performance tests..."
+  uv run pytest tests/performance/ --benchmark-json="$output" --benchmark-enable -p no:xdist --override-ini="addopts=" -v "${args[@]}"
+
+  ./scripts/benchmark --strip "$output"
+  echo "✅ Performance tests complete. Results saved to ${output}"
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  run_performance "$@"
+fi

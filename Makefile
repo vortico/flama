@@ -1,3 +1,6 @@
+benchmark: ## Generates benchmark comparison report
+	@./scripts/benchmark
+
 build: ## Builds the package
 	@./scripts/build
 
@@ -22,6 +25,9 @@ lint: ## Runs code linting
 lint-fix: ## Runs code linting with autofixing
 	@./scripts/lint --fix .
 
+performance: ## Runs performance tests
+	@./scripts/performance
+
 publish: ## Publishes the package to PyPI
 	@./scripts/publish
 
@@ -34,7 +40,7 @@ typecheck: ## Runs static types checking
 version: ## Gets the current version of the package
 	@./scripts/version
 
-.PHONY: help build check clean docker_push format install lint lint-fix publish test typecheck version
+.PHONY: help benchmark build check clean docker_push format install lint lint-fix performance publish test typecheck version
 .DEFAULT_GOAL := help
 
 help:
