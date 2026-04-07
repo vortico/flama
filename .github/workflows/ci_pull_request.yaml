@@ -107,18 +107,74 @@ jobs:
     outputs:
       tests: ${{ steps.tests.outcome }}
 
+  performance:
+    name: Performance
+    needs: [commitlint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: lib/core
+
+      - name: Install project
+        run: ./scripts/install
+
+      - name: Run performance tests
+        run: ./scripts/performance --output /tmp/performance-pr.json
+
+      - name: Generate comparison
+        run: ./scripts/benchmark --compare /tmp/performance-pr.json > /tmp/performance-comparison.md 2>&1 || true
+
+      - name: Upload comparison
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-comparison
+          path: /tmp/performance-comparison.md
+
+    outputs:
+      result: ${{ job.status }}
+
   update-pr:
     name: Update PR
     runs-on: ubuntu-latest
-    needs: [checks, test]
+    needs: [checks, test, performance]
     if: always()
     permissions:
       pull-requests: write
     steps:
+      - name: Download performance comparison
+        uses: actions/download-artifact@v4
+        with:
+          name: performance-comparison
+          path: /tmp/performance
+        continue-on-error: true
+
       - name: Post or update PR comment
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
             const marker = '${{ env.COMMENT_MARKER }}';
             const sha = '${{ github.sha }}';
             const shortSha = sha.substring(0, 7);
@@ -126,6 +182,16 @@ jobs:
 
             const icon = (s) => s === 'success' ? '✅' : s === 'skipped' ? '⏭️' : '❌';
             const jobIcon = (s) => s === 'success' ? '✅' : s === 'skipped' ? '⏭️' : '❌';
+
+            let performanceSection = '';
+            try {
+              const comparison = fs.readFileSync('/tmp/performance/performance-comparison.md', 'utf8').trim();
+              if (comparison) {
+                performanceSection = `\n<details>\n<summary>📊 Performance comparison</summary>\n\n${comparison}\n\n</details>\n`;
+              }
+            } catch (e) {
+              core.info('No performance comparison available');
+            }
 
             const lines = [
               marker,
@@ -137,11 +203,12 @@ jobs:
               `| 🔍 Lint | ${icon('${{ needs.checks.outputs.lint }}')} |`,
               `| 🔍 Typecheck | ${icon('${{ needs.checks.outputs.typecheck }}')} |`,
               `| 🧪 Tests | ${jobIcon('${{ needs.test.result }}')} |`,
+              `| 🏋️ Performance | ${jobIcon('${{ needs.performance.result }}')} |`,
               ``,
               `- **Commit:** \`${shortSha}\``,
               `- **Pushed by:** @${{ github.actor }}`,
               `- **Updated:** ${timestamp}`,
-              ``,
+              performanceSection,
             ];
 
             const body = lines.join('\n');
