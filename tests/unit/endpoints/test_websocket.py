@@ -1,7 +1,6 @@
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, call, patch
 
 import pytest
-import starlette.websockets
 
 from flama import Component, Flama, endpoints, exceptions, http, types
 from flama.context import Context
@@ -194,7 +193,7 @@ class TestCaseWebSocketEndpoint:
                 [None, None, None],
                 [
                     {"type": "websocket.receive", "code": 1000, "bytes": "foo"},
-                    starlette.websockets.WebSocketDisconnect(1006, "Abnormal Closure"),
+                    exceptions.WebSocketDisconnect(1006, "Abnormal Closure"),
                 ],
                 exceptions.WebSocketException(1006, "Abnormal Closure"),
                 1006,

@@ -1,9 +1,9 @@
 import dataclasses
 
 from flama import types
-from flama.http.request import Request
-from flama.http.response import Response
-from flama.http.websocket import WebSocket
+from flama.http.requests.http import Request
+from flama.http.requests.websocket import WebSocket
+from flama.http.responses.response import Response
 from flama.injection.context import Context as BaseContext
 
 __all__ = ["Context"]

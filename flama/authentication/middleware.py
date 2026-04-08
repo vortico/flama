@@ -6,10 +6,10 @@ import typing as t
 from flama import authentication, exceptions, http, types
 from flama.context import Context
 from flama.exceptions import HTTPException
-from flama.http.api import APIErrorResponse
+from flama.http.responses.api import APIErrorResponse
 
 if t.TYPE_CHECKING:
-    from flama.http.response import Response
+    from flama.http.responses.response import Response
 
 __all__ = ["AuthenticationMiddleware"]
 

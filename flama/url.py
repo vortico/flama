@@ -341,6 +341,41 @@ class URL:
         self.query = parsed_url.query
         self.fragment = parsed_url.fragment
 
+    @classmethod
+    def from_scope(cls, scope: t.MutableMapping[str, t.Any]) -> "URL":
+        """Build a URL from an ASGI scope dict.
+
+        Prefers the ``host`` header over the ``server`` scope key, matching standard HTTP semantics
+        for reverse-proxy environments.
+
+        :param scope: ASGI connection scope.
+        :return: Fully-resolved URL.
+        """
+        scheme = scope.get("scheme", "http")
+        path = scope.get("root_path", "") + scope["path"]
+        query_string = scope.get("query_string", b"")
+
+        host_header = None
+        for key, value in scope.get("headers", []):
+            if key == b"host":
+                host_header = value.decode("latin-1")
+                break
+
+        if host_header is not None:
+            netloc = host_header
+        elif (server := scope.get("server")) is not None:
+            host, port = server
+            default_port = {"http": 80, "https": 443, "ws": 80, "wss": 443}.get(scheme)
+            netloc = host if port == default_port else f"{host}:{port}"
+        else:
+            return cls(path)
+
+        url = f"{scheme}://{netloc}{path}"
+        if query_string:
+            url += "?" + (query_string.decode() if isinstance(query_string, bytes) else query_string)
+
+        return cls(url)
+
     @property
     def components(self) -> dict[str, str | None]:
         """URL components map.

@@ -5,7 +5,7 @@ import pytest
 
 from flama import endpoints, exceptions, http, types
 from flama.applications import Flama
-from flama.http.api import APIResponse
+from flama.http.responses.api import APIResponse
 from flama.routing.routes.base import BaseRoute
 from flama.routing.routes.http import BaseHTTPEndpointWrapper, HTTPEndpointWrapper, HTTPFunctionWrapper, Route
 

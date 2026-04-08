@@ -2,6 +2,7 @@ from http.cookies import SimpleCookie
 from urllib.parse import parse_qsl
 
 from flama import http, routing, types
+from flama.http.data_structures import Headers, QueryParams
 from flama.injection.components import Component, Components
 
 __all__ = [
@@ -69,17 +70,17 @@ class QueryStringComponent(Component):
 
 
 class QueryParamsComponent(Component):
-    def resolve(self, query: types.QueryString) -> types.QueryParams:
-        return types.QueryParams(parse_qsl(query))
+    def resolve(self, query: types.QueryString) -> QueryParams:
+        return QueryParams(parse_qsl(query))
 
 
 class HeadersComponent(Component):
-    def resolve(self, request: http.Request) -> types.Headers:
+    def resolve(self, request: http.Request) -> Headers:
         return request.headers
 
 
 class CookiesComponent(Component):
-    def resolve(self, headers: types.Headers) -> types.Cookies:
+    def resolve(self, headers: Headers) -> types.Cookies:
         cookie = SimpleCookie()
         cookie.load(headers.get("cookie", ""))
         return types.Cookies(

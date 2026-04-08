@@ -2,7 +2,7 @@ import abc
 import inspect
 import typing as t
 
-from flama.http.api import APIResponse
+from flama.http.responses.api import APIResponse
 
 __all__ = ["BasePaginator", "PaginatedResponse"]
 

@@ -1,7 +1,5 @@
 import typing as t
 
-import starlette.websockets
-
 from flama import exceptions, http, types
 from flama.context import Context
 from flama.endpoints.base import BaseEndpoint
@@ -59,16 +57,16 @@ class WebSocketEndpoint(BaseEndpoint, types.WebSocketEndpointProtocol):
         await on_connect()
 
         try:
-            self.state.websocket_message = t.cast(types.Message, await websocket.receive())
+            self.state.websocket_message = await websocket.receive()
 
             while websocket.is_connected:
                 on_receive = await app.injector.inject(self.on_receive, self.state)
                 await on_receive()
-                self.state.websocket_message = t.cast(types.Message, await websocket.receive())
+                self.state.websocket_message = await websocket.receive()
 
             if self.state.websocket_message is not None:
                 self.state.websocket_code = types.Code(int(self.state.websocket_message.get("code", 1000)))
-        except starlette.websockets.WebSocketDisconnect as e:
+        except exceptions.WebSocketDisconnect as e:
             self.state.websocket_code = types.Code(e.code)
             raise exceptions.WebSocketException(e.code, e.reason) from None
         except exceptions.WebSocketException as e:

@@ -89,7 +89,6 @@ dev = [
   "ruff>=0.14.1",
   "ty>=0.0.25; python_version >= '3.13'",
   "pre-commit>=4.3",
-  "python-multipart>=0.0.20",
   "aiosqlite>=0.21.0,<1.0.0",
   "Faker>=37.11",
   "gevent>=25.9.1",
@@ -107,9 +106,7 @@ module-name = "flama._core"
 manifest-path = "lib/core/Cargo.toml"
 python-source = "."
 features = ["pyo3/extension-module"]
-include = [
-    { path = "flama/_templates/**", format = "wheel" },
-]
+include = [{ path = "flama/_templates/**", format = "wheel" }]
 
 [tool.ruff]
 line-length = 120
@@ -147,10 +144,18 @@ exclude = ["**/node_modules", "**/__pycache__"]
 
 [tool.pytest.ini_options]
 minversion = "3"
-addopts = "--dist=loadfile --junitxml=./test-results/pytest/results.xml --no-cov-on-fail --cov-report=html --cov-report=xml --cov-report=term-missing --cov-config=pyproject.toml --cov=. --pdbcls=IPython.terminal.debugger:TerminalPdb -nauto --import-mode=importlib"
+addopts = "--benchmark-disable --dist=loadfile --junitxml=./test-results/pytest/results.xml --no-cov-on-fail --cov-report=html --cov-report=xml --cov-report=term-missing --cov-config=pyproject.toml --cov=. --pdbcls=IPython.terminal.debugger:TerminalPdb -nauto --import-mode=importlib"
 testpaths = ["tests/unit"]
-norecursedirs = ["*settings*", "*urls*", "*docs*", "benchmarks", "tests/performance"]
-markers = ["benchmark: performance benchmark tests (deselect with '-m \"not benchmark\"')"]
+norecursedirs = [
+  "*settings*",
+  "*urls*",
+  "*docs*",
+  "benchmarks",
+  "tests/performance",
+]
+markers = [
+  "benchmark: performance benchmark tests (deselect with '-m \"not benchmark\"')",
+]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 

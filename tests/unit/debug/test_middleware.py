@@ -1,14 +1,13 @@
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
-import starlette.exceptions
 
 from flama import exceptions, http, types
 from flama.applications import Flama
 from flama.debug.data_structures import ErrorContext
 from flama.debug.middleware import BaseErrorMiddleware, ExceptionMiddleware, ServerErrorMiddleware
-from flama.http.api import APIErrorResponse
-from flama.http.templates import _FlamaTemplateResponse
+from flama.http.responses.api import APIErrorResponse
+from flama.http.responses.templates import _FlamaTemplateResponse
 
 
 class TestCaseBaseErrorMiddleware:
@@ -169,8 +168,8 @@ class TestCaseExceptionMiddleware:
             exceptions.JSONRPCException: middleware.jsonrpc_exception_handler,
             exceptions.NotFoundException: middleware.not_found_handler,
             exceptions.MethodNotAllowedException: middleware.method_not_allowed_handler,
-            starlette.exceptions.HTTPException: middleware.http_exception_handler,
-            starlette.exceptions.WebSocketException: middleware.websocket_exception_handler,
+            exceptions.HTTPException: middleware.http_exception_handler,
+            exceptions.WebSocketException: middleware.websocket_exception_handler,
         }
 
     @pytest.mark.parametrize(
@@ -191,8 +190,8 @@ class TestCaseExceptionMiddleware:
             exceptions.JSONRPCException: middleware.jsonrpc_exception_handler,
             exceptions.NotFoundException: middleware.not_found_handler,
             exceptions.MethodNotAllowedException: middleware.method_not_allowed_handler,
-            starlette.exceptions.HTTPException: middleware.http_exception_handler,
-            starlette.exceptions.WebSocketException: middleware.websocket_exception_handler,
+            exceptions.HTTPException: middleware.http_exception_handler,
+            exceptions.WebSocketException: middleware.websocket_exception_handler,
         }
         if exc_class is not None:
             exc_class_handlers[exc_class] = handler

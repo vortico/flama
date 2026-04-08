@@ -1,5 +1,4 @@
 import json
-from unittest.mock import patch
 
 import marshmallow
 import pydantic
@@ -8,7 +7,7 @@ import typesystem
 import typesystem.fields
 
 from flama import exceptions
-from flama.http.api import APIErrorResponse, APIResponse
+from flama.http.responses.api import APIErrorResponse, APIResponse
 
 
 class TestCaseAPIResponse:
@@ -26,8 +25,7 @@ class TestCaseAPIResponse:
         return schema
 
     def test_init(self, schema):
-        with patch("starlette.responses.JSONResponse.__init__"):
-            response = APIResponse(schema=schema)
+        response = APIResponse(content={"name": "Canna"}, schema=schema)
 
         assert response.schema == schema
 

@@ -3,8 +3,6 @@ import datetime
 import typing as t
 import uuid
 
-import starlette.datastructures
-
 from flama.url import URL, Path
 
 __all__ = [
@@ -21,10 +19,7 @@ __all__ = [
     "PathParam",
     "RequestData",
     "URL",
-    "Headers",
-    "MutableHeaders",
     "Cookies",
-    "QueryParams",
     "PARAMETERS_TYPES",
 ]
 
@@ -65,14 +60,8 @@ class RequestData:
     data: dict[str, t.Any] | None
 
 
-Headers = starlette.datastructures.Headers
-MutableHeaders = starlette.datastructures.MutableHeaders
-
-
 class Cookies(dict[str, dict[str, str]]): ...
 
-
-QueryParams = starlette.datastructures.QueryParams
 
 PARAMETERS_TYPES: dict[type, type] = {
     int: int,

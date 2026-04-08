@@ -9,6 +9,7 @@ from flama.authentication.types import AccessToken, RefreshToken
 from flama.context import Context
 from flama.exceptions import HTTPException
 from flama.http import Request as HTTPRequest
+from flama.http.data_structures import Headers, QueryParams
 
 logger = logging.getLogger(__name__)
 
@@ -81,9 +82,9 @@ class Request:
         app: types.App = scope["app"]
         context = Context(scope=scope, request=HTTPRequest(scope, receive=receive), route=app.resolve_route(scope)[0])
 
-        headers = dict(await app.injector.value(types.Headers, context))
+        headers = dict(await app.injector.value(Headers, context))
         cookies = dict(await app.injector.value(types.Cookies, context))
-        query = dict(await app.injector.value(types.QueryParams, context))
+        query = dict(await app.injector.value(QueryParams, context))
         path = dict(await app.injector.value(types.PathParams, context))
 
         return cls(headers=headers, cookies=cookies, query_parameters=query, path_parameters=path)

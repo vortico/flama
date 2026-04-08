@@ -1,7 +1,7 @@
 import typing as t
 
 from flama import exceptions, schemas, types
-from flama.http.response import JSONResponse
+from flama.http.responses.json import JSONResponse
 from flama.schemas.data_structures import Schema
 
 __all__ = ["APIResponse", "APIErrorResponse"]

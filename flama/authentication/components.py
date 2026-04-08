@@ -4,7 +4,7 @@ import logging
 from flama import Component
 from flama.authentication import exceptions, jwt, types
 from flama.exceptions import HTTPException
-from flama.types import Headers
+from flama.http.data_structures import Headers
 from flama.types.http import Cookies
 
 logger = logging.getLogger(__name__)
