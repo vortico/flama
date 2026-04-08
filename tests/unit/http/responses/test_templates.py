@@ -5,28 +5,32 @@ from unittest.mock import MagicMock, call, mock_open, patch
 import jinja2
 import pytest
 
-from flama import exceptions, http
-from flama.http.templates import HTMLFileResponse, HTMLTemplateResponse, HTMLTemplatesEnvironment, _FlamaLoader
+from flama import exceptions
+from flama.http.responses.html import HTMLResponse
+from flama.http.responses.templates import (
+    HTMLFileResponse,
+    HTMLTemplateResponse,
+    HTMLTemplatesEnvironment,
+    _FlamaLoader,
+)
 
 
 class TestCaseHTMLFileResponse:
-    def test_init(self):
-        content = "<html></html>"
-        with patch("builtins.open", mock_open(read_data=content)):
+    @pytest.mark.parametrize(
+        ["side_effect", "expected_body", "exception"],
+        [
+            pytest.param(None, b"<html></html>", None, id="success"),
+            pytest.param(ValueError("Foo error"), None, exceptions.HTTPException, id="error"),
+        ],
+        indirect=["exception"],
+    )
+    def test_init(self, side_effect, expected_body, exception):
+        open_fn = mock_open(read_data="<html></html>") if side_effect is None else MagicMock(side_effect=side_effect)
+
+        with exception, patch("builtins.open", open_fn):
             response = HTMLFileResponse("foo.html")
 
-        assert response.body == content.encode()
-
-    def test_init_error(self):
-        error_detail = "Foo error"
-        with (
-            patch("builtins.open", side_effect=ValueError(error_detail)),
-            pytest.raises(exceptions.HTTPException) as exc,
-        ):
-            HTMLFileResponse("foo.html")
-
-            assert exc.status_code == 500
-            assert exc.detail == error_detail
+            assert response.body == expected_body
 
 
 class TestCaseHTMLTemplatesEnvironment:
@@ -146,7 +150,7 @@ class TestCaseHTMLTemplateResponse:
         environment_mock.get_template.return_value = template_mock
         with (
             patch.object(HTMLTemplateResponse, "templates", new=environment_mock),
-            patch.object(http.HTMLResponse, "__init__", return_value=None) as super_mock,
+            patch.object(HTMLResponse, "__init__", return_value=None) as super_mock,
         ):
             HTMLTemplateResponse("foo.html", context)
 

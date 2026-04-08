@@ -1,26 +1,10 @@
-import enum
 import http
 import typing as t
 
-from flama.http.response import JSONResponse
+from flama.http.data_structures import JSONRPC_VERSION
+from flama.http.responses.json import JSONResponse
 
-__all__ = ["JSONRPC_VERSION", "JSONRPCStatus", "JSONRPCResponse", "JSONRPCErrorResponse"]
-
-JSONRPC_VERSION = "2.0"
-
-
-class JSONRPCStatus(enum.IntEnum):
-    """JSON-RPC error codes as defined in https://www.jsonrpc.org/specification#error_object."""
-
-    PARSE_ERROR = -32700
-    INVALID_REQUEST = -32600
-    METHOD_NOT_FOUND = -32601
-    INVALID_PARAMS = -32602
-    INTERNAL_ERROR = -32603
-
-    @property
-    def phrase(self) -> str:
-        return self.name.replace("_", " ").capitalize()
+__all__ = ["JSONRPCResponse", "JSONRPCErrorResponse"]
 
 
 class JSONRPCResponse(JSONResponse):

@@ -4,6 +4,7 @@ import sys
 import pytest
 
 from flama import types
+from flama.http.data_structures import Headers, QueryParams
 
 
 class TestCaseMethodComponent:
@@ -225,7 +226,7 @@ class TestCaseQueryParamsComponent:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/query_params/")
-        def get_query_params(query_string: types.QueryString, query_params: types.QueryParams):
+        def get_query_params(query_string: types.QueryString, query_params: QueryParams):
             return {"query_params": dict(query_params)}
 
     @pytest.mark.parametrize(
@@ -244,7 +245,7 @@ class TestCaseHeadersComponent:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
         @app.route("/headers/", methods=["GET", "POST"])
-        def get_headers(headers: types.Headers):
+        def get_headers(headers: Headers):
             return {"headers": dict(headers)}
 
     @pytest.mark.parametrize(

@@ -35,7 +35,7 @@ class Request:
     @classmethod
     def from_request(cls, request: "http.Request") -> "Request":
         return cls(
-            path=request.url.path,
+            path=str(request.url.path),
             method=request.method,
             params=RequestParams(query=dict(request.query_params), path=dict(request.path_params)),
             headers=dict(request.headers),

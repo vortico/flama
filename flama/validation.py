@@ -1,6 +1,7 @@
 import typing as t
 
 from flama import codecs, exceptions, http, routing, types
+from flama.http.data_structures import QueryParams
 from flama.injection import Component, Components
 from flama.injection.resolver import Parameter
 from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
@@ -53,7 +54,7 @@ class ValidatePathParamsComponent(Component):
 
 class ValidateQueryParamsComponent(Component):
     def resolve(
-        self, request: http.Request, route: routing.BaseRoute, query_params: types.QueryParams
+        self, request: http.Request, route: routing.BaseRoute, query_params: QueryParams
     ) -> ValidatedQueryParams:
         fields = [f.field for f in route.parameters.query[request.method].values()]
 

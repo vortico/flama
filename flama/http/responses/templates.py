@@ -9,15 +9,9 @@ import jinja2
 
 from flama import exceptions, types
 from flama._core.json_encoder import encode_json
-from flama.http.response import HTMLResponse
+from flama.http.responses.html import HTMLResponse
 
-__all__ = [
-    "HTMLFileResponse",
-    "HTMLTemplatesEnvironment",
-    "HTMLTemplateResponse",
-    "_FlamaLoader",
-    "_FlamaTemplateResponse",
-]
+__all__ = ["HTMLFileResponse", "HTMLTemplatesEnvironment", "HTMLTemplateResponse"]
 
 
 class HTMLFileResponse(HTMLResponse):
