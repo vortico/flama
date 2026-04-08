@@ -1,8 +1,6 @@
 import http
 import typing as t
 
-import starlette.exceptions
-
 from flama import compat
 
 __all__ = [
@@ -84,7 +82,7 @@ class DecodeError(Exception):
 class NoCodecAvailable(Exception): ...
 
 
-class WebSocketException(starlette.exceptions.WebSocketException):
+class WebSocketException(Exception):
     def __init__(self, code: int, reason: str | None = None) -> None:
         self.code = code
         self.reason = reason or ""
@@ -101,7 +99,14 @@ class WebSocketException(starlette.exceptions.WebSocketException):
         return isinstance(other, WebSocketException) and self.code == other.code and self.reason == other.reason
 
 
-class HTTPException(starlette.exceptions.HTTPException):
+class WebSocketDisconnect(WebSocketException):
+    """Raised when a WebSocket client disconnects."""
+
+    def __init__(self, code: int = 1000, reason: str | None = None) -> None:
+        super().__init__(code, reason)
+
+
+class HTTPException(Exception):
     def __init__(
         self,
         status_code: int,

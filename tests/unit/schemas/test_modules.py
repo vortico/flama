@@ -101,7 +101,7 @@ class TestCaseSchemaModule:
     async def test_view_schema(self, client):
         response = await client.request("get", "/schema/")
         assert response.status_code == 200
-        assert response.headers.get("content-type") == "application/vnd.oai.openapi"
+        assert response.headers.get("content-type") == "application/vnd.oai.openapi+json"
 
     async def test_view_docs(self, client):
         response = await client.request("get", "/docs/")

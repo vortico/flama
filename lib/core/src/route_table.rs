@@ -85,7 +85,11 @@ impl RouteTable {
 
             let result_type: i32 = if entry.accept_partial_path { 1 } else { 0 };
             let vals_tuple = PyTuple::new(py, &param_vals)?;
-            let matched_opt: Option<&str> = if matched.is_empty() { None } else { Some(matched) };
+            let matched_opt: Option<&str> = if matched.is_empty() {
+                None
+            } else {
+                Some(matched)
+            };
             let unmatched_opt: Option<&str> = if unmatched.is_empty() {
                 None
             } else {

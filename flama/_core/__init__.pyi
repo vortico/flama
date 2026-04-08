@@ -1,3 +1,3 @@
-__all__ = ["json_encoder", "route_table", "url"]
+__all__ = ["json_encoder", "multipart", "route_table", "url"]
 
-from flama._core import json_encoder, route_table, url
+from flama._core import json_encoder, multipart, route_table, url

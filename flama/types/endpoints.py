@@ -2,7 +2,7 @@ import typing as t
 
 if t.TYPE_CHECKING:
     from flama import types
-    from flama.http.websocket import WebSocket
+    from flama.http.requests.websocket import WebSocket
     from flama.types.http import Method
 
 __all__ = ["EndpointProtocol", "HTTPEndpointProtocol", "WebSocketEndpointProtocol", "JSONRPCEndpointProtocol"]

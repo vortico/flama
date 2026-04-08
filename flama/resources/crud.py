@@ -3,7 +3,7 @@ from http import HTTPStatus
 
 from flama import exceptions, schemas, types
 from flama.ddd import exceptions as ddd_exceptions
-from flama.http.api import APIResponse
+from flama.http.responses.api import APIResponse
 from flama.resources import data_structures
 from flama.resources.rest import RESTResource, RESTResourceType
 from flama.resources.routing import ResourceRoute

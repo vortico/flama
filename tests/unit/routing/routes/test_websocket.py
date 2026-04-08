@@ -26,7 +26,7 @@ class TestCaseWebsocketFunctionWrapper:
     @pytest.fixture(scope="function")
     def endpoint(self):
         async def foo(websocket: http.WebSocket, data: types.Data):
-            await websocket.send_json({"foo": "bar"})
+            await websocket.send(json={"foo": "bar"})
 
         return WebSocketFunctionWrapper(foo)
 
@@ -44,7 +44,7 @@ class TestCaseWebsocketFunctionWrapper:
         with patch("flama.http.WebSocket", return_value=websocket):
             await endpoint(scope, receive, send)
 
-            assert websocket.send_json.call_args_list == [call({"foo": "bar"})]
+            assert websocket.send.call_args_list == [call(json={"foo": "bar"})]
 
 
 class TestCaseWebsocketEndpointWrapper:

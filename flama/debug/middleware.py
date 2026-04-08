@@ -4,13 +4,11 @@ import inspect
 import logging
 import typing as t
 
-import starlette.exceptions
-
 from flama import concurrency, exceptions, http, types
 from flama.debug.data_structures import ErrorContext, NotFoundContext
-from flama.http.api import APIErrorResponse
-from flama.http.json_rpc import JSONRPCErrorResponse
-from flama.http.templates import _FlamaTemplateResponse
+from flama.http.responses.api import APIErrorResponse
+from flama.http.responses.json_rpc import JSONRPCErrorResponse
+from flama.http.responses.templates import _FlamaTemplateResponse
 
 if t.TYPE_CHECKING:
     from flama.debug.types import Handler
@@ -106,8 +104,8 @@ class ExceptionMiddleware(BaseErrorMiddleware):
             exceptions.JSONRPCException: self.jsonrpc_exception_handler,
             exceptions.NotFoundException: self.not_found_handler,
             exceptions.MethodNotAllowedException: self.method_not_allowed_handler,
-            starlette.exceptions.HTTPException: self.http_exception_handler,
-            starlette.exceptions.WebSocketException: self.websocket_exception_handler,
+            exceptions.HTTPException: self.http_exception_handler,
+            exceptions.WebSocketException: self.websocket_exception_handler,
         }
 
     def add_exception_handler(
@@ -126,7 +124,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
             self._exception_handlers[exc_class] = handler
 
     def _get_handler(self, exc: Exception) -> "Handler":
-        if isinstance(exc, starlette.exceptions.HTTPException) and exc.status_code in self._status_handlers:
+        if isinstance(exc, exceptions.HTTPException) and exc.status_code in self._status_handlers:
             return self._status_handlers[exc.status_code]
         else:
             try:

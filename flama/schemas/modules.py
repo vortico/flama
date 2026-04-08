@@ -1,8 +1,8 @@
 import typing as t
 
 from flama import exceptions, http, pagination, schemas, types
-from flama.http.openapi import OpenAPIResponse
-from flama.http.templates import _FlamaTemplateResponse
+from flama.http.responses.openapi import OpenAPIResponse
+from flama.http.responses.templates import _FlamaTemplateResponse
 from flama.modules import Module
 from flama.schemas.generator import SchemaGenerator
 
