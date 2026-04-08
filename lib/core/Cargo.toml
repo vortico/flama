@@ -9,3 +9,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.28", features = ["extension-module"] }
+pyo3-async-runtimes = { version = "0.28", features = ["tokio-runtime"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
+multer = "3"
+bytes = "1"
+futures-util = "0.3"
+form_urlencoded = "1"

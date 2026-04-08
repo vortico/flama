@@ -4,8 +4,8 @@ import warnings
 
 import pytest
 
-from flama import background
-from flama.http.api import APIResponse
+from flama import background, exceptions
+from flama.http.responses.api import APIResponse
 
 
 def sync_task(event):
@@ -56,14 +56,22 @@ class TestCaseBackgroundTask:
 
         assert thread_event.wait(5.0)
 
+    async def test_background_wrong_task(self, app, client, task, thread_event):
+        @app.route("/")
+        async def test():
+            return APIResponse({"foo": "bar"}, background=background.BackgroundTask("wrong", task))
+
+        with pytest.raises(exceptions.ApplicationError, match="Wrong concurrency mode"):
+            await client.get("/")
+
 
 class TestCaseBackgroundTasks:
     async def test_background_tasks(self, app, client, process_event, thread_event):
         @app.route("/")
         async def test():
             tasks = background.BackgroundTasks()
-            tasks.add_task(background.Concurrency.process, sync_task, process_event)
-            tasks.add_task(background.Concurrency.thread, async_task, thread_event)
+            tasks.add_task("process", sync_task, process_event)
+            tasks.add_task("thread", async_task, thread_event)
             return APIResponse({"foo": "bar"}, background=tasks)
 
         with warnings.catch_warnings():
