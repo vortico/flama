@@ -58,6 +58,17 @@ class BaseModelSerializer(abc.ABC):
         """
         ...
 
+    def load_from_id(self, model_id: str, /, **kwargs) -> t.Any:
+        """Load a model directly from an identifier (e.g., a HuggingFace model ID or local path).
+
+        Not all serializers support this method. By default, it raises ``NotImplementedError``.
+
+        :param model_id: The model identifier.
+        :param kwargs: Additional keyword arguments for the loading process.
+        :return: The loaded model object.
+        """
+        raise NotImplementedError(f"Serializer for '{self.lib}' does not support loading from a model identifier")
+
 
 class ModelSerializer:
     """Factory class for obtaining the appropriate model-specific serializer.
@@ -73,6 +84,7 @@ class ModelSerializer:
         "sklearn": "sklearn",
         "tensorflow": "tensorflow",
         "torch": "pytorch",
+        "transformers": "transformers",
     }
 
     @classmethod

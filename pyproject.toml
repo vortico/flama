@@ -1,30 +1,7 @@
 [project]
-name = "flama"
-version = "1.12.4"
-description = "Fire up your models with the flame 🔥"
-license = { text = "Apache-2.0" }
-readme = "README.md"
 authors = [
-  { name = "José Antonio Perdiguero López", email = "perdy@perdy.io" },
-  { name = "Miguel A. Durán Olivencia", email = "migduroli@gmail.com" },
-]
-maintainers = [
-  { name = "José Antonio Perdiguero López", email = "perdy@perdy.io" },
-  { name = "Miguel A. Durán Olivencia", email = "migduroli@gmail.com" },
-]
-keywords = [
-  "machine-learning",
-  "ml",
-  "mlops",
-  "ai",
-  "ddd",
-  "api",
-  "rest",
-  "restful",
-  "openapi",
-  "tensorflow",
-  "pytorch",
-  "sklearn",
+  {name = "José Antonio Perdiguero López", email = "perdy@perdy.io"},
+  {name = "Miguel A. Durán Olivencia", email = "migduroli@gmail.com"},
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -42,7 +19,6 @@ classifiers = [
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
-requires-python = ">=3.10,<3.15"
 dependencies = [
   "starlette>=0.48,<1.0.0",
   "click>=8.1,<9.0",
@@ -50,21 +26,42 @@ dependencies = [
   "Jinja2>=3.1.2,<4.0",
   "pyyaml>=6.0,<7.0",
   "typing-extensions>=4.15,<5.0; python_version < '3.14'", # PORT: Replace compat when stop supporting 3.13
-  "tomli>=2.3.0,<3.0; python_version < '3.11'",            # PORT: Replace compat when stop supporting 3.10
-  "zstd>=1.5.7,<2.0; python_version < '3.14'",             # PORT: Replace compat when stop supporting 3.13
+  "tomli>=2.3.0,<3.0; python_version < '3.11'", # PORT: Replace compat when stop supporting 3.10
+  "zstd>=1.5.7,<2.0; python_version < '3.14'", # PORT: Replace compat when stop supporting 3.13
 ]
+description = "Fire up your models with the flame 🔥"
+keywords = [
+  "machine-learning",
+  "ml",
+  "mlops",
+  "ai",
+  "ddd",
+  "api",
+  "rest",
+  "restful",
+  "openapi",
+  "tensorflow",
+  "pytorch",
+  "sklearn",
+]
+license = {text = "Apache-2.0"}
+maintainers = [
+  {name = "José Antonio Perdiguero López", email = "perdy@perdy.io"},
+  {name = "Miguel A. Durán Olivencia", email = "migduroli@gmail.com"},
+]
+name = "flama"
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+version = "1.12.4"
 
 [project.urls]
-repository = "https://github.com/vortico/flama"
-homepage = "https://flama.dev"
 documentation = "https://flama.dev/docs/"
+homepage = "https://flama.dev"
+repository = "https://github.com/vortico/flama"
 
 [project.optional-dependencies]
-pydantic = ["pydantic>=2.12,<3.0"]
-typesystem = ["typesystem>=0.4.1,<1.0"]
-marshmallow = ["marshmallow>=3.0,<4.0", "apispec>=6.0,<7.0"]
-database = ["SQLAlchemy[asyncio]>=2.0,<3.0"]
 client = ["httpx>=0.28,<1.0"]
+database = ["SQLAlchemy[asyncio]>=2.0,<3.0"]
 full = [
   "pydantic>=2.12,<3.0",
   "typesystem>=0.4.1,<1.0",
@@ -73,6 +70,10 @@ full = [
   "SQLAlchemy[asyncio]>=2.0,<3.0",
   "httpx>=0.28,<1.0.0",
 ]
+marshmallow = ["marshmallow>=3.0,<4.0", "apispec>=6.0,<7.0"]
+pydantic = ["pydantic>=2.12,<3.0"]
+transformers = ["transformers>=4.50", "torch>=2.9.0", "accelerate>=1.6"]
+typesystem = ["typesystem>=0.4.1,<1.0"]
 
 [project.scripts]
 flama = 'flama.cli.__main__:cli'
@@ -96,23 +97,24 @@ dev = [
   "scikit-learn>=1.7.2",
   "tensorflow>=2.20.0; python_version < '3.14'",
   "torch>=2.9.0; python_version < '3.14'",
+  "transformers>=4.50; python_version < '3.14'",
+  "accelerate>=1.6; python_version < '3.14'",
 ]
 
 [build-system]
-requires = ["maturin>=1.8,<2.0"]
 build-backend = "maturin"
+requires = ["maturin>=1.8,<2.0"]
 
 [tool.maturin]
-module-name = "flama._core"
-manifest-path = "lib/core/Cargo.toml"
-python-source = "."
 features = ["pyo3/extension-module"]
 include = [
-    { path = "flama/_templates/**", format = "wheel" },
+  {path = "flama/_templates/**", format = "wheel"},
 ]
+manifest-path = "lib/core/Cargo.toml"
+module-name = "flama._core"
+python-source = "."
 
 [tool.ruff]
-line-length = 120
 exclude = [
   ".git",
   ".pytest_cache",
@@ -124,13 +126,14 @@ exclude = [
   "dist",
   "node_modules",
 ]
+line-length = 120
 
 [tool.ruff.format]
 docstring-code-format = true
 
 [tool.ruff.lint]
-select = ["C90", "E", "F", "G", "I", "W", "T", "UP"]
 ignore = ["E721"]
+select = ["C90", "E", "F", "G", "I", "W", "T", "UP"]
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
@@ -142,21 +145,21 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 max-complexity = 10
 
 [tool.ty.src]
-include = ["flama"]
 exclude = ["**/node_modules", "**/__pycache__"]
+include = ["flama"]
 
 [tool.pytest.ini_options]
-minversion = "3"
 addopts = "--dist=loadfile --junitxml=./test-results/pytest/results.xml --no-cov-on-fail --cov-report=html --cov-report=xml --cov-report=term-missing --cov-config=pyproject.toml --cov=. --pdbcls=IPython.terminal.debugger:TerminalPdb -nauto --import-mode=importlib"
-testpaths = ["tests/unit"]
-norecursedirs = ["*settings*", "*urls*", "*docs*", "benchmarks", "tests/performance"]
-markers = ["benchmark: performance benchmark tests (deselect with '-m \"not benchmark\"')"]
-asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
+asyncio_mode = "auto"
+markers = ["benchmark: performance benchmark tests (deselect with '-m \"not benchmark\"')"]
+minversion = "3"
+norecursedirs = ["*settings*", "*urls*", "*docs*", "benchmarks", "tests/performance"]
+testpaths = ["tests/unit"]
 
 [tool.coverage.run]
-source = ["flama"]
 branch = true
+concurrency = ["thread", "multiprocessing"]
 omit = [
   ".venv*",
   "*settings*",
@@ -170,13 +173,9 @@ omit = [
   "flama/*/types.py",
   "build.py",
 ]
-concurrency = ["thread", "multiprocessing"]
+source = ["flama"]
 
 [tool.coverage.report]
-show_missing = true
-skip_covered = true
-ignore_errors = true
-fail_under = 90
 exclude_lines = [
   "noqa",
   "pragma: no cover",
@@ -192,6 +191,10 @@ exclude_lines = [
   "if settings\\.DEBUG",
   "if (typing\\.|t\\.)?TYPE_CHECKING:",
 ]
+fail_under = 90
+ignore_errors = true
+show_missing = true
+skip_covered = true
 
 [tool.coverage.paths]
 source = ["./flama/"]

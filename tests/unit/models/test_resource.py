@@ -25,6 +25,7 @@ class TestCaseModelResource:
 
         assert not hasattr(resource, "name")
         assert not hasattr(resource, "verbose_name")
+        assert not hasattr(resource, "chat")  # chat only for transformers models
         assert hasattr(resource, "component")
         assert resource.component == component
         assert hasattr(resource, "model")
@@ -60,6 +61,7 @@ class TestCaseModelResource:
 
         assert not hasattr(resource, "name")
         assert not hasattr(resource, "verbose_name")
+        assert not hasattr(resource, "chat")  # chat only for transformers models
         assert hasattr(resource, "component")
         component = resource.component
         assert hasattr(resource, "model")
@@ -77,6 +79,17 @@ class TestCaseModelResource:
             class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
                 name = "puppy"
                 verbose_name = "Puppy"
+
+    async def test_chat_not_available_for_non_transformers(self, app, component):
+        component_ = component
+
+        class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
+            name = "puppy"
+            verbose_name = "Puppy"
+            component = component_
+
+        resource = PuppyModelResource()
+        assert not hasattr(resource, "chat")
 
 
 class TestCaseModelResourceMethods:

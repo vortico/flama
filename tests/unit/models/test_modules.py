@@ -1,7 +1,18 @@
+from unittest.mock import Mock
+
 import pytest
 
-from flama.models import ModelResource, ModelResourceType
+from flama.models import ModelComponent, ModelResource, ModelResourceType
+from flama.models.models.transformers import Model as TransformersModel
 from flama.resources.routing import ResourceRoute
+
+
+def build_transformers_component():
+    class TransformersComponent(ModelComponent):
+        def resolve(self) -> TransformersModel:
+            return self.model
+
+    return TransformersComponent(TransformersModel(Mock(), Mock(), Mock()))
 
 
 class TestCaseResourcesModule:
@@ -68,4 +79,27 @@ class TestCaseResourcesModule:
         assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
             ("/", {"HEAD", "GET"}, resource.inspect, {"tag": "inspect"}),
             ("/predict/", {"POST"}, resource.predict, {"tag": "predict"}),
+        ]
+
+    def test_add_transformers_model_resource(self, app):
+        component_ = build_transformers_component()
+
+        class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
+            name = "puppy"
+            verbose_name = "Puppy"
+            component = component_
+
+        resource = PuppyModelResource()
+
+        app.models.add_model_resource("/", resource)
+
+        assert len(app.routes) == 1
+        assert isinstance(app.routes[0], ResourceRoute)
+        resource_route = app.routes[0]
+        assert len(resource_route.routes) == 4
+        assert [(route.path, route.methods, route.endpoint) for route in resource_route.routes] == [
+            ("/", {"HEAD", "GET"}, resource.inspect),
+            ("/predict/", {"POST"}, resource.predict),
+            ("/chat/", {"HEAD", "GET"}, resource.chat),
+            ("/stream/", {"POST"}, resource.stream),
         ]

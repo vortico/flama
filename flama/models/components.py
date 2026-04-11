@@ -1,11 +1,15 @@
+import datetime
 import importlib
 import os
 import pathlib
 import typing as t
+import uuid
 
 from flama import types
 from flama.injection import Component
 from flama.models.base import BaseModel
+from flama.serialize.data_structures import FrameworkInfo, Metadata, ModelInfo
+from flama.serialize.model_serializers import ModelSerializer
 from flama.serialize.serializer import Serializer
 
 __all__ = ["ModelComponent", "ModelComponentBuilder"]
@@ -27,6 +31,7 @@ class ModelComponentBuilder:
         "sklearn": "sklearn",
         "tensorflow": "tensorflow",
         "torch": "pytorch",
+        "transformers": "transformers",
     }
 
     @classmethod
@@ -43,16 +48,46 @@ class ModelComponentBuilder:
             )
 
     @classmethod
-    def load(cls, path: str | os.PathLike | pathlib.Path) -> ModelComponent:
-        with pathlib.Path(str(path)).open("rb") as f:
-            load_model = Serializer.load(f)
-
-        parent = cls._get_model_class(load_model.meta.framework.lib)
+    def _build_component(cls, lib: types.MLLib, model_obj: t.Any, meta: Metadata, artifacts: t.Any) -> "ModelComponent":
+        parent = cls._get_model_class(lib)
         model_class = type(parent.__name__, (parent,), {})
-        model_obj = model_class(load_model.model, load_model.meta, load_model.artifacts)
+        model_instance = model_class(model_obj, meta, artifacts)
 
         class SpecificModelComponent(ModelComponent):
             def resolve(self) -> model_class:  # type: ignore[valid-type]
                 return self.model  # type: ignore[no-any-return]
 
-        return SpecificModelComponent(model_obj)
+        return SpecificModelComponent(model_instance)
+
+    @classmethod
+    def load(cls, path: str | os.PathLike | pathlib.Path) -> "ModelComponent":
+        path_ = pathlib.Path(str(path))
+
+        if path_.suffix or path_.exists():
+            return cls._load_from_file(path_)
+
+        return cls._load_from_id(str(path))
+
+    @classmethod
+    def _load_from_file(cls, path: pathlib.Path) -> "ModelComponent":
+        with path.open("rb") as f:
+            load_model = Serializer.load(f)
+
+        return cls._build_component(
+            load_model.meta.framework.lib, load_model.model, load_model.meta, load_model.artifacts
+        )
+
+    @classmethod
+    def _load_from_id(cls, model_id: str) -> "ModelComponent":
+        lib: types.MLLib = "transformers"
+        serializer = ModelSerializer.from_lib(lib)
+        model_obj = serializer.load_from_id(model_id)
+
+        meta = Metadata(
+            id=uuid.uuid4(),
+            timestamp=datetime.datetime.now(),
+            framework=FrameworkInfo(lib=lib, version=serializer.version()),
+            model=ModelInfo(obj=model_id, info=serializer.info(model_obj)),
+        )
+
+        return cls._build_component(lib, model_obj, meta, None)

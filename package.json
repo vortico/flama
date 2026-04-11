@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "eta": "^4.5.1",
+    "webpack-cli": "^7.0.2"
+  }
+}

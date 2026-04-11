@@ -99,3 +99,4 @@ venv.bak/
 lib/templates/node_modules/
 lib/templates/out/
 flama/_templates
+templates/

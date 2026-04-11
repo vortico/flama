@@ -25,10 +25,10 @@ function Nav({ onClick, ...props }: Omit<React.ComponentProps<'ul'>, 'onClick'> 
           <li key={i} onClick={onClick}>
             <a href={href} aria-label={label}>
               <div className="flex h-12 cursor-pointer items-center justify-start gap-2">
-                <div className="text-primary-400 hover:text-flama-500 h-6 w-6 transition-colors duration-200 md:hidden">
+                <div className="text-primary-400 hover:text-flama-500 dark:text-primary-400 dark:hover:text-flama-300 h-6 w-6 transition-colors duration-200 md:hidden">
                   {icon}
                 </div>
-                <div className="text-primary-400 hover:text-flama-500 text-md font-medium transition-colors duration-200">
+                <div className="text-primary-400 text-md hover:text-flama-500 dark:text-primary-300 dark:hover:text-flama-300 font-medium transition-colors duration-200">
                   {title}
                 </div>
               </div>
@@ -59,10 +59,10 @@ function Social({ ...props }: React.ComponentProps<'ul'>) {
           <li key={i}>
             <a href={href} aria-label={label}>
               <div className="flex h-12 cursor-pointer items-center justify-start gap-2">
-                <div className="text-primary-400 hover:text-flama-500 h-6 w-6 transition-colors duration-200">
+                <div className="text-primary-400 hover:text-flama-500 dark:text-primary-300 dark:hover:text-flama-300 h-6 w-6 transition-colors duration-200">
                   {icon}
                 </div>
-                <div className="text-primary-400 hover:text-flama-500 text-md font-medium transition-colors duration-200 md:hidden">
+                <div className="text-primary-400 text-md hover:text-flama-500 dark:text-primary-300 dark:hover:text-flama-300 font-medium transition-colors duration-200 md:hidden">
                   {title}
                 </div>
               </div>
@@ -77,16 +77,16 @@ function Social({ ...props }: React.ComponentProps<'ul'>) {
 function FloatMenu({ onClose }: { onClose: () => void }) {
   return (
     <div
-      className="bg-primary-100 fixed inset-x-0 top-0 z-50 h-screen w-screen overflow-auto"
+      className="bg-primary-100 dark:bg-primary-950 fixed inset-x-0 top-0 z-50 h-screen w-screen overflow-auto"
       aria-modal="true"
       role="dialog"
     >
-      <div className="border-flama-500 flex h-14 w-full items-center justify-between border-b px-4 sm:px-6 md:px-8">
+      <div className="border-flama-500/70 dark:border-flama-300/40 flex h-14 w-full items-center justify-between border-b px-4 sm:px-6 md:px-8">
         <a href="https://flama.dev" className="block cursor-pointer" aria-label="Flama website">
           <Logo logo="flama" color="flama" size="lg" />
         </a>
         <button className="h-6 w-6" onClick={onClose} aria-label="Close menu">
-          <IconX className="text-primary-400 hover:text-flama-500 h-full w-full transition-colors duration-200" />
+          <IconX className="text-primary-400 hover:text-flama-500 dark:text-primary-300 dark:hover:text-flama-300 h-full w-full transition-colors duration-200" />
         </button>
       </div>
       <div className="w-full px-4 sm:px-6 md:px-8">
@@ -109,7 +109,7 @@ function FixedMenu({ onOpen }: { onOpen: () => void }) {
           <Social className="flex items-center justify-start gap-8" />
         </div>
         <button className="block h-6 w-6 cursor-pointer md:hidden" onClick={onOpen} aria-label="Open menu">
-          <IconMenu2 className="h-full w-full" />
+          <IconMenu2 className="text-primary-500 dark:text-primary-200 h-full w-full" />
         </button>
       </div>
     </>
@@ -123,8 +123,8 @@ export default function Menu() {
   const onClose = useCallback(() => setIsOpen(false), [setIsOpen])
 
   return (
-    <div className="border-flama-500 bg-primary-100 fixed inset-x-0 top-0 z-10 mx-auto border-b">
-      <div className="divide-flama-500/50 mx-auto w-full divide-y px-4 sm:px-6 md:px-8">
+    <div className="border-flama-500/70 bg-primary-100/95 dark:border-flama-300/40 dark:bg-primary-950/95 fixed inset-x-0 top-0 z-10 mx-auto border-b backdrop-blur-xl">
+      <div className="divide-flama-500/50 dark:divide-flama-300/25 mx-auto w-full divide-y px-4 sm:px-6 md:px-8">
         <FixedMenu onOpen={onOpen} />
       </div>
 
