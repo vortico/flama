@@ -126,10 +126,110 @@ impl BrotliCompressor {
     }
 }
 
+// ---------------------------------------------------------------------------
+// One-shot compress / decompress helpers for serialization
+// ---------------------------------------------------------------------------
+
+#[pyfunction]
+fn compress_bz2<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+    use bzip2::read::BzEncoder;
+    use bzip2::Compression;
+    use std::io::Read;
+
+    let mut encoder = BzEncoder::new(data, Compression::best());
+    let mut out = Vec::new();
+    encoder.read_to_end(&mut out).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("bz2 compress error: {e}"))
+    })?;
+    Ok(PyBytes::new(py, &out))
+}
+
+#[pyfunction]
+fn decompress_bz2<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+    use bzip2::read::BzDecoder;
+    use std::io::Read;
+
+    let mut decoder = BzDecoder::new(data);
+    let mut out = Vec::new();
+    decoder.read_to_end(&mut out).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("bz2 decompress error: {e}"))
+    })?;
+    Ok(PyBytes::new(py, &out))
+}
+
+#[pyfunction]
+fn compress_lzma<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+    let mut out = Vec::new();
+    lzma_rs::lzma_compress(&mut std::io::Cursor::new(data), &mut out).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("lzma compress error: {e}"))
+    })?;
+    Ok(PyBytes::new(py, &out))
+}
+
+#[pyfunction]
+fn decompress_lzma<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+    let mut out = Vec::new();
+    lzma_rs::lzma_decompress(&mut std::io::Cursor::new(data), &mut out).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("lzma decompress error: {e}"))
+    })?;
+    Ok(PyBytes::new(py, &out))
+}
+
+#[pyfunction]
+fn compress_zlib<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+    use flate2::write::ZlibEncoder;
+
+    let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(data).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("zlib compress error: {e}"))
+    })?;
+    let out = encoder.finish().map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("zlib compress finish error: {e}"))
+    })?;
+    Ok(PyBytes::new(py, &out))
+}
+
+#[pyfunction]
+fn decompress_zlib<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+    use flate2::read::ZlibDecoder;
+    use std::io::Read;
+
+    let mut decoder = ZlibDecoder::new(data);
+    let mut out = Vec::new();
+    decoder.read_to_end(&mut out).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("zlib decompress error: {e}"))
+    })?;
+    Ok(PyBytes::new(py, &out))
+}
+
+#[pyfunction]
+fn compress_zstd<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+    let out = zstd::bulk::compress(data, 0).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("zstd compress error: {e}"))
+    })?;
+    Ok(PyBytes::new(py, &out))
+}
+
+#[pyfunction]
+fn decompress_zstd<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+    let out = zstd::bulk::decompress(data, 64 * 1024 * 1024).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("zstd decompress error: {e}"))
+    })?;
+    Ok(PyBytes::new(py, &out))
+}
+
 pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "compression")?;
     m.add_class::<GzipCompressor>()?;
     m.add_class::<BrotliCompressor>()?;
+    m.add_function(wrap_pyfunction!(compress_bz2, &m)?)?;
+    m.add_function(wrap_pyfunction!(decompress_bz2, &m)?)?;
+    m.add_function(wrap_pyfunction!(compress_lzma, &m)?)?;
+    m.add_function(wrap_pyfunction!(decompress_lzma, &m)?)?;
+    m.add_function(wrap_pyfunction!(compress_zlib, &m)?)?;
+    m.add_function(wrap_pyfunction!(decompress_zlib, &m)?)?;
+    m.add_function(wrap_pyfunction!(compress_zstd, &m)?)?;
+    m.add_function(wrap_pyfunction!(decompress_zstd, &m)?)?;
     parent.add_submodule(&m)?;
     parent
         .py()

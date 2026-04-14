@@ -8,8 +8,8 @@ from flama.authentication import exceptions
 from flama.authentication.jwt.jwt import JWT
 
 TOKEN = (
-    b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.J3zdedMZSFNOimstjJat0V"
-    b"28rM_b1UU62XCp9dg_5kg="
+    b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.PWRDHe1X53ydEpCCKW8_oDMVveSlvdqg"
+    b"xLhFjLk7BNk="
 )
 
 
@@ -99,12 +99,12 @@ class TestCaseJWT:
                 id="wrong-format",
             ),
             pytest.param(
-                b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.0000",
+                b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.0000",
                 None,
                 None,
                 exceptions.JWTValidateException(
-                    "Signature verification failed for token 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9."
-                    "eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.0000'"
+                    "Signature verification failed for token 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+                    "eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.0000'"
                 ),
                 id="invalid-signature",
             ),

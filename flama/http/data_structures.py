@@ -2,7 +2,7 @@ import enum
 import io
 import typing as t
 from collections.abc import Mapping
-from urllib.parse import parse_qsl, urlencode
+from urllib.parse import urlencode
 
 from flama import exceptions
 from flama._core.multipart import parse_multipart, parse_urlencoded
@@ -298,7 +298,7 @@ class QueryParams(_MultiDict[str, str]):
         elif isinstance(value, Mapping):
             items = [(str(k), str(v)) for k, v in value.items()]
         else:
-            items = parse_qsl(value if isinstance(value, str) else value.decode("latin-1"), keep_blank_values=True)
+            items = parse_urlencoded(value.encode("latin-1") if isinstance(value, str) else value)
 
         super().__init__(items)
         self._dict: dict[str, str] = dict(self._list)
