@@ -7,12 +7,12 @@ import typing as t
 import urllib.parse
 import uuid
 
-from flama._core.url import PathMatcher
+from flama._core.url import NetlocMatcher, PathMatcher
 
 T = t.TypeVar("T", bound=int | str | float | decimal.Decimal | uuid.UUID)
 FragmentType = t.Literal["constant", "rest", "str", "int", "float", "decimal", "uuid"]
 
-__all__ = ["Path", "URL"]
+__all__ = ["Netloc", "Path", "URL"]
 
 
 class Serializer(t.Generic[T], metaclass=abc.ABCMeta):
@@ -318,10 +318,93 @@ class Path:
         return self
 
 
+@dataclasses.dataclass(init=False, eq=False)
+class Netloc:
+    """Parsed network location (``[userinfo@]host[:port]``) with optional wildcard matching.
+
+    Accepts a full netloc string and decomposes it into structured fields.  Matching is delegated
+    to a Rust-backed :class:`NetlocMatcher` operating on the ``host`` field only.
+
+    :param netloc: Network location string or another :class:`Netloc`.
+    """
+
+    host: str
+    port: int | None
+    userinfo: str | None
+
+    def __init__(self, netloc: "str | Netloc" = "") -> None:
+        if isinstance(netloc, Netloc):
+            self.host = netloc.host
+            self.port = netloc.port
+            self.userinfo = netloc.userinfo
+            self._matcher = netloc._matcher
+        else:
+            self.host, self.port, self.userinfo = self._parse(netloc)
+            self._matcher = NetlocMatcher(self.host) if self.host else None
+
+    @staticmethod
+    def _parse(netloc: str) -> tuple[str, int | None, str | None]:
+        if not netloc:
+            return ("", None, None)
+
+        userinfo: str | None = None
+        if "@" in netloc:
+            userinfo, netloc = netloc.rsplit("@", 1)
+
+        port: int | None = None
+        if ":" in netloc:
+            host, port_str = netloc.rsplit(":", 1)
+            try:
+                port = int(port_str)
+            except ValueError:
+                host = netloc
+        else:
+            host = netloc
+
+        return (host, port, userinfo)
+
+    def match(self, host: str) -> bool:
+        """Check whether *host* matches this netloc pattern.
+
+        Supports exact match, wildcard subdomain (``*.example.com``), and the catch-all ``*``.
+
+        :param host: Hostname to check (without port).
+        :return: ``True`` when the host matches.
+        """
+        if self._matcher is None:
+            return False
+
+        return self._matcher.is_match(host)
+
+    def __bool__(self) -> bool:
+        return self.host != ""
+
+    def __hash__(self) -> int:
+        return hash((self.host, self.port, self.userinfo))
+
+    def __eq__(self, other, /) -> bool:
+        if isinstance(other, Netloc):
+            return self.host == other.host and self.port == other.port and self.userinfo == other.userinfo
+        if isinstance(other, str):
+            return str(self) == other
+        return NotImplemented
+
+    def __str__(self) -> str:
+        result = self.host
+        if self.port is not None:
+            result = f"{result}:{self.port}"
+        if self.userinfo is not None:
+            result = f"{self.userinfo}@{result}"
+        return result
+
+    def __repr__(self) -> str:
+        return f"Netloc('{self}')"
+
+
 @dataclasses.dataclass
 class URL:
     scheme: str
-    netloc: str
+    netloc: Netloc
     path: Path
     params: str
     query: str
@@ -335,7 +418,7 @@ class URL:
         """
         parsed_url = urllib.parse.urlparse(url)._replace(**kwargs) if isinstance(url, str) else url
         self.scheme = parsed_url.scheme
-        self.netloc = parsed_url.netloc
+        self.netloc = Netloc(parsed_url.netloc)
         self.path = Path(parsed_url.path)
         self.params = parsed_url.params
         self.query = parsed_url.query
@@ -384,7 +467,7 @@ class URL:
         """
         return {
             "scheme": self.scheme,
-            "netloc": self.netloc,
+            "netloc": str(self.netloc),
             "path": str(self.path),
             "params": self.params,
             "query": self.query,

@@ -5,7 +5,6 @@ import pytest
 from flama import Flama
 from flama.authentication.components import AccessTokenComponent
 from flama.authentication.middleware import AuthenticationMiddleware
-from flama.middleware import Middleware
 
 TOKENS = {
     "permission": b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJwZXJtaXNzaW9ucyI6IFsiZmxhbWEudGVzdC5hdXRoI"
@@ -28,7 +27,7 @@ class TestCaseAuthenticationMiddleware:
             schema=None,
             docs=None,
             components=[AccessTokenComponent(secret=secret.bytes)],
-            middleware=[Middleware(AuthenticationMiddleware, ignored=[r"/ignored.*"])],
+            middleware=[AuthenticationMiddleware(ignored=[r"/ignored.*"])],
         )
 
     @pytest.fixture(scope="function", autouse=True)

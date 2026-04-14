@@ -1,10 +1,5 @@
-import typing as t
-
-from flama import exceptions
-from flama.codecs.base import WebsocketsCodec
-
-if t.TYPE_CHECKING:
-    from flama import types
+from flama import exceptions, types
+from flama.codecs.websockets.codec import WebsocketsCodec
 
 __all__ = ["BytesCodec"]
 
@@ -12,7 +7,7 @@ __all__ = ["BytesCodec"]
 class BytesCodec(WebsocketsCodec):
     encoding = "bytes"
 
-    async def decode(self, item: "types.Message", **options):
+    async def decode(self, item: types.Message, **options) -> bytes:
         if "bytes" not in item:
             raise exceptions.DecodeError("Expected bytes websocket messages")
 

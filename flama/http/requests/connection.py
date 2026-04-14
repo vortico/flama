@@ -88,22 +88,32 @@ class HTTPConnection(Mapping[str, t.Any]):
         return None
 
     @property
+    def correlation_id(self) -> str:
+        try:
+            return self.scope["correlation_id"]
+        except KeyError:
+            raise ApplicationError("CorrelationIdMiddleware must be installed to access request.correlation_id")
+
+    @property
     def session(self) -> dict[str, t.Any]:
-        if "session" not in self.scope:
+        try:
+            return self.scope["session"]
+        except KeyError:
             raise ApplicationError("SessionMiddleware must be installed to access request.session")
-        return self.scope["session"]
 
     @property
     def auth(self) -> t.Any:
-        if "auth" not in self.scope:
+        try:
+            return self.scope["auth"]
+        except KeyError:
             raise ApplicationError("AuthenticationMiddleware must be installed to access request.auth")
-        return self.scope["auth"]
 
     @property
     def user(self) -> t.Any:
-        if "user" not in self.scope:
+        try:
+            return self.scope["user"]
+        except KeyError:
             raise ApplicationError("AuthenticationMiddleware must be installed to access request.user")
-        return self.scope["user"]
 
     @property
     def state(self) -> State:

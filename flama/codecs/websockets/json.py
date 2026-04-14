@@ -1,11 +1,7 @@
 import json
-import typing as t
 
-from flama import exceptions
-from flama.codecs.base import WebsocketsCodec
-
-if t.TYPE_CHECKING:
-    from flama import types
+from flama import exceptions, types
+from flama.codecs.websockets.codec import WebsocketsCodec
 
 __all__ = ["JSONCodec"]
 
@@ -13,7 +9,7 @@ __all__ = ["JSONCodec"]
 class JSONCodec(WebsocketsCodec):
     encoding = "json"
 
-    async def decode(self, item: "types.Message", **options):
+    async def decode(self, item: types.Message, **options) -> types.JSONSchema:
         if item.get("text") is not None:
             text = item["text"]
         else:

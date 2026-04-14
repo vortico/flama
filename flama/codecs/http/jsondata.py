@@ -1,10 +1,10 @@
 import typing as t
 
 from flama import exceptions
-from flama.codecs.base import HTTPCodec
+from flama.codecs.http.codec import HTTPCodec
 
 if t.TYPE_CHECKING:
-    from flama import http
+    from flama.http import Request
 
 __all__ = ["JSONDataCodec"]
 
@@ -13,7 +13,7 @@ class JSONDataCodec(HTTPCodec):
     media_type = "application/json"
     format = "json"
 
-    async def decode(self, item: "http.Request", **options) -> dict[str, t.Any] | None:
+    async def decode(self, item: "Request", **options) -> dict[str, t.Any] | None:
         try:
             if await item.body() == b"":
                 return None

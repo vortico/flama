@@ -10,6 +10,7 @@ from flama.url import (
     DecimalSerializer,
     FloatSerializer,
     IntegerSerializer,
+    Netloc,
     Path,
     StringSerializer,
     UUIDSerializer,
@@ -321,6 +322,92 @@ class TestCasePath:
         with exception:
             a /= b
             assert a == c
+
+
+class TestCaseNetloc:
+    @pytest.mark.parametrize(
+        ["netloc", "host", "port", "userinfo"],
+        [
+            pytest.param("example.com", "example.com", None, None, id="plain"),
+            pytest.param("example.com:8000", "example.com", 8000, None, id="with_port"),
+            pytest.param("user:pass@example.com", "example.com", None, "user:pass", id="with_userinfo"),
+            pytest.param("user:pass@example.com:8000", "example.com", 8000, "user:pass", id="with_userinfo_and_port"),
+            pytest.param("*.example.com", "*.example.com", None, None, id="wildcard_pattern"),
+            pytest.param("*", "*", None, None, id="any_pattern"),
+            pytest.param("", "", None, None, id="empty"),
+        ],
+    )
+    def test_parse(self, netloc, host, port, userinfo):
+        result = Netloc(netloc)
+        assert result.host == host
+        assert result.port == port
+        assert result.userinfo == userinfo
+
+    @pytest.mark.parametrize(
+        ["pattern", "host", "expected"],
+        [
+            pytest.param("example.com", "example.com", True, id="exact_match"),
+            pytest.param("example.com", "evil.com", False, id="exact_no_match"),
+            pytest.param("example.com", "EXAMPLE.COM", True, id="exact_case_insensitive"),
+            pytest.param("*.example.com", "sub.example.com", True, id="wildcard_match"),
+            pytest.param("*.example.com", "deep.sub.example.com", True, id="wildcard_deep_match"),
+            pytest.param("*.example.com", "example.com", False, id="wildcard_no_match_bare"),
+            pytest.param("*.example.com", "evil.com", False, id="wildcard_no_match_other"),
+            pytest.param("*", "anything.com", True, id="any_match"),
+            pytest.param("", "example.com", False, id="empty"),
+        ],
+    )
+    def test_match(self, pattern, host, expected):
+        assert Netloc(pattern).match(host) is expected
+
+    def test_invalid_wildcard(self):
+        with pytest.raises(ValueError, match="wildcard"):
+            Netloc("ex*ample.com")
+
+    @pytest.mark.parametrize(
+        ["netloc", "expected"],
+        [
+            pytest.param("example.com", True, id="non_empty"),
+            pytest.param("", False, id="empty"),
+        ],
+    )
+    def test_bool(self, netloc, expected):
+        assert bool(Netloc(netloc)) is expected
+
+    @pytest.mark.parametrize(
+        ["netloc", "expected"],
+        [
+            pytest.param(Netloc("example.com"), "example.com", id="str"),
+            pytest.param(Netloc("example.com"), Netloc("example.com"), id="netloc"),
+            pytest.param(Netloc("example.com:8000"), Netloc("example.com:8000"), id="netloc_with_port"),
+            pytest.param(Netloc("user:p@h:80"), Netloc("user:p@h:80"), id="netloc_full"),
+        ],
+    )
+    def test_eq(self, netloc, expected):
+        assert netloc == expected
+
+    def test_copy(self):
+        original = Netloc("user:pass@example.com:8000")
+        copy = Netloc(original)
+        assert copy == original
+        assert copy.host is original.host
+        assert copy.port == original.port
+        assert copy.userinfo is original.userinfo
+
+    @pytest.mark.parametrize(
+        ["netloc", "expected"],
+        [
+            pytest.param("example.com", "example.com", id="plain"),
+            pytest.param("example.com:8000", "example.com:8000", id="with_port"),
+            pytest.param("user:pass@example.com", "user:pass@example.com", id="with_userinfo"),
+            pytest.param("user:pass@example.com:8000", "user:pass@example.com:8000", id="full"),
+        ],
+    )
+    def test_str(self, netloc, expected):
+        assert str(Netloc(netloc)) == expected
+
+    def test_repr(self):
+        assert repr(Netloc("example.com:8000")) == "Netloc('example.com:8000')"
 
 
 class TestCaseURL:

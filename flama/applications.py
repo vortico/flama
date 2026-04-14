@@ -115,10 +115,10 @@ class Flama(types.App):
         # Add schema routes
         self.schema.add_routes()
 
-        # Build events register including module events
+        # Build events register including module and middleware events
         self.events = events if isinstance(events, Events) else Events.build(**(events or {}))
-        self.events.startup += [m.on_startup for m in self.modules.values()]
-        self.events.shutdown += [m.on_shutdown for m in self.modules.values()]
+        self.events.startup += [self.modules.on_startup, self.middleware.on_startup]
+        self.events.shutdown += [self.modules.on_shutdown, self.middleware.on_shutdown]
 
         # Reference to paginator from within app
         self.paginator = paginator

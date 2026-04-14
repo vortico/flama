@@ -8,19 +8,13 @@ __all__ = [
     "Message",
     "Receive",
     "Send",
-    "AppClass",
-    "AppFunction",
+    "ASGIAppClass",
+    "ASGIAppFunction",
     "ASGIApp",
-    "MiddlewareClass",
-    "MiddlewareFunction",
-    "Middleware",
     "HTTPHandler",
     "WebSocketHandler",
     "Handler",
 ]
-
-P = t.ParamSpec("P")
-R = t.TypeVar("R", covariant=True)
 
 
 class Scope(dict[str, t.Any]): ...
@@ -39,23 +33,15 @@ class Send(t.Protocol):
 
 # Applications
 @t.runtime_checkable
-class AppClass(t.Protocol):
-    def __call__(self, scope: Scope, receive: Receive, send: Send) -> None | t.Awaitable[None]: ...
+class ASGIAppClass(t.Protocol):
+    def __call__(self, scope: Scope, receive: Receive, send: Send) -> t.Awaitable[None]: ...
 
 
-AppFunction = t.Callable[[Scope, Receive, Send], None | t.Awaitable[None]]
-ASGIApp = AppClass | AppFunction
+ASGIAppFunction = t.Callable[[Scope, Receive, Send], t.Awaitable[None]]
+ASGIApp = ASGIAppClass | ASGIAppFunction
 
 
-# Middleware
-@t.runtime_checkable
-class MiddlewareClass(AppClass, t.Protocol[P, R]):
-    def __init__(self, app: ASGIApp, *args: P.args, **kwargs: P.kwargs): ...
-
-
-MiddlewareFunction = t.Callable[t.Concatenate[ASGIApp, P], ASGIApp]
-Middleware = type[MiddlewareClass] | MiddlewareFunction
-
-HTTPHandler = t.Callable | type["endpoints.HTTPEndpoint"]
-WebSocketHandler = t.Callable | type["endpoints.WebSocketEndpoint"]
+# Handlers
+HTTPHandler = t.Callable[..., t.Any] | type["endpoints.HTTPEndpoint"]
+WebSocketHandler = t.Callable[..., t.Any] | type["endpoints.WebSocketEndpoint"]
 Handler = HTTPHandler | WebSocketHandler

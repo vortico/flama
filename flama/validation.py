@@ -4,7 +4,6 @@ from flama import codecs, exceptions, http, routing, types
 from flama.http.data_structures import QueryParams
 from flama.injection import Component, Components
 from flama.injection.resolver import Parameter
-from flama.negotiation import ContentTypeNegotiator, WebSocketEncodingNegotiator
 from flama.schemas import SchemaValidationError
 from flama.schemas.data_structures import Field, Schema
 
@@ -20,7 +19,7 @@ class ValidatedRequestData(dict[str, t.Any]): ...
 
 class RequestDataComponent(Component):
     def __init__(self):
-        self.negotiator = ContentTypeNegotiator(
+        self.negotiator = codecs.HTTPContentTypeNegotiator(
             [codecs.JSONDataCodec(), codecs.URLEncodedCodec(), codecs.MultiPartCodec()]
         )
 
@@ -117,7 +116,9 @@ class CompositeParamComponent(Component):
 
 class WebSocketMessageDataComponent(Component):
     def __init__(self):
-        self.negotiator = WebSocketEncodingNegotiator([codecs.BytesCodec(), codecs.TextCodec(), codecs.JSONCodec()])
+        self.negotiator = codecs.WebSocketEncodingNegotiator(
+            [codecs.BytesCodec(), codecs.TextCodec(), codecs.JSONCodec()]
+        )
 
     async def resolve(self, message: types.Message, websocket_encoding: types.Encoding) -> types.Data:
         try:

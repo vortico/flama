@@ -189,6 +189,7 @@ class Headers(_MultiDict[str, str]):
         scope: t.MutableMapping[str, t.Any] | None = None,
     ) -> None:
         self._scope = scope
+        self._raw = raw
         if headers is not None:
             if raw is not None or scope is not None:
                 raise exceptions.ApplicationError("Only 'headers', 'raw' or 'scope' must be set")
@@ -240,6 +241,8 @@ class MutableHeaders(Headers, _MutableMultiDict[str, str]):
     def _on_change(self) -> None:
         if self._scope is not None:
             self._scope["headers"][:] = self.raw
+        elif self._raw is not None:
+            self._raw[:] = self.raw
 
     def __setitem__(self, key: str, value: str) -> None:
         super().__setitem__(key.lower(), value)
