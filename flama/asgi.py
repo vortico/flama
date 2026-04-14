@@ -1,7 +1,6 @@
-from http.cookies import SimpleCookie
-from urllib.parse import parse_qsl
-
 from flama import http, routing, types
+from flama._core.cookies import parse_cookie_header
+from flama._core.multipart import parse_urlencoded
 from flama.http.data_structures import Headers, QueryParams
 from flama.injection.components import Component, Components
 
@@ -71,7 +70,7 @@ class QueryStringComponent(Component):
 
 class QueryParamsComponent(Component):
     def resolve(self, query: types.QueryString) -> QueryParams:
-        return QueryParams(parse_qsl(query))
+        return QueryParams(parse_urlencoded(query.encode()))
 
 
 class HeadersComponent(Component):
@@ -81,14 +80,7 @@ class HeadersComponent(Component):
 
 class CookiesComponent(Component):
     def resolve(self, headers: Headers) -> types.Cookies:
-        cookie = SimpleCookie()
-        cookie.load(headers.get("cookie", ""))
-        return types.Cookies(
-            {
-                str(name): {**{str(k): str(v) for k, v in morsel.items()}, "value": morsel.value}
-                for name, morsel in cookie.items()
-            }
-        )
+        return types.Cookies({name: {"value": value} for name, value in parse_cookie_header(headers.get("cookie", ""))})
 
 
 class BodyComponent(Component):

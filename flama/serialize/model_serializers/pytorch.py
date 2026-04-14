@@ -9,7 +9,7 @@ from flama.serialize.model_serializers.base import BaseModelSerializer
 try:
     import torch
 except Exception:  # pragma: no cover
-    torch = None  # ty: ignore[invalid-assignment]
+    torch = None
 
 if t.TYPE_CHECKING:
     from flama.types import JSONSchema

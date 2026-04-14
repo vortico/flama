@@ -10,7 +10,7 @@ from flama.serialize.model_serializers.base import BaseModelSerializer
 try:
     import tensorflow as tf
 except Exception:  # pragma: no cover
-    tf = None  # ty: ignore[invalid-assignment]
+    tf = None
 
 if t.TYPE_CHECKING:
     from flama.types import JSONSchema
@@ -27,7 +27,7 @@ class ModelSerializer(BaseModelSerializer):
             raise exceptions.FrameworkNotInstalled("tensorflow")
 
         with tempfile.NamedTemporaryFile(mode="rb", suffix=".keras") as tmp_file:
-            tf.keras.models.save_model(obj, tmp_file.name)  # ty: ignore[unresolved-attribute]
+            tf.keras.models.save_model(obj, tmp_file.name)
             return codecs.encode(tmp_file.read(), "base64")
 
     def load(self, model: bytes, /, **kwargs) -> t.Any:
@@ -36,7 +36,7 @@ class ModelSerializer(BaseModelSerializer):
 
         with tempfile.NamedTemporaryFile(mode="wb", suffix=".keras") as tmp_file:
             tmp_file.write(codecs.decode(model, "base64"))
-            return tf.keras.models.load_model(tmp_file.name)  # ty: ignore[unresolved-attribute]
+            return tf.keras.models.load_model(tmp_file.name)
 
     def info(self, model: t.Any, /) -> "JSONSchema | None":
         model_info: JSONSchema = json.loads(model.to_json())
