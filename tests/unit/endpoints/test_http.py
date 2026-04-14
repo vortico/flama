@@ -83,6 +83,17 @@ class TestCaseHTTPEndpoint:
         assert response.status_code == status_code
         assert response.json() == expected_response
 
+    def test_init_wrong_scope(self, app, asgi_scope, asgi_receive, asgi_send):
+        class FooEndpoint(endpoints.HTTPEndpoint):
+            def get(self): ...
+
+        asgi_scope["type"] = "websocket"
+        asgi_scope["app"] = app
+        asgi_scope["root_app"] = app
+
+        with pytest.raises(ValueError, match="Wrong scope"):
+            FooEndpoint(asgi_scope, asgi_receive, asgi_send)
+
     def test_init(self, app, asgi_scope, asgi_receive, asgi_send):
         with patch("flama.http.Request") as request_mock:
 

@@ -300,39 +300,43 @@ class TestCaseLifespan:
                 assert sub_app._status == app_status
 
     @pytest.mark.parametrize(
-        ["child_lifespan"],
+        ["child_lifespan", "has_events"],
         (
-            pytest.param(MagicMock(), id="lifespan"),
-            pytest.param(None, id="no_lifespan"),
+            pytest.param(MagicMock(), True, id="lifespan_with_events"),
+            pytest.param(None, True, id="no_lifespan_with_events"),
+            pytest.param(None, False, id="no_lifespan_no_events"),
         ),
     )
-    async def test_startup(self, app, lifespan, child_lifespan):
+    async def test_startup(self, app, lifespan, child_lifespan, has_events):
         lifespan.lifespan = child_lifespan
         foo = AsyncMock()
         app.events = MagicMock()
-        app.events.startup = [foo]
+        app.events.startup = [foo] if has_events else []
 
         await lifespan._startup(app)
 
-        assert foo.await_args_list == [call()]
+        if has_events:
+            assert foo.await_args_list == [call()]
         if child_lifespan:
             assert lifespan.lifespan(app).__aenter__.await_args_list == [call()]
 
     @pytest.mark.parametrize(
-        ["child_lifespan"],
+        ["child_lifespan", "has_events"],
         (
-            pytest.param(MagicMock(), id="lifespan"),
-            pytest.param(None, id="no_lifespan"),
+            pytest.param(MagicMock(), True, id="lifespan_with_events"),
+            pytest.param(None, True, id="no_lifespan_with_events"),
+            pytest.param(None, False, id="no_lifespan_no_events"),
         ),
     )
-    async def test_shutdown(self, app, lifespan, child_lifespan):
+    async def test_shutdown(self, app, lifespan, child_lifespan, has_events):
         lifespan.lifespan = child_lifespan
         foo = AsyncMock()
         app.events = MagicMock()
-        app.events.shutdown = [foo]
+        app.events.shutdown = [foo] if has_events else []
 
         await lifespan._shutdown(app)
 
-        assert foo.await_args_list == [call()]
+        if has_events:
+            assert foo.await_args_list == [call()]
         if child_lifespan:
             assert lifespan.lifespan(app).__aexit__.await_args_list == [call(None, None, None)]

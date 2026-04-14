@@ -140,6 +140,14 @@ class TestCaseWebSocketEndpoint:
 
             assert result == {"code": 1011, "type": "websocket.close", "reason": ""}
 
+    def test_init_wrong_scope(self, app, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "http"
+        asgi_scope["app"] = app
+        asgi_scope["root_app"] = app
+
+        with pytest.raises(ValueError, match="Wrong scope"):
+            endpoints.WebSocketEndpoint(asgi_scope, asgi_receive, asgi_send)
+
     def test_init(self, app, asgi_scope, asgi_receive, asgi_send):
         with patch("flama.http.WebSocket") as websocket_mock:
             route = app.add_websocket_route("/", endpoints.WebSocketEndpoint)
@@ -176,7 +184,7 @@ class TestCaseWebSocketEndpoint:
         }
 
     @pytest.mark.parametrize(
-        ["endpoint_receive", "websocket_receive", "exception", "result_code", "result_message"],
+        ["endpoint_receive", "websocket_receive", "is_connected", "exception", "result_code", "result_message"],
         (
             pytest.param(
                 [None, None, None],
@@ -184,10 +192,20 @@ class TestCaseWebSocketEndpoint:
                     {"type": "websocket.receive", "code": 1000, "bytes": "foo"},
                     {"type": "websocket.disconnect", "code": 1000},
                 ],
+                [True, False],
                 None,
                 1000,
                 {"type": "websocket.disconnect", "code": 1000},
                 id="ok",
+            ),
+            pytest.param(
+                [None, None],
+                [None],
+                [False],
+                None,
+                None,
+                None,
+                id="immediate_disconnect",
             ),
             pytest.param(
                 [None, None, None],
@@ -195,6 +213,7 @@ class TestCaseWebSocketEndpoint:
                     {"type": "websocket.receive", "code": 1000, "bytes": "foo"},
                     exceptions.WebSocketDisconnect(1006, "Abnormal Closure"),
                 ],
+                [True, False],
                 exceptions.WebSocketException(1006, "Abnormal Closure"),
                 1006,
                 {"type": "websocket.receive", "code": 1000, "bytes": "foo"},
@@ -203,6 +222,7 @@ class TestCaseWebSocketEndpoint:
             pytest.param(
                 [None, exceptions.WebSocketException(1003, "Unsupported Data"), None],
                 [{"type": "websocket.receive", "code": 1000, "bytes": "foo"}],
+                [True, False],
                 exceptions.WebSocketException(1003, "Unsupported Data"),
                 1003,
                 {"type": "websocket.receive", "code": 1000, "bytes": "foo"},
@@ -211,6 +231,7 @@ class TestCaseWebSocketEndpoint:
             pytest.param(
                 [None, ValueError("Foo"), None],
                 [{"type": "websocket.receive", "code": 1000, "bytes": "foo"}],
+                [True, False],
                 ValueError("Foo"),
                 1011,
                 {"type": "websocket.receive", "code": 1000, "bytes": "foo"},
@@ -220,11 +241,11 @@ class TestCaseWebSocketEndpoint:
         indirect=["exception"],
     )
     async def test_dispatch(
-        self, app, endpoint, endpoint_receive, websocket_receive, exception, result_code, result_message
+        self, app, endpoint, endpoint_receive, websocket_receive, is_connected, exception, result_code, result_message
     ):
         app.injector.inject = AsyncMock(side_effect=[AsyncMock(side_effect=x) for x in endpoint_receive])
         endpoint.state.websocket.receive = AsyncMock(side_effect=websocket_receive)
-        type(endpoint.state.websocket).is_connected = PropertyMock(side_effect=[True, False])
+        type(endpoint.state.websocket).is_connected = PropertyMock(side_effect=is_connected)
 
         with exception:
             await endpoint.dispatch()

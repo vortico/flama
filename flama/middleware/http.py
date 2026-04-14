@@ -78,7 +78,7 @@ class BaseHTTPMiddleware(Middleware):
         :param request: The incoming HTTP request.
         :return: A response to short-circuit, or ``None`` to continue.
         """
-        return None
+        return None  # pragma: no cover
 
     async def after(self, request: "Request", response: "Response") -> "Response":
         """Hook called after the downstream application produces a response start.
@@ -92,7 +92,7 @@ class BaseHTTPMiddleware(Middleware):
         :param response: The response metadata (status and headers).
         :return: The (possibly modified) response.
         """
-        return response
+        return response  # pragma: no cover
 
     async def error(self, request: "Request", exc: Exception) -> "Response | None":
         """Hook called when the downstream application raises an exception.
@@ -105,4 +105,4 @@ class BaseHTTPMiddleware(Middleware):
         :param exc: The exception raised by the downstream app.
         :return: An error response, or ``None`` to re-raise.
         """
-        return None
+        return None  # pragma: no cover

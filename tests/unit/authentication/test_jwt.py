@@ -115,6 +115,13 @@ class TestCaseJWT:
                 exceptions.JWTValidateException("Claim 'exp' is not valid"),
                 id="invalid-claims",
             ),
+            pytest.param(
+                TOKEN,
+                None,
+                exceptions.JWTValidateException("Invalid claims (exp)"),
+                exceptions.JWTValidateException("Invalid claims (exp)"),
+                id="expired-exp",
+            ),
         ),
         indirect=["exception"],
     )

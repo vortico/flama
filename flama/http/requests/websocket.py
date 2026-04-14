@@ -81,6 +81,8 @@ class WebSocket(HTTPConnection):
                 )
             case None:
                 result = message
+            case _:
+                raise ValueError(f"Unsupported data type: {data!r}")
 
         return result
 
@@ -110,10 +112,8 @@ class WebSocket(HTTPConnection):
                 raise ValueError("Either 'data', 'message' or 'json' must be provided")
             elif json is not None:
                 message["bytes"] = encode_json(json)
-            elif data is not None:
-                message["bytes" if isinstance(data, bytes) else "text"] = data
             else:
-                raise ValueError("Parameters 'data', 'message' and 'json' are mutually exclusive")
+                message["bytes" if isinstance(data, bytes) else "text"] = data
         elif data is not None or json is not None:
             raise ValueError("Parameters 'data', 'message' and 'json' are mutually exclusive")
 
