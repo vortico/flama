@@ -3,6 +3,7 @@ import hashlib
 import json
 import typing as t
 
+from flama._core.json_encoder import encode_json
 from flama.crypto import exceptions
 from flama.crypto.algorithms import HMACAlgorithm
 
@@ -57,8 +58,8 @@ class JWS:
         :param key: Key used to sign the token.
         :return: Encoded token.
         """
-        header_segment = base64.urlsafe_b64encode(json.dumps(header).encode())
-        payload_segment = base64.urlsafe_b64encode(json.dumps(payload).encode())
+        header_segment = base64.urlsafe_b64encode(encode_json(header, compact=True))
+        payload_segment = base64.urlsafe_b64encode(encode_json(payload, compact=True))
 
         algorithm = cls._get_algorithm(header)
 

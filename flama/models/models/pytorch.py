@@ -6,7 +6,7 @@ from flama.models.base import BaseModel
 try:
     import torch
 except Exception:  # pragma: no cover
-    torch = None  # ty: ignore[invalid-assignment]
+    torch = None
 
 __all__ = ["Model"]
 

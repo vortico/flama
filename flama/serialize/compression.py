@@ -1,51 +1,62 @@
 import enum
-import typing as t
-from types import ModuleType
+from collections.abc import Callable
 
-from flama import compat, types
+from flama import types
+from flama._core.compression import (
+    compress_bz2,
+    compress_lzma,
+    compress_zlib,
+    compress_zstd,
+    decompress_bz2,
+    decompress_lzma,
+    decompress_zlib,
+    decompress_zstd,
+)
 
 __all__ = ["CompressionFormat", "Compression"]
 
 
-class CompressionFormat(enum.Enum):
-    """Defines the supported compression formats.
+class CompressionFormat(enum.IntEnum):
+    """Supported compression formats for ML model serialization.
 
-    Each member corresponds to a specific compression algorithm that can be used for serializing ML models.
+    Integer values are stable and used in the binary serialization header.
     """
 
-    bz2 = enum.auto()
-    lzma = enum.auto()
-    zlib = enum.auto()
-    zstd = enum.auto()
+    bz2 = 1
+    lzma = 2
+    zlib = 3
+    zstd = 4
+
+
+_COMPRESSORS: dict[CompressionFormat, tuple[Callable[[bytes], bytes], Callable[[bytes], bytes]]] = {
+    CompressionFormat.bz2: (compress_bz2, decompress_bz2),
+    CompressionFormat.lzma: (compress_lzma, decompress_lzma),
+    CompressionFormat.zlib: (compress_zlib, decompress_zlib),
+    CompressionFormat.zstd: (compress_zstd, decompress_zstd),
+}
 
 
 class Compression:
     """A utility class to handle bytes compression and decompression using various supported formats.
 
-    This class acts as a wrapper around the standard or compatible Python compression modules (bz2, lzma, zlib, zstd).
+    All compression is backed by the Rust ``_core.compression`` module.
     """
 
-    _modules: t.Final[dict[CompressionFormat, ModuleType]] = {
-        CompressionFormat.bz2: compat.bz2,  # PORT: Replace compat when stop supporting 3.13
-        CompressionFormat.lzma: compat.lzma,  # PORT: Replace compat when stop supporting 3.13
-        CompressionFormat.zlib: compat.zlib,  # PORT: Replace compat when stop supporting 3.13
-        CompressionFormat.zstd: compat.zstd,  # PORT: Replace compat when stop supporting 3.13
-    }
+    format: CompressionFormat
 
-    def __init__(self, format: int | types.Compression) -> None:
+    def __init__(self, format: int | types.SerializationCompression) -> None:
         """Initializes the Compression utility with a specific compression format.
 
-        The format can be specified as an integer value corresponding to the :class:`CompressionFormat` enum member or
-        as the string name of the format.
+        Accepts either the integer id stored in the binary protocol header or a string name
+        matching :data:`~flama.types.SerializationCompression`.
 
-        :param format: The desired compression format. Can be an integer value or a string name
-        from :class:`CompressionFormat`.
-        :raises ValueError: If the provided format is not a valid :class:`CompressionFormat` member.
+        :param format: The desired compression format.
+        :raises ValueError: If the provided format is not supported.
         """
         try:
             self.format = CompressionFormat(format) if isinstance(format, int) else CompressionFormat[format]
-            self._module = self._modules[self.format]
-        except KeyError:
+            self._compress, self._decompress = _COMPRESSORS[self.format]
+        except (KeyError, ValueError):
             raise ValueError(f"Wrong format '{format}'")
 
     def compress(self, b: bytes, /) -> bytes:
@@ -54,7 +65,7 @@ class Compression:
         :param b: Raw bytes string.
         :return: Compressed bytes string.
         """
-        return self._module.compress(b)
+        return self._compress(b)
 
     def decompress(self, b: bytes, /) -> bytes:
         """Decompress a bytes string.
@@ -62,4 +73,4 @@ class Compression:
         :param b: Compressed bytes string.
         :return: Raw bytes string.
         """
-        return self._module.decompress(b)
+        return self._decompress(b)

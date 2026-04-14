@@ -6,8 +6,8 @@ from flama.crypto.exceptions import SignatureDecodeException, SignatureVerificat
 from flama.crypto.jws import JWS
 
 TOKEN = (
-    b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.J3zdedMZSFNOimstjJat0V"
-    b"28rM_b1UU62XCp9dg_5kg="
+    b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.PWRDHe1X53ydEpCCKW8_oDMVveSlvdqg"
+    b"xLhFjLk7BNk="
 )
 
 
@@ -56,7 +56,7 @@ class TestCaseJWS:
                 (
                     {"alg": "HS256", "typ": "JWT"},
                     {"data": {"foo": "bar"}, "iat": 0},
-                    b"J3zdedMZSFNOimstjJat0V28rM_b1UU62XCp9dg_5kg=",
+                    b"PWRDHe1X53ydEpCCKW8_oDMVveSlvdqgxLhFjLk7BNk=",
                 ),
                 None,
                 id="ok",
@@ -74,17 +74,17 @@ class TestCaseJWS:
                 id="wrong-header",
             ),
             pytest.param(
-                b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.format.0000",
+                b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.format.0000",
                 None,
                 SignatureDecodeException("Wrong payload format"),
                 id="wrong-payload",
             ),
             pytest.param(
-                b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.0000",
+                b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.0000",
                 None,
                 SignatureVerificationException(
-                    "Signature verification failed for token 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9."
-                    "eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.0000'"
+                    "Signature verification failed for token 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+                    "eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.0000'"
                 ),
                 id="invalid-signature",
             ),

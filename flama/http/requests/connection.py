@@ -1,8 +1,8 @@
 import typing as t
 from collections.abc import Iterator, Mapping
-from http.cookies import SimpleCookie
 
 from flama import types
+from flama._core.cookies import parse_cookie_header
 from flama.exceptions import ApplicationError
 from flama.http.data_structures import Address, Headers, QueryParams, State
 from flama.url import URL
@@ -76,9 +76,7 @@ class HTTPConnection(Mapping[str, t.Any]):
     @property
     def cookies(self) -> dict[str, str]:
         if not hasattr(self, "_cookies"):
-            cookie = SimpleCookie()
-            cookie.load(self.headers.get("cookie", ""))
-            self._cookies: dict[str, str] = {k: v.value for k, v in cookie.items()}
+            self._cookies: dict[str, str] = dict(parse_cookie_header(self.headers.get("cookie", "")))
         return self._cookies
 
     @property

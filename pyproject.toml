@@ -201,6 +201,14 @@ exclude_lines = [
   "if (typing\\.|t\\.)?TYPE_CHECKING:",
 ]
 
+[tool.ty.analysis]
+allowed-unresolved-imports = [
+    "numpy", "numpy.**",
+    "sklearn", "sklearn.**",
+    "torch", "torch.**",
+    "tensorflow", "tensorflow.**",
+]
+
 [tool.coverage.paths]
 source = ["./flama/"]
 

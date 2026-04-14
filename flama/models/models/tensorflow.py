@@ -11,7 +11,7 @@ except Exception:  # pragma: no cover
 try:
     import tensorflow as tf
 except Exception:  # pragma: no cover
-    tf = None  # ty: ignore[invalid-assignment]
+    tf = None
 
 
 __all__ = ["Model"]

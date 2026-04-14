@@ -1,8 +1,8 @@
-import json
 import logging
 import typing as t
 
 from flama import concurrency, exceptions, http
+from flama._core.json_encoder import encode_json
 from flama.endpoints.jsonrpc import JSONRPCEndpoint
 from flama.mcp.http import MCPResponse
 from flama.mcp.server import MCPServer
@@ -92,7 +92,8 @@ class MCPEndpoint(JSONRPCEndpoint):
                 status_code=http.JSONRPCStatus.INTERNAL_ERROR, detail=f"Tool '{name}' raised: {e}"
             ) from e
 
-        return {"content": [{"type": "text", "text": json.dumps(result) if isinstance(result, dict) else str(result)}]}
+        text = encode_json(result, compact=True).decode() if isinstance(result, dict) else str(result)
+        return {"content": [{"type": "text", "text": text}]}
 
     def resources_list(self, **params: t.Any) -> dict[str, t.Any]:
         return {

@@ -2,9 +2,9 @@ import dataclasses
 import datetime
 import logging
 import typing as t
-from http.cookies import SimpleCookie
 
 from flama import types
+from flama._core.cookies import parse_cookie_header
 from flama.authentication.types import AccessToken, RefreshToken
 from flama.context import Context
 from flama.exceptions import HTTPException
@@ -111,16 +111,11 @@ class Response:
     )
 
     def __post_init__(self):
-        if self.headers:
-            cookie = SimpleCookie()
-            cookie.load(self.headers.get("cookie", ""))
-        else:
-            cookie = {}
-
-        self.cookies = {
-            str(name): {**{str(k): str(v) for k, v in morsel.items()}, "value": morsel.value}
-            for name, morsel in cookie.items()
-        }
+        self.cookies = (
+            {name: {"value": value} for name, value in parse_cookie_header(self.headers.get("cookie", ""))}
+            if self.headers
+            else {}
+        )
 
     def to_dict(self) -> dict[str, t.Any]:
         return {

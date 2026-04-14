@@ -1,5 +1,4 @@
 import http.cookiejar
-import sys
 
 import pytest
 
@@ -347,23 +346,7 @@ class TestCaseCookiesComponent:
                         rfc2109=False,
                     )
                 ],
-                {
-                    "cookies": {
-                        "foo": {
-                            "value": "bar",
-                            "expires": "",
-                            "path": "",
-                            "comment": "",
-                            "domain": "",
-                            "max-age": "",
-                            "partitioned": "",
-                            "secure": "",
-                            "httponly": "",
-                            "version": "",
-                            "samesite": "",
-                        }
-                    }
-                },
+                {"cookies": {"foo": {"value": "bar"}}},
                 id="cookie",
             ),
             pytest.param(
@@ -402,10 +385,6 @@ class TestCaseCookiesComponent:
         client.cookies = cookies_jar
         response = await client.request(method, path)
         response_json = response.json()
-
-        if sys.version_info < (3, 14):  # PORT: Replace compat when stop supporting 3.13
-            for cookie in [name for name, cookie in expected.get("cookies", {}).items() if "partitioned" in cookie]:
-                del expected["cookies"][cookie]["partitioned"]
 
         assert response_json == expected
 

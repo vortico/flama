@@ -4,23 +4,11 @@ import typing as t
 from collections.abc import AsyncGenerator
 
 from flama import types
+from flama._core.http import parse_content_type as _parse_content_type
 from flama.http.data_structures import FormData
 from flama.http.requests.connection import HTTPConnection
 
 __all__ = ["Request"]
-
-
-def _parse_content_type(header: str) -> tuple[str, dict[str, str]]:
-    """Parse a ``Content-Type`` header into ``(media_type, params)``."""
-    parts = header.split(";")
-    media_type = parts[0].strip().lower()
-    params: dict[str, str] = {}
-    for part in parts[1:]:
-        part = part.strip()
-        if "=" in part:
-            k, _, v = part.partition("=")
-            params[k.strip().lower()] = v.strip().strip('"')
-    return media_type, params
 
 
 class _EmptyReceive(types.Receive):

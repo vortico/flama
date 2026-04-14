@@ -7,6 +7,7 @@ import tempfile
 import typing as t
 import weakref
 
+from flama._core.json_encoder import encode_json
 from flama.serialize.compression import Compression
 from flama.serialize.data_structures import Metadata, ModelArtifact
 from flama.serialize.model_serializers import ModelSerializer
@@ -83,7 +84,7 @@ class _Body:
 
     @classmethod
     def pack(cls, m: ModelArtifact, /, *, compression: Compression, **kwargs) -> bytes:
-        meta = compression.compress(json.dumps(m.meta.to_dict()).encode())
+        meta = compression.compress(encode_json(m.meta.to_dict(), compact=True))
         model = compression.compress(ModelSerializer.from_lib(m.meta.framework.lib).dump(m.model))
         artifacts = b"".join(
             _Artifact.pack(name, pathlib.Path(str(path)), compression=compression)

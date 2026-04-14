@@ -186,7 +186,7 @@ class TestCaseSerializer:
             )
 
         c = Compression(compression_format)
-        header = struct.pack(Serializer._header_format, protocol_version, c.format.value, len(mock_body))
+        header = struct.pack(Serializer._header_format, protocol_version, c.format, len(mock_body))
 
         if use_path:
             assert target.read_bytes() == header + mock_body
@@ -194,7 +194,7 @@ class TestCaseSerializer:
             buf.seek(0)
             proto_id, fmt_val, body_len = struct.unpack(Serializer._header_format, buf.read(Serializer._header_size))
             assert proto_id == protocol_version
-            assert fmt_val == c.format.value
+            assert fmt_val == c.format
             assert body_len == len(mock_body)
             assert buf.read() == mock_body
 
@@ -244,7 +244,7 @@ class TestCaseSerializer:
     ) -> None:
         body = b"stored-body"
         c = Compression(compression_format)
-        header = struct.pack(Serializer._header_format, protocol_version, c.format.value, len(body))
+        header = struct.pack(Serializer._header_format, protocol_version, c.format, len(body))
 
         mock_loaded = MagicMock()
         mock_loaded.meta.framework.lib = "sklearn"

@@ -1,6 +1,6 @@
-import json
 import typing as t
 
+from flama._core.json_encoder import encode_json
 from flama.http.responses.response import Response
 
 __all__ = ["OpenAPIResponse"]
@@ -13,4 +13,4 @@ class OpenAPIResponse(Response):
         if not isinstance(content, dict):
             raise ValueError("The schema must be a dictionary")
 
-        return json.dumps(content).encode("utf-8")
+        return encode_json(content, compact=True)
