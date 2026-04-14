@@ -332,6 +332,7 @@ class TestCaseNetloc:
             pytest.param("example.com:8000", "example.com", 8000, None, id="with_port"),
             pytest.param("user:pass@example.com", "example.com", None, "user:pass", id="with_userinfo"),
             pytest.param("user:pass@example.com:8000", "example.com", 8000, "user:pass", id="with_userinfo_and_port"),
+            pytest.param("example.com:notanumber", "example.com:notanumber", None, None, id="invalid_port"),
             pytest.param("*.example.com", "*.example.com", None, None, id="wildcard_pattern"),
             pytest.param("*", "*", None, None, id="any_pattern"),
             pytest.param("", "", None, None, id="empty"),
@@ -375,16 +376,17 @@ class TestCaseNetloc:
         assert bool(Netloc(netloc)) is expected
 
     @pytest.mark.parametrize(
-        ["netloc", "expected"],
+        ["netloc", "expected", "result"],
         [
-            pytest.param(Netloc("example.com"), "example.com", id="str"),
-            pytest.param(Netloc("example.com"), Netloc("example.com"), id="netloc"),
-            pytest.param(Netloc("example.com:8000"), Netloc("example.com:8000"), id="netloc_with_port"),
-            pytest.param(Netloc("user:p@h:80"), Netloc("user:p@h:80"), id="netloc_full"),
+            pytest.param(Netloc("example.com"), "example.com", True, id="str"),
+            pytest.param(Netloc("example.com"), Netloc("example.com"), True, id="netloc"),
+            pytest.param(Netloc("example.com:8000"), Netloc("example.com:8000"), True, id="netloc_with_port"),
+            pytest.param(Netloc("user:p@h:80"), Netloc("user:p@h:80"), True, id="netloc_full"),
+            pytest.param(Netloc("example.com"), 42, False, id="false"),
         ],
     )
-    def test_eq(self, netloc, expected):
-        assert netloc == expected
+    def test_eq(self, netloc, expected, result):
+        assert (netloc == expected) is result
 
     def test_copy(self):
         original = Netloc("user:pass@example.com:8000")
@@ -408,6 +410,11 @@ class TestCaseNetloc:
 
     def test_repr(self):
         assert repr(Netloc("example.com:8000")) == "Netloc('example.com:8000')"
+
+    def test_hash(self):
+        a = Netloc("example.com:8000")
+        b = Netloc("example.com:8000")
+        assert hash(a) == hash(b)
 
 
 class TestCaseURL:
@@ -476,3 +483,69 @@ class TestCaseURL:
     )
     def test_url(self, url, components):
         assert URL(url) == URL(**components)
+
+    @pytest.mark.parametrize(
+        ["scope", "expected_str", "expected_scheme"],
+        [
+            pytest.param(
+                {
+                    "scheme": "http",
+                    "path": "/hello",
+                    "root_path": "",
+                    "query_string": b"q=1",
+                    "headers": [],
+                    "server": ("myhost", 9000),
+                },
+                "http://myhost:9000/hello?q=1",
+                "http",
+                id="with_server",
+            ),
+            pytest.param(
+                {
+                    "scheme": "http",
+                    "path": "/hello",
+                    "root_path": "",
+                    "query_string": b"",
+                    "headers": [],
+                    "server": ("myhost", 80),
+                },
+                "http://myhost/hello",
+                "http",
+                id="server_default_port",
+            ),
+            pytest.param(
+                {
+                    "scheme": "http",
+                    "path": "/hello",
+                    "root_path": "",
+                    "query_string": b"",
+                    "headers": [],
+                },
+                None,
+                "",
+                id="no_host_no_server",
+            ),
+        ],
+    )
+    def test_from_scope(self, scope, expected_str, expected_scheme):
+        url = URL.from_scope(scope)
+
+        if expected_str is not None:
+            assert str(url) == expected_str
+        else:
+            assert url.path == Path("/hello")
+
+        assert url.scheme == expected_scheme
+
+    def test_hash(self):
+        a = URL("http://example.com/foo")
+        b = URL("http://example.com/foo")
+        assert hash(a) == hash(b)
+
+    def test_eq_non_url(self):
+        url = URL("http://example.com/foo")
+        assert url != 42
+
+    def test_repr(self):
+        url = URL("http://example.com/foo")
+        assert repr(url) == "URL('http://example.com/foo')"

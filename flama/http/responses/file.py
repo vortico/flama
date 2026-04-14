@@ -118,9 +118,6 @@ class _RangeRequest:
 
             ranges.append((start, end))
 
-        if not ranges:
-            raise exceptions.HTTPException(status_code=400, detail="Range header: range must be requested.")
-
         return _RangeRequest._merge(ranges) if len(ranges) > 1 else ranges
 
     @staticmethod
