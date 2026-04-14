@@ -139,6 +139,25 @@ class TestCaseHTTPConnection:
     @pytest.mark.parametrize(
         ["scope_extras", "expected", "exception"],
         [
+            pytest.param({"correlation_id": "foo-id-123"}, "foo-id-123", None, id="present"),
+            pytest.param(
+                {},
+                None,
+                ApplicationError("CorrelationIdMiddleware must be installed to access request.correlation_id"),
+                id="missing",
+            ),
+        ],
+        indirect=["exception"],
+    )
+    def test_correlation_id(self, scope_extras, expected, exception):
+        conn = HTTPConnection(types.Scope({"type": "http", "path": "/", "headers": [], **scope_extras}))
+
+        with exception:
+            assert conn.correlation_id == expected
+
+    @pytest.mark.parametrize(
+        ["scope_extras", "expected", "exception"],
+        [
             pytest.param({"session": {"user": "bob"}}, {"user": "bob"}, None, id="present"),
             pytest.param(
                 {},

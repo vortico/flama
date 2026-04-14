@@ -4,6 +4,7 @@ import re
 import typing as t
 
 from flama import concurrency, exceptions, types
+from flama.middleware.base import Middleware
 from flama.telemetry.data_structures import Error, Response, TelemetryData
 
 logger = logging.getLogger(__name__)
@@ -98,7 +99,7 @@ class WebSocketWrapper(Wrapper):
 class TelemetryDataCollector:
     data: TelemetryData
 
-    def __init__(self, app: types.App, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+    def __init__(self, app: types.ASGIApp, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         self.app = app
         self._scope = scope
         self._receive = receive
@@ -106,22 +107,21 @@ class TelemetryDataCollector:
 
     @classmethod
     async def build(
-        cls, app: types.App, scope: types.Scope, receive: types.Receive, send: types.Send
+        cls, app: types.ASGIApp, scope: types.Scope, receive: types.Receive, send: types.Send
     ) -> "TelemetryDataCollector":
         self = cls(app, scope, receive, send)
         self.data = await TelemetryData.from_scope(scope=scope, receive=receive, send=send)
         return self
 
     async def __call__(self) -> None:
-        await Wrapper.build(self._scope["type"], self.app, self.data)(
+        await Wrapper.build(self._scope["type"], t.cast(types.App, self.app), self.data)(
             scope=self._scope, receive=self._receive, send=self._send
         )
 
 
-class TelemetryMiddleware:
+class TelemetryMiddleware(Middleware):
     def __init__(
         self,
-        app: types.App,
         *,
         log_level: int = logging.NOTSET,
         before: HookFunction | None = None,
@@ -129,28 +129,11 @@ class TelemetryMiddleware:
         tag: str = "telemetry",
         ignored: list[str] = [],
     ) -> None:
-        self.app = app
         self._log_level = log_level
         self._before = before
         self._after = after
         self._tag = tag
         self._ignored = [re.compile(x) for x in ignored]
-
-    async def before(self, data: TelemetryData):
-        if self._before:
-            await concurrency.run(self._before, data)
-
-    async def after(self, data: TelemetryData):
-        if self._after:
-            await concurrency.run(self._after, data)
-
-    def _get_tag(self, scope: "types.Scope") -> bool:
-        try:
-            app: types.App = scope["app"]
-            route, _ = app.router.resolve_route(scope)
-            return route.tags.get(self._tag, True)
-        except (exceptions.MethodNotAllowedException, exceptions.NotFoundException):
-            return False
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if (
@@ -170,3 +153,19 @@ class TelemetryMiddleware:
         finally:
             await self.after(collector.data)
             logger.log(self._log_level, "Telemetry: %s", str(collector.data))
+
+    async def before(self, data: TelemetryData) -> None:
+        if self._before:
+            await concurrency.run(self._before, data)
+
+    async def after(self, data: TelemetryData) -> None:
+        if self._after:
+            await concurrency.run(self._after, data)
+
+    def _get_tag(self, scope: types.Scope) -> bool:
+        try:
+            app: types.App = scope["app"]
+            route, _ = app.router.resolve_route(scope)
+            return route.tags.get(self._tag, True)
+        except (exceptions.MethodNotAllowedException, exceptions.NotFoundException):
+            return False

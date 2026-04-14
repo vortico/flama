@@ -6,7 +6,8 @@ import typing as t
 from flama import compat
 from flama.authentication import exceptions
 from flama.authentication.jwt import claims
-from flama.authentication.jwt.jws import JWS
+from flama.crypto import JWS
+from flama.crypto.exceptions import SignatureDecodeException, SignatureVerificationException
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +157,10 @@ class JWT:
         :param key: Secret used to sign the token.
         :return: Encoded token.
         """
-        return JWS.encode(header=self.header.to_dict(), payload=self.payload.to_dict(), key=key)
+        try:
+            return JWS.encode(header=self.header.to_dict(), payload=self.payload.to_dict(), key=key)
+        except SignatureDecodeException as e:
+            raise exceptions.JWTDecodeException(str(e)) from e
 
     @classmethod
     def decode(cls, token: bytes, key: bytes) -> compat.Self:  # PORT: Replace compat when stop supporting 3.10
@@ -174,9 +178,12 @@ class JWT:
             header, payload, _ = JWS.decode(token, key)
             decoded_token = cls(header, payload)
             decoded_token.validate()
-        except exceptions.JWTDecodeException:
+        except SignatureDecodeException as e:
             logger.debug("Error decoding token")
-            raise
+            raise exceptions.JWTDecodeException(str(e)) from e
+        except SignatureVerificationException as e:
+            logger.debug("Error validating token: %s", e)
+            raise exceptions.JWTValidateException(str(e)) from e
         except exceptions.JWTValidateException as e:
             logger.debug("Error validating token: %s", e)
             raise

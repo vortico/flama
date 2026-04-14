@@ -8,19 +8,20 @@ from flama import concurrency, exceptions, http, types
 from flama.debug.data_structures import ErrorContext, NotFoundContext
 from flama.http.responses.api import APIErrorResponse
 from flama.http.responses.json_rpc import JSONRPCErrorResponse
+from flama.http.responses.plain_text import PlainTextResponse
 from flama.http.responses.templates import _FlamaTemplateResponse
+from flama.middleware import Middleware
 
 if t.TYPE_CHECKING:
-    from flama.debug.types import Handler
+    from flama.debug.types import ExceptionHandler
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["ServerErrorMiddleware", "ExceptionMiddleware"]
 
 
-class BaseErrorMiddleware:
-    def __init__(self, app: types.ASGIApp, debug: bool = False) -> None:
-        self.app = app
+class BaseErrorMiddleware(Middleware):
+    def __init__(self, debug: bool = False) -> None:
         self.debug = debug
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
@@ -48,7 +49,7 @@ class BaseErrorMiddleware:
 
 
 class ServerErrorMiddleware(BaseErrorMiddleware):
-    def _get_handler(self, scope: types.Scope) -> "Handler":
+    def _get_handler(self, scope: types.Scope) -> "ExceptionHandler":
         if scope["type"] == "http":
             return self.debug_handler if self.debug else self.error_handler
 
@@ -82,24 +83,26 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
             return _FlamaTemplateResponse(
                 "debug/error_500.html", context=dataclasses.asdict(ErrorContext.build(request, exc)), status_code=500
             )
-        return http.PlainTextResponse("Internal Server Error", status_code=500)
+        return PlainTextResponse("Internal Server Error", status_code=500)
 
     def error_handler(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception
     ) -> http.Response:
-        return http.PlainTextResponse("Internal Server Error", status_code=500)
+        return PlainTextResponse("Internal Server Error", status_code=500)
 
     def noop_handler(self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception) -> None: ...
 
 
 class ExceptionMiddleware(BaseErrorMiddleware):
-    def __init__(self, app: types.ASGIApp, handlers: t.Mapping[t.Any, "Handler"] | None = None, debug: bool = False):
-        super().__init__(app, debug)
+    def __init__(
+        self, handlers: t.Mapping[int | type[Exception], "ExceptionHandler"] | None = None, debug: bool = False
+    ) -> None:
+        super().__init__(debug)
         handlers = handlers or {}
-        self._status_handlers: dict[int, Handler] = {
+        self._status_handlers: dict[int, ExceptionHandler] = {
             status_code: handler for status_code, handler in handlers.items() if isinstance(status_code, int)
         }
-        self._exception_handlers: dict[type[Exception], Handler] = {
+        self._exception_handlers: dict[type[Exception], ExceptionHandler] = {
             **{e: handler for e, handler in handlers.items() if inspect.isclass(e) and issubclass(e, Exception)},
             exceptions.JSONRPCException: self.jsonrpc_exception_handler,
             exceptions.NotFoundException: self.not_found_handler,
@@ -109,10 +112,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         }
 
     def add_exception_handler(
-        self,
-        handler: "Handler",
-        status_code: int | None = None,
-        exc_class: type[Exception] | None = None,
+        self, handler: "ExceptionHandler", status_code: int | None = None, exc_class: type[Exception] | None = None
     ) -> None:
         if status_code is None and exc_class is None:
             raise ValueError("Status code or exception class must be defined")
@@ -123,13 +123,13 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         if exc_class is not None:
             self._exception_handlers[exc_class] = handler
 
-    def _get_handler(self, exc: Exception) -> "Handler":
+    def _get_handler(self, exc: Exception) -> "ExceptionHandler":
         if isinstance(exc, exceptions.HTTPException) and exc.status_code in self._status_handlers:
             return self._status_handlers[exc.status_code]
         else:
             try:
                 return next(
-                    self._exception_handlers[cls]  # ty: ignore[invalid-argument-type]
+                    self._exception_handlers[t.cast(type[Exception], cls)]
                     for cls in type(exc).__mro__
                     if cls in self._exception_handlers
                 )
@@ -192,7 +192,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         if "app" in scope:
             return self.http_exception_handler(scope, receive, send, exc=exceptions.HTTPException(status_code=404))
 
-        return http.PlainTextResponse("Not Found", status_code=404)
+        return PlainTextResponse("Not Found", status_code=404)
 
     async def method_not_allowed_handler(
         self,

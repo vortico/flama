@@ -82,7 +82,8 @@ class TestCaseFlama:
         assert app.components == [*default_components, component_obj]
         # Check events
         assert app.events == Events(
-            startup=[m.on_startup for m in app.modules.values()], shutdown=[m.on_shutdown for m in app.modules.values()]
+            startup=[app.modules.on_startup, app.middleware.on_startup],
+            shutdown=[app.modules.on_shutdown, app.middleware.on_shutdown],
         )
 
     def test_getattr(self, app):
@@ -251,20 +252,17 @@ class TestCaseFlama:
             assert app.middleware.add_exception_handler.call_args_list == expected_call
 
     def test_add_middleware(self, app):
-        class FooMiddleware:
-            def __init__(self, app: types.App) -> None: ...
-
+        class FooMiddleware(Middleware):
             def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send): ...
 
-        kwargs = {"foo": "bar"}
+        m = FooMiddleware()
 
         with patch.object(app, "middleware", spec=MiddlewareStack):
-            app.add_middleware(Middleware(FooMiddleware, **kwargs))
+            app.add_middleware(m)
             assert len(app.middleware.add_middleware.call_args_list) == 1
-            middleware = app.middleware.add_middleware.call_args[0][0]
-            assert isinstance(middleware, Middleware)
-            assert middleware.middleware == FooMiddleware
-            assert middleware.kwargs == kwargs
+            result = app.middleware.add_middleware.call_args[0][0]
+            assert isinstance(result, Middleware)
+            assert result is m
 
     @pytest.mark.parametrize(
         ["resolve", "path_params", "resolution", "exception"],
