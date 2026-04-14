@@ -387,7 +387,7 @@ class Netloc:
             return self.host == other.host and self.port == other.port and self.userinfo == other.userinfo
         if isinstance(other, str):
             return str(self) == other
-        return NotImplemented
+        return False
 
     def __str__(self) -> str:
         result = self.host

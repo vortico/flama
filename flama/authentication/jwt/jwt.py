@@ -184,7 +184,7 @@ class JWT:
         except SignatureVerificationException as e:
             logger.debug("Error validating token: %s", e)
             raise exceptions.JWTValidateException(str(e)) from e
-        except exceptions.JWTValidateException as e:
+        except exceptions.JWTValidateException as e:  # pragma: no cover
             logger.debug("Error validating token: %s", e)
             raise
         else:
