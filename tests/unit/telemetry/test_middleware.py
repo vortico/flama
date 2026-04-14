@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 import pytest
 
 from flama import Flama, authentication, types
-from flama.middleware import Middleware
 from flama.telemetry import Authentication, Endpoint, Error, Request, Response, TelemetryData, TelemetryMiddleware
 
 SECRET = uuid.UUID(int=0)
@@ -319,7 +318,7 @@ class TestCaseTelemetryMiddleware:
         after,
         data,
     ):
-        app.add_middleware(Middleware(TelemetryMiddleware, before=before, after=after, ignored=[r"/ignored.*"]))
+        app.add_middleware(TelemetryMiddleware(before=before, after=after, ignored=[r"/ignored.*"]))
 
         client.cookies = request_cookies
 

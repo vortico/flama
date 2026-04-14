@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from flama import Flama
+from flama import Flama, exceptions
 from flama.modules import Module, Modules
 
 
@@ -32,6 +32,15 @@ class TestCaseModule:
         m = module()
 
         assert not hasattr(m, "app")
+
+    def test_build(self, module):
+        m = module()
+        app = Mock(spec=Flama)
+
+        result = m._build(app)
+
+        assert result is m
+        assert m.app is app
 
 
 class TestCaseModules:
@@ -72,5 +81,35 @@ class TestCaseModules:
         class FooModule2(Module):
             name = "foo"
 
-        with pytest.raises(AssertionError, match=r"Collision in module names: foo \(FooModule, FooModule2\)"):
+        with pytest.raises(
+            exceptions.ApplicationError, match=r"Collision in module names: foo \(FooModule, FooModule2\)"
+        ):
             Modules(app, {foo_module, FooModule2()})
+
+    async def test_on_startup(self, modules):
+        started = []
+
+        for m in modules.values():
+
+            async def _startup(_m=m):
+                started.append(_m)
+
+            m.on_startup = _startup
+
+        await modules.on_startup()
+
+        assert len(started) == len(modules)
+
+    async def test_on_shutdown(self, modules):
+        stopped = []
+
+        for m in modules.values():
+
+            async def _shutdown(_m=m):
+                stopped.append(_m)
+
+            m.on_shutdown = _shutdown
+
+        await modules.on_shutdown()
+
+        assert len(stopped) == len(modules)

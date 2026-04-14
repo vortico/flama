@@ -9,7 +9,7 @@ __all__ = ["Lifespan"]
 logger = logging.getLogger(__name__)
 
 
-class Lifespan(types.AppClass):
+class Lifespan(types.ASGIAppClass):
     def __init__(self, lifespan: t.Callable[[types.App | None], t.AsyncContextManager] | None = None):
         """A class that handles the lifespan of an application.
 

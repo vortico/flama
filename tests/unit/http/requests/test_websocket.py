@@ -47,7 +47,7 @@ class TestCaseWebSocket:
                 None,
                 None,
                 WebSocketStatus.CONNECTING,
-                (RuntimeError, "websocket.connect"),
+                RuntimeError("websocket.connect"),
                 id="connect_wrong_type",
             ),
             pytest.param(
@@ -84,7 +84,16 @@ class TestCaseWebSocket:
                 {"k": "v"},
                 WebSocketStatus.CONNECTED,
                 None,
-                id="json",
+                id="json_from_bytes",
+            ),
+            pytest.param(
+                WebSocketStatus.CONNECTED,
+                types.Message({"type": "websocket.receive", "text": '{"k": "v"}'}),
+                "json",
+                {"k": "v"},
+                WebSocketStatus.CONNECTED,
+                None,
+                id="json_from_text",
             ),
             pytest.param(
                 WebSocketStatus.CONNECTED,
@@ -154,7 +163,7 @@ class TestCaseWebSocket:
                 None,
                 WebSocketStatus.CONNECTED,
                 None,
-                (ValueError, "must be provided"),
+                ValueError("must be provided"),
                 id="no_args",
             ),
             pytest.param(
@@ -163,7 +172,7 @@ class TestCaseWebSocket:
                 None,
                 WebSocketStatus.CONNECTED,
                 None,
-                (ValueError, "mutually exclusive"),
+                ValueError("mutually exclusive"),
                 id="message_and_data",
             ),
             pytest.param(
@@ -172,7 +181,7 @@ class TestCaseWebSocket:
                 None,
                 WebSocketStatus.CONNECTED,
                 None,
-                (ValueError, "mutually exclusive"),
+                ValueError("mutually exclusive"),
                 id="message_and_json",
             ),
             pytest.param(
@@ -198,7 +207,7 @@ class TestCaseWebSocket:
                 {"json": {"a": 1}},
                 None,
                 WebSocketStatus.CONNECTED,
-                types.Message({"type": "websocket.send", "text": '{"a": 1}'}),
+                types.Message({"type": "websocket.send", "bytes": b'{"a": 1}'}),
                 None,
                 id="data_json",
             ),
@@ -236,7 +245,7 @@ class TestCaseWebSocket:
                 None,
                 WebSocketStatus.CONNECTING,
                 None,
-                (RuntimeError, "websocket.accept"),
+                RuntimeError("websocket.accept"),
                 id="connecting_wrong_type",
             ),
             # -- CONNECTED state --
@@ -264,7 +273,7 @@ class TestCaseWebSocket:
                 None,
                 WebSocketStatus.CONNECTED,
                 None,
-                (RuntimeError, "websocket.send"),
+                RuntimeError("websocket.send"),
                 id="connected_wrong_type",
             ),
             pytest.param(
@@ -309,7 +318,7 @@ class TestCaseWebSocket:
                 None,
                 WebSocketStatus.RESPONSE,
                 None,
-                (RuntimeError, "websocket.http.response.body"),
+                RuntimeError("websocket.http.response.body"),
                 id="response_wrong_type",
             ),
             # -- DISCONNECTED state --
@@ -319,7 +328,7 @@ class TestCaseWebSocket:
                 None,
                 WebSocketStatus.DISCONNECTED,
                 None,
-                (RuntimeError, "close message"),
+                RuntimeError("close message"),
                 id="disconnected",
             ),
         ],

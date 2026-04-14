@@ -76,7 +76,9 @@ class WebSocket(HTTPConnection):
             case "text":
                 result = t.cast(str, message["text"])
             case "json":
-                result = t.cast(types.JSONSchema, json.loads(message["bytes"]))
+                result = t.cast(
+                    types.JSONSchema, json.loads(message.get("bytes", message.get("text", "").encode("utf-8")))
+                )
             case None:
                 result = message
 
@@ -107,7 +109,7 @@ class WebSocket(HTTPConnection):
             if data is None and json is None:
                 raise ValueError("Either 'data', 'message' or 'json' must be provided")
             elif json is not None:
-                message["text"] = encode_json(json).decode()
+                message["bytes"] = encode_json(json)
             elif data is not None:
                 message["bytes" if isinstance(data, bytes) else "text"] = data
             else:

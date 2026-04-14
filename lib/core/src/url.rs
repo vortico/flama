@@ -237,9 +237,68 @@ impl PathMatcher {
     }
 }
 
+/// Pre-parsed netloc pattern for fast host matching.
+///
+/// Supports three pattern forms:
+///   - `"*"` — matches any host.
+///   - `"*.example.com"` — matches any subdomain of `example.com`.
+///   - `"example.com"` — exact match only.
+#[pyclass(skip_from_py_object)]
+#[derive(Clone)]
+pub struct NetlocMatcher {
+    kind: NetlocPatternKind,
+}
+
+#[derive(Clone)]
+enum NetlocPatternKind {
+    Any,
+    WildcardSuffix(String),
+    Exact(String),
+}
+
+#[pymethods]
+impl NetlocMatcher {
+    #[new]
+    fn new(pattern: &str) -> PyResult<Self> {
+        let kind = if pattern == "*" {
+            NetlocPatternKind::Any
+        } else if let Some(suffix) = pattern.strip_prefix("*.") {
+            NetlocPatternKind::WildcardSuffix(format!(".{}", suffix.to_ascii_lowercase()))
+        } else if pattern.contains('*') {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Domain wildcard patterns must be like '*.example.com'.",
+            ));
+        } else {
+            NetlocPatternKind::Exact(pattern.to_ascii_lowercase())
+        };
+        Ok(NetlocMatcher { kind })
+    }
+
+    /// Check whether *host* matches this pattern.
+    fn is_match(&self, host: &str) -> bool {
+        let host_lower = host.to_ascii_lowercase();
+        match &self.kind {
+            NetlocPatternKind::Any => true,
+            NetlocPatternKind::Exact(expected) => host_lower == *expected,
+            NetlocPatternKind::WildcardSuffix(suffix) => host_lower.ends_with(suffix.as_str()),
+        }
+    }
+
+    /// Return ``True`` when the pattern represents a wildcard (``*`` or ``*.…``).
+    fn is_wildcard(&self) -> bool {
+        matches!(self.kind, NetlocPatternKind::Any | NetlocPatternKind::WildcardSuffix(_))
+    }
+
+    /// Return ``True`` when the pattern matches any host (``*``).
+    fn is_any(&self) -> bool {
+        matches!(self.kind, NetlocPatternKind::Any)
+    }
+}
+
 pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "url")?;
     m.add_class::<PathMatcher>()?;
+    m.add_class::<NetlocMatcher>()?;
     parent.add_submodule(&m)?;
     parent
         .py()

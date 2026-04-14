@@ -3,10 +3,9 @@ import typing as t
 from flama import types
 
 if t.TYPE_CHECKING:
-    from flama import http
+    from flama.http import Response
 
-HandlerException = t.TypeVar("HandlerException", bound=Exception)
-Handler = t.Callable[
-    [types.Scope, types.Receive, types.Send, HandlerException],
-    "http.Response | None | t.Awaitable[http.Response | None]",
+E = t.TypeVar("E", bound=Exception)
+ExceptionHandler = t.Callable[
+    [types.Scope, types.Receive, types.Send, E], "Response | None | t.Awaitable[Response | None]"
 ]

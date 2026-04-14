@@ -18,7 +18,7 @@ class SignAlgorithm(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def verify(self, message: bytes, signature: bytes, key) -> bool:
+    def verify(self, message: bytes, signature: bytes, key: bytes) -> bool:
         """Verify the signature of a message.
 
         :param message: Message to verify.
@@ -30,9 +30,12 @@ class SignAlgorithm(abc.ABC):
 
 
 class HMACAlgorithm(SignAlgorithm):
-    """HMAC using SHA algorithms for JWS."""
+    """HMAC using SHA algorithms for JWS.
 
-    def __init__(self, sha):
+    :param sha: Hash algorithm constructor (e.g. ``hashlib.sha256``).
+    """
+
+    def __init__(self, sha) -> None:
         self.hash_algorithm = sha
 
     def sign(self, message: bytes, key: bytes) -> bytes:
@@ -44,7 +47,7 @@ class HMACAlgorithm(SignAlgorithm):
         """
         return hmac.new(key, message, self.hash_algorithm).digest()
 
-    def verify(self, message: bytes, signature: bytes, key) -> bool:
+    def verify(self, message: bytes, signature: bytes, key: bytes) -> bool:
         """Verify the signature of a message.
 
         :param message: Message to verify.

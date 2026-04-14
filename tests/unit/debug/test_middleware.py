@@ -25,9 +25,15 @@ class TestCaseBaseErrorMiddleware:
 
         return FooMiddleware
 
+    @staticmethod
+    def _build(cls, app, **kwargs):
+        instance = cls(**kwargs)
+        instance._build(app)
+        return instance
+
     def test_init(self, middleware_cls):
         app = AsyncMock()
-        middleware = middleware_cls(app=app, debug=True)
+        middleware = self._build(middleware_cls, app, debug=True)
         assert middleware.app == app
         assert middleware.debug
 
@@ -35,7 +41,7 @@ class TestCaseBaseErrorMiddleware:
         asgi_scope["type"] = "http"
         exc = ValueError()
         app = AsyncMock(side_effect=exc)
-        middleware = middleware_cls(app=app, debug=True)
+        middleware = self._build(middleware_cls, app, debug=True)
         with patch.object(middleware, "process_exception", new_callable=AsyncMock):
             await middleware(asgi_scope, asgi_receive, asgi_send)
             assert middleware.app.call_count == 1
@@ -50,7 +56,7 @@ class TestCaseBaseErrorMiddleware:
         asgi_scope["type"] = "websocket"
         exc = ValueError()
         app = AsyncMock(side_effect=exc)
-        middleware = middleware_cls(app=app, debug=True)
+        middleware = self._build(middleware_cls, app, debug=True)
         with patch.object(middleware, "process_exception", new_callable=AsyncMock):
             await middleware(asgi_scope, asgi_receive, asgi_send)
             assert middleware.app.call_count == 1
@@ -63,9 +69,15 @@ class TestCaseBaseErrorMiddleware:
 
 
 class TestCaseServerErrorMiddleware:
+    @staticmethod
+    def _build(app, **kwargs):
+        instance = ServerErrorMiddleware(**kwargs)
+        instance._build(app)
+        return instance
+
     @pytest.fixture
     def middleware(self):
-        return ServerErrorMiddleware(app=AsyncMock())
+        return self._build(AsyncMock())
 
     @pytest.mark.parametrize(
         ["request_type", "debug", "handler"],
@@ -144,9 +156,15 @@ class TestCaseServerErrorMiddleware:
 
 
 class TestCaseExceptionMiddleware:
+    @staticmethod
+    def _build(app, **kwargs):
+        instance = ExceptionMiddleware(**kwargs)
+        instance._build(app)
+        return instance
+
     @pytest.fixture
     def middleware(self):
-        return ExceptionMiddleware(app=AsyncMock())
+        return self._build(AsyncMock())
 
     @pytest.fixture
     def handler(self):
@@ -158,7 +176,7 @@ class TestCaseExceptionMiddleware:
         app = AsyncMock()
         debug = True
 
-        middleware = ExceptionMiddleware(app=app, handlers={400: handler, ValueError: handler}, debug=debug)
+        middleware = self._build(app, handlers={400: handler, ValueError: handler}, debug=debug)
 
         assert middleware.app == app
         assert middleware.debug == debug
@@ -370,7 +388,7 @@ class TestCaseExceptionMiddleware:
         del asgi_scope["app"]
         exc = exceptions.NotFoundException()
 
-        with patch("flama.debug.middleware.http.PlainTextResponse") as mock:
+        with patch("flama.debug.middleware.PlainTextResponse") as mock:
             await middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
         assert mock.call_args_list == [call("Not Found", status_code=404)]

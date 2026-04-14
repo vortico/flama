@@ -79,7 +79,7 @@ class DecodeError(Exception):
         self.base_format = base_format
 
 
-class NoCodecAvailable(Exception): ...
+class NoCodecAvailable(RuntimeError): ...
 
 
 class WebSocketException(Exception):

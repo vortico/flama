@@ -3,11 +3,11 @@ import hashlib
 import json
 import typing as t
 
-from flama.authentication import exceptions
-from flama.authentication.jwt.algorithms import HMACAlgorithm
+from flama.crypto import exceptions
+from flama.crypto.algorithms import HMACAlgorithm
 
 if t.TYPE_CHECKING:
-    from flama.authentication.jwt.algorithms import SignAlgorithm
+    from flama.crypto.algorithms import SignAlgorithm
 
 __all__ = ["JWS"]
 
@@ -15,14 +15,16 @@ __all__ = ["JWS"]
 class JWS:
     """JSON Web Signature (JWS) implementation.
 
-    It is used to create and decode signed JWT tokens, and to validate the signature of the token. The token is signed
-    using the algorithm specified in the header. The supported algorithms are:
-    - HMAC with SHA-256
-    - HMAC with SHA-384
-    - HMAC with SHA-512
+    Encodes, decodes and verifies signed tokens using the ``<header>.<payload>.<signature>`` format.
+
+    Supported algorithms:
+
+    - HMAC with SHA-256 (``HS256``)
+    - HMAC with SHA-384 (``HS384``)
+    - HMAC with SHA-512 (``HS512``)
     """
 
-    ALGORITHMS = {
+    ALGORITHMS: dict[str, "SignAlgorithm"] = {
         "HS256": HMACAlgorithm(hashlib.sha256),
         "HS384": HMACAlgorithm(hashlib.sha384),
         "HS512": HMACAlgorithm(hashlib.sha512),
@@ -32,16 +34,15 @@ class JWS:
     def _get_algorithm(cls, header: dict[str, t.Any]) -> "SignAlgorithm":
         """Get the algorithm to sign the token.
 
-        It gets the algorithm from the header, and it returns the corresponding algorithm implementation.
-
         :param header: JWT header.
         :return: Algorithm implementation.
+        :raises SignatureDecodeException: If the algorithm is missing or unsupported.
         """
         if "alg" not in header:
-            raise exceptions.JWTDecodeException("Missing algorithm in header")
+            raise exceptions.SignatureDecodeException("Missing algorithm in header")
 
         if header["alg"] not in cls.ALGORITHMS:
-            raise exceptions.JWTDecodeException(f"Unsupported algorithm '{header['alg']}'")
+            raise exceptions.SignatureDecodeException(f"Unsupported algorithm '{header['alg']}'")
 
         return cls.ALGORITHMS[header["alg"]]
 
@@ -49,11 +50,10 @@ class JWS:
     def encode(cls, header: dict[str, t.Any], payload: dict[str, t.Any], key: bytes) -> bytes:
         """Encode a JWS token.
 
-        It generates a signed token using the given key. The result is a JWT token with a format of:
-        <header>.<payload>.<signature>
+        Generates a signed token with the format ``<header>.<payload>.<signature>``.
 
-        :param header: JWT header.
-        :param payload: JWT payload.
+        :param header: Token header (must contain ``alg``).
+        :param payload: Token payload.
         :param key: Key used to sign the token.
         :return: Encoded token.
         """
@@ -70,35 +70,35 @@ class JWS:
     def decode(cls, token: bytes, key: bytes) -> tuple[dict[str, t.Any], dict[str, t.Any], bytes]:
         """Decode a JWS token.
 
-        It decode and validate the signature of the token. The token format must be: <header>.<payload>.<signature>
+        Verifies the signature and returns the decoded header, payload and raw signature.
 
-        The header, payload and signature are constructed from the decoded token.
-
-        :param token: Token to decode.
+        :param token: Token to decode (format ``<header>.<payload>.<signature>``).
         :param key: Key used to sign the token.
-        :return: A tuple with the header, payload and signature of the token.
-        :raises JWTDecodeException: If the token format is not correct.
-        :raises JWTValidateException: If the token is not valid.
+        :return: A tuple of (header, payload, signature).
+        :raises SignatureDecodeException: If the token format is invalid.
+        :raises SignatureVerificationException: If the signature does not match.
         """
         try:
             signing_input, signature = token.rsplit(b".", 1)
             header_segment, payload_segment = signing_input.split(b".", 1)
         except ValueError:
-            raise exceptions.JWTDecodeException("Not enough segments")
+            raise exceptions.SignatureDecodeException("Not enough segments")
 
         try:
             header = json.loads(base64.urlsafe_b64decode(header_segment))
         except ValueError:
-            raise exceptions.JWTDecodeException("Wrong header format")
+            raise exceptions.SignatureDecodeException("Wrong header format")
 
         try:
             payload = json.loads(base64.urlsafe_b64decode(payload_segment))
         except ValueError:
-            raise exceptions.JWTDecodeException("Wrong payload format")
+            raise exceptions.SignatureDecodeException("Wrong payload format")
 
         algorithm = cls._get_algorithm(header)
 
         if not algorithm.verify(signing_input, base64.urlsafe_b64decode(signature), key):
-            raise exceptions.JWTValidateException(f"Signature verification failed for token '{token.decode()}'")
+            raise exceptions.SignatureVerificationException(
+                f"Signature verification failed for token '{token.decode()}'"
+            )
 
         return header, payload, signature
