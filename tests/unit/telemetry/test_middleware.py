@@ -1,7 +1,6 @@
 import datetime
 import http
 import importlib.metadata
-import sys
 import uuid
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -14,8 +13,8 @@ from flama.telemetry.middleware import HTTPWrapper, WebSocketWrapper, Wrapper
 SECRET = uuid.UUID(int=0)
 
 TOKEN = (
-    "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.J3zdedMZSFNOimstjJat0V"
-    "28rM_b1UU62XCp9dg_5kg="
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.PWRDHe1X53ydEpCCKW8_oDMVveSlvdqg"
+    "xLhFjLk7BNk="
 )
 DECODED_TOKEN = authentication.AccessToken.decode(TOKEN.encode(), SECRET.bytes)
 
@@ -98,26 +97,10 @@ class TestCaseTelemetryMiddleware:
                             "accept-encoding": "gzip, deflate",
                             "connection": "keep-alive",
                             "user-agent": f"flama/{importlib.metadata.version('flama')}",
-                            "cookie": "access_token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiY"
-                            "mFyIn0sICJpYXQiOiAwfQ==.J3zdedMZSFNOimstjJat0V28rM_b1UU62XCp9dg_5kg=",
+                            "cookie": f"access_token={TOKEN}",
                             "content-length": "4",
                         },
-                        cookies={
-                            "access_token": {
-                                "expires": "",
-                                "path": "",
-                                "comment": "",
-                                "domain": "",
-                                "max-age": "",
-                                "secure": "",
-                                "httponly": "",
-                                "version": "",
-                                "samesite": "",
-                                "partitioned": "",
-                                "value": "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJ"
-                                "pYXQiOiAwfQ==.J3zdedMZSFNOimstjJat0V28rM_b1UU62XCp9dg_5kg=",
-                            }
-                        },
+                        cookies={"access_token": {"value": TOKEN}},
                         query_parameters={"y": "1"},
                         path_parameters={"x": 1},
                         body=b"body",
@@ -151,26 +134,10 @@ class TestCaseTelemetryMiddleware:
                             "accept-encoding": "gzip, deflate",
                             "connection": "keep-alive",
                             "user-agent": f"flama/{importlib.metadata.version('flama')}",
-                            "cookie": "access_token=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiY"
-                            "mFyIn0sICJpYXQiOiAwfQ==.J3zdedMZSFNOimstjJat0V28rM_b1UU62XCp9dg_5kg=",
+                            "cookie": f"access_token={TOKEN}",
                             "content-length": "4",
                         },
-                        cookies={
-                            "access_token": {
-                                "expires": "",
-                                "path": "",
-                                "comment": "",
-                                "domain": "",
-                                "max-age": "",
-                                "secure": "",
-                                "httponly": "",
-                                "version": "",
-                                "samesite": "",
-                                "partitioned": "",
-                                "value": "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJ"
-                                "pYXQiOiAwfQ==.J3zdedMZSFNOimstjJat0V28rM_b1UU62XCp9dg_5kg=",
-                            }
-                        },
+                        cookies={"access_token": {"value": TOKEN}},
                         query_parameters={"y": "1"},
                         path_parameters={"x": 1},
                         body=b"body",
@@ -329,10 +296,6 @@ class TestCaseTelemetryMiddleware:
                 data.response.timestamp = now
             if data.error:
                 data.error.timestamp = now
-
-            if sys.version_info < (3, 14):  # PORT: Replace compat when stop supporting 3.13
-                for cookie in [name for name, cookie in data.request.cookies.items() if "partitioned" in cookie]:
-                    del data.request.cookies[cookie]["partitioned"]
 
         with exception, patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
             r = await client.post(path, params=request_params, content=request_body)

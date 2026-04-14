@@ -35,7 +35,7 @@ class Serializer:
         /,
         *,
         protocol: types.ProtocolVersion = 1,
-        compression: types.Compression = "zstd",
+        compression: types.SerializationCompression = "zstd",
         model_id: str | uuid.UUID | None = None,
         timestamp: datetime.datetime | None = None,
         params: dict[str, t.Any] | None = None,
@@ -53,7 +53,7 @@ class Serializer:
         *,
         path: str | os.PathLike | pathlib.Path,
         protocol: types.ProtocolVersion = 1,
-        compression: types.Compression = "zstd",
+        compression: types.SerializationCompression = "zstd",
         model_id: str | uuid.UUID | None = None,
         timestamp: datetime.datetime | None = None,
         params: dict[str, t.Any] | None = None,
@@ -71,7 +71,7 @@ class Serializer:
         *,
         path: str | os.PathLike | pathlib.Path | None = None,
         protocol: types.ProtocolVersion = 1,
-        compression: types.Compression = "zstd",
+        compression: types.SerializationCompression = "zstd",
         model_id: str | uuid.UUID | None = None,
         timestamp: datetime.datetime | None = None,
         params: dict[str, t.Any] | None = None,
@@ -121,7 +121,7 @@ class Serializer:
             compression=c,
             **kwargs,
         )
-        header = struct.pack(cls._header_format, protocol, c.format.value, len(body))
+        header = struct.pack(cls._header_format, protocol, c.format, len(body))
 
         try:
             f.write(b"".join((header, body)))
