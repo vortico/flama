@@ -23,8 +23,9 @@ def exception(request):
     if request.param is None:
         context = ExceptionContext(ExitStack())
     elif isinstance(request.param, Exception):
+        message = str(request.param)
         context = ExceptionContext(
-            pytest.raises(request.param.__class__, match=re.escape(str(request.param))), request.param
+            pytest.raises(request.param.__class__, match=re.escape(message) if message else None), request.param
         )
     elif isinstance(request.param, list | tuple):
         exception, message = request.param

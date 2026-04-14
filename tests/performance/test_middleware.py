@@ -13,16 +13,13 @@ from flama.middleware import Middleware
 pytestmark = pytest.mark.benchmark(group="middleware")
 
 
-class NoopMiddleware:
-    def __init__(self, app: types.App):
-        self.app = app
-
+class NoopMiddleware(Middleware):
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         await self.app(scope, receive, send)
 
 
 def _build_app(n_middleware: int) -> Flama:
-    middleware = [Middleware(NoopMiddleware) for _ in range(n_middleware)]
+    middleware = [NoopMiddleware() for _ in range(n_middleware)]
     app = Flama(schema=None, docs=None, middleware=middleware)
 
     @app.route("/plain/")

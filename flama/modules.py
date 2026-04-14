@@ -2,16 +2,25 @@ import abc
 import typing as t
 from collections import defaultdict
 
-from flama import types
+from flama import exceptions, types
 
 __all__ = ["Module", "Modules"]
 
 
 class _BaseModule:
+    app: types.App
     name: str
 
-    def __init__(self) -> None:
-        self.app: types.App
+    def __init__(self) -> None: ...
+
+    def _build(self, app: types.App) -> "_BaseModule":
+        """Instantiate the module and inject the app.
+
+        :param app: The ASGI application.
+        :return: The module instance.
+        """
+        self.app = app
+        return self
 
     async def on_startup(self) -> None: ...
 
@@ -32,15 +41,28 @@ class Modules(dict[str, Module]):
     def __init__(self, app: types.App, modules: t.Sequence[Module] | set[Module] | None):
         modules_map: dict[str, list[Module]] = defaultdict(list)
         for module in modules or []:
-            module.app = app
+            module._build(app)
             modules_map[module.name].append(module)
 
-        collisions = {name: {x.__class__.__name__ for x in mods} for name, mods in modules_map.items() if len(mods) > 1}
-        assert not collisions, "Collision in module names: " + ", ".join(
-            f"{name} ({', '.join(sorted(mods))})" for name, mods in collisions.items()
-        )
+        if collisions := {
+            name: {x.__class__.__name__ for x in mods} for name, mods in modules_map.items() if len(mods) > 1
+        }:
+            raise exceptions.ApplicationError(
+                "Collision in module names: "
+                + ", ".join(f"{name} ({', '.join(sorted(mods))})" for name, mods in collisions.items())
+            )
 
         super().__init__({name: mods[0] for name, mods in modules_map.items()})
+
+    async def on_startup(self) -> None:
+        """Trigger ``on_startup`` hooks on all module instances."""
+        for instance in self.values():
+            await instance.on_startup()
+
+    async def on_shutdown(self) -> None:
+        """Trigger ``on_shutdown`` hooks on all module instances."""
+        for instance in self.values():
+            await instance.on_shutdown()
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, list | tuple | set):
