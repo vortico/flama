@@ -6,7 +6,9 @@ from flama import exceptions, http, types
 from flama.applications import Flama
 from flama.debug.data_structures import ErrorContext
 from flama.debug.middleware import BaseErrorMiddleware, ExceptionMiddleware, ServerErrorMiddleware
+from flama.http.data_structures import JSONRPCStatus
 from flama.http.responses.api import APIErrorResponse
+from flama.http.responses.json_rpc import JSONRPCErrorResponse
 from flama.http.responses.templates import _FlamaTemplateResponse
 
 
@@ -66,6 +68,14 @@ class TestCaseBaseErrorMiddleware:
             assert middleware.process_exception.call_args_list == [
                 call(asgi_scope, asgi_receive, asgi_send, exc, False)
             ]
+
+    async def test_call_non_http_websocket_reraises(self, middleware_cls, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "lifespan"
+        exc = ValueError("boom")
+        app = AsyncMock(side_effect=exc)
+        middleware = self._build(middleware_cls, app, debug=True)
+        with pytest.raises(ValueError, match="boom"):
+            await middleware(asgi_scope, asgi_receive, asgi_send)
 
 
 class TestCaseServerErrorMiddleware:
@@ -361,6 +371,12 @@ class TestCaseExceptionMiddleware:
 
             assert isinstance(response, response_class)
             assert response_mock.call_args_list == [call(**response_params)]
+
+    def test_jsonrpc_exception_handler(self, middleware, asgi_scope, asgi_receive, asgi_send):
+        exc = exceptions.JSONRPCException(status_code=JSONRPCStatus.METHOD_NOT_FOUND, request_id=42, detail="Not found")
+        response = middleware.jsonrpc_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
+
+        assert isinstance(response, JSONRPCErrorResponse)
 
     async def test_websocket_exception_handler(self, middleware, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "websocket"

@@ -146,6 +146,13 @@ class TestCaseMount:
                 exceptions.NotFoundException(params={"x": 1}, name="foo:wrong"),
                 id="not_found_route",
             ),
+            pytest.param(
+                "foo",
+                {},
+                None,
+                exceptions.NotFoundException(params={}, name="foo"),
+                id="build_value_error",
+            ),
         ),
         indirect=["exception"],
     )

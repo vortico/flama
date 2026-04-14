@@ -263,12 +263,11 @@ class Router:
         :return: Route and its scope.
         """
         scope_type = ScopeType.__members__.get(scope["type"], ScopeType(0))
-        result = _parse_resolve_result(self._route_table.resolve(scope["path"], scope_type, scope.get("method", "")))
+        path = scope.get("path", "")
+        result = _parse_resolve_result(self._route_table.resolve(path, scope_type, scope.get("method", "")))
 
         if result is None:
-            raise exceptions.NotFoundException(
-                path=scope.get("root_path", "") + scope["path"], params=scope.get("path_params")
-            )
+            raise exceptions.NotFoundException(path=scope.get("root_path", "") + path, params=scope.get("path_params"))
 
         route = self.routes[result.index]
 

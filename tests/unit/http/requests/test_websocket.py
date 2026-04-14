@@ -122,6 +122,15 @@ class TestCaseWebSocket:
                 (RuntimeError, "disconnect message"),
                 id="already_disconnected",
             ),
+            pytest.param(
+                WebSocketStatus.CONNECTED,
+                types.Message({"type": "websocket.receive", "text": "hello"}),
+                "unsupported",
+                None,
+                WebSocketStatus.CONNECTED,
+                ValueError("Unsupported data type"),
+                id="unsupported_data_type",
+            ),
         ],
         indirect=["exception"],
     )

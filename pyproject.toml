@@ -44,7 +44,6 @@ classifiers = [
 ]
 requires-python = ">=3.10,<3.15"
 dependencies = [
-  "starlette>=0.48,<1.0.0",
   "click>=8.1,<9.0",
   "uvicorn[standard]>=0.38,<1.0.0",
   "Jinja2>=3.1.2,<4.0",
@@ -79,6 +78,7 @@ flama = 'flama.cli.__main__:cli'
 
 [dependency-groups]
 dev = [
+  "maturin>=1.8,<2.0",
   "pytest>=8.4",
   "pytest-xdist[psutil]>=3.8",
   "pytest-cov>=7.0",
@@ -174,6 +174,9 @@ omit = [
   "flama/types/*",
   "flama/*/types.py",
   "build.py",
+  "flama/serialize/model_serializers/pytorch.py",
+  "flama/serialize/model_serializers/sklearn.py",
+  "flama/serialize/model_serializers/tensorflow.py",
 ]
 concurrency = ["thread", "multiprocessing"]
 

@@ -106,9 +106,9 @@ class Response:
             assert samesite.lower() in ("strict", "lax", "none"), "samesite must be either 'strict', 'lax' or 'none'"
             cookie[key]["samesite"] = samesite
         if partitioned:
-            if sys.version_info < (3, 14):
+            if sys.version_info < (3, 14):  # pragma: no cover  # PORT: Replace compat when stop supporting 3.13
                 raise ValueError("Partitioned cookies are only supported in Python 3.14 and above.")
-            cookie[key]["partitioned"] = True  # type: ignore[literal-required]
+            cookie[key]["partitioned"] = True
 
         cookie_val = cookie.output(header="").strip()
         self.raw_headers.append((b"set-cookie", cookie_val.encode("latin-1")))

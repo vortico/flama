@@ -142,6 +142,10 @@ class TestCaseBaseRoute:
     def test_route_scope(self, route, asgi_scope):
         assert route.route_scope(asgi_scope) == types.Scope({})
 
+    def test_route_table_params(self, route):
+        params = route._route_table_params
+        assert params.scope_type.value == 0
+
     @pytest.mark.parametrize(
         ["name", "params", "exception"],
         (

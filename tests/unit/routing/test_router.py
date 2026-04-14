@@ -156,6 +156,24 @@ class TestCaseRouter:
 
         assert lifespan_mock.await_args_list == [call(asgi_scope, asgi_receive, asgi_send)]
 
+    async def test_call_wrong_scope(self, router, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "ftp"
+
+        with pytest.raises(ValueError, match="Wrong scope type"):
+            await router(asgi_scope, asgi_receive, asgi_send)
+
+    async def test_call_router_already_in_scope(self, router, asgi_scope, asgi_receive, asgi_send):
+        asgi_scope["type"] = "http"
+        existing_router = MagicMock()
+        asgi_scope["router"] = existing_router
+
+        route = AsyncMock()
+        route_scope = types.Scope({})
+        with patch.object(router, "resolve_route", return_value=(route, route_scope)):
+            await router(asgi_scope, asgi_receive, asgi_send)
+
+        assert asgi_scope["router"] is existing_router
+
     def test_components(self, router):
         assert router.components == []
 
@@ -326,6 +344,12 @@ class TestCaseRouter:
             assert router.routes[0].endpoint == endpoint.endpoint
             assert router.routes[0].tags == tags
 
+    def test_mount_no_args(self, app):
+        with pytest.raises(
+            exceptions.ApplicationError, match="Either 'path' and 'app', or 'mount' variables are needed"
+        ):
+            app.mount()
+
     def test_mount_app(self, app, app_mock, tags):
         app.mount("/app/", app=app_mock, tags=tags)
 
@@ -412,6 +436,42 @@ class TestCaseRouter:
             assert route.path == "/foo/"
             assert route_scope["root_path"] == root_path
             assert route_scope["path"] == endpoint_path
+
+    def test_resolve_route_mount_no_path_in_scope(self, app):
+        from flama.routing.routes.base import ResolveResult, ResolveType
+
+        async def plain_asgi_app(scope, receive, send): ...
+
+        app.mount("/mounted", app=plain_asgi_app)
+
+        scope = types.Scope({"type": "http", "method": "GET", "app": app})
+        resolve_result = ResolveResult(type=ResolveType.mount, index=0, matched="/mounted", unmatched="/sub")
+
+        mock_table = MagicMock()
+        mock_table.resolve.return_value = None
+
+        with (
+            patch.object(app.router, "_route_table", mock_table),
+            patch("flama.routing.router._parse_resolve_result", return_value=resolve_result),
+        ):
+            route, route_scope = app.router.resolve_route(scope=scope)
+
+        assert route.app is plain_asgi_app
+        assert "path" not in route_scope
+        assert "root_path" not in route_scope
+
+    def test_resolve_route_mount_plain_asgi(self, app, asgi_scope):
+        async def plain_asgi_app(scope, receive, send): ...
+
+        app.mount("/mounted", app=plain_asgi_app)
+
+        asgi_scope["path"] = "/mounted/sub"
+        asgi_scope["method"] = "GET"
+
+        route, route_scope = app.router.resolve_route(scope=asgi_scope)
+
+        assert route.app is plain_asgi_app
+        assert route_scope["path"] == "/sub"
 
     @pytest.mark.parametrize(
         ["routes", "result", "exception"],

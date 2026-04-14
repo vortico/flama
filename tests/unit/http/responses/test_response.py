@@ -108,6 +108,14 @@ class TestCaseResponse:
                 ["session=abc"],
                 id="minimal",
             ),
+            pytest.param(
+                {"key": "session", "value": "abc", "path": None, "samesite": None, "partitioned": True},
+                ["session=abc", "Partitioned"],
+                marks=pytest.mark.skipif(
+                    sys.version_info < (3, 14), reason="Partitioned introduced in Python 3.14"
+                ),  # PORT: Replace compat when stop supporting 3.13
+                id="partitioned",
+            ),
         ],
     )
     def test_set_cookie(self, kwargs, expected_parts):
@@ -149,10 +157,3 @@ class TestCaseResponse:
     )
     def test_hash(self, left, right, expected):
         assert (hash(left) == hash(right)) == expected
-
-    @pytest.mark.skipif(sys.version_info >= (3, 14), reason="partitioned supported natively")
-    def test_set_cookie_partitioned_unsupported(self):
-        response = Response(content="")
-
-        with pytest.raises(ValueError, match="Partitioned cookies"):
-            response.set_cookie("session", "abc", partitioned=True)

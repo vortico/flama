@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
-from flama import Flama, types
-from flama.client import Client, LifespanContextManager
+from flama import Flama, exceptions, types
+from flama.client import Client, LifespanContextManager, _AppClient, _BaseClient
 from flama.models.modules import ModelsModule
 
 
@@ -137,6 +137,44 @@ class TestCaseLifespanContextManager:
             assert lifespan_context_manager._shutdown.await_args_list == [call()]
 
 
+class TestCaseBaseClient:
+    async def test_context(self, app):
+        with patch("httpx.AsyncClient.__aenter__") as aenter_mock, patch("httpx.AsyncClient.__aexit__") as aexit_mock:
+            async with _BaseClient() as client:
+                assert isinstance(client, _BaseClient)
+                assert aenter_mock.await_args_list == [call()]
+
+            assert aexit_mock.await_args_list == [call(None, None, None)]
+
+    def test_defaults(self):
+        client = _BaseClient()
+
+        assert client.base_url == "http://localapp"
+        assert "user-agent" in client.headers
+
+
+class TestCaseAppClient:
+    async def test_context(self, app):
+        client = _AppClient(app=app)
+        client.lifespan = MagicMock(spec=LifespanContextManager)
+
+        with patch("httpx.AsyncClient.__aenter__") as aenter_mock, patch("httpx.AsyncClient.__aexit__") as aexit_mock:
+            async with client as c:
+                assert isinstance(c, _AppClient)
+                assert aenter_mock.await_args_list == [call()]
+                assert client.lifespan.__aenter__.await_args_list == [call()]
+
+            assert client.lifespan.__aexit__.await_args_list == [call(None, None, None)]
+            assert aexit_mock.await_args_list == [call(None, None, None)]
+
+    def test_init(self, app):
+        client = _AppClient(app=app)
+
+        assert client.app is app
+        assert client.lifespan is not None
+        assert client.lifespan.app is app
+
+
 class TestCaseClient:
     def test_init_models(self, app):
         with patch("flama.client.Flama", return_value=app), patch("importlib.metadata.version", return_value="x.y.z"):
@@ -190,3 +228,14 @@ class TestCaseClient:
             await client.model_request("foo", "GET", "/")
 
             assert request_mock.call_args_list == [call("GET", "/foo/")]
+
+    async def test_model_request_not_found(self, app):
+        with (
+            patch("flama.client.Flama", return_value=app),
+            patch("builtins.super"),
+            patch("importlib.metadata.version", return_value="x.y.z"),
+        ):
+            client = Client(models=[("foo", "/foo/", "model_foo.flm")])
+
+        with pytest.raises(exceptions.NotFoundException):
+            await client.model_request("nonexistent", "GET", "/")
