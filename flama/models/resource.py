@@ -3,6 +3,8 @@ import typing as t
 
 import flama.schemas
 from flama import types
+from flama._core.json_encoder import encode_json
+from flama.http.responses.sse import ServerSentEventResponse
 from flama.models.components import ModelComponentBuilder
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
@@ -13,7 +15,7 @@ if t.TYPE_CHECKING:
     from flama.models.base import BaseModel
     from flama.models.components import ModelComponent
 
-__all__ = ["BaseModelResource", "ModelResource", "InspectMixin", "PredictMixin", "ModelResourceType"]
+__all__ = ["BaseModelResource", "ModelResource", "InspectMixin", "PredictMixin", "StreamMixin", "ModelResourceType"]
 
 
 Component = t.TypeVar("Component", bound="ModelComponent")
@@ -25,8 +27,8 @@ class InspectMixin:
         cls, name: str, verbose_name: str, model_model_type: type["BaseModel"], **kwargs
     ) -> dict[str, t.Any]:
         @ResourceRoute.method("/", methods=["GET"], name="inspect")
-        async def inspect(self, model: model_model_type):  # type: ignore[valid-type]
-            return model.inspect()  # type: ignore[attr-defined]
+        async def inspect(self, model: model_model_type):  # ty: ignore[invalid-type-form]
+            return model.inspect()
 
         inspect.__doc__ = f"""
             tags:
@@ -52,9 +54,9 @@ class PredictMixin:
         @ResourceRoute.method("/predict/", methods=["POST"], name="predict")
         async def predict(
             self,
-            model: model_model_type,  # type: ignore[valid-type]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.MLModelInput)],
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.MLModelOutput)]:
+            model: model_model_type,  # ty: ignore[invalid-type-form]
+            data: t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.MLModelPredictInput)],
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.MLModelPredictOutput)]:
             return {"output": model.predict(data["input"])}
 
         predict.__doc__ = f"""
@@ -73,8 +75,44 @@ class PredictMixin:
         return {"_predict": predict}
 
 
-class ModelResourceType(ResourceType, InspectMixin, PredictMixin):
-    METHODS = ("inspect", "predict")
+class StreamMixin:
+    @classmethod
+    def _add_stream(
+        cls, name: str, verbose_name: str, model_model_type: type["BaseModel"], **kwargs
+    ) -> dict[str, t.Any]:
+        @ResourceRoute.method("/stream/", methods=["POST"], name="stream")
+        async def stream(
+            self,
+            model: model_model_type,  # ty: ignore[invalid-type-form]
+            data: t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.MLModelStreamInput)],
+        ) -> ServerSentEventResponse:
+            async def _input():
+                yield data["input"]
+
+            async def _encode():
+                async for item in model.stream(_input()):
+                    yield encode_json(item, compact=True).decode()
+
+            return ServerSentEventResponse(_encode())
+
+        stream.__doc__ = f"""
+            tags:
+                - {verbose_name}
+            summary:
+                Stream predictions
+            description:
+                Stream predictions using the model from this resource via Server-Sent Events.
+            responses:
+                200:
+                    description:
+                        An SSE stream of prediction tokens.
+        """
+
+        return {"_stream": stream}
+
+
+class ModelResourceType(ResourceType, InspectMixin, PredictMixin, StreamMixin):
+    METHODS = ("inspect", "predict", "stream")
 
     def __new__(mcs, name: str, bases: tuple[type], namespace: dict[str, t.Any]):
         """Resource metaclass for defining basic behavior for ML resources:
