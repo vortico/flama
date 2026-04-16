@@ -4,6 +4,7 @@ from flama.models.components import ModelComponentBuilder
 from flama.models.models.pytorch import Model as PyTorchModel
 from flama.models.models.sklearn import Model as SKLearnModel
 from flama.models.models.tensorflow import Model as TensorFlowModel
+from flama.models.models.transformers import Model as TransformersModel
 
 
 class TestCaseModelComponent:
@@ -14,6 +15,7 @@ class TestCaseModelComponent:
             pytest.param("sklearn-pipeline", SKLearnModel, "sklearn-pipeline", id="sklearn-pipeline"),
             pytest.param("tensorflow", TensorFlowModel, "tensorflow", id="tensorflow"),
             pytest.param("torch", PyTorchModel, "torch", id="torch"),
+            pytest.param("transformers", TransformersModel, "transformers", id="transformers"),
         ),
         indirect=["model_path", "serialized_model_class"],
     )

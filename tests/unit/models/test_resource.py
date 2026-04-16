@@ -45,6 +45,7 @@ class TestCaseModelResource:
             pytest.param("sklearn-pipeline", id="sklearn-pipeline"),
             pytest.param("tensorflow", id="tensorflow"),
             pytest.param("torch", id="torch"),
+            pytest.param("transformers", id="transformers"),
         ),
         indirect=["model_path"],
     )
@@ -86,11 +87,12 @@ class TestCaseModelResourceMethods:
     async def client(self, request, app):
         try:
             model = model_factory.model(request.param)
+            artifacts = model_factory.artifacts(request.param)
         except NotInstalled:
             pytest.skip(f"Lib for case '{request.param}' is not installed.")
 
         with tempfile.NamedTemporaryFile(suffix=".flm") as f:
-            flama.dump(model, path=f.name)
+            flama.dump(model, path=f.name, artifacts=artifacts)
             f.flush()
 
             app.models.add_model("/model/", model=pathlib.Path(f.name), name=request.param)
@@ -105,6 +107,7 @@ class TestCaseModelResourceMethods:
             pytest.param("sklearn", id="sklearn"),
             pytest.param("sklearn-pipeline", id="sklearn-pipeline"),
             pytest.param("tensorflow", id="tensorflow"),
+            pytest.param("transformers", id="transformers"),
         ),
         indirect=["client"],
     )
@@ -133,6 +136,7 @@ class TestCaseModelResourceMethods:
                 "tensorflow", [[0, 0], [0, 1], [1, 0], [1, 1]], [[0], [1], [1], [0]], 200, id="tensorflow-200"
             ),
             pytest.param("tensorflow", [["wrong"]], None, 400, id="tensorflow-400"),
+            pytest.param("transformers", ["hello"], None, 200, id="transformers-200"),
         ),
         indirect=["client"],
     )
@@ -140,9 +144,11 @@ class TestCaseModelResourceMethods:
         response = await client.post("/model/predict/", json={"input": x})
 
         assert response.status_code == status_code, response.json()
-        if status_code == 200:
+        if status_code == 200 and y is not None:
             for a, e in zip(response.json()["output"], y):
                 assert a == pytest.approx(e, abs=3e-1)
+        elif status_code == 200:
+            assert "output" in response.json()
 
     @pytest.mark.parametrize(
         ("client", "x", "mock_output"),
@@ -151,10 +157,12 @@ class TestCaseModelResourceMethods:
             pytest.param("sklearn", "0,0", None, id="sklearn"),
             pytest.param("sklearn-pipeline", "0,0", None, id="sklearn-pipeline"),
             pytest.param("tensorflow", "0,0", None, id="tensorflow"),
+            pytest.param("transformers", "hello", None, id="transformers"),
             pytest.param("sklearn", "0,0", [[0.1, 0.9], [0.5, 0.5]], id="with-output"),
             pytest.param("torch", "0,0", [], id="torch-empty"),
             pytest.param("sklearn", "0,0", [], id="sklearn-empty"),
             pytest.param("tensorflow", "0,0", [], id="tensorflow-empty"),
+            pytest.param("transformers", "hello", [], id="transformers-empty"),
         ),
         indirect=["client"],
     )
