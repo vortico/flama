@@ -1,6 +1,8 @@
 import typing as t
 
 from flama import concurrency, types
+from flama.http.requests.http import Request
+from flama.http.responses.plain_text import PlainTextResponse
 from flama.middleware.base import Middleware
 
 if t.TYPE_CHECKING:
@@ -27,9 +29,6 @@ class BaseHTTPMiddleware(Middleware):
             await concurrency.run(self.app, scope, receive, send)
             return
 
-        from flama.http.requests.http import Request
-        from flama.http.responses.response import Response
-
         request = Request(scope, receive)
 
         early_response = await self.before(request)
@@ -44,7 +43,7 @@ class BaseHTTPMiddleware(Middleware):
 
             if message["type"] == "http.response.start":
                 response_started = True
-                response = Response(status_code=message["status"])
+                response = PlainTextResponse("", status_code=message["status"])
                 response.raw_headers = list(message.get("headers", []))
                 modified = await self.after(request, response)
                 await send(

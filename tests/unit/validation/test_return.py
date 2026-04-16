@@ -144,7 +144,7 @@ class TestCaseReturnValidation:
                 None,
                 id="schema_many",
             ),
-            pytest.param("/return-schema-empty/", 200, "application/json", b"", None, id="schema_empty"),
+            pytest.param("/return-schema-empty/", 200, "application/json", b'""', None, id="schema_empty"),
         ),
         indirect=["exception"],
     )

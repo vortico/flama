@@ -6,9 +6,26 @@ import pytest
 from flama import Flama, types
 from flama.client import Client
 from flama.codecs import BrotliCodec, GzipCodec
-from flama.http.responses.response import Response
-from flama.http.responses.streaming import StreamingResponse
+from flama.http.responses.response import BufferedResponse, StreamingResponse
 from flama.middleware.compression import CompressionMiddleware
+
+
+class _RawBufferedResponse(BufferedResponse):
+    def render(self, content):
+        if isinstance(content, bytes):
+            return content
+        if isinstance(content, str):
+            return content.encode(self.charset)
+        return bytes(content)
+
+
+class _RawStreamingResponse(StreamingResponse):
+    def encode(self, chunk):
+        if isinstance(chunk, bytes):
+            return chunk
+        if isinstance(chunk, str):
+            return chunk.encode(self.charset)
+        return bytes(chunk)
 
 
 class TestCaseCompressionMiddleware:
@@ -33,17 +50,17 @@ class TestCaseCompressionMiddleware:
                 yield b"x" * 600
                 yield b"y" * 600
 
-            return StreamingResponse(gen(), media_type="text/plain")
+            return _RawStreamingResponse(gen(), media_type="text/plain")
 
         @app.route("/sse/")
         def sse_skip():
-            return Response(content=b"event: ping\ndata: x\n\n", media_type="text/event-stream")
+            return _RawBufferedResponse(b"event: ping\ndata: x\n\n", media_type="text/event-stream")
 
         @app.route("/pre-encoded/")
         def pre_encoded():
             payload = gzip.compress(b"x" * 1000)
-            return Response(
-                content=payload,
+            return _RawBufferedResponse(
+                payload,
                 media_type="application/octet-stream",
                 headers={"content-encoding": "gzip"},
             )

@@ -3,12 +3,12 @@ import typing as t
 
 from flama import types
 from flama.pagination import paginators
-from flama.pagination.paginators.base import BasePaginator
+from flama.pagination.paginators.base import BasePaginator, PaginatedResponse
 
 __all__ = ["paginator"]
 
 P = t.ParamSpec("P")
-R = t.TypeVar("R", covariant=True)
+R = t.TypeVar("R", bound=type, covariant=True)
 
 
 class Paginator:
@@ -20,13 +20,25 @@ class Paginator:
     def __init__(self):
         self.schemas: dict[str, t.Any] = {}
 
+    @t.overload
+    def apply(
+        self, pagination: types.Pagination, func: t.Callable[P, R], *, signature: inspect.Signature | None = None
+    ) -> t.Callable[P, PaginatedResponse[R]]: ...
+    @t.overload
+    def apply(
+        self,
+        pagination: types.Pagination,
+        func: t.Callable[P, t.Coroutine[R, t.Any, t.Any]],
+        *,
+        signature: inspect.Signature | None = None,
+    ) -> t.Callable[P, t.Coroutine[PaginatedResponse[R], t.Any, t.Any]]: ...
     def apply(
         self,
         pagination: types.Pagination,
         func: t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]],
         *,
         signature: inspect.Signature | None = None,
-    ) -> t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]]:
+    ) -> t.Callable[P, PaginatedResponse[R] | t.Coroutine[PaginatedResponse[R], t.Any, t.Any]]:
         """Apply pagination to a function.
 
         :param pagination: Pagination techinque to apply.
@@ -43,7 +55,10 @@ class Paginator:
 
     def paginated(
         self, pagination: types.Pagination
-    ) -> t.Callable[[t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]]], t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]]]:
+    ) -> t.Callable[
+        [t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]]],
+        t.Callable[P, PaginatedResponse[R] | t.Coroutine[PaginatedResponse[R], t.Any, t.Any]],
+    ]:
         def wrapper(func: t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]]):
             return self.apply(pagination, func)
 

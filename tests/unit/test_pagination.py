@@ -1,5 +1,6 @@
 import typing as t
 from collections import namedtuple
+from unittest.mock import MagicMock, patch
 
 import marshmallow
 import pydantic
@@ -8,8 +9,10 @@ import typesystem
 import typesystem.fields
 from pytest import param
 
-from flama import types
+from flama import exceptions, types
 from flama.pagination import paginator
+from flama.pagination.paginators.base import PaginatedResponse
+from flama.schemas.exceptions import SchemaValidationError
 from tests._utils import assert_recursive_contains
 
 
@@ -315,3 +318,19 @@ class TestCaseLimitOffsetPagination:
         response = await client.get("/limit-offset/", params=params)
         assert response.status_code == status_code, response.json()
         assert response.json() == expected
+
+
+class TestCasePaginatedResponse:
+    def test_encode_content_validation_error(self):
+        mock_schema = MagicMock()
+        mock_schema_instance = MagicMock()
+        mock_schema_instance.dump.side_effect = SchemaValidationError(errors={"field": ["invalid"]})
+        with patch.object(PaginatedResponse, "__abstractmethods__", frozenset()):
+            response = PaginatedResponse.__new__(PaginatedResponse)
+            response.schema = mock_schema
+
+        with (
+            patch("flama.pagination.paginators.base.Schema.from_type", return_value=mock_schema_instance),
+            pytest.raises(exceptions.SerializationError),
+        ):
+            response._encode_content({"field": "bad"})
