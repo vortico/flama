@@ -1,3 +1,5 @@
+import pathlib
+import tempfile
 import warnings
 
 from tests._utils.importlib import NotInstalled, installed
@@ -31,6 +33,12 @@ except Exception:
     warnings.warn("Torch not installed")
     torch = None
 
+try:
+    import transformers
+except Exception:
+    warnings.warn("Transformers not installed")
+    transformers = None
+
 
 class ModelFactory:
     def __init__(self):
@@ -39,10 +47,12 @@ class ModelFactory:
             "sklearn-pipeline": ("sklearn", ["sklearn", "numpy"], self._sklearn_pipeline),
             "tensorflow": ("tensorflow", ["tensorflow", "numpy"], self._tensorflow),
             "torch": ("torch", ["torch", "numpy"], self._torch),
+            "transformers": ("transformers", ["transformers"], self._transformers),
         }
 
         self._models = {}
         self._models_cls = {}
+        self._artifacts = {}
 
     def _build(self, x: str, /):
         try:
@@ -55,7 +65,9 @@ class ModelFactory:
             raise ValueError(f"Wrong lib: '{x}'.")
 
         if x not in self._models:
-            self._models[x], self._models_cls[x] = factory()
+            result = factory()
+            self._models[x], self._models_cls[x] = result[0], result[1]
+            self._artifacts[x] = result[2] if len(result) > 2 else None
 
     def lib(self, lib: str):
         self._build(lib)
@@ -68,6 +80,10 @@ class ModelFactory:
     def model_cls(self, lib: str):
         self._build(lib)
         return self._models_cls[lib]
+
+    def artifacts(self, lib: str):
+        self._build(lib)
+        return self._artifacts.get(lib)
 
     def _sklearn(self):
         model = sklearn.neural_network.MLPClassifier(
@@ -171,6 +187,21 @@ class ModelFactory:
         model._train(X, Y, loss=torch.nn.BCELoss(), optimizer=torch.optim.Adam(model.parameters()))
 
         return model, torch.jit.RecursiveScriptModule
+
+    def _transformers(self):
+        pipe = transformers.pipeline("text-generation", model="hf-internal-testing/tiny-random-gpt2")
+
+        tmpdir = tempfile.mkdtemp()
+        pipe.save_pretrained(tmpdir)
+
+        tmpdir_path = pathlib.Path(tmpdir)
+        artifacts = {
+            file_path.relative_to(tmpdir_path).as_posix(): file_path
+            for file_path in tmpdir_path.rglob("*")
+            if file_path.is_file()
+        }
+
+        return pipe, dict, artifacts
 
 
 model_factory = ModelFactory()

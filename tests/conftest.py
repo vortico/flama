@@ -124,7 +124,9 @@ def serialized_model_class(request):
 def model_path(request):
     try:
         with tempfile.NamedTemporaryFile(suffix=".flm") as f:
-            flama.dump(model_factory.model(request.param), path=f.name)
+            model = model_factory.model(request.param)
+            artifacts = model_factory.artifacts(request.param)
+            flama.dump(model, path=f.name, artifacts=artifacts)
             f.flush()
 
             yield Path(f.name)

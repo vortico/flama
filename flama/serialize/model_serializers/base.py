@@ -73,6 +73,7 @@ class ModelSerializer:
         "sklearn": "sklearn",
         "tensorflow": "tensorflow",
         "torch": "pytorch",
+        "transformers": "transformers",
     }
 
     @classmethod

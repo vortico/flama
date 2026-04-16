@@ -15,6 +15,7 @@ class TestCaseModelSerializerFromLib:
             pytest.param("keras", "tensorflow", id="keras_maps_tensorflow"),
             pytest.param("tensorflow", "tensorflow", id="tensorflow"),
             pytest.param("torch", "pytorch", id="torch_maps_pytorch"),
+            pytest.param("transformers", "transformers", id="transformers"),
         ],
     )
     def test_from_lib_success(self, lib: str, expected_submodule: str) -> None:
