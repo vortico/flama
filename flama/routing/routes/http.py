@@ -84,6 +84,8 @@ class HTTPFunctionWrapper(BaseHTTPEndpointWrapper):
 
 
 class HTTPEndpointWrapper(BaseHTTPEndpointWrapper):
+    handler: type[endpoints.HTTPEndpoint]
+
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs a request.
 

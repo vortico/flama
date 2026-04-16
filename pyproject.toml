@@ -211,6 +211,8 @@ allowed-unresolved-imports = [
   "torch.**",
   "tensorflow",
   "tensorflow.**",
+  "keras",
+  "keras.**",
 ]
 
 [tool.coverage.paths]

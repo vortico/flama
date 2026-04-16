@@ -44,6 +44,8 @@ class WebSocketFunctionWrapper(BaseWebSocketEndpointWrapper):
 
 
 class WebSocketEndpointWrapper(BaseWebSocketEndpointWrapper):
+    handler: type[endpoints.WebSocketEndpoint]
+
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs a request.
 

@@ -7,8 +7,9 @@ __all__ = [
     "LimitOffset",
     "PageNumberMeta",
     "PageNumber",
-    "MLModelInput",
-    "MLModelOutput",
+    "MLModelPredictInput",
+    "MLModelPredictOutput",
+    "MLModelStreamInput",
     "SCHEMAS",
 ]
 
@@ -61,19 +62,26 @@ class PageNumber(marshmallow.Schema):
     )
 
 
-class MLModelInput(marshmallow.Schema):
+class MLModelPredictInput(marshmallow.Schema):
     input = marshmallow.fields.List(
         marshmallow.fields.Raw(),
         required=True,
-        metadata={"title": "input", "description": "Model input"},
+        metadata={"title": "input", "description": "Model predict input"},
     )
 
 
-class MLModelOutput(marshmallow.Schema):
+class MLModelPredictOutput(marshmallow.Schema):
     output = marshmallow.fields.List(
         marshmallow.fields.Raw(),
         required=True,
-        metadata={"title": "output", "description": "Model output"},
+        metadata={"title": "output", "description": "Prediction output"},
+    )
+
+
+class MLModelStreamInput(marshmallow.Schema):
+    input = marshmallow.fields.String(
+        required=True,
+        metadata={"title": "input", "description": "Model stream input"},
     )
 
 
@@ -84,6 +92,7 @@ SCHEMAS = {
     "flama.LimitOffset": LimitOffset,
     "flama.PageNumberMeta": PageNumberMeta,
     "flama.PageNumber": PageNumber,
-    "flama.MLModelInput": MLModelInput,
-    "flama.MLModelOutput": MLModelOutput,
+    "flama.MLModelPredictInput": MLModelPredictInput,
+    "flama.MLModelPredictOutput": MLModelPredictOutput,
+    "flama.MLModelStreamInput": MLModelStreamInput,
 }

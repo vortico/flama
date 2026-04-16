@@ -9,8 +9,9 @@ __all__ = [
     "LimitOffset",
     "PageNumberMeta",
     "PageNumber",
-    "MLModelInput",
-    "MLModelOutput",
+    "MLModelPredictInput",
+    "MLModelPredictOutput",
+    "MLModelStreamInput",
     "SCHEMAS",
 ]
 
@@ -47,12 +48,16 @@ class PageNumber(BaseModel):
     data: list[t.Any] = Field(title="data", description="Paginated data")
 
 
-class MLModelInput(BaseModel):
-    input: list[t.Any] = Field(title="input", description="Model input")
+class MLModelPredictInput(BaseModel):
+    input: list[t.Any] = Field(title="input", description="Model predict input")
 
 
-class MLModelOutput(BaseModel):
-    output: list[t.Any] = Field(title="output", description="Model output")
+class MLModelPredictOutput(BaseModel):
+    output: list[t.Any] = Field(title="output", description="Prediction output")
+
+
+class MLModelStreamInput(BaseModel):
+    input: str = Field(title="input", description="Model stream input")
 
 
 SCHEMAS = {
@@ -62,6 +67,7 @@ SCHEMAS = {
     "flama.LimitOffset": LimitOffset,
     "flama.PageNumberMeta": PageNumberMeta,
     "flama.PageNumber": PageNumber,
-    "flama.MLModelInput": MLModelInput,
-    "flama.MLModelOutput": MLModelOutput,
+    "flama.MLModelPredictInput": MLModelPredictInput,
+    "flama.MLModelPredictOutput": MLModelPredictOutput,
+    "flama.MLModelStreamInput": MLModelStreamInput,
 }

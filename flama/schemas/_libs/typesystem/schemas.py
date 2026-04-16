@@ -7,8 +7,9 @@ __all__ = [
     "LimitOffset",
     "PageNumberMeta",
     "PageNumber",
-    "MLModelInput",
-    "MLModelOutput",
+    "MLModelPredictInput",
+    "MLModelPredictOutput",
+    "MLModelStreamInput",
     "SCHEMAS",
 ]
 
@@ -74,18 +75,26 @@ PageNumber = Schema(
 )
 SCHEMAS["flama.PageNumber"] = PageNumber
 
-MLModelInput = Schema(
-    title="MLModelInput",
+MLModelPredictInput = Schema(
+    title="MLModelPredictInput",
     fields={
-        "input": fields.Array(title="input", description="Model input"),
+        "input": fields.Array(title="input", description="Model predict input"),
     },
 )
-SCHEMAS["flama.MLModelInput"] = MLModelInput
+SCHEMAS["flama.MLModelPredictInput"] = MLModelPredictInput
 
-MLModelOutput = Schema(
-    title="MLModelOutput",
+MLModelPredictOutput = Schema(
+    title="MLModelPredictOutput",
     fields={
-        "output": fields.Array(title="output", description="Model output"),
+        "output": fields.Array(title="output", description="Prediction output"),
     },
 )
-SCHEMAS["flama.MLModelOutput"] = MLModelOutput
+SCHEMAS["flama.MLModelPredictOutput"] = MLModelPredictOutput
+
+MLModelStreamInput = Schema(
+    title="MLModelStreamInput",
+    fields={
+        "input": fields.String(title="input", description="Model stream input"),
+    },
+)
+SCHEMAS["flama.MLModelStreamInput"] = MLModelStreamInput

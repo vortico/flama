@@ -17,4 +17,8 @@ class BaseModel:
         return {"meta": self.meta.to_dict(), "artifacts": self.artifacts}
 
     @abc.abstractmethod
-    def predict(self, x: t.Any) -> t.Any: ...
+    def predict(self, x: list[list[t.Any]], /) -> t.Any: ...
+
+    @abc.abstractmethod
+    async def stream(self, x: t.Any, /) -> t.AsyncIterator[t.Any]:
+        yield  # pragma: no cover

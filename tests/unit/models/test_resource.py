@@ -1,5 +1,7 @@
+import contextlib
 import pathlib
 import tempfile
+from unittest.mock import patch
 
 import pytest
 
@@ -141,3 +143,51 @@ class TestCaseModelResourceMethods:
         if status_code == 200:
             for a, e in zip(response.json()["output"], y):
                 assert a == pytest.approx(e, abs=3e-1)
+
+    @pytest.mark.parametrize(
+        ("client", "x", "mock_output"),
+        (
+            pytest.param("torch", "0,0", None, id="torch"),
+            pytest.param("sklearn", "0,0", None, id="sklearn"),
+            pytest.param("sklearn-pipeline", "0,0", None, id="sklearn-pipeline"),
+            pytest.param("tensorflow", "0,0", None, id="tensorflow"),
+            pytest.param("sklearn", "0,0", [[0.1, 0.9], [0.5, 0.5]], id="with-output"),
+            pytest.param("torch", "0,0", [], id="torch-empty"),
+            pytest.param("sklearn", "0,0", [], id="sklearn-empty"),
+            pytest.param("tensorflow", "0,0", [], id="tensorflow-empty"),
+        ),
+        indirect=["client"],
+    )
+    async def test_stream(self, client, x, mock_output):
+        from flama.models.components import ModelComponent
+
+        if mock_output is not None and len(mock_output) == 0:
+            component = next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
+
+            async def _empty():
+                return
+                yield  # noqa: unreachable - makes this an async generator
+
+            items = [item async for item in component.model.stream(_empty())]
+            assert items == []
+            return
+
+        if mock_output:
+            component = next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
+
+            async def _mock_stream(self, input_iter):
+                for item in mock_output:
+                    yield item
+
+            ctx = patch.object(type(component.model), "stream", _mock_stream)
+        else:
+            ctx = contextlib.nullcontext()
+
+        with ctx:
+            response = await client.post("/model/stream/", json={"input": x})
+
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers.get("content-type", "")
+        if mock_output:
+            for item in mock_output:
+                assert str(item).replace(" ", "") in response.text

@@ -208,3 +208,4 @@ class Client(httpx.AsyncClient):
 
     model_inspect = functools.partialmethod(model_request, method="GET", url="/")
     model_predict = functools.partialmethod(model_request, method="POST", url="/predict/")
+    model_stream = functools.partialmethod(model_request, method="POST", url="/stream/")

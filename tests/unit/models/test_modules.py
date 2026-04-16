@@ -7,7 +7,7 @@ from flama.resources.routing import ResourceRoute
 class TestCaseResourcesModule:
     @pytest.fixture(scope="function")
     def tags(self):
-        return {"inspect": {"tag": "inspect"}, "predict": {"tag": "predict"}}
+        return {"inspect": {"tag": "inspect"}, "predict": {"tag": "predict"}, "stream": {"tag": "stream"}}
 
     def test_add_model(self, app, component, tags):
         component_ = component
@@ -22,10 +22,11 @@ class TestCaseResourcesModule:
         assert len(app.routes) == 1
         assert isinstance(app.routes[0], ResourceRoute)
         resource_route = app.routes[0]
-        assert len(resource_route.routes) == 2
+        assert len(resource_route.routes) == 3
         assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
             ("/", {"HEAD", "GET"}, route.resource.inspect, {"tag": "inspect"}),
             ("/predict/", {"POST"}, route.resource.predict, {"tag": "predict"}),
+            ("/stream/", {"POST"}, route.resource.stream, {"tag": "stream"}),
         ]
 
     def test_add_model_decorator(self, app, component, tags):
@@ -43,10 +44,11 @@ class TestCaseResourcesModule:
         assert len(app.routes) == 1
         assert isinstance(app.routes[0], ResourceRoute)
         resource_route = app.routes[0]
-        assert len(resource_route.routes) == 2
+        assert len(resource_route.routes) == 3
         assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
             ("/", {"HEAD", "GET"}, resource.inspect, {"tag": "inspect"}),
             ("/predict/", {"POST"}, resource.predict, {"tag": "predict"}),
+            ("/stream/", {"POST"}, resource.stream, {"tag": "stream"}),
         ]
 
     def test_add_model_resource(self, app, component, tags):
@@ -64,8 +66,9 @@ class TestCaseResourcesModule:
         assert len(app.routes) == 1
         assert isinstance(app.routes[0], ResourceRoute)
         resource_route = app.routes[0]
-        assert len(resource_route.routes) == 2
+        assert len(resource_route.routes) == 3
         assert [(route.path, route.methods, route.endpoint, route.tags) for route in resource_route.routes] == [
             ("/", {"HEAD", "GET"}, resource.inspect, {"tag": "inspect"}),
             ("/predict/", {"POST"}, resource.predict, {"tag": "predict"}),
+            ("/stream/", {"POST"}, resource.stream, {"tag": "stream"}),
         ]
