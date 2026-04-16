@@ -10,7 +10,12 @@ from flama.serialize.model_serializers.base import BaseModelSerializer
 try:
     import tensorflow as tf
 except Exception:  # pragma: no cover
-    tf = None
+    tf = None  # ty: ignore[invalid-assignment]
+
+try:
+    import keras.models as keras_models
+except Exception:  # pragma: no cover
+    keras_models = None  # ty: ignore[invalid-assignment]
 
 if t.TYPE_CHECKING:
     from flama.types import JSONSchema
@@ -23,20 +28,20 @@ class ModelSerializer(BaseModelSerializer):
     lib: t.ClassVar[types.MLLib] = "tensorflow"
 
     def dump(self, obj: t.Any, /, **kwargs) -> bytes:
-        if tf is None:  # noqa
+        if keras_models is None:  # noqa
             raise exceptions.FrameworkNotInstalled("tensorflow")
 
         with tempfile.NamedTemporaryFile(mode="rb", suffix=".keras") as tmp_file:
-            tf.keras.models.save_model(obj, tmp_file.name)
+            keras_models.save_model(obj, tmp_file.name)
             return codecs.encode(tmp_file.read(), "base64")
 
     def load(self, model: bytes, /, **kwargs) -> t.Any:
-        if tf is None:  # noqa
+        if keras_models is None:  # noqa
             raise exceptions.FrameworkNotInstalled("tensorflow")
 
         with tempfile.NamedTemporaryFile(mode="wb", suffix=".keras") as tmp_file:
             tmp_file.write(codecs.decode(model, "base64"))
-            return tf.keras.models.load_model(tmp_file.name)
+            return keras_models.load_model(tmp_file.name)
 
     def info(self, model: t.Any, /) -> "JSONSchema | None":
         model_info: JSONSchema = json.loads(model.to_json())

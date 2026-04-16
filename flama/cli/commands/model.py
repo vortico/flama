@@ -1,3 +1,4 @@
+import asyncio
 import functools
 import json
 import typing as t
@@ -92,6 +93,69 @@ def predict(model: "ModelComponent", input_file, output_file, pretty: bool):
         dump_func = functools.partial(encode_json, sort_keys=True, indent=4)
 
     click.echo(dump_func(model.model.predict(data)).decode("utf-8"), output_file)
+
+
+@command.command(name="stream", context_settings={"auto_envvar_prefix": "FLAMA"})
+@click.option(
+    "-f",
+    "--file",
+    "input_file",
+    type=click.File("r"),
+    default="-",
+    help="File to be used as input for the model stream in JSON format. (default: stdin).",
+)
+@click.option(
+    "-o",
+    "--output",
+    "output_file",
+    type=click.File("w"),
+    default="-",
+    help="File to be used as output for the model stream. (default: stdout).",
+)
+@click.option(
+    "-b",
+    "--buffer",
+    "buffered",
+    is_flag=True,
+    default=False,
+    help="Buffer all output and write at once instead of streaming.",
+)
+@click.pass_obj
+def stream(model: "ModelComponent", input_file, output_file, buffered: bool):
+    """Stream predictions from an ML model.
+
+    This command is used to stream predictions from an ML model without the need of a server. Each input item is
+    processed one-by-one and the result is streamed as it becomes available (unless --buffer is used). Input must be a
+    JSON file.
+
+    Example:
+
+    - input.json:
+    [[0, 0], [0, 1], [1, 0], [1, 1]]
+    """
+    try:
+        data = json.load(input_file)
+    except json.JSONDecodeError:
+        raise click.BadParameter("Input file must be a valid json file.")
+
+    async def _input():
+        for item in data:
+            yield item
+
+    async def _run():
+        chunks: list[str] = []
+        async for item in model.model.stream(_input()):
+            token = encode_json(item, compact=True).decode()
+            if buffered:
+                chunks.append(token)
+            else:
+                click.echo(token, file=output_file, nl=False)
+        if buffered:
+            click.echo("".join(chunks), file=output_file)
+        elif output_file.name != "<stdout>":
+            click.echo("", file=output_file)
+
+    asyncio.run(_run())
 
 
 assert command.callback is not None
