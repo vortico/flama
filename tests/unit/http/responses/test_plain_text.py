@@ -3,7 +3,7 @@ from flama.http.responses.plain_text import PlainTextResponse
 
 class TestCasePlainTextResponse:
     async def test_call(self, asgi_scope, asgi_receive, asgi_send):
-        response = PlainTextResponse(content="hello")
+        response = PlainTextResponse("hello")
 
         await response(asgi_scope, asgi_receive, asgi_send)
 
@@ -11,6 +11,6 @@ class TestCasePlainTextResponse:
         assert body_message["body"] == b"hello"
 
     def test_media_type(self):
-        response = PlainTextResponse(content="hello")
+        response = PlainTextResponse("hello")
 
         assert response.headers["content-type"] == "text/plain; charset=utf-8"

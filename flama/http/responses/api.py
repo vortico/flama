@@ -10,19 +10,16 @@ __all__ = ["APIResponse", "APIErrorResponse"]
 class APIResponse(JSONResponse):
     media_type = "application/json"
 
-    def __init__(self, content: t.Any = None, schema: t.Any = None, *args, **kwargs):
+    def __init__(self, *args, schema: t.Any = None, **kwargs):
         self.schema = schema
-        super().__init__(content, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
-    def render(self, content: t.Any):
+    def render(self, content: types.JSONSchema) -> bytes:
         if self.schema is not None:
             try:
                 content = Schema.from_type(self.schema).dump(content)
             except schemas.SchemaValidationError as e:
                 raise exceptions.SerializationError(status_code=500, detail=e.errors)
-
-        if not content:
-            return b""
 
         return super().render(content)
 
@@ -37,18 +34,17 @@ class APIErrorResponse(APIResponse):
         *args,
         **kwargs,
     ):
-        content = {
-            "detail": detail,
-            "error": (str(exception.__class__.__name__) if exception is not None else None),
-            "status_code": status_code,
-            "headers": headers,
-        }
-
         super().__init__(
-            content,
-            t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.APIError)],
+            {
+                "detail": detail,
+                "error": (str(exception.__class__.__name__) if exception is not None else None),
+                "status_code": status_code,
+                "headers": headers,
+            },
             *args,
+            schema=t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.APIError)],
             status_code=status_code,
+            headers=headers,
             **kwargs,
         )
 

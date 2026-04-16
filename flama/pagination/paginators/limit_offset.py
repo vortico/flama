@@ -2,17 +2,17 @@ import functools
 import inspect
 import typing as t
 
-from flama import schemas
+from flama import schemas, types
 from flama.pagination.paginators.base import BasePaginator, PaginatedResponse
 from flama.schemas.data_structures import Field, Schema
 
 __all__ = ["LimitOffsetPaginator", "LimitOffsetResponse"]
 
+SchemaType = t.TypeVar("SchemaType", bound=type, covariant=True)
 P = t.ParamSpec("P")
-R = t.TypeVar("R", covariant=True)
 
 
-class LimitOffsetResponse(PaginatedResponse[R]):
+class LimitOffsetResponse(PaginatedResponse[SchemaType], t.Generic[SchemaType]):
     """
     Response paginated based on a limit of elements and an offset.
 
@@ -26,7 +26,7 @@ class LimitOffsetResponse(PaginatedResponse[R]):
 
     def __init__(
         self,
-        schema: R,
+        *args,
         offset: int | str | None = None,
         limit: int | str | None = None,
         count: bool | None = True,
@@ -35,15 +35,20 @@ class LimitOffsetResponse(PaginatedResponse[R]):
         self.offset = int(offset) if offset is not None else 0
         self.limit = int(limit) if limit is not None else self.default_limit
         self.count = count
-        super().__init__(schema=schema, **kwargs)
+        super().__init__(*args, **kwargs)
 
-    def render(self, content: t.Sequence[t.Any]) -> bytes:
+    def render(self, content: t.Sequence[types.JSONSchema]) -> bytes:
         init = self.offset
         end = self.offset + self.limit
-        return super().render(
+
+        return self._encode_content(
             {
-                "meta": {"limit": self.limit, "offset": self.offset, "count": len(content) if self.count else None},
-                "data": content[init:end],
+                "meta": {
+                    "limit": self.limit,
+                    "offset": self.offset,
+                    "count": len(content) if self.count else None,
+                },
+                "data": list(content[init:end]),
             }
         )
 
@@ -63,42 +68,45 @@ class LimitOffsetPaginator(BasePaginator):
 
     @classmethod
     def _decorate_async(
-        cls, func: t.Callable[P, t.Coroutine[R, t.Any, t.Any]], schema: t.Any
-    ) -> t.Callable[P, t.Coroutine[LimitOffsetResponse[R], t.Any, t.Any]]:
+        cls, func: t.Callable[P, t.Coroutine[SchemaType, t.Any, t.Any]], schema: t.Any
+    ) -> t.Callable[P, t.Coroutine[LimitOffsetResponse[SchemaType], t.Any, t.Any]]:
         @functools.wraps(func)
         async def decorator(
-            *args,
-            limit: int | None = None,
-            offset: int | None = None,
-            count: bool | None = False,
-            **kwargs,
+            *args, limit: int | None = None, offset: int | None = None, count: bool | None = False, **kwargs
         ):
             return LimitOffsetResponse(
-                schema=schema, limit=limit, offset=offset, count=count, content=await func(*args, **kwargs)
+                await func(*args, **kwargs), schema=schema, limit=limit, offset=offset, count=count
             )
 
         return decorator
 
     @classmethod
-    def _decorate_sync(cls, func: t.Callable[P, R], schema: t.Any) -> t.Callable[P, LimitOffsetResponse[R]]:
+    def _decorate_sync(
+        cls, func: t.Callable[P, SchemaType], schema: t.Any
+    ) -> t.Callable[P, LimitOffsetResponse[SchemaType]]:
         @functools.wraps(func)
-        def decorator(
-            *args,
-            limit: int | None = None,
-            offset: int | None = None,
-            count: bool | None = False,
-            **kwargs,
-        ):
-            return LimitOffsetResponse(
-                schema=schema, limit=limit, offset=offset, count=count, content=func(*args, **kwargs)
-            )
+        def decorator(*args, limit: int | None = None, offset: int | None = None, count: bool | None = False, **kwargs):
+            return LimitOffsetResponse(func(*args, **kwargs), schema=schema, limit=limit, offset=offset, count=count)
 
         return decorator
 
+    @t.overload
     @classmethod
     def wraps(
-        cls, func: t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]], signature: inspect.Signature
-    ) -> tuple[t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]], dict[str, t.Any]]:
+        cls, func: t.Callable[P, SchemaType], signature: inspect.Signature
+    ) -> tuple[t.Callable[P, PaginatedResponse[SchemaType]], dict[str, t.Any]]: ...
+    @t.overload
+    @classmethod
+    def wraps(
+        cls, func: t.Callable[P, t.Coroutine[SchemaType, t.Any, t.Any]], signature: inspect.Signature
+    ) -> tuple[t.Callable[P, t.Coroutine[PaginatedResponse[SchemaType], t.Any, t.Any]], dict[str, t.Any]]: ...
+    @classmethod
+    def wraps(
+        cls, func: t.Callable[P, SchemaType | t.Coroutine[SchemaType, t.Any, t.Any]], signature: inspect.Signature
+    ) -> tuple[
+        t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[PaginatedResponse[SchemaType], t.Any, t.Any]],
+        dict[str, t.Any],
+    ]:
         """
         Decorator for adding pagination behavior to a view. That decorator produces a view based on limit-offset and
         it adds three query parameters to control the pagination: limit, offset and count. Offset has a default value of
