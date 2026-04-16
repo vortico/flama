@@ -1,5 +1,6 @@
 import click
 
+from flama.cli.commands.get import command as get_command
 from flama.cli.commands.model import command as model_command
 from flama.cli.commands.run import command as run_command
 from flama.cli.commands.serve import command as serve_command
@@ -20,6 +21,7 @@ def cli():
     ...
 
 
+cli.add_command(get_command)
 cli.add_command(run_command)
 cli.add_command(serve_command)
 cli.add_command(start_command)

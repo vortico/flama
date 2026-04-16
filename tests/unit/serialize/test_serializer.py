@@ -27,15 +27,16 @@ class TestCaseSerialize:
 
     @pytest.fixture(
         scope="function",
-        params=["sklearn", "sklearn-pipeline", "tensorflow", "torch"],
-        ids=["sklearn", "sklearn_pipeline", "tensorflow", "torch"],
+        params=["sklearn", "sklearn-pipeline", "tensorflow", "torch", "transformers"],
+        ids=["sklearn", "sklearn_pipeline", "tensorflow", "torch", "transformers"],
     )
     def model(self, request):
         try:
-            return collections.namedtuple("Model", ("lib", "model", "model_cls"))(
+            return collections.namedtuple("Model", ("lib", "model", "model_cls", "artifacts"))(
                 model_factory.lib(request.param),
                 model_factory.model(request.param),
                 model_factory.model_cls(request.param),
+                model_factory.artifacts(request.param),
             )
         except NotInstalled as e:
             pytest.skip(f"Lib '{str(e)}' is not installed.")
@@ -76,6 +77,7 @@ class TestCaseSerialize:
         params = {"param": "1"}
         metrics = {"metric": "1"}
         extra = {"foo": "bar"}
+        artifacts = {**(model.artifacts or {}), "foo.json": artifact}
 
         with tempfile.NamedTemporaryFile(suffix=".flm") as tmp:
             with exception:
@@ -90,7 +92,7 @@ class TestCaseSerialize:
                     params=params,
                     metrics=metrics,
                     extra=extra,
-                    artifacts={"foo.json": artifact},
+                    artifacts=artifacts,
                 )
 
             tmp.seek(0)
@@ -116,6 +118,7 @@ class TestCaseSerialize:
         params = {"param": "1"}
         metrics = {"metric": "1"}
         extra = {"foo": "bar"}
+        artifacts = {**(model.artifacts or {}), "foo.json": artifact}
 
         with tempfile.NamedTemporaryFile(suffix=".flm") as tmp:
             flama.dump(
@@ -128,7 +131,7 @@ class TestCaseSerialize:
                 params=params,
                 metrics=metrics,
                 extra=extra,
-                artifacts={"foo.json": artifact},
+                artifacts=artifacts,
             )
 
             load_model = flama.load(path=tmp.name)

@@ -64,6 +64,7 @@ typesystem = ["typesystem>=0.4.1,<1.0"]
 marshmallow = ["marshmallow>=3.0,<4.0", "apispec>=6.0,<7.0"]
 database = ["SQLAlchemy[asyncio]>=2.0,<3.0"]
 client = ["httpx>=0.28,<1.0"]
+transformers = ["transformers>=4.50"]
 full = [
   "pydantic>=2.12,<3.0",
   "typesystem>=0.4.1,<1.0",
@@ -177,6 +178,7 @@ omit = [
   "flama/serialize/model_serializers/pytorch.py",
   "flama/serialize/model_serializers/sklearn.py",
   "flama/serialize/model_serializers/tensorflow.py",
+  "flama/serialize/model_serializers/transformers.py",
 ]
 concurrency = ["thread", "multiprocessing"]
 
@@ -213,6 +215,8 @@ allowed-unresolved-imports = [
   "tensorflow.**",
   "keras",
   "keras.**",
+  "transformers",
+  "transformers.**",
 ]
 
 [tool.coverage.paths]

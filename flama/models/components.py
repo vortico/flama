@@ -27,6 +27,7 @@ class ModelComponentBuilder:
         "sklearn": "sklearn",
         "tensorflow": "tensorflow",
         "torch": "pytorch",
+        "transformers": "transformers",
     }
 
     @classmethod
