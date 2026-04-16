@@ -70,9 +70,16 @@ class TestCaseFileReader:
         assert reader._task is None
 
 
-class TestCaseIterateInThreadpool:
-    async def test_iter(self):
-        assert [x async for x in concurrency.iterate_in_threadpool([1, 2, 3])] == [1, 2, 3]
+class TestCaseIterate:
+    async def test_sync_iterable(self):
+        assert [x async for x in concurrency.iterate([1, 2, 3])] == [1, 2, 3]
+
+    async def test_async_iterable(self):
+        async def _gen():
+            for i in [4, 5, 6]:
+                yield i
+
+        assert [x async for x in concurrency.iterate(_gen())] == [4, 5, 6]
 
 
 class TestCaseIsAsync:

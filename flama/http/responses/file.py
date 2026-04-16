@@ -2,6 +2,7 @@ import asyncio
 import dataclasses
 import datetime
 import hashlib
+import http
 import os
 import re
 import stat
@@ -49,13 +50,12 @@ class _FileStat:
         return cls(size=result.st_size, last_modified=last_modified, etag=etag)
 
 
-_RANGE_HEADER_RE = re.compile(r"^bytes\s*=\s*(?P<specs>.+)$", re.IGNORECASE)
-_RANGE_SPEC_RE = re.compile(r"^\s*(?P<start>\d+)?\s*-\s*(?P<end>\d+)?\s*$")
-
-
 @dataclasses.dataclass
 class _RangeRequest:
     """Parsed HTTP Range request, encapsulating range resolution and response header generation."""
+
+    _HEADER_PATTERN: t.ClassVar[re.Pattern] = re.compile(r"^bytes\s*=\s*(?P<specs>.+)$", re.IGNORECASE)
+    _SPEC_PATTERN: t.ClassVar[re.Pattern] = re.compile(r"^\s*(?P<start>\d+)?\s*-\s*(?P<end>\d+)?\s*$")
 
     ranges: list[tuple[int, int]]
     file_size: int
@@ -84,17 +84,19 @@ class _RangeRequest:
         if self.is_multipart:
             self.boundary = token_hex(13)
 
-    @staticmethod
-    def _parse(http_range: str, file_size: int) -> list[tuple[int, int]]:
-        header_match = _RANGE_HEADER_RE.match(http_range)
+    @classmethod
+    def _parse(cls, http_range: str, file_size: int) -> list[tuple[int, int]]:
+        header_match = cls._HEADER_PATTERN.match(http_range)
         if not header_match:
-            raise exceptions.HTTPException(status_code=400, detail="Malformed range header.")
+            raise exceptions.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Malformed range header.")
 
         ranges: list[tuple[int, int]] = []
         for raw_spec in header_match.group("specs").split(","):
-            spec_match = _RANGE_SPEC_RE.match(raw_spec)
+            spec_match = cls._SPEC_PATTERN.match(raw_spec)
             if not spec_match:
-                raise exceptions.HTTPException(status_code=400, detail="Malformed range header.")
+                raise exceptions.HTTPException(
+                    status_code=http.HTTPStatus.BAD_REQUEST, detail="Malformed range header."
+                )
 
             start_str, end_str = spec_match.group("start"), spec_match.group("end")
 
@@ -105,11 +107,13 @@ class _RangeRequest:
             elif end_str is not None:
                 start, end = max(file_size - int(end_str), 0), file_size
             else:
-                raise exceptions.HTTPException(status_code=400, detail="Malformed range header.")
+                raise exceptions.HTTPException(
+                    status_code=http.HTTPStatus.BAD_REQUEST, detail="Malformed range header."
+                )
 
             if not (0 <= start < file_size):
                 raise exceptions.HTTPException(
-                    status_code=416,
+                    status_code=http.HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE,
                     detail="Range not satisfiable.",
                     headers={"Content-Range": f"*/{file_size}"},
                 )
@@ -151,9 +155,7 @@ class FileResponse(Response):
         self._content_disposition_type = content_disposition_type
         if media_type is None:
             media_type = guess_type(filename or str(path))[0] or "text/plain"
-        super().__init__(
-            content=b"", status_code=status_code, headers=headers, media_type=media_type, background=background
-        )
+        super().__init__(status_code=status_code, headers=headers, media_type=media_type, background=background)
 
     def _init_headers(self, headers: "Mapping[str, str] | None" = None) -> None:
         super()._init_headers(headers)
@@ -193,7 +195,7 @@ class FileResponse(Response):
             self.headers["content-range"] = f"bytes {start}-{end - 1}/{range_request.file_size}"
             self.headers["content-length"] = str(end - start)
 
-    async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+    async def _send_response(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         file_stat = await _FileStat.from_path(self.path)
         self._set_file_stat_headers(file_stat)
 
@@ -203,7 +205,7 @@ class FileResponse(Response):
         status_code = self.status_code
 
         if range_request is not None:
-            status_code = 206
+            status_code = http.HTTPStatus.PARTIAL_CONTENT
             self._set_range_headers(range_request)
 
         header_only = scope["method"].upper() == "HEAD"
@@ -220,9 +222,6 @@ class FileResponse(Response):
         else:
             start, end = range_request.ranges[0] if range_request else (0, None)
             await self._send_file(send, start, end)
-
-        if self.background is not None:
-            await self.background()
 
     async def _send_file(self, send: types.Send, start: int = 0, end: int | None = None) -> None:
         async with concurrency.FileReader(self.path, self.chunk_size, start, end) as reader:

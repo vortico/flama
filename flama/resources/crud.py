@@ -39,7 +39,7 @@ class CreateMixin:
                     raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
 
             return APIResponse(  # ty: ignore[invalid-return-type]
-                schema=rest_schemas.output.schema, content=result[0], status_code=HTTPStatus.CREATED
+                result[0], schema=rest_schemas.output.schema, status_code=HTTPStatus.CREATED
             )
 
         create.__doc__ = f"""
@@ -222,7 +222,7 @@ class DeleteMixin:
             except ddd_exceptions.NotFoundError as e:
                 raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
 
-            return APIResponse(status_code=HTTPStatus.NO_CONTENT)
+            return APIResponse("", status_code=HTTPStatus.NO_CONTENT)
 
         delete.__doc__ = f"""
             tags:
@@ -383,7 +383,7 @@ class DropMixin:
                 result = await repository.drop()
 
             return APIResponse(  # ty: ignore[invalid-return-type]
-                schema=schemas.schemas.DropCollection, content={"deleted": result}, status_code=HTTPStatus.NO_CONTENT
+                {"deleted": result}, schema=schemas.schemas.DropCollection, status_code=HTTPStatus.NO_CONTENT
             )
 
         drop.__doc__ = f"""

@@ -87,7 +87,7 @@ dev = [
   "ipython>=8.0,<9.0; python_version < '3.11'",
   "ipython>=9.6; python_version >= '3.11'",
   "ruff>=0.14.1",
-  "ty>=0.0.25; python_version >= '3.13'",
+  "ty>=0.0.30; python_version >= '3.13'",
   "pre-commit>=4.3",
   "aiosqlite>=0.21.0,<1.0.0",
   "Faker>=37.11",
@@ -203,10 +203,14 @@ exclude_lines = [
 
 [tool.ty.analysis]
 allowed-unresolved-imports = [
-    "numpy", "numpy.**",
-    "sklearn", "sklearn.**",
-    "torch", "torch.**",
-    "tensorflow", "tensorflow.**",
+  "numpy",
+  "numpy.**",
+  "sklearn",
+  "sklearn.**",
+  "torch",
+  "torch.**",
+  "tensorflow",
+  "tensorflow.**",
 ]
 
 [tool.coverage.paths]

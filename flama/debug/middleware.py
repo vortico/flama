@@ -157,14 +157,14 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.HTTPException
     ) -> http.Response:
         if exc.status_code in {204, 304}:
-            return http.Response(status_code=exc.status_code, headers=exc.headers)
+            return http.PlainTextResponse("", status_code=exc.status_code, headers=exc.headers)
 
         request = http.Request(scope, receive=receive)
         accept = request.headers.get("accept", "")
 
         if self.debug and exc.status_code == 404 and "text/html" in accept:
             return _FlamaTemplateResponse(
-                template="debug/error_404.html",
+                "debug/error_404.html",
                 context=dataclasses.asdict(NotFoundContext.build(request, scope["app"])),
                 status_code=404,
             )

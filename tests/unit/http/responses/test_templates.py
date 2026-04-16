@@ -8,7 +8,6 @@ import pytest
 from flama import exceptions
 from flama.http.responses.html import HTMLResponse
 from flama.http.responses.templates import (
-    HTMLFileResponse,
     HTMLTemplateResponse,
     HTMLTemplatesEnvironment,
     _FlamaLoader,
@@ -28,7 +27,7 @@ class TestCaseHTMLFileResponse:
         open_fn = mock_open(read_data="<html></html>") if side_effect is None else MagicMock(side_effect=side_effect)
 
         with exception, patch("builtins.open", open_fn):
-            response = HTMLFileResponse("foo.html")
+            response = HTMLResponse(path="foo.html")
 
             assert response.body == expected_body
 
@@ -141,18 +140,28 @@ class TestCaseHTMLTemplatesEnvironment:
 
 class TestCaseHTMLTemplateResponse:
     @pytest.mark.parametrize(
-        ["context"], (pytest.param({"foo": "bar"}, id="context"), pytest.param(None, id="no_context"))
+        ["context", "render_side_effect", "exception"],
+        [
+            pytest.param({"foo": "bar"}, None, None, id="context"),
+            pytest.param(None, None, None, id="no_context"),
+            pytest.param(None, jinja2.TemplateNotFound("missing.html"), exceptions.HTTPException, id="render_error"),
+        ],
+        indirect=["exception"],
     )
-    def test_init(self, context):
+    def test_init(self, context, render_side_effect, exception):
         template_mock = MagicMock()
-        template_mock.render.return_value = "foo"
+        if render_side_effect is not None:
+            template_mock.render.side_effect = render_side_effect
+        else:
+            template_mock.render.return_value = "foo"
         environment_mock = MagicMock(spec=jinja2.Environment)
         environment_mock.get_template.return_value = template_mock
         with (
+            exception,
             patch.object(HTMLTemplateResponse, "templates", new=environment_mock),
             patch.object(HTMLResponse, "__init__", return_value=None) as super_mock,
         ):
-            HTMLTemplateResponse("foo.html", context)
+            HTMLTemplateResponse("foo.html", context=context)
 
             assert super_mock.call_args_list == [call("foo")]
 

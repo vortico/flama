@@ -45,11 +45,11 @@ class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
         :return: An API response.
         """
         if isinstance(response, dict | list):
-            response = APIResponse(content=response, schema=self.schema)
+            response = APIResponse(response, schema=self.schema)
         elif isinstance(response, str | bytes):
-            response = APIResponse(content=response)
+            response = APIResponse(response)
         elif response is None:
-            response = APIResponse(content="")
+            response = APIResponse("")
 
         return response
 

@@ -7,5 +7,5 @@ from flama.http.responses.openapi import *  # noqa
 from flama.http.responses.plain_text import *  # noqa
 from flama.http.responses.redirect import *  # noqa
 from flama.http.responses.response import *  # noqa
-from flama.http.responses.streaming import *  # noqa
+from flama.http.responses.sse import *  # noqa
 from flama.http.responses.templates import *  # noqa

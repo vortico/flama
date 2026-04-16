@@ -22,17 +22,17 @@ class TestCaseJSONResponse:
     )
     def test_render(self, content, result, exception):
         with exception:
-            response = JSONResponse(content=content)
+            response = JSONResponse(content)
 
             assert json.loads(response.body.decode()) == result
 
     def test_media_type(self):
-        response = JSONResponse(content={})
+        response = JSONResponse({})
 
         assert response.headers["content-type"] == "application/json"
 
     async def test_call(self, asgi_scope, asgi_receive, asgi_send):
-        response = JSONResponse(content={"key": "value"})
+        response = JSONResponse({"key": "value"})
 
         await response(asgi_scope, asgi_receive, asgi_send)
 

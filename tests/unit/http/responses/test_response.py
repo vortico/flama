@@ -1,76 +1,54 @@
-import sys
 from unittest.mock import AsyncMock
 
 import pytest
 
 from flama.http.data_structures import MutableHeaders
-from flama.http.responses.response import Response
+from flama.http.responses.response import BufferedResponse, Response, StreamingResponse
+
+
+class _Response(Response):
+    """Minimal concrete subclass for testing Response mechanics."""
+
+    async def _send_response(self, scope, receive, send):
+        return None
+
+
+class _BufferedResponse(BufferedResponse):
+    """Minimal concrete subclass for testing BufferedResponse mechanics."""
+
+    def render(self, content):
+        if isinstance(content, bytes):
+            return content
+        if isinstance(content, str):
+            return content.encode(self.charset)
+        if isinstance(content, memoryview):
+            return bytes(content)
+        return content
+
+
+class _StreamingResponse(StreamingResponse):
+    """Minimal concrete subclass for testing BufferedResponse mechanics."""
+
+    def encode(self, chunk):
+        if isinstance(chunk, bytes):
+            return chunk
+        if isinstance(chunk, str):
+            return chunk.encode(self.charset)
+        if isinstance(chunk, memoryview):
+            return bytes(chunk)
+        return chunk
 
 
 class TestCaseResponse:
-    @pytest.mark.parametrize(
-        ["content", "status_code", "scope_type", "use_background"],
-        [
-            pytest.param("hello", 200, "http", False, id="http"),
-            pytest.param(b"", 200, "websocket", False, id="websocket"),
-            pytest.param(b"", 200, "http", True, id="background"),
-        ],
-    )
-    async def test_call(self, content, status_code, scope_type, use_background, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["type"] = scope_type
-        background = AsyncMock() if use_background else None
-        response = Response(content=content, status_code=status_code, background=background)
-        prefix = "websocket." if scope_type == "websocket" else ""
+    def test_headers(self):
+        response = _Response(headers={"x-custom": "val"})
 
-        await response(asgi_scope, asgi_receive, asgi_send)
-
-        assert asgi_send.call_count == 2
-        start_message = asgi_send.call_args_list[0][0][0]
-        body_message = asgi_send.call_args_list[1][0][0]
-        assert start_message["type"] == f"{prefix}http.response.start"
-        assert start_message["status"] == status_code
-        assert body_message["type"] == f"{prefix}http.response.body"
-        assert body_message["body"] == response.body
-        if use_background:
-            background.assert_awaited_once()
-
-    @pytest.mark.parametrize(
-        ["content", "expected"],
-        [
-            pytest.param(None, b"", id="none"),
-            pytest.param(b"raw", b"raw", id="bytes"),
-            pytest.param("text", b"text", id="string"),
-            pytest.param(memoryview(b"mem"), b"mem", id="memoryview"),
-        ],
-    )
-    def test_render(self, content, expected):
-        response = Response(content=content)
-
-        assert response.body == expected
-
-    @pytest.mark.parametrize(
-        ["content", "status_code", "headers", "expected_header", "expected_value"],
-        [
-            pytest.param("hello", 200, None, "content-length", "5", id="content_length"),
-            pytest.param("hello", 200, {"x-custom": "value"}, "x-custom", "value", id="custom"),
-            pytest.param("", 204, None, "content-length", None, id="no_content_length_204"),
-            pytest.param("", 304, None, "content-length", None, id="no_content_length_304"),
-        ],
-    )
-    def test_headers(self, content, status_code, headers, expected_header, expected_value):
-        response = Response(content=content, status_code=status_code, headers=headers)
-
-        assert isinstance(response.headers, MutableHeaders)
-        if expected_value is None:
-            assert expected_header not in response.headers
-        else:
-            assert response.headers[expected_header] == expected_value
+        assert response.headers == MutableHeaders({"x-custom": "val"})
 
     def test_raw_headers(self):
-        response = Response(content="hi", headers={"x-custom": "val"})
+        response = _Response(headers={"x-custom": "val"})
 
         assert (b"x-custom", b"val") in response.raw_headers
-        assert any(k == b"content-length" for k, _ in response.raw_headers)
 
     @pytest.mark.parametrize(
         ["media_type", "headers", "expected"],
@@ -81,7 +59,7 @@ class TestCaseResponse:
         ],
     )
     def test_media_type(self, media_type, headers, expected):
-        response = Response(content="hello", media_type=media_type, headers=headers)
+        response = _Response(media_type=media_type, headers=headers)
 
         assert response.headers["content-type"] == expected
 
@@ -90,17 +68,17 @@ class TestCaseResponse:
         [
             pytest.param(
                 {"key": "session", "value": "abc123"},
-                ["session=abc123", "Path=/", "SameSite=lax"],
+                ["session=abc123", "Path=/", "SameSite=Lax"],
                 id="basic",
             ),
             pytest.param(
                 {"key": "session", "value": "abc", "max_age": 3600, "secure": True, "httponly": True},
-                ["session=abc", "Max-Age=3600", "Path=/", "Secure", "HttpOnly", "SameSite=lax"],
+                ["session=abc", "Max-Age=3600", "Path=/", "Secure", "HttpOnly", "SameSite=Lax"],
                 id="full_options",
             ),
             pytest.param(
                 {"key": "session", "value": "abc", "domain": "example.com", "samesite": "strict"},
-                ["session=abc", "Domain=example.com", "Path=/", "SameSite=strict"],
+                ["session=abc", "Domain=example.com", "Path=/", "SameSite=Strict"],
                 id="domain_and_samesite",
             ),
             pytest.param(
@@ -111,15 +89,12 @@ class TestCaseResponse:
             pytest.param(
                 {"key": "session", "value": "abc", "path": None, "samesite": None, "partitioned": True},
                 ["session=abc", "Partitioned"],
-                marks=pytest.mark.skipif(
-                    sys.version_info < (3, 14), reason="Partitioned introduced in Python 3.14"
-                ),  # PORT: Replace compat when stop supporting 3.13
                 id="partitioned",
             ),
         ],
     )
     def test_set_cookie(self, kwargs, expected_parts):
-        response = Response(content="")
+        response = _Response()
         response.set_cookie(**kwargs)
 
         cookie_headers = [v for k, v in response.raw_headers if k == b"set-cookie"]
@@ -129,7 +104,7 @@ class TestCaseResponse:
             assert part in cookie_value
 
     def test_delete_cookie(self):
-        response = Response(content="")
+        response = _Response()
         response.delete_cookie("session")
 
         cookie_headers = [v for k, v in response.raw_headers if k == b"set-cookie"]
@@ -138,11 +113,14 @@ class TestCaseResponse:
         assert "session=" in cookie_value
         assert "Max-Age=0" in cookie_value
 
+    def test_is_abc(self):
+        assert Response.__abstractmethods__ == frozenset({"_send_response"})
+
     @pytest.mark.parametrize(
         ["left", "right", "expected"],
         [
-            pytest.param(Response(content="foo"), Response(content="foo"), True, id="equal"),
-            pytest.param(Response(content="foo"), Response(content="bar"), False, id="different"),
+            pytest.param(_Response(status_code=200), _Response(status_code=200), True, id="equal"),
+            pytest.param(_Response(status_code=200), _Response(status_code=400), False, id="different"),
         ],
     )
     def test_eq(self, left, right, expected):
@@ -151,9 +129,152 @@ class TestCaseResponse:
     @pytest.mark.parametrize(
         ["left", "right", "expected"],
         [
-            pytest.param(Response(content="foo"), Response(content="foo"), True, id="equal"),
-            pytest.param(Response(content="foo"), Response(content="bar"), False, id="different"),
+            pytest.param(_Response(status_code=200), _Response(status_code=200), True, id="equal"),
+            pytest.param(_Response(status_code=200), _Response(status_code=400), False, id="different"),
         ],
     )
     def test_hash(self, left, right, expected):
         assert (hash(left) == hash(right)) == expected
+
+
+class TestCaseBufferedResponse:
+    def test_is_abc(self):
+        assert BufferedResponse.__abstractmethods__ == frozenset({"render"})
+
+    def test_content_required(self):
+        with pytest.raises(ValueError, match="Either 'content' or 'path' must be provided"):
+            _BufferedResponse()
+
+    def test_raw_headers(self):
+        response = _BufferedResponse("foo")
+
+        header = next((v for k, v in response.raw_headers if k == b"content-length"), None)
+        assert header == b"3"
+
+    @pytest.mark.parametrize(
+        ["content", "status_code", "use_background"],
+        [
+            pytest.param("hello", 200, False, id="http"),
+            pytest.param(b"", 200, True, id="background"),
+        ],
+    )
+    async def test_call(self, content, status_code, use_background, asgi_scope, asgi_receive, asgi_send):
+        background = AsyncMock() if use_background else None
+        response = _BufferedResponse(content, status_code=status_code, background=background)
+
+        await response(asgi_scope, asgi_receive, asgi_send)
+
+        assert asgi_send.call_count == 2
+        start_message = asgi_send.call_args_list[0][0][0]
+        body_message = asgi_send.call_args_list[1][0][0]
+        assert start_message["type"] == "http.response.start"
+        assert start_message["status"] == status_code
+        assert body_message["type"] == "http.response.body"
+        assert body_message["body"] == response.body
+        if use_background:
+            background.assert_awaited_once()
+
+    @pytest.mark.parametrize(
+        ["content", "expected"],
+        [
+            pytest.param(b"raw", b"raw", id="bytes"),
+            pytest.param("text", b"text", id="string"),
+            pytest.param(memoryview(b"mem"), b"mem", id="memoryview"),
+        ],
+    )
+    def test_render(self, content, expected):
+        response = _BufferedResponse(content)
+
+        assert response.body == expected
+
+    @pytest.mark.parametrize(
+        ["left", "right", "expected"],
+        [
+            pytest.param(_BufferedResponse(b"foo"), _BufferedResponse(b"foo"), True, id="equal"),
+            pytest.param(_BufferedResponse(b"foo"), _BufferedResponse(b"bar"), False, id="different"),
+        ],
+    )
+    def test_hash(self, left, right, expected):
+        assert (hash(left) == hash(right)) == expected
+
+
+class TestCaseStreamingResponse:
+    def test_is_abc(self):
+        assert StreamingResponse.__abstractmethods__ == frozenset({"encode"})
+
+    def test_raw_headers(self):
+        response = _StreamingResponse([1, 2, 3])
+
+        assert not any(k == b"content-length" for k, _ in response.raw_headers)
+
+    @pytest.mark.parametrize(
+        ["content_type", "use_background", "expected_chunks"],
+        [
+            pytest.param("sync_bytes", False, [b"hello", b" ", b"world"], id="sync_bytes"),
+            pytest.param("sync_str", False, [b"hello", b" ", b"world"], id="sync_str"),
+            pytest.param("async_bytes", False, [b"async", b"data"], id="async_bytes"),
+            pytest.param("sync_bytes", True, [b""], id="background"),
+        ],
+    )
+    async def test_call(self, content_type, use_background, expected_chunks, asgi_scope, asgi_receive, asgi_send):
+        if content_type == "sync_str":
+            content = iter(["hello", " ", "world"])
+        elif content_type == "async_bytes":
+
+            async def _gen():
+                yield b"async"
+                yield b"data"
+
+            content = _gen()
+        elif use_background:
+            content = iter([b""])
+        else:
+            content = iter([b"hello", b" ", b"world"])
+
+        background = AsyncMock() if use_background else None
+        response = _StreamingResponse(content, background=background)
+
+        await response(asgi_scope, asgi_receive, asgi_send)
+
+        start_message = asgi_send.call_args_list[0][0][0]
+        assert start_message["type"] == "http.response.start"
+        assert start_message["status"] == 200
+        body_calls = [c[0][0] for c in asgi_send.call_args_list[1:]]
+        for i, expected in enumerate(expected_chunks):
+            assert body_calls[i]["body"] == expected
+            assert body_calls[i]["more_body"] is True
+        assert body_calls[len(expected_chunks)]["body"] == b""
+        assert body_calls[len(expected_chunks)]["more_body"] is False
+        if use_background:
+            background.assert_awaited_once()
+
+    async def test_oserror_during_stream(self, asgi_scope, asgi_receive, asgi_send):
+        async def _gen():
+            yield b"partial"
+            raise OSError("Broken pipe")
+
+        response = _StreamingResponse(_gen())
+
+        await response(asgi_scope, asgi_receive, asgi_send)
+
+        start_message = asgi_send.call_args_list[0][0][0]
+        assert start_message["type"] == "http.response.start"
+        assert start_message["status"] == 200
+
+    async def test_oserror_suppresses_background(self, asgi_scope, asgi_receive, asgi_send):
+        async def _gen():
+            raise OSError("Connection reset")
+            yield b""  # pragma: no cover
+
+        background = AsyncMock()
+        response = _StreamingResponse(_gen(), background=background)
+
+        await response(asgi_scope, asgi_receive, asgi_send)
+
+        background.assert_not_awaited()
+
+    def test_hash(self):
+        content = [1]
+
+        assert hash(_StreamingResponse(content)) == hash(_StreamingResponse(content))
+        assert hash(_StreamingResponse(content)) != hash(_StreamingResponse([1]))

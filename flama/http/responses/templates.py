@@ -1,4 +1,5 @@
 import html
+import http
 import importlib.util
 import os
 import pathlib
@@ -11,18 +12,7 @@ from flama import exceptions, types
 from flama._core.json_encoder import encode_json
 from flama.http.responses.html import HTMLResponse
 
-__all__ = ["HTMLFileResponse", "HTMLTemplatesEnvironment", "HTMLTemplateResponse"]
-
-
-class HTMLFileResponse(HTMLResponse):
-    def __init__(self, path: str, *args, **kwargs):
-        try:
-            with open(path) as f:
-                content = f.read()
-        except Exception as e:
-            raise exceptions.HTTPException(status_code=500, detail=str(e))
-
-        super().__init__(content, *args, **kwargs)
+__all__ = ["HTMLTemplatesEnvironment", "HTMLTemplateResponse"]
 
 
 class HTMLTemplatesEnvironment(jinja2.Environment):
@@ -77,11 +67,13 @@ class HTMLTemplatesEnvironment(jinja2.Environment):
 class HTMLTemplateResponse(HTMLResponse):
     templates = HTMLTemplatesEnvironment(loader=jinja2.FileSystemLoader(pathlib.Path(os.curdir) / "templates"))
 
-    def __init__(self, template: str, context: dict[str, t.Any] | None = None, *args, **kwargs):
-        if context is None:
-            context = {}
+    def __init__(self, template: str, *args, context: dict[str, t.Any] | None = None, **kwargs):
+        try:
+            content: str = self.templates.get_template(template).render(**(context or {}))
+        except Exception as e:
+            raise exceptions.HTTPException(status_code=http.HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(e))
 
-        super().__init__(self.templates.get_template(template).render(**context), *args, **kwargs)
+        super().__init__(content, *args, **kwargs)
 
 
 class _FlamaLoader(jinja2.PackageLoader):

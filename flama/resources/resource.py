@@ -134,7 +134,11 @@ class ResourceType(type):
 
         # Preserve already defined methods
         methods_namespace.update(
-            {method: methods_namespace[f"_{method}"] for method in cls.METHODS if method not in namespace}
+            {
+                method: methods_namespace[f"_{method}"]
+                for method in cls.METHODS
+                if method not in namespace and f"_{method}" in methods_namespace
+            }
         )
 
         return methods_namespace

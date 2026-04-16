@@ -306,18 +306,18 @@ class TestCaseExceptionMiddleware:
                 False,
                 None,
                 exceptions.HTTPException(204),
-                http.Response,
-                {"status_code": 204, "headers": None},
-                "flama.debug.middleware.http.Response",
+                http.PlainTextResponse,
+                {"_pos": ("",), "status_code": 204, "headers": None},
+                "flama.debug.middleware.http.PlainTextResponse",
                 id="204",
             ),
             pytest.param(
                 False,
                 None,
                 exceptions.HTTPException(304),
-                http.Response,
-                {"status_code": 304, "headers": None},
-                "flama.debug.middleware.http.Response",
+                http.PlainTextResponse,
+                {"_pos": ("",), "status_code": 304, "headers": None},
+                "flama.debug.middleware.http.PlainTextResponse",
                 id="304",
             ),
             pytest.param(
@@ -325,7 +325,7 @@ class TestCaseExceptionMiddleware:
                 b"text/html",
                 exceptions.HTTPException(404, "Foo"),
                 _FlamaTemplateResponse,
-                {"template": "debug/error_404.html", "context": {}, "status_code": 404},
+                {"_pos": ("debug/error_404.html",), "context": {}, "status_code": 404},
                 "flama.debug.middleware._FlamaTemplateResponse",
                 id="debug_404",
             ),
@@ -370,7 +370,8 @@ class TestCaseExceptionMiddleware:
             response = middleware.http_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
             assert isinstance(response, response_class)
-            assert response_mock.call_args_list == [call(**response_params)]
+            pos = response_params.pop("_pos", ())
+            assert response_mock.call_args_list == [call(*pos, **response_params)]
 
     def test_jsonrpc_exception_handler(self, middleware, asgi_scope, asgi_receive, asgi_send):
         exc = exceptions.JSONRPCException(status_code=JSONRPCStatus.METHOD_NOT_FOUND, request_id=42, detail="Not found")

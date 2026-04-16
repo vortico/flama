@@ -78,4 +78,4 @@ class SchemaModule(Module):
         return OpenAPIResponse(self.schema)
 
     def docs_view(self) -> http.HTMLResponse:
-        return _FlamaTemplateResponse("schemas/docs.html", {"url": self.schema_path})
+        return _FlamaTemplateResponse("schemas/docs.html", context={"url": self.schema_path})
