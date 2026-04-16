@@ -25,7 +25,7 @@ class TestCaseAPIResponse:
         return schema
 
     def test_init(self, schema):
-        response = APIResponse(content={"name": "Canna"}, schema=schema)
+        response = APIResponse({"name": "Canna"}, schema=schema)
 
         assert response.schema == schema
 
@@ -33,7 +33,7 @@ class TestCaseAPIResponse:
         ["use_schema", "content", "expected", "exception"],
         (
             pytest.param(True, {"name": "Canna"}, '{"name":"Canna"}', None, id="schema_and_content"),
-            pytest.param(False, {}, "", None, id="no_content"),
+            pytest.param(False, {}, "{}", None, id="no_content"),
             pytest.param(False, {"name": "Canna"}, '{"name":"Canna"}', None, id="no_schema"),
             pytest.param(True, {"foo": "bar"}, "", exceptions.SerializationError, id="error"),
         ),
@@ -41,7 +41,7 @@ class TestCaseAPIResponse:
     )
     def test_render(self, schema, use_schema, content, expected, exception):
         with exception:
-            response = APIResponse(schema=schema if use_schema else None, content=content)
+            response = APIResponse(content, schema=schema if use_schema else None)
             assert response.body.decode() == expected
 
 

@@ -8,11 +8,11 @@ from flama.schemas.data_structures import Field, Schema
 
 __all__ = ["PageNumberPaginator", "PageNumberResponse"]
 
+SchemaType = t.TypeVar("SchemaType", bound=type)
 P = t.ParamSpec("P")
-R = t.TypeVar("R", covariant=True)
 
 
-class PageNumberResponse(PaginatedResponse[R]):
+class PageNumberResponse(PaginatedResponse[SchemaType], t.Generic[SchemaType]):
     """
     Response paginated based on a page number and a page size.
 
@@ -28,7 +28,7 @@ class PageNumberResponse(PaginatedResponse[R]):
 
     def __init__(
         self,
-        schema: R,
+        *args,
         page: int | str | None = None,
         page_size: int | str | None = None,
         count: bool | None = True,
@@ -37,20 +37,20 @@ class PageNumberResponse(PaginatedResponse[R]):
         self.page_number = int(page) if page is not None else 1
         self.page_size = int(page_size) if page_size is not None else self.default_page_size
         self.count = count
-        super().__init__(schema=schema, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def render(self, content: t.Sequence[t.Any]):
         init = (self.page_number - 1) * self.page_size
         end = self.page_number * self.page_size
 
-        return super().render(
+        return self._encode_content(
             {
                 "meta": {
                     "page": self.page_number,
                     "page_size": self.page_size,
                     "count": len(content) if self.count else None,
                 },
-                "data": content[init:end],
+                "data": list(content[init:end]),
             }
         )
 
@@ -70,42 +70,47 @@ class PageNumberPaginator(BasePaginator):
 
     @classmethod
     def _decorate_async(
-        cls, func: t.Callable[P, t.Coroutine[R, t.Any, t.Any]], schema: t.Any
-    ) -> t.Callable[P, t.Coroutine[PageNumberResponse[R], t.Any, t.Any]]:
+        cls, func: t.Callable[P, t.Coroutine[SchemaType, t.Any, t.Any]], schema: t.Any
+    ) -> t.Callable[P, t.Coroutine[PageNumberResponse[SchemaType], t.Any, t.Any]]:
         @functools.wraps(func)
         async def decorator(
-            *args,
-            page: int | None = None,
-            page_size: int | None = None,
-            count: bool | None = False,
-            **kwargs,
+            *args, page: int | None = None, page_size: int | None = None, count: bool | None = False, **kwargs
         ):
             return PageNumberResponse(
-                schema=schema, page=page, page_size=page_size, count=count, content=await func(*args, **kwargs)
+                await func(*args, **kwargs), schema=schema, page=page, page_size=page_size, count=count
             )
 
         return decorator
 
     @classmethod
-    def _decorate_sync(cls, func: t.Callable[P, R], schema: t.Any) -> t.Callable[P, PageNumberResponse[R]]:
+    def _decorate_sync(
+        cls, func: t.Callable[P, SchemaType], schema: t.Any
+    ) -> t.Callable[P, PageNumberResponse[SchemaType]]:
         @functools.wraps(func)
         def decorator(
-            *args,
-            page: int | None = None,
-            page_size: int | None = None,
-            count: bool | None = False,
-            **kwargs,
+            *args, page: int | None = None, page_size: int | None = None, count: bool | None = False, **kwargs
         ):
-            return PageNumberResponse(
-                schema=schema, page=page, page_size=page_size, count=count, content=func(*args, **kwargs)
-            )
+            return PageNumberResponse(func(*args, **kwargs), schema=schema, page=page, page_size=page_size, count=count)
 
         return decorator
 
+    @t.overload
     @classmethod
     def wraps(
-        cls, func: t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]], signature: inspect.Signature
-    ) -> tuple[t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]], dict[str, t.Any]]:
+        cls, func: t.Callable[P, SchemaType], signature: inspect.Signature
+    ) -> tuple[t.Callable[P, PaginatedResponse[SchemaType]], dict[str, t.Any]]: ...
+    @t.overload
+    @classmethod
+    def wraps(
+        cls, func: t.Callable[P, t.Coroutine[SchemaType, t.Any, t.Any]], signature: inspect.Signature
+    ) -> tuple[t.Callable[P, t.Coroutine[PaginatedResponse[SchemaType], t.Any, t.Any]], dict[str, t.Any]]: ...
+    @classmethod
+    def wraps(
+        cls, func: t.Callable[P, SchemaType | t.Coroutine[SchemaType, t.Any, t.Any]], signature: inspect.Signature
+    ) -> tuple[
+        t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[PaginatedResponse[SchemaType], t.Any, t.Any]],
+        dict[str, t.Any],
+    ]:
         """
         Decorator for adding pagination behavior to a view. That decorator produces a view based on page numbering and
         it adds three query parameters to control the pagination: page, page_size and count. Page has a default value of

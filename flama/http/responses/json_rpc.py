@@ -9,7 +9,6 @@ __all__ = ["JSONRPCResponse", "JSONRPCErrorResponse"]
 
 class JSONRPCResponse(JSONResponse):
     version = JSONRPC_VERSION
-    media_type = "application/json"
 
     def __init__(self, result: t.Any = None, *, id: str | int | None = None, **kwargs):
         self.result = result
@@ -21,7 +20,6 @@ class JSONRPCResponse(JSONResponse):
 
 class JSONRPCErrorResponse(JSONResponse):
     version = JSONRPC_VERSION
-    media_type = "application/json"
 
     def __init__(self, *, status_code: int, message: str, data: t.Any = None, id: str | int | None = None, **kwargs):
         error = {"code": status_code, "message": message}

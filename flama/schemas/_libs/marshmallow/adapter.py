@@ -139,7 +139,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
             return field.schema
 
         if isinstance(field, marshmallow.fields.List):
-            return self._get_field_type(t.cast(marshmallow.fields.Field, field.inner))
+            return self._get_field_type(field.inner)
 
         if isinstance(field, marshmallow.fields.Dict):
             return self._get_field_type(t.cast(marshmallow.fields.Field, field.value_field))

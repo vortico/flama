@@ -3,6 +3,7 @@ import time
 import typing as t
 
 from flama import concurrency, types
+from flama._core.cookies import build_cookie_header
 from flama.crypto import JWS
 from flama.crypto.exceptions import SignatureDecodeException, SignatureVerificationException
 from flama.http.data_structures import MutableHeaders
@@ -41,13 +42,9 @@ class SessionMiddleware(Middleware):
         self._session_cookie = session_cookie
         self._max_age = max_age
         self._path = path
-
-        flags = ["httponly", f"samesite={same_site}"]
-        if https_only:
-            flags.append("secure")
-        if domain is not None:
-            flags.append(f"domain={domain}")
-        self._security_flags = "; ".join(flags)
+        self._same_site = same_site
+        self._secure = https_only
+        self._domain = domain
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if scope["type"] not in ("http", "websocket"):
@@ -72,25 +69,29 @@ class SessionMiddleware(Middleware):
                 if scope["session"]:
                     headers.append(
                         "set-cookie",
-                        "; ".join(
-                            [
-                                f"{self._session_cookie}={self._encode_session(scope['session']).decode()}",
-                                f"path={self._path}",
-                                f"Max-Age={str(self._max_age)}" if self._max_age else "",
-                                f"{self._security_flags}",
-                            ]
+                        build_cookie_header(
+                            self._session_cookie,
+                            self._encode_session(scope["session"]).decode(),
+                            max_age=self._max_age,
+                            path=self._path,
+                            domain=self._domain,
+                            secure=self._secure,
+                            httponly=True,
+                            samesite=self._same_site,
                         ),
                     )
                 elif not initial_session_was_empty:
                     headers.append(
                         "set-cookie",
-                        "; ".join(
-                            [
-                                f"{self._session_cookie}=null",
-                                f"path={self._path}",
-                                "expires=Thu, 01 Jan 1970 00:00:00 GMT",
-                                f"{self._security_flags}",
-                            ]
+                        build_cookie_header(
+                            self._session_cookie,
+                            "null",
+                            expires=0,
+                            path=self._path,
+                            domain=self._domain,
+                            secure=self._secure,
+                            httponly=True,
+                            samesite=self._same_site,
                         ),
                     )
             await send(message)

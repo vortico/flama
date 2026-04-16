@@ -1,9 +1,11 @@
-import http.cookies
-import sys
+import abc
+import http
+import os
 import typing as t
 from datetime import datetime
 
-from flama import types
+from flama import concurrency, exceptions, types
+from flama._core.cookies import build_cookie_header
 from flama.http.data_structures import MutableHeaders
 
 if t.TYPE_CHECKING:
@@ -11,16 +13,16 @@ if t.TYPE_CHECKING:
 
     from flama.background import BackgroundTask
 
-__all__ = ["Response"]
+__all__ = ["Response", "BufferedResponse", "StreamingResponse"]
 
 
-class Response:
+class Response(abc.ABC):
     media_type: str | None = None
     charset = "utf-8"
 
     def __init__(
         self,
-        content: t.Any = None,
+        *,
         status_code: int = 200,
         headers: "Mapping[str, str] | None" = None,
         media_type: str | None = None,
@@ -30,42 +32,21 @@ class Response:
         if media_type is not None:
             self.media_type = media_type
         self.background = background
-        self.body = self.render(content)
         self._init_headers(headers)
 
-    def render(self, content: t.Any) -> bytes:
-        if content is None:
-            return b""
-        if isinstance(content, bytes | memoryview):
-            return content
-        return content.encode(self.charset)
-
     def _init_headers(self, headers: "Mapping[str, str] | None" = None) -> None:
-        if headers is None:
-            raw_headers: list[tuple[bytes, bytes]] = []
-            populate_content_length = True
-            populate_content_type = True
-        else:
-            raw_headers = [(k.lower().encode("latin-1"), v.encode("latin-1")) for k, v in headers.items()]
-            keys = [h[0] for h in raw_headers]
-            populate_content_length = b"content-length" not in keys
-            populate_content_type = b"content-type" not in keys
+        self.raw_headers: list[tuple[bytes, bytes]] = [
+            (k.lower().encode("latin-1"), v.encode("latin-1")) for k, v in (headers or {}).items()
+        ]
 
-        body = getattr(self, "body", None)
-        if (
-            body is not None
-            and populate_content_length
-            and not (self.status_code < 200 or self.status_code in (204, 304))
+        if (content_type := self.media_type) is not None and not any(
+            k for (k, _) in self.raw_headers if k == b"content-type"
         ):
-            raw_headers.append((b"content-length", str(len(body)).encode("latin-1")))
-
-        content_type = self.media_type
-        if content_type is not None and populate_content_type:
             if content_type.startswith("text/") and "charset=" not in content_type.lower():
                 content_type += "; charset=" + self.charset
-            raw_headers.append((b"content-type", content_type.encode("latin-1")))
+            self.raw_headers.append((b"content-type", content_type.encode("latin-1")))
 
-        self.raw_headers = raw_headers
+        self.raw_headers = sorted(self.raw_headers, key=lambda x: x[0])
 
     @property
     def headers(self) -> MutableHeaders:
@@ -86,32 +67,27 @@ class Response:
         samesite: t.Literal["lax", "strict", "none"] | None = "lax",
         partitioned: bool = False,
     ) -> None:
-        cookie: http.cookies.BaseCookie[str] = http.cookies.SimpleCookie()
-        cookie[key] = value
-        if max_age is not None:
-            cookie[key]["max-age"] = max_age
-        if expires is not None:
-            cookie[key]["expires"] = (
-                expires.strftime("%a, %d %b %Y %H:%M:%S GMT") if isinstance(expires, datetime) else expires
+        self.raw_headers.append(
+            (
+                b"set-cookie",
+                build_cookie_header(
+                    key,
+                    value,
+                    max_age=max_age,
+                    expires=(
+                        None
+                        if expires is None
+                        else int(expires.timestamp() if isinstance(expires, datetime) else expires)
+                    ),
+                    path=path,
+                    domain=domain,
+                    secure=secure,
+                    httponly=httponly,
+                    samesite=samesite,
+                    partitioned=partitioned,
+                ).encode("latin-1"),
             )
-        if path is not None:
-            cookie[key]["path"] = path
-        if domain is not None:
-            cookie[key]["domain"] = domain
-        if secure:
-            cookie[key]["secure"] = True
-        if httponly:
-            cookie[key]["httponly"] = True
-        if samesite is not None:
-            assert samesite.lower() in ("strict", "lax", "none"), "samesite must be either 'strict', 'lax' or 'none'"
-            cookie[key]["samesite"] = samesite
-        if partitioned:
-            if sys.version_info < (3, 14):  # pragma: no cover  # PORT: Replace compat when stop supporting 3.13
-                raise ValueError("Partitioned cookies are only supported in Python 3.14 and above.")
-            cookie[key]["partitioned"] = True
-
-        cookie_val = cookie.output(header="").strip()
-        self.raw_headers.append((b"set-cookie", cookie_val.encode("latin-1")))
+        )
 
     def delete_cookie(
         self,
@@ -126,39 +102,114 @@ class Response:
             key, max_age=0, expires=0, path=path, domain=domain, secure=secure, httponly=httponly, samesite=samesite
         )
 
+    def __hash__(self) -> int:
+        return hash((self.status_code, self.media_type, self.background, tuple(sorted(self.headers.items()))))
+
+    def __eq__(self, value: object, /) -> bool:
+        return type(self) is type(value) and hash(self) == hash(value)
+
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        prefix = "websocket." if scope.get("type") == "websocket" else ""
-        await send(
-            types.Message(
-                {
-                    "type": prefix + "http.response.start",
-                    "status": self.status_code,
-                    "headers": self.raw_headers,
-                }
-            )
-        )
-        await send(types.Message({"type": prefix + "http.response.body", "body": self.body}))
+        try:
+            await self._send_response(scope, receive, send)
+        except OSError:
+            return
 
         if self.background is not None:
             await self.background()
 
+    @abc.abstractmethod
+    async def _send_response(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None: ...
+
+
+Content = t.TypeVar("Content")
+
+
+class BufferedResponse(Response, t.Generic[Content]):
+    def __init__(
+        self,
+        content: Content | None = None,
+        /,
+        *,
+        status_code: int = 200,
+        headers: "Mapping[str, str] | None" = None,
+        media_type: str | None = None,
+        background: "BackgroundTask | None" = None,
+        path: str | os.PathLike | None = None,
+    ) -> None:
+        if path is not None:
+            try:
+                with open(path) as f:
+                    self.body = self.render(f.read())
+            except Exception as e:
+                raise exceptions.HTTPException(status_code=http.HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(e))
+        elif content is not None:
+            self.body = self.render(content)
+        else:
+            raise ValueError("Either 'content' or 'path' must be provided")
+        super().__init__(status_code=status_code, headers=headers, media_type=media_type, background=background)
+
+    def _init_headers(self, headers: "Mapping[str, str] | None" = None) -> None:
+        super()._init_headers(headers)
+
+        if (
+            (body := getattr(self, "body", None)) is not None
+            and not any(k for (k, _) in self.raw_headers if k == b"content-length")
+            and not (self.status_code < 200 or self.status_code in (204, 304))
+        ):
+            self.raw_headers.append((b"content-length", str(len(body)).encode("latin-1")))
+
+        self.raw_headers = sorted(self.raw_headers, key=lambda x: x[0])
+
+    async def _send_response(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        await send(
+            types.Message({"type": "http.response.start", "status": self.status_code, "headers": self.raw_headers})
+        )
+        await send(types.Message({"type": "http.response.body", "body": self.body}))
+
     def __hash__(self) -> int:
         return hash(
-            (
-                self.status_code,
-                getattr(self, "media_type"),
-                self.background,
-                self.body,
-                tuple(sorted(self.headers.items())),
-            )
+            (self.status_code, self.media_type, self.background, tuple(sorted(self.headers.items())), self.body)
         )
 
-    def __eq__(self, value: object, /) -> bool:
-        return (
-            isinstance(value, Response)
-            and self.status_code == value.status_code
-            and getattr(self, "media_type") == getattr(value, "media_type")
-            and self.background == value.background
-            and self.body == value.body
-            and self.headers == value.headers
+    @abc.abstractmethod
+    def render(self, content: Content) -> bytes: ...
+
+
+class StreamingResponse(Response, t.Generic[Content]):
+    def __init__(
+        self,
+        content: t.Iterable[Content] | t.AsyncIterable[Content],
+        /,
+        *,
+        status_code: int = 200,
+        headers: "Mapping[str, str] | None" = None,
+        media_type: str | None = None,
+        background: "BackgroundTask | None" = None,
+    ) -> None:
+        self.content = content
+
+        super().__init__(status_code=status_code, headers=headers, media_type=media_type, background=background)
+
+    def _init_headers(self, headers: "Mapping[str, str] | None" = None) -> None:
+        super()._init_headers(headers)
+
+        self.raw_headers = sorted([(k, v) for k, v in self.raw_headers if k != b"content-length"], key=lambda x: x[0])
+
+    async def _send_response(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
+        await send(
+            types.Message({"type": "http.response.start", "status": self.status_code, "headers": self.raw_headers})
         )
+
+        async for chunk in concurrency.iterate(self.content):
+            encoded = self.encode(chunk)
+            await send(types.Message({"type": "http.response.body", "body": encoded, "more_body": True}))
+
+        await send(types.Message({"type": "http.response.body", "body": b"", "more_body": False}))
+
+    def __hash__(self) -> int:
+        return hash(
+            (self.status_code, self.media_type, self.background, tuple(sorted(self.headers.items())), id(self.content))
+        )
+
+    @abc.abstractmethod
+    def encode(self, chunk: Content) -> bytes: ...

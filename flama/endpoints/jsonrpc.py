@@ -71,7 +71,7 @@ class JSONRPCEndpoint(BaseEndpoint, types.JSONRPCEndpointProtocol):
             ) from e
 
         if "id" not in body:
-            response = http.Response(status_code=http_stdlib.HTTPStatus.ACCEPTED)
+            response = http.PlainTextResponse("", status_code=http_stdlib.HTTPStatus.ACCEPTED)
         else:
             response = http.JSONRPCResponse(result, id=request_id)
 

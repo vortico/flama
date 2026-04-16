@@ -6,7 +6,7 @@ import os
 import sys
 import typing as t
 
-__all__ = ["FileReader", "iterate_in_threadpool", "is_async", "run", "run_task_group", "AsyncProcess"]
+__all__ = ["FileReader", "iterate", "is_async", "run", "run_task_group", "AsyncProcess"]
 
 R = t.TypeVar("R", covariant=True)
 T = t.TypeVar("T")
@@ -94,15 +94,21 @@ class FileReader:
         await self.aclose()
 
 
-async def iterate_in_threadpool(iterator: t.Iterable[T]) -> t.AsyncIterator[T]:
-    """Wrap a synchronous iterable into an async iterator using a producer thread and an async queue.
+async def iterate(iterator: t.Iterable[T] | t.AsyncIterable[T]) -> t.AsyncIterator[T]:
+    """Normalise any iterable into an async iterator.
 
-    The sync iterator is consumed in a background thread. Items are passed to the async side through
-    a bounded :class:`asyncio.Queue`, providing natural backpressure.
+    If *iterator* is already an :class:`~collections.abc.AsyncIterable` it is yielded from
+    directly.  Otherwise the synchronous iterable is consumed in a background thread with items
+    passed through a bounded :class:`asyncio.Queue` for natural backpressure.
 
-    :param iterator: Synchronous iterable to wrap.
+    :param iterator: Synchronous or asynchronous iterable to wrap.
     :return: Async iterator yielding the same values.
     """
+    if isinstance(iterator, t.AsyncIterable):
+        async for item in iterator:
+            yield t.cast(T, item)
+        return
+
     queue: asyncio.Queue[T] = asyncio.Queue(maxsize=1)
     loop = asyncio.get_running_loop()
 
@@ -121,7 +127,7 @@ async def iterate_in_threadpool(iterator: t.Iterable[T]) -> t.AsyncIterator[T]:
     await future
 
 
-def is_async(obj: t.Any) -> t.TypeGuard[t.Callable[..., t.Awaitable[t.Any]]]:
+def is_async(obj: t.Any) -> t.TypeGuard[t.Callable[..., t.Coroutine]]:
     """Check if given object is an async function, callable or partialised function.
 
     :param obj: Object to check.
@@ -130,7 +136,7 @@ def is_async(obj: t.Any) -> t.TypeGuard[t.Callable[..., t.Awaitable[t.Any]]]:
     while isinstance(obj, functools.partial):
         obj = obj.func
 
-    return inspect.iscoroutinefunction(obj) or inspect.iscoroutinefunction(getattr(obj, "__call__"))
+    return inspect.iscoroutinefunction(obj) or inspect.iscoroutinefunction(getattr(obj, "__call__", None))
 
 
 async def run(
