@@ -1,6 +1,6 @@
 import pathlib
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -19,60 +19,48 @@ class TestCaseHuggingFaceModule:
         ],
     )
     def test_get(self, task, model_name):
-        mock_pipe = MagicMock()
-        mock_pipe.task = task or "text-generation"
+        with tempfile.TemporaryDirectory() as snapshot_dir:
+            mock_model_info = MagicMock()
+            mock_model_info.pipeline_tag = "text-generation"
 
-        def fake_save_pretrained(tmpdir):
-            p = pathlib.Path(tmpdir)
-            (p / "config.json").write_text('{"task": "text-generation"}')
-            (p / "model.safetensors").write_bytes(b"\x00" * 16)
+            with (
+                patch("flama.huggingface.module.huggingface_hub") as mock_hub,
+                patch("flama.huggingface.module.Serializer") as mock_serializer,
+                tempfile.TemporaryDirectory() as output_dir,
+            ):
+                mock_hub.snapshot_download.return_value = snapshot_dir
+                mock_hub.hf_model_info.return_value = mock_model_info
+                output_path = pathlib.Path(output_dir) / "test.flm"
 
-        mock_pipe.save_pretrained = fake_save_pretrained
+                result = HuggingFaceModule.get(model_name, output_path, task=task)
 
-        with (
-            patch("flama.huggingface.module.transformers") as mock_transformers,
-            patch("flama.huggingface.module.Serializer") as mock_serializer,
-            tempfile.TemporaryDirectory() as output_dir,
-        ):
-            mock_transformers.pipeline.return_value = mock_pipe
-            output_path = pathlib.Path(output_dir) / "test.flm"
+                assert mock_hub.snapshot_download.call_args_list == [call(repo_id=model_name)]
+                if task is None:
+                    assert mock_hub.hf_model_info.call_args_list == [call(model_name)]
+                else:
+                    assert mock_hub.hf_model_info.call_args_list == []
 
-            result = HuggingFaceModule.get(model_name, output_path, task=task)
+                assert len(mock_serializer.dump.call_args_list) == 1
+                call_kwargs = mock_serializer.dump.call_args
+                assert call_kwargs.args[0] == snapshot_dir
+                assert call_kwargs.kwargs["path"] == output_path
+                assert call_kwargs.kwargs["config"] == {"task": "text-generation"}
+                assert call_kwargs.kwargs["extra"] == {"model_name": model_name}
+                assert call_kwargs.kwargs["lib"] == "transformers"
+                assert result == output_path
 
-            mock_transformers.pipeline.assert_called_once_with(task=task, model=model_name)
-            mock_serializer.dump.assert_called_once()
+    def test_get_with_engine_vllm(self):
+        with tempfile.TemporaryDirectory() as snapshot_dir:
+            with (
+                patch("flama.huggingface.module.huggingface_hub") as mock_hub,
+                patch("flama.huggingface.module.Serializer") as mock_serializer,
+                tempfile.TemporaryDirectory() as output_dir,
+            ):
+                mock_hub.snapshot_download.return_value = snapshot_dir
+                mock_hub.hf_model_info.return_value = MagicMock(pipeline_tag="text-generation")
+                output_path = pathlib.Path(output_dir) / "test.flm"
 
-            call_kwargs = mock_serializer.dump.call_args
-            assert call_kwargs.kwargs["path"] == output_path
-            assert "config.json" in call_kwargs.kwargs["artifacts"]
-            assert "model.safetensors" in call_kwargs.kwargs["artifacts"]
-            assert call_kwargs.kwargs["extra"]["task"] == mock_pipe.task
-            assert call_kwargs.kwargs["extra"]["model_name"] == model_name
-            assert result == output_path
+                HuggingFaceModule.get("org/model", output_path, engine="vllm")
 
-    def test_get_nested_files(self):
-        mock_pipe = MagicMock()
-        mock_pipe.task = "text-generation"
-
-        def fake_save_pretrained(tmpdir):
-            p = pathlib.Path(tmpdir)
-            (p / "config.json").write_text("{}")
-            subdir = p / "tokenizer"
-            subdir.mkdir()
-            (subdir / "vocab.txt").write_text("hello")
-
-        mock_pipe.save_pretrained = fake_save_pretrained
-
-        with (
-            patch("flama.huggingface.module.transformers") as mock_transformers,
-            patch("flama.huggingface.module.Serializer") as mock_serializer,
-            tempfile.TemporaryDirectory() as output_dir,
-        ):
-            mock_transformers.pipeline.return_value = mock_pipe
-            output_path = pathlib.Path(output_dir) / "test.flm"
-
-            HuggingFaceModule.get("org/model", output_path)
-
-            artifacts = mock_serializer.dump.call_args.kwargs["artifacts"]
-            assert "config.json" in artifacts
-            assert "tokenizer/vocab.txt" in artifacts
+                call_kwargs = mock_serializer.dump.call_args
+                assert call_kwargs.kwargs["lib"] == "vllm"

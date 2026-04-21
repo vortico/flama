@@ -1,5 +1,5 @@
-import pathlib
 import tempfile
+import typing as t
 import warnings
 
 from tests._utils.importlib import NotInstalled, installed
@@ -39,6 +39,12 @@ except Exception:
     warnings.warn("Transformers not installed")
     transformers = None
 
+try:
+    import huggingface_hub
+except Exception:
+    warnings.warn("huggingface_hub not installed")
+    huggingface_hub = None
+
 
 class ModelFactory:
     def __init__(self):
@@ -48,11 +54,13 @@ class ModelFactory:
             "tensorflow": ("tensorflow", ["tensorflow", "numpy"], self._tensorflow),
             "torch": ("torch", ["torch", "numpy"], self._torch),
             "transformers": ("transformers", ["transformers"], self._transformers),
+            "vllm": ("vllm", ["huggingface_hub", "vllm"], self._vllm),
         }
 
         self._models = {}
         self._models_cls = {}
         self._artifacts = {}
+        self._tmpdirs: list[tempfile.TemporaryDirectory] = []
 
     def _build(self, x: str, /):
         try:
@@ -84,6 +92,14 @@ class ModelFactory:
     def artifacts(self, lib: str):
         self._build(lib)
         return self._artifacts.get(lib)
+
+    def config(self, lib: str) -> dict[str, t.Any] | None:
+        self._build(lib)
+        configs: dict[str, dict[str, t.Any]] = {
+            "transformers": {"task": "text-generation", "framework": "pt"},
+            "vllm": {"engine_params": {"max_model_len": 256}},
+        }
+        return configs.get(lib)
 
     def _sklearn(self):
         model = sklearn.neural_network.MLPClassifier(
@@ -189,19 +205,16 @@ class ModelFactory:
         return model, torch.jit.RecursiveScriptModule
 
     def _transformers(self):
-        pipe = transformers.pipeline("text-generation", model="hf-internal-testing/tiny-random-gpt2")
+        directory = tempfile.TemporaryDirectory()
+        self._tmpdirs.append(directory)
+        transformers.pipeline("text-generation", model="hf-internal-testing/tiny-random-gpt2").save_pretrained(
+            directory.name
+        )
 
-        tmpdir = tempfile.mkdtemp()
-        pipe.save_pretrained(tmpdir)
+        return directory.name, transformers.pipelines.base.Pipeline
 
-        tmpdir_path = pathlib.Path(tmpdir)
-        artifacts = {
-            file_path.relative_to(tmpdir_path).as_posix(): file_path
-            for file_path in tmpdir_path.rglob("*")
-            if file_path.is_file()
-        }
-
-        return pipe, dict, artifacts
+    def _vllm(self):
+        return huggingface_hub.snapshot_download(repo_id="facebook/opt-125m"), object
 
 
 model_factory = ModelFactory()

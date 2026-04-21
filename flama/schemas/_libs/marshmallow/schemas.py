@@ -10,6 +10,11 @@ __all__ = [
     "MLModelPredictInput",
     "MLModelPredictOutput",
     "MLModelStreamInput",
+    "LLMConfigureInput",
+    "LLMConfigureOutput",
+    "LLMQueryInput",
+    "LLMQueryOutput",
+    "LLMStreamInput",
     "SCHEMAS",
 ]
 
@@ -85,6 +90,49 @@ class MLModelStreamInput(marshmallow.Schema):
     )
 
 
+class LLMConfigureInput(marshmallow.Schema):
+    params = marshmallow.fields.Dict(
+        required=True,
+        metadata={"title": "params", "description": "Generation parameters"},
+    )
+
+
+class LLMConfigureOutput(marshmallow.Schema):
+    params = marshmallow.fields.Dict(
+        required=True,
+        metadata={"title": "params", "description": "Current generation parameters"},
+    )
+
+
+class LLMQueryInput(marshmallow.Schema):
+    prompt = marshmallow.fields.String(
+        required=True,
+        metadata={"title": "prompt", "description": "Input prompt"},
+    )
+    params = marshmallow.fields.Dict(
+        load_default={},
+        metadata={"title": "params", "description": "Generation parameters override"},
+    )
+
+
+class LLMQueryOutput(marshmallow.Schema):
+    output = marshmallow.fields.String(
+        required=True,
+        metadata={"title": "output", "description": "Model output"},
+    )
+
+
+class LLMStreamInput(marshmallow.Schema):
+    prompt = marshmallow.fields.String(
+        required=True,
+        metadata={"title": "prompt", "description": "Input prompt"},
+    )
+    params = marshmallow.fields.Dict(
+        load_default={},
+        metadata={"title": "params", "description": "Generation parameters override"},
+    )
+
+
 SCHEMAS = {
     "flama.APIError": APIError,
     "flama.DropCollection": DropCollection,
@@ -95,4 +143,9 @@ SCHEMAS = {
     "flama.MLModelPredictInput": MLModelPredictInput,
     "flama.MLModelPredictOutput": MLModelPredictOutput,
     "flama.MLModelStreamInput": MLModelStreamInput,
+    "flama.LLMConfigureInput": LLMConfigureInput,
+    "flama.LLMConfigureOutput": LLMConfigureOutput,
+    "flama.LLMQueryInput": LLMQueryInput,
+    "flama.LLMQueryOutput": LLMQueryOutput,
+    "flama.LLMStreamInput": LLMStreamInput,
 }

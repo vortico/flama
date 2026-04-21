@@ -21,5 +21,4 @@ def command(flama_app: str, uvicorn: Uvicorn):
     Config(app=App.build(flama_app), server=uvicorn).run()
 
 
-assert command.callback is not None
 run = command.callback

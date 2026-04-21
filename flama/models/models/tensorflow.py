@@ -2,7 +2,7 @@ import asyncio
 import typing as t
 
 from flama import exceptions
-from flama.models.base import BaseModel
+from flama.models.base import BaseMLModel
 
 try:
     import numpy as np
@@ -18,8 +18,19 @@ except Exception:  # pragma: no cover
 __all__ = ["Model"]
 
 
-class Model(BaseModel):
+class Model(BaseMLModel):
+    """Tensorflow model wrapper.
+
+    Expects ``self.model`` to be a ready-to-use tensorflow model.
+    """
+
     def predict(self, x: list[list[t.Any]], /) -> t.Any:
+        """Run the pipeline on the given input features.
+
+        :param x: Input features forwarded to the pipeline.
+        :return: Pipeline output.
+        :raises HTTPException: If the pipeline raises an error.
+        """
         if np is None:  # noqa
             raise exceptions.FrameworkNotInstalled("numpy")
 
@@ -32,6 +43,11 @@ class Model(BaseModel):
             raise exceptions.HTTPException(status_code=400)
 
     async def stream(self, x: t.Any, /) -> t.AsyncIterator[t.Any]:
+        """Yield pipeline results for each item in an async input stream.
+
+        :param x: Async-iterable input.
+        :return: Async iterator of pipeline outputs.
+        """
         if np is None:  # noqa
             raise exceptions.FrameworkNotInstalled("numpy")
 
