@@ -24,18 +24,25 @@ class FrameworkInfo:
 
     lib: types.MLLib
     version: str
+    config: dict[str, t.Any] | None = None
 
     @classmethod
-    def from_model(cls, model: t.Any) -> "FrameworkInfo":
-        serializer = ModelSerializer.from_model(model)
-        return cls(lib=serializer.lib, version=serializer.version())
+    def from_model(
+        cls,
+        model: t.Any,
+        *,
+        lib: types.MLLib | None = None,
+        config: dict[str, t.Any] | None = None,
+    ) -> "FrameworkInfo":
+        serializer = ModelSerializer.from_lib(lib) if lib else ModelSerializer.from_model(model)
+        return cls(lib=serializer.lib, version=serializer.version(), config=config)
 
     @classmethod
     def from_dict(cls, data: dict[str, t.Any]) -> "FrameworkInfo":
-        return cls(lib=data["lib"], version=data["version"])
+        return cls(lib=data["lib"], version=data["version"], config=data.get("config"))
 
     def to_dict(self) -> dict[str, t.Any]:
-        return {"lib": self.lib, "version": self.version}
+        return {"lib": self.lib, "version": self.version, "config": self.config}
 
 
 @dataclasses.dataclass
@@ -48,16 +55,24 @@ class ModelInfo:
     metrics: dict[str, t.Any] | None = None
 
     @classmethod
-    def from_model(cls, model: t.Any, params: dict[str, t.Any] | None, metrics: dict[str, t.Any] | None) -> "ModelInfo":
+    def from_model(
+        cls,
+        model: t.Any,
+        params: dict[str, t.Any] | None,
+        metrics: dict[str, t.Any] | None,
+        *,
+        lib: types.MLLib | None = None,
+    ) -> "ModelInfo":
+        serializer = ModelSerializer.from_lib(lib) if lib else ModelSerializer.from_model(model)
         return cls(
             obj=model.__name__ if inspect.isclass(model) else model.__class__.__name__,
-            info=ModelSerializer.from_model(model).info(model),
+            info=serializer.info(model),
             params=params,
             metrics=metrics,
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, t.Any]):
+    def from_dict(cls, data: dict[str, t.Any]) -> "ModelInfo":
         return cls(obj=data["obj"], info=data["info"], params=data.get("params"), metrics=data.get("metrics"))
 
     def to_dict(self) -> dict[str, t.Any]:
@@ -84,12 +99,14 @@ class Metadata:
         params: dict[str, t.Any] | None,
         metrics: dict[str, t.Any] | None,
         extra: dict[str, t.Any] | None,
+        config: dict[str, t.Any] | None = None,
+        lib: types.MLLib | None = None,
     ) -> "Metadata":
         return cls(
             id=model_id or uuid.uuid4(),
             timestamp=timestamp or datetime.datetime.now(),
-            framework=FrameworkInfo.from_model(model),
-            model=ModelInfo.from_model(model, params, metrics),
+            framework=FrameworkInfo.from_model(model, lib=lib, config=config),
+            model=ModelInfo.from_model(model, params, metrics, lib=lib),
             extra=extra,
         )
 
@@ -145,11 +162,20 @@ class ModelArtifact:
         params: dict[str, t.Any] | None = None,
         metrics: dict[str, t.Any] | None = None,
         extra: dict[str, t.Any] | None = None,
+        config: dict[str, t.Any] | None = None,
         artifacts: Artifacts | None = None,
+        lib: types.MLLib | None = None,
     ) -> "ModelArtifact":
         return cls(
             meta=Metadata.from_model(
-                model, model_id=model_id, timestamp=timestamp, params=params, metrics=metrics, extra=extra
+                model,
+                model_id=model_id,
+                timestamp=timestamp,
+                params=params,
+                metrics=metrics,
+                extra=extra,
+                config=config,
+                lib=lib,
             ),
             model=model,
             artifacts=artifacts,

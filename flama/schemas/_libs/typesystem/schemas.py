@@ -10,6 +10,11 @@ __all__ = [
     "MLModelPredictInput",
     "MLModelPredictOutput",
     "MLModelStreamInput",
+    "LLMConfigureInput",
+    "LLMConfigureOutput",
+    "LLMQueryInput",
+    "LLMQueryOutput",
+    "LLMStreamInput",
     "SCHEMAS",
 ]
 
@@ -98,3 +103,45 @@ MLModelStreamInput = Schema(
     },
 )
 SCHEMAS["flama.MLModelStreamInput"] = MLModelStreamInput
+
+LLMConfigureInput = Schema(
+    title="LLMConfigureInput",
+    fields={
+        "params": fields.Object(title="params", description="Generation parameters"),
+    },
+)
+SCHEMAS["flama.LLMConfigureInput"] = LLMConfigureInput
+
+LLMConfigureOutput = Schema(
+    title="LLMConfigureOutput",
+    fields={
+        "params": fields.Object(title="params", description="Current generation parameters"),
+    },
+)
+SCHEMAS["flama.LLMConfigureOutput"] = LLMConfigureOutput
+
+LLMQueryInput = Schema(
+    title="LLMQueryInput",
+    fields={
+        "prompt": fields.String(title="prompt", description="Input prompt"),
+        "params": fields.Object(title="params", description="Generation parameters override", default={}),
+    },
+)
+SCHEMAS["flama.LLMQueryInput"] = LLMQueryInput
+
+LLMQueryOutput = Schema(
+    title="LLMQueryOutput",
+    fields={
+        "output": fields.String(title="output", description="Model output"),
+    },
+)
+SCHEMAS["flama.LLMQueryOutput"] = LLMQueryOutput
+
+LLMStreamInput = Schema(
+    title="LLMStreamInput",
+    fields={
+        "prompt": fields.String(title="prompt", description="Input prompt"),
+        "params": fields.Object(title="params", description="Generation parameters override", default={}),
+    },
+)
+SCHEMAS["flama.LLMStreamInput"] = LLMStreamInput

@@ -125,8 +125,10 @@ def model_path(request):
     try:
         with tempfile.NamedTemporaryFile(suffix=".flm") as f:
             model = model_factory.model(request.param)
+            lib = model_factory.lib(request.param)
             artifacts = model_factory.artifacts(request.param)
-            flama.dump(model, path=f.name, artifacts=artifacts)
+            config = model_factory.config(request.param)
+            flama.dump(model, path=f.name, artifacts=artifacts, config=config, lib=lib)
             f.flush()
 
             yield Path(f.name)

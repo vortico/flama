@@ -1,6 +1,6 @@
 import types as py_types
 import typing as t
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -28,7 +28,7 @@ class TestCaseModelSerializerFromLib:
             result = ModelSerializer.from_lib(t.cast(t.Any, lib))
 
         assert result is instance
-        im.assert_called_once_with(expected_name)
+        assert im.call_args_list == [call(expected_name)]
 
 
 class TestCaseModelSerializerFromModel:
@@ -48,7 +48,7 @@ class TestCaseModelSerializerFromModel:
             out = ModelSerializer.from_model(model)
 
         assert out is expected
-        flib.assert_called_once_with("sklearn")
+        assert flib.call_args_list == [call("sklearn")]
 
     def test_from_model_skips_none_module_then_succeeds(self) -> None:
         mod = py_types.ModuleType("torch.nn")
@@ -70,7 +70,7 @@ class TestCaseModelSerializerFromModel:
             out = ModelSerializer.from_model(model)
 
         assert out is expected
-        flib.assert_called_once_with("torch")
+        assert flib.call_args_list == [call("torch")]
 
     def test_from_model_valueerror_then_mro_succeeds(self) -> None:
         mod_tf = py_types.ModuleType("tensorflow.keras")

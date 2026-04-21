@@ -10,11 +10,19 @@ from flama.serialize.data_structures import FrameworkInfo, Metadata, ModelArtifa
 
 class TestCaseFrameworkInfo:
     def test_from_dict_and_to_dict(self) -> None:
-        data: dict[str, t.Any] = {"lib": "sklearn", "version": "1.0.0"}
+        data: dict[str, t.Any] = {"lib": "sklearn", "version": "1.0.0", "config": None}
         fi = FrameworkInfo.from_dict(data)
 
         assert fi.lib == "sklearn"
         assert fi.version == "1.0.0"
+        assert fi.config is None
+        assert fi.to_dict() == data
+
+    def test_from_dict_with_config(self) -> None:
+        data: dict[str, t.Any] = {"lib": "transformers", "version": "4.50.0", "config": {"task": "text-generation"}}
+        fi = FrameworkInfo.from_dict(data)
+
+        assert fi.config == {"task": "text-generation"}
         assert fi.to_dict() == data
 
     def test_from_model(self) -> None:
@@ -27,7 +35,18 @@ class TestCaseFrameworkInfo:
 
         assert fi.lib == "torch"
         assert fi.version == "2.0.0"
-        mock_ser.version.assert_called_once()
+        assert fi.config is None
+        assert len(mock_ser.version.call_args_list) == 1
+
+    def test_from_model_with_config(self) -> None:
+        mock_ser = MagicMock()
+        mock_ser.lib = "transformers"
+        mock_ser.version = MagicMock(return_value="4.50.0")
+
+        with patch("flama.serialize.data_structures.ModelSerializer.from_model", return_value=mock_ser):
+            fi = FrameworkInfo.from_model(object(), config={"task": "text-generation"})
+
+        assert fi.config == {"task": "text-generation"}
 
 
 class TestCaseModelInfo:
@@ -117,7 +136,7 @@ class TestCaseMetadata:
 
         assert d["id"] == str(id_)
         assert d["timestamp"] == ts.isoformat()
-        assert d["framework"] == {"lib": "sklearn", "version": "1.0"}
+        assert d["framework"] == {"lib": "sklearn", "version": "1.0", "config": None}
 
     def test_from_model(self) -> None:
         model = object()

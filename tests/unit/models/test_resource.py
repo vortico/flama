@@ -7,23 +7,37 @@ import pytest
 
 import flama
 from flama.client import Client
-from flama.models import ModelResource, ModelResourceType
+from flama.models import MLResource, MLResourceType
+from flama.models.components import ModelComponent
 from flama.resources.exceptions import ResourceAttributeError
-from tests._utils import NotInstalled
-from tests.conftest import model_factory
+from tests._utils import NotInstalled, model_factory
 
 
-class TestCaseModelResource:
+def _get_component(client):
+    return next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
+
+
+async def _error_stream(self, input_iter):
+    raise RuntimeError("boom")
+    yield  # makes this an async generator
+
+
+async def _empty_input():
+    return
+    yield  # makes this an async generator
+
+
+class TestCaseMLResource:
     def test_resource_using_component(self, app, model, component):
         component_ = component
 
         @app.models.model_resource("/")
-        class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
+        class PuppyMLResource(MLResource, metaclass=MLResourceType):
             name = "puppy"
             verbose_name = "Puppy"
             component = component_
 
-        resource = PuppyModelResource()
+        resource = PuppyMLResource()
 
         assert not hasattr(resource, "name")
         assert not hasattr(resource, "verbose_name")
@@ -52,12 +66,12 @@ class TestCaseModelResource:
     def test_resource_using_model_path(self, app, model_path):
         model_path_ = model_path
 
-        class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
+        class PuppyMLResource(MLResource, metaclass=MLResourceType):
             name = "puppy"
             verbose_name = "Puppy"
             model_path = model_path_
 
-        resource = PuppyModelResource()
+        resource = PuppyMLResource()
 
         app.models.add_model_resource("/", resource)
 
@@ -77,22 +91,24 @@ class TestCaseModelResource:
     def test_resource_wrong(self):
         with pytest.raises(ResourceAttributeError):
 
-            class PuppyModelResource(ModelResource, metaclass=ModelResourceType):
+            class PuppyMLResource(MLResource, metaclass=MLResourceType):
                 name = "puppy"
                 verbose_name = "Puppy"
 
 
-class TestCaseModelResourceMethods:
+class TestCaseMLResourceMethods:
     @pytest.fixture(scope="function")
     async def client(self, request, app):
         try:
             model = model_factory.model(request.param)
+            lib = model_factory.lib(request.param)
             artifacts = model_factory.artifacts(request.param)
+            config = model_factory.config(request.param)
         except NotInstalled:
             pytest.skip(f"Lib for case '{request.param}' is not installed.")
 
         with tempfile.NamedTemporaryFile(suffix=".flm") as f:
-            flama.dump(model, path=f.name, artifacts=artifacts)
+            flama.dump(model, path=f.name, artifacts=artifacts, config=config, lib=lib)
             f.flush()
 
             app.models.add_model("/model/", model=pathlib.Path(f.name), name=request.param)
@@ -119,7 +135,7 @@ class TestCaseModelResourceMethods:
         meta = inspect["meta"]
         assert set(meta.keys()) == {"id", "timestamp", "model", "framework", "extra"}
         assert set(meta["model"].keys()) == {"obj", "info", "params", "metrics"}
-        assert set(meta["framework"].keys()) == {"lib", "version"}
+        assert set(meta["framework"].keys()) == {"lib", "version", "config"}
 
     @pytest.mark.parametrize(
         ("client", "x", "y", "status_code"),
@@ -137,6 +153,7 @@ class TestCaseModelResourceMethods:
             ),
             pytest.param("tensorflow", [["wrong"]], None, 400, id="tensorflow-400"),
             pytest.param("transformers", ["hello"], None, 200, id="transformers-200"),
+            pytest.param("transformers", [{"bad": "input"}], None, 400, id="transformers-400"),
         ),
         indirect=["client"],
     )
@@ -163,33 +180,46 @@ class TestCaseModelResourceMethods:
             pytest.param("sklearn", "0,0", [], id="sklearn-empty"),
             pytest.param("tensorflow", "0,0", [], id="tensorflow-empty"),
             pytest.param("transformers", "hello", [], id="transformers-empty"),
+            pytest.param("transformers", "hello", "error", id="transformers-error"),
+            pytest.param("transformers", "hello", "pipeline-error", id="transformers-pipeline-error"),
         ),
         indirect=["client"],
     )
     async def test_stream(self, client, x, mock_output):
-        from flama.models.components import ModelComponent
+        if mock_output == "error":
+            component = _get_component(client)
 
-        if mock_output is not None and len(mock_output) == 0:
-            component = next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
+            with patch.object(type(component.model), "stream", _error_stream):
+                with pytest.raises(RuntimeError, match="boom"):
+                    await client.post("/model/stream/", json={"input": x})
+            return
 
-            async def _empty():
-                return
-                yield  # noqa: unreachable - makes this an async generator
+        elif mock_output == "pipeline-error":
+            component = _get_component(client)
 
-            items = [item async for item in component.model.stream(_empty())]
+            with patch.object(component.model, "model", side_effect=RuntimeError("pipeline fail")):
+                response = await client.post("/model/stream/", json={"input": x})
+
+            assert response.status_code == 200
+            assert "text/event-stream" in response.headers.get("content-type", "")
+            return
+
+        elif mock_output == []:
+            component = _get_component(client)
+
+            items = [item async for item in component.model.stream(_empty_input())]
             assert items == []
             return
 
+        ctx = contextlib.nullcontext()
         if mock_output:
-            component = next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
+            component = _get_component(client)
 
             async def _mock_stream(self, input_iter):
                 for item in mock_output:
                     yield item
 
             ctx = patch.object(type(component.model), "stream", _mock_stream)
-        else:
-            ctx = contextlib.nullcontext()
 
         with ctx:
             response = await client.post("/model/stream/", json={"input": x})

@@ -12,6 +12,11 @@ __all__ = [
     "MLModelPredictInput",
     "MLModelPredictOutput",
     "MLModelStreamInput",
+    "LLMConfigureInput",
+    "LLMConfigureOutput",
+    "LLMQueryInput",
+    "LLMQueryOutput",
+    "LLMStreamInput",
     "SCHEMAS",
 ]
 
@@ -60,6 +65,28 @@ class MLModelStreamInput(BaseModel):
     input: str = Field(title="input", description="Model stream input")
 
 
+class LLMConfigureInput(BaseModel):
+    params: dict[str, t.Any] = Field(title="params", description="Generation parameters")
+
+
+class LLMConfigureOutput(BaseModel):
+    params: dict[str, t.Any] = Field(title="params", description="Current generation parameters")
+
+
+class LLMQueryInput(BaseModel):
+    prompt: str = Field(title="prompt", description="Input prompt")
+    params: dict[str, t.Any] = Field(default_factory=dict, title="params", description="Generation parameters override")
+
+
+class LLMQueryOutput(BaseModel):
+    output: str = Field(title="output", description="Model output")
+
+
+class LLMStreamInput(BaseModel):
+    prompt: str = Field(title="prompt", description="Input prompt")
+    params: dict[str, t.Any] = Field(default_factory=dict, title="params", description="Generation parameters override")
+
+
 SCHEMAS = {
     "flama.APIError": APIError,
     "flama.DropCollection": DropCollection,
@@ -70,4 +97,9 @@ SCHEMAS = {
     "flama.MLModelPredictInput": MLModelPredictInput,
     "flama.MLModelPredictOutput": MLModelPredictOutput,
     "flama.MLModelStreamInput": MLModelStreamInput,
+    "flama.LLMConfigureInput": LLMConfigureInput,
+    "flama.LLMConfigureOutput": LLMConfigureOutput,
+    "flama.LLMQueryInput": LLMQueryInput,
+    "flama.LLMQueryOutput": LLMQueryOutput,
+    "flama.LLMStreamInput": LLMStreamInput,
 }

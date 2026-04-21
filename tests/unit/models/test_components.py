@@ -1,6 +1,8 @@
+from unittest.mock import Mock
+
 import pytest
 
-from flama.models.components import ModelComponentBuilder
+from flama.models.components import ModelComponent, ModelComponentBuilder
 from flama.models.models.pytorch import Model as PyTorchModel
 from flama.models.models.sklearn import Model as SKLearnModel
 from flama.models.models.tensorflow import Model as TensorFlowModel
@@ -26,3 +28,8 @@ class TestCaseModelComponent:
         model_instance = model.model
         assert isinstance(model, component_model_class)
         assert isinstance(model_instance, serialized_model_class)
+
+    def test_resolve(self):
+        sentinel = Mock()
+        component = ModelComponent(sentinel)
+        assert component.resolve() is sentinel

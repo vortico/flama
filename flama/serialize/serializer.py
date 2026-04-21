@@ -41,7 +41,9 @@ class Serializer:
         params: dict[str, t.Any] | None = None,
         metrics: dict[str, t.Any] | None = None,
         extra: dict[str, t.Any] | None = None,
+        config: dict[str, t.Any] | None = None,
         artifacts: Artifacts | None = None,
+        lib: types.MLLib | None = None,
         **kwargs,
     ) -> None: ...
     @t.overload
@@ -59,7 +61,47 @@ class Serializer:
         params: dict[str, t.Any] | None = None,
         metrics: dict[str, t.Any] | None = None,
         extra: dict[str, t.Any] | None = None,
+        config: dict[str, t.Any] | None = None,
         artifacts: Artifacts | None = None,
+        lib: types.MLLib | None = None,
+        **kwargs,
+    ) -> None: ...
+    @t.overload
+    @classmethod
+    def dump(
+        cls,
+        m: str | os.PathLike | pathlib.Path,
+        f: t.BinaryIO,
+        /,
+        *,
+        lib: types.MLLib,
+        protocol: types.ProtocolVersion = 1,
+        compression: types.SerializationCompression = "zstd",
+        model_id: str | uuid.UUID | None = None,
+        timestamp: datetime.datetime | None = None,
+        params: dict[str, t.Any] | None = None,
+        metrics: dict[str, t.Any] | None = None,
+        extra: dict[str, t.Any] | None = None,
+        config: dict[str, t.Any] | None = None,
+        **kwargs,
+    ) -> None: ...
+    @t.overload
+    @classmethod
+    def dump(
+        cls,
+        m: str | os.PathLike | pathlib.Path,
+        /,
+        *,
+        path: str | os.PathLike | pathlib.Path,
+        lib: types.MLLib,
+        protocol: types.ProtocolVersion = 1,
+        compression: types.SerializationCompression = "zstd",
+        model_id: str | uuid.UUID | None = None,
+        timestamp: datetime.datetime | None = None,
+        params: dict[str, t.Any] | None = None,
+        metrics: dict[str, t.Any] | None = None,
+        extra: dict[str, t.Any] | None = None,
+        config: dict[str, t.Any] | None = None,
         **kwargs,
     ) -> None: ...
     @classmethod
@@ -77,13 +119,19 @@ class Serializer:
         params: dict[str, t.Any] | None = None,
         metrics: dict[str, t.Any] | None = None,
         extra: dict[str, t.Any] | None = None,
+        config: dict[str, t.Any] | None = None,
         artifacts: Artifacts | None = None,
+        lib: types.MLLib | None = None,
         **kwargs,
     ) -> None:
         """Serialize an ML model using Flama format to bytes stream.
 
-        :param m: The ML model.
-        :param s: The bytes stream for dumping the model artifact.
+        When *m* is a directory path it is converted to a :class:`pathlib.Path` and passed to the framework-specific
+        serializer, which is responsible for archiving the directory contents.  In this case *lib* is required so the
+        correct framework serializer can be selected.
+
+        :param m: The ML model object, or a directory path containing model files.
+        :param f: The bytes stream for dumping the model artifact.
         :param path: The file path where the model artifact will be stored.
         :param protocol: Serialization protocol version.
         :param compression: Compression format.
@@ -92,9 +140,16 @@ class Serializer:
         :param params: The model parameters.
         :param metrics: The model metrics.
         :param extra: The model extra data.
+        :param config: Framework-specific configuration (e.g. ``{"task": "..."}`` for transformers).
         :param artifacts: The model artifacts.
+        :param lib: The ML library name to use for serialization, required when *m* is a directory path.
         :param kwargs: Keyword arguments passed to library dump method.
         """
+        if isinstance(m, str | os.PathLike | pathlib.Path):
+            if lib is None:
+                raise ValueError("Parameter 'lib' is required when 'm' is a directory path")
+            m = pathlib.Path(m)
+
         if f is None and path is None:
             raise ValueError("Either a 'stream' or a 'path' needs to be provided")
         elif f is not None and path is not None:
@@ -116,7 +171,9 @@ class Serializer:
                 params=params,
                 metrics=metrics,
                 extra=extra,
+                config=config,
                 artifacts=artifacts,
+                lib=lib,
             ),
             compression=c,
             **kwargs,
