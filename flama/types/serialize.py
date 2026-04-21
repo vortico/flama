@@ -4,5 +4,5 @@ __all__ = ["SerializationCompression", "MLLib", "ProtocolVersion"]
 
 
 SerializationCompression = t.Literal["bz2", "lzma", "zlib", "zstd"]
-MLLib = t.Literal["sklearn", "tensorflow", "torch", "keras", "transformers"]
+MLLib = t.Literal["sklearn", "tensorflow", "torch", "keras", "transformers", "vllm"]
 ProtocolVersion = t.Literal[1]

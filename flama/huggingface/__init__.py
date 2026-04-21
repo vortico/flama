@@ -1,3 +1,1 @@
-from flama.huggingface.module import HuggingFaceModule
-
-__all__ = ["HuggingFaceModule"]
+from flama.huggingface.module import *  # noqa

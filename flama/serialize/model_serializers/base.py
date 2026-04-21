@@ -74,6 +74,7 @@ class ModelSerializer:
         "tensorflow": "tensorflow",
         "torch": "pytorch",
         "transformers": "transformers",
+        "vllm": "vllm",
     }
 
     @classmethod

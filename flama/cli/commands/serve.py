@@ -21,5 +21,4 @@ def command(app: App, uvicorn: Uvicorn):
     Config(app=app, server=uvicorn).run()
 
 
-assert command.callback is not None
 serve = command.callback

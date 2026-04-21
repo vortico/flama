@@ -6,17 +6,24 @@ import typing as t
 from flama import types
 from flama.injection import Component
 from flama.models.base import BaseModel
+from flama.serialize.data_structures import ModelArtifact
 from flama.serialize.serializer import Serializer
 
 __all__ = ["ModelComponent", "ModelComponentBuilder"]
 
+M = t.TypeVar("M", bound=BaseModel)
 
-class ModelComponent(Component):
-    def __init__(self, model):
+
+class ModelComponent(Component, t.Generic[M]):
+    def __init__(self, model: M, artifact: ModelArtifact | None = None):
         self.model = model
+        self._artifact = artifact
 
-    def get_model_type(self) -> type[BaseModel]:
-        return self.model.__class__  # type: ignore[no-any-return]
+    def get_model_type(self) -> type[M]:
+        return self.model.__class__
+
+    def resolve(self) -> M:
+        return self.model
 
 
 class ModelComponentBuilder:
@@ -28,6 +35,7 @@ class ModelComponentBuilder:
         "tensorflow": "tensorflow",
         "torch": "pytorch",
         "transformers": "transformers",
+        "vllm": "vllm",
     }
 
     @classmethod
@@ -44,7 +52,7 @@ class ModelComponentBuilder:
             )
 
     @classmethod
-    def load(cls, path: str | os.PathLike | pathlib.Path) -> ModelComponent:
+    def load(cls, path: str | os.PathLike | pathlib.Path) -> "ModelComponent[BaseModel]":
         with pathlib.Path(str(path)).open("rb") as f:
             load_model = Serializer.load(f)
 
@@ -53,7 +61,7 @@ class ModelComponentBuilder:
         model_obj = model_class(load_model.model, load_model.meta, load_model.artifacts)
 
         class SpecificModelComponent(ModelComponent):
-            def resolve(self) -> model_class:  # type: ignore[valid-type]
-                return self.model  # type: ignore[no-any-return]
+            def resolve(self) -> model_class:
+                return self.model
 
-        return SpecificModelComponent(model_obj)
+        return SpecificModelComponent(model_obj, artifact=load_model)

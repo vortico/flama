@@ -7,6 +7,7 @@ import click
 
 from flama._core.json_encoder import encode_json
 from flama.models import ModelComponentBuilder
+from flama.models.base import BaseMLModel
 
 if t.TYPE_CHECKING:
     from flama.models import ModelComponent
@@ -21,7 +22,7 @@ def command(ctx: click.Context, flama_model_path: str):
     """Interact with an ML model without server.
 
     This command is used to directly interact with an ML model without the need of a server. This command can be used
-    to perform any operation that is supported by the model, such as inspect, or predict.
+    to perform any operation that is supported by the model, such as inspect, predict, or stream.
     <FLAMA_MODEL_PATH> is the path of the model to be used, e.g. 'path/to/model.flm'. This can be passed
     directly as argument of the command line, or by environment variable.
     """
@@ -75,14 +76,14 @@ def predict(model: "ModelComponent", input_file, output_file, pretty: bool):
     input value being a list of values associated to the input of the model. The output will be the list of predictions
     associated to the input, with each prediction being a list of values representing the output of the model.
 
+    \b
     Example:
-
-    - input.json:
-    [[0, 0], [0, 1], [1, 0], [1, 1]]
-
-    - output.json:
-    [[0], [1], [1], [0]]
+        input.json: [[0, 0], [0, 1], [1, 0], [1, 1]]
+        output.json: [[0], [1], [1], [0]]
     """
+    if not isinstance(model.model, BaseMLModel):
+        raise click.UsageError("This command requires an ML model (sklearn, torch, tensorflow, or transformers).")
+
     try:
         data = json.load(input_file)
     except json.JSONDecodeError:
@@ -122,17 +123,18 @@ def predict(model: "ModelComponent", input_file, output_file, pretty: bool):
 )
 @click.pass_obj
 def stream(model: "ModelComponent", input_file, output_file, buffered: bool):
-    """Stream predictions from an ML model.
+    """Stream output from an ML model.
 
-    This command is used to stream predictions from an ML model without the need of a server. Each input item is
-    processed one-by-one and the result is streamed as it becomes available (unless --buffer is used). Input must be a
-    JSON file.
+    Provide input data via -f/--file (or stdin) in JSON format.
 
-    Example:
-
-    - input.json:
-    [[0, 0], [0, 1], [1, 0], [1, 1]]
+    \b
+    Examples:
+        echo '[[0, 0], [1, 1]]' | flama model model.flm stream
+        flama model model.flm stream -f input.json --buffer
     """
+    if not isinstance(model.model, BaseMLModel):
+        raise click.UsageError("This command requires an ML model (sklearn, torch, tensorflow, or transformers).")
+
     try:
         data = json.load(input_file)
     except json.JSONDecodeError:
@@ -158,5 +160,4 @@ def stream(model: "ModelComponent", input_file, output_file, buffered: bool):
     asyncio.run(_run())
 
 
-assert command.callback is not None
 model = command.callback
