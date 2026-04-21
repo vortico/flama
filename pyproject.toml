@@ -13,10 +13,12 @@ maintainers = [
   { name = "Miguel A. Durán Olivencia", email = "migduroli@gmail.com" },
 ]
 keywords = [
+  "llm",
+  "ai",
+  "generative-ai",
   "machine-learning",
   "ml",
   "mlops",
-  "ai",
   "ddd",
   "api",
   "rest",
@@ -38,6 +40,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Software Development",
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
@@ -64,7 +67,6 @@ typesystem = ["typesystem>=0.4.1,<1.0"]
 marshmallow = ["marshmallow>=3.0,<4.0", "apispec>=6.0,<7.0"]
 database = ["SQLAlchemy[asyncio]>=2.0,<3.0"]
 client = ["httpx>=0.28,<1.0"]
-transformers = ["transformers>=4.50"]
 full = [
   "pydantic>=2.12,<3.0",
   "typesystem>=0.4.1,<1.0",
@@ -96,6 +98,9 @@ dev = [
   "scikit-learn>=1.7.2",
   "tensorflow>=2.20.0; python_version < '3.14'",
   "torch>=2.9.0; python_version < '3.14'",
+  "transformers>=4.50",
+  "vllm>=0.8; sys_platform == 'linux' and python_version >= '3.12' and python_version < '3.14'",
+  "vllm-metal>=0.1; sys_platform == 'darwin' and python_version >= '3.12' and python_version < '3.13'",
 ]
 
 [build-system]
@@ -175,10 +180,7 @@ omit = [
   "flama/types/*",
   "flama/*/types.py",
   "build.py",
-  "flama/serialize/model_serializers/pytorch.py",
-  "flama/serialize/model_serializers/sklearn.py",
-  "flama/serialize/model_serializers/tensorflow.py",
-  "flama/serialize/model_serializers/transformers.py",
+  "*_remote_module_non_scriptable*",
 ]
 concurrency = ["thread", "multiprocessing"]
 
@@ -217,6 +219,10 @@ allowed-unresolved-imports = [
   "keras.**",
   "transformers",
   "transformers.**",
+  "vllm",
+  "vllm.**",
+  "huggingface_hub",
+  "huggingface_hub.**",
 ]
 
 [tool.coverage.paths]

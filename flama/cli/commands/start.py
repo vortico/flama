@@ -30,5 +30,4 @@ def command(flama_config: str, create_config: str):
     config.run()
 
 
-assert command.callback is not None
 start = command.callback

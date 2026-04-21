@@ -1,5 +1,7 @@
-import json
-from unittest.mock import MagicMock, patch
+import io
+import pathlib
+import tarfile
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -7,45 +9,77 @@ from flama.serialize.model_serializers.transformers import ModelSerializer
 
 
 class TestCaseTransformersModelSerializer:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def serializer(self):
         return ModelSerializer()
 
     def test_lib(self, serializer):
         assert serializer.lib == "transformers"
 
-    def test_dump(self, serializer):
-        pipeline = MagicMock()
-        pipeline.task = "text-generation"
+    def test_dump_path(self, serializer, tmp_path):
+        model_dir = tmp_path / "model"
+        model_dir.mkdir()
+        (model_dir / "config.json").write_text("{}")
+        (model_dir / ".hidden").write_text("skip")
 
-        result = serializer.dump(pipeline)
+        result = serializer.dump(model_dir)
 
-        descriptor = json.loads(result)
-        assert descriptor == {"task": "text-generation"}
+        assert tarfile.is_tarfile(io.BytesIO(result))
+        with tarfile.open(fileobj=io.BytesIO(result)) as tf:
+            names = tf.getnames()
+            assert any("config.json" in n for n in names)
+            assert not any(".hidden" in n for n in names)
 
-    def test_dump_no_task(self, serializer):
-        pipeline = MagicMock(spec=[])
+    def test_dump_path_string(self, serializer, tmp_path):
+        model_dir = tmp_path / "model"
+        model_dir.mkdir()
+        (model_dir / "weights.bin").write_bytes(b"\x00")
 
-        result = serializer.dump(pipeline)
+        result = serializer.dump(str(model_dir))
 
-        descriptor = json.loads(result)
-        assert descriptor == {"task": None}
+        assert tarfile.is_tarfile(io.BytesIO(result))
 
-    def test_load(self, serializer):
-        data = json.dumps({"task": "text-generation"}).encode()
+    def test_dump_pipeline(self, serializer):
+        pipeline = MagicMock(spec=["save_pretrained"])
 
-        result = serializer.load(data)
+        def _save(d):
+            (pathlib.Path(d) / "config.json").write_text("{}")
 
-        assert result == {"task": "text-generation"}
+        pipeline.save_pretrained.side_effect = _save
 
-    def test_dump_load_roundtrip(self, serializer):
-        pipeline = MagicMock()
-        pipeline.task = "text-generation"
+        with patch("flama.serialize.model_serializers.transformers.transformers"):
+            result = serializer.dump(pipeline)
 
-        dumped = serializer.dump(pipeline)
-        loaded = serializer.load(dumped)
+        assert tarfile.is_tarfile(io.BytesIO(result))
+        with tarfile.open(fileobj=io.BytesIO(result)) as tf:
+            names = tf.getnames()
+            assert any("config.json" in n for n in names)
 
-        assert loaded == {"task": "text-generation"}
+    def test_load_creates_pipeline(self, serializer):
+        model_dir = pathlib.Path("/tmp/model")
+        mock_pipeline = MagicMock()
+
+        with patch("flama.serialize.model_serializers.transformers.transformers") as mock_tf:
+            mock_tf.pipeline.return_value = mock_pipeline
+            result = serializer.load(b"", model_dir=model_dir, task="text-generation")
+
+        assert mock_tf.pipeline.call_args_list == [call(task="text-generation", model=str(model_dir))]
+        assert result is mock_pipeline
+
+    def test_load_no_task(self, serializer):
+        model_dir = pathlib.Path("/tmp/model")
+
+        with patch("flama.serialize.model_serializers.transformers.transformers") as mock_tf:
+            serializer.load(b"", model_dir=model_dir)
+
+        assert mock_tf.pipeline.call_args_list == [call(task=None, model=str(model_dir))]
+
+    def test_load_no_model_dir_raises(self, serializer):
+        with (
+            patch("flama.serialize.model_serializers.transformers.transformers"),
+            pytest.raises(ValueError, match="model directory"),
+        ):
+            serializer.load(b"")
 
     @pytest.mark.parametrize(
         ["has_config", "has_task", "has_name", "expected_keys"],

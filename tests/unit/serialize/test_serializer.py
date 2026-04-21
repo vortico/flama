@@ -8,7 +8,7 @@ import struct
 import tempfile
 import typing as t
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -32,11 +32,12 @@ class TestCaseSerialize:
     )
     def model(self, request):
         try:
-            return collections.namedtuple("Model", ("lib", "model", "model_cls", "artifacts"))(
+            return collections.namedtuple("Model", ("lib", "model", "model_cls", "artifacts", "config"))(
                 model_factory.lib(request.param),
                 model_factory.model(request.param),
                 model_factory.model_cls(request.param),
                 model_factory.artifacts(request.param),
+                model_factory.config(request.param),
             )
         except NotInstalled as e:
             pytest.skip(f"Lib '{str(e)}' is not installed.")
@@ -92,7 +93,9 @@ class TestCaseSerialize:
                     params=params,
                     metrics=metrics,
                     extra=extra,
+                    config=model.config,
                     artifacts=artifacts,
+                    lib=model.lib,
                 )
 
             tmp.seek(0)
@@ -131,7 +134,9 @@ class TestCaseSerialize:
                 params=params,
                 metrics=metrics,
                 extra=extra,
+                config=model.config,
                 artifacts=artifacts,
+                lib=model.lib,
             )
 
             load_model = flama.load(path=tmp.name)
@@ -201,35 +206,45 @@ class TestCaseSerializer:
             assert body_len == len(mock_body)
             assert buf.read() == mock_body
 
-        mock_protocol.dump.assert_called_once()
+        assert len(mock_protocol.dump.call_args_list) == 1
         dump_kw = mock_protocol.dump.call_args[1]
         assert dump_kw["compression"].format == c.format
 
     @pytest.mark.parametrize(
-        ["stream", "path", "message"],
+        ("m", "stream", "path", "message"),
         [
             pytest.param(
+                object(),
                 None,
                 None,
                 "Either a 'stream' or a 'path' needs to be provided",
                 id="neither",
             ),
             pytest.param(
+                object(),
                 io.BytesIO(),
                 pathlib.Path("unused"),
                 "Parameters 'stream' and 'path' are mutually exclusive",
                 id="both",
             ),
+            pytest.param(
+                pathlib.Path("/some/model/dir"),
+                io.BytesIO(),
+                None,
+                "Parameter 'lib' is required when 'm' is a directory path",
+                id="path-model-no-lib",
+            ),
         ],
     )
     def test_dump_argument_errors(
         self,
+        m: t.Any,
         stream: io.BytesIO | None,
         path: pathlib.Path | None,
         message: str,
     ) -> None:
         with pytest.raises(ValueError, match=re.escape(message)):
-            Serializer.dump(object(), stream, path=path)
+            Serializer.dump(m, stream, path=path)
 
     @pytest.mark.parametrize(
         ["use_path"],
@@ -271,12 +286,12 @@ class TestCaseSerializer:
             out = Serializer.load(stream, path=path)
 
         assert out is mock_loaded
-        p_proto.assert_called_once_with(protocol_version)
-        mock_protocol.load.assert_called_once()
+        assert p_proto.call_args_list == [call(protocol_version)]
+        assert len(mock_protocol.load.call_args_list) == 1
         load_args, load_kw = mock_protocol.load.call_args
         assert load_args[0] == body
         assert load_kw["compression"].format == c.format
-        p_ms.assert_called_once_with("sklearn")
+        assert p_ms.call_args_list == [call("sklearn")]
 
     @pytest.mark.parametrize(
         ["stream", "path", "message"],
