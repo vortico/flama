@@ -90,8 +90,8 @@ class _Body:
         return compression.compress(encode_json(meta.to_dict(), compact=True))
 
     @staticmethod
-    def _pack_model(model: t.Any, *, lib: types.MLLib, compression: Compression) -> bytes:
-        return compression.compress(ModelSerializer.from_lib(lib).dump(model))
+    def _pack_model(model: t.Any, *, lib: types.MLLib, compression: Compression, **kwargs) -> bytes:
+        return compression.compress(ModelSerializer.from_lib(lib).dump(model, **kwargs))
 
     @staticmethod
     def _pack_artifacts(artifacts: Artifacts | None, *, compression: Compression) -> tuple[int, bytes]:
@@ -103,7 +103,7 @@ class _Body:
     @classmethod
     def pack(cls, m: ModelArtifact, /, *, compression: Compression, **kwargs) -> bytes:
         meta = cls._pack_meta(m.meta, compression=compression)
-        model = cls._pack_model(m.model, lib=m.meta.framework.lib, compression=compression)
+        model = cls._pack_model(m.model, lib=m.meta.framework.lib, compression=compression, **kwargs)
         artifacts_count, artifacts = cls._pack_artifacts(m.artifacts, compression=compression)
 
         header = struct.pack(cls._header_format, len(meta), len(model), artifacts_count, len(artifacts))
