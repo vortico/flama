@@ -204,7 +204,13 @@ fn decompress_zlib<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyB
 
 #[pyfunction]
 fn compress_zstd<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
-    let out = zstd::bulk::compress(data, 0).map_err(|e| {
+    let mut encoder = zstd::Encoder::new(Vec::new(), 0).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("zstd compress error: {e}"))
+    })?;
+    encoder.write_all(data).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("zstd compress error: {e}"))
+    })?;
+    let out = encoder.finish().map_err(|e| {
         pyo3::exceptions::PyRuntimeError::new_err(format!("zstd compress error: {e}"))
     })?;
     Ok(PyBytes::new(py, &out))
@@ -212,7 +218,13 @@ fn compress_zstd<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyByt
 
 #[pyfunction]
 fn decompress_zstd<'py>(py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
-    let out = zstd::bulk::decompress(data, 64 * 1024 * 1024).map_err(|e| {
+    use std::io::Read;
+
+    let mut decoder = zstd::Decoder::new(data).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("zstd decompress error: {e}"))
+    })?;
+    let mut out = Vec::new();
+    decoder.read_to_end(&mut out).map_err(|e| {
         pyo3::exceptions::PyRuntimeError::new_err(format!("zstd decompress error: {e}"))
     })?;
     Ok(PyBytes::new(py, &out))
