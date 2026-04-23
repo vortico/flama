@@ -2,6 +2,7 @@ import codecs
 import importlib.metadata
 import io
 import typing as t
+import warnings
 
 from flama import exceptions, types
 from flama.serialize.model_serializers.base import BaseModelSerializer
@@ -20,20 +21,41 @@ __all__ = ["ModelSerializer"]
 class ModelSerializer(BaseModelSerializer):
     lib: t.ClassVar[types.MLLib] = "torch"
 
-    def dump(self, obj: t.Any, /, **kwargs) -> bytes:
+    def dump(
+        self,
+        obj: t.Any,
+        /,
+        *,
+        example_inputs: tuple[t.Any, ...] | None = None,
+        dynamic_shapes: dict[str, t.Any] | None = None,
+        **kwargs,
+    ) -> bytes:
         if torch is None:  # noqa
             raise exceptions.FrameworkNotInstalled("pytorch")
 
+        if example_inputs is None:
+            for m in obj.modules():
+                if isinstance(m, torch.nn.Linear):
+                    example_inputs = (torch.randn(2, m.in_features),)
+                    break
+            else:
+                raise ValueError("Cannot infer example_inputs; pass them explicitly")
+
+        if dynamic_shapes is None:
+            dynamic_shapes = {"x": {0: torch.export.Dim("batch", min=1)}}
+
+        ep = torch.export.export(obj, example_inputs, dynamic_shapes=dynamic_shapes)
         buffer = io.BytesIO()
-        torch.jit.save(torch.jit.script(obj), buffer, **kwargs)
-        buffer.seek(0)
-        return codecs.encode(buffer.read(), "base64")
+        torch.export.save(ep, buffer)
+        return codecs.encode(buffer.getvalue(), "base64")
 
     def load(self, model: bytes, /, **kwargs) -> t.Any:
         if torch is None:  # noqa
             raise exceptions.FrameworkNotInstalled("pytorch")
 
-        return torch.jit.load(io.BytesIO(codecs.decode(model, "base64")), **kwargs)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*non-writable.*", category=UserWarning)
+            return torch.export.load(io.BytesIO(codecs.decode(model, "base64"))).module()
 
     def info(self, model: t.Any, /) -> "JSONSchema | None":
         return {

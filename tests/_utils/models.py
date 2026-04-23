@@ -202,7 +202,7 @@ class ModelFactory:
         model = Model()
         model._train(X, Y, loss=torch.nn.BCELoss(), optimizer=torch.optim.Adam(model.parameters()))
 
-        return model, torch.jit.RecursiveScriptModule
+        return model, torch.nn.Module
 
     def _transformers(self):
         directory = tempfile.TemporaryDirectory()
