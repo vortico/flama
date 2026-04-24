@@ -1,6 +1,7 @@
 import abc
 import importlib
 import inspect
+import sys
 import typing as t
 
 from flama import types
@@ -66,23 +67,21 @@ class ModelSerializer:
     implementation based on the ML library name or by inspecting a model object.
     """
 
-    _module_name: t.Final[str] = "flama.serialize.model_serializers.{}"
-    _class_name: t.Final[str] = "ModelSerializer"
-    _modules: t.Final[dict[types.MLLib, str]] = {
-        "keras": "tensorflow",
-        "sklearn": "sklearn",
-        "tensorflow": "tensorflow",
-        "torch": "pytorch",
-        "transformers": "transformers",
-        "vllm": "vllm",
+    _registry: t.Final[dict[types.MLLib, tuple[str, str]]] = {
+        "keras": ("flama.serialize.model_serializers.tensorflow", "ModelSerializer"),
+        "sklearn": ("flama.serialize.model_serializers.sklearn", "ModelSerializer"),
+        "tensorflow": ("flama.serialize.model_serializers.tensorflow", "ModelSerializer"),
+        "torch": ("flama.serialize.model_serializers.pytorch", "ModelSerializer"),
+        "transformers": ("flama.serialize.model_serializers.transformers", "ModelSerializer"),
+        "vllm": (
+            "flama.serialize.model_serializers.vllm",
+            "MetalModelSerializer" if sys.platform == "darwin" else "CudaModelSerializer",
+        ),
     }
 
     @classmethod
     def from_lib(cls, lib: types.MLLib, /) -> BaseModelSerializer:
         """Loads and instantiates the concrete model serializer class for the given ML library.
-
-        The serializer class is expected to be named ``ModelSerializer`` and located in a library-specific module
-        (e.g., ``flama.serialize.model_serializers.sklearn``).
 
         :param lib: The name of the machine learning library (e.g., ``"sklearn"``, ``"tensorflow"``).
         :return: An instance of the concrete model serializer class implementing :class:`BaseModelSerializer`.
@@ -90,15 +89,19 @@ class ModelSerializer:
                             or the class is not found in the module.
         """
         try:
-            return getattr(importlib.import_module(cls._module_name.format(cls._modules[lib])), cls._class_name)()
+            module_path, class_name = cls._registry[lib]
         except KeyError:  # pragma: no cover
             raise ValueError(f"Wrong lib '{lib}'")
+
+        try:
+            module = importlib.import_module(module_path)
         except ModuleNotFoundError:  # pragma: no cover
-            raise ValueError(f"Module not found '{cls._module_name.format(cls._modules[lib])}'")
+            raise ValueError(f"Module not found '{module_path}'")
+
+        try:
+            return getattr(module, class_name)()
         except AttributeError:  # pragma: no cover
-            raise ValueError(
-                f"Class '{cls._class_name}' not found in module '{cls._module_name.format(cls._modules[lib])}'"
-            )
+            raise ValueError(f"Class '{class_name}' not found in module '{module_path}'")
 
     @classmethod
     def from_model(cls, model: t.Any, /) -> BaseModelSerializer:
