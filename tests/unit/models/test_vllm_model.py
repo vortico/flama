@@ -10,26 +10,26 @@ class _FakeRequestOutputKind:
     DELTA = "DELTA"
 
 
-def _make_model(**extra_params):
-    """Create a vLLM Model with mocked dependencies."""
+def _make_cuda_model(**extra_params):
+    """Create a CudaModel with mocked dependencies."""
     with (
         patch("flama.models.models.vllm.vllm") as mock_vllm,
         patch("flama.models.models.vllm.RequestOutputKind", _FakeRequestOutputKind),
     ):
         mock_vllm.SamplingParams = MagicMock()
 
-        from flama.models.models.vllm import Model
+        from flama.models.models.vllm import CudaModel
 
         meta = MagicMock()
         meta.to_dict.return_value = {}
         engine = MagicMock()
-        model = Model(engine, meta, None)
+        model = CudaModel(engine, meta, None)
         if extra_params:
             model.configure(extra_params)
     return model, engine, mock_vllm
 
 
-class TestCaseVLLMModelLifecycle:
+class TestCaseCudaModelLifecycle:
     @pytest.mark.parametrize(
         ("has_shutdown", "expected_calls"),
         (
@@ -38,11 +38,11 @@ class TestCaseVLLMModelLifecycle:
         ),
     )
     def test_shutdown_engine(self, has_shutdown, expected_calls):
-        from flama.models.models.vllm import Model
+        from flama.models.models.vllm import CudaModel
 
         engine = MagicMock() if has_shutdown else MagicMock(spec=[])
 
-        Model._shutdown_engine(engine)
+        CudaModel._shutdown_engine(engine)
 
         if has_shutdown:
             assert engine.shutdown.call_args_list == expected_calls
@@ -55,10 +55,10 @@ async def _aiter_from(*items):
         yield item
 
 
-class TestCaseVLLMModelQuery:
+class TestCaseCudaModelQuery:
     @pytest.mark.anyio
     async def test_query_success(self):
-        model, engine, mock_vllm = _make_model()
+        model, engine, mock_vllm = _make_cuda_model()
 
         output = MagicMock()
         output.outputs = [MagicMock(text="Hello world")]
@@ -74,7 +74,7 @@ class TestCaseVLLMModelQuery:
 
     @pytest.mark.anyio
     async def test_query_empty_output_raises_500(self):
-        model, engine, mock_vllm = _make_model()
+        model, engine, mock_vllm = _make_cuda_model()
 
         engine.generate.return_value = _aiter_from()
 
@@ -90,7 +90,7 @@ class TestCaseVLLMModelQuery:
 
     @pytest.mark.anyio
     async def test_query_engine_error_raises_400(self):
-        model, engine, mock_vllm = _make_model()
+        model, engine, mock_vllm = _make_cuda_model()
 
         async def _failing_generate(*args, **kwargs):
             raise RuntimeError("Engine exploded")
@@ -109,10 +109,10 @@ class TestCaseVLLMModelQuery:
         assert "Engine exploded" in exc_info.value.detail
 
 
-class TestCaseVLLMModelStream:
+class TestCaseCudaModelStream:
     @pytest.mark.anyio
     async def test_stream_success(self):
-        model, engine, mock_vllm = _make_model()
+        model, engine, mock_vllm = _make_cuda_model()
 
         outputs = []
         for text in ["Hello", " ", "world"]:
@@ -134,7 +134,7 @@ class TestCaseVLLMModelStream:
 
     @pytest.mark.anyio
     async def test_stream_skips_empty_tokens(self):
-        model, engine, mock_vllm = _make_model()
+        model, engine, mock_vllm = _make_cuda_model()
 
         outputs = []
         for text in ["Hello", "", "world"]:
@@ -157,7 +157,7 @@ class TestCaseVLLMModelStream:
     @pytest.mark.anyio
     async def test_stream_output_access_error_terminates(self):
         """When accessing output.outputs[0].text raises, the stream terminates cleanly."""
-        model, engine, mock_vllm = _make_model()
+        model, engine, mock_vllm = _make_cuda_model()
 
         good_output = MagicMock()
         good_output.outputs = [MagicMock(text="Hello")]
@@ -179,3 +179,90 @@ class TestCaseVLLMModelStream:
                 tokens.append(token)
 
         assert tokens == ["Hello"]
+
+
+# -- Metal (MLX) model tests ---------------------------------------------------
+
+
+def _make_metal_model(**extra_params):
+    """Create a MetalModel with mocked MLX dependencies."""
+    from flama.models.models.vllm import MetalModel
+
+    meta = MagicMock()
+    meta.to_dict.return_value = {}
+    runner = MagicMock()
+    model = MetalModel(runner, meta, None)
+    if extra_params:
+        model.configure(extra_params)
+    return model, runner
+
+
+class _FakeStreamResp:
+    def __init__(self, text):
+        self.text = text
+
+
+class TestCaseMetalModelQuery:
+    @pytest.mark.anyio
+    async def test_query_success(self):
+        model, runner = _make_metal_model()
+
+        with (
+            patch("flama.models.models.vllm.stream_generate") as mock_gen,
+            patch("flama.models.models.vllm.make_sampler") as mock_sampler,
+        ):
+            mock_sampler.return_value = "sampler_obj"
+            mock_gen.return_value = iter([_FakeStreamResp("Hello"), _FakeStreamResp(" world")])
+            result = await model.query("test prompt")
+
+        assert result == "Hello world"
+
+    @pytest.mark.anyio
+    async def test_query_error_raises_400(self):
+        model, runner = _make_metal_model()
+
+        with (
+            patch("flama.models.models.vllm.stream_generate", side_effect=RuntimeError("MLX boom")),
+            patch("flama.models.models.vllm.make_sampler"),
+        ):
+            with pytest.raises(exceptions.HTTPException) as exc_info:
+                await model.query("test prompt")
+
+        assert exc_info.value.status_code == 400
+        assert "MLX boom" in exc_info.value.detail
+
+
+class TestCaseMetalModelStream:
+    @pytest.mark.anyio
+    async def test_stream_success(self):
+        model, runner = _make_metal_model()
+
+        with (
+            patch("flama.models.models.vllm.stream_generate") as mock_gen,
+            patch("flama.models.models.vllm.make_sampler") as mock_sampler,
+        ):
+            mock_sampler.return_value = "sampler_obj"
+            mock_gen.return_value = iter([_FakeStreamResp("Hello"), _FakeStreamResp(" "), _FakeStreamResp("world")])
+
+            tokens = []
+            async for token in model.stream("test prompt"):
+                tokens.append(token)
+
+        assert tokens == ["Hello", " ", "world"]
+
+    @pytest.mark.anyio
+    async def test_stream_skips_empty_tokens(self):
+        model, runner = _make_metal_model()
+
+        with (
+            patch("flama.models.models.vllm.stream_generate") as mock_gen,
+            patch("flama.models.models.vllm.make_sampler") as mock_sampler,
+        ):
+            mock_sampler.return_value = "sampler_obj"
+            mock_gen.return_value = iter([_FakeStreamResp("Hello"), _FakeStreamResp(""), _FakeStreamResp("world")])
+
+            tokens = []
+            async for token in model.stream("test prompt"):
+                tokens.append(token)
+
+        assert tokens == ["Hello", "world"]
