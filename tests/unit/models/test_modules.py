@@ -103,12 +103,35 @@ class TestCaseResourcesModule:
         assert len(app.routes) == 1
         assert isinstance(app.routes[0], ResourceRoute)
         resource_route = app.routes[0]
-        assert len(resource_route.routes) == 4
+        assert len(resource_route.routes) == 5
         assert [(route.path, route.methods) for route in resource_route.routes] == [
             ("/", {"HEAD", "GET"}),
             ("/", {"PUT"}),
             ("/query/", {"POST"}),
             ("/stream/", {"POST"}),
+            ("/chat/", {"HEAD", "GET"}),
+        ]
+
+    def test_add_llm_decorator(self, app, llm_component, llm_tags):
+        component_ = llm_component
+
+        class PuppyLLMResource(LLMResource, metaclass=LLMResourceType):
+            name = "puppy"
+            verbose_name = "Puppy"
+            component = component_
+
+        app.models.llm_resource("/", tags=llm_tags)(PuppyLLMResource())
+
+        assert len(app.routes) == 1
+        assert isinstance(app.routes[0], ResourceRoute)
+        resource_route = app.routes[0]
+        assert len(resource_route.routes) == 5
+        assert [(route.path, route.methods) for route in resource_route.routes] == [
+            ("/", {"HEAD", "GET"}),
+            ("/", {"PUT"}),
+            ("/query/", {"POST"}),
+            ("/stream/", {"POST"}),
+            ("/chat/", {"HEAD", "GET"}),
         ]
 
     @pytest.mark.parametrize(
@@ -130,12 +153,13 @@ class TestCaseResourcesModule:
         assert len(app.routes) == 1
         assert isinstance(app.routes[0], ResourceRoute)
         resource_route = app.routes[0]
-        assert len(resource_route.routes) == 4
+        assert len(resource_route.routes) == 5
         assert [(route.path, route.methods) for route in resource_route.routes] == [
             ("/", {"HEAD", "GET"}),
             ("/", {"PUT"}),
             ("/query/", {"POST"}),
             ("/stream/", {"POST"}),
+            ("/chat/", {"HEAD", "GET"}),
         ]
         if has_artifact:
             assert app.models._artifacts == [llm_component._artifact]

@@ -1,3 +1,4 @@
+export { default as ChatApp } from './ChatApp'
 export { default as Docs } from './Docs'
 export { default as EnvironmentTable } from './EnvironmentTable'
 export { default as ErrorTitle } from './ErrorTitle'

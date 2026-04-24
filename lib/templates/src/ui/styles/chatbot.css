@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+@import './theme.css';
+
+@source '../../../node_modules/@vortico/ui/dist/**/*.js';
+
+:root {
+  background-color: var(--color-primary-100);
+  color: var(--color-primary-600);
+  scrollbar-color: var(--color-primary-400) transparent;
+  z-index: 0;
+}
+
+body {
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}

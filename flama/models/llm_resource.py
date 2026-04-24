@@ -2,9 +2,10 @@ import os
 import typing as t
 
 import flama.schemas
-from flama import types
+from flama import http, types
 from flama._core.json_encoder import encode_json
 from flama.http.responses.sse import ServerSentEventResponse
+from flama.http.responses.templates import _FlamaTemplateResponse
 from flama.models.components import LLMModelComponentBuilder
 from flama.models.ml_resource import InspectMixin
 from flama.resources import data_structures
@@ -16,7 +17,15 @@ if t.TYPE_CHECKING:
     from flama.models.base import BaseLLMModel
     from flama.models.components import ModelComponent
 
-__all__ = ["BaseLLMResource", "LLMResource", "ConfigureMixin", "QueryMixin", "LLMStreamMixin", "LLMResourceType"]
+__all__ = [
+    "BaseLLMResource",
+    "LLMResource",
+    "ChatMixin",
+    "ConfigureMixin",
+    "QueryMixin",
+    "LLMStreamMixin",
+    "LLMResourceType",
+]
 
 
 Component = t.TypeVar("Component", bound="ModelComponent")
@@ -114,8 +123,27 @@ class LLMStreamMixin:
         return {"_stream": stream}
 
 
-class LLMResourceType(ResourceType, InspectMixin, ConfigureMixin, QueryMixin, LLMStreamMixin):
-    METHODS = ("inspect", "configure", "query", "stream")
+class ChatMixin:
+    @classmethod
+    def _add_chat(cls, name: str, verbose_name: str, **kwargs) -> dict[str, t.Any]:
+        @ResourceRoute.method("/chat/", methods=["GET"], name="chat", include_in_schema=False)
+        async def chat(self) -> http.HTMLResponse:
+            return _FlamaTemplateResponse("chatbot/chat.html", context={"stream_url": "../stream/"})
+
+        chat.__doc__ = f"""
+            tags:
+                - {verbose_name}
+            summary:
+                Chat UI
+            description:
+                A web-based chat interface for interacting with this LLM resource.
+        """
+
+        return {"_chat": chat}
+
+
+class LLMResourceType(ResourceType, InspectMixin, ConfigureMixin, QueryMixin, LLMStreamMixin, ChatMixin):
+    METHODS = ("inspect", "configure", "query", "stream", "chat")
 
     def __new__(mcs, name: str, bases: tuple[type], namespace: dict[str, t.Any]):
         """Resource metaclass for defining basic behavior for LLM resources:

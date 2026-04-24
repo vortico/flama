@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+source "./scripts/_env"
+
+# ─── Login ───────────────────────────────────────────────────────────────────
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  echo "🔐 Fetching Artifact Registry token..."
+
+  if GCLOUD_TOKEN=$(get_token); then
+    echo "export ARTIFACT_REGISTRY_TOKEN=${GCLOUD_TOKEN}"
+  else
+    echo "❌ Error: Could not fetch GCP access token."
+    echo "💡 Try running 'gcloud auth login' first."
+    exit 1
+  fi
+fi

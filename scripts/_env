@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# ─── Auth Helpers ────────────────────────────────────────────────────────────
+
+# Print a GCP access token, or return 1 on failure.
+get_token() {
+  local token
+  token=$(gcloud auth print-access-token 2>/dev/null) || true
+
+  if [[ -z "$token" ]]; then
+    return 1
+  fi
+
+  echo "$token"
+}
+
+# Fetch a GCP access token or exit with a helpful message.
+require_token() {
+  local token
+  token=$(get_token) || true
+
+  if [[ -z "$token" ]]; then
+    echo "❌ Error: Could not fetch GCP access token." >&2
+    echo "💡 Try running 'gcloud auth login' first." >&2
+    exit 1
+  fi
+
+  echo "$token"
+}

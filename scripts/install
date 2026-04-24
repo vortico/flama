@@ -1,14 +1,19 @@
 #!/bin/bash
 set -e
+source "./scripts/_env"
 
 # ─── Install ─────────────────────────────────────────────────────────────────
 
 run_install() {
+  echo "🔐 Fetching Artifact Registry token..."
+  local token
+  token=$(require_token)
+
   echo "📦 Installing Python dependencies..."
   uv sync --all-extras --dev "$@"
 
   echo "📦 Installing JS dependencies and building templates..."
-  (cd lib/templates && npm i && npm run build)
+  (cd lib/templates && ARTIFACT_REGISTRY_TOKEN="$token" npm i && npm run build)
 
   echo "🦀 Building Rust extension (dev)..."
   uv run maturin develop

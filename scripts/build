@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+source "./scripts/_env"
 source "./scripts/clean"
 
 # ─── Build ───────────────────────────────────────────────────────────────────
@@ -10,8 +11,12 @@ run_build() {
     run_clean
   fi
 
+  echo "🔐 Fetching Artifact Registry token..."
+  local token
+  token=$(require_token)
+
   echo "📦 Building templates..."
-  (cd lib/templates && npm i && npm run build)
+  (cd lib/templates && ARTIFACT_REGISTRY_TOKEN="$token" npm i && npm run build)
 
   echo "📦 Building package..."
   uv run maturin build --release
