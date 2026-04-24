@@ -11,13 +11,11 @@ from flama import exceptions, types
 from flama.serialize.model_serializers.base import BaseModelSerializer
 
 try:
-    import huggingface_hub.utils
     import transformers
     import transformers.utils.logging
 
     transformers.utils.logging.set_verbosity_error()
     transformers.utils.logging.disable_progress_bar()
-    huggingface_hub.utils.disable_progress_bars()
 except Exception:  # pragma: no cover
     transformers = None  # ty: ignore[invalid-assignment]
 
