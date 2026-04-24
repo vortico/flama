@@ -9,26 +9,44 @@ from flama.serialize.model_serializers.base import ModelSerializer
 
 class TestCaseModelSerializerFromLib:
     @pytest.mark.parametrize(
-        ["lib", "expected_submodule"],
+        ["lib", "expected_module", "expected_class"],
         [
-            pytest.param("sklearn", "sklearn", id="sklearn"),
-            pytest.param("keras", "tensorflow", id="keras_maps_tensorflow"),
-            pytest.param("tensorflow", "tensorflow", id="tensorflow"),
-            pytest.param("torch", "pytorch", id="torch_maps_pytorch"),
-            pytest.param("transformers", "transformers", id="transformers"),
+            pytest.param("sklearn", "flama.serialize.model_serializers.sklearn", "ModelSerializer", id="sklearn"),
+            pytest.param(
+                "keras", "flama.serialize.model_serializers.tensorflow", "ModelSerializer", id="keras_maps_tensorflow"
+            ),
+            pytest.param(
+                "tensorflow", "flama.serialize.model_serializers.tensorflow", "ModelSerializer", id="tensorflow"
+            ),
+            pytest.param("torch", "flama.serialize.model_serializers.pytorch", "ModelSerializer", id="torch"),
+            pytest.param(
+                "transformers", "flama.serialize.model_serializers.transformers", "ModelSerializer", id="transformers"
+            ),
         ],
     )
-    def test_from_lib_success(self, lib: str, expected_submodule: str) -> None:
+    def test_from_lib_success(self, lib: str, expected_module: str, expected_class: str) -> None:
         instance = MagicMock()
         fake_module = MagicMock()
-        fake_module.ModelSerializer = MagicMock(return_value=instance)
-        expected_name = f"flama.serialize.model_serializers.{expected_submodule}"
+        setattr(fake_module, expected_class, MagicMock(return_value=instance))
 
         with patch("flama.serialize.model_serializers.base.importlib.import_module", return_value=fake_module) as im:
             result = ModelSerializer.from_lib(t.cast(t.Any, lib))
 
         assert result is instance
-        assert im.call_args_list == [call(expected_name)]
+        assert im.call_args_list == [call(expected_module)]
+
+    def test_from_lib_vllm(self) -> None:
+        """Verify that vllm resolves to either CudaModelSerializer or MetalModelSerializer."""
+        instance = MagicMock()
+        fake_module = MagicMock()
+        _, expected_class = ModelSerializer._registry["vllm"]
+        setattr(fake_module, expected_class, MagicMock(return_value=instance))
+
+        with patch("flama.serialize.model_serializers.base.importlib.import_module", return_value=fake_module) as im:
+            result = ModelSerializer.from_lib(t.cast(t.Any, "vllm"))
+
+        assert result is instance
+        assert im.call_args_list == [call("flama.serialize.model_serializers.vllm")]
 
 
 class TestCaseModelSerializerFromModel:
