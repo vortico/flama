@@ -54,6 +54,7 @@ dependencies = [
   "typing-extensions>=4.15,<5.0; python_version < '3.14'", # PORT: Replace compat when stop supporting 3.13
   "tomli>=2.3.0,<3.0; python_version < '3.11'",            # PORT: Replace compat when stop supporting 3.10
   "zstd>=1.5.7,<2.0; python_version < '3.14'",             # PORT: Replace compat when stop supporting 3.13
+  "rich>=14.0,<15.0",
 ]
 
 [project.urls]
