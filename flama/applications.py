@@ -7,7 +7,6 @@ from flama import asgi, exceptions, injection, routing, types, url, validation
 from flama.context import Context
 from flama.ddd.components import WorkerComponent
 from flama.events import Events
-from flama.huggingface.module import HuggingFaceModule
 from flama.injection.components import Components
 from flama.mcp.module import MCPModule
 from flama.middleware import MiddlewareStack
@@ -33,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 
 class Flama(types.App):
-    huggingface: HuggingFaceModule
     mcp: MCPModule
     resources: ResourcesModule
     schema: SchemaModule
@@ -96,7 +94,6 @@ class Flama(types.App):
 
         # Initialise modules
         default_modules = [
-            HuggingFaceModule(),
             MCPModule(),
             ResourcesModule(worker=worker),
             SchemaModule(openapi, schema=schema, docs=docs),
