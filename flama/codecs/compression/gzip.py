@@ -1,5 +1,5 @@
-from flama._core.compression import GzipCompressor
 from flama.codecs.compression.codec import CompressionCodec
+from flama.compression import Compressor
 
 __all__ = ["GzipCodec"]
 
@@ -13,9 +13,9 @@ class GzipCodec(CompressionCodec):
     encoding = "gzip"
 
     def __init__(self, level: int = 9) -> None:
-        self.compressor = GzipCompressor(level)
+        self._compressor = Compressor("gzip", level=level)
 
     async def decode(self, item: tuple[bytes, bool], **options) -> bytes:
         body, finish = item
 
-        return self.compressor.compress(body, finish)
+        return self._compressor.compress(body, finish)
