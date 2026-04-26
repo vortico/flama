@@ -1,36 +1,36 @@
+//! ASGI streaming multipart and urlencoded body parsers.
+//!
+//! Wraps [`multer`] for ``multipart/form-data`` (driven by an ASGI ``receive`` callable) and
+//! [`form_urlencoded`] for ``application/x-www-form-urlencoded`` bodies. The Python surface
+//! returns plain tuples/lists/bytes — no `PyO3` wrapper types — so callers can iterate the
+//! result without Rust knowledge.
+
 use bytes::Bytes;
 use futures_util::stream::try_unfold;
+use multer::Field;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
 
 /// Build a ``Stream`` that pulls body chunks from an ASGI ``receive`` callable.
 ///
-/// Uses ``futures_util::stream::try_unfold`` so that each poll drives the ASGI
+/// Uses [`futures_util::stream::try_unfold`] so that each poll drives the ASGI
 /// receive→await→extract cycle inline — no spawned background task, preserving
 /// the pyo3-async-runtimes task-local context (Python event loop).
 ///
-/// The state is ``Option<Py<PyAny>>``: ``Some(receive)`` while there are more
+/// The state is `Option<Py<PyAny>>`: ``Some(receive)`` while there are more
 /// chunks, ``None`` once the final chunk has been yielded.
-fn body_stream(
-    receive: Py<PyAny>,
-) -> impl futures_util::Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static {
+fn body_stream(receive: Py<PyAny>) -> impl futures_util::Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static {
     try_unfold(Some(receive), |state| async move {
-        let receive = match state {
-            Some(r) => r,
-            None => return Ok(None),
-        };
+        let Some(receive) = state else { return Ok(None) };
 
-        let coro: Py<PyAny> = Python::attach(|py| receive.call0(py))
+        let coro: Py<PyAny> =
+            Python::attach(|py| receive.call0(py)).map_err(|e| std::io::Error::other(e.to_string()))?;
+
+        let future = Python::attach(|py| pyo3_async_runtimes::tokio::into_future(coro.into_bound(py)))
             .map_err(|e| std::io::Error::other(e.to_string()))?;
 
-        let future =
-            Python::attach(|py| pyo3_async_runtimes::tokio::into_future(coro.into_bound(py)))
-                .map_err(|e| std::io::Error::other(e.to_string()))?;
-
-        let message: Py<PyAny> = future
-            .await
-            .map_err(|e| std::io::Error::other(e.to_string()))?;
+        let message: Py<PyAny> = future.await.map_err(|e| std::io::Error::other(e.to_string()))?;
 
         let (chunk, more) = Python::attach(|py| -> PyResult<(Vec<u8>, bool)> {
             let msg = message.bind(py).cast::<PyDict>()?;
@@ -69,6 +69,7 @@ fn body_stream(
     })
 }
 
+/// Parsed value of a multipart form field.
 enum FieldValue {
     Text(String),
     File {
@@ -77,6 +78,126 @@ enum FieldValue {
         data: Vec<u8>,
         headers: Vec<(Vec<u8>, Vec<u8>)>,
     },
+}
+
+/// Field-level metadata extracted from a [`Field`] before its body is consumed.
+struct FieldMeta {
+    name: String,
+    filename: Option<String>,
+    content_type: String,
+    headers: Vec<(Vec<u8>, Vec<u8>)>,
+}
+
+/// Read the synchronously-available metadata from a multipart [`Field`].
+fn extract_field_metadata(field: &Field<'static>) -> FieldMeta {
+    let name = field.name().unwrap_or("").to_string();
+    let filename = field.file_name().map(ToOwned::to_owned);
+    let content_type = field.content_type().map_or_else(
+        || {
+            if filename.is_some() {
+                "application/octet-stream".to_string()
+            } else {
+                String::new()
+            }
+        },
+        ToString::to_string,
+    );
+    let headers: Vec<(Vec<u8>, Vec<u8>)> = field
+        .headers()
+        .iter()
+        .map(|(k, v)| (k.as_str().as_bytes().to_vec(), v.as_bytes().to_vec()))
+        .collect();
+
+    FieldMeta {
+        name,
+        filename,
+        content_type,
+        headers,
+    }
+}
+
+/// Convert a [`FieldValue`] into the matching Python object.
+fn build_python_value(py: Python<'_>, value: FieldValue) -> PyResult<Py<PyAny>> {
+    match value {
+        FieldValue::Text(text) => Ok(text.into_pyobject(py)?.into_any().unbind()),
+        FieldValue::File {
+            filename,
+            content_type,
+            data,
+            headers,
+        } => {
+            let header_list = PyList::empty(py);
+            for (k, v) in headers {
+                header_list.append(PyTuple::new(
+                    py,
+                    [PyBytes::new(py, &k).into_any(), PyBytes::new(py, &v).into_any()],
+                )?)?;
+            }
+            Ok(PyTuple::new(
+                py,
+                [
+                    filename.into_pyobject(py)?.into_any(),
+                    content_type.into_pyobject(py)?.into_any(),
+                    PyBytes::new(py, &data).into_any(),
+                    header_list.into_any(),
+                ],
+            )?
+            .into_any()
+            .unbind())
+        }
+    }
+}
+
+/// Drain the multipart stream into an in-memory list of ``(name, value)`` pairs.
+async fn collect_fields(
+    receive: Py<PyAny>,
+    boundary: String,
+    max_files: usize,
+    max_fields: usize,
+) -> PyResult<Vec<(String, FieldValue)>> {
+    let stream = body_stream(receive);
+    let mut multipart = multer::Multipart::new(stream, boundary);
+
+    let mut items: Vec<(String, FieldValue)> = Vec::new();
+    let mut file_count: usize = 0;
+    let mut field_count: usize = 0;
+
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| PyValueError::new_err(e.to_string()))?
+    {
+        let meta = extract_field_metadata(&field);
+        let data = field.bytes().await.map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        if let Some(filename) = meta.filename {
+            file_count += 1;
+            if file_count > max_files {
+                return Err(PyValueError::new_err(format!(
+                    "Too many files. Maximum number of files is {max_files}."
+                )));
+            }
+            items.push((
+                meta.name,
+                FieldValue::File {
+                    filename,
+                    content_type: meta.content_type,
+                    data: data.to_vec(),
+                    headers: meta.headers,
+                },
+            ));
+        } else {
+            field_count += 1;
+            if field_count > max_fields {
+                return Err(PyValueError::new_err(format!(
+                    "Too many fields. Maximum number of fields is {max_fields}."
+                )));
+            }
+            items.push((meta.name, FieldValue::Text(String::from_utf8_lossy(&data).into_owned())));
+        }
+    }
+
+    Ok(items)
 }
 
 /// Parse ``multipart/form-data`` by streaming from an ASGI ``receive`` callable.
@@ -98,112 +219,15 @@ fn parse_multipart<'py>(
     let boundary = boundary.to_string();
 
     pyo3_async_runtimes::tokio::future_into_py(py, async move {
-        let stream = body_stream(receive);
-        let mut multipart = multer::Multipart::new(stream, boundary);
-
-        let mut items: Vec<(String, FieldValue)> = Vec::new();
-        let mut file_count: usize = 0;
-        let mut field_count: usize = 0;
-
-        while let Some(field) = multipart
-            .next_field()
-            .await
-            .map_err(|e| PyValueError::new_err(e.to_string()))?
-        {
-            let name = field.name().unwrap_or("").to_string();
-            let filename = field.file_name().map(|s| s.to_string());
-            let content_type = field
-                .content_type()
-                .map(|m| m.to_string())
-                .unwrap_or_else(|| {
-                    if filename.is_some() {
-                        "application/octet-stream".to_string()
-                    } else {
-                        String::new()
-                    }
-                });
-
-            let headers: Vec<(Vec<u8>, Vec<u8>)> = field
-                .headers()
-                .iter()
-                .map(|(k, v)| (k.as_str().as_bytes().to_vec(), v.as_bytes().to_vec()))
-                .collect();
-
-            let data = field
-                .bytes()
-                .await
-                .map_err(|e| PyValueError::new_err(e.to_string()))?;
-
-            if filename.is_some() {
-                file_count += 1;
-                if file_count > max_files {
-                    return Err(PyValueError::new_err(format!(
-                        "Too many files. Maximum number of files is {max_files}."
-                    )));
-                }
-                items.push((
-                    name,
-                    FieldValue::File {
-                        filename: filename.unwrap_or_default(),
-                        content_type,
-                        data: data.to_vec(),
-                        headers,
-                    },
-                ));
-            } else {
-                field_count += 1;
-                if field_count > max_fields {
-                    return Err(PyValueError::new_err(format!(
-                        "Too many fields. Maximum number of fields is {max_fields}."
-                    )));
-                }
-                items.push((
-                    name,
-                    FieldValue::Text(String::from_utf8_lossy(&data).into_owned()),
-                ));
-            }
-        }
+        let items = collect_fields(receive, boundary, max_files, max_fields).await?;
 
         Python::attach(|py| -> PyResult<Py<PyAny>> {
             let list = PyList::empty(py);
             for (name, value) in items {
-                let py_value: Py<PyAny> = match value {
-                    FieldValue::Text(text) => text.into_pyobject(py)?.into_any().unbind(),
-                    FieldValue::File {
-                        filename,
-                        content_type,
-                        data,
-                        headers,
-                    } => {
-                        let header_list = PyList::empty(py);
-                        for (k, v) in headers {
-                            header_list.append(PyTuple::new(
-                                py,
-                                [
-                                    PyBytes::new(py, &k).into_any(),
-                                    PyBytes::new(py, &v).into_any(),
-                                ],
-                            )?)?;
-                        }
-                        PyTuple::new(
-                            py,
-                            [
-                                filename.into_pyobject(py)?.into_any(),
-                                content_type.into_pyobject(py)?.into_any(),
-                                PyBytes::new(py, &data).into_any(),
-                                header_list.into_any(),
-                            ],
-                        )?
-                        .into_any()
-                        .unbind()
-                    }
-                };
+                let py_value = build_python_value(py, value)?;
                 list.append(PyTuple::new(
                     py,
-                    [
-                        PyString::new(py, &name).into_any(),
-                        py_value.into_bound(py).into_any(),
-                    ],
+                    [PyString::new(py, &name).into_any(), py_value.into_bound(py).into_any()],
                 )?)?;
             }
             Ok(list.into_any().unbind())
@@ -215,10 +239,7 @@ fn parse_multipart<'py>(
 ///
 /// Returns ``list[tuple[str, str]]``.
 #[pyfunction]
-fn parse_urlencoded<'py>(
-    py: Python<'py>,
-    body: &Bound<'py, PyBytes>,
-) -> PyResult<Bound<'py, PyList>> {
+fn parse_urlencoded<'py>(py: Python<'py>, body: &Bound<'py, PyBytes>) -> PyResult<Bound<'py, PyList>> {
     let pairs: Vec<(String, String)> = form_urlencoded::parse(body.as_bytes())
         .map(|(k, v)| (k.into_owned(), v.into_owned()))
         .collect();
@@ -227,24 +248,14 @@ fn parse_urlencoded<'py>(
     for (k, v) in pairs {
         list.append(PyTuple::new(
             py,
-            [
-                PyString::new(py, &k).into_any(),
-                PyString::new(py, &v).into_any(),
-            ],
+            [PyString::new(py, &k).into_any(), PyString::new(py, &v).into_any()],
         )?)?;
     }
     Ok(list)
 }
 
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(parent.py(), "multipart")?;
-    m.add_function(wrap_pyfunction!(parse_multipart, &m)?)?;
-    m.add_function(wrap_pyfunction!(parse_urlencoded, &m)?)?;
-    parent.add_submodule(&m)?;
-    parent
-        .py()
-        .import("sys")?
-        .getattr("modules")?
-        .set_item("flama._core.multipart", &m)?;
+pub fn build(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(parse_multipart, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_urlencoded, m)?)?;
     Ok(())
 }

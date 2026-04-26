@@ -2,7 +2,7 @@ import logging
 import typing as t
 
 from flama import exceptions, types, url
-from flama._core.route_table import RouteTable
+from flama._core.route_table import Resolution, RouteTable
 from flama.injection import Component, Components
 from flama.lifespan import Lifespan
 from flama.routing.routes.base import BaseRoute, ResolveResult, ResolveType, ScopeType
@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 def _parse_resolve_result(raw: t.Any) -> ResolveResult | None:
     if raw is None:
         return None
-    if raw[0] == 2:
+    if raw[0] == Resolution.MethodNotAllowed:
         return ResolveResult(type=ResolveType.method_not_allowed, index=raw[1], allowed_methods=tuple(raw[2]))
     return ResolveResult(
-        type=ResolveType.mount if raw[0] == 1 else ResolveType.full,
+        type=ResolveType.mount if raw[0] == Resolution.Mount else ResolveType.full,
         index=raw[1],
         params=tuple(raw[2]),
         matched=raw[3],
