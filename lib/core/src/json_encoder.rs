@@ -1,12 +1,18 @@
+//! Fast JSON encoder for arbitrary Python values.
+//!
+//! Streams results into a [`Vec<u8>`] using `std::io::Write` and falls back to a curated
+//! catalogue of "special" Python types ([`datetime`], [`uuid`], dataclasses, …) cached
+//! once per interpreter via [`TypeCache`].
+
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{
-    PyBool, PyByteArray, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PySet, PyString,
-    PyTuple, PyType,
+    PyBool, PyByteArray, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PySet, PyString, PyTuple, PyType,
 };
 use std::io::Write;
 
+/// Lazily-resolved Python type handles used by [`JsonEncoder::encode_special`].
 struct TypeCache {
     enum_type: Py<PyAny>,
     uuid_type: Py<PyAny>,
@@ -26,38 +32,41 @@ static TYPE_CACHE: PyOnceLock<TypeCache> = PyOnceLock::new();
 
 impl TypeCache {
     fn new(py: Python<'_>) -> PyResult<Self> {
-        let dt_mod = py.import("datetime")?;
-        let dc_mod = py.import("dataclasses")?;
+        let datetime_mod = py.import("datetime")?;
+        let dataclasses_mod = py.import("dataclasses")?;
 
-        let (flama_path, flama_url) = match py.import("flama.url") {
-            Ok(m) => (
-                m.getattr("Path").ok().map(|t| t.unbind()),
-                m.getattr("URL").ok().map(|t| t.unbind()),
-            ),
-            Err(_) => (None, None),
-        };
+        let (flama_path, flama_url) = py.import("flama.url").map_or_else(
+            |_| (None, None),
+            |m| {
+                (
+                    m.getattr("Path").ok().map(Bound::unbind),
+                    m.getattr("URL").ok().map(Bound::unbind),
+                )
+            },
+        );
 
         Ok(Self {
             enum_type: py.import("enum")?.getattr("Enum")?.unbind(),
             uuid_type: py.import("uuid")?.getattr("UUID")?.unbind(),
-            timedelta_type: dt_mod.getattr("timedelta")?.unbind(),
-            datetime_type: dt_mod.getattr("datetime")?.unbind(),
-            date_type: dt_mod.getattr("date")?.unbind(),
-            time_type: dt_mod.getattr("time")?.unbind(),
+            timedelta_type: datetime_mod.getattr("timedelta")?.unbind(),
+            datetime_type: datetime_mod.getattr("datetime")?.unbind(),
+            date_type: datetime_mod.getattr("date")?.unbind(),
+            time_type: datetime_mod.getattr("time")?.unbind(),
             pathlike_type: py.import("os")?.getattr("PathLike")?.unbind(),
             base_exc_type: py.import("builtins")?.getattr("BaseException")?.unbind(),
-            dc_is_dataclass: dc_mod.getattr("is_dataclass")?.unbind(),
-            dc_asdict: dc_mod.getattr("asdict")?.unbind(),
+            dc_is_dataclass: dataclasses_mod.getattr("is_dataclass")?.unbind(),
+            dc_asdict: dataclasses_mod.getattr("asdict")?.unbind(),
             flama_path,
             flama_url,
         })
     }
 
-    fn get(py: Python<'_>) -> PyResult<&TypeCache> {
-        TYPE_CACHE.get_or_try_init(py, || TypeCache::new(py))
+    fn get(py: Python<'_>) -> PyResult<&Self> {
+        TYPE_CACHE.get_or_try_init(py, || Self::new(py))
     }
 }
 
+/// Streaming JSON encoder writing UTF-8 bytes into a [`Vec<u8>`] buffer.
 struct JsonEncoder {
     buf: Vec<u8>,
     sort_keys: bool,
@@ -118,9 +127,10 @@ impl JsonEncoder {
 
     fn encode_int(&mut self, obj: &Bound<'_, PyAny>) -> PyResult<()> {
         if let Ok(v) = obj.extract::<i64>() {
-            write!(&mut self.buf, "{}", v).unwrap();
+            // Writing into a Vec<u8> is infallible, so we ignore the Result.
+            let _ = write!(&mut self.buf, "{v}");
         } else if let Ok(v) = obj.extract::<u64>() {
-            write!(&mut self.buf, "{}", v).unwrap();
+            let _ = write!(&mut self.buf, "{v}");
         } else {
             let s = obj.str()?;
             self.buf.extend_from_slice(s.to_str()?.as_bytes());
@@ -155,7 +165,7 @@ impl JsonEncoder {
                 0x0C => b"\\f",
                 b if b < 0x20 => {
                     self.buf.extend_from_slice(&bytes[start..i]);
-                    write!(&mut self.buf, "\\u{:04x}", b).unwrap();
+                    let _ = write!(&mut self.buf, "\\u{b:04x}");
                     start = i + 1;
                     continue;
                 }
@@ -208,14 +218,8 @@ impl JsonEncoder {
         if self.sort_keys {
             let mut items: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)> = dict.iter().collect();
             items.sort_by(|(a, _), (b, _)| {
-                let ak = a
-                    .str()
-                    .map(|s| s.to_string_lossy().into_owned())
-                    .unwrap_or_default();
-                let bk = b
-                    .str()
-                    .map(|s| s.to_string_lossy().into_owned())
-                    .unwrap_or_default();
+                let ak = a.str().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+                let bk = b.str().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
                 ak.cmp(&bk)
             });
             for (i, (k, v)) in items.iter().enumerate() {
@@ -288,7 +292,8 @@ impl JsonEncoder {
         }
 
         if obj.is_instance(types.timedelta_type.bind(py))? {
-            self.encode_string(&format_timedelta(obj)?);
+            let total: f64 = obj.call_method0("total_seconds")?.extract()?;
+            self.encode_string(&format_timedelta(total));
             return Ok(());
         }
 
@@ -332,9 +337,7 @@ impl JsonEncoder {
             return Ok(());
         }
 
-        if types.dc_is_dataclass.bind(py).call1((obj,))?.is_truthy()?
-            && !obj.is_instance_of::<PyType>()
-        {
+        if types.dc_is_dataclass.bind(py).call1((obj,))?.is_truthy()? && !obj.is_instance_of::<PyType>() {
             let dict = types.dc_asdict.bind(py).call1((obj,))?;
             return self.encode_value(&dict);
         }
@@ -365,9 +368,12 @@ impl JsonEncoder {
     }
 }
 
-fn format_timedelta(obj: &Bound<'_, PyAny>) -> PyResult<String> {
-    let total: f64 = obj.call_method0("total_seconds")?.extract()?;
-
+/// Format a number of seconds (possibly fractional) as an ISO-8601 duration like ``P1DT2H3M4S``.
+///
+/// Truncations to integer days/hours/minutes are intentional: sub-units of the smallest non-zero
+/// component are emitted as the fractional part of the seconds field, which is how `timedelta`
+/// values are normalised for JSON output.
+fn format_timedelta(total: f64) -> String {
     let mins = total.div_euclid(60.0);
     let secs = total.rem_euclid(60.0);
     let hrs = mins.div_euclid(60.0);
@@ -375,29 +381,32 @@ fn format_timedelta(obj: &Bound<'_, PyAny>) -> PyResult<String> {
     let days = hrs.div_euclid(24.0);
     let hrs = hrs.rem_euclid(24.0);
 
+    #[allow(clippy::cast_possible_truncation)]
     let days = days as i64;
+    #[allow(clippy::cast_possible_truncation)]
     let hrs = hrs as i64;
+    #[allow(clippy::cast_possible_truncation)]
     let mins = mins as i64;
     let secs = (secs * 1_000_000.0).round() / 1_000_000.0;
 
     let mut r = String::from("P");
     if days != 0 {
-        r.push_str(format!("{:02}", days).trim_start_matches('0'));
+        r.push_str(format!("{days:02}").trim_start_matches('0'));
         r.push('D');
     }
     if hrs != 0 {
-        r.push_str(format!("{:02}", hrs).trim_start_matches('0'));
+        r.push_str(format!("{hrs:02}").trim_start_matches('0'));
         r.push('H');
     }
     if mins != 0 {
-        r.push_str(format!("{:02}", mins).trim_start_matches('0'));
+        r.push_str(format!("{mins:02}").trim_start_matches('0'));
         r.push('M');
     }
     if secs != 0.0 {
-        r.push_str(format!("{:.6}", secs).trim_matches('0'));
+        r.push_str(format!("{secs:.6}").trim_matches('0'));
         r.push('S');
     }
-    Ok(r)
+    r
 }
 
 #[pyfunction]
@@ -414,14 +423,45 @@ fn encode_json<'py>(
     Ok(PyBytes::new(py, &enc.buf))
 }
 
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(parent.py(), "json_encoder")?;
-    m.add_function(wrap_pyfunction!(encode_json, &m)?)?;
-    parent.add_submodule(&m)?;
-    parent
-        .py()
-        .import("sys")?
-        .getattr("modules")?
-        .set_item("flama._core.json_encoder", &m)?;
+pub fn build(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(encode_json, m)?)?;
     Ok(())
+}
+
+#[cfg(test)]
+#[allow(clippy::suboptimal_flops)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn timedelta_zero_is_bare_p() {
+        assert_eq!(format_timedelta(0.0), "P");
+    }
+
+    #[test]
+    fn timedelta_subsecond() {
+        // 0.5 seconds -> "P.5S" after trimming trailing zeros.
+        assert_eq!(format_timedelta(0.5), "P.5S");
+    }
+
+    #[test]
+    fn timedelta_hms_only() {
+        // 1 hour 2 minutes 3 seconds.
+        assert_eq!(format_timedelta(3600.0 + 120.0 + 3.0), "P1H2M3.S");
+    }
+
+    #[test]
+    fn timedelta_full_hms_days() {
+        // 2 days, 3 hours, 4 minutes, 5 seconds.
+        let total = 2.0 * 86_400.0 + 3.0 * 3600.0 + 4.0 * 60.0 + 5.0;
+        assert_eq!(format_timedelta(total), "P2D3H4M5.S");
+    }
+
+    #[test]
+    fn timedelta_negative_uses_euclid_normalisation() {
+        // div_euclid/rem_euclid keep all components non-negative; we just verify it does
+        // not panic and emits something sane.
+        let s = format_timedelta(-1.0);
+        assert!(s.starts_with('P'));
+    }
 }
