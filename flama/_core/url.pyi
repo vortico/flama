@@ -1,8 +1,16 @@
+import enum
+
+class MatchKind(enum.IntEnum):
+    """Outcome of :meth:`PathMatcher.match_path`. Comparable to the integer value."""
+
+    Exact = 1
+    Partial = 2
+
 class PathMatcher:
     def __init__(
         self, has_starting_slash: bool, has_trailing_slash: bool, segments: list[tuple[bool, str, str]]
     ) -> None: ...
-    def match_path(self, input: str) -> tuple[int, tuple[str, ...], str | None, str | None] | None: ...
+    def match_path(self, input: str) -> tuple[MatchKind, tuple[str, ...], str | None, str | None] | None: ...
 
 class NetlocMatcher:
     def __init__(self, pattern: str) -> None: ...

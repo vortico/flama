@@ -7,7 +7,7 @@ import typing as t
 import urllib.parse
 import uuid
 
-from flama._core.url import NetlocMatcher, PathMatcher
+from flama._core.url import MatchKind, NetlocMatcher, PathMatcher
 
 T = t.TypeVar("T", bound=int | str | float | decimal.Decimal | uuid.UUID)
 FragmentType = t.Literal["constant", "rest", "str", "int", "float", "decimal", "uuid"]
@@ -243,9 +243,9 @@ class Path:
         if result is None:
             return _MatchResult(self.Match.none, None, None, None)
 
-        match_type, raw_values, matched, unmatched = result
+        match_kind, raw_values, matched, unmatched = result
         return _MatchResult(
-            match=self.Match.partial if match_type == 2 else self.Match.exact,
+            match=self.Match.partial if match_kind == MatchKind.Partial else self.Match.exact,
             parameters={
                 name: self._parameters[name].serializer.load(raw_values[i]) for i, name in enumerate(self._param_order)
             },
