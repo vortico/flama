@@ -4,8 +4,8 @@ import functools
 import json
 import typing as t
 
-from flama.cli.config.app import App
-from flama.cli.config.uvicorn import Uvicorn
+from flama._cli.config.app import App
+from flama._cli.config.uvicorn import Uvicorn
 
 __all__ = ["Config", "ExampleConfig", "options"]
 
@@ -42,7 +42,7 @@ class Config:
     def dump_example(cls, type: str) -> dict[str, t.Any]:
         result = cls().to_dict()
         if type == "simple":
-            result["server"] = {k: v for k, v in result["server"] if k in ("host", "port")}
+            result["server"] = {k: v for k, v in result["server"].items() if k in ("host", "port")}
         return result
 
     def run(self) -> None:
