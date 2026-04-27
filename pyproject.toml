@@ -53,8 +53,8 @@ dependencies = [
   "pyyaml>=6.0,<7.0",
   "typing-extensions>=4.15,<5.0; python_version < '3.14'", # PORT: Replace compat when stop supporting 3.13
   "tomli>=2.3.0,<3.0; python_version < '3.11'",            # PORT: Replace compat when stop supporting 3.10
-  "zstd>=1.5.7,<2.0; python_version < '3.14'",             # PORT: Replace compat when stop supporting 3.13
   "rich>=14.0,<15.0",
+  "httpx[http2]>=0.28,<1.0",
 ]
 
 [project.urls]
@@ -67,14 +67,12 @@ pydantic = ["pydantic>=2.12,<3.0"]
 typesystem = ["typesystem>=0.4.1,<1.0"]
 marshmallow = ["marshmallow>=3.0,<4.0", "apispec>=6.0,<7.0"]
 database = ["SQLAlchemy[asyncio]>=2.0,<3.0"]
-client = ["httpx>=0.28,<1.0"]
 full = [
   "pydantic>=2.12,<3.0",
   "typesystem>=0.4.1,<1.0",
   "marshmallow>=3.0,<4.0",
   "apispec>=6.0,<7.0",
   "SQLAlchemy[asyncio]>=2.0,<3.0",
-  "httpx>=0.28,<1.0.0",
 ]
 
 [project.scripts]
@@ -177,7 +175,7 @@ omit = [
   "tests/*",
   "examples/*",
   "flama/compat.py",
-  "flama/cli/*",
+  "flama/_cli/*",
   "flama/types/*",
   "flama/*/types.py",
   "build.py",
