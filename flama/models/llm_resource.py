@@ -6,7 +6,7 @@ from flama import types
 from flama._core.json_encoder import encode_json
 from flama.http.responses.sse import ServerSentEventResponse
 from flama.models.components import ModelComponentBuilder
-from flama.models.resource import InspectMixin
+from flama.models.ml_resource import InspectMixin
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
 from flama.resources.resource import Resource, ResourceType
@@ -157,7 +157,7 @@ class LLMResourceType(ResourceType, InspectMixin, ConfigureMixin, QueryMixin, LL
             ...
 
         try:
-            return ModelComponentBuilder.load(
+            return ModelComponentBuilder.build(
                 cls._get_attribute("model_path", bases, namespace, metadata_namespace="model")
             )
         except AttributeError:

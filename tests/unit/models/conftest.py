@@ -13,10 +13,13 @@ from flama.models.models.tensorflow import Model as TensorFlowModel
 
 
 class _StubLLMModel(BaseLLMModel):
-    async def query(self, prompt: str, /, **params: t.Any) -> t.Any:
-        return f"reply-{prompt}"
+    """Deterministic LLM stub used by integration tests.
 
-    async def stream(self, prompt: str, /, **params: t.Any) -> t.AsyncIterator[t.Any]:
+    Overrides :meth:`_tokens` so callers don't need a real engine and can drive HTTP-level assertions with a known
+    output, regardless of any vllm/mlx_lm dependency.
+    """
+
+    async def _tokens(self, prompt: str, /, **params: t.Any) -> t.AsyncIterator[str]:
         for token in prompt.split():
             yield token
 
@@ -26,7 +29,14 @@ def app():
     return Flama(schema=None, docs=None)
 
 
-@pytest.fixture(params=["tensorflow", "sklearn", "torch"])
+@pytest.fixture(
+    scope="function",
+    params=[
+        pytest.param("tensorflow", id="tensorflow"),
+        pytest.param("sklearn", id="sklearn"),
+        pytest.param("torch", id="torch"),
+    ],
+)
 def model(request):
     return {
         "sklearn": SKLearnModel(Mock(), Mock(), Mock()),
@@ -35,7 +45,7 @@ def model(request):
     }[request.param]
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def component(model):
     class SpecificModelComponent(ModelComponent):
         def can_handle_parameter(self, parameter: Parameter) -> bool:
@@ -44,7 +54,7 @@ def component(model):
     return SpecificModelComponent(model)
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def llm_model():
     meta = Mock()
     meta.to_dict.return_value = {
@@ -57,7 +67,7 @@ def llm_model():
     return _StubLLMModel(object(), meta, None)
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def llm_component(llm_model):
     class SpecificModelComponent(ModelComponent):
         def can_handle_parameter(self, parameter: Parameter) -> bool:

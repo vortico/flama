@@ -86,11 +86,8 @@ class StreamMixin:
             model: model_model_type,  # ty: ignore[invalid-type-form]
             data: t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.MLModelStreamInput)],
         ) -> ServerSentEventResponse:
-            async def _input():
-                yield data["input"]
-
             async def _encode():
-                async for item in model.stream(_input()):
+                async for item in model.stream([data["input"]]):
                     yield encode_json(item, compact=True).decode()
 
             return ServerSentEventResponse(_encode())
@@ -142,7 +139,7 @@ class MLResourceType(ResourceType, InspectMixin, PredictMixin, StreamMixin):
 
     @staticmethod
     def _is_abstract(namespace: dict[str, t.Any]) -> bool:
-        return namespace.get("__module__") == "flama.models.resource" and namespace.get("__qualname__") in (
+        return namespace.get("__module__") == "flama.models.ml_resource" and namespace.get("__qualname__") in (
             "BaseMLResource",
             "MLResource",
         )
@@ -155,7 +152,7 @@ class MLResourceType(ResourceType, InspectMixin, PredictMixin, StreamMixin):
             ...
 
         try:
-            return ModelComponentBuilder.load(
+            return ModelComponentBuilder.build(
                 cls._get_attribute("model_path", bases, namespace, metadata_namespace="model")
             )
         except AttributeError:

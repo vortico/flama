@@ -31,15 +31,10 @@ class DependencyNotInstalled(ApplicationError):
         apispec = "apispec"
         typesystem = "typesystem"
         sqlalchemy = "sqlalchemy[asyncio]"
-        httpx = "httpx"
         tomli = "tomli"  # PORT: Remove when stop supporting 3.10
 
     def __init__(
-        self,
-        *,
-        dependency: str | Dependency | None = None,
-        dependant: str | None = None,
-        msg: str = "",
+        self, *, dependency: str | Dependency | None = None, dependant: str | None = None, msg: str = ""
     ) -> None:
         super().__init__()
         self.dependency = self.Dependency(dependency) if dependency else None
