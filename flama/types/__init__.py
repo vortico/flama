@@ -4,6 +4,7 @@ from flama.types.config import *  # noqa
 from flama.types.endpoints import *  # noqa
 from flama.types.http import *  # noqa
 from flama.types.json import *  # noqa
+from flama.types.models import *  # noqa
 from flama.types.openapi import *  # noqa
 from flama.types.pagination import *  # noqa
 from flama.types.routes import *  # noqa

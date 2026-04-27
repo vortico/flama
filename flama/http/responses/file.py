@@ -1,4 +1,3 @@
-import asyncio
 import dataclasses
 import datetime
 import hashlib
@@ -34,7 +33,7 @@ class _FileStat:
     @classmethod
     async def from_path(cls, path: str | os.PathLike[str]) -> "_FileStat":
         try:
-            result = await asyncio.to_thread(os.stat, path)
+            result = await concurrency.run(os.stat, path)
         except FileNotFoundError:
             raise exceptions.HTTPException(status_code=404, detail=f"File at path {path} does not exist.")
 

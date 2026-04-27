@@ -70,7 +70,7 @@ class ModelFactory:
                 if not installed(dependency):
                     raise NotInstalled(dependency)
         except KeyError:
-            raise ValueError(f"Wrong lib: '{x}'.")
+            raise ValueError(f"Wrong lib '{x}'.")
 
         if x not in self._models:
             result = factory()

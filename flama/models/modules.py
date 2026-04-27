@@ -1,8 +1,10 @@
 import os
 import typing as t
 
+from flama.models.base import BaseLLMModel
+from flama.models.components import ModelComponentBuilder
 from flama.models.llm_resource import LLMResource, LLMResourceType
-from flama.models.resource import MLResource, MLResourceType
+from flama.models.ml_resource import MLResource, MLResourceType
 from flama.modules import Module
 from flama.serialize.data_structures import ModelArtifact
 
@@ -13,9 +15,17 @@ __all__ = ["ModelsModule"]
 
 
 class ModelsModule(Module):
+    """Application module wiring packaged ML and LLM artifacts into Flama.
+
+    Exposes high-level helpers to register a model artifact under an HTTP path. The artifact's framework metadata
+    is auto-detected: ML artifacts (sklearn, torch, tensorflow, transformers) are wrapped in :class:`MLResource`
+    while LLM artifacts (vllm) are wrapped in :class:`LLMResource`. Bundled artifacts are tracked on the module
+    instance for later introspection.
+    """
+
     name = "models"
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._artifacts: list[ModelArtifact] = []
 
@@ -28,35 +38,48 @@ class ModelsModule(Module):
         *args,
         **kwargs,
     ) -> "ResourceRoute":
-        """Adds an ML model to this application, setting its endpoints.
+        """Register a packaged model under *path*, auto-routing to the appropriate resource type.
 
-        :param path: Resource base path.
-        :param model: Model path.
-        :param name: Model name.
-        :param tags: Tags to add to the model methods.
+        The artifact is loaded via :class:`ModelComponentBuilder.build`; the resulting component's model type
+        determines whether the model is wrapped in :class:`MLResource` or :class:`LLMResource`. Extra positional
+        and keyword arguments are forwarded to :meth:`add_model_resource`.
+
+        :param path: Mount path for the resource.
+        :param model: Filesystem path to the packaged model artifact.
+        :param name: Resource name used for OpenAPI tags.
+        :param tags: Method-level tags forwarded to the resource.
+        :return: The mounted :class:`ResourceRoute`.
         """
+        component = ModelComponentBuilder.build(model)
 
         name_ = name
-        model_ = model
+        component_ = component
 
-        class Resource(MLResource, metaclass=MLResourceType):
-            name = name_
-            model_path = model_
+        if isinstance(component.model, BaseLLMModel):
 
-        resource = Resource()
+            class Resource(LLMResource, metaclass=LLMResourceType):
+                name = name_
+                component = component_
+        else:
 
-        return self.add_model_resource(path, resource, tags, *args, **kwargs)
+            class Resource(MLResource, metaclass=MLResourceType):  # type: ignore[no-redef]
+                name = name_
+                component = component_
+
+        return self.add_model_resource(path, Resource(), tags, *args, **kwargs)
 
     def model_resource(self, path: str, tags: dict[str, dict[str, t.Any]] | None = None, *args, **kwargs) -> t.Callable:
-        """Decorator for MLResource classes for adding them to the application.
+        """Decorator registering an :class:`MLResource` or :class:`LLMResource` subclass at *path*.
 
-        :param path: Resource base path.
-        :param tags: Tags to add to the model methods.
-        :return: Decorated resource class.
+        Extra positional and keyword arguments are forwarded to :meth:`add_model_resource`.
+
+        :param path: Mount path for the resource.
+        :param tags: Method-level tags forwarded to the resource.
+        :return: Decorator returning the original resource class unchanged.
         """
 
-        def decorator(resource: type[MLResource]) -> type[MLResource]:
-            self.app.models.add_model_resource(path, resource, tags, *args, **kwargs)
+        def decorator(resource: type[MLResource | LLMResource]) -> type[MLResource | LLMResource]:
+            self.add_model_resource(path, resource, tags, *args, **kwargs)
             return resource
 
         return decorator
@@ -64,78 +87,21 @@ class ModelsModule(Module):
     def add_model_resource(
         self,
         path: str,
-        resource: MLResource | type[MLResource],
+        resource: MLResource | LLMResource | type[MLResource | LLMResource],
         tags: dict[str, dict[str, t.Any]] | None = None,
         *args,
         **kwargs,
     ) -> "ResourceRoute":
-        """Adds an ML resource to this application, setting its endpoints.
+        """Register an :class:`MLResource` or :class:`LLMResource` instance/class under *path*.
 
-        :param path: Resource base path.
-        :param resource: Resource class.
-        :param tags: Tags to add to the model methods.
-        """
-        if resource.component._artifact is not None:
-            self._artifacts.append(resource.component._artifact)
+        The resource's component is added to the app, its bundled artifact (if any) is tracked locally for later
+        introspection, and the resulting :class:`ResourceRoute` is mounted. Extra arguments are forwarded to
+        :meth:`Resources.add_resource`.
 
-        self.app.add_component(resource.component)
-        return self.app.resources.add_resource(path, resource, *args, tags=tags, **kwargs)
-
-    def add_llm(
-        self,
-        path: str,
-        model: str | os.PathLike,
-        name: str,
-        tags: dict[str, dict[str, t.Any]] | None = None,
-        *args,
-        **kwargs,
-    ) -> "ResourceRoute":
-        """Adds an LLM to this application, setting its endpoints.
-
-        :param path: Resource base path.
-        :param model: Model path.
-        :param name: Model name.
-        :param tags: Tags to add to the model methods.
-        """
-
-        name_ = name
-        model_ = model
-
-        class Resource(LLMResource, metaclass=LLMResourceType):
-            name = name_
-            model_path = model_
-
-        resource = Resource()
-
-        return self.add_llm_resource(path, resource, tags, *args, **kwargs)
-
-    def llm_resource(self, path: str, tags: dict[str, dict[str, t.Any]] | None = None, *args, **kwargs) -> t.Callable:
-        """Decorator for LLMResource classes for adding them to the application.
-
-        :param path: Resource base path.
-        :param tags: Tags to add to the model methods.
-        :return: Decorated resource class.
-        """
-
-        def decorator(resource: type[LLMResource]) -> type[LLMResource]:
-            self.app.models.add_llm_resource(path, resource, tags, *args, **kwargs)
-            return resource
-
-        return decorator
-
-    def add_llm_resource(
-        self,
-        path: str,
-        resource: LLMResource | type[LLMResource],
-        tags: dict[str, dict[str, t.Any]] | None = None,
-        *args,
-        **kwargs,
-    ) -> "ResourceRoute":
-        """Adds an LLM resource to this application, setting its endpoints.
-
-        :param path: Resource base path.
-        :param resource: Resource class.
-        :param tags: Tags to add to the model methods.
+        :param path: Mount path for the resource.
+        :param resource: Resource instance or class.
+        :param tags: Method-level tags forwarded to the resource.
+        :return: The mounted :class:`ResourceRoute`.
         """
         if resource.component._artifact is not None:
             self._artifacts.append(resource.component._artifact)
