@@ -17,9 +17,15 @@ if t.TYPE_CHECKING:
 __all__ = ["Model", "App", "options"]
 
 model_decorators = (
-    click.argument("model-path", envvar="FLAMA_MODEL_PATH"),
-    click.option("--model-url", envvar="MODEL_URL", default="/", show_default=True, help="Route of the model"),
-    click.option("--model-name", envvar="MODEL_NAME", default="model", show_default=True, help="Name of the model"),
+    click.option(
+        "--model",
+        "models_specs",
+        multiple=True,
+        nargs=3,
+        required=True,
+        metavar="PATH URL NAME",
+        help="Add a model. Repeatable: --model PATH URL NAME.",
+    ),
 )
 
 app_decorators = (
@@ -123,7 +129,7 @@ class DictApp(App):
     @contextlib.contextmanager
     def context(self) -> t.Generator[_AppContext, None, None]:
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".py") as f:
-            env = jinja2.Environment(loader=jinja2.PackageLoader("flama", "cli/templates"))
+            env = jinja2.Environment(loader=jinja2.PackageLoader("flama", "_cli/templates"))
             f.write(env.get_template("app.py.j2").render(**dataclasses.asdict(self)))
             f.flush()
             file_path = Path(f.name)
@@ -153,9 +159,7 @@ def options(command: t.Callable) -> t.Callable:
         app_description: str,
         app_schema: str,
         app_docs: str,
-        model_path: str,
-        model_url: str,
-        model_name: str,
+        models_specs: tuple[tuple[str, str, str], ...],
         *args,
         **kwargs,
     ):
@@ -167,7 +171,7 @@ def options(command: t.Callable) -> t.Callable:
                 version=app_version,
                 schema=app_schema,
                 docs=app_docs,
-                models=[Model(path=model_path, url=model_url, name=model_name)],
+                models=[Model(path=path, url=url, name=name) for path, url, name in models_specs],
             ),
             *args,
             **kwargs,
