@@ -123,7 +123,7 @@ class DictApp(App):
     @contextlib.contextmanager
     def context(self) -> t.Generator[_AppContext, None, None]:
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".py") as f:
-            env = jinja2.Environment(loader=jinja2.PackageLoader("flama", "cli/templates"))
+            env = jinja2.Environment(loader=jinja2.PackageLoader("flama", "_cli/templates"))
             f.write(env.get_template("app.py.j2").render(**dataclasses.asdict(self)))
             f.flush()
             file_path = Path(f.name)

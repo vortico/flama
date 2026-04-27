@@ -5,8 +5,9 @@ import typing as t
 
 import click
 
+from flama._cli.formatting import CONSOLE, FlamaCommand, FlamaGroup
 from flama._core.json_encoder import encode_json
-from flama.models import ModelComponentBuilder
+from flama.models import MLModelComponentBuilder
 from flama.models.base import BaseMLModel
 
 if t.TYPE_CHECKING:
@@ -15,10 +16,10 @@ if t.TYPE_CHECKING:
 __all__ = ["model", "command"]
 
 
-@click.group(name="model")
+@click.group(name="model", cls=FlamaGroup)
 @click.argument("flama-model-path", envvar="FLAMA_MODEL_PATH")
 @click.pass_context
-def command(ctx: click.Context, flama_model_path: str):
+def command(ctx: click.Context, flama_model_path: str) -> None:
     """Interact with an ML model without server.
 
     This command is used to directly interact with an ML model without the need of a server. This command can be used
@@ -27,15 +28,15 @@ def command(ctx: click.Context, flama_model_path: str):
     directly as argument of the command line, or by environment variable.
     """
     try:
-        ctx.obj = ModelComponentBuilder.load(flama_model_path)
+        ctx.obj = MLModelComponentBuilder.load(flama_model_path)
     except FileNotFoundError:
         raise click.BadParameter("Model file not found.")
 
 
-@command.command(name="inspect", context_settings={"auto_envvar_prefix": "FLAMA"})
+@command.command(name="inspect", cls=FlamaCommand, context_settings={"auto_envvar_prefix": "FLAMA"})
 @click.option("-p", "--pretty", is_flag=True, default=False, help="Pretty print the model inspection.")
 @click.pass_obj
-def inspect(model: "ModelComponent", pretty: bool):
+def inspect(model: "ModelComponent", pretty: bool) -> None:
     """Inspect an ML model.
 
     This command is used to inspect an ML model without the need of a server. This command can be used to extract the
@@ -46,10 +47,10 @@ def inspect(model: "ModelComponent", pretty: bool):
     if pretty:
         dump_func = functools.partial(encode_json, sort_keys=True, indent=4)
 
-    click.echo(dump_func(model.model.inspect()).decode("utf-8"))
+    CONSOLE.print(dump_func(model.model.inspect()).decode("utf-8"), highlight=False)
 
 
-@command.command(name="predict", context_settings={"auto_envvar_prefix": "FLAMA"})
+@command.command(name="predict", cls=FlamaCommand, context_settings={"auto_envvar_prefix": "FLAMA"})
 @click.option(
     "-f",
     "--file",
@@ -68,7 +69,7 @@ def inspect(model: "ModelComponent", pretty: bool):
 )
 @click.option("-p", "--pretty", is_flag=True, default=False, help="Pretty print the model prediction.")
 @click.pass_obj
-def predict(model: "ModelComponent", input_file, output_file, pretty: bool):
+def predict(model: "ModelComponent", input_file, output_file, pretty: bool) -> None:
     """Make a prediction using an ML model.
 
     This command is used to make a prediction using an ML model without the need of a server. It can be used for
@@ -96,7 +97,7 @@ def predict(model: "ModelComponent", input_file, output_file, pretty: bool):
     click.echo(dump_func(model.model.predict(data)).decode("utf-8"), output_file)
 
 
-@command.command(name="stream", context_settings={"auto_envvar_prefix": "FLAMA"})
+@command.command(name="stream", cls=FlamaCommand, context_settings={"auto_envvar_prefix": "FLAMA"})
 @click.option(
     "-f",
     "--file",
@@ -122,7 +123,7 @@ def predict(model: "ModelComponent", input_file, output_file, pretty: bool):
     help="Buffer all output and write at once instead of streaming.",
 )
 @click.pass_obj
-def stream(model: "ModelComponent", input_file, output_file, buffered: bool):
+def stream(model: "ModelComponent", input_file, output_file, buffered: bool) -> None:
     """Stream output from an ML model.
 
     Provide input data via -f/--file (or stdin) in JSON format.

@@ -5,23 +5,21 @@ import typing as t
 
 import click
 
+from flama._cli.config.config import Config
+from flama._cli.config.uvicorn import Uvicorn
+from flama._cli.config.uvicorn import options as uvicorn_options
+from flama._cli.formatting import CONSOLE, FlamaCommand, FlamaGroup
 from flama._core.json_encoder import encode_json
-from flama.cli.config.config import Config
-from flama.cli.config.uvicorn import Uvicorn
-from flama.cli.config.uvicorn import options as uvicorn_options
-from flama.models import ModelComponentBuilder
+from flama.models import LLMModelComponentBuilder
 from flama.models.base import BaseLLMModel
-
-if t.TYPE_CHECKING:
-    pass
 
 __all__ = ["llm", "command"]
 
 
-@click.group(name="llm")
+@click.group(name="llm", cls=FlamaGroup)
 @click.argument("flama-model-path", envvar="FLAMA_MODEL_PATH")
 @click.pass_context
-def command(ctx: click.Context, flama_model_path: str):
+def command(ctx: click.Context, flama_model_path: str) -> None:
     """Interact with an LLM.
 
     This command is used to directly interact with an LLM. This command can be used to perform any operation that is
@@ -34,17 +32,17 @@ def command(ctx: click.Context, flama_model_path: str):
 
     if ctx.invoked_subcommand != "run":
         try:
-            ctx.obj["component"] = ModelComponentBuilder.load(flama_model_path)
+            ctx.obj["component"] = LLMModelComponentBuilder.load(flama_model_path)
         except FileNotFoundError:
             raise click.BadParameter("Model file not found.")
 
 
-@command.command(name="run", context_settings={"auto_envvar_prefix": "FLAMA"})
+@command.command(name="run", cls=FlamaCommand, context_settings={"auto_envvar_prefix": "FLAMA"})
 @click.option("--name", default="llm", show_default=True, help="Name for the LLM resource.")
 @click.option("--path", "url_path", default="/", show_default=True, help="URL path for the LLM resource.")
 @uvicorn_options
 @click.pass_context
-def run(ctx: click.Context, name: str, url_path: str, uvicorn: Uvicorn):
+def run(ctx: click.Context, name: str, url_path: str, uvicorn: Uvicorn) -> None:
     """Serve an LLM with a web chat UI.
 
     Start a Flama server exposing the LLM with inspect, configure, query, stream and chat endpoints.
@@ -56,7 +54,7 @@ def run(ctx: click.Context, name: str, url_path: str, uvicorn: Uvicorn):
         flama llm model.flm run --path /my-llm/ --name my-model
     """
     from flama import Flama
-    from flama.cli.config.app import FlamaApp
+    from flama._cli.config.app import FlamaApp
 
     model_path = ctx.obj["model_path"]
 
@@ -76,10 +74,10 @@ def run(ctx: click.Context, name: str, url_path: str, uvicorn: Uvicorn):
     Config(app=FlamaApp(app=app), server=uvicorn).run()
 
 
-@command.command(name="inspect", context_settings={"auto_envvar_prefix": "FLAMA"})
+@command.command(name="inspect", cls=FlamaCommand, context_settings={"auto_envvar_prefix": "FLAMA"})
 @click.option("-p", "--pretty", is_flag=True, default=False, help="Pretty print the model inspection.")
 @click.pass_context
-def inspect(ctx: click.Context, pretty: bool):
+def inspect(ctx: click.Context, pretty: bool) -> None:
     """Inspect an LLM.
 
     This command is used to inspect an LLM without the need of a server. This command can be used to extract the
@@ -91,10 +89,10 @@ def inspect(ctx: click.Context, pretty: bool):
     if pretty:
         dump_func = functools.partial(encode_json, sort_keys=True, indent=4)
 
-    click.echo(dump_func(model.model.inspect()).decode("utf-8"))
+    CONSOLE.print(dump_func(model.model.inspect()).decode("utf-8"), highlight=False)
 
 
-@command.command(name="configure", context_settings={"auto_envvar_prefix": "FLAMA"})
+@command.command(name="configure", cls=FlamaCommand, context_settings={"auto_envvar_prefix": "FLAMA"})
 @click.option(
     "--param",
     multiple=True,
@@ -102,7 +100,7 @@ def inspect(ctx: click.Context, pretty: bool):
 )
 @click.option("--pretty", is_flag=True, default=False, help="Pretty print the output.")
 @click.pass_context
-def configure(ctx: click.Context, param: tuple[str, ...], pretty: bool):
+def configure(ctx: click.Context, param: tuple[str, ...], pretty: bool) -> None:
     """Configure default generation parameters for an LLM.
 
     Set default parameters that will be used for all subsequent queries and streams unless overridden per-request.
@@ -122,10 +120,10 @@ def configure(ctx: click.Context, param: tuple[str, ...], pretty: bool):
     if pretty:
         dump_func = functools.partial(encode_json, sort_keys=True, indent=4)
 
-    click.echo(dump_func(model.model.params).decode("utf-8"))
+    CONSOLE.print(dump_func(model.model.params).decode("utf-8"), highlight=False)
 
 
-@command.command(name="query", context_settings={"auto_envvar_prefix": "FLAMA"})
+@command.command(name="query", cls=FlamaCommand, context_settings={"auto_envvar_prefix": "FLAMA"})
 @click.option("-p", "--prompt", required=True, help="Prompt to send to the LLM.")
 @click.option(
     "--param",
@@ -142,7 +140,7 @@ def configure(ctx: click.Context, param: tuple[str, ...], pretty: bool):
 )
 @click.option("--pretty", is_flag=True, default=False, help="Pretty print the output.")
 @click.pass_context
-def query(ctx: click.Context, prompt: str, param: tuple[str, ...], output_file, pretty: bool):
+def query(ctx: click.Context, prompt: str, param: tuple[str, ...], output_file, pretty: bool) -> None:
     """Query an LLM.
 
     Send a prompt to an LLM and get a buffered response without the need of a server.
@@ -170,7 +168,7 @@ def query(ctx: click.Context, prompt: str, param: tuple[str, ...], output_file, 
     click.echo(dump_func(result).decode("utf-8"), output_file)
 
 
-@command.command(name="stream", context_settings={"auto_envvar_prefix": "FLAMA"})
+@command.command(name="stream", cls=FlamaCommand, context_settings={"auto_envvar_prefix": "FLAMA"})
 @click.option("-p", "--prompt", required=True, help="Prompt to send to the LLM.")
 @click.option(
     "--param",
@@ -194,7 +192,7 @@ def query(ctx: click.Context, prompt: str, param: tuple[str, ...], output_file, 
     help="Buffer all output and write at once instead of streaming.",
 )
 @click.pass_context
-def stream(ctx: click.Context, prompt: str, param: tuple[str, ...], output_file, buffered: bool):
+def stream(ctx: click.Context, prompt: str, param: tuple[str, ...], output_file, buffered: bool) -> None:
     """Stream output from an LLM.
 
     Send a prompt to an LLM and stream the response token by token.

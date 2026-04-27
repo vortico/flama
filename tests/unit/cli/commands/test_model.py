@@ -1,167 +1,172 @@
 import json
-import tempfile
+import pathlib
+import typing as t
 from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 
-from flama.cli.commands.model import command
+from flama._cli.commands.model import command
 from flama.models.base import BaseLLMModel, BaseMLModel
 
 
-@pytest.fixture
-def runner():
-    return CliRunner()
-
-
-def _make_ml_component():
-    component = MagicMock()
-    component.model = MagicMock(spec=BaseMLModel)
-    component.model.inspect.return_value = {"meta": {}, "artifacts": {}}
-    component.model.predict.return_value = [0, 1]
-    return component
-
-
-class TestCaseModelInspectCommand:
-    def test_inspect(self, runner):
-        component = _make_ml_component()
-
-        with patch("flama.cli.commands.model.ModelComponentBuilder") as mock_builder:
-            mock_builder.load.return_value = component
-            result = runner.invoke(command, ["dummy.flm", "inspect"])
-
-        assert result.exit_code == 0, result.output
-
-    def test_inspect_pretty(self, runner):
-        component = _make_ml_component()
-
-        with patch("flama.cli.commands.model.ModelComponentBuilder") as mock_builder:
-            mock_builder.load.return_value = component
-            result = runner.invoke(command, ["dummy.flm", "inspect", "--pretty"])
-
-        assert result.exit_code == 0, result.output
-
-
-class TestCaseModelPredictCommand:
-    def test_predict(self, runner):
-        component = _make_ml_component()
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump([[0, 0]], f)
-            f.flush()
-
-            with patch("flama.cli.commands.model.ModelComponentBuilder") as mock_builder:
-                mock_builder.load.return_value = component
-                result = runner.invoke(command, ["dummy.flm", "predict", "-f", f.name])
-
-        assert result.exit_code == 0, result.output
-
-    def test_predict_wrong_model_type(self, runner):
-        component = MagicMock()
-        component.model = MagicMock(spec=BaseLLMModel)
-        component.model.inspect.return_value = {"meta": {}, "artifacts": {}}
-
-        with (
-            tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f,
-            patch("flama.cli.commands.model.ModelComponentBuilder") as mock_builder,
-        ):
-            json.dump([[0, 0]], f)
-            f.flush()
-            mock_builder.load.return_value = component
-            result = runner.invoke(command, ["dummy.flm", "predict", "-f", f.name])
-
-        assert result.exit_code != 0
-        assert "ML" in result.output
-
-
-class TestCaseModelStreamCommand:
+class TestCaseCommand:
     @pytest.mark.parametrize(
-        ["buffered", "expected_output"],
+        "scenario",
         [
-            pytest.param(False, "[1][2]", id="streaming"),
-            pytest.param(True, "[1][2]\n", id="buffered"),
+            pytest.param("normal_load", id="normal_load"),
+            pytest.param("file_not_found", id="file_not_found"),
         ],
     )
-    def test_stream(self, runner, buffered, expected_output):
-        component = _make_ml_component()
+    def test_command(
+        self,
+        runner: CliRunner,
+        ml_component: MagicMock,
+        scenario: str,
+    ) -> None:
+        with patch("flama._cli.commands.model.MLModelComponentBuilder") as builder:
+            if scenario == "normal_load":
+                builder.load.return_value = ml_component
+                result = runner.invoke(command, ["dummy.flm", "inspect"])
 
-        async def mock_stream(x):
+                assert result.exit_code == 0, result.output
+                builder.load.assert_called_once_with("dummy.flm")
+            elif scenario == "file_not_found":
+                builder.load.side_effect = FileNotFoundError("no")
+                result = runner.invoke(command, ["missing.flm", "inspect"])
+
+                assert result.exit_code != 0
+                assert "Model file not found" in result.output
+
+
+class TestCaseInspect:
+    @pytest.mark.parametrize(
+        "scenario",
+        [
+            pytest.param("default", id="default"),
+            pytest.param("pretty", id="pretty"),
+        ],
+    )
+    def test_inspect(
+        self,
+        runner: CliRunner,
+        ml_component: MagicMock,
+        patched_ml_builder: MagicMock,
+        scenario: str,
+    ) -> None:
+        args = ["dummy.flm", "inspect"]
+        if scenario == "pretty":
+            args.append("--pretty")
+
+        result = runner.invoke(command, args)
+
+        assert result.exit_code == 0, result.output
+        ml_component.model.inspect.assert_called_once()
+
+
+class TestCasePredict:
+    @pytest.fixture(scope="function")
+    def input_file(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        path = tmp_path / "in.json"
+        path.write_text(json.dumps([[0, 0]]))
+        return path
+
+    @pytest.mark.parametrize(
+        ["ml_component", "scenario"],
+        [
+            pytest.param(BaseMLModel, "default", id="default"),
+            pytest.param(BaseLLMModel, "wrong_type", id="wrong_type"),
+        ],
+        indirect=["ml_component"],
+    )
+    def test_predict(
+        self,
+        runner: CliRunner,
+        ml_component: MagicMock,
+        patched_ml_builder: MagicMock,
+        input_file: pathlib.Path,
+        scenario: str,
+    ) -> None:
+        if scenario == "default":
+            result = runner.invoke(command, ["dummy.flm", "predict", "-f", str(input_file)])
+
+            assert result.exit_code == 0, result.output
+            ml_component.model.predict.assert_called_once_with([[0, 0]])
+        elif scenario == "wrong_type":
+            result = runner.invoke(command, ["dummy.flm", "predict", "-f", str(input_file)])
+
+            assert result.exit_code != 0
+            assert "ML" in result.output
+
+
+class TestCaseStream:
+    @pytest.fixture(scope="function")
+    def input_file(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        path = tmp_path / "in.json"
+        path.write_text(json.dumps([[0, 0]]))
+        return path
+
+    @pytest.mark.parametrize(
+        ["ml_component", "scenario", "expected_output"],
+        [
+            pytest.param(BaseMLModel, "streaming", "[1][2]", id="streaming"),
+            pytest.param(BaseMLModel, "buffered", "[1][2]\n", id="buffered"),
+            pytest.param(BaseMLModel, "invalid_json", None, id="invalid_json"),
+            pytest.param(BaseMLModel, "output_to_file", None, id="output_to_file"),
+            pytest.param(BaseLLMModel, "wrong_type", None, id="wrong_type"),
+        ],
+        indirect=["ml_component"],
+    )
+    def test_stream(
+        self,
+        runner: CliRunner,
+        ml_component: MagicMock,
+        patched_ml_builder: MagicMock,
+        input_file: pathlib.Path,
+        tmp_path: pathlib.Path,
+        scenario: str,
+        expected_output: str | None,
+    ) -> None:
+        async def _stream(x: t.AsyncIterator[t.Any]) -> t.AsyncIterator[list[int]]:
             async for _ in x:
                 yield [1]
                 yield [2]
 
-        component.model.stream = mock_stream
+        ml_component.model.stream = _stream
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump([[0, 0]], f)
-            f.flush()
-
-            args = ["dummy.flm", "stream", "-f", f.name]
-            if buffered:
-                args.append("--buffer")
-
-            with patch("flama.cli.commands.model.ModelComponentBuilder") as mock_builder:
-                mock_builder.load.return_value = component
-                result = runner.invoke(command, args)
-
-        assert result.exit_code == 0, result.output
-        assert result.output == expected_output
-
-    def test_stream_invalid_json(self, runner):
-        component = _make_ml_component()
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
-            f.write("not valid json")
-            f.flush()
-
-            with patch("flama.cli.commands.model.ModelComponentBuilder") as mock_builder:
-                mock_builder.load.return_value = component
-                result = runner.invoke(command, ["dummy.flm", "stream", "-f", f.name])
-
-        assert result.exit_code != 0
-
-    def test_stream_output_to_file(self, runner):
-        component = _make_ml_component()
-
-        async def mock_stream(x):
-            async for _ in x:
-                yield [42]
-
-        component.model.stream = mock_stream
-
-        with (
-            tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as input_f,
-            tempfile.NamedTemporaryFile(mode="r", suffix=".txt", delete=False) as output_f,
-        ):
-            json.dump([[0, 0]], input_f)
-            input_f.flush()
-
-            with patch("flama.cli.commands.model.ModelComponentBuilder") as mock_builder:
-                mock_builder.load.return_value = component
-                result = runner.invoke(
-                    command,
-                    ["dummy.flm", "stream", "-f", input_f.name, "-o", output_f.name],
-                )
+        if scenario == "streaming":
+            result = runner.invoke(command, ["dummy.flm", "stream", "-f", str(input_file)])
 
             assert result.exit_code == 0, result.output
+            assert result.output == expected_output
+        elif scenario == "buffered":
+            result = runner.invoke(command, ["dummy.flm", "stream", "-f", str(input_file), "--buffer"])
 
-            output_f.seek(0)
-            content = output_f.read()
-            assert "[42]" in content
+            assert result.exit_code == 0, result.output
+            assert result.output == expected_output
+        elif scenario == "invalid_json":
+            bad_input = tmp_path / "bad.txt"
+            bad_input.write_text("not valid json")
+            result = runner.invoke(command, ["dummy.flm", "stream", "-f", str(bad_input)])
 
-    def test_stream_wrong_model_type(self, runner):
-        component = MagicMock()
-        component.model = MagicMock(spec=BaseLLMModel)
-        component.model.inspect.return_value = {"meta": {}, "artifacts": {}}
+            assert result.exit_code != 0
+        elif scenario == "output_to_file":
 
-        with (
-            tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f,
-            patch("flama.cli.commands.model.ModelComponentBuilder") as mock_builder,
-        ):
-            json.dump([[0, 0]], f)
-            f.flush()
-            mock_builder.load.return_value = component
-            result = runner.invoke(command, ["dummy.flm", "stream", "-f", f.name])
+            async def _short_stream(x: t.AsyncIterator[t.Any]) -> t.AsyncIterator[list[int]]:
+                async for _ in x:
+                    yield [42]
 
-        assert result.exit_code != 0
-        assert "ML" in result.output
+            ml_component.model.stream = _short_stream
+            output = tmp_path / "out.txt"
+            result = runner.invoke(
+                command,
+                ["dummy.flm", "stream", "-f", str(input_file), "-o", str(output)],
+            )
+
+            assert result.exit_code == 0, result.output
+            assert "[42]" in output.read_text()
+        elif scenario == "wrong_type":
+            result = runner.invoke(command, ["dummy.flm", "stream", "-f", str(input_file)])
+
+            assert result.exit_code != 0
+            assert "ML" in result.output
