@@ -76,7 +76,7 @@ full = [
 ]
 
 [project.scripts]
-flama = 'flama.cli.__main__:cli'
+flama = 'flama._cli.__main__:cli'
 
 [dependency-groups]
 dev = [

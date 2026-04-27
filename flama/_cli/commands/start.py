@@ -1,11 +1,12 @@
 import click
 
-from flama.cli.config.config import Config, ExampleConfig
+from flama._cli.config.config import Config, ExampleConfig
+from flama._cli.formatting import FlamaCommand
 
 __all__ = ["start", "command"]
 
 
-@click.command(name="start", context_settings={"auto_envvar_prefix": "FLAMA"})
+@click.command(name="start", cls=FlamaCommand, context_settings={"auto_envvar_prefix": "FLAMA"})
 @click.argument("flama-config", envvar="FLAMA_CONFIG", default="flama.json")
 @click.option(
     "--create-config",
@@ -13,7 +14,7 @@ __all__ = ["start", "command"]
     help="Create a config file: 'simple' only includes the host and port of the webserver; 'full' "
     "includes all the details of the webserver.",
 )
-def command(flama_config: str, create_config: str):
+def command(flama_config: str, create_config: str) -> None:
     """Start a Flama Application based on a config file.
 
     Start a Flama Application with the configuration specified in <FLAMA_CONFIG> file
