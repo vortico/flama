@@ -40,6 +40,11 @@ def fake():
     return Faker()
 
 
+@pytest.fixture(scope="function", params=["bz2", "lzma", "zlib", "zstd"])
+def compression_format(request):
+    return request.param
+
+
 @pytest.fixture(autouse=True)
 def clear_metadata():
     metadata.clear()
