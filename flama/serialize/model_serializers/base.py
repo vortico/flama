@@ -20,7 +20,7 @@ class BaseModelSerializer(abc.ABC):
     the serializer version.
     """
 
-    lib: t.ClassVar[types.MLLib]
+    lib: t.ClassVar[types.Lib]
 
     @abc.abstractmethod
     def dump(self, obj: t.Any, /, **kwargs) -> bytes:
@@ -67,7 +67,7 @@ class ModelSerializer:
     implementation based on the ML library name or by inspecting a model object.
     """
 
-    _registry: t.Final[dict[types.MLLib, tuple[str, str]]] = {
+    _registry: t.Final[dict[types.Lib, tuple[str, str]]] = {
         "keras": ("flama.serialize.model_serializers.tensorflow", "ModelSerializer"),
         "sklearn": ("flama.serialize.model_serializers.sklearn", "ModelSerializer"),
         "tensorflow": ("flama.serialize.model_serializers.tensorflow", "ModelSerializer"),
@@ -80,7 +80,7 @@ class ModelSerializer:
     }
 
     @classmethod
-    def from_lib(cls, lib: types.MLLib, /) -> BaseModelSerializer:
+    def from_lib(cls, lib: types.Lib, /) -> BaseModelSerializer:
         """Loads and instantiates the concrete model serializer class for the given ML library.
 
         :param lib: The name of the machine learning library (e.g., ``"sklearn"``, ``"tensorflow"``).
@@ -124,7 +124,7 @@ class ModelSerializer:
                 module = inspect.getmodule(obj)
                 if module is None:
                     continue
-                return cls.from_lib(t.cast(types.MLLib, module.__name__.split(".", 1)[0]))
+                return cls.from_lib(t.cast(types.Lib, module.__name__.split(".", 1)[0]))
             except (ValueError, AttributeError):
                 ...
         else:  # pragma: no cover

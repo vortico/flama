@@ -7,8 +7,7 @@ import uuid
 import warnings
 
 from flama import exceptions, types
-from flama.serialize.compression import Compression
-from flama.serialize.data_structures import Artifacts, ModelArtifact
+from flama.serialize.data_structures import Artifacts, CompressionFormat, ModelArtifact
 from flama.serialize.model_serializers import ModelSerializer
 from flama.serialize.protocols import Protocol
 
@@ -43,7 +42,7 @@ class Serializer:
         extra: dict[str, t.Any] | None = None,
         config: dict[str, t.Any] | None = None,
         artifacts: Artifacts | None = None,
-        lib: types.MLLib | None = None,
+        lib: types.Lib | None = None,
         **kwargs,
     ) -> None: ...
     @t.overload
@@ -63,7 +62,7 @@ class Serializer:
         extra: dict[str, t.Any] | None = None,
         config: dict[str, t.Any] | None = None,
         artifacts: Artifacts | None = None,
-        lib: types.MLLib | None = None,
+        lib: types.Lib | None = None,
         **kwargs,
     ) -> None: ...
     @t.overload
@@ -74,7 +73,7 @@ class Serializer:
         f: t.BinaryIO,
         /,
         *,
-        lib: types.MLLib,
+        lib: types.Lib,
         protocol: types.ProtocolVersion = 1,
         compression: types.SerializationCompression = "zstd",
         model_id: str | uuid.UUID | None = None,
@@ -93,7 +92,7 @@ class Serializer:
         /,
         *,
         path: str | os.PathLike | pathlib.Path,
-        lib: types.MLLib,
+        lib: types.Lib,
         protocol: types.ProtocolVersion = 1,
         compression: types.SerializationCompression = "zstd",
         model_id: str | uuid.UUID | None = None,
@@ -121,14 +120,13 @@ class Serializer:
         extra: dict[str, t.Any] | None = None,
         config: dict[str, t.Any] | None = None,
         artifacts: Artifacts | None = None,
-        lib: types.MLLib | None = None,
+        lib: types.Lib | None = None,
         **kwargs,
     ) -> None:
-        """Serialize an ML model using Flama format to bytes stream.
+        """Serialize an ML model using Flama format to a writable binary stream.
 
-        When *m* is a directory path it is converted to a :class:`pathlib.Path` and passed to the framework-specific
-        serializer, which is responsible for archiving the directory contents.  In this case *lib* is required so the
-        correct framework serializer can be selected.
+        The body is streamed directly to *f* to avoid materialising the full archive in memory. A placeholder header is
+        emitted first and patched with the body size once the protocol finishes writing.
 
         :param m: The ML model object, or a directory path containing model files.
         :param f: The bytes stream for dumping the model artifact.
@@ -161,27 +159,33 @@ class Serializer:
             f = pathlib.Path(str(path)).open("wb")
 
         p = Protocol.from_version(protocol)
-        c = Compression(compression)
+        try:
+            fmt = CompressionFormat[compression]
+        except KeyError:
+            raise ValueError(f"Wrong format '{compression}'")
 
-        body = p.dump(
-            ModelArtifact.from_model(
-                m,
-                model_id=model_id,
-                timestamp=timestamp,
-                params=params,
-                metrics=metrics,
-                extra=extra,
-                config=config,
-                artifacts=artifacts,
-                lib=lib,
-            ),
-            compression=c,
-            **kwargs,
+        artifact = ModelArtifact.from_model(
+            m,
+            model_id=model_id,
+            timestamp=timestamp,
+            params=params,
+            metrics=metrics,
+            extra=extra,
+            config=config,
+            artifacts=artifacts,
+            lib=lib,
         )
-        header = struct.pack(cls._header_format, protocol, c.format, len(body))
 
         try:
-            f.write(b"".join((header, body)))
+            header_pos = f.tell()
+            f.write(b"\x00" * cls._header_size)
+
+            body_size = p.dump(artifact, f, compression=fmt.name, **kwargs)
+
+            end_pos = f.tell()
+            f.seek(header_pos)
+            f.write(struct.pack(cls._header_format, protocol, fmt.value, body_size))
+            f.seek(end_pos)
         finally:
             if managed_stream:
                 f.flush()
@@ -189,18 +193,27 @@ class Serializer:
 
     @t.overload
     @classmethod
-    def load(cls, f: t.BinaryIO, /, **kwargs) -> ModelArtifact: ...
+    def load(cls, f: t.BinaryIO, /, *, lib: types.Lib | None = None, **kwargs) -> ModelArtifact: ...
     @t.overload
     @classmethod
-    def load(cls, /, *, path: str | os.PathLike | pathlib.Path, **kwargs) -> ModelArtifact: ...
+    def load(
+        cls, /, *, path: str | os.PathLike | pathlib.Path, lib: types.Lib | None = None, **kwargs
+    ) -> ModelArtifact: ...
     @classmethod
     def load(
-        cls, f: t.BinaryIO | None = None, /, *, path: str | os.PathLike | pathlib.Path | None = None, **kwargs
+        cls,
+        f: t.BinaryIO | None = None,
+        /,
+        *,
+        path: str | os.PathLike | pathlib.Path | None = None,
+        lib: types.Lib | None = None,
+        **kwargs,
     ) -> ModelArtifact:
         """Deserialize a ML model using Flama format from a bytes stream.
 
-        :param s: The bytes stream for loading the model artifact.
+        :param f: The bytes stream for loading the model artifact.
         :param path: The file path where the model artifact is stored.
+        :param lib: Optional ML library override for deserialization (defaults to the lib stored in metadata).
         :return: Model artifact.
         """
         if f is None and path is None:
@@ -214,11 +227,14 @@ class Serializer:
             f = pathlib.Path(str(path)).open("rb")
 
         try:
-            protocol, compression, body_size = struct.unpack(cls._header_format, f.read(cls._header_size))
+            protocol, compression, _body_size = struct.unpack(cls._header_format, f.read(cls._header_size))
 
             p = Protocol.from_version(protocol)
-            c = Compression(compression)
-            artifact = p.load(f.read(body_size), compression=c)
+            try:
+                fmt = CompressionFormat(compression)
+            except ValueError:
+                raise ValueError(f"Wrong format '{compression}'")
+            artifact = p.load(f, compression=fmt.name, lib=lib)
         finally:
             if managed_stream:
                 f.flush()

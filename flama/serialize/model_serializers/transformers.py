@@ -3,11 +3,11 @@ import io
 import logging
 import os
 import pathlib
-import tarfile
 import tempfile
 import typing as t
 
 from flama import exceptions, types
+from flama.compression import tar
 from flama.serialize.model_serializers.base import BaseModelSerializer
 
 try:
@@ -38,12 +38,7 @@ class ModelSerializer(BaseModelSerializer):
         :return: Tar archive bytes.
         """
         buf = io.BytesIO()
-        with tarfile.open(fileobj=buf, mode="w") as tar:
-            tar.add(
-                str(directory),
-                arcname=".",
-                filter=lambda x: None if pathlib.PurePosixPath(x.name).name.startswith(".") else x,
-            )
+        tar(str(directory), buf)
         return buf.getvalue()
 
     def dump(self, obj: t.Any, /, **kwargs) -> bytes:
