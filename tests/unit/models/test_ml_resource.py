@@ -1,6 +1,6 @@
-import contextlib
 import pathlib
 import tempfile
+import typing as t
 from unittest.mock import patch
 
 import pytest
@@ -13,21 +13,16 @@ from flama.resources.exceptions import ResourceAttributeError
 from tests._utils import NotInstalled, model_factory
 
 
-def _get_component(client):
-    return next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
-
-
-async def _error_stream(self, input_iter):
-    raise RuntimeError("boom")
-    yield  # makes this an async generator
-
-
-async def _empty_input():
-    return
-    yield  # makes this an async generator
-
-
 class TestCaseMLResource:
+    @pytest.mark.parametrize(
+        ["model"],
+        [
+            pytest.param("tensorflow", id="tensorflow"),
+            pytest.param("sklearn", id="sklearn"),
+            pytest.param("torch", id="torch"),
+        ],
+        indirect=["model"],
+    )
     def test_resource_using_component(self, app, model, component):
         component_ = component
 
@@ -54,13 +49,13 @@ class TestCaseMLResource:
 
     @pytest.mark.parametrize(
         ["model_path"],
-        (
+        [
             pytest.param("sklearn", id="sklearn"),
             pytest.param("sklearn-pipeline", id="sklearn-pipeline"),
             pytest.param("tensorflow", id="tensorflow"),
             pytest.param("torch", id="torch"),
             pytest.param("transformers", id="transformers"),
-        ),
+        ],
         indirect=["model_path"],
     )
     def test_resource_using_model_path(self, app, model_path):
@@ -116,19 +111,24 @@ class TestCaseMLResourceMethods:
             async with Client(app=app) as client:
                 yield client
 
+    @staticmethod
+    def _get_component(client) -> ModelComponent:
+        return next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
+
     @pytest.mark.parametrize(
         ["client"],
-        (
+        [
             pytest.param("torch", id="torch"),
             pytest.param("sklearn", id="sklearn"),
             pytest.param("sklearn-pipeline", id="sklearn-pipeline"),
             pytest.param("tensorflow", id="tensorflow"),
             pytest.param("transformers", id="transformers"),
-        ),
+        ],
         indirect=["client"],
     )
     async def test_inspect(self, client):
         response = await client.get("/model/")
+
         assert response.status_code == 200, response.json()
         inspect = response.json()
         assert set(inspect.keys()) == {"meta", "artifacts"}
@@ -138,8 +138,8 @@ class TestCaseMLResourceMethods:
         assert set(meta["framework"].keys()) == {"lib", "version", "config"}
 
     @pytest.mark.parametrize(
-        ("client", "x", "y", "status_code"),
-        (
+        ["client", "x", "y", "status_code"],
+        [
             pytest.param("torch", [[0, 0], [0, 1], [1, 0], [1, 1]], [[0], [1], [1], [0]], 200, id="torch-200"),
             pytest.param("torch", [["wrong"]], None, 400, id="torch-400"),
             pytest.param("sklearn", [[0, 0], [0, 1], [1, 0], [1, 1]], [0, 1, 1, 0], 200, id="sklearn-200"),
@@ -154,7 +154,7 @@ class TestCaseMLResourceMethods:
             pytest.param("tensorflow", [["wrong"]], None, 400, id="tensorflow-400"),
             pytest.param("transformers", ["hello"], None, 200, id="transformers-200"),
             pytest.param("transformers", [{"bad": "input"}], None, 400, id="transformers-400"),
-        ),
+        ],
         indirect=["client"],
     )
     async def test_predict(self, client, x, y, status_code):
@@ -168,64 +168,49 @@ class TestCaseMLResourceMethods:
             assert "output" in response.json()
 
     @pytest.mark.parametrize(
-        ("client", "x", "mock_output"),
-        (
-            pytest.param("torch", "0,0", None, id="torch"),
-            pytest.param("sklearn", "0,0", None, id="sklearn"),
-            pytest.param("sklearn-pipeline", "0,0", None, id="sklearn-pipeline"),
-            pytest.param("tensorflow", "0,0", None, id="tensorflow"),
-            pytest.param("transformers", "hello", None, id="transformers"),
-            pytest.param("sklearn", "0,0", [[0.1, 0.9], [0.5, 0.5]], id="with-output"),
-            pytest.param("torch", "0,0", [], id="torch-empty"),
-            pytest.param("sklearn", "0,0", [], id="sklearn-empty"),
-            pytest.param("tensorflow", "0,0", [], id="tensorflow-empty"),
-            pytest.param("transformers", "hello", [], id="transformers-empty"),
-            pytest.param("transformers", "hello", "error", id="transformers-error"),
-            pytest.param("transformers", "hello", "pipeline-error", id="transformers-pipeline-error"),
-        ),
+        ["client", "x", "output", "raises"],
+        [
+            pytest.param("torch", "0,0", None, None, id="torch"),
+            pytest.param("sklearn", "0,0", None, None, id="sklearn"),
+            pytest.param("sklearn-pipeline", "0,0", None, None, id="sklearn-pipeline"),
+            pytest.param("tensorflow", "0,0", None, None, id="tensorflow"),
+            pytest.param("transformers", "hello", None, None, id="transformers"),
+            pytest.param("sklearn", "0,0", [[0.1, 0.9], [0.5, 0.5]], None, id="with-output"),
+            pytest.param("transformers", "hello", None, RuntimeError("boom"), id="error"),
+        ],
         indirect=["client"],
     )
-    async def test_stream(self, client, x, mock_output):
-        if mock_output == "error":
-            component = _get_component(client)
-
-            with patch.object(type(component.model), "stream", _error_stream):
-                with pytest.raises(RuntimeError, match="boom"):
-                    await client.post("/model/stream/", json={"input": x})
-            return
-
-        elif mock_output == "pipeline-error":
-            component = _get_component(client)
-
-            with patch.object(component.model, "model", side_effect=RuntimeError("pipeline fail")):
-                response = await client.post("/model/stream/", json={"input": x})
+    async def test_stream(self, client, x: t.Any, output: list | None, raises: Exception | None):
+        if output is None and raises is None:
+            response = await client.post("/model/stream/", json={"input": x})
 
             assert response.status_code == 200
             assert "text/event-stream" in response.headers.get("content-type", "")
             return
 
-        elif mock_output == []:
-            component = _get_component(client)
+        component = self._get_component(client)
 
-            items = [item async for item in component.model.stream(_empty_input())]
-            assert items == []
-            return
-
-        ctx = contextlib.nullcontext()
-        if mock_output:
-            component = _get_component(client)
+        if output is not None:
 
             async def _mock_stream(self, input_iter):
-                for item in mock_output:
+                for item in output:
                     yield item
 
-            ctx = patch.object(type(component.model), "stream", _mock_stream)
+            with patch.object(type(component.model), "stream", _mock_stream):
+                response = await client.post("/model/stream/", json={"input": x})
 
-        with ctx:
-            response = await client.post("/model/stream/", json={"input": x})
-
-        assert response.status_code == 200
-        assert "text/event-stream" in response.headers.get("content-type", "")
-        if mock_output:
-            for item in mock_output:
+            assert response.status_code == 200
+            assert "text/event-stream" in response.headers.get("content-type", "")
+            for item in output:
                 assert str(item).replace(" ", "") in response.text
+            return
+
+        async def _failing_stream(self, input_iter):
+            raise raises
+            yield  # pragma: no cover
+
+        with (
+            patch.object(type(component.model), "stream", _failing_stream),
+            pytest.raises(type(raises), match=str(raises)),
+        ):
+            await client.post("/model/stream/", json={"input": x})

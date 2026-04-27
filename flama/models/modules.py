@@ -2,7 +2,7 @@ import os
 import typing as t
 
 from flama.models.llm_resource import LLMResource, LLMResourceType
-from flama.models.resource import MLResource, MLResourceType
+from flama.models.ml_resource import MLResource, MLResourceType
 from flama.modules import Module
 from flama.serialize.data_structures import ModelArtifact
 

@@ -5,7 +5,7 @@ import flama.schemas
 from flama import types
 from flama._core.json_encoder import encode_json
 from flama.http.responses.sse import ServerSentEventResponse
-from flama.models.components import ModelComponentBuilder
+from flama.models.components import MLModelComponentBuilder
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeError
 from flama.resources.resource import Resource, ResourceType
@@ -142,7 +142,7 @@ class MLResourceType(ResourceType, InspectMixin, PredictMixin, StreamMixin):
 
     @staticmethod
     def _is_abstract(namespace: dict[str, t.Any]) -> bool:
-        return namespace.get("__module__") == "flama.models.resource" and namespace.get("__qualname__") in (
+        return namespace.get("__module__") == "flama.models.ml_resource" and namespace.get("__qualname__") in (
             "BaseMLResource",
             "MLResource",
         )
@@ -155,8 +155,8 @@ class MLResourceType(ResourceType, InspectMixin, PredictMixin, StreamMixin):
             ...
 
         try:
-            return ModelComponentBuilder.load(
-                cls._get_attribute("model_path", bases, namespace, metadata_namespace="model")
+            return MLModelComponentBuilder.load(
+                cls._get_attribute("model_path", bases, namespace, metadata_namespace="model"),
             )
         except AttributeError:
             ...

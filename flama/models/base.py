@@ -1,13 +1,16 @@
 import abc
 import typing as t
 
+from flama import exceptions
+from flama.concurrency import run
+
 if t.TYPE_CHECKING:
     from flama.serialize.data_structures import Artifacts, Metadata
 
 __all__ = ["BaseModel", "BaseMLModel", "BaseLLMModel"]
 
 
-class BaseModel:
+class BaseModel(abc.ABC):
     """Base class for all Flama model wrappers."""
 
     def __init__(self, model: t.Any, meta: "Metadata", artifacts: "Artifacts | None"):
@@ -33,22 +36,54 @@ class BaseMLModel(BaseModel):
     """Base class for traditional ML model wrappers (predict / stream)."""
 
     @abc.abstractmethod
-    def predict(self, x: list[list[t.Any]], /) -> t.Any:
-        """Run a synchronous prediction.
+    def _prediction(self, x: list[list[t.Any]], /) -> t.Any:
+        """Run the engine-specific prediction.
+
+        Subclasses implement the framework-specific call here. :meth:`predict` and :meth:`stream` are defined in terms
+        of this method.
 
         :param x: Input features.
         :return: Model prediction.
+        :raises FrameworkNotInstalled: If the underlying framework is not installed.
         """
         ...
 
-    @abc.abstractmethod
+    def predict(self, x: list[list[t.Any]], /) -> t.Any:
+        """Run a synchronous prediction.
+
+        Delegates to :meth:`_prediction` and wraps engine errors as 400 :class:`~flama.exceptions.HTTPException`.
+        :class:`~flama.exceptions.FrameworkNotInstalled` is propagated so callers see missing-dependency errors.
+
+        :param x: Input features.
+        :return: Model prediction.
+        :raises HTTPException: 400 on engine error.
+        :raises FrameworkNotInstalled: If the underlying framework is not installed.
+        """
+        try:
+            return self._prediction(x)
+        except exceptions.FrameworkNotInstalled:
+            raise
+        except Exception as e:
+            raise exceptions.HTTPException(status_code=400, detail=str(e))
+
     async def stream(self, x: t.Any, /) -> t.AsyncIterator[t.Any]:
         """Yield predictions asynchronously from an input stream.
+
+        Each item from the input iterator is forwarded to :meth:`predict` (wrapped in a one-element batch) inside a
+        thread to avoid blocking the event loop. :class:`~flama.exceptions.FrameworkNotInstalled` is propagated so
+        callers see missing-dependency errors; any other exception terminates the stream cleanly, since the HTTP
+        response has already started by the time predictions are being produced.
 
         :param x: Async-iterable input.
         :return: Async iterator of predictions.
         """
-        yield  # pragma: no cover
+        async for item in x:
+            try:
+                yield await run(self.predict, [item])
+            except exceptions.FrameworkNotInstalled:
+                raise
+            except Exception:
+                return
 
 
 class BaseLLMModel(BaseModel):
@@ -72,21 +107,48 @@ class BaseLLMModel(BaseModel):
         self.params.update(params)
 
     @abc.abstractmethod
-    async def query(self, prompt: str, /, **params: t.Any) -> t.Any:
-        """Run an asynchronous query against the LLM.
+    async def _tokens(self, prompt: str, /, **params: t.Any) -> t.AsyncIterator[str]:
+        """Yield generated text chunks for *prompt* one at a time.
+
+        Subclasses implement the engine-specific iteration logic here. :meth:`query` and :meth:`stream` are defined
+        in terms of this iterator.
 
         :param prompt: The input prompt.
         :param params: Override generation parameters for this call.
-        :return: Model output.
+        :return: Async iterator of text chunks.
         """
-        ...
+        yield ""  # pragma: no cover
 
-    @abc.abstractmethod
+    async def query(self, prompt: str, /, **params: t.Any) -> t.Any:
+        """Run an asynchronous query against the LLM and return the joined output.
+
+        :param prompt: The input prompt.
+        :param params: Override generation parameters for this call.
+        :return: The full generated text.
+        :raises HTTPException: 500 if the engine produces no output, 400 for any engine error.
+        """
+        try:
+            chunks = [token async for token in self._tokens(prompt, **params)]
+        except Exception as e:
+            raise exceptions.HTTPException(status_code=400, detail=str(e))
+
+        if not chunks:
+            raise exceptions.HTTPException(status_code=500, detail="LLM engine produced no output")
+
+        return "".join(chunks)
+
     async def stream(self, prompt: str, /, **params: t.Any) -> t.AsyncIterator[t.Any]:
         """Stream output tokens asynchronously from the LLM.
+
+        Errors raised mid-iteration terminate the stream cleanly without propagating, since the HTTP response has
+        already started by the time tokens are being produced.
 
         :param prompt: The input prompt.
         :param params: Override generation parameters for this call.
         :return: Async iterator of output tokens.
         """
-        yield  # pragma: no cover
+        try:
+            async for token in self._tokens(prompt, **params):
+                yield token
+        except Exception:
+            return
