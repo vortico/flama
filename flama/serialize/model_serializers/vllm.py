@@ -1,9 +1,6 @@
 import importlib.metadata
-import io
 import logging
-import os
 import pathlib
-import tarfile
 import typing as t
 
 from flama import exceptions, types
@@ -17,7 +14,7 @@ except Exception:  # pragma: no cover
     AsyncEngineArgs = None
 
 try:
-    from vllm_metal.model_runner import MetalModelRunner
+    from vllm_metal.model_runner import MetalModelRunner  # ty: ignore[unresolved-import]
 except Exception:  # pragma: no cover
     MetalModelRunner = None
 
@@ -32,26 +29,10 @@ __all__ = ["CudaModelSerializer", "MetalModelSerializer"]
 class _BaseVllmModelSerializer(BaseModelSerializer):
     """Shared logic for all vLLM-family serializers."""
 
-    lib: t.ClassVar[types.MLLib] = "vllm"
+    lib: t.ClassVar[types.LLMLib] = "vllm"
 
     def dump(self, obj: t.Any, /, **kwargs) -> bytes:
-        """Serialize a model directory into tar bytes, dereferencing symlinks.
-
-        :param obj: A directory path (:class:`~pathlib.Path`, :class:`str`, or :class:`os.PathLike`).
-        :return: Tar archive bytes.
-        :raises NotImplementedError: If *obj* is not a directory path.
-        """
-        if isinstance(obj, str | os.PathLike | pathlib.Path):
-            buf = io.BytesIO()
-            with tarfile.open(fileobj=buf, mode="w", dereference=True) as tar:
-                tar.add(
-                    str(pathlib.Path(obj)),
-                    arcname=".",
-                    filter=lambda x: None if pathlib.PurePosixPath(x.name).name.startswith(".") else x,
-                )
-            return buf.getvalue()
-
-        raise NotImplementedError("vLLM models cannot be serialized from live objects")
+        raise NotImplementedError("vLLM models cannot be serialised directly, use the transformers serializer instead")
 
     def info(self, model: t.Any, /) -> "JSONSchema | None":
         try:

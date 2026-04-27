@@ -1,18 +1,13 @@
-import io
 import json
 import logging
 import pathlib
-import shutil
 import struct
-import tarfile
-import tempfile
 import typing as t
-import weakref
 
 from flama import types
 from flama._core.json_encoder import encode_json
-from flama.serialize.compression import Compression
-from flama.serialize.data_structures import Artifacts, Metadata, ModelArtifact
+from flama.compression import compress, decompress, tar, untar
+from flama.serialize.data_structures import Artifacts, Metadata, ModelArtifact, ModelDirectory
 from flama.serialize.model_serializers import ModelSerializer
 from flama.serialize.protocols.base import BaseProtocol
 
@@ -21,38 +16,14 @@ __all__ = ["Protocol"]
 logger = logging.getLogger(__name__)
 
 
-class _ModelDirectory:  # pragma: no cover
-    def __init__(self, delete: bool = True):
-        """Generate a model directory from a model file."""
-        self.directory = pathlib.Path(tempfile.mkdtemp())
-
-        self._finalizer = weakref.finalize(self, self._cleanup) if delete else None
-
-    def _cleanup(self):
-        logger.debug("Model directory '%s' clean", self.directory)
-        shutil.rmtree(self.directory)
-
-    def exists(self) -> bool:
-        """Check if the model directory exists.
-
-        :return: True if the directory exists.
-        """
-        return self.directory.exists()
-
-    def cleanup(self):
-        """Clean the model directory by removing it."""
-        if (self._finalizer and self._finalizer.detach()) or self.exists():
-            self._cleanup()
-
-
 class _Artifact:
     _header_format: t.ClassVar[str] = "!I Q"
     _header_size: t.ClassVar[int] = struct.calcsize(_header_format)
 
     @classmethod
-    def pack(cls, name: str, path: pathlib.Path, /, *, compression: Compression, **kwargs) -> bytes:
+    def pack(cls, name: str, path: pathlib.Path, /, *, compression: types.SerializationCompression, **kwargs) -> bytes:
         with path.open("rb") as f:
-            body = compression.compress(f.read())
+            body = compress(f.read(), compression)
 
         return b"".join(
             (
@@ -64,7 +35,7 @@ class _Artifact:
 
     @classmethod
     def unpack(
-        cls, b: bytes, /, *, compression: Compression, directory: pathlib.Path, **kwargs
+        cls, b: bytes, /, *, compression: types.SerializationCompression, directory: pathlib.Path, **kwargs
     ) -> tuple[pathlib.Path, int]:
         name_size, content_size = struct.unpack(cls._header_format, b[: cls._header_size])
         offset = cls._header_size
@@ -76,7 +47,7 @@ class _Artifact:
 
         path = directory / name
         with path.open("wb") as f:
-            f.write(compression.decompress(content))
+            f.write(decompress(content, compression))
 
         return path, cls._header_size + name_size + content_size
 
@@ -86,53 +57,92 @@ class _Body:
     _header_size: t.ClassVar[int] = struct.calcsize(_header_format)
 
     @staticmethod
-    def _pack_meta(meta: Metadata, *, compression: Compression) -> bytes:
-        return compression.compress(encode_json(meta.to_dict(), compact=True))
+    def _pack_meta(meta: Metadata, *, compression: types.SerializationCompression) -> bytes:
+        return compress(encode_json(meta.to_dict(), compact=True), compression)
 
     @staticmethod
-    def _pack_model(model: t.Any, *, lib: types.MLLib, compression: Compression, **kwargs) -> bytes:
-        return compression.compress(ModelSerializer.from_lib(lib).dump(model, **kwargs))
-
-    @staticmethod
-    def _pack_artifacts(artifacts: Artifacts | None, *, compression: Compression) -> tuple[int, bytes]:
+    def _pack_artifacts(
+        artifacts: Artifacts | None, *, compression: types.SerializationCompression
+    ) -> tuple[int, bytes]:
         return len(artifacts) if artifacts else 0, b"".join(
             _Artifact.pack(name, pathlib.Path(str(path)), compression=compression)
             for name, path in (artifacts or {}).items()
         )
 
     @classmethod
-    def pack(cls, m: ModelArtifact, /, *, compression: Compression, **kwargs) -> bytes:
-        meta = cls._pack_meta(m.meta, compression=compression)
-        model = cls._pack_model(m.model, lib=m.meta.framework.lib, compression=compression, **kwargs)
-        artifacts_count, artifacts = cls._pack_artifacts(m.artifacts, compression=compression)
+    def pack(cls, m: ModelArtifact, f: t.BinaryIO, /, *, compression: types.SerializationCompression, **kwargs) -> int:
+        """Stream-serialize a :class:`ModelArtifact` into *f*.
 
-        header = struct.pack(cls._header_format, len(meta), len(model), artifacts_count, len(artifacts))
-        return b"".join((header, meta, model, artifacts))
+        Body header sizes are unknown until the model and artifacts are fully written, so a placeholder header is
+        emitted first and patched once the sizes are known.
+
+        :param m: Model artifact to serialise.
+        :param f: A seekable writable binary stream.
+        :param compression: Compression format name to apply to every section.
+        :param kwargs: Forwarded to the framework-specific serializer (e.g. transformers ``save_pretrained`` kwargs).
+        :return: Total number of body bytes written to *f* (header + sections).
+        """
+        body_start = f.tell()
+        f.write(b"\x00" * cls._header_size)
+
+        meta_bytes = cls._pack_meta(m.meta, compression=compression)
+        f.write(meta_bytes)
+
+        model_start = f.tell()
+        if isinstance(m.model, pathlib.Path):
+            tar(str(m.model), f, format=compression)
+        else:
+            model_bytes = compress(ModelSerializer.from_lib(m.meta.framework.lib).dump(m.model, **kwargs), compression)
+            f.write(model_bytes)
+        model_size = f.tell() - model_start
+
+        artifacts_count, artifacts_bytes = cls._pack_artifacts(m.artifacts, compression=compression)
+        f.write(artifacts_bytes)
+
+        body_end = f.tell()
+        f.seek(body_start)
+        f.write(struct.pack(cls._header_format, len(meta_bytes), model_size, artifacts_count, len(artifacts_bytes)))
+        f.seek(body_end)
+
+        return body_end - body_start
 
     @staticmethod
-    def _unpack_meta(b: bytes, *, compression: Compression) -> Metadata:
-        return Metadata.from_dict(json.loads(compression.decompress(b).decode()))
+    def _unpack_meta(b: bytes, *, compression: types.SerializationCompression) -> Metadata:
+        return Metadata.from_dict(json.loads(decompress(b, compression).decode()))
 
     @staticmethod
-    def _unpack_model(b: bytes, *, meta: Metadata, compression: Compression, directory: pathlib.Path) -> t.Any:
-        model_bytes = compression.decompress(b)
+    def _is_tar(data: bytes) -> bool:
+        """Detect a POSIX tar archive by its ``ustar`` magic at offset 257."""
+        return len(data) >= 263 and data[257:263] in (b"ustar\x00", b"ustar ")
+
+    @staticmethod
+    def _unpack_model(
+        b: bytes,
+        *,
+        meta: Metadata,
+        compression: types.SerializationCompression,
+        directory: pathlib.Path,
+        lib: types.Lib | None = None,
+    ) -> t.Any:
+        serializer = ModelSerializer.from_lib(lib or meta.framework.lib)
 
         load_kwargs: dict[str, t.Any] = {}
-
-        if model_bytes and tarfile.is_tarfile(io.BytesIO(model_bytes)):
-            model_dir = directory / "model"
-            model_dir.mkdir(exist_ok=True)
-            with tarfile.open(fileobj=io.BytesIO(model_bytes)) as tf:
-                tf.extractall(model_dir, filter="data")
-            load_kwargs["model_dir"] = model_dir
-
         if meta.framework.config:
             load_kwargs.update(meta.framework.config)
 
-        return ModelSerializer.from_lib(meta.framework.lib).load(model_bytes, **load_kwargs)
+        data = decompress(b, compression)
+        if _Body._is_tar(data):
+            model_dir = directory / "model"
+            model_dir.mkdir(exist_ok=True)
+            untar(data, str(model_dir))
+            return serializer.load(b"", model_dir=model_dir, **load_kwargs)
+
+        return serializer.load(data, **load_kwargs)
 
     @staticmethod
-    def _unpack_artifacts(b: bytes, *, count: int, compression: Compression, directory: pathlib.Path) -> Artifacts:
+    def _unpack_artifacts(
+        b: bytes, *, count: int, compression: types.SerializationCompression, directory: pathlib.Path
+    ) -> Artifacts:
         directory.mkdir(exist_ok=True)
         artifacts: Artifacts = {}
         offset = 0
@@ -143,41 +153,84 @@ class _Body:
         return artifacts
 
     @classmethod
-    def unpack(cls, b: bytes, /, *, compression: Compression, directory: pathlib.Path, **kwargs) -> ModelArtifact:
+    def unpack(
+        cls,
+        f: t.BinaryIO,
+        /,
+        *,
+        compression: types.SerializationCompression,
+        lib: types.Lib | None = None,
+        **kwargs,
+    ) -> ModelArtifact:
+        """Deserialize a :class:`ModelArtifact` from *f* positioned at the body header.
+
+        Owns the temporary directory used during extraction: a fresh :class:`ModelDirectory` is
+        created and bound on the returned artifact so its lifetime is tied to the artifact reference.
+
+        :param f: A readable binary stream positioned at the body header.
+        :param compression: Compression format used when packing.
+        :param lib: Optional override for the framework library (defaults to ``meta.framework.lib``).
+        :param kwargs: Forwarded to the framework-specific serializer.
+        :return: Reconstructed :class:`ModelArtifact` with its :attr:`directory` field bound.
+        """
         meta_size, model_size, artifacts_count, artifacts_size = struct.unpack(
-            cls._header_format, b[: cls._header_size]
+            cls._header_format, f.read(cls._header_size)
         )
 
-        offset = cls._header_size
-        meta = cls._unpack_meta(b[offset : offset + meta_size], compression=compression)
-
-        offset += meta_size
+        directory = ModelDirectory()
+        meta = cls._unpack_meta(f.read(meta_size), compression=compression)
         model = cls._unpack_model(
-            b[offset : offset + model_size], meta=meta, compression=compression, directory=directory
+            f.read(model_size), meta=meta, compression=compression, directory=directory.directory, lib=lib
         )
-
-        offset += model_size
         artifacts = cls._unpack_artifacts(
-            b[offset : offset + artifacts_size],
+            f.read(artifacts_size),
             count=artifacts_count,
             compression=compression,
-            directory=directory / "artifacts",
+            directory=directory.directory / "artifacts",
         )
 
-        return ModelArtifact(meta=meta, model=model, artifacts=artifacts)
+        return ModelArtifact(meta=meta, model=model, artifacts=artifacts, directory=directory)
 
 
 class Protocol(BaseProtocol):
-    def dump(self, m: ModelArtifact, /, *, compression: Compression, **kwargs) -> bytes:
-        return _Body.pack(m, compression=compression)
+    """Version 1 of the Flama serialization protocol.
 
-    def load(self, b: bytes, /, *, compression: Compression, **kwargs) -> ModelArtifact:
-        directory = _ModelDirectory()
-        artifact = _Body.unpack(b, compression=compression, directory=directory.directory)
+    Streams the body sections (metadata, model, artifacts) through a single seekable binary stream,
+    using compression for every section and content-based detection (POSIX ``ustar`` magic) to
+    distinguish raw model bytes from a tarred model directory.
+    """
 
-        # Keep the temp directory alive as long as the artifact (frozen dataclass)
-        object.__setattr__(artifact, "_directory", directory)
+    def dump(self, m: ModelArtifact, f: t.BinaryIO, /, *, compression: types.SerializationCompression, **kwargs) -> int:
+        """Stream-serialize *m* into *f*.
 
-        logger.debug("Model '%s' extracted in directory '%s'", artifact, directory)
+        :param m: Model artifact to serialise.
+        :param f: A seekable writable binary stream.
+        :param compression: Compression format name to apply to every section.
+        :param kwargs: Forwarded to the framework-specific serializer.
+        :return: Total number of body bytes written to *f*.
+        """
+        return _Body.pack(m, f, compression=compression, **kwargs)
+
+    def load(
+        self,
+        f: t.BinaryIO,
+        /,
+        *,
+        compression: types.SerializationCompression,
+        lib: types.Lib | None = None,
+        **kwargs,
+    ) -> ModelArtifact:
+        """Stream-deserialize a :class:`ModelArtifact` from *f*.
+
+        :param f: Readable binary stream positioned at the body header.
+        :param compression: Compression format used when packing.
+        :param lib: Optional override for the framework library (defaults to ``meta.framework.lib``).
+        :param kwargs: Forwarded to the framework-specific serializer.
+        :return: Reconstructed :class:`ModelArtifact`. The returned artifact's :attr:`directory`
+            field owns a temp directory kept alive for as long as the artifact is referenced.
+        """
+        artifact = _Body.unpack(f, compression=compression, lib=lib, **kwargs)
+
+        logger.debug("Model '%s' extracted in directory '%s'", artifact, artifact.directory)
 
         return artifact

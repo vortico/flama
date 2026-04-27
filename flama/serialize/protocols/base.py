@@ -3,7 +3,6 @@ import importlib
 import typing as t
 
 from flama import types
-from flama.serialize.compression import Compression
 from flama.serialize.data_structures import ModelArtifact
 
 __all__ = ["BaseProtocol", "Protocol"]
@@ -12,25 +11,35 @@ __all__ = ["BaseProtocol", "Protocol"]
 class BaseProtocol(abc.ABC):
     """Base class for defining a serialization protocol for ML models."""
 
-    lib: t.ClassVar[types.MLLib]
+    lib: t.ClassVar[types.Lib]
 
     @abc.abstractmethod
-    def dump(self, m: ModelArtifact, /, *, compression: Compression, **kwargs) -> bytes:
-        """Serializes a :class:`~flama.serialize.data_structures.ModelArtifact` into bytes according to the protocol.
+    def dump(self, m: ModelArtifact, f: t.BinaryIO, /, *, compression: types.SerializationCompression, **kwargs) -> int:
+        """Stream-serialize a :class:`~flama.serialize.data_structures.ModelArtifact` into a writable binary file.
 
         :param m: The model artifact to serialize.
-        :param compression: The compression algorithm to use for the resulting bytes.
+        :param f: A seekable writable binary stream that receives the serialized body.
+        :param compression: The compression format name to use.
         :param kwargs: Additional keyword arguments for the serialization process.
-        :return: The serialized model artifact as bytes.
+        :return: Total number of body bytes written to *f*.
         """
         ...
 
     @abc.abstractmethod
-    def load(self, b: bytes, /, *, compression: Compression, **kwargs) -> ModelArtifact:
-        """Deserializes bytes into a :class:`~flama.serialize.data_structures.ModelArtifact` according to the protocol.
+    def load(
+        self,
+        f: t.BinaryIO,
+        /,
+        *,
+        compression: types.SerializationCompression,
+        lib: types.Lib | None = None,
+        **kwargs,
+    ) -> ModelArtifact:
+        """Deserialize a :class:`~flama.serialize.data_structures.ModelArtifact` from a readable binary file.
 
-        :param b: The bytes representing the serialized model artifact.
-        :param compression: The compression algorithm used on the bytes.
+        :param f: A readable binary stream positioned at the start of the serialized body.
+        :param compression: The compression format name used on the body.
+        :param lib: Optional ML library override for deserialization (defaults to the lib stored in metadata).
         :param kwargs: Additional keyword arguments for the deserialization process.
         :return: The deserialized model artifact.
         """
