@@ -1,14 +1,27 @@
 #!/bin/bash
 set -e
+source "./scripts/build" # provides build_templates (and sources _env, clean)
 
 # ─── Install ─────────────────────────────────────────────────────────────────
 
 run_install() {
-  echo "📦 Installing Python dependencies..."
-  uv sync --all-extras --dev "$@"
+  local with_templates=false
+  local args=()
+  for arg in "$@"; do
+    case "$arg" in
+    --with-templates) with_templates=true ;;
+    *) args+=("$arg") ;;
+    esac
+  done
 
-  echo "📦 Installing JS dependencies and building templates..."
-  (cd lib/templates && npm i && npm run build)
+  echo "📦 Installing Python dependencies..."
+  uv sync --all-extras --dev "${args[@]}"
+
+  if $with_templates; then
+    build_templates
+  else
+    ./scripts/fetch_templates
+  fi
 
   echo "🦀 Building Rust extension (dev)..."
   uv run maturin develop
