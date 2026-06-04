@@ -1,5 +1,5 @@
+from flama._core.compression import Compressor
 from flama.codecs.compression.codec import CompressionCodec
-from flama.compression import Compressor
 
 __all__ = ["GzipCodec"]
 
