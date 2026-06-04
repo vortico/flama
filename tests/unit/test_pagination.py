@@ -55,8 +55,8 @@ class TestCasePageNumberPagination:
         assert set(schemas.keys()) == {
             f"{name_prefix}.OutputSchema",
             f"{name_prefix}.PageNumberPaginatedOutputSchema",
-            "flama.PageNumberMeta",
-            "flama.APIError",
+            "flama.pagination.PageNumberMeta",
+            "flama.core.APIError",
         }
 
     def test_invalid_view(self, output_schema):
@@ -195,8 +195,8 @@ class TestCaseLimitOffsetPagination:
         assert set(schemas.keys()) == {
             f"{name_prefix}.OutputSchema",
             f"{name_prefix}.LimitOffsetPaginatedOutputSchema",
-            "flama.LimitOffsetMeta",
-            "flama.APIError",
+            "flama.pagination.LimitOffsetMeta",
+            "flama.core.APIError",
         }
 
     def test_invalid_view(self, output_schema):

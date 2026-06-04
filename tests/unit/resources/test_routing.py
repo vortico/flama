@@ -7,54 +7,16 @@ from flama.applications import Flama
 from flama.client import Client
 from flama.resources import data_structures
 from flama.resources.resource import Resource
-from flama.resources.routing import ResourceRoute
+from flama.resources.routing import ResourceRoute, resource_method
 from flama.routing import Mount, Route
 
 
 class TestCaseResourceRoute:
-    def test_init(self, app, puppy_resource):
-        resource_route = ResourceRoute(
-            "/puppy/",
-            puppy_resource,
-            tags={
-                "create": {"tag": "create"},
-                "retrieve": {"tag": "retrieve"},
-                "update": {"tag": "update"},
-                "partial_update": {"tag": "partial-update"},
-                "delete": {"tag": "delete"},
-                "list": {"tag": "list"},
-                "replace": {"tag": "replace"},
-                "partial_replace": {"tag": "partial-replace"},
-                "drop": {"tag": "drop"},
-            },
-            parent=app,
-        )
-
-        assert resource_route.path == "/puppy/"
-        assert resource_route.resource == puppy_resource
-        for route in resource_route.routes:
-            assert isinstance(route, Route)
-        assert [
-            (route.path, route.methods, getattr(route.endpoint, "__wrapped__", route.endpoint), route.tags)
-            for route in resource_route.routes
-        ] == [
-            ("/", {"POST"}, resource_route.resource.create, {"tag": "create"}),
-            ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve, {"tag": "retrieve"}),
-            ("/{resource_id}/", {"PUT"}, resource_route.resource.update, {"tag": "update"}),
-            ("/{resource_id}/", {"PATCH"}, resource_route.resource.partial_update, {"tag": "partial-update"}),
-            ("/{resource_id}/", {"DELETE"}, resource_route.resource.delete, {"tag": "delete"}),
-            ("/", {"GET", "HEAD"}, resource_route.resource.list, {"tag": "list"}),
-            ("/", {"PUT"}, resource_route.resource.replace, {"tag": "replace"}),
-            ("/", {"PATCH"}, resource_route.resource.partial_replace, {"tag": "partial-replace"}),
-            ("/", {"DELETE"}, resource_route.resource.drop, {"tag": "drop"}),
-        ]
-
-    def test_init_wrong_tags(self, app, puppy_resource):
-        with pytest.raises(exceptions.ApplicationError, match="Tags must be defined only for existing routes."):
-            ResourceRoute(
-                "/puppy/",
-                puppy_resource,
-                tags={
+    @pytest.mark.parametrize(
+        ["tags", "exception"],
+        [
+            pytest.param(
+                {
                     "create": {"tag": "create"},
                     "retrieve": {"tag": "retrieve"},
                     "update": {"tag": "update"},
@@ -64,12 +26,40 @@ class TestCaseResourceRoute:
                     "replace": {"tag": "replace"},
                     "partial_replace": {"tag": "partial-replace"},
                     "drop": {"tag": "drop"},
-                    "wrong": "wrong",
                 },
-                parent=app,
-            )
+                None,
+                id="ok",
+            ),
+            pytest.param(
+                {"wrong": "wrong"},
+                exceptions.ApplicationError("Tags must be defined only for existing routes."),
+                id="unknown_tag",
+            ),
+        ],
+        indirect=["exception"],
+    )
+    def test_init(self, app, puppy_resource, tags, exception) -> None:
+        with exception:
+            resource_route = ResourceRoute("/puppy/", puppy_resource, tags=tags, parent=app)
 
-    def test_nested_mount_resource(self, app, puppy_resource):
+            for route in resource_route.routes:
+                assert isinstance(route, Route)
+            assert [
+                (route.path, route.methods, getattr(route.endpoint, "__wrapped__", route.endpoint), route.tags)
+                for route in resource_route.routes
+            ] == [
+                ("/", {"POST"}, resource_route.resource.create, tags["create"]),
+                ("/{resource_id}/", {"GET", "HEAD"}, resource_route.resource.retrieve, tags["retrieve"]),
+                ("/{resource_id}/", {"PUT"}, resource_route.resource.update, tags["update"]),
+                ("/{resource_id}/", {"PATCH"}, resource_route.resource.partial_update, tags["partial_update"]),
+                ("/{resource_id}/", {"DELETE"}, resource_route.resource.delete, tags["delete"]),
+                ("/", {"GET", "HEAD"}, resource_route.resource.list, tags["list"]),
+                ("/", {"PUT"}, resource_route.resource.replace, tags["replace"]),
+                ("/", {"PATCH"}, resource_route.resource.partial_replace, tags["partial_replace"]),
+                ("/", {"DELETE"}, resource_route.resource.drop, tags["drop"]),
+            ]
+
+    def test_nested_mount(self, app, puppy_resource) -> None:
         app.add_route(route=Route("/", lambda: {"Hello": "world"}))
 
         sub_app = Flama(schema=None, docs=None, schema_library=app.schema.schema_library.name)
@@ -77,7 +67,6 @@ class TestCaseResourceRoute:
         app.mount("/", sub_app)
 
         assert len(app.router.routes) == 2
-
         assert len(app.routes) == 2
         mount = app.routes[1]
         assert isinstance(mount, Mount)
@@ -99,7 +88,7 @@ class TestCaseResourceRoute:
             ("/", {"DELETE"}, resource_route.resource.drop),
         ]
 
-    async def test_request_nested_resource(self, app):
+    async def test_request_nested_resource(self, app) -> None:
         class PuppyResource(Resource):
             name = "puppy"
             verbose_name = "Puppy"
@@ -116,7 +105,7 @@ class TestCaseResourceRoute:
             response = await client.get("/puppy/")
             assert response.status_code == 200
 
-    def test_method(self):
+    def test_method(self) -> None:
         def foo(x: int):
             return x
 
@@ -128,6 +117,25 @@ class TestCaseResourceRoute:
         assert decorated_foo.func.method == foo
         assert decorated_foo.func.name == "foo"
         assert decorated_foo.func.signature == inspect.signature(foo)
+        assert decorated_foo.meta.path == "/"
+        assert decorated_foo.meta.methods == {"POST"}
+        assert decorated_foo.meta.name == "foo"
+        assert decorated_foo.meta.include_in_schema is False
+        assert decorated_foo.meta.tags == {"additional": "bar"}
+
+
+class TestCaseResourceMethodDecorator:
+    def test_deprecated_shim_warns_and_forwards(self) -> None:
+        def foo(x: int):
+            return x
+
+        with pytest.warns(DeprecationWarning, match="Deprecated decorator"):
+            decorated_foo = resource_method(
+                path="/", methods=["POST"], name="foo", include_in_schema=False, tags={"additional": "bar"}
+            )(foo)
+
+        assert isinstance(decorated_foo, data_structures.ResourceMethod)
+        assert decorated_foo.func.method == foo
         assert decorated_foo.meta.path == "/"
         assert decorated_foo.meta.methods == {"POST"}
         assert decorated_foo.meta.name == "foo"
