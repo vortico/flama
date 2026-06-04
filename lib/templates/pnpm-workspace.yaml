@@ -1,0 +1,6 @@
+allowBuilds:
+  core-js: true
+  unrs-resolver: true
+  vue-demi: true
+minimumReleaseAgeExclude:
+  - '@vortico/*'
