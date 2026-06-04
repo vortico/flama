@@ -1,4 +1,5 @@
 from flama import Flama
+from flama.models import Decoder
 
 app = Flama(
     debug={{ debug }},
@@ -19,4 +20,11 @@ for model in models:
         path=model["url"],
         model=model["path"],
         name=model["name"],
+        decoder=Decoder(
+            channel_scanner=model["channel_scanner"],
+            tool_scanner=model["tool_scanner"],
+            tool_parser=model["tool_parser"],
+        ),
+        params=model["params"],
+        serving=tuple(model["serving"]) if model["serving"] is not None else None,
     )

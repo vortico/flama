@@ -2,12 +2,16 @@ import abc
 import dataclasses
 import functools
 import json
+import logging
+import logging.config
 import typing as t
 
 from flama._cli.config.app import App
 from flama._cli.config.uvicorn import Uvicorn
 
 __all__ = ["Config", "ExampleConfig", "options"]
+
+logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -46,8 +50,13 @@ class Config:
         return result
 
     def run(self) -> None:
+        if isinstance(self.server.log_config, dict):
+            logging.config.dictConfig(self.server.log_config)
+
+        logger.info("Booting Flama application")
         with self.app.context as app_context:
             self.server.app_dir = app_context.dir
+            logger.info("Loading application module from %s", app_context.app)
             self.server.run(app_context.app)
 
 

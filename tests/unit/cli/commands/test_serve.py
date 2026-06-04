@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 from click.testing import CliRunner
@@ -13,14 +13,19 @@ class TestCaseCommand:
         ["args", "expected_models"],
         [
             pytest.param(
-                ["--model", "my-model.flm", "/", "model"],
-                [("my-model.flm", "/", "model")],
-                id="single",
+                ["--model", "m.flm"],
+                [("m.flm", "/", "model")],
+                id="bare_path",
             ),
             pytest.param(
-                ["--model", "m1.flm", "/m1/", "m1", "--model", "m2.flm", "/m2/", "m2"],
-                [("m1.flm", "/m1/", "m1"), ("m2.flm", "/m2/", "m2")],
-                id="multiple",
+                ["--model", "file=m.flm,url=/m,name=m"],
+                [("m.flm", "/m", "m")],
+                id="kv_url_and_name",
+            ),
+            pytest.param(
+                ["--model", "file=a.flm,url=/a,name=a", "--model", "b.flm"],
+                [("a.flm", "/a", "a"), ("b.flm", "/", "model")],
+                id="multiple_mixed_forms",
             ),
         ],
     )
@@ -34,13 +39,13 @@ class TestCaseCommand:
             result = runner.invoke(command, args)
 
         assert result.exit_code == 0, result.output
-        config_cls.assert_called_once()
+        assert config_cls.call_count == 1
         kwargs = config_cls.call_args.kwargs
         app = kwargs["app"]
         assert isinstance(app, DictApp)
         assert isinstance(kwargs["server"], Uvicorn)
         assert [(m.path, m.url, m.name) for m in app.models] == expected_models
-        config_cls.return_value.run.assert_called_once_with()
+        assert config_cls.return_value.run.call_args_list == [call()]
 
     def test_command_requires_at_least_one_model(self, runner: CliRunner) -> None:
         result = runner.invoke(command, [])

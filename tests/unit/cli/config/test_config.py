@@ -1,6 +1,7 @@
 import json
+import logging
 import pathlib
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import click
 import pytest
@@ -35,38 +36,38 @@ class TestCaseConfig:
         assert "app" in result
         assert "server" in result
 
-    def test_loads(self) -> None:
-        s = json.dumps({"app": {"title": "X"}, "server": {"host": "1.2.3.4"}})
+    @pytest.mark.parametrize(
+        ["method"],
+        [pytest.param("loads", id="loads"), pytest.param("load", id="load")],
+    )
+    def test_loading(self, method: str, tmp_path: pathlib.Path) -> None:
+        payload = json.dumps({"app": {"title": "X"}, "server": {"host": "1.2.3.4"}})
 
-        c = Config.loads(s)
+        if method == "loads":
+            c = Config.loads(payload)
+        else:
+            f = tmp_path / "c.json"
+            f.write_text(payload)
+            with f.open() as fs:
+                c = Config.load(fs)
 
         assert isinstance(c.app, DictApp)
         assert c.server.host == "1.2.3.4"
 
-    def test_load(self, tmp_path: pathlib.Path) -> None:
-        f = tmp_path / "c.json"
-        f.write_text(json.dumps({"app": {"title": "X"}, "server": {"host": "1.2.3.4"}}))
-
-        with f.open() as fs:
-            c = Config.load(fs)
-
-        assert c.server.host == "1.2.3.4"
-
-    def test_dumps(self) -> None:
+    @pytest.mark.parametrize(
+        ["method"],
+        [pytest.param("dumps", id="dumps"), pytest.param("dump", id="dump")],
+    )
+    def test_dumping(self, method: str, tmp_path: pathlib.Path) -> None:
         c = Config()
 
-        result = c.dumps()
-
-        assert json.loads(result)
-
-    def test_dump(self, tmp_path: pathlib.Path) -> None:
-        c = Config()
-        f = tmp_path / "c.json"
-
-        with f.open("w") as fs:
-            c.dump(fs)
-
-        assert json.loads(f.read_text())
+        if method == "dumps":
+            assert json.loads(c.dumps())
+        else:
+            f = tmp_path / "c.json"
+            with f.open("w") as fs:
+                c.dump(fs)
+            assert json.loads(f.read_text())
 
     @pytest.mark.parametrize(
         ["mode", "expected_server_keys"],
@@ -87,11 +88,59 @@ class TestCaseConfig:
         asgi_app = MagicMock()
         c = Config(app=FlamaApp(app=asgi_app))
 
-        with patch.object(c.server, "run") as server_run:
+        # Patch out dictConfig so the real call doesn't leak ``propagate=False`` onto the `flama`
+        # logger for the rest of the xdist worker session (it would break `caplog`-based tests that
+        # land in the same worker afterwards). The dictConfig call is covered by `test_run_log_config`.
+        with (
+            patch.object(c.server, "run") as server_run,
+            patch("flama._cli.config.config.logging.config.dictConfig"),
+        ):
             c.run()
 
-        server_run.assert_called_once_with(asgi_app)
+        assert server_run.call_args_list == [call(asgi_app)]
         assert c.server.app_dir is not None
+
+    def test_run_logs_breadcrumbs(self, caplog_flama: pytest.LogCaptureFixture) -> None:
+        asgi_app = MagicMock()
+        c = Config(app=FlamaApp(app=asgi_app))
+
+        # Patch out dictConfig so it doesn't reset the `flama` logger's handler list mid-test —
+        # otherwise the caplog handler attached by `caplog_flama` would be evicted before the
+        # breadcrumbs are emitted. The dictConfig call itself is verified by
+        # `test_run_applies_log_config_dict` below.
+        with (
+            patch.object(c.server, "run"),
+            patch("flama._cli.config.config.logging.config.dictConfig"),
+            caplog_flama.at_level(logging.INFO, logger="flama._cli.config.config"),
+        ):
+            c.run()
+
+        messages = [r.getMessage() for r in caplog_flama.records if r.name == "flama._cli.config.config"]
+        assert any("Booting Flama application" in m for m in messages)
+        assert any("Loading application module" in m for m in messages)
+
+    @pytest.mark.parametrize(
+        ["log_config", "expects_dictconfig"],
+        [
+            pytest.param(None, True, id="dict_applies_dictconfig"),
+            pytest.param("/etc/log.yaml", False, id="string_skips_dictconfig"),
+        ],
+    )
+    def test_run_log_config(self, log_config: str | None, expects_dictconfig: bool) -> None:
+        asgi_app = MagicMock()
+        server = Uvicorn(log_config=log_config) if log_config is not None else Uvicorn()
+        c = Config(app=FlamaApp(app=asgi_app), server=server)
+
+        with (
+            patch.object(c.server, "run"),
+            patch("flama._cli.config.config.logging.config.dictConfig") as p_dictconfig,
+        ):
+            c.run()
+
+        if expects_dictconfig:
+            assert p_dictconfig.call_args_list == [call(c.server.log_config)]
+        else:
+            assert not p_dictconfig.called
 
 
 class TestCaseExampleConfig:
