@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from flama.http.responses.json_rpc import JSONRPCErrorResponse, JSONRPCResponse
+from flama.http.responses.jsonrpc import JSONRPCErrorResponse, JSONRPCResponse
 
 
 class TestCaseJSONRPCResponse:
