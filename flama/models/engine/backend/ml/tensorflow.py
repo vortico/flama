@@ -1,33 +1,33 @@
 import typing as t
 
 from flama import exceptions
-from flama.models.base import BaseMLModel
+from flama.models.engine.backend.ml.base import MLBackend
 
 try:
     import numpy as np
 except Exception:  # pragma: no cover
-    np = None  # ty: ignore[invalid-assignment]
+    np = None
 
 try:
     import tensorflow as tf
 except Exception:  # pragma: no cover
-    tf = None  # ty: ignore[invalid-assignment]
+    tf = None
 
 
-__all__ = ["Model"]
+__all__ = ["TensorflowBackend"]
 
 
-class Model(BaseMLModel):
-    """Tensorflow model wrapper.
+class TensorflowBackend(MLBackend):
+    """TensorFlow / Keras backend.
 
-    Expects ``self.model`` to be a ready-to-use tensorflow model.
+    Expects ``self.model`` to be a ready-to-use TensorFlow/Keras model exposing ``predict``.
     """
 
-    def _prediction(self, x: t.Iterable[t.Iterable[t.Any]], /) -> t.Any:
-        """Run the pipeline on the given input features.
+    def predict(self, x: t.Iterable[t.Iterable[t.Any]], /) -> t.Any:
+        """Run the model on the given input features.
 
-        :param x: Batch of input feature vectors forwarded to the pipeline.
-        :return: Pipeline output.
+        :param x: Batch of input feature vectors forwarded as a numpy array.
+        :return: Predictions as a plain Python list.
         :raises FrameworkNotInstalled: If numpy or tensorflow is not installed.
         """
         if np is None:  # noqa
