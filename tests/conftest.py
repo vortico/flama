@@ -1,3 +1,15 @@
+# Pre-import TensorFlow before anything else so its OpenMP runtime binds first. ``import flama``
+# transitively loads ``mlx_lm`` (and through it ``torch`` / ``transformers`` / ``sklearn``); on
+# Apple Silicon, ``sklearn`` ships its own ``libomp.dylib`` which initialises a thread pool that
+# deadlocks TF's eager runtime if TF binds OpenMP afterwards. Importing TF first sidesteps the
+# clash so subsequent ``model.fit`` calls don't hang inside
+# ``_initialize_uninitialized_variables``.
+try:
+    import tensorflow  # noqa: F401
+except Exception:  # pragma: no cover
+    pass
+
+import logging
 import re
 import tempfile
 import typing as t
@@ -130,12 +142,32 @@ def model_path(request):
     try:
         with tempfile.NamedTemporaryFile(suffix=".flm") as f:
             model = model_factory.model(request.param)
+            family = model_factory.family(request.param)
             lib = model_factory.lib(request.param)
             artifacts = model_factory.artifacts(request.param)
             config = model_factory.config(request.param)
-            flama.dump(model, path=f.name, artifacts=artifacts, config=config, lib=lib)
+            flama.dump(model, path=f.name, family=family, artifacts=artifacts, config=config, lib=lib)
             f.flush()
 
             yield Path(f.name)
     except NotInstalled as e:
         pytest.skip(f"Lib '{str(e)}' is not installed.")
+
+
+@pytest.fixture
+def caplog_flama(caplog: pytest.LogCaptureFixture) -> t.Iterator[pytest.LogCaptureFixture]:
+    """Variant of :fixture:`caplog` that also captures records emitted by the ``flama`` logger.
+
+    The runtime ``dictConfig`` (applied by ``Config.run`` and re-applied by uvicorn) sets
+    ``propagate=False`` on the ``flama`` logger so its themed Rich handler does not compete with
+    uvicorn's root-bound default handlers. As a side effect, pytest's stock ``caplog`` (whose
+    handler is bound to the root logger) cannot see those records. This fixture attaches
+    ``caplog.handler`` directly to the ``flama`` logger for the duration of the test so the
+    framework's breadcrumbs show up in ``caplog.records``.
+    """
+    flama_logger = logging.getLogger("flama")
+    flama_logger.addHandler(caplog.handler)
+    try:
+        yield caplog
+    finally:
+        flama_logger.removeHandler(caplog.handler)
