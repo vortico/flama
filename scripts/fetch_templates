@@ -1,0 +1,58 @@
+#!/bin/bash
+set -e
+
+source "./scripts/version"
+
+# ─── Fetch templates ─────────────────────────────────────────────────────────
+
+# Download the prebuilt templates bundled in a published flama wheel and extract
+# them into the destination folder. Used by the public/community path where the
+# private template toolchain is not available. Non-fatal: warns and returns 0 so
+# install/build never hard-fail (the runtime tolerates a missing folder).
+run_fetch_templates() {
+  local dest="${1:-flama/_templates}"
+  local version
+  version=$(get_version)
+  local base="https://pypi.org/pypi/flama"
+
+  echo "📥 Fetching prebuilt templates (target v${version})..."
+
+  # Resolve a wheel URL: exact version first, then latest. Any wheel works since
+  # templates are platform-independent data.
+  local url
+  url=$(curl -fsSL "${base}/${version}/json" 2>/dev/null | grep -oE 'https://[^"]+\.whl' | head -n1 || true)
+  if [[ -z "$url" ]]; then
+    url=$(curl -fsSL "${base}/json" 2>/dev/null | grep -oE 'https://[^"]+\.whl' | head -n1 || true)
+  fi
+
+  if [[ -z "$url" ]]; then
+    echo "⚠️  No published wheel found; template pages unavailable in this environment." >&2
+    return 0
+  fi
+
+  local tmp
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' RETURN
+
+  if ! curl -fsSL -o "$tmp/wheel.zip" "$url"; then
+    echo "⚠️  Failed to download templates wheel; template pages unavailable." >&2
+    return 0
+  fi
+
+  unzip -oq "$tmp/wheel.zip" 'flama/_templates/*' -d "$tmp/extract" || true
+
+  if [[ ! -d "$tmp/extract/flama/_templates" ]]; then
+    echo "⚠️  Wheel had no bundled templates; template pages unavailable." >&2
+    return 0
+  fi
+
+  rm -rf "$dest"
+  mkdir -p "$dest"
+  cp -R "$tmp/extract/flama/_templates/." "$dest/"
+
+  echo "✅ Templates fetched into ${dest}."
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  run_fetch_templates "$@"
+fi

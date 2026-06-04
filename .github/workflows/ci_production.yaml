@@ -83,6 +83,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
         with:
@@ -99,7 +102,7 @@ jobs:
           workspaces: lib/core
 
       - name: Install project
-        run: ./scripts/install
+        run: ./scripts/install --with-templates
 
       - name: Tests
         run: ./scripts/test
@@ -129,6 +132,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
@@ -174,6 +180,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
         with:
@@ -190,7 +199,7 @@ jobs:
           workspaces: lib/core
 
       - name: Install project
-        run: ./scripts/install
+        run: ./scripts/install --with-templates
 
       - name: Run performance tests
         run: ./scripts/performance --output "benchmarks/results/${{ needs.release.outputs.version }}.json"
@@ -230,9 +239,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Build templates
         shell: bash
-        run: cd lib/templates && npm i && npm run build
+        run: cd lib/templates && pnpm install && pnpm build
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -263,8 +275,11 @@ jobs:
         with:
           node-version: 22
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Build templates
-        run: cd lib/templates && npm i && npm run build
+        run: cd lib/templates && pnpm install && pnpm build
 
       - name: Build sdist
         uses: PyO3/maturin-action@v1
