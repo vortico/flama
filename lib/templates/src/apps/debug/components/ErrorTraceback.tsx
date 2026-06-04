@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 
 import { IconCircleFilled } from '@tabler/icons-react'
+import { Code, Window } from '@vortico/ui/elements'
 
-import { Error } from '@/data/debug'
-import { Code, Window } from '@/ui/elements'
-import { html } from '@/ui/lib/codecs'
+import { Error } from '../data'
+import { html } from '../lib/codecs'
 
 type TFrame = Error['traceback'][number]
 

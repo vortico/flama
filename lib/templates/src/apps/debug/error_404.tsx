@@ -1,9 +1,11 @@
 import ReactDOM from 'react-dom/client'
 
-import { Request } from '@/data/debug'
-import { EnvironmentTable, ErrorTitle, Footer, Menu, RequestTable, Section, URLTree } from '@/ui/components'
+import { Footer, Menu } from '@/ui/components'
 
-import '@/ui/styles/tailwind.css'
+import { EnvironmentTable, ErrorTitle, RequestTable, Section, URLTree } from './components'
+import { Request } from './data'
+
+import '@/ui/styles/base.css'
 
 function Page() {
   const request = new Request()

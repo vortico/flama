@@ -1,9 +1,11 @@
 import ReactDOM from 'react-dom/client'
 
-import { Error, Request } from '@/data/debug'
-import { EnvironmentTable, ErrorTitle, ErrorTraceback, Footer, Menu, RequestTable, Section } from '@/ui/components'
+import { Footer, Menu } from '@/ui/components'
 
-import '@/ui/styles/tailwind.css'
+import { EnvironmentTable, ErrorTitle, ErrorTraceback, RequestTable, Section } from './components'
+import { Error, Request } from './data'
+
+import '@/ui/styles/base.css'
 
 function Page() {
   const error = new Error()
