@@ -377,13 +377,13 @@ class DropMixin:
         @ResourceRoute.method("/", methods=["DELETE"], name="drop")
         async def drop(
             self, worker: FlamaWorker
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.DropCollection)]:
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.core.DropCollection)]:
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 result = await repository.drop()
 
             return APIResponse(  # ty: ignore[invalid-return-type]
-                {"deleted": result}, schema=schemas.schemas.DropCollection, status_code=HTTPStatus.NO_CONTENT
+                {"deleted": result}, schema=schemas.schemas.core.DropCollection, status_code=HTTPStatus.NO_CONTENT
             )
 
         drop.__doc__ = f"""

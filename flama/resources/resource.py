@@ -2,7 +2,7 @@ import re
 import typing as t
 
 from flama.resources import data_structures
-from flama.resources.exceptions import ResourceAttributeError
+from flama.resources.exceptions import ResourceAttributeNotFound, ResourceNameInvalid
 
 __all__ = ["Resource", "ResourceType"]
 
@@ -21,11 +21,7 @@ class ResourceType(type):
         :param namespace: Variables namespace used to create the class.
         """
         if not mcs._is_abstract(namespace):
-            try:
-                # Define resource names
-                resource_name, verbose_name = mcs._get_resource_name(name, namespace)
-            except AttributeError as e:
-                raise ResourceAttributeError(str(e), name)
+            resource_name, verbose_name = mcs._get_resource_name(name, namespace)
 
             namespace.setdefault("_meta", data_structures.Metadata()).name = resource_name
             namespace["_meta"].verbose_name = verbose_name
@@ -54,6 +50,7 @@ class ResourceType(type):
     @classmethod
     def _get_attribute(
         cls,
+        name: str,
         attribute: str,
         bases: t.Sequence[t.Any],
         namespace: dict[str, t.Any],
@@ -61,10 +58,14 @@ class ResourceType(type):
     ) -> t.Any:
         """Look for an attribute given his name on namespace or parent classes namespace.
 
+        :param name: Resource class name (used to qualify error messages).
         :param attribute: Attribute name.
         :param bases: List of superclasses.
         :param namespace: Variables namespace used to create the class.
         :return: Attribute.
+        :raises ResourceAttributeNotFound: If the attribute is not present on the namespace nor any
+            base class — callers that treat the absence as a fallback signal should ``except`` this
+            specific subclass.
         """
         try:
             return namespace.pop(attribute)
@@ -80,7 +81,7 @@ class ResourceType(type):
                 if hasattr(base, attribute):
                     return getattr(base, attribute)
 
-        raise AttributeError(ResourceAttributeError.ATTRIBUTE_NOT_FOUND.format(attribute=attribute))
+        raise ResourceAttributeNotFound(name=name, attribute=attribute)
 
     @classmethod
     def _get_resource_name(cls, name: str, namespace: dict[str, t.Any]) -> tuple[str, str]:
@@ -89,12 +90,13 @@ class ResourceType(type):
         :param name: Class name.
         :param namespace: Variables namespace used to create the class.
         :return: Resource name.
+        :raises ResourceNameInvalid: If the declared ``name`` does not match the expected identifier
+            shape (a letter followed by letters, dashes or underscores).
         """
         resource_name = namespace.pop("name", name)
 
-        # Check resource name validity
         if re.match("[a-zA-Z][-_a-zA-Z]", resource_name) is None:
-            raise AttributeError(ResourceAttributeError.RESOURCE_NAME_INVALID.format(resource_name=resource_name))
+            raise ResourceNameInvalid(name=name, resource_name=resource_name)
 
         return resource_name, namespace.pop("verbose_name", resource_name)
 
@@ -115,28 +117,35 @@ class ResourceType(type):
         }
 
     @classmethod
-    def _build_methods(cls, namespace: dict[str, t.Any]) -> dict[str, t.Callable]:
-        """Builds a namespace containing all resource methods. Look for all methods listed in METHODS attribute and
-        named '_add_[method]'.
+    def _build_methods(
+        cls, namespace: dict[str, t.Any], methods: t.Sequence[str] | None = None
+    ) -> dict[str, t.Callable]:
+        """Builds a namespace containing the requested resource methods.
+
+        Looks for ``_add_<method>`` factories on *cls* for each name in *methods* (or
+        :attr:`METHODS` when *methods* is ``None``) and assembles their results into a single
+        namespace dict. Subclass metaclasses can pass *methods* explicitly to drive registration
+        from a per-resource source (e.g. a ``serving`` selector) rather than the class-level
+        attribute.
 
         :param namespace: Variables namespace used to create the class.
+        :param methods: Optional explicit list of method names to register. Falls back to
+            :attr:`METHODS` when ``None``.
         :return: Methods namespace.
         """
-        # Get available methods
-        methods = [getattr(cls, f"_add_{method}") for method in cls.METHODS if hasattr(cls, f"_add_{method}")]
+        resolved = methods if methods is not None else cls.METHODS
+        adders = [getattr(cls, f"_add_{method}") for method in resolved if hasattr(cls, f"_add_{method}")]
 
-        # Generate methods
         methods_namespace = {
             func_name: func
-            for method in methods
-            for func_name, func in method(**namespace["_meta"].to_plain_dict()).items()
+            for adder in adders
+            for func_name, func in adder(**namespace["_meta"].to_plain_dict()).items()
         }
 
-        # Preserve already defined methods
         methods_namespace.update(
             {
                 method: methods_namespace[f"_{method}"]
-                for method in cls.METHODS
+                for method in resolved
                 if method not in namespace and f"_{method}" in methods_namespace
             }
         )

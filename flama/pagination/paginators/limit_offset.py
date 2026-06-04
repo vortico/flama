@@ -133,7 +133,7 @@ class LimitOffsetPaginator(BasePaginator):
         paginated_schema = Schema.build(
             name,
             module,
-            schema=schemas.schemas.LimitOffset,
+            schema=schemas.schemas.pagination.LimitOffset,
             fields=[Field("data", schema.unique_schema, multiple=True)],
         )
 
