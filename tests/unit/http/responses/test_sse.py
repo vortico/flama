@@ -39,6 +39,16 @@ class TestCaseServerSentEvent:
                 b"data: line1\ndata: line2\n\n",
                 id="multiline_data",
             ),
+            pytest.param(
+                ServerSentEvent(comment="heartbeat"),
+                b": heartbeat\n\n",
+                id="comment_only",
+            ),
+            pytest.param(
+                ServerSentEvent(data="ignored", event="msg", id="1", retry=1, comment="hb"),
+                b": hb\n\n",
+                id="comment_takes_precedence",
+            ),
         ],
     )
     def test_encode(self, event, expected):
@@ -110,7 +120,7 @@ class TestCaseServerSentEventResponse:
         assert body_calls[len(expected_chunks)]["more_body"] is False
 
         if use_background:
-            background.assert_awaited_once()
+            assert background.await_count == 1
 
     def test_headers(self):
         response = ServerSentEventResponse(content=iter([]))
@@ -154,4 +164,4 @@ class TestCaseServerSentEventResponse:
 
         await response(asgi_scope, asgi_receive, asgi_send)
 
-        background.assert_not_awaited()
+        assert background.await_count == 0

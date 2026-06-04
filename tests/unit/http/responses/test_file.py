@@ -165,7 +165,7 @@ class TestCaseFileResponse:
             body = b"".join(c[0][0]["body"] for c in asgi_send.call_args_list[1:])
             assert body == expected_body
             if use_background:
-                background.assert_awaited_once()
+                assert background.await_count == 1
 
     @pytest.mark.parametrize(
         ["filename", "media_type", "expected_media_type"],

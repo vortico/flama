@@ -412,9 +412,9 @@ class TestCaseWebSocket:
         await websocket.accept(subprotocol=subprotocol, headers=headers)
 
         if receive_called:
-            receive.assert_awaited_once()
+            assert receive.await_count == 1
         else:
-            receive.assert_not_awaited()
+            assert receive.await_count == 0
 
         msg = send.call_args[0][0]
         assert msg["type"] == "websocket.accept"
@@ -450,7 +450,7 @@ class TestCaseWebSocket:
 
         with exception:
             await websocket.send_denial_response(response)
-            response.assert_awaited_once_with(scope, websocket._receive, websocket._send)
+            assert response.await_args_list == [call(scope, websocket._receive, websocket._send)]
 
     @pytest.mark.parametrize(
         ["status", "expected"],

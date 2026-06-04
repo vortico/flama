@@ -42,7 +42,7 @@ class APIErrorResponse(APIResponse):
                 "headers": headers,
             },
             *args,
-            schema=t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.APIError)],
+            schema=t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.core.APIError)],
             status_code=status_code,
             headers=headers,
             **kwargs,

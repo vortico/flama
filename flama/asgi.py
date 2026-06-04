@@ -6,6 +6,7 @@ from flama.injection.components import Component, Components
 
 __all__ = [
     "MethodComponent",
+    "AppComponent",
     "URLComponent",
     "SchemeComponent",
     "ServerComponent",
@@ -22,6 +23,11 @@ __all__ = [
 class MethodComponent(Component):
     def resolve(self, scope: types.Scope) -> types.Method:
         return scope["method"]
+
+
+class AppComponent(Component):
+    def resolve(self, scope: types.Scope) -> types.App:
+        return scope["app"]
 
 
 class URLComponent(Component):
@@ -100,6 +106,7 @@ class BodyComponent(Component):
 ASGI_COMPONENTS = Components(
     [
         MethodComponent(),
+        AppComponent(),
         URLComponent(),
         SchemeComponent(),
         ServerComponent(),

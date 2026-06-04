@@ -7,7 +7,7 @@ import typing as t
 from flama import concurrency, exceptions, http, types
 from flama.debug.data_structures import ErrorContext, NotFoundContext
 from flama.http.responses.api import APIErrorResponse
-from flama.http.responses.json_rpc import JSONRPCErrorResponse
+from flama.http.responses.jsonrpc import JSONRPCErrorResponse
 from flama.http.responses.plain_text import PlainTextResponse
 from flama.http.responses.templates import _FlamaTemplateResponse
 from flama.middleware import Middleware
