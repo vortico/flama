@@ -67,12 +67,26 @@ pydantic = ["pydantic>=2.12,<3.0"]
 typesystem = ["typesystem>=0.4.1,<1.0"]
 marshmallow = ["marshmallow>=3.0,<4.0", "apispec>=6.0,<7.0"]
 database = ["SQLAlchemy[asyncio]>=2.0,<3.0"]
+llm = [
+  "Pillow>=12.0,<13.0",
+  "soundfile>=0.13,<1.0",
+  "vllm>=0.21,<0.22; sys_platform == 'linux' and python_version >= '3.10' and python_version < '3.14'",
+  "mlx>=0.31,<0.32; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
+  "mlx-lm>=0.31,<0.32; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
+  "mlx-vlm>=0.5,<0.6; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
+]
 full = [
   "pydantic>=2.12,<3.0",
   "typesystem>=0.4.1,<1.0",
   "marshmallow>=3.0,<4.0",
   "apispec>=6.0,<7.0",
   "SQLAlchemy[asyncio]>=2.0,<3.0",
+  "Pillow>=12.0,<13.0",
+  "soundfile>=0.13,<1.0",
+  "vllm>=0.21,<0.22; sys_platform == 'linux' and python_version >= '3.10' and python_version < '3.14'",
+  "mlx>=0.31,<0.32; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
+  "mlx-lm>=0.31,<0.32; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
+  "mlx-vlm>=0.5,<0.6; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
 ]
 
 [project.scripts]
@@ -93,13 +107,11 @@ dev = [
   "pre-commit>=4.3",
   "aiosqlite>=0.21.0,<1.0.0",
   "Faker>=37.11",
-  "gevent>=25.9.1",
   "scikit-learn>=1.7.2",
   "tensorflow>=2.20.0; python_version < '3.14'",
   "torch>=2.9.0; python_version < '3.14'",
   "transformers>=4.50",
-  "vllm>=0.8; sys_platform == 'linux' and python_version >= '3.12' and python_version < '3.14'",
-  "vllm-metal>=0.1; sys_platform == 'darwin' and python_version >= '3.12' and python_version < '3.13'",
+  "flama[full]",
 ]
 
 [build-system]
@@ -112,6 +124,13 @@ manifest-path = "lib/core/Cargo.toml"
 python-source = "."
 features = ["pyo3/extension-module"]
 include = [{ path = "flama/_templates/**", format = "wheel" }]
+
+[tool.uv]
+environments = [
+  "sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.15'",
+  "sys_platform == 'linux' and python_version >= '3.10' and python_version < '3.15'",
+  "sys_platform == 'win32' and python_version >= '3.10' and python_version < '3.15'",
+]
 
 [tool.ruff]
 line-length = 120
@@ -205,7 +224,7 @@ exclude_lines = [
 ]
 
 [tool.ty.analysis]
-allowed-unresolved-imports = [
+replace-imports-with-any = [
   "numpy",
   "numpy.**",
   "sklearn",
@@ -220,6 +239,12 @@ allowed-unresolved-imports = [
   "transformers.**",
   "vllm",
   "vllm.**",
+  "mlx_lm",
+  "mlx_lm.**",
+  "mlx_vlm",
+  "mlx_vlm.**",
+  "PIL",
+  "PIL.**",
   "huggingface_hub",
   "huggingface_hub.**",
 ]
