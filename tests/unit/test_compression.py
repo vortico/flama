@@ -3,7 +3,7 @@ import pathlib
 
 import pytest
 
-from flama.compression import Compressor, compress, decompress, tar, untar
+from flama._core.compression import Compressor, compress, decompress, tar, untar, untar_from
 
 
 class TestCaseCoreCompress:
@@ -89,3 +89,45 @@ class TestCaseTar:
         assert (dst / "a.txt").read_text() == "hello"
         assert (dst / "sub" / "b.txt").read_text() == "world"
         assert not (dst / ".hidden.txt").exists()
+
+    @pytest.mark.parametrize(
+        "format",
+        [
+            pytest.param(None, id="raw"),
+            pytest.param("gzip", id="gzip"),
+            pytest.param("zlib", id="zlib"),
+            pytest.param("bz2", id="bz2"),
+            pytest.param("zstd", id="zstd"),
+            pytest.param("lzma", id="lzma"),
+            pytest.param("brotli", id="brotli"),
+        ],
+    )
+    def test_tar_untar_from_roundtrip(
+        self, directory: pathlib.Path, tmp_path: pathlib.Path, format: str | None
+    ) -> None:
+        buf = io.BytesIO()
+        written = tar(str(directory), buf, format=format)
+        buf.seek(0)
+
+        dst = tmp_path / "dst"
+        untar_from(buf, str(dst), format=format, length=written)
+
+        assert (dst / "a.txt").read_text() == "hello"
+        assert (dst / "sub" / "b.txt").read_text() == "world"
+        assert not (dst / ".hidden.txt").exists()
+
+    def test_untar_from_advances_only_within_length(self, directory: pathlib.Path, tmp_path: pathlib.Path) -> None:
+        body = io.BytesIO()
+        written = tar(str(directory), body, format="zstd")
+        sentinel = b"after-section"
+
+        composed = io.BytesIO()
+        composed.write(body.getvalue())
+        composed.write(sentinel)
+        composed.seek(0)
+
+        dst = tmp_path / "dst"
+        untar_from(composed, str(dst), format="zstd", length=written)
+        composed.seek(written)
+
+        assert composed.read() == sentinel

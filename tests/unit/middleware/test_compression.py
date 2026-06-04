@@ -211,4 +211,4 @@ class TestCaseCompressionMiddleware:
 
         await middleware(scope, AsyncMock(), AsyncMock())
 
-        inner.assert_awaited_once()
+        assert inner.await_count == 1
