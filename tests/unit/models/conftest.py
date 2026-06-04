@@ -1,27 +1,73 @@
 import typing as t
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
 from flama import Flama
 from flama.injection import Parameter
 from flama.models import ModelComponent
-from flama.models.base import BaseLLMModel
-from flama.models.models.pytorch import Model as PyTorchModel
-from flama.models.models.sklearn import Model as SKLearnModel
-from flama.models.models.tensorflow import Model as TensorFlowModel
+from flama.models.base import LLMModel, MLModel
+from flama.models.engine.backend.llm.base import TransformerLLMBackend
+from flama.models.engine.backend.ml.base import MLBackend
+from flama.models.engine.llm.delta import EngineDelta
+from flama.models.engine.llm.input import EngineInput
 
 
-class _StubLLMModel(BaseLLMModel):
-    """Deterministic LLM stub used by integration tests.
+class _StubMLBackend(MLBackend):
+    """Deterministic ML backend used by integration tests."""
 
-    Overrides :meth:`_tokens` so callers don't need a real engine and can drive HTTP-level assertions with a known
-    output, regardless of any vllm/mlx_lm dependency.
+    def predict(self, x: t.Iterable[t.Iterable[t.Any]], /) -> t.Any:
+        return [list(item)[0] for item in x]
+
+
+class _StubLLMBackend(TransformerLLMBackend):
+    """Deterministic LLM backend used by integration tests.
+
+    The fake encoder maps bytes to IDs and back, so the rendered prompt round-trips losslessly; tokens are
+    emitted as space-separated words from the rendered prompt.
     """
 
-    async def _tokens(self, prompt: str, /, **params: t.Any) -> t.AsyncIterator[str]:
+    @classmethod
+    def runnable(cls) -> bool:
+        return True
+
+    @property
+    def _tokenizer(self) -> t.Any:
+        return MagicMock()
+
+    @property
+    def _renderer(self) -> t.Any:
+        return MagicMock()
+
+    @property
+    def chat_template(self) -> str | None:
+        return "{% for m in messages %}{{ m.role }}: {{ m.content }}\n{% endfor %}"
+
+    def chat_template_sample(self) -> str | None:
+        return None
+
+    def _max_context(self) -> int | None:
+        return 8192
+
+    def encode(self, text: str, /, *, add_special_tokens: bool = True) -> list[int]:
+        return [ord(c) for c in text]
+
+    def apply_chat_template(
+        self,
+        messages: list[dict[str, t.Any]],
+        /,
+        *,
+        add_generation_prompt: bool = True,
+        **kwargs: t.Any,
+    ) -> list[int]:
+        rendered = "".join(f"{m['role']}: {m['content']}\n" for m in messages)
+        return [ord(c) for c in rendered]
+
+    async def generate(self, inputs: EngineInput, /, **params: t.Any) -> t.AsyncIterator[EngineDelta]:
+        prompt = "".join(chr(i) for i in inputs.tokens)
         for token in prompt.split():
-            yield token
+            yield EngineDelta(text=token, token_count=1)
+        yield EngineDelta(finish_reason="stop")
 
 
 @pytest.fixture(scope="function")
@@ -38,11 +84,8 @@ def app():
     ],
 )
 def model(request):
-    return {
-        "sklearn": SKLearnModel(Mock(), Mock(), Mock()),
-        "tensorflow": TensorFlowModel(Mock(), Mock(), Mock()),
-        "torch": PyTorchModel(Mock(), Mock(), Mock()),
-    }[request.param]
+    backend = _StubMLBackend(Mock())
+    return MLModel(backend, Mock(), Mock())
 
 
 @pytest.fixture(scope="function")
@@ -61,10 +104,11 @@ def llm_model():
         "id": "stub-id",
         "timestamp": "2024-01-01T00:00:00Z",
         "model": {"obj": None, "info": None, "params": {}, "metrics": {}},
-        "framework": {"lib": "stub", "version": "0.0.0", "config": None},
+        "framework": {"family": "llm", "lib": "transformers", "version": "0.0.0", "config": None},
         "extra": {},
     }
-    return _StubLLMModel(object(), meta, None)
+    backend = _StubLLMBackend(object())
+    return LLMModel(backend, meta, None)
 
 
 @pytest.fixture(scope="function")

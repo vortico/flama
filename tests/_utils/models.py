@@ -12,6 +12,14 @@ except Exception:
     warnings.warn("Numpy not installed")
     np = None
 
+# Pre-import TensorFlow before sklearn so TF initialises its threading runtime first; sklearn ships its own
+# `libomp.dylib` whose initialisation deadlocks on Apple Silicon if TF binds OpenMP afterwards.
+try:
+    import tensorflow as tf
+except Exception:
+    warnings.warn("Tensorflow not installed")
+    tf = None
+
 try:
     import sklearn.compose
     import sklearn.impute
@@ -20,12 +28,6 @@ try:
 except Exception:
     warnings.warn("SKLearn not installed")
     sklearn = None
-
-try:
-    import tensorflow as tf
-except Exception:
-    warnings.warn("Tensorflow not installed")
-    tf = None
 
 try:
     import torch
@@ -39,22 +41,15 @@ except Exception:
     warnings.warn("Transformers not installed")
     transformers = None
 
-try:
-    import huggingface_hub
-except Exception:
-    warnings.warn("huggingface_hub not installed")
-    huggingface_hub = None
-
 
 class ModelFactory:
     def __init__(self):
         self._libs = {
-            "sklearn": ("sklearn", ["sklearn", "numpy"], self._sklearn),
-            "sklearn-pipeline": ("sklearn", ["sklearn", "numpy"], self._sklearn_pipeline),
-            "tensorflow": ("tensorflow", ["tensorflow", "numpy"], self._tensorflow),
-            "torch": ("torch", ["torch", "numpy"], self._torch),
-            "transformers": ("transformers", ["transformers"], self._transformers),
-            "vllm": ("vllm", ["huggingface_hub", "vllm"], self._vllm),
+            "sklearn": ("sklearn", "ml", ["sklearn", "numpy"], self._sklearn),
+            "sklearn-pipeline": ("sklearn", "ml", ["sklearn", "numpy"], self._sklearn_pipeline),
+            "tensorflow": ("tensorflow", "ml", ["tensorflow", "numpy"], self._tensorflow),
+            "torch": ("torch", "ml", ["torch", "numpy"], self._torch),
+            "transformers": ("transformers", "ml", ["transformers"], self._transformers),
         }
 
         self._models = {}
@@ -64,7 +59,7 @@ class ModelFactory:
 
     def _build(self, x: str, /):
         try:
-            _, dependencies, factory = self._libs[x]
+            _, _, dependencies, factory = self._libs[x]
 
             for dependency in dependencies:
                 if not installed(dependency):
@@ -80,6 +75,10 @@ class ModelFactory:
     def lib(self, lib: str):
         self._build(lib)
         return self._libs[lib][0]
+
+    def family(self, lib: str) -> str:
+        self._build(lib)
+        return self._libs[lib][1]
 
     def model(self, lib: str):
         self._build(lib)
@@ -97,7 +96,6 @@ class ModelFactory:
         self._build(lib)
         configs: dict[str, dict[str, t.Any]] = {
             "transformers": {"task": "text-generation", "framework": "pt"},
-            "vllm": {"engine_params": {"max_model_len": 256}},
         }
         return configs.get(lib)
 
@@ -109,10 +107,12 @@ class ModelFactory:
             random_state=42,
             solver="adam",
         )
-        model.fit(
-            np.array([[0, 0], [0, 1], [1, 0], [1, 1]]),
-            np.array([0, 1, 1, 0]),
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            model.fit(
+                np.array([[0, 0], [0, 1], [1, 0], [1, 1]]),
+                np.array([0, 1, 1, 0]),
+            )
         return model, sklearn.neural_network.MLPClassifier
 
     def _sklearn_pipeline(self):
@@ -140,10 +140,12 @@ class ModelFactory:
             ]
         )
 
-        pipeline.fit(
-            np.array([[0, np.nan], [np.nan, 1], [1, 0], [1, 1]]),  # NaN will be replaced with 0
-            np.array([0, 1, 1, 0]),
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            pipeline.fit(
+                np.array([[0, np.nan], [np.nan, 1], [1, 0], [1, 1]]),  # NaN will be replaced with 0
+                np.array([0, 1, 1, 0]),
+            )
 
         return pipeline, sklearn.pipeline.Pipeline
 
@@ -162,7 +164,7 @@ class ModelFactory:
         model.fit(
             np.array([[0, 0], [0, 1], [1, 0], [1, 1]]),
             np.array([[0], [1], [1], [0]]),
-            epochs=1000,
+            epochs=5,
             verbose=0,
         )
 
@@ -188,7 +190,7 @@ class ModelFactory:
                         if m.bias is not None:
                             torch.nn.init.constant_(m.bias.data, 0)
 
-                for _ in range(2000):
+                for _ in range(20):
                     optimizer.zero_grad()
                     y_hat = self(X)  # Pass the entire 4-point batch
                     loss_result = loss(y_hat, Y)
@@ -212,9 +214,6 @@ class ModelFactory:
         )
 
         return directory.name, transformers.pipelines.base.Pipeline
-
-    def _vllm(self):
-        return huggingface_hub.snapshot_download(repo_id="facebook/opt-125m"), object
 
 
 model_factory = ModelFactory()

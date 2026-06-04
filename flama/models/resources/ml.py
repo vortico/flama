@@ -1,63 +1,46 @@
+import contextlib
 import os
 import typing as t
 
 import flama.schemas
 from flama import types
 from flama._core.json_encoder import encode_json
+from flama.exceptions import FrameworkNotInstalled, HTTPException
 from flama.http.responses.sse import ServerSentEventResponse
 from flama.models.components import ModelComponentBuilder
+from flama.models.resources.base import InspectMixin
 from flama.resources import data_structures
-from flama.resources.exceptions import ResourceAttributeError
+from flama.resources.exceptions import ResourceAttributeNotFound, ResourceModelNotFound
 from flama.resources.resource import Resource, ResourceType
 from flama.resources.routing import ResourceRoute
 
 if t.TYPE_CHECKING:
-    from flama.models.base import BaseMLModel
+    from flama.models.base import MLModel
     from flama.models.components import ModelComponent
 
-__all__ = ["BaseMLResource", "MLResource", "InspectMixin", "PredictMixin", "StreamMixin", "MLResourceType"]
+__all__ = ["BaseMLResource", "MLResource", "PredictMixin", "StreamMixin", "MLResourceType"]
 
 
 Component = t.TypeVar("Component", bound="ModelComponent")
 
 
-class InspectMixin:
-    @classmethod
-    def _add_inspect(
-        cls, name: str, verbose_name: str, model_model_type: type["BaseMLModel"], **kwargs
-    ) -> dict[str, t.Any]:
-        @ResourceRoute.method("/", methods=["GET"], name="inspect")
-        async def inspect(self, model: model_model_type):  # ty: ignore[invalid-type-form]
-            return model.inspect()
-
-        inspect.__doc__ = f"""
-            tags:
-                - {verbose_name}
-            summary:
-                Retrieve the model
-            description:
-                Retrieve the model from this resource.
-            responses:
-                200:
-                    description:
-                        The model.
-        """
-
-        return {"_inspect": inspect}
-
-
 class PredictMixin:
     @classmethod
     def _add_predict(
-        cls, name: str, verbose_name: str, model_model_type: type["BaseMLModel"], **kwargs
+        cls, name: str, verbose_name: str, model_model_type: type["MLModel"], **kwargs
     ) -> dict[str, t.Any]:
         @ResourceRoute.method("/predict/", methods=["POST"], name="predict")
         async def predict(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.MLModelPredictInput)],
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.MLModelPredictOutput)]:
-            return {"output": model.predict(data["input"])}
+            data: t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.ml.PredictInput)],
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.ml.PredictOutput)]:
+            try:
+                return {"output": model.predict(data["input"])}
+            except FrameworkNotInstalled:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
 
         predict.__doc__ = f"""
             tags:
@@ -77,14 +60,12 @@ class PredictMixin:
 
 class StreamMixin:
     @classmethod
-    def _add_stream(
-        cls, name: str, verbose_name: str, model_model_type: type["BaseMLModel"], **kwargs
-    ) -> dict[str, t.Any]:
+    def _add_stream(cls, name: str, verbose_name: str, model_model_type: type["MLModel"], **kwargs) -> dict[str, t.Any]:
         @ResourceRoute.method("/stream/", methods=["POST"], name="stream")
         async def stream(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.MLModelStreamInput)],
+            data: t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.ml.StreamInput)],
         ) -> ServerSentEventResponse:
             async def _encode():
                 async for item in model.stream([data["input"]]):
@@ -121,13 +102,9 @@ class MLResourceType(ResourceType, InspectMixin, PredictMixin, StreamMixin):
         :param namespace: Variables namespace used to create the class.
         """
         if not mcs._is_abstract(namespace):
-            try:
-                # Get model component
-                component = mcs._get_model_component(bases, namespace)
-                namespace["component"] = component
-                namespace["model"] = component.model
-            except AttributeError as e:
-                raise ResourceAttributeError(str(e), name)
+            component = mcs._get_model_component(name, bases, namespace)
+            namespace["component"] = component
+            namespace["model"] = component.model
 
             namespace.setdefault("_meta", data_structures.Metadata()).namespaces["model"] = {
                 "component": component,
@@ -139,26 +116,22 @@ class MLResourceType(ResourceType, InspectMixin, PredictMixin, StreamMixin):
 
     @staticmethod
     def _is_abstract(namespace: dict[str, t.Any]) -> bool:
-        return namespace.get("__module__") == "flama.models.ml_resource" and namespace.get("__qualname__") in (
+        return namespace.get("__module__") == "flama.models.resources.ml" and namespace.get("__qualname__") in (
             "BaseMLResource",
             "MLResource",
         )
 
     @classmethod
-    def _get_model_component(cls, bases: t.Sequence[t.Any], namespace: dict[str, t.Any]) -> "ModelComponent":
-        try:
-            return cls._get_attribute("component", bases, namespace, metadata_namespace="model")
-        except AttributeError:
-            ...
+    def _get_model_component(cls, name: str, bases: t.Sequence[t.Any], namespace: dict[str, t.Any]) -> "ModelComponent":
+        with contextlib.suppress(ResourceAttributeNotFound):
+            return cls._get_attribute(name, "component", bases, namespace, metadata_namespace="model")
 
-        try:
+        with contextlib.suppress(ResourceAttributeNotFound):
             return ModelComponentBuilder.build(
-                cls._get_attribute("model_path", bases, namespace, metadata_namespace="model")
+                cls._get_attribute(name, "model_path", bases, namespace, metadata_namespace="model")
             )
-        except AttributeError:
-            ...
 
-        raise AttributeError(ResourceAttributeError.MODEL_NOT_FOUND)
+        raise ResourceModelNotFound(name=name)
 
 
 class BaseMLResource(Resource, t.Generic[Component], metaclass=MLResourceType):
