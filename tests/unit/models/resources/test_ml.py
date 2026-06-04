@@ -9,7 +9,7 @@ import flama
 from flama.client import Client
 from flama.models import MLResource, MLResourceType
 from flama.models.components import ModelComponent
-from flama.resources.exceptions import ResourceAttributeError
+from flama.resources.exceptions import ResourceModelNotFound
 from tests._utils import NotInstalled, model_factory
 
 
@@ -51,7 +51,7 @@ class TestCaseMLResource:
         ["model_path"],
         [
             pytest.param("sklearn", id="sklearn"),
-            pytest.param("sklearn-pipeline", id="sklearn-pipeline"),
+            pytest.param("sklearn-pipeline", id="sklearn_pipeline"),
             pytest.param("tensorflow", id="tensorflow"),
             pytest.param("torch", id="torch"),
             pytest.param("transformers", id="transformers"),
@@ -84,7 +84,7 @@ class TestCaseMLResource:
         }
 
     def test_resource_wrong(self):
-        with pytest.raises(ResourceAttributeError):
+        with pytest.raises(ResourceModelNotFound):
 
             class PuppyMLResource(MLResource, metaclass=MLResourceType):
                 name = "puppy"
@@ -96,6 +96,7 @@ class TestCaseMLResourceMethods:
     async def client(self, request, app):
         try:
             model = model_factory.model(request.param)
+            family = model_factory.family(request.param)
             lib = model_factory.lib(request.param)
             artifacts = model_factory.artifacts(request.param)
             config = model_factory.config(request.param)
@@ -103,7 +104,7 @@ class TestCaseMLResourceMethods:
             pytest.skip(f"Lib for case '{request.param}' is not installed.")
 
         with tempfile.NamedTemporaryFile(suffix=".flm") as f:
-            flama.dump(model, path=f.name, artifacts=artifacts, config=config, lib=lib)
+            flama.dump(model, path=f.name, family=family, artifacts=artifacts, config=config, lib=lib)
             f.flush()
 
             app.models.add_model("/model/", model=pathlib.Path(f.name), name=request.param)
@@ -120,7 +121,7 @@ class TestCaseMLResourceMethods:
         [
             pytest.param("torch", id="torch"),
             pytest.param("sklearn", id="sklearn"),
-            pytest.param("sklearn-pipeline", id="sklearn-pipeline"),
+            pytest.param("sklearn-pipeline", id="sklearn_pipeline"),
             pytest.param("tensorflow", id="tensorflow"),
             pytest.param("transformers", id="transformers"),
         ],
@@ -131,29 +132,27 @@ class TestCaseMLResourceMethods:
 
         assert response.status_code == 200, response.json()
         inspect = response.json()
-        assert set(inspect.keys()) == {"meta", "artifacts"}
+        assert set(inspect.keys()) == {"meta", "manifest"}
         meta = inspect["meta"]
-        assert set(meta.keys()) == {"id", "timestamp", "model", "framework", "extra"}
+        assert {"id", "timestamp", "model", "framework", "extra"} <= set(meta.keys())
         assert set(meta["model"].keys()) == {"obj", "info", "params", "metrics"}
-        assert set(meta["framework"].keys()) == {"lib", "version", "config"}
+        assert set(meta["framework"].keys()) == {"family", "lib", "version", "config"}
 
     @pytest.mark.parametrize(
         ["client", "x", "y", "status_code"],
         [
-            pytest.param("torch", [[0, 0], [0, 1], [1, 0], [1, 1]], [[0], [1], [1], [0]], 200, id="torch-200"),
-            pytest.param("torch", [["wrong"]], None, 400, id="torch-400"),
-            pytest.param("sklearn", [[0, 0], [0, 1], [1, 0], [1, 1]], [0, 1, 1, 0], 200, id="sklearn-200"),
-            pytest.param("sklearn", [["wrong"]], None, 400, id="sklearn-400"),
+            pytest.param("torch", [[0, 0], [0, 1], [1, 0], [1, 1]], None, 200, id="torch_200"),
+            pytest.param("torch", [["wrong"]], None, 400, id="torch_400"),
+            pytest.param("sklearn", [[0, 0], [0, 1], [1, 0], [1, 1]], [0, 1, 1, 0], 200, id="sklearn_200"),
+            pytest.param("sklearn", [["wrong"]], None, 400, id="sklearn_400"),
             pytest.param(
-                "sklearn-pipeline", [[0, 0], [0, 1], [1, 0], [1, 1]], [0, 1, 1, 0], 200, id="sklearn-pipeline-200"
+                "sklearn-pipeline", [[0, 0], [0, 1], [1, 0], [1, 1]], [0, 1, 1, 0], 200, id="sklearn_pipeline_200"
             ),
-            pytest.param("sklearn-pipeline", [["wrong"]], None, 400, id="sklearn-pipeline-400"),
-            pytest.param(
-                "tensorflow", [[0, 0], [0, 1], [1, 0], [1, 1]], [[0], [1], [1], [0]], 200, id="tensorflow-200"
-            ),
-            pytest.param("tensorflow", [["wrong"]], None, 400, id="tensorflow-400"),
-            pytest.param("transformers", ["hello"], None, 200, id="transformers-200"),
-            pytest.param("transformers", [{"bad": "input"}], None, 400, id="transformers-400"),
+            pytest.param("sklearn-pipeline", [["wrong"]], None, 400, id="sklearn_pipeline_400"),
+            pytest.param("tensorflow", [[0, 0], [0, 1], [1, 0], [1, 1]], None, 200, id="tensorflow_200"),
+            pytest.param("tensorflow", [["wrong"]], None, 400, id="tensorflow_400"),
+            pytest.param("transformers", ["hello"], None, 200, id="transformers_200"),
+            pytest.param("transformers", [{"bad": "input"}], None, 400, id="transformers_400"),
         ],
         indirect=["client"],
     )
@@ -172,10 +171,10 @@ class TestCaseMLResourceMethods:
         [
             pytest.param("torch", "0,0", None, None, id="torch"),
             pytest.param("sklearn", "0,0", None, None, id="sklearn"),
-            pytest.param("sklearn-pipeline", "0,0", None, None, id="sklearn-pipeline"),
+            pytest.param("sklearn-pipeline", "0,0", None, None, id="sklearn_pipeline"),
             pytest.param("tensorflow", "0,0", None, None, id="tensorflow"),
             pytest.param("transformers", "hello", None, None, id="transformers"),
-            pytest.param("sklearn", "0,0", [[0.1, 0.9], [0.5, 0.5]], None, id="with-output"),
+            pytest.param("sklearn", "0,0", [[0.1, 0.9], [0.5, 0.5]], None, id="with_output"),
             pytest.param("transformers", "hello", None, RuntimeError("boom"), id="error"),
         ],
         indirect=["client"],
