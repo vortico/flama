@@ -1,23 +1,23 @@
 import typing as t
 
 from flama import exceptions
-from flama.models.base import BaseMLModel
+from flama.models.engine.backend.ml.base import MLBackend
 
 try:
     import transformers
 except Exception:  # pragma: no cover
-    transformers = None  # ty: ignore[invalid-assignment]
+    transformers = None
 
-__all__ = ["Model"]
+__all__ = ["TransformersBackend"]
 
 
-class Model(BaseMLModel):
-    """HuggingFace Transformers model wrapper.
+class TransformersBackend(MLBackend):
+    """HuggingFace Transformers pipeline backend.
 
     Expects ``self.model`` to be a ready-to-use :class:`transformers.Pipeline`.
     """
 
-    def _prediction(self, x: t.Iterable[t.Iterable[t.Any]], /) -> t.Any:
+    def predict(self, x: t.Iterable[t.Iterable[t.Any]], /) -> t.Any:
         """Run the pipeline on the given input features.
 
         :param x: Batch of input feature vectors forwarded to the pipeline.
