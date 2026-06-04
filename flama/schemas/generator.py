@@ -408,7 +408,9 @@ class SchemaGenerator:
             "description": "Unexpected error.",
             **responses.get("default", {}),
             "content": {
-                "application/json": {"schema": self.schemas.get_openapi_ref(schemas.schemas.APIError, multiple=False)}
+                "application/json": {
+                    "schema": self.schemas.get_openapi_ref(schemas.schemas.core.APIError, multiple=False)
+                }
             },
         }
 
