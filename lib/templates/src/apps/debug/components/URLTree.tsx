@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { IconChevronRight, IconCircleFilled } from '@tabler/icons-react'
 
-import { URLs } from '@/data/debug'
+import { URLs } from '../data'
 
 type TApp = URLs['apps'][number]
 type TEndpoint = URLs['endpoints'][number]

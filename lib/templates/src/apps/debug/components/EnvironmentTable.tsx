@@ -1,5 +1,5 @@
-import { Environment } from '@/data/debug'
-import { TableArrayValue as ArrayValue, TableRow as Row, Table, TableValue as Value } from '@/ui/elements'
+import { Environment } from '../data'
+import { TableArrayValue as ArrayValue, TableRow as Row, Table, TableValue as Value } from './Table'
 
 export default function EnvironmentTable() {
   const { pythonVersion, python, platform, path } = new Environment()
