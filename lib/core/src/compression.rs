@@ -11,7 +11,7 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
 use std::fs::DirEntry;
-use std::io::{BufWriter, Cursor, Read, Write};
+use std::io::{BufReader, BufWriter, Cursor, Read, Write};
 use std::path::{Component, Path};
 use std::str::FromStr;
 
@@ -127,6 +127,53 @@ impl Write for PyWriter {
             // BytesIO.flush is a no-op; ignore failures from non-flushable streams.
             let _ = self.inner.call_method0(py, "flush");
             Ok(())
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PyReader — std::io::Read adapter for a Python file-like object
+// ---------------------------------------------------------------------------
+
+/// Adapter implementing [`Read`] on top of a Python file-like object.
+///
+/// Each [`Read::read`] re-acquires the GIL and invokes ``inner.read(n)``; callers should
+/// wrap [`PyReader`] in a [`BufReader`] to amortise the cost across many small reads.
+struct PyReader {
+    inner: Py<PyAny>,
+    read_total: usize,
+}
+
+impl PyReader {
+    const fn new(inner: Py<PyAny>) -> Self {
+        Self { inner, read_total: 0 }
+    }
+}
+
+impl Read for PyReader {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        Python::attach(|py| {
+            let result = self
+                .inner
+                .call_method1(py, "read", (buf.len(),))
+                .map_err(|e: PyErr| std::io::Error::other(e.to_string()))?;
+            let bound = result.bind(py);
+            let py_bytes = bound
+                .cast::<PyBytes>()
+                .map_err(|e| std::io::Error::other(format!("PyReader.read returned non-bytes: {e}")))?;
+            let slice = py_bytes.as_bytes();
+            let n = slice.len();
+            if n > buf.len() {
+                return Err(std::io::Error::other(
+                    "PyReader.read returned more bytes than requested",
+                ));
+            }
+            buf[..n].copy_from_slice(slice);
+            self.read_total += n;
+            Ok(n)
         })
     }
 }
@@ -272,7 +319,59 @@ impl Encoder<Vec<u8>> {
 }
 
 // ---------------------------------------------------------------------------
-// Decoder — one-shot decompress to a buffer
+// Decoder — Read wrapper that selects a backend per Format
+// ---------------------------------------------------------------------------
+
+/// [`Read`] wrapper that dispatches to the streaming decoder of a chosen [`Format`].
+///
+/// All variants read from an inner ``R: Read``, except ``Lzma`` which buffers the whole input
+/// up-front (``lzma-rs`` lacks a streaming decoder).
+enum Decoder<R: Read> {
+    Plain(R),
+    Gzip(flate2::read::GzDecoder<R>),
+    Zlib(flate2::read::ZlibDecoder<R>),
+    Bz2(bzip2::read::BzDecoder<R>),
+    Zstd(zstd::stream::Decoder<'static, BufReader<R>>),
+    // Boxed because brotli's decoder state is several KB; keeps the enum small.
+    Brotli(Box<brotli::Decompressor<R>>),
+    LzmaBuffered(Cursor<Vec<u8>>),
+}
+
+impl<R: Read> Decoder<R> {
+    fn new(format: Option<Format>, mut reader: R) -> std::io::Result<Self> {
+        Ok(match format {
+            None => Self::Plain(reader),
+            Some(Format::Gzip) => Self::Gzip(flate2::read::GzDecoder::new(reader)),
+            Some(Format::Zlib) => Self::Zlib(flate2::read::ZlibDecoder::new(reader)),
+            Some(Format::Bz2) => Self::Bz2(bzip2::read::BzDecoder::new(reader)),
+            Some(Format::Zstd) => Self::Zstd(zstd::stream::Decoder::new(reader)?),
+            Some(Format::Brotli) => Self::Brotli(Box::new(brotli::Decompressor::new(reader, BUF_SIZE))),
+            Some(Format::Lzma) => {
+                let mut compressed = Vec::new();
+                reader.read_to_end(&mut compressed)?;
+                let decompressed = decompress_into(&compressed, Format::Lzma)?;
+                Self::LzmaBuffered(Cursor::new(decompressed))
+            }
+        })
+    }
+}
+
+impl<R: Read> Read for Decoder<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Self::Plain(r) => r.read(buf),
+            Self::Gzip(d) => d.read(buf),
+            Self::Zlib(d) => d.read(buf),
+            Self::Bz2(d) => d.read(buf),
+            Self::Zstd(d) => d.read(buf),
+            Self::Brotli(d) => d.read(buf),
+            Self::LzmaBuffered(c) => c.read(buf),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// One-shot decompress to a buffer
 // ---------------------------------------------------------------------------
 
 fn decompress_into(data: &[u8], format: Format) -> std::io::Result<Vec<u8>> {
@@ -444,6 +543,25 @@ fn tar(directory: &str, writer: Py<PyAny>, format: Option<&str>) -> PyResult<usi
     Ok(py_writer.written)
 }
 
+/// Walk *archive* and unpack every entry into *dir*, skipping unsafe paths.
+///
+/// Sets ``overwrite=true`` on *archive* so existing files in *dir* are replaced; entries
+/// with absolute paths or ``..`` components are skipped, mirroring ``tarfile``'s
+/// ``filter="data"`` policy. Errors are prefixed with *context* so the call site shows up in
+/// the bridged Python exception.
+fn unpack_entries<R: Read>(mut archive: Archive<R>, dir: &Path, context: &'static str) -> PyResult<()> {
+    archive.set_overwrite(true);
+    for entry in archive.entries().map_err(map_io(context))? {
+        let mut entry = entry.map_err(map_io(context))?;
+        let path = entry.path().map_err(map_io(context))?.into_owned();
+        if path.is_absolute() || path.components().any(|c| matches!(c, Component::ParentDir)) {
+            continue;
+        }
+        entry.unpack(dir.join(&path)).map_err(map_io(context))?;
+    }
+    Ok(())
+}
+
 /// Extract a tar archive from *data* into *directory*.
 ///
 /// When *format* is ``None`` *data* is treated as raw tar; otherwise it is first
@@ -465,18 +583,41 @@ fn untar(data: &[u8], directory: &str, format: Option<&str>) -> PyResult<()> {
         }
     };
 
-    let mut archive = Archive::new(Cursor::new(bytes));
-    archive.set_overwrite(true);
+    unpack_entries(Archive::new(Cursor::new(bytes)), dir, "untar")
+}
 
-    for entry in archive.entries().map_err(map_io("untar entries"))? {
-        let mut entry = entry.map_err(map_io("untar entry"))?;
-        let path = entry.path().map_err(map_io("untar path"))?.into_owned();
-        if path.is_absolute() || path.components().any(|c| matches!(c, Component::ParentDir)) {
-            continue;
-        }
-        entry.unpack(dir.join(&path)).map_err(map_io("untar unpack"))?;
-    }
-    Ok(())
+/// Stream-extract a tar archive from a Python reader into *directory*.
+///
+/// Mirror of [`tar`] for the load side: pulls compressed bytes from *reader* through the
+/// matching streaming decoder and unpacks tar entries to disk one at a time, never
+/// materialising the full archive (or its decompressed form) in memory.
+///
+/// When *format* is ``None`` the bytes from *reader* are treated as raw tar. When *length*
+/// is provided, reads from *reader* are bounded to at most *length* bytes so a single section
+/// of a multi-section file (e.g. the protocol body) can be unpacked without spilling into the
+/// next section. Note that the decompressor may stop short of *length* bytes once it sees a
+/// stream terminator; callers that care about the file position past this call should
+/// ``seek`` explicitly.
+///
+/// Entries with absolute paths or ``..`` components are skipped, mirroring [`untar`]'s
+/// safety policy.
+///
+/// :param reader: A Python file-like object exposing ``.read(size)`` returning ``bytes``.
+/// :param directory: Filesystem path of the output directory.
+/// :param format: Optional compression format. ``None`` for raw tar.
+/// :param length: Optional upper bound on bytes read from *reader*.
+#[pyfunction]
+#[pyo3(signature = (reader, directory, format=None, length=None))]
+fn untar_from(reader: Py<PyAny>, directory: &str, format: Option<&str>, length: Option<u64>) -> PyResult<()> {
+    let dir = Path::new(directory);
+    std::fs::create_dir_all(dir).map_err(map_io("untar_from mkdir"))?;
+
+    let fmt = format.map(Format::from_str).transpose()?;
+    let bounded = PyReader::new(reader).take(length.unwrap_or(u64::MAX));
+    let buffered = BufReader::with_capacity(TAR_PY_BUF_SIZE, bounded);
+    let decoder = Decoder::new(fmt, buffered).map_err(map_io("untar_from init"))?;
+
+    unpack_entries(Archive::new(decoder), dir, "untar_from")
 }
 
 // ---------------------------------------------------------------------------
@@ -489,6 +630,7 @@ pub fn build(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(decompress, m)?)?;
     m.add_function(wrap_pyfunction!(self::tar, m)?)?;
     m.add_function(wrap_pyfunction!(self::untar, m)?)?;
+    m.add_function(wrap_pyfunction!(self::untar_from, m)?)?;
     Ok(())
 }
 
@@ -507,6 +649,18 @@ mod tests {
         let compressed = encoder.finish().unwrap();
         let decompressed = decompress_into(&compressed, format).unwrap();
         assert_eq!(decompressed, data, "{format:?} round-trip mismatch");
+    }
+
+    /// Round-trip *data* through an [`Encoder`]/[`Decoder`] pair (both streaming).
+    fn streaming_roundtrip(format: Format, data: &[u8]) {
+        let mut encoder = Encoder::new(Some(format), Vec::new(), Params::default()).unwrap();
+        encoder.write_all(data).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let mut decoder = Decoder::new(Some(format), Cursor::new(compressed)).unwrap();
+        let mut decompressed = Vec::new();
+        decoder.read_to_end(&mut decompressed).unwrap();
+        assert_eq!(decompressed, data, "{format:?} streaming round-trip mismatch");
     }
 
     #[test]
@@ -540,6 +694,32 @@ mod tests {
         ] {
             roundtrip(fmt, payload);
         }
+    }
+
+    #[test]
+    fn streaming_decoder_roundtrip_all_formats() {
+        let payload = b"the quick brown fox jumps over the lazy dog. \
+                        the quick brown fox jumps over the lazy dog. \
+                        the quick brown fox jumps over the lazy dog.";
+        for fmt in [
+            Format::Bz2,
+            Format::Lzma,
+            Format::Zlib,
+            Format::Zstd,
+            Format::Gzip,
+            Format::Brotli,
+        ] {
+            streaming_roundtrip(fmt, payload);
+        }
+    }
+
+    #[test]
+    fn streaming_decoder_plain_passthrough() {
+        let payload = b"raw bytes, no compression".to_vec();
+        let mut decoder: Decoder<Cursor<Vec<u8>>> = Decoder::new(None, Cursor::new(payload.clone())).unwrap();
+        let mut out = Vec::new();
+        decoder.read_to_end(&mut out).unwrap();
+        assert_eq!(out, payload);
     }
 
     #[test]
