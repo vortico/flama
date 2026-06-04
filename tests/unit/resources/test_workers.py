@@ -34,18 +34,24 @@ class TestCaseFlamaWorker:
 
         return BarRepository
 
-    def test_init(self):
+    def test_init(self) -> None:
         worker = FlamaWorker()
 
         assert not worker._resources_repositories.registered
 
-    async def test_async_context(self, app, worker, http_repository, sqlalchemy_repository):
+    @pytest.mark.parametrize(
+        ["exception"],
+        [pytest.param(ApplicationError("Repositories not initialized"), id="not_initialised")],
+        indirect=["exception"],
+    )
+    def test_repositories_property_raises_when_uninitialised(self, worker, exception) -> None:
+        with exception:
+            worker.repositories
+
+    async def test_async_context(self, app, worker, http_repository, sqlalchemy_repository) -> None:
         worker.app = app
         worker.add_repository("foo", sqlalchemy_repository)
         worker.add_repository("bar", http_repository)
-
-        with pytest.raises(ApplicationError, match="Repositories not initialized"):
-            worker.repositories
 
         async with worker:
             assert worker.repositories == {

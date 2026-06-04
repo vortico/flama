@@ -137,7 +137,7 @@ class PageNumberPaginator(BasePaginator):
         paginated_schema = Schema.build(
             name,
             module,
-            schema=schemas.schemas.PageNumber,
+            schema=schemas.schemas.pagination.PageNumber,
             fields=[Field("data", schema.unique_schema, multiple=True)],
         )
 

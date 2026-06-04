@@ -5,7 +5,13 @@ import uuid
 from flama import exceptions
 from flama.ddd.repositories.sqlalchemy import SQLAlchemyTableRepository
 from flama.resources import data_structures
-from flama.resources.exceptions import ResourceAttributeError
+from flama.resources.exceptions import (
+    ResourceAttributeNotFound,
+    ResourceModelInvalid,
+    ResourcePrimaryKeyInvalid,
+    ResourcePrimaryKeyNotFound,
+    ResourceSchemaNotFound,
+)
 from flama.resources.resource import Resource, ResourceType
 
 try:
@@ -30,16 +36,11 @@ class RESTResourceType(ResourceType):
         :param namespace: Variables namespace used to create the class.
         """
         if not mcs._is_abstract(namespace):
-            try:
-                # Get model
-                model = mcs._get_model(bases, namespace)
-                namespace["model"] = model.table
+            model = mcs._get_model(name, bases, namespace)
+            namespace["model"] = model.table
 
-                # Get input and output schemas
-                resource_schemas = mcs._get_schemas(name, bases, namespace)
-                namespace["schemas"] = resource_schemas
-            except AttributeError as e:
-                raise ResourceAttributeError(str(e), name)
+            resource_schemas = mcs._get_schemas(name, bases, namespace)
+            namespace["schemas"] = resource_schemas
 
             namespace.setdefault("_meta", data_structures.Metadata()).namespaces.update(
                 {
@@ -57,32 +58,35 @@ class RESTResourceType(ResourceType):
         return namespace.get("__module__") == "flama.resources.rest" and namespace.get("__qualname__") == "RESTResource"
 
     @classmethod
-    def _get_model(cls, bases: t.Sequence[t.Any], namespace: dict[str, t.Any]) -> data_structures.Model:
+    def _get_model(cls, name: str, bases: t.Sequence[t.Any], namespace: dict[str, t.Any]) -> data_structures.Model:
         """Look for the resource model and checks if a primary key is defined with a valid type.
 
+        :param name: Class name (used to qualify error messages).
         :param bases: List of superclasses.
         :param namespace: Variables namespace used to create the class.
         :return: Resource model.
+        :raises ResourceAttributeNotFound: If the ``model`` attribute is not declared.
+        :raises ResourcePrimaryKeyNotFound: If the SQLAlchemy table does not declare a single-column
+            primary key.
+        :raises ResourcePrimaryKeyInvalid: If the primary key column type is not one of the supported
+            scalar types.
+        :raises ResourceModelInvalid: If the declared ``model`` is neither a SQLAlchemy ``Table`` nor
+            a :class:`data_structures.Model` instance.
         """
-        model = cls._get_attribute("model", bases, namespace, metadata_namespace="rest")
+        model = cls._get_attribute(name, "model", bases, namespace, metadata_namespace="rest")
 
-        # Already defined model probably because resource inheritance, so no need to create it
         if isinstance(model, data_structures.Model):
             return model
 
-        # Resource define model as a sqlalchemy Table, so extract necessary info from it
         elif isinstance(model, sqlalchemy.Table):
-            # Get model primary key
             model_pk_columns = list(sqlalchemy.inspect(model).primary_key.columns.values())
 
-            # Check primary key exists and is a single column
             if len(model_pk_columns) != 1:
-                raise AttributeError(ResourceAttributeError.PK_NOT_FOUND)
+                raise ResourcePrimaryKeyNotFound(name=name)
 
             model_pk = model_pk_columns[0]
             model_pk_name = model_pk.name
 
-            # Check primary key is a valid type
             try:
                 model_pk_mapping: dict[type, type] = {
                     sqlalchemy.Integer: int,
@@ -93,13 +97,13 @@ class RESTResourceType(ResourceType):
                 }
                 model_pk_type = model_pk_mapping[model_pk.type.__class__]
             except KeyError:
-                raise AttributeError(ResourceAttributeError.PK_WRONG_TYPE)
+                raise ResourcePrimaryKeyInvalid(name=name)
 
             return data_structures.Model(
                 table=model, primary_key=data_structures.PrimaryKey(model_pk_name, model_pk_type)
             )
 
-        raise AttributeError(ResourceAttributeError.MODEL_INVALID)
+        raise ResourceModelInvalid(name=name)
 
     @classmethod
     def _get_schemas(cls, name: str, bases: t.Sequence[t.Any], namespace: dict[str, t.Any]) -> data_structures.Schemas:
@@ -109,38 +113,40 @@ class RESTResourceType(ResourceType):
         :param bases: List of superclasses.
         :param namespace: Variables namespace used to create the class.
         :return: Resource schemas.
+        :raises ResourceSchemaNotFound: If none of ``input_schema``/``output_schema``, ``schema`` or
+            a pre-built ``schemas`` declaration is found across the MRO.
         """
         try:
             return data_structures.Schemas(
                 input=data_structures.Schema(
                     name="Input" + name,
-                    schema=cls._get_attribute("input_schema", bases, namespace, metadata_namespace="rest"),
+                    schema=cls._get_attribute(name, "input_schema", bases, namespace, metadata_namespace="rest"),
                 ),
                 output=data_structures.Schema(
                     name="Output" + name,
-                    schema=cls._get_attribute("output_schema", bases, namespace, metadata_namespace="rest"),
+                    schema=cls._get_attribute(name, "output_schema", bases, namespace, metadata_namespace="rest"),
                 ),
             )
-        except AttributeError:
+        except ResourceAttributeNotFound:
             ...
 
         try:
             schema = data_structures.Schema(
-                name=name, schema=cls._get_attribute("schema", bases, namespace, metadata_namespace="rest")
+                name=name, schema=cls._get_attribute(name, "schema", bases, namespace, metadata_namespace="rest")
             )
             return data_structures.Schemas(input=schema, output=schema)
-        except AttributeError:
+        except ResourceAttributeNotFound:
             ...
 
         try:
             schemas: data_structures.Schemas = cls._get_attribute(
-                "schemas", bases, namespace, metadata_namespace="rest"
+                name, "schemas", bases, namespace, metadata_namespace="rest"
             )
             return schemas
-        except AttributeError:
+        except ResourceAttributeNotFound:
             ...
 
-        raise AttributeError(ResourceAttributeError.SCHEMA_NOT_FOUND)
+        raise ResourceSchemaNotFound(name=name)
 
 
 class RESTResource(Resource, metaclass=RESTResourceType):
