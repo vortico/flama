@@ -24,6 +24,25 @@ The steps are quite standard in the GitHub community:
 It's never a fun experience to have your pull request declined after investing a lot of time and effort into a new
 feature, which is why we encourage you to follow the procedure depicted above as closely as possible.
 
+## Development setup
+
+To set up a local development environment, run:
+
+```commandline
+make install
+```
+
+This installs the Python dependencies, builds the Rust extension, and fetches the prebuilt frontend templates
+(the debug pages, schema docs, and chatbot UI) from the latest published release. This is all you need to contribute
+to Flama.
+
+Building those templates from source is restricted to the core team, as it depends on a private package registry.
+If you are a core team member with registry access, build them from source instead with:
+
+```commandline
+make install ARGS=--with-templates
+```
+
 ## Coding standards
 
 Our code formatting rules are implicitly defined by using multiple tools. You can check your code against these
