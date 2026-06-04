@@ -8,7 +8,7 @@ from flama.debug.data_structures import ErrorContext
 from flama.debug.middleware import BaseErrorMiddleware, ExceptionMiddleware, ServerErrorMiddleware
 from flama.http.data_structures import JSONRPCStatus
 from flama.http.responses.api import APIErrorResponse
-from flama.http.responses.json_rpc import JSONRPCErrorResponse
+from flama.http.responses.jsonrpc import JSONRPCErrorResponse
 from flama.http.responses.templates import _FlamaTemplateResponse
 
 

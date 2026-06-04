@@ -25,6 +25,20 @@ class TestCaseMethodComponent:
         assert response.json() == expected
 
 
+class TestCaseAppComponent:
+    @pytest.fixture(scope="function", autouse=True)
+    def add_endpoints(self, app):
+        @app.route("/app/", name="app_route")
+        def get_app(injected: types.App):
+            return {"resolved": str(injected.resolve_url("app_route"))}
+
+    async def test_app_dependency_injects_running_application(self, client, app):
+        response = await client.get("http://example.com/app/")
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"resolved": str(app.resolve_url("app_route"))}
+
+
 class TestCaseURLComponent:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):

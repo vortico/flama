@@ -15,12 +15,31 @@ __all__ = ["ServerSentEvent", "ServerSentEventResponse"]
 
 @dataclasses.dataclass
 class ServerSentEvent:
-    data: str
+    """A single Server-Sent Event frame.
+
+    Emitting a frame with only :attr:`comment` set produces a comment line (``": ..."``)
+    instead of a regular event. Comment-only frames are used as heartbeats: they keep the
+    HTTP connection alive through proxies that enforce read timeouts without affecting the
+    client-side ``EventSource`` event handlers.
+
+    :param data: Event payload (one ``data:`` line per ``\\n``-separated chunk).
+    :param event: Optional event name; clients dispatch on it via ``addEventListener``.
+    :param id: Optional event id; the latest received id is replayed by clients via
+        ``Last-Event-ID`` after a reconnection.
+    :param retry: Optional reconnection retry interval in milliseconds.
+    :param comment: Optional comment line; if set, the frame is rendered as a comment-only
+        line and other fields are ignored.
+    """
+
+    data: str = ""
     event: str | None = None
     id: str | None = None
     retry: int | None = None
+    comment: str | None = None
 
     def encode(self) -> bytes:
+        if self.comment is not None:
+            return f": {self.comment}\n\n".encode()
         lines: list[str] = []
         if self.id is not None:
             lines.append(f"id: {self.id}")
