@@ -1,16 +1,18 @@
 import codecs
 import importlib.metadata
 import io
+import pathlib
 import typing as t
 import warnings
 
-from flama import exceptions, types
+from flama import exceptions
+from flama.serialize.data_structures import MLModelCapabilities
 from flama.serialize.model_serializers.base import BaseModelSerializer
 
 try:
     import torch
 except Exception:  # pragma: no cover
-    torch = None  # ty: ignore[invalid-assignment]
+    torch = None
 
 if t.TYPE_CHECKING:
     from flama.types import JSONSchema
@@ -19,7 +21,7 @@ __all__ = ["ModelSerializer"]
 
 
 class ModelSerializer(BaseModelSerializer):
-    lib: t.ClassVar[types.MLLib] = "torch"
+    lib: t.ClassVar[t.Literal["torch"]] = "torch"
 
     def dump(
         self,
@@ -49,13 +51,16 @@ class ModelSerializer(BaseModelSerializer):
         torch.export.save(ep, buffer)
         return codecs.encode(buffer.getvalue(), "base64")
 
-    def load(self, model: bytes, /, **kwargs) -> t.Any:
+    def load(self, source: bytes | pathlib.Path, /, **kwargs) -> t.Any:
         if torch is None:  # noqa
             raise exceptions.FrameworkNotInstalled("pytorch")
 
+        if isinstance(source, pathlib.Path):
+            raise TypeError("pytorch serializer expects raw bytes, not a directory path")
+
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message=".*non-writable.*", category=UserWarning)
-            return torch.export.load(io.BytesIO(codecs.decode(model, "base64"))).module()
+            return torch.export.load(io.BytesIO(codecs.decode(source, "base64"))).module()
 
     def info(self, model: t.Any, /) -> "JSONSchema | None":
         return {
@@ -63,6 +68,10 @@ class ModelSerializer(BaseModelSerializer):
             "parameters": {k: str(v) for k, v in model.named_parameters()},
             "state": {k: v.tolist() if hasattr(v, "tolist") else v for k, v in model.state_dict().items()},
         }
+
+    def detect_capabilities(self, model: t.Any, /) -> MLModelCapabilities:
+        """Return the empty :class:`MLModelCapabilities` placeholder for traditional ML artifacts."""
+        return MLModelCapabilities()
 
     def version(self) -> str:
         try:

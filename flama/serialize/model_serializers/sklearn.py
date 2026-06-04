@@ -2,11 +2,13 @@ import codecs
 import importlib.metadata
 import logging
 import math
+import pathlib
 import pickle
 import typing as t
 import warnings
 
 from flama import exceptions, types
+from flama.serialize.data_structures import MLModelCapabilities
 from flama.serialize.model_serializers.base import BaseModelSerializer
 
 if t.TYPE_CHECKING:
@@ -19,17 +21,17 @@ __all__ = ["ModelSerializer"]
 
 
 class ModelSerializer(BaseModelSerializer):
-    lib: t.ClassVar[types.MLLib] = "sklearn"
+    lib: t.ClassVar[types.ModelLib] = "sklearn"
 
     def dump(self, obj: t.Any, /, **kwargs) -> bytes:
         return codecs.encode(pickle.dumps(obj), "base64")
 
-    def load(self, model: bytes, /, **kwargs) -> t.Any:
+    def load(self, source: bytes | pathlib.Path, /, **kwargs) -> t.Any:
+        if isinstance(source, pathlib.Path):
+            raise TypeError("sklearn serializer expects raw bytes, not a directory path")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            model = pickle.loads(codecs.decode(model, "base64"))
-
-        return model
+            return pickle.loads(codecs.decode(source, "base64"))
 
     def _info(self, data, /) -> "JSONField":
         if isinstance(data, int | bool | str):
@@ -52,6 +54,10 @@ class ModelSerializer(BaseModelSerializer):
         except:  # noqa
             logger.exception("Cannot collect info from model")
             return None
+
+    def detect_capabilities(self, model: t.Any, /) -> MLModelCapabilities:
+        """Return the empty :class:`MLModelCapabilities` placeholder for traditional ML artifacts."""
+        return MLModelCapabilities()
 
     def version(self) -> str:
         try:
