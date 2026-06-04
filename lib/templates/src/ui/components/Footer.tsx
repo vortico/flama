@@ -1,6 +1,5 @@
 import { IconBrandGithub, IconBrandLinkedin, IconBrandMedium, IconBrandX } from '@tabler/icons-react'
-
-import { Logo } from '@/ui/elements'
+import { VorticoLogo } from '@vortico/ui/logos'
 
 interface Social {
   url: string
@@ -20,7 +19,7 @@ export default function Footer() {
       <div className="border-vortico-500/50 border-t px-4 py-2 sm:px-6 md:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <a href="https://vortico.tech">
-            <Logo logo="vortico" color="vortico" size="lg" />
+            <VorticoLogo direction="row" size="lg" />
           </a>
           <div className="divide-vortico-500/50 flex h-8 items-center justify-end divide-x">
             {social.map((item, i) => (

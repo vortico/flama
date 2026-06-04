@@ -1,5 +1,5 @@
-import { Request } from '@/data/debug'
-import { TableMapValue as MapValue, TableRow as Row, Table, TableValue as Value } from '@/ui/elements'
+import { Request } from '../data'
+import { TableMapValue as MapValue, TableRow as Row, Table, TableValue as Value } from './Table'
 
 export default function RequestTable() {
   const { path, method, pathParams, queryParams, headers, cookies, clientHost, clientPort } = new Request()

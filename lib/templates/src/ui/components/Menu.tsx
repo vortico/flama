@@ -1,9 +1,22 @@
 import React, { ReactElement, useCallback, useState } from 'react'
 
 import { IconBook, IconBrandGithub, IconMenu2, IconScript, IconX } from '@tabler/icons-react'
+import { FlamaIcon } from '@vortico/ui/icons'
+import { FlamaName } from '@vortico/ui/names'
 import { createPortal } from 'react-dom'
 
-import { Logo } from '@/ui/elements'
+function FlamaLogo() {
+  return (
+    <div className="flex items-center justify-center gap-1" aria-label="Flama logo">
+      <div className="text-flama-500 h-7 w-7 md:h-8 md:w-8">
+        <FlamaIcon />
+      </div>
+      <div className="text-flama-500 text-lg leading-7 md:text-xl md:leading-8">
+        <FlamaName />
+      </div>
+    </div>
+  )
+}
 
 interface NavItem {
   href: string
@@ -83,7 +96,7 @@ function FloatMenu({ onClose }: { onClose: () => void }) {
     >
       <div className="border-flama-500 flex h-14 w-full items-center justify-between border-b px-4 sm:px-6 md:px-8">
         <a href="https://flama.dev" className="block cursor-pointer" aria-label="Flama website">
-          <Logo logo="flama" color="flama" size="lg" />
+          <FlamaLogo />
         </a>
         <button className="h-6 w-6" onClick={onClose} aria-label="Close menu">
           <IconX className="text-primary-400 hover:text-flama-500 h-full w-full transition-colors duration-200" />
@@ -102,7 +115,7 @@ function FixedMenu({ onOpen }: { onOpen: () => void }) {
     <>
       <div className="flex h-14 w-full items-center justify-between">
         <a href="https://flama.dev" className="block cursor-pointer" aria-label="Flama website">
-          <Logo logo="flama" color="flama" size="lg" />
+          <FlamaLogo />
         </a>
         <div className="hidden items-center justify-between gap-8 md:flex">
           <Nav className="flex items-center justify-start gap-8" />

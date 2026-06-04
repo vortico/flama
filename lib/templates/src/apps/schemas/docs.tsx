@@ -1,8 +1,12 @@
 import ReactDOM from 'react-dom/client'
 
-import { Docs, Footer, Menu } from '@/ui/components'
+import { Footer, Menu } from '@/ui/components'
 
-import '@/ui/styles/tailwind.css'
+import { Docs } from './components'
+
+import '@/ui/styles/base.css'
+import './styles/docs.css'
+import '@scalar/api-reference-react/style.css'
 
 function Page() {
   return (
