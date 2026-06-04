@@ -1,20 +1,48 @@
 #!/bin/bash
 set -e
 
+source "./scripts/_env"
 source "./scripts/clean"
 
 # ─── Build ───────────────────────────────────────────────────────────────────
 
+# Build the templates from source using the private @vortico/ui registry. This
+# is the core-team path; it requires an Artifact Registry token.
+build_templates() {
+  echo "🔐 Fetching Artifact Registry token..."
+  local token
+  token=$(require_token)
+
+  echo "📦 Building templates from source..."
+  (cd lib/templates && ARTIFACT_REGISTRY_TOKEN="$token" pnpm install && pnpm build)
+}
+
 run_build() {
-  if [[ "$1" == "-c" || "$1" == "--clean" ]]; then
-    run_clean
+  local with_templates=false
+  local templates_only=false
+  for arg in "$@"; do
+    case "$arg" in
+    -c | --clean) run_clean ;;
+    --with-templates) with_templates=true ;;
+    --templates-only) templates_only=true ;;
+    esac
+  done
+
+  if $templates_only; then
+    build_templates
+    echo "✅ Templates build complete."
+    return 0
   fi
 
-  echo "📦 Building templates..."
-  (cd lib/templates && npm i && npm run build)
+  if $with_templates; then
+    build_templates
+  else
+    ./scripts/fetch_templates
+  fi
 
   echo "📦 Building package..."
   uv run maturin build --release
+
   echo "✅ Build complete."
 }
 

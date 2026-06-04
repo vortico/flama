@@ -1,8 +1,11 @@
 benchmark: ## Generates benchmark comparison report
 	@./scripts/benchmark
 
-build: ## Builds the package
-	@./scripts/build
+build: ## Builds the package (pass ARGS=--with-templates to build templates from the private registry)
+	@./scripts/build $(ARGS)
+
+build-templates: ## Builds the templates from source (core-team; needs Artifact Registry access)
+	@./scripts/build --templates-only $(ARGS)
 
 check: ## Checks the dependencies of the project and install those missing
 	@./scripts/check
@@ -13,11 +16,14 @@ clean: ## Removes artifact folders and files which are cached
 docker_push: ## Push docker images to registry
 	@./scripts/docker_push .
 
+fetch-templates: ## Fetches prebuilt templates from the latest published wheel
+	@./scripts/fetch_templates
+
 format: ## Runs code formatting
 	@./scripts/format .
 
-install: ## Installs the package, JS requirements, and build templates needed
-	@./scripts/install
+install: ## Installs the package and dependencies (pass ARGS=--with-templates for the core-team template build)
+	@./scripts/install $(ARGS)
 
 lint: ## Runs code linting
 	@./scripts/lint .
@@ -40,7 +46,7 @@ typecheck: ## Runs static types checking
 version: ## Gets the current version of the package
 	@./scripts/version
 
-.PHONY: help benchmark build check clean docker_push format install lint lint-fix performance publish test typecheck version
+.PHONY: help benchmark build build-templates check clean docker_push fetch-templates format install lint lint-fix performance publish test typecheck version
 .DEFAULT_GOAL := help
 
 help:
