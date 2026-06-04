@@ -79,13 +79,17 @@ class _Downloader(abc.ABC):
 
     :param model_name: Source-specific model identifier.
     :param output: Destination ``.flm`` path.
+    :param family: Artifact family to record in the manifest (``"ml"`` or ``"llm"``). Required
+        - never inferred. LLM artifacts are routed through the LLM machinery (vLLM / MLX) at
+        load time regardless of the on-disk lib.
     """
 
-    _lib: t.ClassVar[types.Lib]
+    _lib: t.ClassVar[types.ModelLib]
 
-    def __init__(self, model_name: str, output: pathlib.Path) -> None:
+    def __init__(self, model_name: str, output: pathlib.Path, family: types.ModelFamily) -> None:
         self.model_name = model_name
         self.output = output
+        self.family: types.ModelFamily = family
         self.config: dict[str, str] = {}
         self.extra: dict[str, str] = {"model_name": self.model_name}
         self.tmp = tempfile.TemporaryDirectory()
@@ -105,7 +109,9 @@ class _Downloader(abc.ABC):
 
     def _pack(self) -> None:
         with CONSOLE.status("Packaging..."):
-            Serializer.dump(self.tmp.name, path=self.output, lib=self._lib, config=self.config, extra=self.extra)
+            Serializer.dump(
+                self.tmp.name, path=self.output, family=self.family, lib=self._lib, config=self.config, extra=self.extra
+            )
 
     async def __aenter__(self) -> "_Downloader":
         self.tmp.__enter__()
@@ -135,10 +141,12 @@ class _HuggingFaceDownloader(_Downloader):
     """
 
     BASE_URL: t.ClassVar[str] = "https://huggingface.co"
-    _lib: t.ClassVar[types.MLLib] = "transformers"
+    _lib: t.ClassVar[types.ModelLib] = "transformers"
 
-    def __init__(self, model_name: str, output: pathlib.Path, *, max_concurrent: int) -> None:
-        super().__init__(model_name, output)
+    def __init__(
+        self, model_name: str, output: pathlib.Path, family: types.ModelFamily, *, max_concurrent: int
+    ) -> None:
+        super().__init__(model_name, output, family)
         self.client = Client(base_url=self.BASE_URL, follow_redirects=True, http2=True)
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.retry = _RetryPolicy()
@@ -215,6 +223,14 @@ class _HuggingFaceDownloader(_Downloader):
 @click.command(name="get", cls=FlamaCommand, context_settings={"auto_envvar_prefix": "FLAMA"})
 @click.argument("model-name")
 @click.option("--source", type=click.Choice(["huggingface"]), required=True, help="Model source provider.")
+@click.option(
+    "--family",
+    type=click.Choice(t.get_args(types.ModelFamily)),
+    required=True,
+    help="Artifact family recorded in the manifest. Use 'ml' for traditional ML models and 'llm' for large language "
+    "models. The choice is persisted in the .flm manifest and drives runtime dispatch at load time; it cannot be "
+    "changed without repacking.",
+)
 @click.option("-o", "--output", default=None, help="Output .flm path (default: <model-name>.flm).")
 @click.option(
     "--max-concurrent",
@@ -223,20 +239,23 @@ class _HuggingFaceDownloader(_Downloader):
     show_default=True,
     help="Maximum number of files to download concurrently.",
 )
-def command(model_name: str, source: str, output: str | None, max_concurrent: int) -> None:
+def command(model_name: str, source: str, family: types.ModelFamily, output: str | None, max_concurrent: int) -> None:
     """Download and package a model as .flm.
 
     Download a model from a supported source and serialize it into Flama's .flm format, ready for serving with
-    'flama llm <path> run'.
+    'flama serve' or interaction with 'flama model'. The artifact family must be declared explicitly via
+    ``--family``: ML artifacts run through the framework recorded in the manifest, while LLM artifacts are
+    dispatched to vLLM or MLX at load time depending on what is installed.
 
     \b
     Example:
-        flama get --source huggingface Qwen/Qwen2.5-0.5B
+        flama get --source huggingface --family ml scikit-learn/Fish-Weight
+        flama get --source huggingface --family llm Qwen/Qwen2.5-0.5B
     """
     output_path = pathlib.Path(output or f"{model_name.replace('/', '_')}.flm")
 
     if source == "huggingface":
-        downloader: _Downloader = _HuggingFaceDownloader(model_name, output_path, max_concurrent=max_concurrent)
+        downloader: _Downloader = _HuggingFaceDownloader(model_name, output_path, family, max_concurrent=max_concurrent)
     else:  # pragma: no cover -- click.Choice already rejects unknown sources
         raise click.BadParameter(f"Unknown source: {source}", param_hint="--source")
 

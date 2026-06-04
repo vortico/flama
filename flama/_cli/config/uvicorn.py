@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import dataclasses
 import functools
 import os
@@ -10,7 +11,6 @@ import uvicorn
 from h11._connection import DEFAULT_MAX_INCOMPLETE_EVENT_SIZE
 from uvicorn.config import (
     LOG_LEVELS,
-    LOGGING_CONFIG,
     SSL_PROTOCOL_VERSION,
     HTTPProtocolType,
     InterfaceType,
@@ -22,7 +22,54 @@ from uvicorn.config import (
 if t.TYPE_CHECKING:
     from flama import types
 
-__all__ = ["options", "Uvicorn"]
+__all__ = ["options", "Uvicorn", "LOGGING_CONFIG"]
+
+
+LOGGING_CONFIG: t.Final[dict[str, t.Any]] = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "()": "logging.Formatter",
+            "fmt": "[%(name)s] %(message)s",
+        },
+        "access": {
+            "()": "uvicorn.logging.AccessFormatter",
+            "fmt": '[%(name)s] %(client_addr)s - "%(request_line)s" %(status_code)s',
+            "use_colors": False,
+        },
+    },
+    "handlers": {
+        "default": {
+            "class": "rich.logging.RichHandler",
+            "console": "ext://flama._cli.formatting.CONSOLE",
+            "show_path": False,
+            "log_time_format": "[%X]",
+            "rich_tracebacks": True,
+            "formatter": "default",
+        },
+        "access": {
+            "class": "rich.logging.RichHandler",
+            "console": "ext://flama._cli.formatting.CONSOLE",
+            "show_path": False,
+            "log_time_format": "[%X]",
+            "rich_tracebacks": False,
+            "formatter": "access",
+        },
+    },
+    "loggers": {
+        "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "uvicorn.error": {"level": "ERROR"},
+        "uvicorn.access": {"handlers": ["access"], "level": "INFO", "propagate": False},
+        "flama": {"handlers": ["default"], "level": "INFO", "propagate": False},
+    },
+}
+
+
+def _default_log_config() -> dict[str, t.Any]:
+    """Return a fresh deep copy of :data:`LOGGING_CONFIG` for use as a dataclass default."""
+    return copy.deepcopy(LOGGING_CONFIG)
+
 
 decorators = (
     click.option(
@@ -339,9 +386,7 @@ class Uvicorn:
     reload_delay: float = 0.25
     workers: int | None = None
     env_file: str | os.PathLike | None = None
-    log_config: dict[str, t.Any] | str | None = dataclasses.field(
-        default_factory=lambda: LOGGING_CONFIG.copy()  # type: ignore[no-any-return]
-    )
+    log_config: dict[str, t.Any] | str | None = dataclasses.field(default_factory=_default_log_config)
     log_level: str | int | None = None
     access_log: bool = True
     proxy_headers: bool = True
@@ -367,6 +412,15 @@ class Uvicorn:
     h11_max_incomplete_event_size: int = DEFAULT_MAX_INCOMPLETE_EVENT_SIZE
 
     def run(self, app: "str | types.App"):
+        if self.log_level is not None and isinstance(self.log_config, dict):
+            # ``--server-log-level`` is documented as the global log level, but uvicorn's own
+            # ``Config.configure_logging`` only applies it to ``uvicorn.error`` / ``uvicorn.access``
+            # / ``uvicorn.asgi``. The ``flama`` logger keeps whatever level the dict-config baked
+            # in (``INFO`` by default), so DEBUG/TRACE records from Flama modules get filtered at
+            # the logger before reaching any handler. Propagating the level here makes the flag
+            # mean what its name suggests across the whole server.
+            level = self.log_level.upper() if isinstance(self.log_level, str) else self.log_level
+            self.log_config.setdefault("loggers", {}).setdefault("flama", {})["level"] = level
         uvicorn.run(app, **dataclasses.asdict(self))
 
 
@@ -448,7 +502,7 @@ def options(command: t.Callable) -> t.Callable:
                 reload_delay=server_reload_delay,
                 workers=server_workers,
                 env_file=server_env_file,
-                log_config=server_log_config if server_log_config is not None else LOGGING_CONFIG,
+                log_config=server_log_config if server_log_config is not None else _default_log_config(),
                 log_level=server_log_level,
                 access_log=server_access_log,
                 proxy_headers=server_proxy_headers,

@@ -10,11 +10,19 @@ from click.testing import CliRunner
 from flama._cli.commands.get import _Downloader, _HuggingFaceDownloader, _RetryPolicy, command
 
 
-def _assert_ctor(cls: MagicMock, model_name: str, output: pathlib.Path, *, max_concurrent: int) -> None:
+def _assert_ctor(
+    cls: MagicMock,
+    model_name: str,
+    output: pathlib.Path,
+    family: str,
+    *,
+    max_concurrent: int,
+) -> None:
     ctor = cls.call_args
     assert ctor.args[0] == model_name
     assert isinstance(ctor.args[1], pathlib.Path)
     assert ctor.args[1] == output
+    assert ctor.args[2] == family
     assert ctor.kwargs == {"max_concurrent": max_concurrent}
 
 
@@ -107,20 +115,16 @@ class TestCaseRetryPolicy:
         assert _RetryPolicy.is_transient(exc) is expected
 
     @pytest.mark.parametrize(
-        ["scenario", "expected_calls", "expected_exception"],
+        ["scenario", "expected_calls", "exception"],
         [
             pytest.param("succeeds_first", 1, None, id="succeeds_first"),
             pytest.param("retries_then_succeeds", 2, None, id="retries_then_succeeds"),
             pytest.param("exhausts_attempts", 3, httpx.ConnectError, id="exhausts_attempts"),
             pytest.param("no_retry_on_non_transient", 1, ValueError, id="no_retry_on_non_transient"),
         ],
+        indirect=["exception"],
     )
-    async def test___call__(
-        self,
-        scenario: str,
-        expected_calls: int,
-        expected_exception: type[BaseException] | None,
-    ) -> None:
+    async def test___call__(self, scenario: str, expected_calls: int, exception) -> None:
         calls = 0
 
         async def fn() -> None:
@@ -135,12 +139,8 @@ class TestCaseRetryPolicy:
 
         policy = _RetryPolicy(attempts=3)
 
-        with patch("flama._cli.commands.get.asyncio.sleep", new_callable=AsyncMock):
-            if expected_exception is None:
-                await policy(fn)
-            else:
-                with pytest.raises(expected_exception):
-                    await policy(fn)
+        with patch("flama._cli.commands.get.asyncio.sleep", new_callable=AsyncMock), exception:
+            await policy(fn)
 
         assert calls == expected_calls
 
@@ -148,17 +148,19 @@ class TestCaseRetryPolicy:
 class TestCaseDownloader:
     def test_init(self) -> None:
         with pytest.raises(TypeError):
-            _Downloader("m", pathlib.Path("out.flm"))  # type: ignore[abstract]
+            _Downloader("m", pathlib.Path("out.flm"), "ml")  # type: ignore[abstract]
 
-        downloader = _HuggingFaceDownloader("my-org/my-model", pathlib.Path("out.flm"), max_concurrent=4)
+        downloader = _HuggingFaceDownloader("my-org/my-model", pathlib.Path("out.flm"), "ml", max_concurrent=4)
 
         assert downloader.model_name == "my-org/my-model"
         assert downloader.output == pathlib.Path("out.flm")
+        assert downloader.family == "ml"
         assert downloader.config == {}
         assert downloader.extra == {"model_name": "my-org/my-model"}
         assert isinstance(downloader.tmp.name, str)
 
-    async def test_run(self, tmp_path: pathlib.Path) -> None:
+    @pytest.mark.parametrize("family", [pytest.param("ml", id="ml"), pytest.param("llm", id="llm")])
+    async def test_run(self, tmp_path: pathlib.Path, family: str) -> None:
         output = tmp_path / "out.flm"
         captured: list[pathlib.Path] = []
 
@@ -171,11 +173,12 @@ class TestCaseDownloader:
             patch.object(_HuggingFaceDownloader, "_download", fake_download),
             patch("flama._cli.commands.get.Serializer") as serializer,
         ):
-            downloader = _HuggingFaceDownloader("my-org/my-model", output, max_concurrent=2)
+            downloader = _HuggingFaceDownloader("my-org/my-model", output, family, max_concurrent=2)  # type: ignore[arg-type]
             await downloader.run()
 
         kwargs = serializer.dump.call_args.kwargs
         assert kwargs["path"] == output
+        assert kwargs["family"] == family
         assert kwargs["lib"] == "transformers"
         assert kwargs["config"] == {"task": "image-classification"}
         assert kwargs["extra"] == {"model_name": "my-org/my-model"}
@@ -184,22 +187,25 @@ class TestCaseDownloader:
 
     def test__pack(self, tmp_path: pathlib.Path) -> None:
         output = tmp_path / "out.flm"
-        downloader = _HuggingFaceDownloader("my-org/my-model", output, max_concurrent=2)
+        downloader = _HuggingFaceDownloader("my-org/my-model", output, "llm", max_concurrent=2)
         downloader.config["task"] = "image-classification"
 
         with patch("flama._cli.commands.get.Serializer") as serializer:
             downloader._pack()
 
-        serializer.dump.assert_called_once_with(
-            downloader.tmp.name,
-            path=output,
-            lib="transformers",
-            config={"task": "image-classification"},
-            extra={"model_name": "my-org/my-model"},
-        )
+        assert serializer.dump.call_args_list == [
+            call(
+                downloader.tmp.name,
+                path=output,
+                family="llm",
+                lib="transformers",
+                config={"task": "image-classification"},
+                extra={"model_name": "my-org/my-model"},
+            )
+        ]
 
     async def test___aenter__(self) -> None:
-        downloader = _HuggingFaceDownloader("m", pathlib.Path("out.flm"), max_concurrent=2)
+        downloader = _HuggingFaceDownloader("m", pathlib.Path("out.flm"), "ml", max_concurrent=2)
 
         with patch("flama._cli.commands.get.Client", return_value=AsyncMock()):
             async with downloader:
@@ -207,7 +213,7 @@ class TestCaseDownloader:
                 assert tmp.is_dir()
 
     async def test___aexit__(self) -> None:
-        downloader = _HuggingFaceDownloader("m", pathlib.Path("out.flm"), max_concurrent=2)
+        downloader = _HuggingFaceDownloader("m", pathlib.Path("out.flm"), "ml", max_concurrent=2)
 
         with patch("flama._cli.commands.get.Client", return_value=AsyncMock()):
             async with downloader:
@@ -221,7 +227,9 @@ class TestCaseHuggingFaceDownloader:
     @pytest.fixture(scope="function")
     def make_downloader(self) -> t.Callable[..., _HuggingFaceDownloader]:
         def _factory(*, max_concurrent: int = 8) -> _HuggingFaceDownloader:
-            return _HuggingFaceDownloader("my-org/my-model", pathlib.Path("out.flm"), max_concurrent=max_concurrent)
+            return _HuggingFaceDownloader(
+                "my-org/my-model", pathlib.Path("out.flm"), "ml", max_concurrent=max_concurrent
+            )
 
         return _factory
 
@@ -256,7 +264,29 @@ class TestCaseHuggingFaceDownloader:
         assert mock_client.get.await_args_list == [call("/api/models/my-org/my-model", params={"blobs": "true"})]
         assert mock_client.stream.call_count == 2
 
-    async def test__download_file(self, make_downloader: t.Callable[..., _HuggingFaceDownloader]) -> None:
+    async def test__download_file_delegates_to_retry(
+        self, make_downloader: t.Callable[..., _HuggingFaceDownloader]
+    ) -> None:
+        files = [("config.json", 12)]
+
+        def stream_factory(method, url):
+            return _make_stream(chunks=[b"data"])
+
+        with patch(
+            "flama._cli.commands.get.Client", return_value=_make_client(_make_response(files=files), stream_factory)
+        ):
+            downloader = make_downloader(max_concurrent=2)
+            async with downloader:
+                downloader.retry = AsyncMock()  # type: ignore[assignment]
+                await downloader._download_file("file_0.bin", MagicMock(), 0)
+
+                assert downloader.retry.await_count == 1
+                ((fn,), _) = downloader.retry.await_args
+                assert callable(fn)
+
+    async def test__download_file_respects_concurrency_cap(
+        self, make_downloader: t.Callable[..., _HuggingFaceDownloader]
+    ) -> None:
         max_concurrent = 2
         files = [(f"file_{i}.bin", 4) for i in range(5)]
         in_flight = 0
@@ -281,20 +311,6 @@ class TestCaseHuggingFaceDownloader:
             stream.aiter_bytes = aiter_bytes
             return stream
 
-        # Phase 1: _download_file delegates to self.retry with a zero-arg callable.
-        with patch(
-            "flama._cli.commands.get.Client", return_value=_make_client(_make_response(files=files), stream_factory)
-        ):
-            downloader = make_downloader(max_concurrent=max_concurrent)
-            async with downloader:
-                downloader.retry = AsyncMock()  # type: ignore[assignment]
-                await downloader._download_file("file_0.bin", MagicMock(), 0)
-
-                downloader.retry.assert_awaited_once()
-                ((fn,), _) = downloader.retry.await_args
-                assert callable(fn)
-
-        # Phase 2: real retry path respects the concurrency cap (peak <= max_concurrent).
         mock_client = _make_client(_make_response(files=files), stream_factory)
         with patch("flama._cli.commands.get.Client", return_value=mock_client):
             downloader = make_downloader(max_concurrent=max_concurrent)
@@ -306,18 +322,19 @@ class TestCaseHuggingFaceDownloader:
         assert mock_client.stream.call_count == len(files)
 
     @pytest.mark.parametrize(
-        ["scenario", "expected_exception", "expected_dest_exists"],
+        ["scenario", "exception", "expected_dest_exists"],
         [
             pytest.param("success", None, True, id="success"),
             pytest.param("atomic_write_on_failure", RuntimeError, False, id="atomic_write_on_failure"),
             pytest.param("4xx_propagates", httpx.HTTPStatusError, False, id="4xx_propagates"),
         ],
+        indirect=["exception"],
     )
     async def test__stream_to_file(
         self,
         make_downloader: t.Callable[..., _HuggingFaceDownloader],
         scenario: str,
-        expected_exception: type[BaseException] | None,
+        exception,
         expected_dest_exists: bool,
         tmp_path: pathlib.Path,
     ) -> None:
@@ -342,11 +359,8 @@ class TestCaseHuggingFaceDownloader:
         with patch("flama._cli.commands.get.Client", return_value=mock_client):
             downloader = make_downloader()
             async with downloader:
-                if expected_exception is None:
+                with exception:
                     await downloader._stream_to_file("x.bin", dest, progress, 0)
-                else:
-                    with pytest.raises(expected_exception):
-                        await downloader._stream_to_file("x.bin", dest, progress, 0)
 
         assert dest.exists() is expected_dest_exists
         if expected_dest_exists:
@@ -361,7 +375,7 @@ class TestCaseHuggingFaceDownloader:
         with patch("flama._cli.commands.get.Client", return_value=client):
             downloader = make_downloader()
             async with downloader:
-                client.__aenter__.assert_awaited_once()
+                assert client.__aenter__.await_count == 1
                 assert pathlib.Path(downloader.tmp.name).is_dir()
 
     async def test___aexit__(self, make_downloader: t.Callable[..., _HuggingFaceDownloader]) -> None:
@@ -374,7 +388,7 @@ class TestCaseHuggingFaceDownloader:
             async with downloader:
                 tmp = pathlib.Path(downloader.tmp.name)
 
-        client.__aexit__.assert_awaited_once()
+        assert client.__aexit__.await_count == 1
         assert not tmp.exists()
 
 
@@ -388,55 +402,101 @@ class TestCaseCommand:
             yield cls, instance
 
     @pytest.mark.parametrize(
-        "scenario",
+        ["build_args", "build_expected_path", "expected_family", "expected_max_concurrent"],
         [
-            pytest.param("happy_path", id="happy_path"),
-            pytest.param("with_output", id="with_output"),
-            pytest.param("with_max_concurrent", id="with_max_concurrent"),
-            pytest.param("max_concurrent_invalid", id="max_concurrent_invalid"),
-            pytest.param("missing_source", id="missing_source"),
-            pytest.param("invalid_source", id="invalid_source"),
+            pytest.param(
+                lambda _tmp: ["my-org/my-model", "--source", "huggingface", "--family", "ml"],
+                lambda _tmp: pathlib.Path("my-org_my-model.flm"),
+                "ml",
+                8,
+                id="ml_default",
+            ),
+            pytest.param(
+                lambda _tmp: ["my-org/my-model", "--source", "huggingface", "--family", "llm"],
+                lambda _tmp: pathlib.Path("my-org_my-model.flm"),
+                "llm",
+                8,
+                id="llm_default",
+            ),
+            pytest.param(
+                lambda tmp: [
+                    "my-org/my-model",
+                    "--source",
+                    "huggingface",
+                    "--family",
+                    "ml",
+                    "-o",
+                    str(tmp / "custom.flm"),
+                ],
+                lambda tmp: tmp / "custom.flm",
+                "ml",
+                8,
+                id="with_output",
+            ),
+            pytest.param(
+                lambda _tmp: [
+                    "my-org/my-model",
+                    "--source",
+                    "huggingface",
+                    "--family",
+                    "ml",
+                    "--max-concurrent",
+                    "4",
+                ],
+                lambda _tmp: pathlib.Path("my-org_my-model.flm"),
+                "ml",
+                4,
+                id="with_max_concurrent",
+            ),
         ],
     )
-    def test_command(
+    def test_command_success(
         self,
         runner: CliRunner,
         mock_downloader: tuple[MagicMock, MagicMock],
         tmp_path: pathlib.Path,
-        scenario: str,
+        build_args: t.Callable[[pathlib.Path], list[str]],
+        build_expected_path: t.Callable[[pathlib.Path], pathlib.Path],
+        expected_family: str,
+        expected_max_concurrent: int,
     ) -> None:
         cls, instance = mock_downloader
 
-        if scenario == "happy_path":
-            result = runner.invoke(command, ["my-org/my-model", "--source", "huggingface"])
+        result = runner.invoke(command, build_args(tmp_path))
 
-            assert result.exit_code == 0, result.output
-            cls.assert_called_once()
-            _assert_ctor(cls, "my-org/my-model", pathlib.Path("my-org_my-model.flm"), max_concurrent=8)
-            instance.run.assert_awaited_once_with()
-        elif scenario == "with_output":
-            output = tmp_path / "custom.flm"
-            result = runner.invoke(command, ["my-org/my-model", "--source", "huggingface", "-o", str(output)])
+        assert result.exit_code == 0, result.output
+        assert cls.call_count == 1
+        _assert_ctor(
+            cls,
+            "my-org/my-model",
+            build_expected_path(tmp_path),
+            expected_family,
+            max_concurrent=expected_max_concurrent,
+        )
+        assert instance.run.await_args_list == [call()]
 
-            assert result.exit_code == 0, result.output
-            _assert_ctor(cls, "my-org/my-model", output, max_concurrent=8)
-        elif scenario == "with_max_concurrent":
-            result = runner.invoke(command, ["my-org/my-model", "--source", "huggingface", "--max-concurrent", "4"])
+    @pytest.mark.parametrize(
+        "args",
+        [
+            pytest.param(
+                ["my-org/my-model", "--source", "huggingface", "--family", "ml", "--max-concurrent", "0"],
+                id="max_concurrent_invalid",
+            ),
+            pytest.param(["my-org/my-model"], id="missing_source"),
+            pytest.param(["my-org/my-model", "--source", "huggingface"], id="missing_family"),
+            pytest.param(["my-org/my-model", "--source", "huggingface", "--family", "bogus"], id="invalid_family"),
+            pytest.param(["my-org/my-model", "--source", "unknown", "--family", "ml"], id="invalid_source"),
+        ],
+    )
+    def test_command_invalid_args(
+        self,
+        runner: CliRunner,
+        mock_downloader: tuple[MagicMock, MagicMock],
+        args: list[str],
+    ) -> None:
+        cls, _ = mock_downloader
 
-            assert result.exit_code == 0, result.output
-            _assert_ctor(cls, "my-org/my-model", pathlib.Path("my-org_my-model.flm"), max_concurrent=4)
-        elif scenario == "max_concurrent_invalid":
-            result = runner.invoke(command, ["my-org/my-model", "--source", "huggingface", "--max-concurrent", "0"])
+        result = runner.invoke(command, args)
 
-            assert result.exit_code != 0
-            cls.assert_not_called()
-        elif scenario == "missing_source":
-            result = runner.invoke(command, ["my-org/my-model"])
-
-            assert result.exit_code != 0
-            cls.assert_not_called()
-        elif scenario == "invalid_source":
-            result = runner.invoke(command, ["my-org/my-model", "--source", "unknown"])
-
-            assert result.exit_code != 0
-            cls.assert_not_called()
+        assert result.exit_code != 0
+        assert not cls.called

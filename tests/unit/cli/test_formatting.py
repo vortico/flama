@@ -1,4 +1,5 @@
 import importlib.metadata
+import typing as t
 from unittest.mock import MagicMock, patch
 
 import click
@@ -21,22 +22,15 @@ from flama._cli.formatting import (
 
 class TestCaseGetVersion:
     @pytest.mark.parametrize(
-        ["installed", "expected"],
+        ["patch_kwargs", "expected"],
         [
-            pytest.param(True, "1.2.3", id="installed"),
-            pytest.param(False, "dev", id="not_installed"),
+            pytest.param({"return_value": "1.2.3"}, "1.2.3", id="installed"),
+            pytest.param({"side_effect": importlib.metadata.PackageNotFoundError}, "dev", id="not_installed"),
         ],
     )
-    def test__get_version(self, installed: bool, expected: str) -> None:
-        if installed:
-            with patch("flama._cli.formatting.importlib.metadata.version", return_value="1.2.3"):
-                assert _get_version() == expected
-        else:
-            with patch(
-                "flama._cli.formatting.importlib.metadata.version",
-                side_effect=importlib.metadata.PackageNotFoundError,
-            ):
-                assert _get_version() == expected
+    def test__get_version(self, patch_kwargs: dict[str, t.Any], expected: str) -> None:
+        with patch("flama._cli.formatting.importlib.metadata.version", **patch_kwargs):
+            assert _get_version() == expected
 
 
 class TestCaseRichHelpFormatter:
@@ -175,26 +169,21 @@ class TestCaseRenderHelp:
 
 
 class TestCaseRenderError:
-    @pytest.mark.parametrize(
-        "with_ctx",
-        [
-            pytest.param(True, id="with_ctx"),
-            pytest.param(False, id="no_ctx"),
-        ],
-    )
-    def test__render_error(self, with_ctx: bool) -> None:
-        ctx: click.Context | None = None
-        if with_ctx:
+    @pytest.fixture(scope="function", params=[True, False], ids=["with_ctx", "no_ctx"])
+    def ctx(self, request: pytest.FixtureRequest) -> click.Context | None:
+        if not request.param:
+            return None
 
-            @click.group(cls=FlamaGroup)
-            def cli() -> None:
-                pass
+        @click.group(cls=FlamaGroup)
+        def cli() -> None:
+            pass
 
-            ctx = click.Context(cli)
+        return click.Context(cli)
 
+    def test__render_error(self, ctx: click.Context | None) -> None:
         with patch.object(CONSOLE, "print") as mock_print:
             _render_error("oops", ctx=ctx)
 
-        mock_print.assert_called_once()
+        assert mock_print.call_count == 1
         panel = mock_print.call_args.args[0]
         assert isinstance(panel, Panel)

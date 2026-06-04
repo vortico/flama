@@ -1,15 +1,17 @@
 import json
 import pathlib
 import typing as t
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import click
 import pytest
 from click.testing import CliRunner
 
-from flama._cli.commands.model import _parse_params, _read_input, command
+from flama._cli.commands.model import _LLM, _ML, _Cli, command
 from flama.concurrency import iterate
-from flama.models.base import BaseLLMModel, BaseMLModel
+from flama.models.base import LLMModel, MLModel
+from flama.models.engine.llm.decoder.decoder import Decoder
+from flama.models.transport.output.llm.event import Event, TextEvent
 
 
 async def _ml_stream_two_items(
@@ -27,42 +29,212 @@ async def _ml_stream_one_item(
         yield [42]
 
 
-async def _llm_stream_two_tokens(prompt: str, **params: t.Any) -> t.AsyncIterator[str]:
-    for token in ["Hello", " world"]:
-        yield token
+async def _llm_stream_two_tokens(prompt: str | None = None, /, **kwargs: t.Any) -> t.AsyncIterator[Event]:
+    async def _gen() -> t.AsyncIterator[Event]:
+        for text in ["Hello", " world"]:
+            yield TextEvent(channel="output", text=text)
+
+    return _gen()
 
 
-async def _llm_stream_one_token(prompt: str, **params: t.Any) -> t.AsyncIterator[str]:
-    yield "ok"
+async def _llm_stream_one_token(prompt: str | None = None, /, **kwargs: t.Any) -> t.AsyncIterator[Event]:
+    async def _gen() -> t.AsyncIterator[Event]:
+        yield TextEvent(channel="output", text="ok")
+
+    return _gen()
+
+
+async def _llm_stream_thinking_then_output(prompt: str | None = None, /, **kwargs: t.Any) -> t.AsyncIterator[Event]:
+    async def _gen() -> t.AsyncIterator[Event]:
+        yield TextEvent(channel="thinking", text="reasoning")
+        yield TextEvent(channel="output", text="answer")
+
+    return _gen()
 
 
 class TestCaseCommand:
     @pytest.mark.parametrize(
-        "scenario",
         [
-            pytest.param("normal_load", id="normal_load"),
-            pytest.param("file_not_found", id="file_not_found"),
+            "extra_args",
+            "family",
+            "expected_decoder",
+            "expected_channel_name",
+            "expected_tool_scanner_name",
+            "expected_parser_classname",
+        ],
+        [
+            pytest.param([], "ml", False, None, None, None, id="ml_family_skips_decoder"),
+            pytest.param([], "llm", True, None, None, None, id="llm_family_default_auto"),
+            pytest.param(
+                ["--channel-scanner", "channel"],
+                "llm",
+                True,
+                "channel",
+                None,
+                None,
+                id="llm_with_channel_scanner",
+            ),
+            pytest.param(
+                ["--channel-scanner", "passthrough"],
+                "llm",
+                True,
+                "passthrough",
+                None,
+                None,
+                id="llm_channel_scanner_passthrough",
+            ),
+            pytest.param(
+                ["--tool-scanner", "tool_call"], "llm", True, None, "tool_call", None, id="llm_with_tool_scanner"
+            ),
+            pytest.param(
+                ["--tool-scanner", "passthrough"],
+                "llm",
+                True,
+                None,
+                "passthrough",
+                None,
+                id="llm_tool_scanner_passthrough",
+            ),
+            pytest.param(
+                ["--tool-parser", "json_object"],
+                "llm",
+                True,
+                None,
+                None,
+                "JSONObjectParser",
+                id="llm_with_tool_parser",
+            ),
+            pytest.param(
+                ["--tool-parser", "passthrough"],
+                "llm",
+                True,
+                None,
+                None,
+                "PassthroughParser",
+                id="llm_tool_parser_passthrough",
+            ),
+            pytest.param(
+                [
+                    "--channel-scanner",
+                    "harmony",
+                    "--tool-scanner",
+                    "tool_call",
+                    "--tool-parser",
+                    "json_object",
+                ],
+                "llm",
+                True,
+                "harmony",
+                "tool_call",
+                "JSONObjectParser",
+                id="llm_all_three_set",
+            ),
         ],
     )
-    def test_command(
+    def test_command_normal_load(
         self,
         runner: CliRunner,
         ml_component: MagicMock,
-        scenario: str,
+        extra_args: list[str],
+        family: str,
+        expected_decoder: bool,
+        expected_channel_name: str | None,
+        expected_tool_scanner_name: str | None,
+        expected_parser_classname: str | None,
+    ) -> None:
+        meta = MagicMock()
+        meta.framework.family = family
+        with (
+            patch("flama._cli.commands.model.ModelComponentBuilder") as builder,
+            patch("flama.serialize.serializer.Serializer.meta", return_value=meta),
+        ):
+            builder.build.return_value = ml_component
+            result = runner.invoke(command, [*extra_args, "dummy.flm", "inspect"])
+
+            assert result.exit_code == 0, result.output
+            kwargs = builder.build.call_args.kwargs
+            assert builder.build.call_args.args == ("dummy.flm",)
+            assert "lib" not in kwargs
+            assert kwargs["autoload"] is True
+            decoder = kwargs["decoder"]
+
+            if not expected_decoder:
+                assert decoder is None
+                return
+
+            assert isinstance(decoder, Decoder)
+
+            if expected_channel_name is None:
+                assert decoder.channel_scanner is None
+            else:
+                assert decoder.channel_scanner is not None
+                assert decoder.channel_scanner.name == expected_channel_name
+
+            if expected_tool_scanner_name is None:
+                assert decoder.tool_scanner is None
+            else:
+                assert decoder.tool_scanner is not None
+                assert decoder.tool_scanner.name == expected_tool_scanner_name
+
+            if expected_parser_classname is None:
+                assert decoder.tool_parser is None
+            else:
+                assert decoder.tool_parser is not None
+                assert type(decoder.tool_parser).__name__ == expected_parser_classname
+
+    @pytest.mark.parametrize(
+        ["extra_args", "error_fragment"],
+        [
+            pytest.param(
+                ["--channel-scanner", "bogus"],
+                "Invalid value for '--channel-scanner'",
+                id="channel_scanner_rejects_unknown",
+            ),
+            pytest.param(
+                ["--tool-scanner", "bogus"],
+                "Invalid value for '--tool-scanner'",
+                id="tool_scanner_rejects_unknown",
+            ),
+            pytest.param(
+                ["--tool-parser", "bogus"],
+                "Invalid value for '--tool-parser'",
+                id="tool_parser_rejects_unknown",
+            ),
+        ],
+    )
+    def test_command_rejects_invalid_options(
+        self,
+        runner: CliRunner,
+        ml_component: MagicMock,
+        extra_args: list[str],
+        error_fragment: str,
     ) -> None:
         with patch("flama._cli.commands.model.ModelComponentBuilder") as builder:
-            if scenario == "normal_load":
-                builder.build.return_value = ml_component
-                result = runner.invoke(command, ["dummy.flm", "inspect"])
+            builder.build.return_value = ml_component
+            result = runner.invoke(command, [*extra_args, "dummy.flm", "inspect"])
 
-                assert result.exit_code == 0, result.output
-                builder.build.assert_called_once_with("dummy.flm")
-            elif scenario == "file_not_found":
-                builder.build.side_effect = FileNotFoundError("no")
-                result = runner.invoke(command, ["missing.flm", "inspect"])
+            assert result.exit_code != 0
+            assert error_fragment in result.output
 
-                assert result.exit_code != 0
-                assert "Model file not found" in result.output
+    def test_command_file_not_found(self, runner: CliRunner, ml_component: MagicMock) -> None:
+        with patch("flama.serialize.serializer.Serializer.meta", side_effect=FileNotFoundError("no")):
+            result = runner.invoke(command, ["missing.flm", "inspect"])
+
+            assert result.exit_code != 0
+            assert "Model file not found" in result.output
+
+    def test_inspect_does_not_trigger_load(self, runner: CliRunner, ml_component: MagicMock) -> None:
+        meta = MagicMock()
+        meta.framework.family = "ml"
+        with (
+            patch("flama._cli.commands.model.ModelComponentBuilder") as builder,
+            patch("flama.serialize.serializer.Serializer.meta", return_value=meta),
+        ):
+            builder.build.return_value = ml_component
+            result = runner.invoke(command, ["dummy.flm", "inspect"])
+
+            assert result.exit_code == 0, result.output
+            assert not ml_component.load.called
 
 
 class TestCaseInspect:
@@ -98,7 +270,7 @@ class TestCaseInspect:
         result = runner.invoke(command, args)
 
         assert result.exit_code == 0, result.output
-        component.model.inspect.assert_called_once()
+        assert component.model.inspect.call_count == 1
 
 
 class TestCaseRun:
@@ -111,11 +283,11 @@ class TestCaseRun:
     @pytest.mark.parametrize(
         ["ml_component", "scenario"],
         [
-            pytest.param(BaseMLModel, "via_file", id="via_file"),
-            pytest.param(BaseMLModel, "via_input", id="via_input"),
-            pytest.param(BaseMLModel, "via_stdin", id="via_stdin"),
-            pytest.param(BaseMLModel, "invalid_json", id="invalid_json"),
-            pytest.param(BaseMLModel, "with_param_rejected", id="with_param_rejected"),
+            pytest.param(MLModel, "via_file", id="via_file"),
+            pytest.param(MLModel, "via_stdin", id="via_stdin"),
+            pytest.param(MLModel, "invalid_json", id="invalid_json"),
+            pytest.param(MLModel, "with_param_rejected", id="with_param_rejected"),
+            pytest.param(MLModel, "with_channel_rejected", id="with_channel_rejected"),
         ],
         indirect=["ml_component"],
     )
@@ -128,44 +300,47 @@ class TestCaseRun:
         scenario: str,
     ) -> None:
         if scenario == "via_file":
-            result = runner.invoke(command, ["dummy.flm", "run", "-f", str(input_file)])
+            result = runner.invoke(command, ["dummy.flm", "run", "-i", str(input_file)])
 
             assert result.exit_code == 0, result.output
-            ml_component.model.predict.assert_called_once_with([[0, 0]])
-        elif scenario == "via_input":
-            result = runner.invoke(command, ["dummy.flm", "run", "-i", "[[1, 2]]"])
-
-            assert result.exit_code == 0, result.output
-            ml_component.model.predict.assert_called_once_with([[1, 2]])
+            assert ml_component.model.predict.call_args_list == [call([[0, 0]])]
         elif scenario == "via_stdin":
             result = runner.invoke(command, ["dummy.flm", "run"], input="[[3, 4]]")
 
             assert result.exit_code == 0, result.output
-            ml_component.model.predict.assert_called_once_with([[3, 4]])
+            assert ml_component.model.predict.call_args_list == [call([[3, 4]])]
         elif scenario == "invalid_json":
-            result = runner.invoke(command, ["dummy.flm", "run", "-i", "not json"])
+            result = runner.invoke(command, ["dummy.flm", "run"], input="not json")
 
             assert result.exit_code != 0
             assert "valid JSON" in result.output
         elif scenario == "with_param_rejected":
             result = runner.invoke(
                 command,
-                ["dummy.flm", "run", "-i", "[[0]]", "--param", "temperature=0.7"],
+                ["dummy.flm", "run", "--param", "temperature=0.7"],
+                input="[[0]]",
             )
 
             assert result.exit_code != 0
             assert "--param" in result.output
+        elif scenario == "with_channel_rejected":
+            result = runner.invoke(
+                command,
+                ["dummy.flm", "run", "--channel", "all"],
+                input="[[0]]",
+            )
+
+            assert result.exit_code != 0
+            assert "--channel" in result.output
 
     @pytest.mark.parametrize(
         ["llm_component", "scenario"],
         [
-            pytest.param(BaseLLMModel, "via_input", id="via_input"),
-            pytest.param(BaseLLMModel, "via_file", id="via_file"),
-            pytest.param(BaseLLMModel, "via_stdin", id="via_stdin"),
-            pytest.param(BaseLLMModel, "with_params", id="with_params"),
-            pytest.param(BaseLLMModel, "output_to_file", id="output_to_file"),
-            pytest.param(BaseLLMModel, "pretty", id="pretty"),
-            pytest.param(BaseLLMModel, "mutually_exclusive", id="mutually_exclusive"),
+            pytest.param(LLMModel, "via_file", id="via_file"),
+            pytest.param(LLMModel, "via_stdin", id="via_stdin"),
+            pytest.param(LLMModel, "with_params", id="with_params"),
+            pytest.param(LLMModel, "output_to_file", id="output_to_file"),
+            pytest.param(LLMModel, "pretty", id="pretty"),
         ],
         indirect=["llm_component"],
     )
@@ -177,15 +352,10 @@ class TestCaseRun:
         tmp_path: pathlib.Path,
         scenario: str,
     ) -> None:
-        if scenario == "via_input":
-            result = runner.invoke(command, ["dummy.flm", "run", "-i", "What is Python?"])
-
-            assert result.exit_code == 0, result.output
-            assert "Hello world" in result.output
-        elif scenario == "via_file":
+        if scenario == "via_file":
             prompt = tmp_path / "prompt.txt"
             prompt.write_text("What is Python?")
-            result = runner.invoke(command, ["dummy.flm", "run", "-f", str(prompt)])
+            result = runner.invoke(command, ["dummy.flm", "run", "-i", str(prompt)])
 
             assert result.exit_code == 0, result.output
             assert "Hello world" in result.output
@@ -197,40 +367,186 @@ class TestCaseRun:
         elif scenario == "with_params":
             captured: dict[str, t.Any] = {}
 
-            async def _capturing_query(prompt: str, **params: t.Any) -> str:
-                captured.update(params)
-                return "Hello world"
+            async def _capturing_query(prompt: str | None = None, /, **kwargs: t.Any) -> list[Event]:
+                captured["prompt"] = prompt
+                captured.update(kwargs)
+                return [TextEvent(channel="output", text="Hello world")]
 
             llm_component.model.query = _capturing_query
             result = runner.invoke(
                 command,
-                ["dummy.flm", "run", "-i", "hello", "--param", "temperature=0.7", "--param", "max_tokens=100"],
+                ["dummy.flm", "run", "--param", "temperature=0.7", "--param", "max_tokens=100"],
+                input="hello",
             )
 
             assert result.exit_code == 0, result.output
-            assert captured == {"temperature": 0.7, "max_tokens": 100}
+            assert captured["temperature"] == 0.7
+            assert captured["max_tokens"] == 100
         elif scenario == "output_to_file":
             output = tmp_path / "out.txt"
             result = runner.invoke(
                 command,
-                ["dummy.flm", "run", "-i", "hello", "-o", str(output)],
+                ["dummy.flm", "run", "-o", str(output)],
+                input="hello",
             )
 
             assert result.exit_code == 0, result.output
             assert "Hello world" in output.read_text()
         elif scenario == "pretty":
-            result = runner.invoke(command, ["dummy.flm", "run", "-i", "hello", "--pretty"])
+            result = runner.invoke(command, ["dummy.flm", "run", "--pretty"], input="hello")
 
             assert result.exit_code == 0, result.output
-        elif scenario == "mutually_exclusive":
-            anything = tmp_path / "anything.txt"
-            anything.write_text("x")
-            result = runner.invoke(
-                command,
-                ["dummy.flm", "run", "-i", "hello", "-f", str(anything)],
-            )
 
+    @pytest.mark.parametrize(
+        ["llm_component", "args", "expected_text", "expected_json"],
+        [
+            pytest.param(LLMModel, [], "answer", None, id="default_only_output"),
+            pytest.param(
+                LLMModel,
+                ["--channel", "all"],
+                None,
+                [
+                    {"channel": "thinking", "text": "reasoning"},
+                    {"channel": "output", "text": "answer"},
+                ],
+                id="channel_all_wildcard",
+            ),
+            pytest.param(
+                LLMModel,
+                ["--channel", "*"],
+                None,
+                [
+                    {"channel": "thinking", "text": "reasoning"},
+                    {"channel": "output", "text": "answer"},
+                ],
+                id="channel_star_wildcard",
+            ),
+            pytest.param(LLMModel, ["--channel", "thinking"], "reasoning", None, id="channel_single_thinking"),
+            pytest.param(
+                LLMModel,
+                ["--channel", "thinking", "--channel", "output"],
+                None,
+                [
+                    {"channel": "thinking", "text": "reasoning"},
+                    {"channel": "output", "text": "answer"},
+                ],
+                id="channel_multi_explicit",
+            ),
+            pytest.param(LLMModel, ["--channel", "missing"], "", None, id="channel_unknown_filters_all"),
+        ],
+        indirect=["llm_component"],
+    )
+    def test_run_llm_channels(
+        self,
+        runner: CliRunner,
+        llm_component: MagicMock,
+        patched_llm_builder: MagicMock,
+        args: list[str],
+        expected_text: str | None,
+        expected_json: list[dict[str, str]] | None,
+    ) -> None:
+        async def _mixed_query(prompt: str | None = None, /, **kwargs: t.Any) -> list[Event]:
+            return [
+                TextEvent(channel="thinking", text="reasoning"),
+                TextEvent(channel="output", text="answer"),
+            ]
+
+        llm_component.model.query = _mixed_query
+
+        result = runner.invoke(command, ["dummy.flm", "run", *args], input="hello")
+
+        assert result.exit_code == 0, result.output
+        if expected_json is not None:
+            assert json.loads(result.output) == expected_json
+        else:
+            assert expected_text is not None
+            assert result.output.strip() == expected_text
+
+    @pytest.mark.parametrize(
+        ["llm_component", "scenario"],
+        [
+            pytest.param(LLMModel, "with_system", id="with_system"),
+            pytest.param(LLMModel, "transport_raw", id="transport_raw"),
+            pytest.param(LLMModel, "transport_chat", id="transport_chat"),
+            pytest.param(LLMModel, "transport_conversation", id="transport_conversation"),
+            pytest.param(LLMModel, "system_with_raw_rejected", id="system_with_raw_rejected"),
+            pytest.param(LLMModel, "default_transport_raw", id="default_transport_raw"),
+        ],
+        indirect=["llm_component"],
+    )
+    def test_run_llm_transport(
+        self,
+        runner: CliRunner,
+        llm_component: MagicMock,
+        patched_llm_builder: MagicMock,
+        tmp_path: pathlib.Path,
+        scenario: str,
+    ) -> None:
+        captured: list[tuple[str | None, dict[str, t.Any]]] = []
+
+        async def _capturing_query(prompt: str | None = None, /, **kwargs: t.Any) -> list[Event]:
+            captured.append((prompt, kwargs))
+            return [TextEvent(channel="output", text="Hello world")]
+
+        llm_component.model.query = _capturing_query
+
+        args, stdin, expected = self._transport_scenario(scenario, tmp_path, llm_component)
+        result = runner.invoke(command, args, input=stdin)
+
+        if expected.get("error"):
             assert result.exit_code != 0
+            assert expected["error"] in result.output.lower()
+            return
+
+        assert result.exit_code == 0, result.output
+        actual_prompt, actual_kwargs = captured[0]
+        if "prompt" in expected:
+            assert actual_prompt == expected["prompt"]
+        for key, value in expected.get("kwargs", {}).items():
+            assert actual_kwargs.get(key) == value
+
+    @staticmethod
+    def _transport_scenario(
+        scenario: str, tmp_path: pathlib.Path, llm_component: MagicMock
+    ) -> tuple[list[str], str | None, dict[str, t.Any]]:
+        if scenario == "with_system":
+            return (
+                ["dummy.flm", "run", "--system", "be brief"],
+                "hello",
+                {"prompt": "hello", "kwargs": {"transport": "chat", "system": "be brief"}},
+            )
+        if scenario == "transport_raw":
+            return (
+                ["dummy.flm", "run", "--transport", "raw"],
+                "hello",
+                {"prompt": "hello", "kwargs": {"transport": "raw"}},
+            )
+        if scenario == "transport_chat":
+            return (
+                ["dummy.flm", "run", "--transport", "chat"],
+                "hello",
+                {"prompt": "hello", "kwargs": {"transport": "chat"}},
+            )
+        if scenario == "transport_conversation":
+            conv = tmp_path / "conv.json"
+            conv.write_text('[{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}]')
+            return (
+                ["dummy.flm", "run", "--transport", "conversation", "-i", str(conv)],
+                None,
+                {"prompt": None, "kwargs": {"transport": "conversation"}},
+            )
+        if scenario == "system_with_raw_rejected":
+            return (
+                ["dummy.flm", "run", "--transport", "raw", "--system", "boom"],
+                "hi",
+                {"error": "system"},
+            )
+        llm_component.model.default_transport = "raw"
+        return (
+            ["dummy.flm", "run"],
+            "hello",
+            {"prompt": "hello", "kwargs": {"transport": "raw"}},
+        )
 
 
 class TestCaseStream:
@@ -243,11 +559,12 @@ class TestCaseStream:
     @pytest.mark.parametrize(
         ["ml_component", "scenario", "expected_output"],
         [
-            pytest.param(BaseMLModel, "streaming", "[1][2]", id="streaming"),
-            pytest.param(BaseMLModel, "buffered", "[1][2]\n", id="buffered"),
-            pytest.param(BaseMLModel, "invalid_json", None, id="invalid_json"),
-            pytest.param(BaseMLModel, "output_to_file", None, id="output_to_file"),
-            pytest.param(BaseMLModel, "with_param_rejected", None, id="with_param_rejected"),
+            pytest.param(MLModel, "streaming", "[1][2]", id="streaming"),
+            pytest.param(MLModel, "buffered", "[1][2]\n", id="buffered"),
+            pytest.param(MLModel, "invalid_json", None, id="invalid_json"),
+            pytest.param(MLModel, "output_to_file", None, id="output_to_file"),
+            pytest.param(MLModel, "with_param_rejected", None, id="with_param_rejected"),
+            pytest.param(MLModel, "with_channel_rejected", None, id="with_channel_rejected"),
         ],
         indirect=["ml_component"],
     )
@@ -264,17 +581,17 @@ class TestCaseStream:
         ml_component.model.stream = _ml_stream_two_items
 
         if scenario == "streaming":
-            result = runner.invoke(command, ["dummy.flm", "stream", "-f", str(input_file)])
+            result = runner.invoke(command, ["dummy.flm", "stream", "-i", str(input_file)])
 
             assert result.exit_code == 0, result.output
             assert result.output == expected_output
         elif scenario == "buffered":
-            result = runner.invoke(command, ["dummy.flm", "stream", "-f", str(input_file), "--buffer"])
+            result = runner.invoke(command, ["dummy.flm", "stream", "-i", str(input_file), "--buffer"])
 
             assert result.exit_code == 0, result.output
             assert result.output == expected_output
         elif scenario == "invalid_json":
-            result = runner.invoke(command, ["dummy.flm", "stream", "-i", "not json"])
+            result = runner.invoke(command, ["dummy.flm", "stream"], input="not json")
 
             assert result.exit_code != 0
             assert "valid JSON" in result.output
@@ -283,7 +600,7 @@ class TestCaseStream:
             output = tmp_path / "out.txt"
             result = runner.invoke(
                 command,
-                ["dummy.flm", "stream", "-f", str(input_file), "-o", str(output)],
+                ["dummy.flm", "stream", "-i", str(input_file), "-o", str(output)],
             )
 
             assert result.exit_code == 0, result.output
@@ -291,19 +608,31 @@ class TestCaseStream:
         elif scenario == "with_param_rejected":
             result = runner.invoke(
                 command,
-                ["dummy.flm", "stream", "-i", "[[0]]", "--param", "temperature=0.7"],
+                ["dummy.flm", "stream", "--param", "temperature=0.7"],
+                input="[[0]]",
             )
 
             assert result.exit_code != 0
             assert "--param" in result.output
+        elif scenario == "with_channel_rejected":
+            result = runner.invoke(
+                command,
+                ["dummy.flm", "stream", "--channel", "all"],
+                input="[[0]]",
+            )
+
+            assert result.exit_code != 0
+            assert "--channel" in result.output
 
     @pytest.mark.parametrize(
         ["llm_component", "scenario", "expected_output"],
         [
-            pytest.param(BaseLLMModel, "streaming", '"Hello"" world"', id="streaming"),
-            pytest.param(BaseLLMModel, "buffered", '"Hello"" world"\n', id="buffered"),
-            pytest.param(BaseLLMModel, "with_params", None, id="with_params"),
-            pytest.param(BaseLLMModel, "output_to_file", None, id="output_to_file"),
+            pytest.param(LLMModel, "streaming", "Hello world", id="streaming"),
+            pytest.param(LLMModel, "buffered", "Hello world\n", id="buffered"),
+            pytest.param(LLMModel, "with_params", None, id="with_params"),
+            pytest.param(LLMModel, "with_system", None, id="with_system"),
+            pytest.param(LLMModel, "transport_conversation", None, id="transport_conversation"),
+            pytest.param(LLMModel, "output_to_file", None, id="output_to_file"),
         ],
         indirect=["llm_component"],
     )
@@ -319,91 +648,197 @@ class TestCaseStream:
         llm_component.model.stream = _llm_stream_two_tokens
 
         if scenario == "streaming":
-            result = runner.invoke(command, ["dummy.flm", "stream", "-i", "test"])
+            result = runner.invoke(command, ["dummy.flm", "stream"], input="test")
 
             assert result.exit_code == 0, result.output
             assert result.output == expected_output
         elif scenario == "buffered":
-            result = runner.invoke(command, ["dummy.flm", "stream", "-i", "test", "--buffer"])
+            result = runner.invoke(command, ["dummy.flm", "stream", "--buffer"], input="test")
 
             assert result.exit_code == 0, result.output
             assert result.output == expected_output
         elif scenario == "with_params":
             captured: dict[str, t.Any] = {}
 
-            async def _capturing_stream(prompt: str, **params: t.Any) -> t.AsyncIterator[str]:
-                captured.update(params)
-                yield "ok"
+            async def _capturing_stream(prompt: str | None = None, /, **kwargs: t.Any) -> t.AsyncIterator[Event]:
+                captured["prompt"] = prompt
+                captured.update(kwargs)
+                return await _llm_stream_one_token()
 
             llm_component.model.stream = _capturing_stream
             result = runner.invoke(
                 command,
-                ["dummy.flm", "stream", "-i", "hello", "--param", "temperature=0.7", "--param", "max_tokens=100"],
+                ["dummy.flm", "stream", "--param", "temperature=0.7", "--param", "max_tokens=100"],
+                input="hello",
             )
 
             assert result.exit_code == 0, result.output
-            assert captured == {"temperature": 0.7, "max_tokens": 100}
+            assert captured["temperature"] == 0.7
+            assert captured["max_tokens"] == 100
+        elif scenario == "with_system":
+            captured_args: list[tuple[str | None, dict[str, t.Any]]] = []
+
+            async def _capturing_stream(prompt: str | None = None, /, **kwargs: t.Any) -> t.AsyncIterator[Event]:
+                captured_args.append((prompt, kwargs))
+                return await _llm_stream_one_token()
+
+            llm_component.model.stream = _capturing_stream
+            result = runner.invoke(command, ["dummy.flm", "stream", "--system", "be brief"], input="hello")
+
+            assert result.exit_code == 0, result.output
+            assert captured_args[0][0] == "hello"
+            assert captured_args[0][1].get("transport") == "chat"
+            assert captured_args[0][1].get("system") == "be brief"
+        elif scenario == "transport_conversation":
+            captured_args = []
+
+            async def _capturing_stream(prompt: str | None = None, /, **kwargs: t.Any) -> t.AsyncIterator[Event]:
+                captured_args.append((prompt, kwargs))
+                return await _llm_stream_one_token()
+
+            llm_component.model.stream = _capturing_stream
+            conv = tmp_path / "conv.json"
+            conv.write_text('[{"role": "user", "content": "hi"}]')
+            result = runner.invoke(command, ["dummy.flm", "stream", "--transport", "conversation", "-i", str(conv)])
+
+            assert result.exit_code == 0, result.output
+            assert captured_args[0][0] is None
+            assert captured_args[0][1].get("transport") == "conversation"
+            messages = captured_args[0][1].get("messages")
+            assert messages is not None
+            assert messages[0].role == "user"
         elif scenario == "output_to_file":
             llm_component.model.stream = _llm_stream_one_token
             output = tmp_path / "out.txt"
             result = runner.invoke(
                 command,
-                ["dummy.flm", "stream", "-i", "hello", "-o", str(output)],
+                ["dummy.flm", "stream", "-o", str(output)],
+                input="hello",
             )
 
             assert result.exit_code == 0, result.output
-            assert '"ok"' in output.read_text()
+            assert "ok" in output.read_text()
 
-
-class TestCaseReadInput:
     @pytest.mark.parametrize(
-        ["scenario"],
+        ["llm_component", "args", "expected_substrings", "forbidden_substrings"],
         [
-            pytest.param("input_str", id="input_str"),
-            pytest.param("input_file", id="input_file"),
-            pytest.param("stdin", id="stdin"),
-            pytest.param("both_provided", id="both_provided"),
+            pytest.param(LLMModel, [], ["answer"], ["reasoning", "[thinking]", "[output]"], id="default_only_output"),
+            pytest.param(
+                LLMModel,
+                ["--channel", "all"],
+                ["[thinking] reasoning", "[output] answer"],
+                [],
+                id="channel_all_wildcard",
+            ),
+            pytest.param(
+                LLMModel,
+                ["--channel", "*"],
+                ["[thinking] reasoning", "[output] answer"],
+                [],
+                id="channel_star_wildcard",
+            ),
+            pytest.param(
+                LLMModel,
+                ["--channel", "thinking"],
+                ["reasoning"],
+                ["answer", "[thinking]", "[output]"],
+                id="channel_single_thinking",
+            ),
+            pytest.param(
+                LLMModel,
+                ["--channel", "thinking", "--channel", "output"],
+                ["[thinking] reasoning", "[output] answer"],
+                [],
+                id="channel_multi_explicit",
+            ),
         ],
+        indirect=["llm_component"],
     )
-    def test__read_input(self, scenario: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        if scenario == "input_str":
-            assert _read_input("hello", None) == "hello"
-        elif scenario == "input_file":
-            file = tmp_path / "in.txt"
-            file.write_text("from-file")
-            with file.open("r") as f:
-                assert _read_input(None, f) == "from-file"
-        elif scenario == "stdin":
-            import io
-
-            monkeypatch.setattr("sys.stdin", io.StringIO("from-stdin"))
-            assert _read_input(None, None) == "from-stdin"
-        elif scenario == "both_provided":
-            file = tmp_path / "in.txt"
-            file.write_text("x")
-            with file.open("r") as f, pytest.raises(click.UsageError):
-                _read_input("hello", f)
-
-
-class TestCaseParseParams:
-    @pytest.mark.parametrize(
-        ["params", "expected", "raises"],
-        [
-            pytest.param(("temperature=0.7",), {"temperature": 0.7}, None, id="numeric"),
-            pytest.param(("name=hello",), {"name": "hello"}, None, id="non_json_falls_back_to_string"),
-            pytest.param(("a=1", "b=2"), {"a": 1, "b": 2}, None, id="multiple"),
-            pytest.param(('payload={"a": 1}',), {"payload": {"a": 1}}, None, id="nested_json"),
-            pytest.param(("bad-format",), None, click.BadParameter, id="missing_equals"),
-        ],
-    )
-    def test__parse_params(
+    def test_stream_llm_channels(
         self,
-        params: tuple[str, ...],
-        expected: dict[str, t.Any] | None,
-        raises: type[BaseException] | None,
+        runner: CliRunner,
+        llm_component: MagicMock,
+        patched_llm_builder: MagicMock,
+        args: list[str],
+        expected_substrings: list[str],
+        forbidden_substrings: list[str],
     ) -> None:
-        if raises is not None:
-            with pytest.raises(raises):
-                _parse_params(params)
-        else:
-            assert _parse_params(params) == expected
+        llm_component.model.stream = _llm_stream_thinking_then_output
+
+        result = runner.invoke(command, ["dummy.flm", "stream", *args], input="test")
+
+        assert result.exit_code == 0, result.output
+        for token in expected_substrings:
+            assert token in result.output
+        for token in forbidden_substrings:
+            assert token not in result.output
+
+
+class TestCaseLLM:
+    @pytest.fixture
+    def llm_runner(self) -> _LLM:
+        model = MagicMock(spec=LLMModel)
+        model.default_transport = "chat"
+        return _LLM(model)
+
+    @pytest.mark.parametrize(
+        ["param", "channels", "expected_model_kwargs", "expected_channels", "exception"],
+        [
+            pytest.param(
+                ("temperature=0.7",), (), {"temperature": 0.7}, frozenset({"output"}), None, id="param_numeric"
+            ),
+            pytest.param(
+                ("name=hello",), (), {"name": "hello"}, frozenset({"output"}), None, id="param_non_json_string"
+            ),
+            pytest.param(("a=1", "b=2"), (), {"a": 1, "b": 2}, frozenset({"output"}), None, id="param_multiple"),
+            pytest.param(
+                ('payload={"a": 1}',), (), {"payload": {"a": 1}}, frozenset({"output"}), None, id="param_nested_json"
+            ),
+            pytest.param(("bad-format",), (), None, None, click.BadParameter, id="param_missing_equals"),
+            pytest.param((), (), {}, frozenset({"output"}), None, id="channels_empty_defaults_to_output"),
+            pytest.param((), ("output",), {}, frozenset({"output"}), None, id="channels_single_explicit"),
+            pytest.param(
+                (), ("thinking", "output"), {}, frozenset({"thinking", "output"}), None, id="channels_multi_explicit"
+            ),
+            pytest.param((), ("all",), {}, None, None, id="channels_wildcard_all"),
+            pytest.param((), ("*",), {}, None, None, id="channels_wildcard_star"),
+            pytest.param((), ("thinking", "all"), {}, None, None, id="channels_wildcard_overrides"),
+            pytest.param((), ("a", "a", "b"), {}, frozenset({"a", "b"}), None, id="channels_duplicates_deduped"),
+        ],
+        indirect=["exception"],
+    )
+    def test_parse_args(
+        self,
+        llm_runner: _LLM,
+        param: tuple[str, ...],
+        channels: tuple[str, ...],
+        expected_model_kwargs: dict[str, t.Any] | None,
+        expected_channels: frozenset[str] | None,
+        exception,
+    ) -> None:
+        with exception:
+            args = llm_runner._parse_args(transport=None, system=None, param=param, channels=channels)
+            if expected_model_kwargs is not None:
+                for key, value in expected_model_kwargs.items():
+                    assert args["model_kwargs"][key] == value
+            assert args["channels"] == expected_channels
+
+
+class TestCaseCli:
+    @pytest.mark.parametrize(
+        ["spec", "expected_cls", "exception"],
+        [
+            pytest.param(LLMModel, _LLM, None, id="llm"),
+            pytest.param(MLModel, _ML, None, id="ml"),
+            pytest.param(object, None, click.UsageError, id="unsupported"),
+        ],
+        indirect=["exception"],
+    )
+    def test_build(self, spec: type, expected_cls: type[_Cli] | None, exception) -> None:
+        component = MagicMock()
+        component.model = MagicMock(spec=spec)
+
+        with exception:
+            runner = _Cli.build(component)
+            assert isinstance(runner, expected_cls)  # ty: ignore[invalid-argument-type]
+            assert runner.model is component.model
