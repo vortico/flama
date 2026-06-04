@@ -394,7 +394,7 @@ class TestCaseHTTPWrapper:
         if expected_headers is not None:
             assert wrapper._response_headers == expected_headers
         assert wrapper._response_body == expected_body
-        wrapper._send.assert_awaited_once_with(message)
+        assert wrapper._send.await_args_list == [call(message)]
 
 
 class TestCaseWebSocketWrapper:
@@ -505,4 +505,4 @@ class TestCaseWebSocketWrapper:
         assert wrapper._response_body == expected_response_body
         if expected_status is not None:
             assert wrapper._response_status_code == expected_status
-        wrapper._send.assert_awaited_once_with(message)
+        assert wrapper._send.await_args_list == [call(message)]

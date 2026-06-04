@@ -172,7 +172,7 @@ class TestCaseBufferedResponse:
         assert body_message["type"] == "http.response.body"
         assert body_message["body"] == response.body
         if use_background:
-            background.assert_awaited_once()
+            assert background.await_count == 1
 
     @pytest.mark.parametrize(
         ["content", "expected"],
@@ -246,7 +246,7 @@ class TestCaseStreamingResponse:
         assert body_calls[len(expected_chunks)]["body"] == b""
         assert body_calls[len(expected_chunks)]["more_body"] is False
         if use_background:
-            background.assert_awaited_once()
+            assert background.await_count == 1
 
     async def test_oserror_during_stream(self, asgi_scope, asgi_receive, asgi_send):
         async def _gen():
@@ -271,7 +271,7 @@ class TestCaseStreamingResponse:
 
         await response(asgi_scope, asgi_receive, asgi_send)
 
-        background.assert_not_awaited()
+        assert background.await_count == 0
 
     def test_hash(self):
         content = [1]
