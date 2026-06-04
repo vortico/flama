@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from click.testing import CliRunner
 
@@ -13,9 +13,9 @@ class TestCaseCommand:
             result = runner.invoke(command, ["myapp:app"])
 
         assert result.exit_code == 0, result.output
-        config_cls.assert_called_once()
+        assert config_cls.call_count == 1
         kwargs = config_cls.call_args.kwargs
         assert isinstance(kwargs["app"], StrApp)
         assert kwargs["app"] == "myapp:app"
         assert isinstance(kwargs["server"], Uvicorn)
-        config_cls.return_value.run.assert_called_once_with()
+        assert config_cls.return_value.run.call_args_list == [call()]

@@ -1,6 +1,6 @@
 import json
 import pathlib
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from click.testing import CliRunner
@@ -10,41 +10,42 @@ from flama._cli.commands.start import command
 
 class TestCaseCommand:
     @pytest.mark.parametrize(
-        "scenario",
+        ["flavour", "expected_server_keys"],
         [
-            pytest.param("create_simple", id="create_simple"),
-            pytest.param("create_full", id="create_full"),
-            pytest.param("load_and_run", id="load_and_run"),
+            pytest.param("simple", {"host", "port"}, id="simple"),
+            pytest.param("full", None, id="full"),
         ],
     )
-    def test_command(self, runner: CliRunner, tmp_path: pathlib.Path, scenario: str) -> None:
+    def test_create_config(
+        self,
+        runner: CliRunner,
+        tmp_path: pathlib.Path,
+        flavour: str,
+        expected_server_keys: set[str] | None,
+    ) -> None:
         config_file = tmp_path / "flama.json"
 
-        if scenario == "create_simple":
-            result = runner.invoke(command, [str(config_file), "--create-config", "simple"])
+        result = runner.invoke(command, [str(config_file), "--create-config", flavour])
 
-            assert result.exit_code == 0, result.output
-            assert config_file.exists()
-            data = json.loads(config_file.read_text())
-            assert "app" in data
-            assert "server" in data
-            assert set(data["server"].keys()) == {"host", "port"}
-        elif scenario == "create_full":
-            result = runner.invoke(command, [str(config_file), "--create-config", "full"])
-
-            assert result.exit_code == 0, result.output
-            assert config_file.exists()
-            data = json.loads(config_file.read_text())
-            assert "app" in data
-            assert "server" in data
+        assert result.exit_code == 0, result.output
+        assert config_file.exists()
+        data = json.loads(config_file.read_text())
+        assert "app" in data
+        assert "server" in data
+        if expected_server_keys is not None:
+            assert set(data["server"].keys()) == expected_server_keys
+        else:
             assert len(data["server"]) > 2
-        elif scenario == "load_and_run":
-            config_file.touch()
-            with patch("flama._cli.commands.start.Config") as config_cls:
-                config_instance = MagicMock()
-                config_cls.load.return_value = config_instance
-                result = runner.invoke(command, [str(config_file)])
 
-            assert result.exit_code == 0, result.output
-            config_cls.load.assert_called_once()
-            config_instance.run.assert_called_once_with()
+    def test_load_and_run(self, runner: CliRunner, tmp_path: pathlib.Path) -> None:
+        config_file = tmp_path / "flama.json"
+        config_file.touch()
+
+        with patch("flama._cli.commands.start.Config") as config_cls:
+            config_instance = MagicMock()
+            config_cls.load.return_value = config_instance
+            result = runner.invoke(command, [str(config_file)])
+
+        assert result.exit_code == 0, result.output
+        assert config_cls.load.call_count == 1
+        assert config_instance.run.call_args_list == [call()]
