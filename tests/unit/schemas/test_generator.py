@@ -1378,7 +1378,7 @@ class TestCaseSchemaGenerator:
             schemas["Owner"].name,
             schemas["Puppy"].name,
             schemas["BodyParam"].name,
-            "flama.APIError",
+            "flama.core.APIError",
         }
 
     @pytest.mark.parametrize(
@@ -1394,7 +1394,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
                             },
                         },
                     },
@@ -1431,7 +1431,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
                             },
                         },
                     },
@@ -1456,7 +1456,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
                             },
                         },
                     },
@@ -1479,7 +1479,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
                             },
                         },
                     },
@@ -1499,7 +1499,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
                             },
                         },
                     },
@@ -1519,7 +1519,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
                             },
                         },
                     },
@@ -1539,7 +1539,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
                             },
                         },
                     },
@@ -1559,7 +1559,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
                             },
                         },
                     },
@@ -1575,7 +1575,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
                             },
                         }
                     },
@@ -1593,7 +1593,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
                             },
                         },
                     },
@@ -1619,7 +1619,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
                             },
                         },
                     },
@@ -1654,7 +1654,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.APIError"}}
+                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
                             },
                         },
                     },
