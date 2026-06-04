@@ -1,10 +1,13 @@
 import abc
 import importlib
 import inspect
-import sys
+import pathlib
 import typing as t
 
 from flama import types
+
+if t.TYPE_CHECKING:
+    from flama.serialize.data_structures import ModelCapabilities
 
 __all__ = ["BaseModelSerializer", "ModelSerializer"]
 
@@ -15,12 +18,24 @@ class BaseModelSerializer(abc.ABC):
     This abstract class defines the interface for concrete serializers tailored to specific machine learning
     frameworks (e.g., scikit-learn, TensorFlow).
 
-    It includes methods for serializing a model object to bytes, deserializing
-    bytes back to a model object, extracting model metadata, and getting
-    the serializer version.
+    It includes methods for serializing a model object to bytes, deserializing the wire-level source
+    back to a model object, extracting model metadata, and getting the serializer version.
+
+    The :meth:`load` contract is unified across families: implementations accept either raw ``bytes``
+    (binary model section) or a :class:`pathlib.Path` (extracted bundle directory). Concrete
+    serializers narrow the accepted variant via runtime ``isinstance`` checks; bytes-only frameworks
+    (sklearn/pytorch/tensorflow) reject paths and bundle-only frameworks (transformers) reject
+    bytes. Wire-level discrimination between the two kinds lives in the
+    kind byte on v2 dumps (see :data:`~flama.types.SerializationModelKind`), so the serializer never needs
+    to carry a class-level ``from_directory`` flag.
+
+    The :data:`~flama.types.ModelFamily` discriminator is persisted directly on
+    :class:`~flama.serialize.data_structures.FrameworkInfo` at dump time, so serializers stay
+    family-agnostic; the :class:`~flama.serialize.data_structures.ModelCapabilities` subclass
+    returned from :meth:`detect_capabilities` carries its own ``kind`` discriminator.
     """
 
-    lib: t.ClassVar[types.Lib]
+    lib: t.ClassVar[types.ModelLib]
 
     @abc.abstractmethod
     def dump(self, obj: t.Any, /, **kwargs) -> bytes:
@@ -33,10 +48,14 @@ class BaseModelSerializer(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def load(self, model: bytes, /, **kwargs) -> t.Any:
-        """Deserializes bytes back into a model object specific to the ML library.
+    def load(self, source: bytes | pathlib.Path, /, **kwargs) -> t.Any:
+        """Deserialize a wire-level model source into a live framework object.
 
-        :param model: The bytes representing the serialized model.
+        ``source`` is either raw ``bytes`` (binary section payload) or a :class:`pathlib.Path` to an
+        extracted bundle directory. Concrete serializers accept exactly one variant and raise
+        :class:`TypeError` (or :class:`ValueError`) when handed the other.
+
+        :param source: Serialized model bytes or path to an extracted model bundle directory.
         :param kwargs: Additional keyword arguments for the deserialization process.
         :return: The deserialized model object.
         """
@@ -59,6 +78,23 @@ class BaseModelSerializer(abc.ABC):
         """
         ...
 
+    @abc.abstractmethod
+    def detect_capabilities(self, model: t.Any, /) -> "ModelCapabilities | None":
+        """Detect the modal capabilities of *model* for embedding into the artifact manifest.
+
+        Each concrete serializer owns its detection logic and returns the family-appropriate
+        :class:`~flama.serialize.data_structures.ModelCapabilities` subclass
+        (:class:`~flama.serialize.data_structures.MLModelCapabilities` for traditional ML,
+        :class:`~flama.serialize.data_structures.LLMModelCapabilities` for LLMs). Returning
+        :data:`None` signals "capabilities cannot be determined for this artifact"; downstream
+        load paths that depend on capabilities (notably MLX/vLLM dispatch) raise
+        :class:`~flama.serialize.exceptions.UnknownModelCapabilities` rather than guessing.
+
+        :param model: Model object, pipeline, or extracted directory being serialised or loaded.
+        :return: Detected capabilities, or :data:`None` when they cannot be resolved.
+        """
+        ...
+
 
 class ModelSerializer:
     """Factory class for obtaining the appropriate model-specific serializer.
@@ -67,20 +103,16 @@ class ModelSerializer:
     implementation based on the ML library name or by inspecting a model object.
     """
 
-    _registry: t.Final[dict[types.Lib, tuple[str, str]]] = {
+    _registry: t.Final[dict[types.ModelLib, tuple[str, str]]] = {
         "keras": ("flama.serialize.model_serializers.tensorflow", "ModelSerializer"),
         "sklearn": ("flama.serialize.model_serializers.sklearn", "ModelSerializer"),
         "tensorflow": ("flama.serialize.model_serializers.tensorflow", "ModelSerializer"),
         "torch": ("flama.serialize.model_serializers.pytorch", "ModelSerializer"),
         "transformers": ("flama.serialize.model_serializers.transformers", "ModelSerializer"),
-        "vllm": (
-            "flama.serialize.model_serializers.vllm",
-            "MetalModelSerializer" if sys.platform == "darwin" else "CudaModelSerializer",
-        ),
     }
 
     @classmethod
-    def from_lib(cls, lib: types.Lib, /) -> BaseModelSerializer:
+    def from_lib(cls, lib: types.ModelLib, /) -> BaseModelSerializer:
         """Loads and instantiates the concrete model serializer class for the given ML library.
 
         :param lib: The name of the machine learning library (e.g., ``"sklearn"``, ``"tensorflow"``).
@@ -124,7 +156,7 @@ class ModelSerializer:
                 module = inspect.getmodule(obj)
                 if module is None:
                     continue
-                return cls.from_lib(t.cast(types.Lib, module.__name__.split(".", 1)[0]))
+                return cls.from_lib(t.cast(types.ModelLib, module.__name__.split(".", 1)[0]))
             except (ValueError, AttributeError):
                 ...
         else:  # pragma: no cover

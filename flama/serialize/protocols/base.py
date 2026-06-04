@@ -3,7 +3,7 @@ import importlib
 import typing as t
 
 from flama import types
-from flama.serialize.data_structures import ModelArtifact
+from flama.serialize.data_structures import Metadata, ModelArtifact
 
 __all__ = ["BaseProtocol", "Protocol"]
 
@@ -11,7 +11,7 @@ __all__ = ["BaseProtocol", "Protocol"]
 class BaseProtocol(abc.ABC):
     """Base class for defining a serialization protocol for ML models."""
 
-    lib: t.ClassVar[types.Lib]
+    lib: t.ClassVar[types.ModelLib]
 
     @abc.abstractmethod
     def dump(self, m: ModelArtifact, f: t.BinaryIO, /, *, compression: types.SerializationCompression, **kwargs) -> int:
@@ -26,22 +26,43 @@ class BaseProtocol(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def load(
-        self,
-        f: t.BinaryIO,
-        /,
-        *,
-        compression: types.SerializationCompression,
-        lib: types.Lib | None = None,
-        **kwargs,
-    ) -> ModelArtifact:
+    def load(self, f: t.BinaryIO, /, *, compression: types.SerializationCompression, **kwargs) -> ModelArtifact:
         """Deserialize a :class:`~flama.serialize.data_structures.ModelArtifact` from a readable binary file.
 
         :param f: A readable binary stream positioned at the start of the serialized body.
         :param compression: The compression format name used on the body.
-        :param lib: Optional ML library override for deserialization (defaults to the lib stored in metadata).
         :param kwargs: Additional keyword arguments for the deserialization process.
         :return: The deserialized model artifact.
+        """
+        ...
+
+    @abc.abstractmethod
+    def meta(self, f: t.BinaryIO, /, *, compression: types.SerializationCompression, **kwargs) -> Metadata:
+        """Read only the :class:`~flama.serialize.data_structures.Metadata` section from a readable binary file.
+
+        Mirrors :meth:`load`'s framing but stops after decoding the metadata frame, leaving the
+        model body and artifacts untouched. Intended for cheap header-only inspection (lib
+        auto-detection, lazy registration) where the model itself is not yet needed.
+
+        :param f: A readable binary stream positioned at the start of the serialized body.
+        :param compression: The compression format name used on the body.
+        :param kwargs: Additional keyword arguments forwarded to the protocol implementation.
+        :return: The model metadata.
+        """
+        ...
+
+    @abc.abstractmethod
+    def manifest(self, f: t.BinaryIO, /, *, compression: types.SerializationCompression, **kwargs) -> tuple[str, ...]:
+        """Read the bundled artifact names from a serialized model.
+
+        Walks the per-artifact headers to collect names without decompressing or extracting
+        their contents — and without decoding the metadata. Cheapest possible introspection
+        for callers that only need to know *what* is packaged.
+
+        :param f: A readable binary stream positioned at the start of the serialized body.
+        :param compression: The compression format name used on the body.
+        :param kwargs: Additional keyword arguments forwarded to the protocol implementation.
+        :return: The names of bundled artifacts, in packed order.
         """
         ...
 
