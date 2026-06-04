@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+
+@import '@vortico/ui/styles/core.css';
+
+@source '../../**/*.{js,ts,jsx,tsx}';
+
+html {
+  @apply scroll-smooth;
+}
+
+body {
+  @apply bg-primary-50 text-primary-600;
+}
