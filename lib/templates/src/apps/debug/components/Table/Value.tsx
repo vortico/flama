@@ -1,4 +1,4 @@
-import { html } from '@/ui/lib/codecs'
+import { html } from '../../lib/codecs'
 
 export interface ValueProps {
   value: string | number | boolean
