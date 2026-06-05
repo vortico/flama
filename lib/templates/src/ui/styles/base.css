@@ -11,3 +11,10 @@ html {
 body {
   @apply bg-primary-50 text-primary-600;
 }
+
+/* KaTeX inherits `currentColor`, so it follows the prose theme automatically. Only the display
+   block needs its rhythm aligned with the markdown spacing and a horizontal scroll for wide
+   equations. */
+.katex-display {
+  @apply my-2 overflow-x-auto overflow-y-hidden;
+}

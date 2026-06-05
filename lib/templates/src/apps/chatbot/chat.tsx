@@ -5,6 +5,7 @@ import { Footer, Menu } from '@/ui/components'
 import { ChatApp } from './components'
 import { Chat } from './data'
 
+import 'katex/dist/katex.min.css'
 import '@/ui/styles/base.css'
 
 function Page() {
@@ -21,4 +22,7 @@ function Page() {
   )
 }
 
-ReactDOM.createRoot(document.getElementById('app')!).render(<Page />)
+const container = document.getElementById('app')
+if (container) {
+  ReactDOM.createRoot(container).render(<Page />)
+}
