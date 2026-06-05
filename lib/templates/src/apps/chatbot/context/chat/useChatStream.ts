@@ -4,7 +4,7 @@ import { parseEvent, SSE_EVENTS } from './parseEvent'
 import type { Action } from './reducer'
 
 export interface ChatRequestBody {
-  messages: { role: 'user' | 'assistant'; content: string }[]
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
   transport: 'conversation'
   chat_template_kwargs?: Record<string, unknown>
   params?: Record<string, unknown>
