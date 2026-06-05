@@ -1,18 +1,28 @@
+import type { ComponentProps } from 'react'
 import { Code, Window } from '@vortico/ui/elements'
 import type { CodeLanguage } from '@vortico/ui/elements'
-import ReactMarkdown, { type Components } from 'react-markdown'
+import rehypeKatex from 'rehype-katex'
+import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
 
-const CodeOverride: Components['code'] = ({ className, children }) => {
+const CodeOverride = ({ className, children }: ComponentProps<'code'> & ExtraProps) => {
+  const language = /language-(\w+)/.exec(className ?? '')?.[1]?.toLowerCase()
+
+  // Math (inline `$x$` and display `$$x$$`) is emitted as `language-math` and already turned into
+  // `.katex` spans by `rehype-katex` upstream, so the children are passed through untouched instead
+  // of being treated as a fenced code block.
+  if (language === 'math') {
+    return <>{children}</>
+  }
+
   const value = String(children).replace(/\n$/, '')
-  const match = /language-(\w+)/.exec(className ?? '')
   const isBlock = value.includes('\n') || (className?.includes('language-') ?? false)
   if (isBlock) {
-    const language = match?.[1]?.toLowerCase() as CodeLanguage | undefined
     return (
       <Window title={language ?? ''}>
         <div className="p-2">
-          <Code code={value} language={language} inline={false} size="xs" />
+          <Code code={value} language={language as CodeLanguage | undefined} inline={false} size="xs" />
         </div>
       </Window>
     )
@@ -49,7 +59,11 @@ interface MarkdownProps {
 
 export default function Markdown({ text }: MarkdownProps) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={STATIC_OVERRIDES}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[[rehypeKatex, { throwOnError: false }]]}
+      components={STATIC_OVERRIDES}
+    >
       {text}
     </ReactMarkdown>
   )
