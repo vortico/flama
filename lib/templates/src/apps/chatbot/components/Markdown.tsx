@@ -6,6 +6,8 @@ import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 
+import Mermaid from './Mermaid'
+
 const CodeOverride = ({ className, children }: ComponentProps<'code'> & ExtraProps) => {
   const language = /language-(\w+)/.exec(className ?? '')?.[1]?.toLowerCase()
 
@@ -17,6 +19,12 @@ const CodeOverride = ({ className, children }: ComponentProps<'code'> & ExtraPro
   }
 
   const value = String(children).replace(/\n$/, '')
+
+  // Mermaid diagrams render as an SVG on the dark `Window` surface instead of as source code.
+  if (language === 'mermaid') {
+    return <Mermaid chart={value} />
+  }
+
   const isBlock = value.includes('\n') || (className?.includes('language-') ?? false)
   if (isBlock) {
     return (
