@@ -359,7 +359,7 @@ class TestCaseMCPEndpoint:
         server = MCPServer("bad")
         route = app.mcp.add_server("/bad/", "bad", server=server)
 
-        async def bad_ping(**params):
+        async def bad_ping(self):
             raise RuntimeError("unexpected")
 
         route.endpoint.ping = bad_ping

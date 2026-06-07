@@ -1,4 +1,3 @@
-import dataclasses
 import functools
 from unittest.mock import MagicMock, call, patch
 
@@ -6,6 +5,7 @@ import pytest
 
 from flama.injection.components import Component, Components
 from flama.injection.context import Context as BaseContext
+from flama.injection.context import Field
 from flama.injection.exceptions import ComponentError, ComponentNotFound
 from flama.injection.injector import Injector
 from flama.injection.resolver import Parameter, ResolutionTree, Resolver
@@ -52,15 +52,13 @@ def function(foo: Foo, bar: Bar):
     return foo, bar
 
 
-@dataclasses.dataclass(eq=False)
 class XContext(BaseContext):
-    x: CustomStr | None = None
+    x = Field(CustomStr)
 
 
-@dataclasses.dataclass(eq=False)
 class FooBarContext(BaseContext):
-    foo: Foo | None = None
-    bar: Bar | None = None
+    foo = Field(Foo)
+    bar = Field(Bar)
 
 
 class TestCaseInjector:

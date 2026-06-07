@@ -15,8 +15,9 @@ __all__ = [
     "QueryStringComponent",
     "QueryParamsComponent",
     "HeadersComponent",
+    "CookiesComponent",
     "BodyComponent",
-    "ASGI_COMPONENTS",
+    "HTTP_COMPONENTS",
 ]
 
 
@@ -103,7 +104,7 @@ class BodyComponent(Component):
         return types.Body(body)
 
 
-ASGI_COMPONENTS = Components(
+HTTP_COMPONENTS = Components(
     [
         MethodComponent(),
         AppComponent(),

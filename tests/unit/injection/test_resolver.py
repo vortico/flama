@@ -1,4 +1,3 @@
-import dataclasses
 import inspect
 import uuid
 from unittest.mock import MagicMock, call
@@ -8,6 +7,7 @@ import pytest
 from flama.injection.cache import LRUCache
 from flama.injection.components import Component, Components
 from flama.injection.context import Context as BaseContext
+from flama.injection.context import Field
 from flama.injection.exceptions import ComponentNotFound, InjectionError
 from flama.injection.injector import InjectionCache
 from flama.injection.resolver import (
@@ -89,16 +89,14 @@ class NonCacheableComponent(Component):
         return NonCacheable(str(self.uuid.uuid4()))
 
 
-@dataclasses.dataclass(eq=False)
 class Context(BaseContext):
-    x: int | None = None
-    data: dict | None = None
-    y: CustomInt | None = None
+    x = Field(int)
+    data = Field(dict)
+    y = Field(CustomInt)
 
 
-@dataclasses.dataclass(eq=False)
 class ResolverContext(BaseContext):
-    y: CustomInt | None = None
+    y = Field(CustomInt)
 
 
 class TestCaseResolutionTree:

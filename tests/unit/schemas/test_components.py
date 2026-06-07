@@ -4,7 +4,7 @@ import pytest
 
 from flama import exceptions, types
 from flama.injection.resolver import Parameter
-from flama.validation import (
+from flama.schemas.components import (
     CompositeParamComponent,
     PrimitiveParamComponent,
     ValidatedPathParams,
@@ -56,7 +56,7 @@ class TestCaseValidatePathParamsComponent:
         with exception:
             from unittest.mock import patch
 
-            with patch("flama.validation.Schema.build", return_value=mock_schema):
+            with patch("flama.schemas.components.Schema.build", return_value=mock_schema):
                 result = await component.resolve(request, route, path_params)
 
             assert result == expected
@@ -109,7 +109,7 @@ class TestCasePrimitiveParamComponent:
 
         from unittest.mock import patch
 
-        with patch("flama.validation.Schema.build", return_value=mock_schema):
+        with patch("flama.schemas.components.Schema.build", return_value=mock_schema):
             result = component.resolve(parameter, path_params, query_params)
 
         assert result == 42
@@ -125,7 +125,7 @@ class TestCasePrimitiveParamComponent:
 
         from unittest.mock import patch
 
-        with patch("flama.validation.Schema.build", return_value=mock_schema):
+        with patch("flama.schemas.components.Schema.build", return_value=mock_schema):
             result = component.resolve(parameter, path_params, query_params)
 
         assert result == "search"
@@ -141,7 +141,7 @@ class TestCasePrimitiveParamComponent:
 
         from unittest.mock import patch
 
-        with patch("flama.validation.Schema.build", return_value=mock_schema):
+        with patch("flama.schemas.components.Schema.build", return_value=mock_schema):
             result = component.resolve(parameter, path_params, query_params)
 
         assert result == "fallback"
