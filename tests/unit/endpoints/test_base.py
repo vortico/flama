@@ -22,6 +22,11 @@ class TestCaseBaseEndpoint:
     @pytest.fixture
     def endpoint(self):
         class _Endpoint(endpoints.BaseEndpoint):
+            scope_type = "http"
+
+            def build_context(self, scope, receive, send) -> dict[str, t.Any]:
+                return {}
+
             @classmethod
             def allowed_handlers(cls) -> dict[str, t.Callable]: ...
 

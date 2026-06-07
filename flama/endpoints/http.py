@@ -9,28 +9,18 @@ __all__ = ["HTTPEndpoint"]
 
 
 class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
+    scope_type = "http"
     state: Context
 
-    def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
-        """An HTTP endpoint.
+    def build_context(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> dict[str, t.Any]:
+        """Build the HTTP-specific context fields.
 
         :param scope: ASGI scope.
         :param receive: ASGI receive function.
         :param send: ASGI send function.
+        :return: Mapping with the request bound to this endpoint.
         """
-        if scope["type"] != "http":
-            raise ValueError("Wrong scope")
-
-        super().__init__(scope, receive, send)
-
-        self.state = Context(
-            scope=self.state.scope,
-            receive=self.state.receive,
-            send=self.state.send,
-            app=self.state.app,
-            route=self.state.route,
-            request=http.Request(scope, receive=receive),
-        )
+        return {"request": http.Request(scope, receive=receive)}
 
     @classmethod
     def allowed_methods(cls) -> set[Method]:
@@ -44,26 +34,23 @@ class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
         return methods
 
     @classmethod
-    def allowed_handlers(cls) -> dict[str, t.Callable]:
+    def allowed_handlers(cls) -> dict[str, t.Callable[..., t.Awaitable[t.Any] | t.Any]]:
         """A mapping of handler related to each HTTP method.
 
         :return: Handlers mapping.
         """
         return {method: getattr(cls, method.lower(), getattr(cls, "get")) for method in cls.allowed_methods()}
 
-    @property
-    def handler(self) -> t.Callable:
-        """The handler used for dispatching this request.
+    async def resolve_handler(self) -> t.Callable[..., t.Awaitable[t.Any] | t.Any]:
+        """Resolve the handler used for dispatching this request.
 
         :return: Handler.
         """
-        assert self.state.request is not None
-        handler_name = "get" if self.state.request.method == "HEAD" else self.state.request.method.lower()
-        h: t.Callable = getattr(self, handler_name)
-        return h
+        request = self.state.request
+        handler_name = "get" if request.method == "HEAD" else request.method.lower()
+        return getattr(self, handler_name)
 
     async def dispatch(self) -> t.Any:
         """Dispatch a request."""
-        assert self.state.app is not None
-        handler = await self.state.app.injector.inject(self.handler, self.state)
+        handler = await self.state.app.injector.inject(await self.resolve_handler(), self.state)
         return await concurrency.run(handler)
