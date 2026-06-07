@@ -3,17 +3,21 @@ import logging
 import threading
 import typing as t
 
-from flama import asgi, exceptions, injection, routing, types, url, validation
+from flama import exceptions, injection, routing, types, url
 from flama.context import Context
 from flama.ddd.components import WorkerComponent
+from flama.endpoints.components import JSONRPC_COMPONENTS
 from flama.events import Events
+from flama.http.components import HTTP_COMPONENTS
 from flama.injection.components import Components
+from flama.mcp.components import MCP_COMPONENTS
 from flama.mcp.module import MCPModule
 from flama.middleware import MiddlewareStack
 from flama.models.modules import ModelsModule
 from flama.modules import Modules
 from flama.pagination import paginator
 from flama.resources import ResourcesModule
+from flama.schemas.components import VALIDATION_COMPONENTS
 from flama.schemas.modules import SchemaModule
 from flama.types.http import Method
 
@@ -309,7 +313,9 @@ class Flama(types.App):
 
         :return: Injector instance.
         """
-        components = injection.Components(self.components + asgi.ASGI_COMPONENTS + validation.VALIDATION_COMPONENTS)
+        components = injection.Components(
+            self.components + HTTP_COMPONENTS + VALIDATION_COMPONENTS + JSONRPC_COMPONENTS + MCP_COMPONENTS
+        )
         if self._injector.components != components:
             self._injector.components = components
         return self._injector

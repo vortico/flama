@@ -132,9 +132,9 @@ class TestCaseHTTPEndpoint:
 
         assert BarEndpoint.allowed_methods() == {"POST"}
 
-    def test_handler(self, endpoint):
+    async def test_resolve_handler(self, endpoint):
         endpoint.state.request.scope["method"] = "GET"
-        assert endpoint.handler == endpoint.get
+        assert await endpoint.resolve_handler() == endpoint.get
 
     async def test_dispatch(self, app, endpoint):
         injected_mock = MagicMock()

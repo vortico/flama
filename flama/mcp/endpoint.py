@@ -1,7 +1,7 @@
 import logging
 import typing as t
 
-from flama import concurrency, exceptions, http
+from flama import concurrency, exceptions, http, types
 from flama._core.json_encoder import encode_json
 from flama.endpoints.jsonrpc import JSONRPCEndpoint
 from flama.mcp.http import MCPResponse
@@ -38,7 +38,7 @@ class MCPEndpoint(JSONRPCEndpoint):
 
         return response
 
-    def initialize(self, **params: t.Any) -> dict[str, t.Any]:
+    def initialize(self) -> dict[str, t.Any]:
         capabilities: dict[str, dict[str, t.Any]] = {}
 
         if self.server._tools:
@@ -59,13 +59,13 @@ class MCPEndpoint(JSONRPCEndpoint):
 
         return result
 
-    def notification(self, **params: t.Any) -> None:
+    def notification(self) -> None:
         return None
 
-    def ping(self, **params: t.Any) -> dict[str, t.Any]:
+    def ping(self) -> dict[str, t.Any]:
         return {}
 
-    def tools_list(self, **params: t.Any) -> dict[str, t.Any]:
+    def tools_list(self) -> dict[str, t.Any]:
         return {
             "tools": [
                 {"name": e.name, "description": e.description, "inputSchema": e.input_schema}
@@ -73,9 +73,9 @@ class MCPEndpoint(JSONRPCEndpoint):
             ]
         }
 
-    async def tools_call(
-        self, name: str = "", arguments: dict[str, t.Any] | None = None, **params: t.Any
-    ) -> dict[str, t.Any]:
+    async def tools_call(self, params: types.JSONRPCParams) -> dict[str, t.Any]:
+        name = params.get("name", "")
+        arguments = params.get("arguments") or {}
         entry = self.server._tools.get(name)
 
         if entry is None:
@@ -84,7 +84,7 @@ class MCPEndpoint(JSONRPCEndpoint):
             )
 
         try:
-            result = await concurrency.run(entry.handler, **(arguments or {}))
+            result = await concurrency.run(entry.handler, **arguments)
         except exceptions.JSONRPCException:
             raise
         except Exception as e:
@@ -95,7 +95,7 @@ class MCPEndpoint(JSONRPCEndpoint):
         text = encode_json(result, compact=True).decode() if isinstance(result, dict) else str(result)
         return {"content": [{"type": "text", "text": text}]}
 
-    def resources_list(self, **params: t.Any) -> dict[str, t.Any]:
+    def resources_list(self) -> dict[str, t.Any]:
         return {
             "resources": [
                 {"uri": e.uri, "name": e.name, "description": e.description, "mimeType": e.mime_type}
@@ -103,7 +103,8 @@ class MCPEndpoint(JSONRPCEndpoint):
             ]
         }
 
-    async def resources_read(self, uri: str = "", **params: t.Any) -> dict[str, t.Any]:
+    async def resources_read(self, params: types.JSONRPCParams) -> dict[str, t.Any]:
+        uri = params.get("uri", "")
         entry = self.server._resources.get(uri)
 
         if entry is None:
@@ -122,10 +123,10 @@ class MCPEndpoint(JSONRPCEndpoint):
 
         return {"contents": [{"uri": uri, "mimeType": entry.mime_type, "text": str(result)}]}
 
-    def resources_templates_list(self, **params: t.Any) -> dict[str, t.Any]:
+    def resources_templates_list(self) -> dict[str, t.Any]:
         return {"resourceTemplates": []}
 
-    def prompts_list(self, **params: t.Any) -> dict[str, t.Any]:
+    def prompts_list(self) -> dict[str, t.Any]:
         return {
             "prompts": [
                 {"name": e.name, "description": e.description, "arguments": e.arguments}
@@ -133,9 +134,9 @@ class MCPEndpoint(JSONRPCEndpoint):
             ]
         }
 
-    async def prompts_get(
-        self, name: str = "", arguments: dict[str, t.Any] | None = None, **params: t.Any
-    ) -> dict[str, t.Any]:
+    async def prompts_get(self, params: types.JSONRPCParams) -> dict[str, t.Any]:
+        name = params.get("name", "")
+        arguments = params.get("arguments") or {}
         entry = self.server._prompts.get(name)
 
         if entry is None:
@@ -144,7 +145,7 @@ class MCPEndpoint(JSONRPCEndpoint):
             )
 
         try:
-            result = await concurrency.run(entry.handler, **(arguments or {}))
+            result = await concurrency.run(entry.handler, **arguments)
         except exceptions.JSONRPCException:
             raise
         except Exception as e:

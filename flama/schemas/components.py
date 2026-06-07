@@ -4,8 +4,8 @@ from flama import codecs, exceptions, http, routing, types
 from flama.http.data_structures import QueryParams
 from flama.injection import Component, Components
 from flama.injection.resolver import Parameter
-from flama.schemas import SchemaValidationError
 from flama.schemas.data_structures import Field, Schema
+from flama.schemas.exceptions import SchemaValidationError
 
 __all__ = [
     "ValidatedPathParams",
@@ -17,6 +17,7 @@ __all__ = [
     "PrimitiveParamComponent",
     "CompositeParamComponent",
     "WebSocketMessageDataComponent",
+    "VALIDATION_COMPONENTS",
 ]
 
 

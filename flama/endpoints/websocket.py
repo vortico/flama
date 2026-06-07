@@ -9,33 +9,21 @@ __all__ = ["WebSocketEndpoint"]
 
 class WebSocketEndpoint(BaseEndpoint, types.WebSocketEndpointProtocol):
     encoding: types.Encoding | None = None
+    scope_type = "websocket"
     state: Context
 
-    def __init__(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> None:
-        """A websocket endpoint.
+    def build_context(self, scope: "types.Scope", receive: "types.Receive", send: "types.Send") -> dict[str, t.Any]:
+        """Build the websocket-specific context fields.
 
         :param scope: ASGI scope.
         :param receive: ASGI receive function.
         :param send: ASGI send function.
+        :return: Mapping with the websocket connection and its encoding.
         """
-        if scope["type"] != "websocket":
-            raise ValueError("Wrong scope")
-
-        super().__init__(scope, receive, send)
-
-        assert self.state.scope is not None
-        self.state = Context(
-            scope=self.state.scope,
-            receive=self.state.receive,
-            send=self.state.send,
-            app=self.state.app,
-            route=self.state.route,
-            websocket=http.WebSocket(self.state.scope, receive, send),
-            websocket_encoding=self.encoding,
-        )
+        return {"websocket": http.WebSocket(scope, receive, send), "websocket_encoding": self.encoding}
 
     @classmethod
-    def allowed_handlers(cls) -> dict[str, t.Callable]:
+    def allowed_handlers(cls) -> dict[str, t.Callable[..., t.Awaitable[t.Any] | t.Any]]:
         """A mapping of handler related to each WS action.
 
         :return: Handlers mapping.
@@ -50,8 +38,6 @@ class WebSocketEndpoint(BaseEndpoint, types.WebSocketEndpointProtocol):
         """Dispatch a request."""
         app = self.state.app
         websocket = self.state.websocket
-        assert app is not None
-        assert websocket is not None
 
         on_connect = await app.injector.inject(self.on_connect, self.state)
         await on_connect()

@@ -5,6 +5,7 @@ import pytest
 
 from flama import Flama, endpoints, exceptions
 from flama.http.data_structures import JSONRPCStatus
+from flama.types import JSONRPCParams
 
 
 class TestCaseJSONRPCEndpoint:
@@ -21,8 +22,8 @@ class TestCaseJSONRPCEndpoint:
         class MyRPC(endpoints.JSONRPCEndpoint):
             handlers = {"add": "do_add", "fail": "do_fail"}
 
-            def do_add(self, a: int = 0, b: int = 0):
-                return a + b
+            def do_add(self, params: JSONRPCParams):
+                return params["a"] + params["b"]
 
             def do_fail(self):
                 raise RuntimeError("boom")
@@ -31,7 +32,7 @@ class TestCaseJSONRPCEndpoint:
 
     @pytest.fixture
     def endpoint(self, app, route, endpoint_cls, asgi_scope, asgi_receive, asgi_send):
-        app.router = MagicMock(resolve_route=MagicMock(side_effect=lambda x: (route, x)))
+        app.router.resolve_route = MagicMock(side_effect=lambda x: (route, x))
         asgi_scope["app"] = app
         asgi_scope["root_app"] = app
         asgi_scope["type"] = "http"
@@ -70,16 +71,20 @@ class TestCaseJSONRPCEndpoint:
         ],
         indirect=["exception"],
     )
-    def test_handler(self, endpoint, method, exception):
-        with exception:
-            h = endpoint.handler(method)
-            assert callable(h)
+    async def test_resolve_handler(self, endpoint, method, exception):
+        endpoint.state.request = MagicMock()
+        endpoint.state.request.json = AsyncMock(return_value={"jsonrpc": "2.0", "method": method, "id": 1})
 
-    def test_handler_not_callable(self, endpoint):
+        with exception:
+            assert callable(await endpoint.resolve_handler())
+
+    async def test_resolve_handler_not_callable(self, endpoint):
         endpoint.handlers["broken"] = "nonexistent_method"
+        endpoint.state.request = MagicMock()
+        endpoint.state.request.json = AsyncMock(return_value={"jsonrpc": "2.0", "method": "broken", "id": 1})
 
         with pytest.raises(exceptions.JSONRPCException):
-            endpoint.handler("broken")
+            await endpoint.resolve_handler()
 
     @pytest.mark.parametrize(
         ["body", "expected_status", "exception"],

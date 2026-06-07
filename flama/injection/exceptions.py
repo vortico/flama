@@ -4,10 +4,13 @@ if t.TYPE_CHECKING:
     from flama.injection.components import Component
     from flama.injection.resolver import Parameter
 
-__all__ = ["ComponentError", "ComponentNotFound"]
+__all__ = ["ComponentError", "ComponentNotFound", "ContextError"]
 
 
 class InjectionError(Exception): ...
+
+
+class ContextError(InjectionError): ...
 
 
 class ComponentError(InjectionError): ...
