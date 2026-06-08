@@ -1,7 +1,7 @@
 import dataclasses
 import typing as t
 
-__all__ = ["MCPMeta", "MCPRequestHeaders"]
+__all__ = ["MCPMeta", "MCPRequestHeaders", "MCPTraceContext"]
 
 
 class MCPMeta(dict[str, t.Any]):
@@ -48,3 +48,34 @@ class MCPRequestHeaders:
     method: str
     name: str | None
     protocol_version: str | None
+
+
+@dataclasses.dataclass
+class MCPTraceContext:
+    """The W3C trace context propagated through a request's ``_meta`` (SEP-414).
+
+    The keys ``traceparent``, ``tracestate``, and ``baggage`` are reserved *un-prefixed* in ``_meta`` (an explicit
+    exception to the DNS-namespacing rule) so OpenTelemetry instrumentation can correlate spans across transports. When
+    present, their values follow the W3C Trace Context and W3C Baggage formats.
+    """
+
+    TRACEPARENT_KEY: t.ClassVar[str] = "traceparent"
+    TRACESTATE_KEY: t.ClassVar[str] = "tracestate"
+    BAGGAGE_KEY: t.ClassVar[str] = "baggage"
+
+    traceparent: str | None = None
+    tracestate: str | None = None
+    baggage: str | None = None
+
+    @classmethod
+    def from_meta(cls, meta: MCPMeta) -> "MCPTraceContext":
+        """Extract the trace context from a request's ``_meta``.
+
+        :param meta: The ``_meta`` object carried in the request's ``params``.
+        :return: The trace context, with ``None`` for any key the client did not propagate.
+        """
+        return cls(
+            traceparent=meta.get(cls.TRACEPARENT_KEY),
+            tracestate=meta.get(cls.TRACESTATE_KEY),
+            baggage=meta.get(cls.BAGGAGE_KEY),
+        )

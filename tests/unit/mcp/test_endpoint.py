@@ -162,6 +162,23 @@ class TestCaseMCPEndpoint:
         assert result["ttlMs"] == 0
         assert result["cacheScope"] == "public"
 
+    async def test_tools_list_output_schema(self, app):
+        resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}})
+        tools = {t["name"]: t for t in resp.json()["result"]["tools"]}
+        assert tools["add"]["outputSchema"] == {"type": "integer"}
+        assert tools["greet"]["outputSchema"] == {"type": "string"}
+
+    async def test_tools_list_without_output_schema(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.tool("untyped")
+        def untyped(x: str):
+            return x
+
+        resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}})
+        tools = {t["name"]: t for t in resp.json()["result"]["tools"]}
+        assert "outputSchema" not in tools["untyped"]
+
     @pytest.mark.parametrize(
         ["tool_name", "arguments", "expected_text"],
         (
@@ -176,6 +193,34 @@ class TestCaseMCPEndpoint:
         )
         assert resp.json()["result"]["content"][0]["text"] == expected_text
 
+    async def test_tools_call_structured_content(self, app):
+        resp = await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "add", "arguments": {"a": 3, "b": 7}},
+            },
+        )
+        result = resp.json()["result"]
+        assert result["content"][0]["text"] == "10"
+        assert result["structuredContent"] == 10
+
+    async def test_tools_call_list_result(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.tool("nums")
+        def nums() -> list[int]:
+            return [1, 2, 3]
+
+        resp = await self._post(
+            app, {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "nums", "arguments": {}}}
+        )
+        result = resp.json()["result"]
+        assert json.loads(result["content"][0]["text"]) == [1, 2, 3]
+        assert result["structuredContent"] == [1, 2, 3]
+
     async def test_tools_call_dict_result(self, app):
         server = app.mcp._servers["test"]
 
@@ -186,7 +231,9 @@ class TestCaseMCPEndpoint:
         resp = await self._post(
             app, {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "info", "arguments": {}}}
         )
-        assert json.loads(resp.json()["result"]["content"][0]["text"]) == {"key": "value"}
+        result = resp.json()["result"]
+        assert json.loads(result["content"][0]["text"]) == {"key": "value"}
+        assert "structuredContent" not in result
 
     async def test_tools_call_not_found(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "missing"}})

@@ -1,6 +1,16 @@
+import json
+
 import pytest
 
+from flama import schemas
 from flama.mcp.server import MCPServer, Prompt, Resource, Tool
+
+
+def _nested_schema():
+    """Build a ``Parent`` schema with a nested ``Child`` via the active adapter (adapter-agnostic)."""
+    adapter = schemas.adapter
+    child = adapter.build_schema(name="Child", fields={"value": adapter.build_field("value", int)})
+    return adapter.build_schema(name="Parent", fields={"child": adapter.build_field("child", child)})
 
 
 class TestCaseMCPServer:
@@ -166,6 +176,74 @@ class TestCaseMCPServer:
         schema = MCPServer._input_schema(func)
         assert schema["type"] == "object"
         assert schema["properties"] == {}
+
+    def test_input_schema_nested(self):
+        parent = _nested_schema()
+
+        def func(payload: parent): ...
+
+        schema = MCPServer._input_schema(func)
+
+        assert schema["type"] == "object"
+        assert "$defs" in schema
+        assert schema["properties"]["payload"]["$ref"].startswith("#/$defs/")
+        assert "#/components/schemas/" not in json.dumps(schema)
+
+    @pytest.mark.parametrize(
+        ["annotation", "expected"],
+        (
+            pytest.param(int, {"type": "integer"}, id="primitive"),
+            pytest.param(list[int], {"type": "array", "items": {"type": "integer"}}, id="sequence"),
+            pytest.param(dict[str, int], {"type": "object", "additionalProperties": {"type": "integer"}}, id="mapping"),
+            pytest.param(type(None), None, id="none"),
+        ),
+    )
+    def test_output_schema(self, annotation, expected):
+        def func(): ...
+
+        func.__annotations__["return"] = annotation
+
+        assert MCPServer._output_schema(func) == expected
+
+    def test_output_schema_unannotated(self):
+        def func(): ...
+
+        assert MCPServer._output_schema(func) is None
+
+    def test_output_schema_nested(self):
+        parent = _nested_schema()
+
+        def func() -> parent: ...
+
+        schema = MCPServer._output_schema(func)
+
+        assert schema["type"] == "object"
+        assert "$defs" in schema
+        assert "#/components/schemas/" not in json.dumps(schema)
+
+    def test_output_schema_sequence_of_schema(self):
+        parent = _nested_schema()
+
+        def func() -> list[parent]: ...
+
+        schema = MCPServer._output_schema(func)
+
+        assert schema["type"] == "array"
+        assert schema["items"]["type"] == "object"
+        assert "$defs" in schema
+        assert "#/components/schemas/" not in json.dumps(schema)
+
+    def test_output_schema_sequence_of_flat_schema(self):
+        adapter = schemas.adapter
+        flat = adapter.build_schema(name="Flat", fields={"value": adapter.build_field("value", int)})
+
+        def func() -> list[flat]: ...
+
+        schema = MCPServer._output_schema(func)
+
+        assert schema["type"] == "array"
+        assert schema["items"]["type"] == "object"
+        assert "$defs" not in schema
 
     def test_prompt_arguments(self):
         def func(text: str, language: str = "en"): ...

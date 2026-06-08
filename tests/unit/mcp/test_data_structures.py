@@ -1,6 +1,6 @@
 import pytest
 
-from flama.mcp.data_structures import MCPMeta
+from flama.mcp.data_structures import MCPMeta, MCPTraceContext
 
 
 class TestCaseMCPMeta:
@@ -26,3 +26,22 @@ class TestCaseMCPMeta:
     )
     def test_property(self, meta, attribute, expected):
         assert getattr(MCPMeta(meta), attribute) == expected
+
+
+class TestCaseMCPTraceContext:
+    @pytest.mark.parametrize(
+        ["meta", "expected"],
+        (
+            pytest.param(
+                {"traceparent": "00-trace-span-01", "tracestate": "x=1", "baggage": "k=v"},
+                MCPTraceContext(traceparent="00-trace-span-01", tracestate="x=1", baggage="k=v"),
+                id="full",
+            ),
+            pytest.param(
+                {"traceparent": "00-trace-span-01"}, MCPTraceContext(traceparent="00-trace-span-01"), id="partial"
+            ),
+            pytest.param({}, MCPTraceContext(), id="empty"),
+        ),
+    )
+    def test_from_meta(self, meta, expected):
+        assert MCPTraceContext.from_meta(MCPMeta(meta)) == expected

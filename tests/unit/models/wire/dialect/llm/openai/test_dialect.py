@@ -136,9 +136,7 @@ class TestCaseOpenAIDialect:
         events: list,
         verify: t.Callable[[list[ServerSentEvent]], None],
     ) -> None:
-        frames = [
-            frame async for frame in OpenAIDialect.render(events, api=api, model="m", generation_id=_GEN_ID)
-        ]
+        frames = [frame async for frame in OpenAIDialect.render(events, api=api, model="m", generation_id=_GEN_ID)]
 
         verify(frames)
 
@@ -168,8 +166,6 @@ class TestCaseOpenAIDialect:
             pytest.param("response", id="response"),
         ],
     )
-    async def test_assemble_raises_llm_generation_error(
-        self, api: t.Literal["chat", "completion", "response"]
-    ) -> None:
+    async def test_assemble_raises_llm_generation_error(self, api: t.Literal["chat", "completion", "response"]) -> None:
         with pytest.raises(LLMGenerationError, match="LLM stream generation failed"):
             await OpenAIDialect.assemble(_error_events(), api=api, model="m", generation_id=_GEN_ID)

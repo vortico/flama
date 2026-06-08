@@ -592,12 +592,15 @@ class TestCaseLLMBackend:
         artifact.meta.framework.config = framework_config
         backend_cls = MagicMock(return_value=MagicMock(model="model-dir"))
 
-        with patch.object(
-            LLMBackend,
-            "_resolve",
-            return_value=backend_cls if resolve_side_effect is None else None,
-            side_effect=resolve_side_effect,
-        ), exception:
+        with (
+            patch.object(
+                LLMBackend,
+                "_resolve",
+                return_value=backend_cls if resolve_side_effect is None else None,
+                side_effect=resolve_side_effect,
+            ),
+            exception,
+        ):
             result = LLMBackend.from_model_artifact(artifact)
 
         if not exception:
