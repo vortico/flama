@@ -6,7 +6,7 @@ from flama.http.data_structures import FormData, Headers, MutableHeaders, QueryP
 
 
 class TestCaseHeaders:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def headers(self):
         return Headers(headers={"Content-Type": "text/html", "Accept": "application/json"})
 
@@ -124,7 +124,7 @@ class TestCaseHeaders:
 
 
 class TestCaseMutableHeaders:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def headers(self):
         return MutableHeaders(headers={"a": "1", "b": "2"})
 
@@ -221,7 +221,7 @@ class TestCaseMutableHeaders:
 
 
 class TestCaseQueryParams:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def params(self):
         return QueryParams("a=1&b=2")
 
@@ -355,7 +355,7 @@ class TestCaseState:
 
 
 class TestCaseUploadFile:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def upload(self):
         return UploadFile(filename="test.txt", content_type="text/plain", data=b"hello world")
 

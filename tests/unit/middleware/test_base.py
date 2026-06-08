@@ -33,7 +33,7 @@ class TestCaseMiddleware:
 
 
 class TestCaseMiddlewareStack:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def middleware(self):
         class FooMiddleware(Middleware):
             async def __call__(self, scope, receive, send):
@@ -41,11 +41,11 @@ class TestCaseMiddlewareStack:
 
         return FooMiddleware()
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def app(self):
         return AsyncMock()
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def stack(self, app, middleware):
         return MiddlewareStack(app=app, middleware=[], debug=True)
 

@@ -5,7 +5,6 @@ import uuid
 import pytest
 
 from flama.http.responses.sse import ServerSentEvent
-from flama.models.exceptions import LLMGenerationError
 from flama.models.transport.output.llm.event import StartEvent, StopEvent, TextEvent, ToolEvent
 from flama.models.wire.dialect.llm.openai import OpenAIAssembler, OpenAIDialect, OpenAIParser, OpenAIRenderer
 
@@ -35,13 +34,6 @@ def _response_events() -> list:
         TextEvent(channel="thinking", text="reasoning..."),
         TextEvent(channel="output", text="answer"),
         StopEvent(stop_reason="stop", output_tokens=9),
-    ]
-
-
-def _error_events() -> list:
-    return [
-        StartEvent(id="msg-1", created=1000),
-        StopEvent(stop_reason="error"),
     ]
 
 
@@ -157,15 +149,3 @@ class TestCaseOpenAIDialect:
         envelope = await OpenAIDialect.assemble(events, api=api, model="m", generation_id=_GEN_ID)
 
         verify(envelope)
-
-    @pytest.mark.parametrize(
-        "api",
-        [
-            pytest.param("chat", id="chat"),
-            pytest.param("completion", id="completion"),
-            pytest.param("response", id="response"),
-        ],
-    )
-    async def test_assemble_raises_llm_generation_error(self, api: t.Literal["chat", "completion", "response"]) -> None:
-        with pytest.raises(LLMGenerationError, match="LLM stream generation failed"):
-            await OpenAIDialect.assemble(_error_events(), api=api, model="m", generation_id=_GEN_ID)

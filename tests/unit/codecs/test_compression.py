@@ -45,7 +45,7 @@ class TestCaseGzipCodec:
 
 
 class TestCaseCompressionNegotiator:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def negotiator(self):
         return CompressionNegotiator([BrotliCodec(), GzipCodec()])
 

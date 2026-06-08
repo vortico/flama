@@ -48,7 +48,7 @@ class TestCaseMCPMetaComponent:
 
 
 class TestCaseMCPRequestHeadersComponent:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def component(self):
         return MCPRequestHeadersComponent()
 
@@ -208,11 +208,11 @@ class TestCaseMCPExtensionsComponent:
 
 
 class TestCaseMCPInjection:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def injector(self):
         return Flama(schema=None, docs=None).injector
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def context(self):
         params = {"name": "add", "arguments": {"a": 1}, "_meta": {"v": 1}}
         request = MagicMock()

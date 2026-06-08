@@ -9,7 +9,7 @@ from flama.debug.data_structures import App, Environment, Error, ErrorContext, N
 from flama.routing import Mount, Route
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def http_request():
     return MagicMock()
 

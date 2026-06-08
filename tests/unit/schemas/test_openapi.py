@@ -1,6 +1,7 @@
 import dataclasses
 import typing as t
 from collections import namedtuple
+from unittest.mock import patch
 
 import marshmallow
 import pydantic
@@ -10,6 +11,7 @@ import typesystem.fields
 
 from flama import Flama, types
 from flama.endpoints import HTTPEndpoint
+from flama.schemas import data_structures as ds
 from flama.schemas import openapi
 from flama.schemas.openapi import (
     Callback,
@@ -39,7 +41,7 @@ from tests._utils import assert_recursive_contains
 
 
 class TestCaseOpenAPISpec:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def spec(self):
         return OpenAPISpec(
             info=Info(
@@ -52,7 +54,7 @@ class TestCaseOpenAPISpec:
             )
         )
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def schema(self):
         return Schema(
             {
@@ -70,11 +72,11 @@ class TestCaseOpenAPISpec:
             }
         )
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def example(self, fake):
         return Example(summary=fake.sentence(), description=fake.text(), value={})
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def header(self, fake, schema, example):
         return Header(
             description=fake.text(),
@@ -88,15 +90,15 @@ class TestCaseOpenAPISpec:
             example=example,
         )
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def server_variable(self, fake):
         return ServerVariable(enum=fake.pylist(value_types=[str]), default=fake.word(), description=fake.sentence())
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def server(self, fake, server_variable):
         return Server(url=fake.url(), variables={"var": server_variable}, description=fake.sentence())
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def link(self, fake, server):
         return Link(
             operationId=fake.word(),
@@ -106,7 +108,7 @@ class TestCaseOpenAPISpec:
             server=server,
         )
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def encoding(self, fake, header):
         return Encoding(
             contentType="",
@@ -116,11 +118,11 @@ class TestCaseOpenAPISpec:
             allowReserved=fake.pybool(),
         )
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def media_type(self, fake, schema, example, encoding):
         return MediaType(schema=schema, example=example, encoding={"enc": encoding})
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def response(self, header, media_type, link):
         return Response(
             description="Foo",
@@ -129,7 +131,7 @@ class TestCaseOpenAPISpec:
             links={"link": link},
         )
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def parameter(self, fake, schema, example):
         return Parameter(
             name=fake.word(),
@@ -145,19 +147,19 @@ class TestCaseOpenAPISpec:
             example=example,
         )
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def request_body(self, fake, media_type):
         return RequestBody(content=media_type, description=fake.sentence(), required=fake.pybool())
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def security(self, fake):
         return Security({fake.word(): fake.pylist(value_types=[str])})
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def external_docs(self, fake):
         return ExternalDocs(url=fake.url(), description=fake.sentence())
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def operation(self, fake, response, external_docs, parameter, request_body, security, server):
         return Operation(
             responses=Responses({str(fake.random_number(digits=3)): response}),
@@ -173,7 +175,7 @@ class TestCaseOpenAPISpec:
             servers=[server],
         )
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def path(self, fake, operation, server, parameter):
         return Path(
             summary=fake.sentence(),
@@ -190,7 +192,7 @@ class TestCaseOpenAPISpec:
             parameters=[parameter],
         )
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def callback(self, fake, path):
         return Callback({fake.word(): path})
 
@@ -1548,6 +1550,67 @@ class TestCaseOpenAPISchemaRegistry:
         registry.register(schema, name="Foo")
         assert registry.get_openapi_ref(schema, multiple=multiple) == result
 
+    @pytest.mark.parametrize(
+        "schema",
+        [
+            pytest.param(
+                openapi.Schema({"type": "array", "items": {"type": "string"}}),
+                id="array_items_without_ref",
+            ),
+            pytest.param(
+                openapi.Schema({"allOf": "not-a-list"}),
+                id="composer_not_a_list",
+            ),
+            pytest.param(
+                openapi.Schema({"properties": "not-a-dict"}),
+                id="properties_not_a_dict",
+            ),
+        ],
+    )
+    def test_get_schema_references_from_schema_malformed(self, registry, schema):
+        assert registry._get_schema_references_from_schema(schema) == []
+
+    @pytest.mark.parametrize(
+        "responses",
+        [
+            pytest.param(
+                openapi.Responses(
+                    {"200": openapi.Response(description="Foo", content={"application/json": "not-a-media-type"})}
+                ),
+                id="content_not_a_media_type",
+            ),
+            pytest.param(
+                openapi.Responses(
+                    {"200": openapi.Response(description="Foo", content={"application/json": openapi.MediaType()})}
+                ),
+                id="media_type_without_schema",
+            ),
+        ],
+    )
+    def test_get_schema_references_from_operation_responses_malformed(self, registry, responses):
+        assert registry._get_schema_references_from_operation_responses(responses) == []
+
+    @pytest.mark.parametrize(
+        "request_body",
+        [
+            pytest.param(
+                openapi.RequestBody(content={"application/json": "not-a-media-type"}),
+                id="content_not_a_media_type",
+            ),
+            pytest.param(
+                openapi.RequestBody(content={"application/json": openapi.MediaType()}),
+                id="media_type_without_schema",
+            ),
+        ],
+    )
+    def test_get_schema_references_from_operation_request_body_malformed(self, registry, request_body):
+        assert registry._get_schema_references_from_operation_request_body(request_body) == []
+
+    def test_get_schema_references_from_operation_parameters_without_schema(self, registry):
+        parameters = [openapi.Parameter(name="foo", in_="query", schema=None)]
+
+        assert registry._get_schema_references_from_operation_parameters(parameters) == []
+
 
 class TestCaseSchemaGenerator:
     @pytest.fixture(scope="function")
@@ -2070,3 +2133,36 @@ class TestCaseSchemaGenerator:
         schema = _replace_refs(expected_schema, {k: v.name for k, v in schemas.items()})
 
         assert_recursive_contains(schema, app.schema.schema["paths"][path][verb])
+
+    def test_build_endpoint_body_schema_already_registered(self, openapi_spec, body_param_schema):
+        generator = openapi.SchemaGenerator(openapi_spec)
+        generator.schemas.register(schema=body_param_schema.schema)
+
+        endpoint = openapi.EndpointInfo(
+            path="/body-param/",
+            method="post",
+            func=lambda: None,
+            query_parameters={},
+            path_parameters={},
+            body_parameter=ds.Parameter(
+                name="param",
+                location=ds.ParameterLocation.body,
+                type=t.Annotated[types.Schema, types.SchemaMetadata(body_param_schema.schema)],
+            ),
+            response_parameter=ds.Parameter(name="response", location=ds.ParameterLocation.response, type=None),
+        )
+
+        request_body = generator._build_endpoint_body(endpoint, {})
+
+        assert request_body.content["application/json"] == openapi.MediaType(
+            schema=generator.schemas.get_openapi_ref(body_param_schema.schema, multiple=False)
+        )
+
+    def test_get_api_schema_operation_error(self, app, openapi_spec, caplog_flama):
+        generator = openapi.SchemaGenerator(openapi_spec)
+
+        with patch.object(generator, "get_operation_schema", side_effect=ValueError("Cannot build operation")):
+            api_schema = generator.get_api_schema(app.routes)
+
+        assert api_schema["paths"] == {}
+        assert any("Cannot generate schema for endpoint" in record.message for record in caplog_flama.records)

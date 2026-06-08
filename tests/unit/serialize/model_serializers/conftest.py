@@ -6,11 +6,22 @@ import typing as t
 from contextlib import ExitStack
 from unittest.mock import MagicMock, call, patch
 
+import pytest
+
 from flama.serialize.model_serializers.base import BaseModelSerializer
 from flama.serialize.model_serializers.pytorch import ModelSerializer as TorchModelSerializer
 from flama.serialize.model_serializers.sklearn import ModelSerializer as SklearnModelSerializer
 from flama.serialize.model_serializers.tensorflow import ModelSerializer as TensorflowModelSerializer
 from flama.serialize.model_serializers.transformers import ModelSerializer as TransformersModelSerializer
+
+
+@pytest.fixture(scope="function", params=["sklearn", "torch", "tensorflow"])
+def framework(request) -> str:
+    """Iterate the binary-source framework serializers whose dump/load/version/capability surface is
+    uniform. The transformers serializer is covered separately because of its bundle source and
+    capability-probing surface.
+    """
+    return request.param
 
 
 @dataclasses.dataclass(frozen=True)

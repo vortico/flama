@@ -301,6 +301,20 @@ class TestCaseSchema:
         assert result == [schemas[x].schema for x in nested_schemas]
 
     @pytest.mark.parametrize(
+        ["container"],
+        (
+            pytest.param(list, id="list"),
+            pytest.param(tuple, id="tuple"),
+        ),
+    )
+    def test_nested_schemas_recursion(self, schemas, container):
+        nested = container([schemas["Foo"].schema, schemas["Bar"].schema])
+
+        result = Schema(schemas["Foo"].schema).nested_schemas(nested)
+
+        assert result == [schemas["Foo"].schema, schemas["Bar"].schema]
+
+    @pytest.mark.parametrize(
         ["values", "expected_result"],
         (
             pytest.param(Mock(partial=False), True, id="single"),

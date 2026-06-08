@@ -16,7 +16,7 @@ def _nested_schema():
 
 
 class TestCaseMCPServer:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def server(self):
         return MCPServer("test", version="0.1.0", instructions="Test server")
 

@@ -8,7 +8,7 @@ from flama.url import URL
 
 
 class TestCaseHTTPConnection:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def scope(self):
         return types.Scope(
             {
@@ -29,7 +29,7 @@ class TestCaseHTTPConnection:
             }
         )
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def conn(self, scope):
         return HTTPConnection(scope)
 

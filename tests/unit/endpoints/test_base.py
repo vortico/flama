@@ -19,7 +19,7 @@ class TestCaseBaseEndpoint:
     def route(self):
         return MagicMock()
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def endpoint(self):
         class _Endpoint(endpoints.BaseEndpoint):
             scope_type = "http"

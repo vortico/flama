@@ -50,7 +50,7 @@ class TestCaseTask:
 
 
 class TestCaseInMemoryTaskStore:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def store(self):
         return InMemoryTaskStore()
 

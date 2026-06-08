@@ -7,7 +7,7 @@ from flama.modules import Module, Modules
 
 
 class TestCaseModule:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def module(self):
         class FooModule(Module):
             name = "foo"
@@ -44,25 +44,25 @@ class TestCaseModule:
 
 
 class TestCaseModules:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def app(self):
         return Mock(spec=Flama)
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def foo_module(self):
         class FooModule(Module):
             name = "foo"
 
         return FooModule()
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def bar_module(self):
         class BarModule(Module):
             name = "bar"
 
         return BarModule()
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def modules(self, app, foo_module, bar_module):
         return Modules(app, {foo_module, bar_module})
 

@@ -33,7 +33,7 @@ class TestCaseHTMLFileResponse:
 
 
 class TestCaseHTMLTemplatesEnvironment:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def environment(self):
         return HTMLTemplatesEnvironment()
 

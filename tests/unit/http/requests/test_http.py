@@ -49,7 +49,7 @@ class TestCaseParseContentType:
 
 
 class TestCaseRequest:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def scope(self):
         return types.Scope(
             {

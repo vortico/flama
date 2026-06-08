@@ -60,7 +60,7 @@ class TestCaseJSONCodec:
 
 
 class TestCaseWebSocketEncodingNegotiator:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def negotiator(self):
         return WebSocketEncodingNegotiator([BytesCodec(), TextCodec(), JSONCodec()])
 

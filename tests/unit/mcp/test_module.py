@@ -7,7 +7,7 @@ from flama.mcp.tasks import InMemoryTaskStore
 
 
 class TestCaseMCPModule:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def app(self):
         return Flama()
 

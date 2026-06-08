@@ -255,14 +255,38 @@ class TestCaseCRUDResource:
         assert response.status_code == 200, response.json()
         assert response.json() == expected_result
 
-    async def test_retrieve_not_found(self, client):
-        # Retrieve wrong record
-        response = await client.request("get", "/puppy/42/")
+    @pytest.mark.parametrize(
+        ["method", "send_body", "skip_typesystem"],
+        [
+            pytest.param("get", False, False, id="retrieve"),
+            pytest.param("put", True, False, id="update"),
+            pytest.param("patch", True, True, id="partial_update"),
+            pytest.param("delete", True, False, id="delete"),
+        ],
+    )
+    async def test_not_found(self, client, puppy, method, send_body, skip_typesystem):
+        if skip_typesystem and client.app.schema.schema_library.name == "typesystem":
+            pytest.skip("Typesystem does not support partial validation")
+
+        # Operate on a record that does not exist
+        response = await client.request(method, "/puppy/42/", json=puppy if send_body else None)
         assert response.status_code == 404, response.json()
 
-    async def test_retrieve_wrong_id_type(self, client):
-        # Retrieve wrong record
-        response = await client.request("get", "/puppy/foo/")
+    @pytest.mark.parametrize(
+        ["method", "send_body", "skip_typesystem"],
+        [
+            pytest.param("get", False, False, id="retrieve"),
+            pytest.param("put", True, False, id="update"),
+            pytest.param("patch", True, True, id="partial_update"),
+            pytest.param("delete", False, False, id="delete"),
+        ],
+    )
+    async def test_wrong_id_type(self, client, puppy, method, send_body, skip_typesystem):
+        if skip_typesystem and client.app.schema.schema_library.name == "typesystem":
+            pytest.skip("Typesystem does not support partial validation")
+
+        # Operate on a record whose id does not match the primary-key type
+        response = await client.request(method, "/puppy/foo/", json=puppy if send_body else None)
         assert response.status_code == 400, response.json()
 
     async def test_update(self, client, puppy, another_puppy):
@@ -288,16 +312,6 @@ class TestCaseCRUDResource:
         response = await client.request("get", f"/puppy/{expected_puppy_id}/")
         assert response.status_code == 200, response.json()
         assert response.json() == expected_puppy
-
-    async def test_update_not_found(self, client, puppy):
-        # Update wrong record
-        response = await client.request("put", "/puppy/42/", json=puppy)
-        assert response.status_code == 404, response.json()
-
-    async def test_update_wrong_id_type(self, client, puppy):
-        # Update wrong record
-        response = await client.request("put", "/puppy/foo/", json=puppy)
-        assert response.status_code == 400, response.json()
 
     async def test_update_wrong_data(self, client, puppy):
         expected_puppy_id = 1
@@ -342,22 +356,6 @@ class TestCaseCRUDResource:
         assert response.status_code == 200, response.json()
         assert response.json() == expected_puppy
 
-    async def test_partial_update_not_found(self, client, puppy):
-        if client.app.schema.schema_library.name == "typesystem":
-            pytest.skip("Typesystem does not support partial validation")
-
-        # Update wrong record
-        response = await client.request("patch", "/puppy/42/", json=puppy)
-        assert response.status_code == 404, response.json()
-
-    async def test_partial_update_wrong_id_type(self, client, puppy):
-        if client.app.schema.schema_library.name == "typesystem":
-            pytest.skip("Typesystem does not support partial validation")
-
-        # Update wrong record
-        response = await client.request("patch", "/puppy/foo/", json=puppy)
-        assert response.status_code == 400, response.json()
-
     async def test_partial_update_wrong_data(self, client, puppy):
         if client.app.schema.schema_library.name == "typesystem":
             pytest.skip("Typesystem does not support partial validation")
@@ -399,16 +397,6 @@ class TestCaseCRUDResource:
 
         # Retrieve deleted record
         response = await client.request("get", f"/puppy/{expected_puppy_id}/")
-        assert response.status_code == 404, response.json()
-
-    async def test_delete_wrong_id_type(self, client):
-        # Delete wrong record
-        response = await client.request("delete", "/puppy/foo/")
-        assert response.status_code == 400, response.json()
-
-    async def test_delete_not_found(self, client, puppy):
-        # Delete wrong record
-        response = await client.request("delete", "/puppy/42/", json=puppy)
         assert response.status_code == 404, response.json()
 
     @pytest.mark.skipif(not DATABASE_URL.startswith("postgresql"), reason="Only valid for PostgreSQL backend")
@@ -453,6 +441,18 @@ class TestCaseCRUDResource:
         response = await client.request("get", "/puppy/")
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == [{"custom_id": 1, **puppy}, {"custom_id": 2, **another_puppy}]
+
+    async def test_list_default_handler(self, client):
+        # The puppy resource overrides "list"; the custom-id resource exercises the default CRUD list handler
+        await client.request("post", "/custom_id_datetime/", json={"custom_id": "2018-01-01T00:00:00", "name": "a"})
+        await client.request("post", "/custom_id_datetime/", json={"custom_id": "2019-01-01T00:00:00", "name": "b"})
+
+        response = await client.request("get", "/custom_id_datetime/")
+        assert response.status_code == 200, response.json()
+        assert response.json()["data"] == [
+            {"custom_id": "2018-01-01T00:00:00", "name": "a"},
+            {"custom_id": "2019-01-01T00:00:00", "name": "b"},
+        ]
 
     async def test_list_order(self, client, puppy, another_puppy):
         # Successfully create a new record
@@ -535,6 +535,13 @@ class TestCaseCRUDResource:
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == [{"custom_id": 1, **puppy}]
 
+    async def test_replace_integrity_error(self, client, puppy, another_puppy):
+        # Two records sharing the same primary key make the bulk create fail the integrity constraint
+        response = await client.request(
+            "put", "/puppy/", json=[{"custom_id": 1, **puppy}, {"custom_id": 1, **another_puppy}]
+        )
+        assert response.status_code == 400, response.json()
+
     async def test_partial_replace(self, client, puppy, another_puppy):
         # Successfully create a new record
         response = await client.request("post", "/puppy/", json=puppy)
@@ -564,6 +571,13 @@ class TestCaseCRUDResource:
             {"custom_id": 2, **puppy},
             {"custom_id": 3, **another_puppy},
         ]
+
+    async def test_partial_replace_integrity_error(self, client, puppy, another_puppy):
+        # Two records sharing the same primary key make the bulk create fail the integrity constraint
+        response = await client.request(
+            "patch", "/puppy/", json=[{"custom_id": 1, **puppy}, {"custom_id": 1, **another_puppy}]
+        )
+        assert response.status_code == 400, response.json()
 
     async def test_partial_replace_wrong_data(self, client, puppy):
         wrong_puppy = puppy.copy()
@@ -610,3 +624,69 @@ class TestCaseCRUDResource:
         response = await client.request("get", "/puppy/")
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == []
+
+
+class TestCaseCRUDUniqueConstraint:
+    """Cover the ``IntegrityError`` -> 400 branches of the single-resource ``update`` / ``partial_update``
+    handlers, which only fire when a UNIQUE *non* primary-key column collides with another row (a
+    primary-key collision can't happen on these handlers because the id is pinned by the path).
+    """
+
+    @pytest.fixture(scope="function")
+    async def unique_name_model(self, app):
+        if app.schema.schema_library.name == "pydantic":
+            schema = pydantic.create_model("UniqueName", custom_id=(int | None, None), name=(str, ...))
+        elif app.schema.schema_library.name == "typesystem":
+            schema = typesystem.Schema(
+                title="UniqueName",
+                fields={"custom_id": typesystem.Integer(allow_null=True), "name": typesystem.String()},
+            )
+        elif app.schema.schema_library.name == "marshmallow":
+            schema = type(
+                "UniqueName",
+                (marshmallow.Schema,),
+                {"custom_id": marshmallow.fields.Integer(allow_none=True), "name": marshmallow.fields.String()},
+            )
+        else:
+            raise ValueError("Wrong schema lib")
+
+        model = sqlalchemy.Table(
+            "unique_name",
+            app.sqlalchemy.metadata,
+            sqlalchemy.Column("custom_id", sqlalchemy.Integer, primary_key=True, autoincrement=True),
+            sqlalchemy.Column("name", sqlalchemy.String, nullable=False, unique=True),
+        )
+
+        return Model(model=model, schema=schema, name="unique_name")
+
+    @pytest.fixture(scope="function")
+    async def tables(self, unique_name_model):
+        return [unique_name_model.model]
+
+    @pytest.fixture(scope="function", autouse=True)
+    def add_resource(self, app, unique_name_model):
+        class UniqueNameResource(CRUDResource):
+            model = unique_name_model.model
+            schema = unique_name_model.schema
+            name = unique_name_model.name
+
+        app.resources.add_resource("/unique_name/", UniqueNameResource())
+
+    async def test_update_integrity_error(self, client):
+        assert (await client.request("post", "/unique_name/", json={"name": "a"})).status_code == 201
+        assert (await client.request("post", "/unique_name/", json={"name": "b"})).status_code == 201
+
+        # PUT deletes row 2 and recreates it with a name already owned by row 1
+        response = await client.request("put", "/unique_name/2/", json={"name": "a"})
+        assert response.status_code == 400, response.json()
+
+    async def test_partial_update_integrity_error(self, client):
+        if client.app.schema.schema_library.name == "typesystem":
+            pytest.skip("Typesystem does not support partial validation")
+
+        assert (await client.request("post", "/unique_name/", json={"name": "a"})).status_code == 201
+        assert (await client.request("post", "/unique_name/", json={"name": "b"})).status_code == 201
+
+        # PATCH row 2's name to one already owned by row 1
+        response = await client.request("patch", "/unique_name/2/", json={"name": "a"})
+        assert response.status_code == 400, response.json()

@@ -13,11 +13,11 @@ class TestCaseJSONRPCEndpoint:
     def app(self, app):
         return Flama(schema=None, docs=None)
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def route(self):
         return MagicMock()
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def endpoint_cls(self):
         class MyRPC(endpoints.JSONRPCEndpoint):
             handlers = {"add": "do_add", "fail": "do_fail"}
@@ -30,7 +30,7 @@ class TestCaseJSONRPCEndpoint:
 
         return MyRPC
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def endpoint(self, app, route, endpoint_cls, asgi_scope, asgi_receive, asgi_send):
         app.router.resolve_route = MagicMock(side_effect=lambda x: (route, x))
         asgi_scope["app"] = app

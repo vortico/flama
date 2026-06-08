@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from flama import exceptions
-from flama.models.engine.llm.codec import _FSM, PREFLIGHT_MAX_TOKENS, LLMCodec
+from flama.models.engine.llm.codec import _FSM, PREFLIGHT_MAX_CHARS, PREFLIGHT_MAX_TOKENS, LLMCodec
 from flama.models.engine.llm.decoder.decoder import _KNOWN_CHANNEL_SCANNERS, _KNOWN_TOOL_SCANNERS, Decoder
 from flama.models.engine.llm.decoder.markers import PassthroughScanner, Scanner
 from flama.models.engine.llm.decoder.parsers import (
@@ -67,18 +67,18 @@ class TestCaseFSM:
         tool_count: int,
         expected: str,
         warns: bool,
-        caplog: pytest.LogCaptureFixture,
+        caplog_flama: pytest.LogCaptureFixture,
     ) -> None:
         fsm = _FSM(Decoder("passthrough", "passthrough", "passthrough").resolve())
         fsm._engine_reason = engine_reason
         fsm._tool_count = tool_count
 
-        with caplog.at_level(logging.WARNING, logger="flama.models.engine.llm.codec"):
+        with caplog_flama.at_level(logging.WARNING, logger="flama.models.engine.llm.codec"):
             stop = fsm.terminate(7)
 
         assert stop.stop_reason == expected
         assert stop.output_tokens == 7
-        assert ("Unmapped backend finish_reason" in caplog.text) is warns
+        assert ("Unmapped backend finish_reason" in caplog_flama.text) is warns
 
     async def test_feed_increments_tool_count(self) -> None:
         engine = make_engine(tool_scanner=_TOOL_CALL_SCANNER, tool_parser=JSONObjectParser())
@@ -253,7 +253,7 @@ class TestCaseLLMCodec:
             assert engine.decoder.tool_scanner is expected_tool
         assert isinstance(engine.decoder.tool_parser, expected_parser_type)
 
-    async def test_detect_warns_on_passthrough_fallback(self, caplog: pytest.LogCaptureFixture) -> None:
+    async def test_detect_warns_on_passthrough_fallback(self, caplog_flama: pytest.LogCaptureFixture) -> None:
         """Auto-detection that lands on the ``passthrough`` parser despite a real tool scanner emits
         a WARNING so operators know tool-calling endpoints (OpenAI/Ollama) will surface empty-named
         :class:`ToolEvent`s.
@@ -263,23 +263,23 @@ class TestCaseLLMCodec:
         )
         engine = LLMCodec(Decoder(tool_parser=PassthroughParser()))
 
-        with caplog.at_level(logging.WARNING, logger="flama.models.engine.llm.codec"):
+        with caplog_flama.at_level(logging.WARNING, logger="flama.models.engine.llm.codec"):
             await engine.detect(FakeModel(backend))
 
         assert engine.decoder.tool_parser.name == "passthrough"
         assert engine.decoder.tool_scanner.name != "passthrough"
-        assert any("Tool parser fell back to 'passthrough'" in r.getMessage() for r in caplog.records)
+        assert any("Tool parser fell back to 'passthrough'" in r.getMessage() for r in caplog_flama.records)
 
-    async def test_detect_silent_when_scanner_also_passthrough(self, caplog: pytest.LogCaptureFixture) -> None:
+    async def test_detect_silent_when_scanner_also_passthrough(self, caplog_flama: pytest.LogCaptureFixture) -> None:
         """Native runs (no tool scanner) and explicit ``passthrough`` configurations stay silent —
         only the *unintentional* fallback case is worth a WARNING.
         """
         engine = LLMCodec(Decoder(tool_scanner="passthrough", tool_parser=PassthroughParser()))
 
-        with caplog.at_level(logging.WARNING, logger="flama.models.engine.llm.codec"):
+        with caplog_flama.at_level(logging.WARNING, logger="flama.models.engine.llm.codec"):
             await engine.detect(FakeModel(FakeLLMBackend(chunks=["plain"], chat_template_sample="")))
 
-        assert not any("Tool parser fell back to 'passthrough'" in r.getMessage() for r in caplog.records)
+        assert not any("Tool parser fell back to 'passthrough'" in r.getMessage() for r in caplog_flama.records)
 
     @pytest.mark.parametrize(
         ["backend", "expected"],
@@ -321,6 +321,24 @@ class TestCaseLLMCodec:
         engine = LLMCodec(None)
 
         assert await engine._preflight(FakeModel(None)) is None
+
+    async def test_preflight_stops_at_max_chars(self) -> None:
+        backend = FakeLLMBackend(chunks=["a" * (PREFLIGHT_MAX_CHARS + 16), "ignored-after-break"])
+        engine = LLMCodec(None)
+
+        result = await engine._preflight(FakeModel(backend))
+
+        assert result is not None
+        assert len(result) >= PREFLIGHT_MAX_CHARS
+        assert "ignored-after-break" not in result
+
+    async def test_detect_without_backend_skips_token_counter(self) -> None:
+        engine = LLMCodec(None)
+
+        await engine.detect(FakeModel(None))
+
+        assert engine.decoder.tool_parser.name == "passthrough"
+        assert engine.decoder.channel_scanner.name == "passthrough"
 
     async def test_decode_passthrough_chunks(self) -> None:
         engine = make_engine()
@@ -454,6 +472,17 @@ class TestCaseLLMCodec:
 
         assert any(isinstance(b, TextEvent) and b.text == "tail" and b.channel is None for b in items)
 
+    async def test_decode_flushes_held_partial_marker_on_eos(self) -> None:
+        """A trailing partial open-marker prefix held back by the scanner must be flushed as plain
+        text at EOS rather than being silently dropped.
+        """
+        engine = make_engine(channel_scanner=_THINK_SCANNER)
+
+        items = await consume(engine.decode(aiter([EngineDelta(text="hello <thi")])))
+
+        text = "".join(b.text for b in items if isinstance(b, TextEvent))
+        assert text == "hello <thi"
+
     @pytest.mark.parametrize(
         ["chunks", "expected_output", "expected_thought"],
         [
@@ -511,6 +540,18 @@ class TestCaseLLMCodec:
 
         tool_blocks = [b for b in items if isinstance(b, ToolEvent)]
         assert tool_blocks[-1].name == "fn"
+
+    async def test_decode_flushes_held_tool_partial_close_on_eos(self) -> None:
+        """A trailing partial close-marker prefix held while inside a tool body must be folded back
+        into the tool buffer at EOS so the parked tool call is still drained.
+        """
+        engine = make_engine(tool_scanner=_TOOL_CALL_SCANNER, tool_parser=PassthroughParser())
+
+        items = await consume(
+            engine.decode(aiter([EngineDelta(text="<tool_call>opaque"), EngineDelta(text="</tool_cal")]))
+        )
+
+        assert any(isinstance(b, ToolEvent) for b in items)
 
     async def test_decode_tool_wins_over_channel_on_tie(self) -> None:
         engine = make_engine(
@@ -618,7 +659,7 @@ class TestCaseLLMCodec:
         encoder_raises: bool,
         expected_traces: list[TraceEvent],
         expects_debug_log: bool,
-        caplog: pytest.LogCaptureFixture,
+        caplog_flama: pytest.LogCaptureFixture,
     ) -> None:
         """Cover the ``token_count`` fallback path wired by :meth:`LLMCodec.detect`.
 
@@ -640,9 +681,9 @@ class TestCaseLLMCodec:
         engine = LLMCodec(None)
         await engine.detect(FakeModel(fake_backend))
 
-        with caplog.at_level(logging.DEBUG, logger="flama.models.engine.llm.codec"):
+        with caplog_flama.at_level(logging.DEBUG, logger="flama.models.engine.llm.codec"):
             items = await consume(engine.decode(aiter([delta])))
 
         traces = [item for item in items if isinstance(item, TraceEvent)]
         assert traces == expected_traces
-        assert ("Token-count fallback raised" in caplog.text) is expects_debug_log
+        assert ("Token-count fallback raised" in caplog_flama.text) is expects_debug_log

@@ -1,3 +1,4 @@
+import inspect
 import uuid
 from unittest.mock import Mock, call, patch
 
@@ -5,16 +6,9 @@ import pytest
 import sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from flama import Flama
 from flama.ddd import exceptions
 from flama.ddd.repositories.sqlalchemy import SQLAlchemyRepository, SQLAlchemyTableManager, SQLAlchemyTableRepository
-from flama.sqlalchemy import SQLAlchemyModule
 from tests._utils import SQLAlchemyContext
-
-
-@pytest.fixture(scope="function")
-def app():
-    return Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
 
 
 @pytest.fixture(scope="function")
@@ -301,48 +295,25 @@ class TestCaseSQLAlchemyTableRepository:
         assert repository == Repository(connection)
         assert repository != Repository(Mock(spec=AsyncConnection))
 
-    async def test_create(self, repository, table_manager):
-        data = {"foo": "bar"}
+    @pytest.mark.parametrize(
+        ["method", "args", "kwargs"],
+        [
+            pytest.param("create", ({"foo": "bar"},), {}, id="create"),
+            pytest.param("retrieve", (uuid.uuid4(),), {}, id="retrieve"),
+            pytest.param("update", (uuid.uuid4(), {"foo": "bar"}), {}, id="update"),
+            pytest.param("delete", (uuid.uuid4(),), {}, id="delete"),
+            pytest.param(
+                "list",
+                (Mock(), Mock()),
+                {"order_by": "foo", "order_direction": "desc", "foo": "bar"},
+                id="list",
+            ),
+            pytest.param("drop", (), {}, id="drop"),
+        ],
+    )
+    async def test_delegation(self, repository, table_manager, method, args, kwargs):
+        result = getattr(repository, method)(*args, **kwargs)
+        if inspect.iscoroutine(result):
+            await result
 
-        await repository.create(data)
-
-        assert table_manager.create.call_args_list == [call(data)]
-
-    async def test_retrieve(self, repository, table_manager):
-        id = uuid.uuid4()
-
-        await repository.retrieve(id)
-
-        assert table_manager.retrieve.call_args_list == [call(id)]
-
-    async def test_update(self, repository, table_manager):
-        id = uuid.uuid4()
-        data = {"foo": "bar"}
-
-        await repository.update(id, data)
-
-        assert table_manager.update.call_args_list == [call(id, data)]
-
-    async def test_delete(self, repository, table_manager):
-        id = uuid.uuid4()
-
-        await repository.delete(id)
-
-        assert table_manager.delete.call_args_list == [call(id)]
-
-    async def test_list(self, repository, table_manager):
-        clauses = [Mock(), Mock()]
-        order_by = "foo"
-        order_direction = "desc"
-        filters = {"foo": "bar"}
-
-        repository.list(*clauses, order_by=order_by, order_direction=order_direction, **filters)
-
-        assert table_manager.list.call_args_list == [
-            call(*clauses, order_by=order_by, order_direction=order_direction, **filters)
-        ]
-
-    async def test_drop(self, repository, table_manager):
-        await repository.drop()
-
-        assert table_manager.drop.call_args_list == [call()]
+        assert getattr(table_manager, method).call_args_list == [call(*args, **kwargs)]

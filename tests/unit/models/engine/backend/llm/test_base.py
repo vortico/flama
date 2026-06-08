@@ -178,6 +178,11 @@ class TestCaseLLMBackend:
 
         assert backend.default_transport == expected
 
+    def test_chat_template_sample_default_is_none(self) -> None:
+        backend = _FakeLLMBackend(chat_template=None)
+
+        assert LLMBackend.chat_template_sample(backend) is None
+
     def test_default_capabilities_is_text_only(self) -> None:
         """The default :attr:`LLMBackend.capabilities` is the empty :class:`LLMModelCapabilities`,
         which behaves as text-only (every modality flag :data:`False`).
@@ -200,7 +205,7 @@ class TestCaseLLMBackend:
         probe_value: int | None,
         expected_uses_default: bool,
         expects_warning: bool,
-        caplog,
+        caplog_flama,
     ) -> None:
         """Verify :attr:`LLMBackend.max_context` reads through ``_max_context``, replaces non-positive
         / :data:`None` probes with :attr:`DEFAULT_MAX_TOKENS` (with a warning log), and caches the
@@ -215,7 +220,7 @@ class TestCaseLLMBackend:
         backend = _FakeLLMBackend(chat_template="{{ messages }}")
         backend._max_context = probe  # type: ignore[method-assign]
 
-        with caplog.at_level("WARNING", logger="flama.models.engine.backend.llm.base"):
+        with caplog_flama.at_level("WARNING", logger="flama.models.engine.backend.llm.base"):
             first = backend.max_context
             second = backend.max_context
 
@@ -223,7 +228,7 @@ class TestCaseLLMBackend:
         assert first == expected_value
         assert second == expected_value
         assert len(calls) == 1
-        warned = any("Cannot determine model context window" in record.message for record in caplog.records)
+        warned = any("Cannot determine model context window" in record.message for record in caplog_flama.records)
         assert warned is expects_warning
 
     @pytest.mark.parametrize(
@@ -773,3 +778,17 @@ class TestCaseTransformerLLMBackend:
     )
     def test_dump_message(self, message: Message, expected: dict[str, t.Any]) -> None:
         assert TransformerLLMBackend._dump_message(message) == expected
+
+    def test_encode_delegates_to_tokenizer(self) -> None:
+        tokenizer = MagicMock()
+        tokenizer.encode.return_value = [1, 2, 3]
+
+        class _Backend(_FakeLLMBackend):
+            @property
+            def _tokenizer(self) -> t.Any:
+                return tokenizer
+
+        backend = _Backend(chat_template=None)
+
+        assert TransformerLLMBackend.encode(backend, "hi", add_special_tokens=False) == [1, 2, 3]
+        assert tokenizer.encode.call_args == call("hi", add_special_tokens=False)

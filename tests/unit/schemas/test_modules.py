@@ -7,7 +7,7 @@ from flama.schemas.modules import SchemaModule
 
 
 class TestCaseSchemaModule:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def module(self, openapi_spec):
         m = SchemaModule(openapi=openapi_spec, schema="/schema/", docs="/docs/")
         m.app = Flama()

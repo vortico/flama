@@ -7,6 +7,7 @@ import pytest
 
 import flama
 from flama.client import Client
+from flama.exceptions import FrameworkNotInstalled
 from flama.models import MLResource, MLResourceType
 from flama.models.components import ModelComponent
 from flama.resources.exceptions import ResourceModelNotFound
@@ -112,10 +113,6 @@ class TestCaseMLResourceMethods:
             async with Client(app=app) as client:
                 yield client
 
-    @staticmethod
-    def _get_component(client) -> ModelComponent:
-        return next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
-
     @pytest.mark.parametrize(
         ["client"],
         [
@@ -166,6 +163,19 @@ class TestCaseMLResourceMethods:
         elif status_code == 200:
             assert "output" in response.json()
 
+    @pytest.mark.parametrize(["client"], [pytest.param("sklearn", id="sklearn")], indirect=["client"])
+    async def test_predict_reraises_framework_not_installed(self, client):
+        component = next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
+
+        def _missing(self, *args, **kwargs):
+            raise FrameworkNotInstalled("sklearn")
+
+        with (
+            patch.object(type(component.model), "predict", _missing),
+            pytest.raises(FrameworkNotInstalled, match="sklearn"),
+        ):
+            await client.post("/model/predict/", json={"input": [[0, 0]]})
+
     @pytest.mark.parametrize(
         ["client", "x", "output", "raises"],
         [
@@ -187,7 +197,7 @@ class TestCaseMLResourceMethods:
             assert "text/event-stream" in response.headers.get("content-type", "")
             return
 
-        component = self._get_component(client)
+        component = next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
 
         if output is not None:
 

@@ -278,7 +278,7 @@ class TestCaseResolutionTree:
 
 
 class TestCaseResolver:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def resolver(self):
         return Resolver(ResolverContext, Components([foo_component, bar_component, wrong_component]))
 
@@ -380,7 +380,7 @@ class TestCaseReturn:
 class TestCaseNodeValue:
     """Tests for the recursive ResolutionNode.value() methods (public API)."""
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def context(self):
         return Context(x=42, data={"bar": 7})
 
@@ -418,7 +418,7 @@ class TestCaseNodeValue:
 class TestCaseStep:
     """Tests for Step.build() and polymorphic execute()."""
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def context(self):
         return Context(x=42, data={"bar": 7})
 

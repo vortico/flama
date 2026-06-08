@@ -11,6 +11,7 @@ import pytest
 import soundfile
 from PIL import Image
 
+from flama import exceptions
 from flama.models.transport.input.llm.message import (
     AssistantMessage,
     AudioContent,
@@ -105,6 +106,7 @@ class TestCaseSourceURL:
             pytest.param("data:image/png;base64,xxx", ValueError("Wrong URL scheme"), id="data_scheme"),
             pytest.param("http:///path", ValueError("missing a hostname"), id="missing_host"),
             pytest.param("https://", ValueError("missing a hostname"), id="empty_authority"),
+            pytest.param("http://[::1", ValueError("Wrong URL"), id="malformed_ipv6_unparseable"),
         ],
         indirect=["exception"],
     )
@@ -113,37 +115,37 @@ class TestCaseSourceURL:
             SourceURL._check_url_safe(url)
 
     @pytest.mark.parametrize(
-        ["address"],
+        ["addresses", "resolve_error", "exception"],
         [
-            pytest.param("127.0.0.1", id="ipv4_loopback"),
-            pytest.param("::1", id="ipv6_loopback"),
-            pytest.param("10.0.0.1", id="ipv4_private_10"),
-            pytest.param("172.16.0.1", id="ipv4_private_172"),
-            pytest.param("192.168.1.1", id="ipv4_private_192"),
-            pytest.param("169.254.169.254", id="ipv4_link_local"),
-            pytest.param("fe80::1", id="ipv6_link_local"),
-            pytest.param("224.0.0.1", id="ipv4_multicast"),
-            pytest.param("ff02::1", id="ipv6_multicast"),
+            pytest.param(["127.0.0.1"], None, ValueError("private or restricted IP"), id="ipv4_loopback"),
+            pytest.param(["::1"], None, ValueError("private or restricted IP"), id="ipv6_loopback"),
+            pytest.param(["10.0.0.1"], None, ValueError("private or restricted IP"), id="ipv4_private_10"),
+            pytest.param(["172.16.0.1"], None, ValueError("private or restricted IP"), id="ipv4_private_172"),
+            pytest.param(["192.168.1.1"], None, ValueError("private or restricted IP"), id="ipv4_private_192"),
+            pytest.param(["169.254.169.254"], None, ValueError("private or restricted IP"), id="ipv4_link_local"),
+            pytest.param(["fe80::1"], None, ValueError("private or restricted IP"), id="ipv6_link_local"),
+            pytest.param(["224.0.0.1"], None, ValueError("private or restricted IP"), id="ipv4_multicast"),
+            pytest.param(["ff02::1"], None, ValueError("private or restricted IP"), id="ipv6_multicast"),
+            pytest.param(
+                ["8.8.8.8", "127.0.0.1"], None, ValueError("private or restricted IP"), id="mixed_public_private"
+            ),
+            pytest.param(["93.184.216.34"], None, None, id="public_address"),
+            pytest.param(
+                None, OSError("nodename nor servname provided"), ValueError("Failed to resolve host"), id="dns_failure"
+            ),
         ],
+        indirect=["exception"],
     )
-    def test_check_url_safe_rejects_private_addresses(self, address: str) -> None:
-        with patch("socket.getaddrinfo", return_value=self._make_addrinfo([address])):
-            with pytest.raises(ValueError, match="private or restricted IP"):
-                SourceURL._check_url_safe("https://example.com/path")
-
-    def test_check_url_safe_rejects_when_any_resolved_address_is_private(self) -> None:
-        with patch("socket.getaddrinfo", return_value=self._make_addrinfo(["8.8.8.8", "127.0.0.1"])):
-            with pytest.raises(ValueError, match="private or restricted IP"):
-                SourceURL._check_url_safe("https://example.com/path")
-
-    def test_check_url_safe_accepts_public_address(self) -> None:
-        with patch("socket.getaddrinfo", return_value=self._make_addrinfo(["93.184.216.34"])):
+    def test_check_url_safe_resolves_addresses(
+        self, addresses: list[str] | None, resolve_error: OSError | None, exception
+    ) -> None:
+        getaddrinfo = (
+            patch("socket.getaddrinfo", side_effect=resolve_error)
+            if resolve_error is not None
+            else patch("socket.getaddrinfo", return_value=self._make_addrinfo(addresses or []))
+        )
+        with getaddrinfo, exception:
             SourceURL._check_url_safe("https://example.com/path")
-
-    def test_check_url_safe_translates_dns_failure(self) -> None:
-        with patch("socket.getaddrinfo", side_effect=OSError("nodename nor servname provided")):
-            with pytest.raises(ValueError, match="Failed to resolve host"):
-                SourceURL._check_url_safe("https://nonexistent.example/path")
 
     async def test_fetch_bytes_returns_full_payload_under_size_cap(self) -> None:
         payload = b"hello world"
@@ -324,6 +326,13 @@ class TestCaseImageURI:
         with exception:
             await part.image()
 
+    async def test_image_requires_pillow(self) -> None:
+        part = ImageURI(source=SourceURI(data=base64.b64encode(_png_bytes()).decode()), format="png")
+
+        with patch("flama.models.transport.input.llm.message.Image", None):
+            with pytest.raises(exceptions.FrameworkNotInstalled, match="Pillow"):
+                await part.image()
+
     @pytest.mark.parametrize(
         ["kwargs", "exception"],
         [
@@ -403,6 +412,14 @@ class TestCaseAudioURI:
 
         with exception:
             await part.audio()
+
+    async def test_audio_requires_soundfile(self) -> None:
+        samples = np.linspace(-0.5, 0.5, 8, dtype=np.float32)
+        part = AudioURI(source=SourceURI(data=_wav_b64(samples=samples, sample_rate=8000)), format="wav")
+
+        with patch("flama.models.transport.input.llm.message.soundfile", None):
+            with pytest.raises(exceptions.FrameworkNotInstalled, match="soundfile"):
+                await part.audio()
 
     @pytest.mark.parametrize(
         ["kwargs", "exception"],

@@ -4,12 +4,20 @@ from unittest.mock import patch
 import pytest
 
 from flama.client import Client
-from flama.models import LLMResource, LLMResourceType
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
 from flama.models.resources.serving.llm.anthropic import MessagesMixin
 from flama.models.transport.output.llm.event import StartEvent, StopEvent, TextEvent, ToolEvent
 from flama.serialize.data_structures import LLMModelCapabilities
+
+SERVING = "anthropic"
+
+ERROR_CASES = [
+    pytest.param("query", False, "immediate", ValueError, "invalid params", 400, id="buffered_value_error_400"),
+    pytest.param("query", False, "immediate", RuntimeError, "kaboom", 500, id="buffered_generic_exception_500"),
+    pytest.param("stream", True, "immediate", ValueError, "bad stream args", 400, id="stream_value_error_400"),
+    pytest.param("query", False, "iteration", RuntimeError, "mid-stream boom", 500, id="buffered_iteration_error_500"),
+]
 
 
 class TestCaseEndToEndMessages:
@@ -21,41 +29,8 @@ class TestCaseEndToEndMessages:
     and the buffered envelope shape.
     """
 
-    @pytest.fixture(scope="function")
-    async def client(self, app, llm_component) -> t.AsyncIterator[Client]:
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-            serving = ("anthropic",)
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client
-
-    @staticmethod
-    def _capture_kwargs() -> tuple[dict[str, t.Any], t.Callable[..., t.AsyncIterator[t.Any]]]:
-        """Build a ``(captured, mock)`` pair where ``captured`` records the kwargs the resource
-        forwards to either :meth:`Model.query` or :meth:`Model.stream` and ``mock`` plays a minimal
-        valid event sequence so the HTTP layer reaches a 200.
-        """
-        captured: dict[str, t.Any] = {}
-
-        async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
-            captured.update(kwargs)
-
-            async def _gen() -> t.AsyncIterator[t.Any]:
-                yield StartEvent(id="m", created=0)
-                yield TextEvent(channel="output", text="ok")
-                yield StopEvent(stop_reason="stop")
-
-            return _gen()
-
-        return captured, _mock
+    ENDPOINT = "/llm/anthropic/v1/messages"
+    BODY = {"model": "stub", "max_tokens": 16, "messages": [{"role": "user", "content": "hi"}]}
 
     async def test_non_streaming_returns_envelope(self, client: Client) -> None:
         response = await client.post(
@@ -129,6 +104,22 @@ class TestCaseEndToEndMessages:
         assert body["stop_reason"] == "tool_use"
         tool = next(block for block in body["content"] if block["type"] == "tool_use")
         assert tool == {"type": "tool_use", "id": "c1", "name": "lookup", "input": {"q": "x"}}
+
+    async def test_malformed_messages_rejected_with_400(self, client: Client) -> None:
+        """A wire-shape violation surfaced by :meth:`AnthropicServing.parse` (here a ``system`` role,
+        which Anthropic only accepts as a top-level field, not inside ``messages``) is translated into an
+        HTTP 400 by the handler's parse guard."""
+        response = await client.post(
+            "/llm/anthropic/v1/messages",
+            json={
+                "model": "stub",
+                "max_tokens": 16,
+                "messages": [{"role": "system", "content": "be brief"}],
+                "stream": False,
+            },
+        )
+
+        assert response.status_code == 400, response.text
 
     async def test_thinking_routes_to_thinking_block(self, client: Client, llm_component) -> None:
         async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
@@ -215,6 +206,7 @@ class TestCaseEndToEndMessages:
         client: Client,
         app,
         llm_component,
+        capture_kwargs,
         body_overrides: dict[str, t.Any],
         resource_reasoning: bool,
         cap_reasoning: bool,
@@ -225,7 +217,7 @@ class TestCaseEndToEndMessages:
         and forwards ``budget_tokens`` through ``reasoning_effort``. Whenever thinking is gated off,
         ``reasoning_effort`` collapses to ``None``.
         """
-        captured, mock = self._capture_kwargs()
+        captured, mock = capture_kwargs
         body = {
             "model": "stub",
             "max_tokens": 16,
@@ -249,84 +241,43 @@ class TestCaseEndToEndMessages:
         assert response.status_code == 200, response.text
         assert captured.get("chat_template_kwargs") == expected_kwargs
 
-    async def test_buffered_value_error_returns_400(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise ValueError("invalid params")
+    @pytest.mark.parametrize(["method", "stream", "mode", "exception", "message", "status"], ERROR_CASES)
+    async def test_error_propagation(
+        self,
+        client: Client,
+        llm_component,
+        method: str,
+        stream: bool,
+        mode: str,
+        exception: type[Exception],
+        message: str,
+        status: int,
+    ) -> None:
+        if mode == "immediate":
 
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/anthropic/v1/messages",
-                json={
-                    "model": "stub",
-                    "max_tokens": 16,
-                    "messages": [{"role": "user", "content": "hi"}],
-                    "stream": False,
-                },
-            )
+            async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+                raise exception(message)
+        else:
 
-        assert response.status_code == 400, response.text
-        assert "invalid params" in response.text
+            async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
+                async def _gen() -> t.AsyncIterator[t.Any]:
+                    yield StartEvent(id="m", created=0)
+                    yield TextEvent(channel="output", text="partial")
+                    raise exception(message)
 
-    async def test_buffered_generic_exception_returns_500(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise RuntimeError("kaboom")
+                return _gen()
 
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/anthropic/v1/messages",
-                json={
-                    "model": "stub",
-                    "max_tokens": 16,
-                    "messages": [{"role": "user", "content": "hi"}],
-                    "stream": False,
-                },
-            )
+        with patch.object(type(llm_component.model), method, _mock):
+            response = await client.post(self.ENDPOINT, json={**self.BODY, "stream": stream})
 
-        assert response.status_code == 500, response.text
+        assert response.status_code == status, response.text
+        if status == 400 and method == "query":
+            assert message in response.text
 
-    async def test_stream_value_error_returns_400(self, client: Client, llm_component) -> None:
-        async def _mock_stream(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise ValueError("bad stream args")
-
-        with patch.object(type(llm_component.model), "stream", _mock_stream):
-            response = await client.post(
-                "/llm/anthropic/v1/messages",
-                json={
-                    "model": "stub",
-                    "max_tokens": 16,
-                    "messages": [{"role": "user", "content": "hi"}],
-                    "stream": True,
-                },
-            )
-
-        assert response.status_code == 400, response.text
-
-    async def test_buffered_iteration_error_returns_500(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
-            async def _gen() -> t.AsyncIterator[t.Any]:
-                yield StartEvent(id="m", created=0)
-                yield TextEvent(channel="output", text="partial")
-                raise RuntimeError("mid-stream boom")
-
-            return _gen()
-
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/anthropic/v1/messages",
-                json={
-                    "model": "stub",
-                    "max_tokens": 16,
-                    "messages": [{"role": "user", "content": "hi"}],
-                    "stream": False,
-                },
-            )
-
-        assert response.status_code == 500, response.text
-
-    async def test_mismatched_model_name_logged(self, client: Client, caplog) -> None:
+    async def test_mismatched_model_name_logged(self, client: Client, caplog_flama) -> None:
         import logging
 
-        with caplog.at_level(logging.INFO, logger="flama.models.resources.serving.llm.anthropic"):
+        with caplog_flama.at_level(logging.INFO, logger="flama.models.resources.serving.llm.anthropic"):
             await client.post(
                 "/llm/anthropic/v1/messages",
                 json={
@@ -337,7 +288,7 @@ class TestCaseEndToEndMessages:
                 },
             )
 
-        assert any("differs from resource" in rec.getMessage() for rec in caplog.records)
+        assert any("differs from resource" in rec.getMessage() for rec in caplog_flama.records)
 
     async def test_streaming_uses_ephemeral_buffer(self, client: Client, llm_component) -> None:
         from flama.models.streams import ModelStreams
@@ -373,22 +324,6 @@ class TestCaseEndToEndMessages:
 
 class TestCaseEndToEndModels:
     """Cover ``GET /anthropic/v1/models``."""
-
-    @pytest.fixture(scope="function")
-    async def client(self, app, llm_component) -> t.AsyncIterator[Client]:
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-            serving = ("anthropic",)
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client
 
     async def test_returns_single_entry_list(self, client: Client) -> None:
         response = await client.get("/llm/anthropic/v1/models")

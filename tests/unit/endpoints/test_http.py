@@ -25,7 +25,7 @@ class TestCaseHTTPEndpoint:
     def app(self, app):
         return Flama(schema=None, docs=None, components=[PuppyComponent()])
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def endpoint(self, app, asgi_scope, asgi_receive, asgi_send):
         @app.route("/")
         class FooEndpoint(endpoints.HTTPEndpoint):

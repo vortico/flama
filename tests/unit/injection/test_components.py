@@ -14,7 +14,7 @@ class Bar:
 
 
 class TestCaseComponent:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def foo_component(self):
         class FooComponent(Component):
             def resolve(self, x: int) -> Foo:

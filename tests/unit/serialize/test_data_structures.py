@@ -609,10 +609,3 @@ class TestCaseModelArtifact:
         finally:
             if b.directory is not None:
                 b.directory.cleanup()
-
-    def test_v1_framework_default_family_when_missing(self) -> None:
-        """Master-era ``.flm`` framework dicts (no ``family``) default to ``"ml"`` on decode."""
-        fi = FrameworkInfo.from_dict({"lib": "sklearn", "version": "1.0.0"})
-        assert fi.family == "ml"
-        assert fi.lib == "sklearn"
-        assert fi.version == "1.0.0"

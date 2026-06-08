@@ -37,7 +37,7 @@ class TestCaseFlama:
     def middleware(self):
         return MagicMock(spec=Middleware)
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def app(self):
         return Flama(schema=None, docs=None)
 

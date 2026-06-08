@@ -114,7 +114,7 @@ class TestCaseRangeRequest:
 
 
 class TestCaseFileResponse:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def tmp_file(self, tmp_path):
         f = tmp_path / "test.txt"
         f.write_text("hello world")

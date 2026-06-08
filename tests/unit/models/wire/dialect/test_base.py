@@ -86,6 +86,13 @@ class _SilentDialect(Dialect):
     ASSEMBLER = _SilentAssembler
 
 
+async def _raising_source() -> t.AsyncIterator[Event]:
+    """Async event source that fails mid-stream so the buffer surfaces a terminal error stop."""
+    yield StartEvent(id="m", created=0)
+    yield TextEvent(channel="output", text="hi")
+    raise RuntimeError("boom")
+
+
 class TestCaseParser:
     """Cover :class:`Parser`'s shared translation surface — the :meth:`parse` dispatcher, the
     :meth:`_parse_messages` default, the :meth:`_parse_message` template-method, the OpenAI-flavoured
@@ -619,14 +626,23 @@ class TestCaseDialect:
         assert envelope["events"] == [TextEvent(channel="output", text="hi")]
         assert envelope["kwargs"] == {}
 
-    async def test_assemble_raises_on_error_stop(self) -> None:
-        async def _source() -> t.AsyncIterator[Event]:
-            yield StartEvent(id="m", created=0)
-            yield TextEvent(channel="output", text="hi")
-            raise RuntimeError("boom")
-
-        with pytest.raises(LLMGenerationError):
-            await _SilentDialect.assemble(_source())
+    @pytest.mark.parametrize(
+        "source",
+        [
+            pytest.param(
+                [
+                    StartEvent(id="m", created=0),
+                    TextEvent(channel="output", text="hi"),
+                    StopEvent(stop_reason="error"),
+                ],
+                id="explicit_error_stop",
+            ),
+            pytest.param(_raising_source(), id="mid_stream_exception"),
+        ],
+    )
+    async def test_assemble_raises_on_error_stop(self, source: t.Any) -> None:
+        with pytest.raises(LLMGenerationError, match="LLM stream generation failed"):
+            await _SilentDialect.assemble(source)
 
 
 class TestCaseRenderer:

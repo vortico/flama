@@ -719,7 +719,7 @@ class TestCaseStreamBuffer:
     async def test_load(
         self,
         buffer: StreamBuffer,
-        caplog: pytest.LogCaptureFixture,
+        caplog_flama: pytest.LogCaptureFixture,
         scenario: str,
     ) -> None:
         terminate_cases: dict[str, tuple[Exception | None, str]] = {
@@ -764,9 +764,9 @@ class TestCaseStreamBuffer:
                 yield StartEvent(id=str(buffer.id), created=0)
                 raise FrameworkNotInstalled("torch")
 
-            with caplog.at_level("ERROR"):
+            with caplog_flama.at_level("ERROR"):
                 await buffer.load(_stream())
-            records = [r for r in caplog.records if "missing dependency" in r.getMessage()]
+            records = [r for r in caplog_flama.records if "missing dependency" in r.getMessage()]
             assert records and records[-1].exc_info is None
         elif scenario == "logs_generic_exception_with_traceback":
 
@@ -774,9 +774,9 @@ class TestCaseStreamBuffer:
                 yield StartEvent(id=str(buffer.id), created=0)
                 raise RuntimeError("boom")
 
-            with caplog.at_level("ERROR"):
+            with caplog_flama.at_level("ERROR"):
                 await buffer.load(_stream())
-            records = [r for r in caplog.records if "generation failed" in r.getMessage()]
+            records = [r for r in caplog_flama.records if "generation failed" in r.getMessage()]
             assert records and records[-1].exc_info is not None
         else:
             raise AssertionError(f"unknown scenario: {scenario}")
@@ -1161,7 +1161,7 @@ class TestCaseCleanupTask:
         assert stale_id not in streams
 
     async def test_background_loop_survives_evict_failure(
-        self, backend: FileStreamsBackend, caplog: pytest.LogCaptureFixture
+        self, backend: FileStreamsBackend, caplog_flama: pytest.LogCaptureFixture
     ) -> None:
         registry = StreamsRegistry(backend=backend)
         task = CleanupTask(ttl=10.0, period=0.005)
@@ -1176,7 +1176,7 @@ class TestCaseCleanupTask:
 
         task.evict = _flaky  # type: ignore[method-assign]
 
-        with caplog.at_level("ERROR"):
+        with caplog_flama.at_level("ERROR"):
             await task.start(registry)
             try:
                 for _ in range(50):
@@ -1187,7 +1187,7 @@ class TestCaseCleanupTask:
                 await task.stop()
 
         assert len(calls) >= 2
-        assert any("cleanup pass failed" in record.getMessage().lower() for record in caplog.records)
+        assert any("cleanup pass failed" in record.getMessage().lower() for record in caplog_flama.records)
 
     async def test_registry_aopen_starts_and_aclose_stops_real_task(self, backend: FileStreamsBackend) -> None:
         task = CleanupTask(ttl=10.0, period=0.005)

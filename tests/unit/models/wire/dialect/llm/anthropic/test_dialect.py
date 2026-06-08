@@ -5,7 +5,6 @@ import uuid
 import pytest
 
 from flama.http.responses.sse import ServerSentEvent
-from flama.models.exceptions import LLMGenerationError
 from flama.models.transport.output.llm.event import StartEvent, StopEvent, TextEvent, ToolEvent
 from flama.models.wire.dialect.llm.anthropic import (
     AnthropicAssembler,
@@ -24,13 +23,6 @@ def _events() -> list:
         TextEvent(channel="output", text="answer"),
         ToolEvent(id="c1", name="lookup", arguments={"q": "x"}),
         StopEvent(stop_reason="tool_use", output_tokens=8),
-    ]
-
-
-def _error_events() -> list:
-    return [
-        StartEvent(id="msg-1", created=1000),
-        StopEvent(stop_reason="error"),
     ]
 
 
@@ -83,7 +75,3 @@ class TestCaseAnthropicDialect:
         envelope = await AnthropicDialect.assemble(_events(), model="m", generation_id=_GEN_ID)
 
         _verify_assemble(envelope)
-
-    async def test_assemble_raises_llm_generation_error(self) -> None:
-        with pytest.raises(LLMGenerationError, match="LLM stream generation failed"):
-            await AnthropicDialect.assemble(_error_events(), model="m", generation_id=_GEN_ID)

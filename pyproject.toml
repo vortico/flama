@@ -200,7 +200,7 @@ omit = [
   "build.py",
   "*_remote_module_non_scriptable*",
 ]
-concurrency = ["thread", "multiprocessing"]
+concurrency = ["thread", "multiprocessing", "greenlet"]
 
 [tool.coverage.report]
 show_missing = true
