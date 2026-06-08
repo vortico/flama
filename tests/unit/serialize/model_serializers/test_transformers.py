@@ -55,9 +55,7 @@ class TestCaseTransformersModelSerializer:
         sources = {
             "directory_path": tmp_path,
             "directory_path_str": str(tmp_path),
-            "pipeline_local": py_types.SimpleNamespace(
-                model=py_types.SimpleNamespace(name_or_path=str(tmp_path))
-            ),
+            "pipeline_local": py_types.SimpleNamespace(model=py_types.SimpleNamespace(name_or_path=str(tmp_path))),
             "pipeline_remote": py_types.SimpleNamespace(
                 model=py_types.SimpleNamespace(name_or_path="google/gemma-2-2b")
             ),

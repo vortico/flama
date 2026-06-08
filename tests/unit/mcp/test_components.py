@@ -6,8 +6,8 @@ from flama import Flama, exceptions, types
 from flama.context import Context
 from flama.http import JSONRPCStatus
 from flama.http.data_structures import Headers
-from flama.mcp.components import MCPMetaComponent, MCPRequestHeadersComponent
-from flama.mcp.data_structures import MCPMeta, MCPRequestHeaders
+from flama.mcp.components import MCPMetaComponent, MCPRequestHeadersComponent, MCPTraceContextComponent
+from flama.mcp.data_structures import MCPMeta, MCPRequestHeaders, MCPTraceContext
 
 
 def handler_fields(envelope: types.JSONRPCEnvelope, method: types.JSONRPCMethod, params: types.JSONRPCParams):
@@ -16,6 +16,10 @@ def handler_fields(envelope: types.JSONRPCEnvelope, method: types.JSONRPCMethod,
 
 def handler_meta(meta: MCPMeta):
     return meta
+
+
+def handler_trace(trace: MCPTraceContext):
+    return trace
 
 
 def handler_none():
@@ -162,6 +166,22 @@ class TestCaseMCPRequestHeadersComponent:
             assert result == expected
 
 
+class TestCaseMCPTraceContextComponent:
+    @pytest.mark.parametrize(
+        ["meta", "expected"],
+        (
+            pytest.param(
+                {"traceparent": "00-trace-span-01", "baggage": "k=v"},
+                MCPTraceContext(traceparent="00-trace-span-01", baggage="k=v"),
+                id="with",
+            ),
+            pytest.param({}, MCPTraceContext(), id="without"),
+        ),
+    )
+    def test_resolve(self, meta, expected):
+        assert MCPTraceContextComponent().resolve(MCPMeta(meta)) == expected
+
+
 class TestCaseMCPInjection:
     @pytest.fixture
     def injector(self):
@@ -183,6 +203,9 @@ class TestCaseMCPInjection:
 
     async def test_inject_derived_meta(self, injector, context):
         assert (await injector.inject(handler_meta, context))() == {"v": 1}
+
+    async def test_inject_trace_context(self, injector, context):
+        assert (await injector.inject(handler_trace, context))() == MCPTraceContext()
 
     async def test_inject_no_dependencies(self, injector, context):
         assert (await injector.inject(handler_none, context))() == "ok"
