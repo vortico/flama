@@ -9,6 +9,14 @@ from flama import Flama, exceptions
 
 
 class TestCaseSetup:
+    @pytest.fixture(autouse=True)
+    def restore_default_schema_library(self):
+        """Reset the process-global schema library after each test so the switch does not leak to other tests."""
+        from flama import schemas
+
+        yield
+        schemas._module.setup()
+
     def test_setup_default(self):
         Flama()
 

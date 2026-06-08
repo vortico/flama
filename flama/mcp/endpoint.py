@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import typing as t
 
@@ -5,9 +6,10 @@ from flama import concurrency, exceptions, http, types
 from flama._core.json_encoder import encode_json
 from flama.endpoints.jsonrpc import JSONRPCEndpoint
 from flama.http import JSONRPCStatus
-from flama.mcp.data_structures import MCPRequestHeaders
+from flama.mcp.data_structures import Elicit, Elicitation, Extensions, RequestHeaders, RequestState
 from flama.mcp.http import MCPResponse
-from flama.mcp.server import MCPServer
+from flama.mcp.server import MCPServer, Tool
+from flama.mcp.tasks import Task, TaskStatus
 
 __all__ = ["MCPEndpoint"]
 
@@ -34,6 +36,9 @@ class MCPEndpoint(JSONRPCEndpoint):
         "resources/templates/list": "resources_templates_list",
         "prompts/list": "prompts_list",
         "prompts/get": "prompts_get",
+        "tasks/get": "tasks_get",
+        "tasks/update": "tasks_update",
+        "tasks/cancel": "tasks_cancel",
     }
 
     async def resolve_handler(self) -> t.Callable[..., t.Awaitable[t.Any] | t.Any]:
@@ -43,7 +48,7 @@ class MCPEndpoint(JSONRPCEndpoint):
         :raises JSONRPCException: If the routing headers disagree with the body, or the requested protocol version is
             not supported.
         """
-        headers = await self.state.app.injector.value(MCPRequestHeaders, self.state)
+        headers = await self.state.app.injector.value(RequestHeaders, self.state)
 
         if (
             headers.method != "server/discover"
@@ -62,7 +67,7 @@ class MCPEndpoint(JSONRPCEndpoint):
         if isinstance(response, http.JSONRPCResponse):
             response = MCPResponse(response.result, id=response.id)
 
-        response.headers[MCPRequestHeaders.PROTOCOL_VERSION_HEADER] = MCPServer.PROTOCOL_VERSION
+        response.headers[RequestHeaders.PROTOCOL_VERSION_HEADER] = MCPServer.PROTOCOL_VERSION
         return response
 
     def server_discover(self) -> dict[str, t.Any]:
@@ -73,6 +78,8 @@ class MCPEndpoint(JSONRPCEndpoint):
             capabilities["resources"] = {}
         if self.server._prompts:
             capabilities["prompts"] = {}
+        if self.server.supported_extensions:
+            capabilities["extensions"] = {extension: {} for extension in sorted(self.server.supported_extensions)}
 
         result: dict[str, t.Any] = {
             "resultType": "complete",
@@ -100,11 +107,13 @@ class MCPEndpoint(JSONRPCEndpoint):
             }
             if entry.output_schema is not None:
                 tool["outputSchema"] = entry.output_schema
+            if entry.ui_template is not None:
+                tool["uiTemplate"] = entry.ui_template
             tools.append(tool)
 
         return {"tools": tools, **self._cache_metadata()}
 
-    async def tools_call(self, params: types.JSONRPCParams) -> dict[str, t.Any]:
+    async def tools_call(self, params: types.JSONRPCParams, extensions: Extensions) -> dict[str, t.Any]:
         name = params.get("name", "")
         arguments = params.get("arguments") or {}
         entry = self.server._tools.get(name)
@@ -114,8 +123,18 @@ class MCPEndpoint(JSONRPCEndpoint):
                 status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Tool '{name}' not found"
             )
 
+        responses = self._combined_responses(params)
+
+        if entry.task and Extensions.TASKS in extensions:
+            task = await self.server.task_store.create(
+                ttl_ms=self.server.cache_ttl_ms, tool_name=name, arguments=arguments
+            )
+            task.runner = asyncio.ensure_future(self._run_tool_task(task, entry, arguments, responses))
+            await self.server.task_store.save(task)
+            return {"resultType": "task", "task": task.to_dict(), **self._cache_metadata()}
+
         try:
-            result = await concurrency.run(entry.handler, **arguments)
+            return await self._invoke_tool(entry, arguments, responses)
         except exceptions.JSONRPCException:
             raise
         except Exception as e:
@@ -123,6 +142,32 @@ class MCPEndpoint(JSONRPCEndpoint):
                 status_code=http.JSONRPCStatus.INTERNAL_ERROR, detail=f"Tool '{name}' raised: {e}"
             ) from e
 
+    async def _invoke_tool(
+        self, entry: Tool, arguments: dict[str, t.Any], responses: dict[str, t.Any]
+    ) -> dict[str, t.Any]:
+        """Run a tool handler, returning either an ``inputRequired`` result or the final tool result.
+
+        Elicitation responses gathered so far are injected into the handler's declared parameter so it can branch; if
+        the handler asks for more input (returns :class:`Elicit`), they are carried forward in ``requestState``.
+        """
+        kwargs = dict(arguments)
+        if entry.elicitation_param is not None:
+            kwargs[entry.elicitation_param] = Elicitation(responses)
+
+        result = await concurrency.run(entry.handler, **kwargs)
+
+        if isinstance(result, Elicit):
+            return {
+                "resultType": "inputRequired",
+                "inputRequests": result.input_requests,
+                "requestState": RequestState.encode({"inputResponses": responses}),
+            }
+
+        return self._tool_content(entry, result)
+
+    @staticmethod
+    def _tool_content(entry: Tool, result: t.Any) -> dict[str, t.Any]:
+        """Render a tool result as content blocks plus ``structuredContent`` when the tool declares an output schema."""
         text = encode_json(result, compact=True).decode() if isinstance(result, (dict, list)) else str(result)
         response: dict[str, t.Any] = {"content": [{"type": "text", "text": text}]}
 
@@ -130,6 +175,97 @@ class MCPEndpoint(JSONRPCEndpoint):
             response["structuredContent"] = result
 
         return response
+
+    @staticmethod
+    def _combined_responses(params: types.JSONRPCParams) -> dict[str, t.Any]:
+        """Merge elicitation answers carried in ``requestState`` with the new ``inputResponses`` on this request."""
+        state = RequestState.decode(params["requestState"]) if params.get("requestState") else {}
+        return {**(state.get("inputResponses") or {}), **(params.get("inputResponses") or {})}
+
+    async def _run_tool_task(
+        self, task: Task, entry: Tool, arguments: dict[str, t.Any], responses: dict[str, t.Any]
+    ) -> None:
+        """Background runner that drives a task-augmented tool call to a terminal or ``input_required`` state."""
+        try:
+            outcome = await self._invoke_tool(entry, arguments, responses)
+        except asyncio.CancelledError:
+            task.status = TaskStatus.CANCELLED
+            await self.server.task_store.save(task)
+            raise
+        except exceptions.JSONRPCException as e:
+            task.status = TaskStatus.FAILED
+            task.error = e.detail or "error"
+        except Exception as e:
+            task.status = TaskStatus.FAILED
+            task.error = str(e)
+        else:
+            if outcome.get("resultType") == "inputRequired":
+                task.status = TaskStatus.INPUT_REQUIRED
+                task.input_requests = outcome["inputRequests"]
+                task.request_state = outcome["requestState"]
+            else:
+                task.status = TaskStatus.COMPLETED
+                task.result = outcome
+
+        await self.server.task_store.save(task)
+
+    async def tasks_get(self, params: types.JSONRPCParams) -> dict[str, t.Any]:
+        task = await self.server.task_store.get(params.get("taskId", ""))
+
+        if task is None:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Task '{params.get('taskId', '')}' not found"
+            )
+
+        return {"task": task.to_dict(), **self._cache_metadata()}
+
+    async def tasks_update(self, params: types.JSONRPCParams) -> dict[str, t.Any]:
+        task_id = params.get("taskId", "")
+        task = await self.server.task_store.get(task_id)
+
+        if task is None:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Task '{task_id}' not found"
+            )
+
+        if task.status != TaskStatus.INPUT_REQUIRED:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Task '{task_id}' is not awaiting input"
+            )
+
+        entry = self.server._tools.get(task.tool_name or "")
+        if entry is None:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Tool '{task.tool_name}' not found"
+            )
+
+        prior = (RequestState.decode(task.request_state).get("inputResponses") or {}) if task.request_state else {}
+        responses = {**prior, **(params.get("inputResponses") or {})}
+
+        task.status = TaskStatus.WORKING
+        task.input_requests = None
+        task.request_state = None
+        await self.server.task_store.save(task)
+        task.runner = asyncio.ensure_future(self._run_tool_task(task, entry, task.arguments or {}, responses))
+
+        return {"task": task.to_dict()}
+
+    async def tasks_cancel(self, params: types.JSONRPCParams) -> dict[str, t.Any]:
+        task_id = params.get("taskId", "")
+        task = await self.server.task_store.get(task_id)
+
+        if task is None:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Task '{task_id}' not found"
+            )
+
+        if task.runner is not None and not task.runner.done():
+            task.runner.cancel()
+
+        task.status = TaskStatus.CANCELLED
+        await self.server.task_store.save(task)
+
+        return {"task": task.to_dict()}
 
     def resources_list(self) -> dict[str, t.Any]:
         return {
@@ -142,7 +278,7 @@ class MCPEndpoint(JSONRPCEndpoint):
 
     async def resources_read(self, params: types.JSONRPCParams) -> dict[str, t.Any]:
         uri = params.get("uri", "")
-        entry = self.server._resources.get(uri)
+        entry = self.server._resources.get(uri) or self.server._app_templates.get(uri)
 
         if entry is None:
             raise exceptions.JSONRPCException(
@@ -164,7 +300,14 @@ class MCPEndpoint(JSONRPCEndpoint):
         }
 
     def resources_templates_list(self) -> dict[str, t.Any]:
-        return {"resourceTemplates": [], **self._cache_metadata()}
+        """List the prefetchable MCP Apps UI templates this server declares (SEP-1865)."""
+        return {
+            "resourceTemplates": [
+                {"uri": tpl.uri, "name": tpl.name, "description": tpl.description, "mimeType": tpl.mime_type}
+                for tpl in self.server._app_templates.values()
+            ],
+            **self._cache_metadata(),
+        }
 
     def prompts_list(self) -> dict[str, t.Any]:
         return {

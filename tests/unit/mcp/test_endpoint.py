@@ -1,3 +1,4 @@
+import asyncio
 import json
 from importlib.metadata import version
 
@@ -7,7 +8,7 @@ from flama import Flama
 from flama.client import Client
 from flama.exceptions import JSONRPCException
 from flama.http import JSONRPCStatus
-from flama.mcp.data_structures import MCPRequestHeaders
+from flama.mcp.data_structures import Elicit, Elicitation, Extensions, RequestHeaders, RequestMeta
 from flama.mcp.server import MCPServer
 
 FLAMA_META = {
@@ -68,13 +69,13 @@ class TestCaseMCPEndpoint:
         """POST an MCP request, deriving the SEP-2243 routing headers from the body unless overridden."""
         method = body.get("method")
         params = body.get("params") or {}
-        derived = {MCPRequestHeaders.PROTOCOL_VERSION_HEADER: MCPServer.PROTOCOL_VERSION}
+        derived = {RequestHeaders.PROTOCOL_VERSION_HEADER: MCPServer.PROTOCOL_VERSION}
         if method is not None:
-            derived[MCPRequestHeaders.METHOD_HEADER] = method
+            derived[RequestHeaders.METHOD_HEADER] = method
         if method in ("tools/call", "prompts/get") and "name" in params:
-            derived[MCPRequestHeaders.NAME_HEADER] = params["name"]
+            derived[RequestHeaders.NAME_HEADER] = params["name"]
         elif method == "resources/read" and "uri" in params:
-            derived[MCPRequestHeaders.NAME_HEADER] = params["uri"]
+            derived[RequestHeaders.NAME_HEADER] = params["uri"]
         for key, value in (headers or {}).items():
             if value is None:
                 derived.pop(key, None)
@@ -117,7 +118,7 @@ class TestCaseMCPEndpoint:
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "ping"})
         assert resp.status_code == 200
         assert resp.json()["result"] == {"_meta": FLAMA_META}
-        assert resp.headers[MCPRequestHeaders.PROTOCOL_VERSION_HEADER] == MCPServer.PROTOCOL_VERSION
+        assert resp.headers[RequestHeaders.PROTOCOL_VERSION_HEADER] == MCPServer.PROTOCOL_VERSION
 
     @pytest.mark.parametrize(
         ["instructions", "expected_instructions"],
@@ -455,8 +456,8 @@ class TestCaseMCPEndpoint:
                 "/bad/",
                 json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
                 headers={
-                    MCPRequestHeaders.METHOD_HEADER: "ping",
-                    MCPRequestHeaders.PROTOCOL_VERSION_HEADER: MCPServer.PROTOCOL_VERSION,
+                    RequestHeaders.METHOD_HEADER: "ping",
+                    RequestHeaders.PROTOCOL_VERSION_HEADER: MCPServer.PROTOCOL_VERSION,
                 },
             )
 
@@ -467,26 +468,26 @@ class TestCaseMCPEndpoint:
         (
             pytest.param(
                 {"jsonrpc": "2.0", "id": 1, "method": "ping"},
-                {MCPRequestHeaders.METHOD_HEADER: None},
-                f"Missing '{MCPRequestHeaders.METHOD_HEADER}' header",
+                {RequestHeaders.METHOD_HEADER: None},
+                f"Missing '{RequestHeaders.METHOD_HEADER}' header",
                 id="missing_method",
             ),
             pytest.param(
                 {"jsonrpc": "2.0", "id": 1, "method": "ping"},
-                {MCPRequestHeaders.METHOD_HEADER: "other"},
-                f"'{MCPRequestHeaders.METHOD_HEADER}' header does not match the request method",
+                {RequestHeaders.METHOD_HEADER: "other"},
+                f"'{RequestHeaders.METHOD_HEADER}' header does not match the request method",
                 id="method_mismatch",
             ),
             pytest.param(
                 {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "add", "arguments": {}}},
-                {MCPRequestHeaders.NAME_HEADER: None},
-                f"Missing '{MCPRequestHeaders.NAME_HEADER}' header",
+                {RequestHeaders.NAME_HEADER: None},
+                f"Missing '{RequestHeaders.NAME_HEADER}' header",
                 id="missing_name",
             ),
             pytest.param(
                 {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "add", "arguments": {}}},
-                {MCPRequestHeaders.NAME_HEADER: "greet"},
-                f"'{MCPRequestHeaders.NAME_HEADER}' header does not match the request 'name'",
+                {RequestHeaders.NAME_HEADER: "greet"},
+                f"'{RequestHeaders.NAME_HEADER}' header does not match the request 'name'",
                 id="name_mismatch",
             ),
             pytest.param(
@@ -497,7 +498,7 @@ class TestCaseMCPEndpoint:
                     "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2025-11-25"}},
                 },
                 {},
-                f"'{MCPRequestHeaders.PROTOCOL_VERSION_HEADER}' header does not match the request metadata",
+                f"'{RequestHeaders.PROTOCOL_VERSION_HEADER}' header does not match the request metadata",
                 id="version_disagreement",
             ),
         ),
@@ -512,7 +513,7 @@ class TestCaseMCPEndpoint:
         resp = await self._post(
             app,
             {"jsonrpc": "2.0", "id": 1, "method": "ping"},
-            headers={MCPRequestHeaders.PROTOCOL_VERSION_HEADER: "1900-01-01"},
+            headers={RequestHeaders.PROTOCOL_VERSION_HEADER: "1900-01-01"},
         )
         error = resp.json()["error"]
         assert error["code"] == JSONRPCStatus.UNSUPPORTED_PROTOCOL_VERSION
@@ -523,6 +524,257 @@ class TestCaseMCPEndpoint:
         resp = await self._post(
             app,
             {"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {}},
-            headers={MCPRequestHeaders.PROTOCOL_VERSION_HEADER: "1900-01-01"},
+            headers={RequestHeaders.PROTOCOL_VERSION_HEADER: "1900-01-01"},
         )
         assert resp.json()["result"]["resultType"] == "complete"
+
+    @staticmethod
+    def _caps_meta(*extensions):
+        """Build a ``_meta`` advertising the given client extensions (SEP-2133)."""
+        return {f"{RequestMeta.MCP_NAMESPACE}/clientCapabilities": {"extensions": {ext: {} for ext in extensions}}}
+
+    async def _poll_task(self, app, task_id, *, attempts=50):
+        """Poll ``tasks/get`` until the task leaves the ``working`` state or attempts are exhausted."""
+        task = None
+        for _ in range(attempts):
+            resp = await self._post(
+                app, {"jsonrpc": "2.0", "id": 1, "method": "tasks/get", "params": {"taskId": task_id}}
+            )
+            task = resp.json()["result"]["task"]
+            if task["status"] != "working":
+                return task
+            await asyncio.sleep(0.01)
+        return task
+
+    async def test_server_discover_extensions(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.tool("slow", task=True)
+        async def slow() -> int:
+            return 1
+
+        @server.app_template("ui://w", name="widget")
+        def widget():
+            return "<html></html>"
+
+        resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {}})
+
+        extensions = resp.json()["result"]["capabilities"]["extensions"]
+        assert extensions == {Extensions.APPS: {}, Extensions.TASKS: {}}
+
+    async def test_tools_list_ui_template(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.app_template("ui://w", name="widget")
+        def widget():
+            return "<html></html>"
+
+        @server.tool("with_ui", ui_template="ui://w")
+        def with_ui() -> str:
+            return "x"
+
+        resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}})
+        tools = {t["name"]: t for t in resp.json()["result"]["tools"]}
+        assert tools["with_ui"]["uiTemplate"] == "ui://w"
+        assert "uiTemplate" not in tools["add"]
+
+    async def test_tools_call_as_task(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.tool("double", task=True)
+        async def double(x: int) -> int:
+            return x * 2
+
+        resp = await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "double", "arguments": {"x": 21}, "_meta": self._caps_meta(Extensions.TASKS)},
+            },
+        )
+        result = resp.json()["result"]
+        assert result["resultType"] == "task"
+        assert result["task"]["status"] == "working"
+
+        task = await self._poll_task(app, result["task"]["taskId"])
+        assert task["status"] == "completed"
+        assert task["result"]["structuredContent"] == 42
+
+    async def test_tools_call_task_not_advertised(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.tool("double", task=True)
+        async def double(x: int) -> int:
+            return x * 2
+
+        resp = await self._post(
+            app,
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "double", "arguments": {"x": 21}}},
+        )
+        result = resp.json()["result"]
+        assert "resultType" not in result
+        assert result["structuredContent"] == 42
+
+    async def test_tools_call_elicitation(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.tool("confirm")
+        def confirm(elicitation: Elicitation) -> str:
+            if "confirm" not in elicitation:
+                return Elicit.require("Confirm?", {"type": "boolean"}, name="confirm")
+            return f"confirmed={elicitation['confirm']}"
+
+        first = await self._post(
+            app,
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "confirm", "arguments": {}}},
+        )
+        result = first.json()["result"]
+        assert result["resultType"] == "inputRequired"
+        assert "confirm" in result["inputRequests"]
+
+        second = await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {
+                    "name": "confirm",
+                    "arguments": {},
+                    "inputResponses": {"confirm": True},
+                    "requestState": result["requestState"],
+                },
+            },
+        )
+        assert second.json()["result"]["content"][0]["text"] == "confirmed=True"
+
+    async def test_tools_call_task_elicitation(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.tool("task_confirm", task=True)
+        async def task_confirm(elicitation: Elicitation) -> str:
+            if "confirm" not in elicitation:
+                return Elicit.require("Confirm?", {"type": "boolean"}, name="confirm")
+            return f"ok={elicitation['confirm']}"
+
+        resp = await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "task_confirm", "arguments": {}, "_meta": self._caps_meta(Extensions.TASKS)},
+            },
+        )
+        task_id = resp.json()["result"]["task"]["taskId"]
+
+        awaiting = await self._poll_task(app, task_id)
+        assert awaiting["status"] == "input_required"
+        assert "confirm" in awaiting["inputRequests"]
+
+        await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tasks/update",
+                "params": {"taskId": task_id, "inputResponses": {"confirm": True}},
+            },
+        )
+
+        completed = await self._poll_task(app, task_id)
+        assert completed["status"] == "completed"
+        assert completed["result"]["content"][0]["text"] == "ok=True"
+
+    async def test_tasks_cancel(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.tool("hang", task=True)
+        async def hang() -> int:
+            await asyncio.sleep(10)
+            return 1
+
+        resp = await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "hang", "arguments": {}, "_meta": self._caps_meta(Extensions.TASKS)},
+            },
+        )
+        task_id = resp.json()["result"]["task"]["taskId"]
+
+        cancelled = await self._post(
+            app, {"jsonrpc": "2.0", "id": 2, "method": "tasks/cancel", "params": {"taskId": task_id}}
+        )
+        assert cancelled.json()["result"]["task"]["status"] == "cancelled"
+
+    async def test_tasks_get_not_found(self, app):
+        resp = await self._post(
+            app, {"jsonrpc": "2.0", "id": 1, "method": "tasks/get", "params": {"taskId": "missing"}}
+        )
+        assert resp.json()["error"]["code"] == JSONRPCStatus.INVALID_PARAMS
+
+    async def test_tasks_cancel_not_found(self, app):
+        resp = await self._post(
+            app, {"jsonrpc": "2.0", "id": 1, "method": "tasks/cancel", "params": {"taskId": "missing"}}
+        )
+        assert resp.json()["error"]["code"] == JSONRPCStatus.INVALID_PARAMS
+
+    async def test_tasks_update_not_found(self, app):
+        resp = await self._post(
+            app, {"jsonrpc": "2.0", "id": 1, "method": "tasks/update", "params": {"taskId": "missing"}}
+        )
+        assert resp.json()["error"]["code"] == JSONRPCStatus.INVALID_PARAMS
+
+    async def test_tasks_update_not_input_required(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.tool("double", task=True)
+        async def double(x: int) -> int:
+            return x * 2
+
+        resp = await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "double", "arguments": {"x": 1}, "_meta": self._caps_meta(Extensions.TASKS)},
+            },
+        )
+        task_id = resp.json()["result"]["task"]["taskId"]
+        await self._poll_task(app, task_id)
+
+        update = await self._post(
+            app, {"jsonrpc": "2.0", "id": 2, "method": "tasks/update", "params": {"taskId": task_id}}
+        )
+        assert update.json()["error"]["code"] == JSONRPCStatus.INVALID_PARAMS
+
+    async def test_resources_templates_list_with_apps(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.app_template("ui://w", name="widget", description="A widget")
+        def widget():
+            return "<html></html>"
+
+        resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "resources/templates/list", "params": {}})
+        templates = resp.json()["result"]["resourceTemplates"]
+        assert templates == [{"uri": "ui://w", "name": "widget", "description": "A widget", "mimeType": "text/html"}]
+
+    async def test_resources_read_app_template(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.app_template("ui://w", name="widget")
+        def widget():
+            return "<html>hi</html>"
+
+        resp = await self._post(
+            app, {"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": "ui://w"}}
+        )
+        contents = resp.json()["result"]["contents"]
+        assert contents[0]["text"] == "<html>hi</html>"
+        assert contents[0]["mimeType"] == "text/html"

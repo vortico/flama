@@ -2,6 +2,8 @@ import dataclasses
 import inspect
 import typing as t
 
+from flama.mcp.data_structures import AppTemplate, Elicitation, Extensions
+from flama.mcp.tasks import InMemoryTaskStore, TaskStore
 from flama.schemas.data_structures import Field, Schema
 from flama.schemas.registry import SchemaRegistry
 
@@ -15,6 +17,9 @@ class Tool:
     input_schema: dict[str, t.Any]
     handler: t.Callable[..., t.Any]
     output_schema: dict[str, t.Any] | None = None
+    task: bool = False
+    ui_template: str | None = None
+    elicitation_param: str | None = None
 
 
 @dataclasses.dataclass
@@ -48,18 +53,37 @@ class MCPServer:
         instructions: str | None = None,
         cache_ttl_ms: int = 0,
         cache_scope: str = "public",
+        task_store: TaskStore | None = None,
     ) -> None:
         self.name = name
         self.version = version
         self.instructions = instructions
         self.cache_ttl_ms = cache_ttl_ms
         self.cache_scope = cache_scope
+        self.task_store: TaskStore = task_store or InMemoryTaskStore()
         self._tools: dict[str, Tool] = {}
         self._resources: dict[str, Resource] = {}
         self._prompts: dict[str, Prompt] = {}
+        self._app_templates: dict[str, AppTemplate] = {}
+
+    @property
+    def supported_extensions(self) -> set[str]:
+        """The extension IDs this server supports, advertised in ``server/discover`` capabilities (SEP-2133)."""
+        extensions: set[str] = set()
+        if any(tool.task for tool in self._tools.values()):
+            extensions.add(Extensions.TASKS)
+        if self._app_templates:
+            extensions.add(Extensions.APPS)
+        return extensions
 
     def add_tool(
-        self, handler: t.Callable[..., t.Any], *, name: str | None = None, description: str | None = None
+        self,
+        handler: t.Callable[..., t.Any],
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        task: bool = False,
+        ui_template: str | None = None,
     ) -> None:
         tool_name = name or getattr(handler, "__name__", type(handler).__name__)
         self._tools[tool_name] = Tool(
@@ -67,6 +91,26 @@ class MCPServer:
             description=description or inspect.getdoc(handler) or "",
             input_schema=self._input_schema(handler),
             output_schema=self._output_schema(handler),
+            handler=handler,
+            task=task,
+            ui_template=ui_template,
+            elicitation_param=self._elicitation_param(handler),
+        )
+
+    def add_app_template(
+        self,
+        handler: t.Callable[..., t.Any],
+        *,
+        uri: str,
+        name: str | None = None,
+        description: str | None = None,
+        mime_type: str = "text/html",
+    ) -> None:
+        self._app_templates[uri] = AppTemplate(
+            uri=uri,
+            name=name or getattr(handler, "__name__", type(handler).__name__),
+            description=description or inspect.getdoc(handler) or "",
+            mime_type=mime_type,
             handler=handler,
         )
 
@@ -99,9 +143,16 @@ class MCPServer:
             handler=handler,
         )
 
-    def tool(self, name: str | None = None, *, description: str | None = None) -> t.Callable:
+    def tool(
+        self,
+        name: str | None = None,
+        *,
+        description: str | None = None,
+        task: bool = False,
+        ui_template: str | None = None,
+    ) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
-            self.add_tool(func, name=name, description=description)
+            self.add_tool(func, name=name, description=description, task=task, ui_template=ui_template)
             return func
 
         return decorator
@@ -122,14 +173,36 @@ class MCPServer:
 
         return decorator
 
+    def app_template(
+        self, uri: str, *, name: str | None = None, description: str | None = None, mime_type: str = "text/html"
+    ) -> t.Callable:
+        def decorator(func: t.Callable) -> t.Callable:
+            self.add_app_template(func, uri=uri, name=name, description=description, mime_type=mime_type)
+            return func
+
+        return decorator
+
+    @staticmethod
+    def _elicitation_param(func: t.Callable) -> str | None:
+        """Name of the handler parameter that receives the :class:`Elicitation` responses, if any."""
+        return next(
+            (
+                name
+                for name, parameter in inspect.signature(func).parameters.items()
+                if parameter.annotation is Elicitation
+            ),
+            None,
+        )
+
     @staticmethod
     def _input_schema(func: t.Callable) -> dict[str, t.Any]:
         """Build a tool ``inputSchema`` as a self-contained JSON Schema 2020-12 object (SEP-2106).
 
         Tool arguments are an object whose nested models are bundled under ``$defs`` and referenced with local
-        ``#/$defs/...`` pointers, so the document never relies on external ``$ref`` dereferencing.
+        ``#/$defs/...`` pointers, so the document never relies on external ``$ref`` dereferencing. A handler parameter
+        that receives the injected :class:`Elicitation` responses is not a tool argument and is excluded.
         """
-        return SchemaRegistry.bundle(Schema.build(fields=Field.from_handler(func)).schema)
+        return SchemaRegistry.bundle(Schema.build(fields=Field.from_handler(func, exclude={Elicitation})).schema)
 
     @staticmethod
     def _output_schema(func: t.Callable) -> dict[str, t.Any] | None:
@@ -161,5 +234,5 @@ class MCPServer:
                 "description": field.name,
                 "required": field.required,
             }
-            for field in Field.from_handler(func)
+            for field in Field.from_handler(func, exclude={Elicitation})
         ]
