@@ -28,9 +28,13 @@ class MCPModule(Module):
         server: MCPServer | None = None,
         version: str = "0.1.0",
         instructions: str | None = None,
+        cache_ttl_ms: int = 0,
+        cache_scope: str = "public",
     ) -> MCPRoute:
         if server is None:
-            server = MCPServer(name, version=version, instructions=instructions)
+            server = MCPServer(
+                name, version=version, instructions=instructions, cache_ttl_ms=cache_ttl_ms, cache_scope=cache_scope
+            )
 
         self._servers[name] = server
         route = MCPRoute(path, server, name=name)

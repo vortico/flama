@@ -174,7 +174,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
     def jsonrpc_exception_handler(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.JSONRPCException
     ) -> JSONRPCErrorResponse:
-        return JSONRPCErrorResponse(status_code=exc.status_code, message=exc.detail, id=exc.request_id)
+        return JSONRPCErrorResponse(status_code=exc.status_code, message=exc.detail, id=exc.request_id, data=exc.data)
 
     async def websocket_exception_handler(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.WebSocketException

@@ -48,6 +48,16 @@ class TestCaseJSONRPCException:
         assert error.status_code == status_code
         assert error.detail == expected_detail
 
+    @pytest.mark.parametrize(
+        ["data", "expected_data"],
+        (
+            pytest.param(None, None, id="default"),
+            pytest.param({"supported": ["2026-07-28"]}, {"supported": ["2026-07-28"]}, id="payload"),
+        ),
+    )
+    def test_init_data(self, data, expected_data):
+        assert JSONRPCException(-32004, detail="Unsupported", data=data).data == expected_data
+
     def test_str(self):
         assert str(JSONRPCException(-32603)) == "Internal error"
         assert str(JSONRPCException(-32603, detail="boom")) == "boom"

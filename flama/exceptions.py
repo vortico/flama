@@ -184,13 +184,16 @@ class MethodNotAllowedException(Exception):
 class JSONRPCException(Exception):
     """Base exception for JSON-RPC protocol errors."""
 
-    def __init__(self, status_code: int, detail: str | None = None, request_id: t.Any = None) -> None:
+    def __init__(
+        self, status_code: int, detail: str | None = None, request_id: t.Any = None, data: t.Any = None
+    ) -> None:
         from flama.http import JSONRPCStatus
 
         super().__init__()
         self.status_code = status_code
         self.detail = detail if detail is not None else JSONRPCStatus(status_code).phrase
         self.request_id = request_id
+        self.data = data
 
     def __str__(self) -> str:
         return str(self.detail)
