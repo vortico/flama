@@ -64,7 +64,7 @@ class Field:
         )
 
     @classmethod
-    def from_handler(cls, func: t.Callable) -> list["Field"]:
+    def from_handler(cls, func: t.Callable, *, exclude: t.Container[t.Any] = ()) -> list["Field"]:
         return [
             cls.from_parameter(
                 InjectionParameter(
@@ -74,6 +74,7 @@ class Field:
                 )
             )
             for p in inspect.signature(func).parameters.values()
+            if p.annotation not in exclude
         ]
 
     @classmethod
