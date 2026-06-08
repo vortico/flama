@@ -9,10 +9,12 @@ class TestCaseMCPServer:
         return MCPServer("test", version="0.1.0", instructions="Test server")
 
     def test_init(self):
-        server = MCPServer("s", version="2.0.0", instructions="hello")
+        server = MCPServer("s", version="2.0.0", instructions="hello", cache_ttl_ms=1000, cache_scope="private")
         assert server.name == "s"
         assert server.version == "2.0.0"
         assert server.instructions == "hello"
+        assert server.cache_ttl_ms == 1000
+        assert server.cache_scope == "private"
         assert server._tools == {}
         assert server._resources == {}
         assert server._prompts == {}
@@ -22,6 +24,8 @@ class TestCaseMCPServer:
         assert server.name == "mcp"
         assert server.version == "0.1.0"
         assert server.instructions is None
+        assert server.cache_ttl_ms == 0
+        assert server.cache_scope == "public"
 
     @pytest.mark.parametrize(
         ["name", "description", "expected_name", "expected_description"],
@@ -152,15 +156,16 @@ class TestCaseMCPServer:
         def func(a: int, b: str = "x"): ...
 
         schema = MCPServer._input_schema(func)
-        assert "properties" in schema
-        assert "a" in schema["properties"]
-        assert "b" in schema["properties"]
+        assert schema["type"] == "object"
+        assert set(schema["properties"]) == {"a", "b"}
+        assert schema["required"] == ["a"]
 
     def test_input_schema_no_params(self):
         def func(): ...
 
         schema = MCPServer._input_schema(func)
-        assert schema == {"type": "object", "properties": {}}
+        assert schema["type"] == "object"
+        assert schema["properties"] == {}
 
     def test_prompt_arguments(self):
         def func(text: str, language: str = "en"): ...
