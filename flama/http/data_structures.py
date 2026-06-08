@@ -427,6 +427,7 @@ JSONRPC_VERSION = "2.0"
 class JSONRPCStatus(enum.IntEnum):
     """JSON-RPC error codes as defined in https://www.jsonrpc.org/specification#error_object."""
 
+    UNSUPPORTED_PROTOCOL_VERSION = -32004
     PARSE_ERROR = -32700
     INVALID_REQUEST = -32600
     METHOD_NOT_FOUND = -32601

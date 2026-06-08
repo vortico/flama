@@ -7,8 +7,26 @@ from flama import Flama
 from flama.client import Client
 from flama.exceptions import JSONRPCException
 from flama.http import JSONRPCStatus
-from flama.mcp.endpoint import PROTOCOL_VERSION
+from flama.mcp.data_structures import MCPRequestHeaders
 from flama.mcp.server import MCPServer
+
+FLAMA_META = {
+    "dev.flama": {
+        "about": "Flama is a Python framework that unifies REST API development and "
+        "ML model serving into a single production stack. Deploy "
+        "scikit-learn, TensorFlow, and PyTorch models as API endpoints "
+        "with minimal boilerplate. Auto-generate complete CRUD resources "
+        "from SQLAlchemy models with domain-driven design patterns. "
+        "Includes native MCP server support, automatic OpenAPI "
+        "documentation, and flexible schema validation across Pydantic, "
+        "Typesystem, and Marshmallow.",
+        "docs": "https://flama.dev/docs/",
+        "homepage": "https://flama.dev",
+        "name": "Flama",
+        "repository": "https://github.com/vortico/flama",
+        "version": version("flama"),
+    },
+}
 
 
 class TestCaseMCPEndpoint:
@@ -46,9 +64,25 @@ class TestCaseMCPEndpoint:
         app.mcp.add_server("/mcp/", "empty", server=MCPServer("empty"))
         return app
 
-    async def _post(self, app, body):
+    async def _post(self, app, body, *, headers=None):
+        """POST an MCP request, deriving the SEP-2243 routing headers from the body unless overridden."""
+        method = body.get("method")
+        params = body.get("params") or {}
+        derived = {MCPRequestHeaders.PROTOCOL_VERSION_HEADER: MCPServer.PROTOCOL_VERSION}
+        if method is not None:
+            derived[MCPRequestHeaders.METHOD_HEADER] = method
+        if method in ("tools/call", "prompts/get") and "name" in params:
+            derived[MCPRequestHeaders.NAME_HEADER] = params["name"]
+        elif method == "resources/read" and "uri" in params:
+            derived[MCPRequestHeaders.NAME_HEADER] = params["uri"]
+        for key, value in (headers or {}).items():
+            if value is None:
+                derived.pop(key, None)
+            else:
+                derived[key] = value
+
         async with Client(app=app) as client:
-            return await client.post("/mcp/", json=body)
+            return await client.post("/mcp/", json=body, headers=derived)
 
     async def _post_raw(self, app, content, headers=None):
         async with Client(app=app) as client:
@@ -76,31 +110,14 @@ class TestCaseMCPEndpoint:
         assert resp.json()["error"]["code"] == JSONRPCStatus.METHOD_NOT_FOUND
 
     async def test_notification(self, app):
-        resp = await self._post(app, {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
+        resp = await self._post(app, {"jsonrpc": "2.0", "method": "ping", "params": {}})
         assert resp.status_code == 202
 
     async def test_ping(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "ping"})
         assert resp.status_code == 200
-        assert resp.json()["result"] == {
-            "_meta": {
-                "dev.flama": {
-                    "about": "Flama is a Python framework that unifies REST API development and "
-                    "ML model serving into a single production stack. Deploy "
-                    "scikit-learn, TensorFlow, and PyTorch models as API endpoints "
-                    "with minimal boilerplate. Auto-generate complete CRUD resources "
-                    "from SQLAlchemy models with domain-driven design patterns. "
-                    "Includes native MCP server support, automatic OpenAPI "
-                    "documentation, and flexible schema validation across Pydantic, "
-                    "Typesystem, and Marshmallow.",
-                    "docs": "https://flama.dev/docs/",
-                    "homepage": "https://flama.dev",
-                    "name": "Flama",
-                    "repository": "https://github.com/vortico/flama",
-                    "version": version("flama"),
-                },
-            },
-        }
+        assert resp.json()["result"] == {"_meta": FLAMA_META}
+        assert resp.headers[MCPRequestHeaders.PROTOCOL_VERSION_HEADER] == MCPServer.PROTOCOL_VERSION
 
     @pytest.mark.parametrize(
         ["instructions", "expected_instructions"],
@@ -109,31 +126,41 @@ class TestCaseMCPEndpoint:
             pytest.param(None, False, id="without_instructions"),
         ),
     )
-    async def test_initialize(self, server, app, instructions, expected_instructions):
+    async def test_server_discover(self, server, app, instructions, expected_instructions):
         server.instructions = instructions
-        resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+        resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {}})
 
         assert resp.status_code == 200
         result = resp.json()["result"]
-        assert result["protocolVersion"] == PROTOCOL_VERSION
+        assert result["resultType"] == "complete"
+        assert result["supportedVersions"] == list(MCPServer.SUPPORTED_VERSIONS)
         assert result["serverInfo"] == {"name": "test", "version": "0.1.0"}
         assert "tools" in result["capabilities"]
         assert "resources" in result["capabilities"]
         assert "prompts" in result["capabilities"]
+        assert result["ttlMs"] == 0
+        assert result["cacheScope"] == "public"
         assert ("instructions" in result) is expected_instructions
 
-    async def test_initialize_empty_server(self, empty_app):
-        resp = await self._post(empty_app, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+    async def test_server_discover_empty_server(self, empty_app):
+        resp = await self._post(empty_app, {"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {}})
         assert resp.json()["result"]["capabilities"] == {}
+
+    async def test_initialize_removed(self, app):
+        resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+        assert resp.json()["error"]["code"] == JSONRPCStatus.METHOD_NOT_FOUND
 
     async def test_tools_list(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}})
-        tools = resp.json()["result"]["tools"]
+        result = resp.json()["result"]
+        tools = result["tools"]
         assert len(tools) == 2
         assert {t["name"] for t in tools} == {"add", "greet"}
         for t in tools:
             assert "inputSchema" in t
             assert "description" in t
+        assert result["ttlMs"] == 0
+        assert result["cacheScope"] == "public"
 
     @pytest.mark.parametrize(
         ["tool_name", "arguments", "expected_text"],
@@ -163,7 +190,7 @@ class TestCaseMCPEndpoint:
 
     async def test_tools_call_not_found(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "missing"}})
-        assert resp.json()["error"]["code"] == JSONRPCStatus.METHOD_NOT_FOUND
+        assert resp.json()["error"]["code"] == JSONRPCStatus.INVALID_PARAMS
 
     async def test_tools_call_handler_error(self, app):
         server = app.mcp._servers["test"]
@@ -179,18 +206,24 @@ class TestCaseMCPEndpoint:
 
     async def test_resources_list(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "resources/list", "params": {}})
-        resources = resp.json()["result"]["resources"]
+        result = resp.json()["result"]
+        resources = result["resources"]
         assert len(resources) == 1
         assert resources[0]["uri"] == "config://app"
         assert resources[0]["mimeType"] == "application/json"
+        assert result["ttlMs"] == 0
+        assert result["cacheScope"] == "public"
 
     async def test_resources_read(self, app):
         resp = await self._post(
             app, {"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": "config://app"}}
         )
-        contents = resp.json()["result"]["contents"]
+        result = resp.json()["result"]
+        contents = result["contents"]
         assert len(contents) == 1
         assert json.loads(contents[0]["text"]) == {"debug": True}
+        assert result["ttlMs"] == 0
+        assert result["cacheScope"] == "public"
 
     async def test_resources_read_async(self, app):
         server = app.mcp._servers["test"]
@@ -208,7 +241,7 @@ class TestCaseMCPEndpoint:
         resp = await self._post(
             app, {"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": "missing://x"}}
         )
-        assert resp.json()["error"]["code"] == JSONRPCStatus.METHOD_NOT_FOUND
+        assert resp.json()["error"]["code"] == JSONRPCStatus.INVALID_PARAMS
 
     async def test_resources_read_handler_error(self, app):
         server = app.mcp._servers["test"]
@@ -224,13 +257,19 @@ class TestCaseMCPEndpoint:
 
     async def test_resources_templates_list(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "resources/templates/list", "params": {}})
-        assert resp.json()["result"]["resourceTemplates"] == []
+        result = resp.json()["result"]
+        assert result["resourceTemplates"] == []
+        assert result["ttlMs"] == 0
+        assert result["cacheScope"] == "public"
 
     async def test_prompts_list(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "prompts/list", "params": {}})
-        prompts = resp.json()["result"]["prompts"]
+        result = resp.json()["result"]
+        prompts = result["prompts"]
         assert len(prompts) == 1
         assert prompts[0]["name"] == "summarise"
+        assert result["ttlMs"] == 0
+        assert result["cacheScope"] == "public"
 
     @pytest.mark.parametrize(
         ["handler_return", "expected_messages_count"],
@@ -279,7 +318,7 @@ class TestCaseMCPEndpoint:
         resp = await self._post(
             app, {"jsonrpc": "2.0", "id": 1, "method": "prompts/get", "params": {"name": "missing"}}
         )
-        assert resp.json()["error"]["code"] == JSONRPCStatus.METHOD_NOT_FOUND
+        assert resp.json()["error"]["code"] == JSONRPCStatus.INVALID_PARAMS
 
     async def test_prompts_get_handler_error(self, app):
         server = app.mcp._servers["test"]
@@ -365,6 +404,78 @@ class TestCaseMCPEndpoint:
         route.endpoint.ping = bad_ping
 
         async with Client(app=app) as client:
-            resp = await client.post("/bad/", json={"jsonrpc": "2.0", "id": 1, "method": "ping"})
+            resp = await client.post(
+                "/bad/",
+                json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
+                headers={
+                    MCPRequestHeaders.METHOD_HEADER: "ping",
+                    MCPRequestHeaders.PROTOCOL_VERSION_HEADER: MCPServer.PROTOCOL_VERSION,
+                },
+            )
 
         assert resp.json()["error"]["code"] == JSONRPCStatus.INTERNAL_ERROR
+
+    @pytest.mark.parametrize(
+        ["body", "headers", "expected_message"],
+        (
+            pytest.param(
+                {"jsonrpc": "2.0", "id": 1, "method": "ping"},
+                {MCPRequestHeaders.METHOD_HEADER: None},
+                f"Missing '{MCPRequestHeaders.METHOD_HEADER}' header",
+                id="missing_method",
+            ),
+            pytest.param(
+                {"jsonrpc": "2.0", "id": 1, "method": "ping"},
+                {MCPRequestHeaders.METHOD_HEADER: "other"},
+                f"'{MCPRequestHeaders.METHOD_HEADER}' header does not match the request method",
+                id="method_mismatch",
+            ),
+            pytest.param(
+                {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "add", "arguments": {}}},
+                {MCPRequestHeaders.NAME_HEADER: None},
+                f"Missing '{MCPRequestHeaders.NAME_HEADER}' header",
+                id="missing_name",
+            ),
+            pytest.param(
+                {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "add", "arguments": {}}},
+                {MCPRequestHeaders.NAME_HEADER: "greet"},
+                f"'{MCPRequestHeaders.NAME_HEADER}' header does not match the request 'name'",
+                id="name_mismatch",
+            ),
+            pytest.param(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "ping",
+                    "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2025-11-25"}},
+                },
+                {},
+                f"'{MCPRequestHeaders.PROTOCOL_VERSION_HEADER}' header does not match the request metadata",
+                id="version_disagreement",
+            ),
+        ),
+    )
+    async def test_routing_header_validation(self, app, body, headers, expected_message):
+        resp = await self._post(app, body, headers=headers)
+        error = resp.json()["error"]
+        assert error["code"] == JSONRPCStatus.INVALID_PARAMS
+        assert error["message"] == expected_message
+
+    async def test_unsupported_protocol_version(self, app):
+        resp = await self._post(
+            app,
+            {"jsonrpc": "2.0", "id": 1, "method": "ping"},
+            headers={MCPRequestHeaders.PROTOCOL_VERSION_HEADER: "1900-01-01"},
+        )
+        error = resp.json()["error"]
+        assert error["code"] == JSONRPCStatus.UNSUPPORTED_PROTOCOL_VERSION
+        assert error["data"]["supported"] == list(MCPServer.SUPPORTED_VERSIONS)
+        assert error["data"]["requested"] == "1900-01-01"
+
+    async def test_discover_ignores_unsupported_protocol_version(self, app):
+        resp = await self._post(
+            app,
+            {"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {}},
+            headers={MCPRequestHeaders.PROTOCOL_VERSION_HEADER: "1900-01-01"},
+        )
+        assert resp.json()["result"]["resultType"] == "complete"

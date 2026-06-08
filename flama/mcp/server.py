@@ -2,7 +2,7 @@ import dataclasses
 import inspect
 import typing as t
 
-from flama.schemas.data_structures import Field
+from flama.schemas.data_structures import Field, Schema
 
 __all__ = ["MCPServer"]
 
@@ -35,10 +35,23 @@ class Prompt:
 class MCPServer:
     """MCP server registry for tools, resources, and prompts."""
 
-    def __init__(self, name: str = "mcp", *, version: str = "0.1.0", instructions: str | None = None) -> None:
+    PROTOCOL_VERSION = "2026-07-28"
+    SUPPORTED_VERSIONS = (PROTOCOL_VERSION,)
+
+    def __init__(
+        self,
+        name: str = "mcp",
+        *,
+        version: str = "0.1.0",
+        instructions: str | None = None,
+        cache_ttl_ms: int = 0,
+        cache_scope: str = "public",
+    ) -> None:
         self.name = name
         self.version = version
         self.instructions = instructions
+        self.cache_ttl_ms = cache_ttl_ms
+        self.cache_scope = cache_scope
         self._tools: dict[str, Tool] = {}
         self._resources: dict[str, Resource] = {}
         self._prompts: dict[str, Prompt] = {}
@@ -108,13 +121,9 @@ class MCPServer:
 
     @staticmethod
     def _input_schema(func: t.Callable) -> dict[str, t.Any]:
-        fields = Field.from_handler(func)
-
-        result: dict[str, t.Any] = {"type": "object", "properties": {field.name: field.json_schema for field in fields}}
-        if required := [field.name for field in fields if field.required]:
-            result["required"] = required
-
-        return result
+        # ``{}`` is the nested-schema name registry used for OpenAPI ``$ref`` resolution; tool arguments are
+        # self-contained, so none is needed.
+        return Schema.build(fields=Field.from_handler(func)).json_schema({})
 
     @staticmethod
     def _prompt_arguments(func: t.Callable) -> list[dict[str, t.Any]]:
