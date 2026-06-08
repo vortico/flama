@@ -583,15 +583,15 @@ class TestCaseMLXBackend:
 
         assert backend._max_context() is None
 
-    def test_max_context_logs_warning_and_uses_default_when_probe_fails(self, text_runtime_args, caplog):
+    def test_max_context_logs_warning_and_uses_default_when_probe_fails(self, text_runtime_args, caplog_flama):
         text_runtime_args["model"] = Mock(spec=[])
         text_runtime_args["tokenizer"] = Mock(model_max_length=int(1e30))
         backend = self._make_backend(**text_runtime_args)
 
-        with caplog.at_level("WARNING", logger="flama.models.engine.backend.llm.base"):
+        with caplog_flama.at_level("WARNING", logger="flama.models.engine.backend.llm.base"):
             assert backend.max_context == MLXBackend.DEFAULT_MAX_TOKENS
 
-        assert any("Cannot determine model context window" in record.message for record in caplog.records)
+        assert any("Cannot determine model context window" in record.message for record in caplog_flama.records)
 
     @pytest.mark.parametrize("invalid", [0, -1, -100])
     async def test_generate_raises_on_non_positive_max_tokens(self, text_runtime_args, invalid: int) -> None:

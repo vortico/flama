@@ -1,20 +1,14 @@
 import http
+import inspect
 import uuid
 from unittest.mock import MagicMock, Mock, call, patch
 
 import httpx
 import pytest
 
-from flama import Flama
 from flama.client import Client
 from flama.ddd import exceptions
 from flama.ddd.repositories.http import HTTPRepository, HTTPResourceManager, HTTPResourceRepository
-from flama.sqlalchemy import SQLAlchemyModule
-
-
-@pytest.fixture(scope="function")
-def app():
-    return Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
 
 
 class TestCaseHTTPRepository:
@@ -467,63 +461,23 @@ class TestCaseHTTPResourceRepository:
         assert repository == Repository(client)
         assert repository != Repository(Mock(spec=Client))
 
-    async def test_create(self, repository, resource_manager):
-        data = {"foo": "bar"}
+    @pytest.mark.parametrize(
+        ["method", "args", "kwargs"],
+        [
+            pytest.param("create", ({"foo": "bar"},), {}, id="create"),
+            pytest.param("retrieve", (uuid.uuid4(),), {}, id="retrieve"),
+            pytest.param("update", (uuid.uuid4(), {"foo": "bar"}), {}, id="update"),
+            pytest.param("partial_update", (uuid.uuid4(), {"foo": "bar"}), {}, id="partial_update"),
+            pytest.param("delete", (uuid.uuid4(),), {}, id="delete"),
+            pytest.param("list", (), {"pagination": "page_number"}, id="list"),
+            pytest.param("replace", ([{"foo": "bar"}],), {}, id="replace"),
+            pytest.param("partial_replace", ([{"foo": "bar"}],), {}, id="partial_replace"),
+            pytest.param("drop", (), {}, id="drop"),
+        ],
+    )
+    async def test_delegation(self, repository, resource_manager, method, args, kwargs):
+        result = getattr(repository, method)(*args, **kwargs)
+        if inspect.iscoroutine(result):
+            await result
 
-        await repository.create(data)
-
-        assert resource_manager.create.call_args_list == [call(data)]
-
-    async def test_retrieve(self, repository, resource_manager):
-        id = uuid.uuid4()
-
-        await repository.retrieve(id)
-
-        assert resource_manager.retrieve.call_args_list == [call(id)]
-
-    async def test_update(self, repository, resource_manager):
-        id = uuid.uuid4()
-        data = {"foo": "bar"}
-
-        await repository.update(id, data)
-
-        assert resource_manager.update.call_args_list == [call(id, data)]
-
-    async def test_partial_update(self, repository, resource_manager):
-        id = uuid.uuid4()
-        data = {"foo": "bar"}
-
-        await repository.partial_update(id, data)
-
-        assert resource_manager.partial_update.call_args_list == [call(id, data)]
-
-    async def test_delete(self, repository, resource_manager):
-        id = uuid.uuid4()
-
-        await repository.delete(id)
-
-        assert resource_manager.delete.call_args_list == [call(id)]
-
-    async def test_list(self, repository, resource_manager):
-        repository.list(pagination="page_number")
-
-        assert resource_manager.list.call_args_list == [call(pagination="page_number")]
-
-    async def test_replace(self, repository, resource_manager):
-        data = [{"foo": "bar"}]
-
-        await repository.replace(data)
-
-        assert resource_manager.replace.call_args_list == [call(data)]
-
-    async def test_partial_replace(self, repository, resource_manager):
-        data = [{"foo": "bar"}]
-
-        await repository.partial_replace(data)
-
-        assert resource_manager.partial_replace.call_args_list == [call(data)]
-
-    async def test_drop(self, repository, resource_manager):
-        await repository.drop()
-
-        assert resource_manager.drop.call_args_list == [call()]
+        assert getattr(resource_manager, method).call_args_list == [call(*args, **kwargs)]

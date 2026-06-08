@@ -8,20 +8,20 @@ from flama.http.requests.websocket import WebSocket, WebSocketClose
 
 
 class TestCaseWebSocket:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def scope(self, asgi_scope):
         asgi_scope["type"] = "websocket"
         return asgi_scope
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def receive(self):
         return AsyncMock()
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def send(self):
         return AsyncMock()
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def websocket(self, scope, receive, send):
         return WebSocket(scope, receive, send)
 

@@ -200,6 +200,25 @@ def _verify_response_tool_call(frames: list[ServerSentEvent]) -> None:
     assert _decode(delta)["delta"] == json.dumps({"q": "x"})
 
 
+def _verify_response_empty_text_suppressed(frames: list[ServerSentEvent]) -> None:
+    assert "response.output_text.delta" not in [f.event for f in frames]
+
+
+def _verify_response_tool_without_name_skipped(frames: list[ServerSentEvent]) -> None:
+    assert "response.function_call_arguments.delta" not in [f.event for f in frames]
+
+
+def _verify_response_reasoning_single_item(frames: list[ServerSentEvent]) -> None:
+    added = [
+        f
+        for f in frames
+        if f.event == "response.output_item.added" and _decode(f)["item"].get("type") == "reasoning"
+    ]
+    assert len(added) == 1
+    deltas = [_decode(f)["delta"] for f in frames if f.event == "response.reasoning_summary_text.delta"]
+    assert deltas == ["a", "b"]
+
+
 def _make_envelope_id_prefix_verifier(
     api: t.Literal["chat", "completion", "response"], expected_prefix: str
 ) -> t.Callable[[list[ServerSentEvent]], None]:
@@ -477,6 +496,43 @@ class TestCaseOpenAIRenderer:
                 ),
                 _verify_response_tool_call,
                 id="response_tool_call_emits_function_call_events",
+            ),
+            pytest.param(
+                _build_driver(
+                    [
+                        StartEvent(id="m", created=0),
+                        TextEvent(channel="output", text=""),
+                        StopEvent(stop_reason="stop"),
+                    ],
+                    api="response",
+                ),
+                _verify_response_empty_text_suppressed,
+                id="response_suppresses_empty_text",
+            ),
+            pytest.param(
+                _build_driver(
+                    [
+                        StartEvent(id="m", created=0),
+                        ToolEvent(id="c1", name="", arguments={}),
+                        StopEvent(stop_reason="tool_use"),
+                    ],
+                    api="response",
+                ),
+                _verify_response_tool_without_name_skipped,
+                id="response_tool_without_name_skipped",
+            ),
+            pytest.param(
+                _build_driver(
+                    [
+                        StartEvent(id="m", created=0),
+                        TextEvent(channel="thinking", text="a"),
+                        TextEvent(channel="thinking", text="b"),
+                        StopEvent(stop_reason="stop"),
+                    ],
+                    api="response",
+                ),
+                _verify_response_reasoning_single_item,
+                id="response_reasoning_coalesces_single_item",
             ),
             pytest.param(
                 _build_driver(

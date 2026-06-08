@@ -67,7 +67,7 @@ def clear_pagination():
     paginator.schemas = {}
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def openapi_spec():
     return {"info": {"title": "Foo", "version": "1.0.0", "description": "Bar"}}
 
@@ -154,7 +154,7 @@ def model_path(request):
         pytest.skip(f"Lib '{str(e)}' is not installed.")
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def caplog_flama(caplog: pytest.LogCaptureFixture) -> t.Iterator[pytest.LogCaptureFixture]:
     """Variant of :fixture:`caplog` that also captures records emitted by the ``flama`` logger.
 

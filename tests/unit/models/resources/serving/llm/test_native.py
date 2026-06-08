@@ -26,24 +26,11 @@ from flama.models.transport.input.llm.message import (
     UserMessage,
 )
 
+SERVING = "native"
+
 
 class TestCaseEndToEndStreaming:
     """Cover the POST-create + GET-stream end-to-end SSE flow against a stub LLM resource."""
-
-    @pytest.fixture(scope="function")
-    async def client(self, app, llm_component) -> t.AsyncIterator[Client]:
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client
 
     @pytest.mark.parametrize(
         ["stream_id_factory", "expected_status"],
@@ -125,6 +112,87 @@ class TestCaseEndToEndStreaming:
             assert resumed.status_code == 200
             assert "event: message.start" not in resumed.text
             assert "event: message.stop" in resumed.text
+
+    async def test_create_stream_malformed_messages_returns_400(self, client: Client) -> None:
+        """A wire-shape violation surfaced by :meth:`NativeServing.parse` during stream creation (here
+        ``tool_call_id`` on a non-``tool`` role) releases the freshly-allocated buffer and is translated
+        into an HTTP 400."""
+        response = await client.post(
+            "/llm/stream/",
+            json={
+                "messages": [{"role": "user", "content": "hi", "tool_call_id": "c1"}],
+                "transport": "conversation",
+            },
+        )
+
+        assert response.status_code == 400, response.text
+
+    async def test_get_stream_wraps_in_heartbeat_when_interval_positive(
+        self, client: Client, app, llm_component
+    ) -> None:
+        """With a positive ``heartbeat_interval`` the GET stream handler wraps the SSE iterator in the
+        heartbeat keep-alive; the wrapped stream still replays the full lifecycle for a fast generation."""
+        resource_cls = type(app.routes[0].resource)
+
+        with patch.object(resource_cls, "heartbeat_interval", 60.0):
+            create = await client.post("/llm/stream/", json={"prompt": "hi"})
+            assert create.status_code == 200, create.text
+            stream_id = create.json()["id"]
+
+            full = await client.get(f"/llm/stream/{stream_id}/")
+
+        assert full.status_code == 200
+        assert "event: message.start" in full.text
+        assert "event: message.stop" in full.text
+
+
+class TestCaseEndToEndConfigure:
+    """Cover ``PUT /`` (configure) — merging request params into the model's generation defaults."""
+
+    async def test_updates_generation_params(self, client: Client) -> None:
+        response = await client.put("/llm/", json={"params": {"temperature": 0.5}})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["params"]["temperature"] == 0.5
+
+
+class TestCaseEndToEndQuery:
+    """Cover ``POST /query/`` (buffered query) — the success envelope and the error-propagation contract."""
+
+    async def test_buffered_query_returns_envelope(self, client: Client) -> None:
+        response = await client.post("/llm/query/", json={"prompt": "hi"})
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["stop_reason"]
+        assert isinstance(body["blocks"], list)
+
+    @pytest.mark.parametrize(
+        ["exception"],
+        [pytest.param(exceptions.FrameworkNotInstalled, id="framework_not_installed")],
+        indirect=["exception"],
+    )
+    async def test_framework_not_installed_propagates(self, client: Client, llm_component, exception) -> None:
+        """``FrameworkNotInstalled`` raised by ``model.query`` is re-raised verbatim (not downgraded to an
+        HTTP 400 / 500) so the missing-runtime failure surfaces to the ASGI server unchanged."""
+
+        async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+            raise exceptions.FrameworkNotInstalled("vllm or mlx-lm")
+
+        with patch.object(type(llm_component.model), "query", _mock), exception:
+            await client.post("/llm/query/", json={"prompt": "hi"})
+
+    async def test_generic_exception_returns_500(self, client: Client, llm_component) -> None:
+        """A non-domain exception raised by ``model.query`` is contained by the handler and surfaced as an
+        HTTP 500 rather than propagating to the server."""
+
+        async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+            raise RuntimeError("kaboom")
+
+        with patch.object(type(llm_component.model), "query", _mock):
+            response = await client.post("/llm/query/", json={"prompt": "hi"})
+
+        assert response.status_code == 500, response.text
 
 
 class TestCaseUnboundResource:

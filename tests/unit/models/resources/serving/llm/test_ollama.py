@@ -1,3 +1,4 @@
+import importlib.metadata
 import json
 import typing as t
 from unittest.mock import patch
@@ -5,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from flama.client import Client
-from flama.models import LLMResource, LLMResourceType
+from flama.exceptions import FrameworkNotInstalled
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
 from flama.models.exceptions import LLMUnsupportedContentPart
@@ -24,6 +25,15 @@ from flama.models.transport.input.llm.message import (
 from flama.models.transport.output.llm.event import StartEvent, StopEvent, TextEvent, ToolEvent
 from flama.serialize.data_structures import LLMModelCapabilities
 
+SERVING = "ollama"
+
+ERROR_CASES = [
+    pytest.param("query", False, "immediate", ValueError, "invalid params", 400, id="buffered_value_error_400"),
+    pytest.param("query", False, "immediate", RuntimeError, "kaboom", 500, id="buffered_generic_exception_500"),
+    pytest.param("stream", True, "immediate", ValueError, "bad stream args", 400, id="stream_value_error_400"),
+    pytest.param("query", False, "iteration", RuntimeError, "mid-stream boom", 500, id="buffered_iteration_error_500"),
+]
+
 
 def _parse_ndjson(body: str) -> list[dict[str, t.Any]]:
     return [json.loads(line) for line in body.splitlines() if line.strip()]
@@ -32,64 +42,8 @@ def _parse_ndjson(body: str) -> list[dict[str, t.Any]]:
 class TestCaseEndToEndChat:
     """Cover the full HTTP path through ``POST /ollama/api/chat``."""
 
-    @pytest.fixture(scope="function")
-    async def client(self, app, llm_component) -> t.AsyncIterator[Client]:
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-            serving = ("ollama",)
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client
-
-    @pytest.fixture(scope="function")
-    async def client_with_resource(self, app, llm_component) -> t.AsyncIterator[tuple[Client, type]]:
-        """Variant of :meth:`client` that also exposes the dynamically built ``StubLLMResource`` class.
-
-        ``test_think_resolution`` needs to patch ``reasoning`` on the resource between parametrisations
-        (without rebuilding the app), so the fixture surfaces both handles. Sibling tests keep using
-        the simpler :meth:`client` fixture so this addition doesn't ripple through the rest of the
-        class.
-        """
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-            serving = ("ollama",)
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client, StubLLMResource
-
-    @staticmethod
-    def _capture_kwargs() -> tuple[dict[str, t.Any], t.Callable[..., t.AsyncIterator[t.Any]]]:
-        """Build a ``(captured, mock)`` pair where ``captured`` records the kwargs the resource
-        forwards to :meth:`Model.query` / :meth:`Model.stream` and ``mock`` plays a minimal valid
-        event sequence so the HTTP layer reaches a 200.
-        """
-        captured: dict[str, t.Any] = {}
-
-        async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
-            captured.update(kwargs)
-
-            async def _gen() -> t.AsyncIterator[t.Any]:
-                yield StartEvent(id="m", created=0)
-                yield TextEvent(channel="output", text="ok")
-                yield StopEvent(stop_reason="stop")
-
-            return _gen()
-
-        return captured, _mock
+    ENDPOINT = "/llm/ollama/api/chat"
+    BODY = {"model": "stub", "messages": [{"role": "user", "content": "hi"}]}
 
     async def test_non_streaming_returns_envelope(self, client: Client) -> None:
         response = await client.post(
@@ -144,6 +98,20 @@ class TestCaseEndToEndChat:
         assert response.status_code == 400, response.text
         assert "image" in response.text.lower()
 
+    async def test_malformed_messages_rejected_with_400(self, client: Client) -> None:
+        """A wire-shape violation surfaced by :meth:`OllamaServing.parse` (here ``tool_call_id`` on a
+        non-``tool`` role) is translated into an HTTP 400 by the handler's parse guard."""
+        response = await client.post(
+            "/llm/ollama/api/chat",
+            json={
+                "model": "stub",
+                "messages": [{"role": "user", "content": "hi", "tool_call_id": "c1"}],
+                "stream": False,
+            },
+        )
+
+        assert response.status_code == 400, response.text
+
     async def test_tool_calls_route_through_buffered_response(self, client: Client, llm_component) -> None:
         async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
             async def _gen() -> t.AsyncIterator[t.Any]:
@@ -170,46 +138,41 @@ class TestCaseEndToEndChat:
         assert tool_calls[0]["function"]["name"] == "lookup"
         assert tool_calls[0]["function"]["arguments"] == {"q": "x"}
 
-    async def test_buffered_value_error_returns_400(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise ValueError("invalid params")
+    @pytest.mark.parametrize(["method", "stream", "mode", "exception", "message", "status"], ERROR_CASES)
+    async def test_error_propagation(
+        self,
+        client: Client,
+        llm_component,
+        method: str,
+        stream: bool,
+        mode: str,
+        exception: type[Exception],
+        message: str,
+        status: int,
+    ) -> None:
+        if mode == "immediate":
 
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/ollama/api/chat",
-                json={"model": "stub", "messages": [{"role": "user", "content": "hi"}], "stream": False},
-            )
+            async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+                raise exception(message)
+        else:
 
-        assert response.status_code == 400, response.text
+            async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
+                async def _gen() -> t.AsyncIterator[t.Any]:
+                    yield StartEvent(id="m", created=0)
+                    yield TextEvent(channel="output", text="partial")
+                    raise exception(message)
 
-    async def test_buffered_generic_exception_returns_500(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise RuntimeError("kaboom")
+                return _gen()
 
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/ollama/api/chat",
-                json={"model": "stub", "messages": [{"role": "user", "content": "hi"}], "stream": False},
-            )
+        with patch.object(type(llm_component.model), method, _mock):
+            response = await client.post(self.ENDPOINT, json={**self.BODY, "stream": stream})
 
-        assert response.status_code == 500, response.text
+        assert response.status_code == status, response.text
 
-    async def test_stream_value_error_returns_400(self, client: Client, llm_component) -> None:
-        async def _mock_stream(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise ValueError("bad stream args")
-
-        with patch.object(type(llm_component.model), "stream", _mock_stream):
-            response = await client.post(
-                "/llm/ollama/api/chat",
-                json={"model": "stub", "messages": [{"role": "user", "content": "hi"}], "stream": True},
-            )
-
-        assert response.status_code == 400, response.text
-
-    async def test_mismatched_model_name_logged(self, client: Client, caplog) -> None:
+    async def test_mismatched_model_name_logged(self, client: Client, caplog_flama) -> None:
         import logging
 
-        with caplog.at_level(logging.INFO, logger="flama.models.resources.serving.llm.ollama"):
+        with caplog_flama.at_level(logging.INFO, logger="flama.models.resources.serving.llm.ollama"):
             await client.post(
                 "/llm/ollama/api/chat",
                 json={
@@ -219,24 +182,7 @@ class TestCaseEndToEndChat:
                 },
             )
 
-        assert any("differs from resource" in rec.getMessage() for rec in caplog.records)
-
-    async def test_buffered_iteration_error_returns_500(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
-            async def _gen() -> t.AsyncIterator[t.Any]:
-                yield StartEvent(id="m", created=0)
-                yield TextEvent(channel="output", text="partial")
-                raise RuntimeError("mid-stream boom")
-
-            return _gen()
-
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/ollama/api/chat",
-                json={"model": "stub", "messages": [{"role": "user", "content": "hi"}], "stream": False},
-            )
-
-        assert response.status_code == 500, response.text
+        assert any("differs from resource" in rec.getMessage() for rec in caplog_flama.records)
 
     async def test_streaming_uses_ephemeral_buffer(self, client: Client, llm_component) -> None:
         from flama.models.streams import ModelStreams
@@ -278,8 +224,10 @@ class TestCaseEndToEndChat:
     )
     async def test_think_resolution(
         self,
-        client_with_resource: tuple[Client, type],
+        client: Client,
+        app,
         llm_component,
+        capture_kwargs,
         resource_reasoning: bool,
         body_think: bool | None,
         cap_reasoning: bool,
@@ -291,8 +239,8 @@ class TestCaseEndToEndChat:
         gate clamps the result to :data:`False` whenever the underlying model doesn't expose
         ``enable_thinking``.
         """
-        client_, resource_cls = client_with_resource
-        captured, mock = self._capture_kwargs()
+        resource_cls = type(app.routes[0].resource)
+        captured, mock = capture_kwargs
         body: dict[str, t.Any] = {
             "model": "stub",
             "messages": [{"role": "user", "content": "hi"}],
@@ -310,7 +258,7 @@ class TestCaseEndToEndChat:
             ),
             patch.object(type(llm_component.model), "query", mock),
         ):
-            response = await client_.post("/llm/ollama/api/chat", json=body)
+            response = await client.post("/llm/ollama/api/chat", json=body)
 
         assert response.status_code == 200, response.text
         assert captured.get("chat_template_kwargs") == {"enable_thinking": expected}
@@ -319,21 +267,8 @@ class TestCaseEndToEndChat:
 class TestCaseEndToEndGenerate:
     """Cover the raw generation endpoint at ``POST /ollama/api/generate``."""
 
-    @pytest.fixture(scope="function")
-    async def client(self, app, llm_component) -> t.AsyncIterator[Client]:
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-            serving = ("ollama",)
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client
+    ENDPOINT = "/llm/ollama/api/generate"
+    BODY = {"model": "stub", "prompt": "hi"}
 
     async def test_non_streaming_returns_envelope(self, client: Client) -> None:
         response = await client.post(
@@ -373,89 +308,66 @@ class TestCaseEndToEndGenerate:
 
         assert response.status_code == 400, response.text
 
-    async def test_buffered_value_error_returns_400(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise ValueError("invalid params")
+    @pytest.mark.parametrize(
+        ["exception"],
+        [pytest.param(FrameworkNotInstalled, id="framework_not_installed")],
+        indirect=["exception"],
+    )
+    async def test_buffered_framework_not_installed_propagates(self, client: Client, llm_component, exception) -> None:
+        """``FrameworkNotInstalled`` raised by ``model.query`` is re-raised verbatim (not downgraded to an
+        HTTP 400 / 500) so the missing-runtime failure surfaces to the ASGI server unchanged."""
 
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/ollama/api/generate",
-                json={"model": "stub", "prompt": "hi", "stream": False},
-            )
+        async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+            raise FrameworkNotInstalled("vllm or mlx-lm")
 
-        assert response.status_code == 400, response.text
+        with patch.object(type(llm_component.model), "query", _mock), exception:
+            await client.post("/llm/ollama/api/generate", json={"model": "stub", "prompt": "hi", "stream": False})
 
-    async def test_buffered_generic_exception_returns_500(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise RuntimeError("kaboom")
+    @pytest.mark.parametrize(["method", "stream", "mode", "exception", "message", "status"], ERROR_CASES)
+    async def test_error_propagation(
+        self,
+        client: Client,
+        llm_component,
+        method: str,
+        stream: bool,
+        mode: str,
+        exception: type[Exception],
+        message: str,
+        status: int,
+    ) -> None:
+        if mode == "immediate":
 
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/ollama/api/generate",
-                json={"model": "stub", "prompt": "hi", "stream": False},
-            )
+            async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+                raise exception(message)
+        else:
 
-        assert response.status_code == 500, response.text
+            async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
+                async def _gen() -> t.AsyncIterator[t.Any]:
+                    yield StartEvent(id="m", created=0)
+                    yield TextEvent(channel="output", text="partial")
+                    raise exception(message)
 
-    async def test_stream_value_error_returns_400(self, client: Client, llm_component) -> None:
-        async def _mock_stream(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise ValueError("bad stream args")
+                return _gen()
 
-        with patch.object(type(llm_component.model), "stream", _mock_stream):
-            response = await client.post(
-                "/llm/ollama/api/generate",
-                json={"model": "stub", "prompt": "hi", "stream": True},
-            )
+        with patch.object(type(llm_component.model), method, _mock):
+            response = await client.post(self.ENDPOINT, json={**self.BODY, "stream": stream})
 
-        assert response.status_code == 400, response.text
+        assert response.status_code == status, response.text
 
-    async def test_mismatched_model_name_logged(self, client: Client, caplog) -> None:
+    async def test_mismatched_model_name_logged(self, client: Client, caplog_flama) -> None:
         import logging
 
-        with caplog.at_level(logging.INFO, logger="flama.models.resources.serving.llm.ollama"):
+        with caplog_flama.at_level(logging.INFO, logger="flama.models.resources.serving.llm.ollama"):
             await client.post(
                 "/llm/ollama/api/generate",
                 json={"model": "llama3", "prompt": "hi", "stream": False},
             )
 
-        assert any("differs from resource" in rec.getMessage() for rec in caplog.records)
-
-    async def test_buffered_iteration_error_returns_500(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
-            async def _gen() -> t.AsyncIterator[t.Any]:
-                yield StartEvent(id="m", created=0)
-                yield TextEvent(channel="output", text="partial")
-                raise RuntimeError("mid-stream boom")
-
-            return _gen()
-
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/ollama/api/generate",
-                json={"model": "stub", "prompt": "hi", "stream": False},
-            )
-
-        assert response.status_code == 500, response.text
+        assert any("differs from resource" in rec.getMessage() for rec in caplog_flama.records)
 
 
 class TestCaseEndToEndTags:
     """Cover ``GET /ollama/api/tags``."""
-
-    @pytest.fixture(scope="function")
-    async def client(self, app, llm_component) -> t.AsyncIterator[Client]:
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-            serving = ("ollama",)
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client
 
     async def test_returns_single_entry_list(self, client: Client) -> None:
         response = await client.get("/llm/ollama/api/tags")
@@ -471,22 +383,6 @@ class TestCaseEndToEndTags:
 class TestCaseEndToEndVersion:
     """Cover ``GET /ollama/api/version``."""
 
-    @pytest.fixture(scope="function")
-    async def client(self, app, llm_component) -> t.AsyncIterator[Client]:
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-            serving = ("ollama",)
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client
-
     async def test_returns_flama_package_version(self, client: Client) -> None:
         response = await client.get("/llm/ollama/api/version")
 
@@ -495,25 +391,22 @@ class TestCaseEndToEndVersion:
         assert isinstance(body["version"], str)
         assert body["version"]
 
+    async def test_returns_fallback_version_when_package_metadata_missing(self, client: Client) -> None:
+        """When ``importlib.metadata`` cannot resolve the ``flama`` distribution (e.g. running from a
+        source tree without an installed dist), the endpoint falls back to ``"0.0.0"`` instead of
+        erroring."""
+        with patch(
+            "importlib.metadata.version",
+            side_effect=importlib.metadata.PackageNotFoundError("flama"),
+        ):
+            response = await client.get("/llm/ollama/api/version")
+
+        assert response.status_code == 200, response.text
+        assert response.json()["version"] == "0.0.0"
+
 
 class TestCaseEndToEndShow:
     """Cover ``POST /ollama/api/show``."""
-
-    @pytest.fixture(scope="function")
-    async def client(self, app, llm_component) -> t.AsyncIterator[Client]:
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-            serving = ("ollama",)
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client
 
     @pytest.mark.parametrize(
         ["body"],
@@ -567,8 +460,13 @@ class TestCaseEndToEndShow:
                 id="audio",
             ),
             pytest.param(
-                LLMModelCapabilities(text=True, image=True, audio=True, tools=True),
-                {"completion", "tools", "vision", "audio"},
+                LLMModelCapabilities(text=True, reasoning=True),
+                {"completion", "thinking"},
+                id="reasoning",
+            ),
+            pytest.param(
+                LLMModelCapabilities(text=True, image=True, audio=True, tools=True, reasoning=True),
+                {"completion", "tools", "vision", "audio", "thinking"},
                 id="all",
             ),
         ],
@@ -596,22 +494,6 @@ class TestCaseEndToEndOpenAICompat:
     those paths. This suite confirms the dispatch yields the OpenAI wire shape (JSON envelope or SSE
     chunks), not the Ollama dialect.
     """
-
-    @pytest.fixture(scope="function")
-    async def client(self, app, llm_component) -> t.AsyncIterator[Client]:
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-            serving = ("ollama",)
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client
 
     async def test_models_endpoint_returns_openai_envelope(self, client: Client) -> None:
         response = await client.get("/llm/ollama/v1/models")

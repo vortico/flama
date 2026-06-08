@@ -31,7 +31,7 @@ FLAMA_META = {
 
 
 class TestCaseMCPEndpoint:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def server(self):
         s = MCPServer("test", version="0.1.0", instructions="Test server")
 
@@ -53,13 +53,13 @@ class TestCaseMCPEndpoint:
 
         return s
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def app(self, server):
         app = Flama()
         app.mcp.add_server("/mcp/", "test", server=server)
         return app
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def empty_app(self):
         app = Flama()
         app.mcp.add_server("/mcp/", "empty", server=MCPServer("empty"))
@@ -712,6 +712,64 @@ class TestCaseMCPEndpoint:
         )
         assert cancelled.json()["result"]["task"]["status"] == "cancelled"
 
+    @pytest.mark.parametrize(
+        ["exc", "expected_error"],
+        [
+            pytest.param(ValueError("boom"), "boom", id="generic_exception"),
+            pytest.param(
+                JSONRPCException(status_code=JSONRPCStatus.INTERNAL_ERROR, detail="nope"),
+                "nope",
+                id="jsonrpc_exception",
+            ),
+        ],
+    )
+    async def test_tasks_failed_tool(self, app, exc, expected_error):
+        server = app.mcp._servers["test"]
+
+        @server.tool("boom", task=True)
+        async def boom() -> int:
+            raise exc
+
+        resp = await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "boom", "arguments": {}, "_meta": self._caps_meta(Extensions.TASKS)},
+            },
+        )
+        task_id = resp.json()["result"]["task"]["taskId"]
+
+        task = await self._poll_task(app, task_id)
+        assert task["status"] == "failed"
+        assert task["error"] == expected_error
+
+    async def test_tasks_cancel_finished(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.tool("quick", task=True)
+        async def quick() -> int:
+            return 7
+
+        resp = await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "quick", "arguments": {}, "_meta": self._caps_meta(Extensions.TASKS)},
+            },
+        )
+        task_id = resp.json()["result"]["task"]["taskId"]
+        assert (await self._poll_task(app, task_id))["status"] == "completed"
+
+        # Cancelling an already-finished task (its runner is done) still reports cancelled
+        cancelled = await self._post(
+            app, {"jsonrpc": "2.0", "id": 2, "method": "tasks/cancel", "params": {"taskId": task_id}}
+        )
+        assert cancelled.json()["result"]["task"]["status"] == "cancelled"
+
     async def test_tasks_get_not_found(self, app):
         resp = await self._post(
             app, {"jsonrpc": "2.0", "id": 1, "method": "tasks/get", "params": {"taskId": "missing"}}
@@ -751,6 +809,41 @@ class TestCaseMCPEndpoint:
 
         update = await self._post(
             app, {"jsonrpc": "2.0", "id": 2, "method": "tasks/update", "params": {"taskId": task_id}}
+        )
+        assert update.json()["error"]["code"] == JSONRPCStatus.INVALID_PARAMS
+
+    async def test_tasks_update_tool_removed(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.tool("vanish", task=True)
+        async def vanish(elicitation: Elicitation) -> str:
+            if "confirm" not in elicitation:
+                return Elicit.require("Confirm?", {"type": "boolean"}, name="confirm")
+            return "done"
+
+        resp = await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "vanish", "arguments": {}, "_meta": self._caps_meta(Extensions.TASKS)},
+            },
+        )
+        task_id = resp.json()["result"]["task"]["taskId"]
+        assert (await self._poll_task(app, task_id))["status"] == "input_required"
+
+        # Unregister the tool while its task is parked awaiting input.
+        del server._tools["vanish"]
+
+        update = await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tasks/update",
+                "params": {"taskId": task_id, "inputResponses": {"confirm": True}},
+            },
         )
         assert update.json()["error"]["code"] == JSONRPCStatus.INVALID_PARAMS
 

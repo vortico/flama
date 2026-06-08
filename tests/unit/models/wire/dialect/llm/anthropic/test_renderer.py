@@ -106,6 +106,24 @@ def _verify_tool_block_emits_input_json_delta(frames: list[ServerSentEvent]) -> 
     assert _decode(delta)["delta"]["partial_json"] == json.dumps({"q": "x"})
 
 
+def _verify_tool_without_name_skipped(frames: list[ServerSentEvent]) -> None:
+    block_types = [_decode(f)["content_block"]["type"] for f in frames if f.event == "content_block_start"]
+    assert "tool_use" not in block_types
+
+
+def _verify_thinking_coalesces_single_block(frames: list[ServerSentEvent]) -> None:
+    thinking_starts = [
+        f for f in frames if f.event == "content_block_start" and _decode(f)["content_block"]["type"] == "thinking"
+    ]
+    assert len(thinking_starts) == 1
+    deltas = [
+        _decode(f)["delta"]["thinking"]
+        for f in frames
+        if f.event == "content_block_delta" and _decode(f)["delta"].get("type") == "thinking_delta"
+    ]
+    assert deltas == ["a", "b"]
+
+
 def _verify_tool_after_text_closes_text_block(frames: list[ServerSentEvent]) -> None:
     starts_and_stops = [
         (f.event, _decode(f).get("index", _decode(f).get("content_block", {}).get("type")))
@@ -269,6 +287,29 @@ class TestCaseAnthropicRenderer:
                 ),
                 _verify_empty_text_skipped,
                 id="empty_text_does_not_open_block",
+            ),
+            pytest.param(
+                _build_driver(
+                    [
+                        StartEvent(id="m", created=0),
+                        ToolEvent(id="c1", name="", arguments={}),
+                        StopEvent(stop_reason="tool_use"),
+                    ],
+                ),
+                _verify_tool_without_name_skipped,
+                id="tool_without_name_skipped",
+            ),
+            pytest.param(
+                _build_driver(
+                    [
+                        StartEvent(id="m", created=0),
+                        TextEvent(channel="thinking", text="a"),
+                        TextEvent(channel="thinking", text="b"),
+                        StopEvent(stop_reason="stop"),
+                    ],
+                ),
+                _verify_thinking_coalesces_single_block,
+                id="thinking_coalesces_single_block",
             ),
             pytest.param(
                 _build_driver(

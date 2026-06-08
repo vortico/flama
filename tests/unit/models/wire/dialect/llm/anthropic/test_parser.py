@@ -212,6 +212,13 @@ class TestCaseAnthropicParser:
                 id="system_unsupported_block_dropped",
             ),
             pytest.param(
+                [{"role": "user", "content": "hi"}],
+                42,
+                (UserMessage(content=(TextContent(text="hi"),)),),
+                None,
+                id="system_unsupported_type_dropped",
+            ),
+            pytest.param(
                 [
                     {
                         "role": "user",
@@ -421,3 +428,29 @@ class TestCaseAnthropicParser:
     def test__parse_tool(self, value: t.Any, expected: Tool | None, exception) -> None:
         with exception:
             assert AnthropicParser._parse_tool(value) == expected
+
+    @pytest.mark.parametrize(
+        ["value", "expected"],
+        [
+            pytest.param("plain", "plain", id="string"),
+            pytest.param(
+                [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}], "ab", id="list_of_text_blocks"
+            ),
+            pytest.param(
+                [{"type": "image", "source": {"type": "url", "url": "https://x"}}],
+                '{"type": "image", "source": {"type": "url", "url": "https://x"}}',
+                id="list_with_non_text_block_json_encoded",
+            ),
+            pytest.param(
+                [{"type": "text", "text": "a"}, {"type": "image", "url": "u"}],
+                'a{"type": "image", "url": "u"}',
+                id="list_mixed_text_and_non_text",
+            ),
+            pytest.param([42, "not-a-dict"], "", id="list_of_non_dicts_dropped"),
+            pytest.param(None, "", id="none"),
+            pytest.param({"k": "v"}, '{"k": "v"}', id="non_string_non_list_json_encoded"),
+            pytest.param(123, "123", id="scalar_json_encoded"),
+        ],
+    )
+    def test__tool_result_text(self, value: t.Any, expected: str) -> None:
+        assert AnthropicParser._tool_result_text(value) == expected

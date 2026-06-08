@@ -6,11 +6,11 @@ from flama.crypto.algorithms import HMACAlgorithm
 
 
 class TestCaseHMACAlgorithm:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def algorithm(self):
         return HMACAlgorithm(hashlib.sha256)
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def key(self):
         return b"secret-key"
 

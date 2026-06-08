@@ -310,7 +310,7 @@ class TestCaseTelemetryMiddleware:
             assert after.call_args_list == ([call(data)] if data else [])
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def telemetry_data():
     def _factory(scope_type: str = "websocket") -> TelemetryData:
         return TelemetryData(

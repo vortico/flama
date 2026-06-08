@@ -11,6 +11,21 @@ class TestCaseEvent:
         with pytest.raises(TypeError):
             Event()  # type: ignore[abstract]
 
+    def test_from_payload_default_constructs_from_kwargs(self) -> None:
+        # Every concrete event overrides ``from_payload``; this stub exercises the base default,
+        # which spreads the payload straight into the constructor.
+        class _StubEvent(Event):
+            def __init__(self, value: int) -> None:
+                self.value = value
+
+            def payload(self) -> dict[str, t.Any]:
+                return {"value": self.value}
+
+        event = _StubEvent.from_payload({"value": 7})
+
+        assert isinstance(event, _StubEvent)
+        assert event.value == 7
+
 
 class TestCaseTextEvent:
     @pytest.mark.parametrize(

@@ -10,22 +10,6 @@ from click.testing import CliRunner
 from flama._cli.commands.get import _Downloader, _HuggingFaceDownloader, _RetryPolicy, command
 
 
-def _assert_ctor(
-    cls: MagicMock,
-    model_name: str,
-    output: pathlib.Path,
-    family: str,
-    *,
-    max_concurrent: int,
-) -> None:
-    ctor = cls.call_args
-    assert ctor.args[0] == model_name
-    assert isinstance(ctor.args[1], pathlib.Path)
-    assert ctor.args[1] == output
-    assert ctor.args[2] == family
-    assert ctor.kwargs == {"max_concurrent": max_concurrent}
-
-
 def _make_response(*, pipeline_tag: str | None = "text-generation", files=(("config.json", 12),)) -> MagicMock:
     resp = MagicMock()
     resp.json.return_value = {
@@ -466,13 +450,12 @@ class TestCaseCommand:
 
         assert result.exit_code == 0, result.output
         assert cls.call_count == 1
-        _assert_ctor(
-            cls,
-            "my-org/my-model",
-            build_expected_path(tmp_path),
-            expected_family,
-            max_concurrent=expected_max_concurrent,
-        )
+        ctor = cls.call_args
+        assert ctor.args[0] == "my-org/my-model"
+        assert isinstance(ctor.args[1], pathlib.Path)
+        assert ctor.args[1] == build_expected_path(tmp_path)
+        assert ctor.args[2] == expected_family
+        assert ctor.kwargs == {"max_concurrent": expected_max_concurrent}
         assert instance.run.await_args_list == [call()]
 
     @pytest.mark.parametrize(

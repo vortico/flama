@@ -16,7 +16,7 @@ from flama.resources.rest import RESTResource
 from flama.sqlalchemy import SQLAlchemyModule, metadata
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def app(app):
     return Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
 

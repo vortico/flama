@@ -3,6 +3,7 @@ import http.cookiejar
 import pytest
 
 from flama import types
+from flama.http.components import AppComponent
 from flama.http.data_structures import Headers, QueryParams
 
 
@@ -37,6 +38,11 @@ class TestCaseAppComponent:
 
         assert response.status_code == 200, response.text
         assert response.json() == {"resolved": str(app.resolve_url("app_route"))}
+
+    def test_resolve_returns_scope_app(self) -> None:
+        app_sentinel = object()
+
+        assert AppComponent().resolve({"app": app_sentinel}) is app_sentinel
 
 
 class TestCaseURLComponent:

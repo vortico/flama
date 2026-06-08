@@ -4,11 +4,11 @@ from unittest.mock import patch
 import pytest
 
 from flama.client import Client
-from flama.models import LLMResource, LLMResourceType
+from flama.exceptions import FrameworkNotInstalled, HTTPException
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
 from flama.models.exceptions import LLMUnsupportedContentPart
-from flama.models.resources.serving.llm.openai import OpenAIServing
+from flama.models.resources.serving.llm.openai import OpenAIServing, ResponsesMixin
 from flama.models.transport.input.llm.message import (
     AssistantMessage,
     AudioURI,
@@ -26,6 +26,15 @@ from flama.models.transport.input.llm.message import (
 from flama.models.transport.output.llm.event import StartEvent, StopEvent, TextEvent, ToolEvent
 from flama.serialize.data_structures import LLMModelCapabilities
 
+SERVING = "openai"
+
+ERROR_CASES = [
+    pytest.param("query", False, "immediate", ValueError, "invalid params", 400, id="buffered_value_error_400"),
+    pytest.param("query", False, "immediate", RuntimeError, "kaboom", 500, id="buffered_generic_exception_500"),
+    pytest.param("stream", True, "immediate", ValueError, "bad stream args", 400, id="stream_value_error_400"),
+    pytest.param("query", False, "iteration", RuntimeError, "mid-stream boom", 500, id="buffered_iteration_error_500"),
+]
+
 
 class TestCaseEndToEndChatCompletions:
     """Cover the full HTTP path through the OpenAI dialect's ``/v1/chat/completions`` and
@@ -34,41 +43,8 @@ class TestCaseEndToEndChatCompletions:
     particular spans both routes since the handler computes the toggle once per request).
     """
 
-    @pytest.fixture(scope="function")
-    async def client(self, app, llm_component) -> t.AsyncIterator[Client]:
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-            serving = ("openai",)
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client
-
-    @staticmethod
-    def _capture_kwargs() -> tuple[dict[str, t.Any], t.Callable[..., t.AsyncIterator[t.Any]]]:
-        """Build a ``(captured, mock)`` pair where ``captured`` records the kwargs the resource
-        forwards to either :meth:`Model.query` or :meth:`Model.stream` and ``mock`` plays a minimal
-        valid event sequence so the HTTP layer reaches a 200.
-        """
-        captured: dict[str, t.Any] = {}
-
-        async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
-            captured.update(kwargs)
-
-            async def _gen() -> t.AsyncIterator[t.Any]:
-                yield StartEvent(id="m", created=0)
-                yield TextEvent(channel="output", text="ok")
-                yield StopEvent(stop_reason="stop")
-
-            return _gen()
-
-        return captured, _mock
+    ENDPOINT = "/llm/openai/v1/chat/completions"
+    BODY = {"model": "stub", "messages": [{"role": "user", "content": "hi"}]}
 
     async def test_non_streaming_returns_envelope(self, client: Client) -> None:
         response = await client.post(
@@ -149,6 +125,22 @@ class TestCaseEndToEndChatCompletions:
 
         assert response.status_code == 400, response.text
         assert expected_modality in response.text.lower()
+
+    async def test_malformed_messages_rejected_with_400(self, client: Client) -> None:
+        """A wire-shape violation surfaced by :meth:`OpenAIServing.parse` (here ``tool_call_id`` on a
+        non-``tool`` role) is translated into an HTTP 400 by the handler's parse guard rather than
+        bubbling up as a 500."""
+        response = await client.post(
+            "/llm/openai/v1/chat/completions",
+            json={
+                "model": "stub",
+                "messages": [{"role": "user", "content": "hi", "tool_call_id": "c1"}],
+                "stream": False,
+            },
+        )
+
+        assert response.status_code == 400, response.text
+        assert "tool_call_id" in response.text
 
     async def test_tool_calls_route_through_stop_reason(self, client: Client, llm_component) -> None:
         async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
@@ -400,6 +392,7 @@ class TestCaseEndToEndChatCompletions:
         client: Client,
         app,
         llm_component,
+        capture_kwargs,
         endpoint: str,
         body: dict[str, t.Any],
         method: str,
@@ -413,7 +406,7 @@ class TestCaseEndToEndChatCompletions:
         is unvalidated — off-spec values pass through like ``temperature`` — and is dropped to ``None``
         whenever thinking is gated off.
         """
-        captured, mock = self._capture_kwargs()
+        captured, mock = capture_kwargs
         resource_cls = type(app.routes[0].resource)
 
         with (
@@ -430,56 +423,45 @@ class TestCaseEndToEndChatCompletions:
         assert response.status_code == 200, response.text
         assert captured.get("chat_template_kwargs") == expected_kwargs
 
-    async def test_buffered_value_error_returns_400(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise ValueError("invalid params")
+    @pytest.mark.parametrize(["method", "stream", "mode", "exception", "message", "status"], ERROR_CASES)
+    async def test_error_propagation(
+        self,
+        client: Client,
+        llm_component,
+        method: str,
+        stream: bool,
+        mode: str,
+        exception: type[Exception],
+        message: str,
+        status: int,
+    ) -> None:
+        if mode == "immediate":
 
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/openai/v1/chat/completions",
-                json={"model": "stub", "messages": [{"role": "user", "content": "hi"}], "stream": False},
-            )
+            async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+                raise exception(message)
+        else:
 
-        assert response.status_code == 400, response.text
-        assert "invalid params" in response.text
+            async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
+                async def _gen() -> t.AsyncIterator[t.Any]:
+                    yield StartEvent(id="m", created=0)
+                    yield TextEvent(channel="output", text="partial")
+                    raise exception(message)
 
-    async def test_buffered_generic_exception_returns_500(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise RuntimeError("kaboom")
+                return _gen()
 
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/openai/v1/chat/completions",
-                json={"model": "stub", "messages": [{"role": "user", "content": "hi"}], "stream": False},
-            )
+        with patch.object(type(llm_component.model), method, _mock):
+            response = await client.post(self.ENDPOINT, json={**self.BODY, "stream": stream})
 
-        assert response.status_code == 500, response.text
+        assert response.status_code == status, response.text
+        if status == 400 and method == "query":
+            assert message in response.text
 
-    async def test_stream_value_error_returns_400(self, client: Client, llm_component) -> None:
-        async def _mock_stream(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise ValueError("bad stream args")
+    async def test_max_completion_tokens_aliases_to_max_tokens(
+        self, client: Client, llm_component, capture_kwargs
+    ) -> None:
+        captured, mock = capture_kwargs
 
-        with patch.object(type(llm_component.model), "stream", _mock_stream):
-            response = await client.post(
-                "/llm/openai/v1/chat/completions",
-                json={"model": "stub", "messages": [{"role": "user", "content": "hi"}], "stream": True},
-            )
-
-        assert response.status_code == 400, response.text
-
-    async def test_max_completion_tokens_aliases_to_max_tokens(self, client: Client, llm_component) -> None:
-        captured: dict[str, t.Any] = {}
-
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
-            captured.update(kwargs)
-
-            async def _gen() -> t.AsyncIterator[t.Any]:
-                yield StartEvent(id="m", created=0)
-                yield StopEvent(stop_reason="stop")
-
-            return _gen()
-
-        with patch.object(type(llm_component.model), "query", _mock_query):
+        with patch.object(type(llm_component.model), "query", mock):
             response = await client.post(
                 "/llm/openai/v1/chat/completions",
                 json={
@@ -493,10 +475,10 @@ class TestCaseEndToEndChatCompletions:
         assert response.status_code == 200, response.text
         assert captured.get("max_tokens") == 16
 
-    async def test_mismatched_model_name_logged(self, client: Client, caplog) -> None:
+    async def test_mismatched_model_name_logged(self, client: Client, caplog_flama) -> None:
         import logging
 
-        with caplog.at_level(logging.INFO, logger="flama.models.resources.serving.llm.openai"):
+        with caplog_flama.at_level(logging.INFO, logger="flama.models.resources.serving.llm.openai"):
             await client.post(
                 "/llm/openai/v1/chat/completions",
                 json={
@@ -506,24 +488,7 @@ class TestCaseEndToEndChatCompletions:
                 },
             )
 
-        assert any("differs from resource" in rec.getMessage() for rec in caplog.records)
-
-    async def test_buffered_iteration_error_returns_500(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
-            async def _gen() -> t.AsyncIterator[t.Any]:
-                yield StartEvent(id="m", created=0)
-                yield TextEvent(channel="output", text="partial")
-                raise RuntimeError("mid-stream boom")
-
-            return _gen()
-
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/openai/v1/chat/completions",
-                json={"model": "stub", "messages": [{"role": "user", "content": "hi"}], "stream": False},
-            )
-
-        assert response.status_code == 500, response.text
+        assert any("differs from resource" in rec.getMessage() for rec in caplog_flama.records)
 
     async def test_streaming_uses_ephemeral_buffer(self, client: Client, llm_component) -> None:
         from flama.models.streams import ModelStreams
@@ -555,21 +520,8 @@ class TestCaseEndToEndChatCompletions:
 class TestCaseEndToEndCompletions:
     """Cover the legacy completions endpoint."""
 
-    @pytest.fixture(scope="function")
-    async def client(self, app, llm_component) -> t.AsyncIterator[Client]:
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-            serving = ("openai",)
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client
+    ENDPOINT = "/llm/openai/v1/completions"
+    BODY = {"model": "stub", "prompt": "hi"}
 
     async def test_non_streaming_returns_text_envelope(self, client: Client) -> None:
         response = await client.post(
@@ -609,55 +561,68 @@ class TestCaseEndToEndCompletions:
 
         assert response.status_code == 400, response.text
 
-    async def test_buffered_value_error_returns_400(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise ValueError("invalid params")
-
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/openai/v1/completions",
-                json={"model": "stub", "prompt": "hi", "stream": False},
-            )
+    async def test_non_string_prompt_returns_400(self, client: Client) -> None:
+        """A schema-valid but non-string ``prompt`` (here an empty list, which collapses to a non-string
+        value after the list-unwrap) is rejected with HTTP 400 by the handler's prompt guard."""
+        response = await client.post(
+            "/llm/openai/v1/completions",
+            json={"model": "stub", "prompt": [], "stream": False},
+        )
 
         assert response.status_code == 400, response.text
 
-    async def test_buffered_generic_exception_returns_500(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise RuntimeError("kaboom")
+    @pytest.mark.parametrize(
+        ["exception"],
+        [pytest.param(FrameworkNotInstalled, id="framework_not_installed")],
+        indirect=["exception"],
+    )
+    async def test_buffered_framework_not_installed_propagates(self, client: Client, llm_component, exception) -> None:
+        """``FrameworkNotInstalled`` raised by ``model.query`` is re-raised verbatim (not downgraded to an
+        HTTP 400 / 500) so the missing-runtime failure surfaces to the ASGI server unchanged."""
 
-        with patch.object(type(llm_component.model), "query", _mock_query):
-            response = await client.post(
-                "/llm/openai/v1/completions",
-                json={"model": "stub", "prompt": "hi", "stream": False},
-            )
+        async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+            raise FrameworkNotInstalled("vllm or mlx-lm")
 
-        assert response.status_code == 500, response.text
+        with patch.object(type(llm_component.model), "query", _mock), exception:
+            await client.post("/llm/openai/v1/completions", json={"model": "stub", "prompt": "hi", "stream": False})
 
-    async def test_stream_value_error_returns_400(self, client: Client, llm_component) -> None:
-        def _mock_stream(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise ValueError("bad stream args")
+    @pytest.mark.parametrize(["method", "stream", "mode", "exception", "message", "status"], ERROR_CASES)
+    async def test_error_propagation(
+        self,
+        client: Client,
+        llm_component,
+        method: str,
+        stream: bool,
+        mode: str,
+        exception: type[Exception],
+        message: str,
+        status: int,
+    ) -> None:
+        if mode == "immediate":
 
-        with patch.object(type(llm_component.model), "stream", _mock_stream):
-            response = await client.post(
-                "/llm/openai/v1/completions",
-                json={"model": "stub", "prompt": "hi", "stream": True},
-            )
+            async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+                raise exception(message)
+        else:
 
-        assert response.status_code == 400, response.text
+            async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
+                async def _gen() -> t.AsyncIterator[t.Any]:
+                    yield StartEvent(id="m", created=0)
+                    yield TextEvent(channel="output", text="partial")
+                    raise exception(message)
 
-    async def test_max_completion_tokens_aliases_to_max_tokens(self, client: Client, llm_component) -> None:
-        captured: dict[str, t.Any] = {}
+                return _gen()
 
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
-            captured.update(kwargs)
+        with patch.object(type(llm_component.model), method, _mock):
+            response = await client.post(self.ENDPOINT, json={**self.BODY, "stream": stream})
 
-            async def _gen() -> t.AsyncIterator[t.Any]:
-                yield StartEvent(id="m", created=0)
-                yield StopEvent(stop_reason="stop")
+        assert response.status_code == status, response.text
 
-            return _gen()
+    async def test_max_completion_tokens_aliases_to_max_tokens(
+        self, client: Client, llm_component, capture_kwargs
+    ) -> None:
+        captured, mock = capture_kwargs
 
-        with patch.object(type(llm_component.model), "query", _mock_query):
+        with patch.object(type(llm_component.model), "query", mock):
             response = await client.post(
                 "/llm/openai/v1/completions",
                 json={"model": "stub", "prompt": "hi", "stream": False, "max_completion_tokens": 8},
@@ -666,53 +631,124 @@ class TestCaseEndToEndCompletions:
         assert response.status_code == 200, response.text
         assert captured.get("max_tokens") == 8
 
-    async def test_mismatched_model_name_logged(self, client: Client, caplog) -> None:
+    async def test_mismatched_model_name_logged(self, client: Client, caplog_flama) -> None:
         import logging
 
-        with caplog.at_level(logging.INFO, logger="flama.models.resources.serving.llm.openai"):
+        with caplog_flama.at_level(logging.INFO, logger="flama.models.resources.serving.llm.openai"):
             await client.post(
                 "/llm/openai/v1/completions",
                 json={"model": "gpt-3.5-turbo", "prompt": "hi", "stream": False},
             )
 
-        assert any("differs from resource" in rec.getMessage() for rec in caplog.records)
+        assert any("differs from resource" in rec.getMessage() for rec in caplog_flama.records)
 
-    async def test_buffered_iteration_error_returns_500(self, client: Client, llm_component) -> None:
-        async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:
-            async def _gen() -> t.AsyncIterator[t.Any]:
-                yield StartEvent(id="m", created=0)
-                yield TextEvent(channel="output", text="partial")
-                raise RuntimeError("mid-stream boom")
 
-            return _gen()
+class TestCaseResponsesMessagesFromInput:
+    """Cover :meth:`ResponsesMixin._messages_from_input` translation of the Responses ``input`` field.
 
-        with patch.object(type(llm_component.model), "query", _mock_query):
+    Exercised directly (rather than through the endpoint) because the schema layer coerces / rejects the
+    non-string-non-list ``input`` shape before it reaches the handler, so the invalid-type guard is only
+    reachable at the unit level. Covers the string fast-path, the list-of-items expansion (role default,
+    ``content`` -> ``text`` fallback, ``tool_calls`` / ``tool_call_id`` pass-through, non-dict items
+    filtered out), the ``instructions`` -> leading system-message injection, and the invalid-type guard.
+    """
+
+    @pytest.mark.parametrize(
+        ["input_", "instructions", "expected", "exception"],
+        [
+            pytest.param("hi", None, [{"role": "user", "content": "hi"}], None, id="string_input"),
+            pytest.param(
+                "hi",
+                "be brief",
+                [{"role": "system", "content": "be brief"}, {"role": "user", "content": "hi"}],
+                None,
+                id="string_input_with_instructions",
+            ),
+            pytest.param(
+                [
+                    {"role": "user", "content": "hi"},
+                    {"role": "assistant", "tool_calls": [{"id": "c1"}]},
+                    {"role": "tool", "tool_call_id": "c1", "content": "42"},
+                    {"text": "from-text-field"},
+                    "skip-me",
+                ],
+                None,
+                [
+                    {"role": "user", "content": "hi"},
+                    {"role": "assistant", "content": "", "tool_calls": [{"id": "c1"}]},
+                    {"role": "tool", "content": "42", "tool_call_id": "c1"},
+                    {"role": "user", "content": "from-text-field"},
+                ],
+                None,
+                id="list_items",
+            ),
+            pytest.param(123, None, None, HTTPException, id="invalid_type_raises_400"),
+        ],
+        indirect=["exception"],
+    )
+    def test_messages_from_input(
+        self,
+        input_: t.Any,
+        instructions: str | None,
+        expected: list[dict[str, t.Any]] | None,
+        exception,
+    ) -> None:
+        with exception as exc_info:
+            assert ResponsesMixin._messages_from_input(input_, instructions) == expected
+        if exception:
+            assert exc_info.value.status_code == 400
+
+
+class TestCaseEndToEndResponses:
+    """Cover the OpenAI Responses endpoint's parse-error guard and param plumbing.
+
+    The streaming / buffered envelope shapes are exercised in
+    :class:`TestCaseEndToEndChatCompletions`; the ``input`` normalisation is exercised by
+    :class:`TestCaseResponsesMessagesFromInput`. This suite pins the parse-error guard and the
+    ``max_output_tokens`` / ``max_completion_tokens`` -> ``max_tokens`` aliasing alongside the
+    mismatched-model log path.
+    """
+
+    ENDPOINT = "/llm/openai/v1/responses"
+
+    async def test_input_parse_error_returns_400(self, client: Client) -> None:
+        """A list ``input`` whose normalised messages violate the wire contract (``tool_call_id`` on a
+        non-``tool`` role) is rejected with HTTP 400 by the parse guard."""
+        response = await client.post(
+            "/llm/openai/v1/responses",
+            json={
+                "model": "stub",
+                "input": [{"role": "user", "content": "hi", "tool_call_id": "c1"}],
+                "stream": False,
+            },
+        )
+
+        assert response.status_code == 400, response.text
+
+    async def test_token_aliases_and_model_mismatch(self, client: Client, llm_component, capture_kwargs) -> None:
+        """``max_output_tokens`` aliases to ``max_tokens`` (winning over ``max_completion_tokens`` via
+        ``setdefault``), and a body ``model`` differing from the resource name is accepted (logged, not
+        rejected)."""
+        captured, mock = capture_kwargs
+
+        with patch.object(type(llm_component.model), "query", mock):
             response = await client.post(
-                "/llm/openai/v1/completions",
-                json={"model": "stub", "prompt": "hi", "stream": False},
+                "/llm/openai/v1/responses",
+                json={
+                    "model": "gpt-4o",
+                    "input": "hi",
+                    "stream": False,
+                    "max_output_tokens": 16,
+                    "max_completion_tokens": 8,
+                },
             )
 
-        assert response.status_code == 500, response.text
+        assert response.status_code == 200, response.text
+        assert captured.get("max_tokens") == 16
 
 
 class TestCaseEndToEndModels:
     """Cover ``GET /openai/v1/models``."""
-
-    @pytest.fixture(scope="function")
-    async def client(self, app, llm_component) -> t.AsyncIterator[Client]:
-        component_ = llm_component
-
-        class StubLLMResource(LLMResource, metaclass=LLMResourceType):
-            name = "stub"
-            verbose_name = "Stub LLM"
-            component = component_
-            heartbeat_interval = 0
-            serving = ("openai",)
-
-        app.models.add_model_resource("/llm/", StubLLMResource)
-
-        async with Client(app=app) as client:
-            yield client
 
     async def test_returns_single_entry_list(self, client: Client) -> None:
         response = await client.get("/llm/openai/v1/models")

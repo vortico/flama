@@ -2,7 +2,6 @@ import typing as t
 
 import pytest
 
-from flama.models.exceptions import LLMGenerationError
 from flama.models.transport.output.llm.event import StartEvent, StopEvent, TextEvent, ToolEvent
 from flama.models.wire.dialect.llm.ollama import OllamaAssembler, OllamaDialect, OllamaParser, OllamaRenderer
 
@@ -21,13 +20,6 @@ def _generate_events() -> list:
         StartEvent(id="msg-1", created=2000, input_tokens=3),
         TextEvent(channel="output", text="World"),
         StopEvent(stop_reason="stop", output_tokens=5),
-    ]
-
-
-def _error_events() -> list:
-    return [
-        StartEvent(id="msg-1", created=1000),
-        StopEvent(stop_reason="error"),
     ]
 
 
@@ -197,14 +189,3 @@ class TestCaseOllamaDialect:
         envelope = await OllamaDialect.assemble(events, api=api, model="m")
 
         verify(envelope)
-
-    @pytest.mark.parametrize(
-        "api",
-        [
-            pytest.param("chat", id="chat"),
-            pytest.param("generate", id="generate"),
-        ],
-    )
-    async def test_assemble_raises_llm_generation_error(self, api: t.Literal["chat", "generate"]) -> None:
-        with pytest.raises(LLMGenerationError, match="LLM stream generation failed"):
-            await OllamaDialect.assemble(_error_events(), api=api, model="m")

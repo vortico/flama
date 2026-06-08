@@ -222,10 +222,6 @@ class TestCaseLLMResourceMethods:
 
         pytest.skip(f"Live LLM client case '{request.param}' is integration-only.")
 
-    @staticmethod
-    def _get_component(client) -> ModelComponent:
-        return next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
-
     @pytest.mark.parametrize(
         ["client"],
         [
@@ -389,7 +385,7 @@ class TestCaseLLMResourceMethods:
             assert "event: message.stop" in text
             return
 
-        component = self._get_component(client)
+        component = next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
 
         if tokens is not None:
             from flama.models.engine.llm.delta import EngineDelta

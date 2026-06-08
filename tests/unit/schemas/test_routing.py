@@ -1,4 +1,5 @@
 import typing as t
+from unittest.mock import Mock
 
 import marshmallow
 import pydantic
@@ -7,15 +8,16 @@ import typesystem
 import typesystem.fields
 
 import flama.types.websockets
-from flama import Component, endpoints, http, routing, types
+from flama import Component, endpoints, exceptions, http, routing, types
 from flama.schemas.data_structures import Parameter, ParameterLocation
+from flama.schemas.routing import ParametersDescriptor
 
 
 class Custom: ...
 
 
 class TestCaseParametersDescriptor:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def component(self):
         class CustomComponent(Component):
             def resolve(self, ax: int) -> Custom:
@@ -23,7 +25,7 @@ class TestCaseParametersDescriptor:
 
         return CustomComponent()
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def foo_schema(self, app):
         from flama import schemas
 
@@ -44,7 +46,7 @@ class TestCaseParametersDescriptor:
 
         return schema
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def route(self, app, request, foo_schema):
         if request.param == "http_function":
 
@@ -401,3 +403,14 @@ class TestCaseParametersDescriptor:
             for k, param in expected_params.items()
         }
         assert route.parameters.response == expected_params
+
+    @pytest.mark.parametrize(
+        ["exception"],
+        (pytest.param(exceptions.ApplicationError("ParametersResolver not initialised"), id="not_initialised"),),
+        indirect=["exception"],
+    )
+    def test_app_not_initialised(self, exception):
+        descriptor = ParametersDescriptor(route=Mock())
+
+        with exception:
+            descriptor._app

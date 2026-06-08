@@ -399,3 +399,16 @@ class TestCaseTransformersModelSerializer:
             target.write_text(json.dumps(payload))
 
         assert TransformersModelSerializer._probe_with_heuristic(target) == expected
+
+    def test_probe_chat_template_prefers_tokenizer(self, tmp_path: pathlib.Path) -> None:
+        serializer = TransformersModelSerializer()
+
+        with (
+            patch.object(serializer, "_probe_with_tokenizer", return_value=(True, True)) as probe,
+            patch.object(serializer, "_probe_with_heuristic") as heuristic,
+        ):
+            result = serializer._probe_chat_template(tmp_path, tmp_path / "tokenizer_config.json")
+
+        assert result == (True, True)
+        assert probe.call_args_list == [call(tmp_path)]
+        assert heuristic.call_args_list == []

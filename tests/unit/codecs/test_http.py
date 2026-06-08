@@ -71,7 +71,7 @@ class TestCaseMultiPartCodec:
 
 
 class TestCaseHTTPContentTypeNegotiator:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def negotiator(self):
         return HTTPContentTypeNegotiator([JSONDataCodec(), URLEncodedCodec(), MultiPartCodec()])
 

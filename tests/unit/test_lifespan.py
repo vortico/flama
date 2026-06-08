@@ -8,11 +8,11 @@ from flama.lifespan import Lifespan
 
 
 class TestCaseLifespan:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def app(self):
         return MagicMock(Flama)
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def lifespan(self):
         return Lifespan(MagicMock())
 

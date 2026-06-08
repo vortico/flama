@@ -6,6 +6,19 @@ import pytest
 import typesystem
 import typesystem.fields
 
+from flama import schemas as flama_schemas
+
+
+@pytest.fixture(scope="function")
+def llm_schema(app, request):
+    """Resolve a registered LLM schema by its fully-qualified name from the active schema library.
+
+    Bound via ``indirect`` so each ``TestCase<Schema>`` selects its subject once with
+    ``@pytest.mark.parametrize("llm_schema", [...], indirect=True)``. Depends on ``app`` so the schema library is set
+    up before the lookup.
+    """
+    return flama_schemas.schemas.SCHEMAS[request.param]
+
 
 @pytest.fixture(scope="function")
 def foo_schema(app):
@@ -78,23 +91,23 @@ def bar_multiple_schema(app, foo_schema):
         schema = pydantic.create_model(
             "BarMultiple", first=(child_schema, ...), second=(child_schema, ...), __module__="pydantic.main"
         )
-        name = "pydantic.main.BarOptional"
+        name = "pydantic.main.BarMultiple"
     elif app.schema.schema_library.name == "typesystem":
         schema = typesystem.Schema(
-            title="BarOptional",
+            title="BarMultiple",
             fields={
                 "first": typesystem.Reference(to="Foo", definitions=typesystem.Definitions({"Foo": child_schema})),
                 "second": typesystem.Reference(to="Foo", definitions=typesystem.Definitions({"Foo": child_schema})),
             },
         )
-        name = "typesystem.schemas.BarOptional"
+        name = "typesystem.schemas.BarMultiple"
     elif app.schema.schema_library.name == "marshmallow":
         schema = type(
-            "BarOptional",
+            "BarMultiple",
             (marshmallow.Schema,),
             {"first": marshmallow.fields.Nested(child_schema()), "second": marshmallow.fields.Nested(child_schema())},
         )
-        name = "abc.BarOptional"
+        name = "abc.BarMultiple"
     else:
         raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
     return namedtuple("BarMultipleSchema", ("schema", "name"))(schema=schema, name=name)

@@ -775,7 +775,7 @@ class TestCaseStream:
 
 
 class TestCaseLLM:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def llm_runner(self) -> _LLM:
         model = MagicMock(spec=LLMModel)
         model.default_transport = "chat"

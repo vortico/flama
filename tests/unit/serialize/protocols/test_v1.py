@@ -34,7 +34,40 @@ class TestCaseV1Artifact:
         assert size == len(packed)
 
 
+@pytest.fixture(scope="function")
+def bytes_artifact() -> ModelArtifact:
+    """A v1 artifact whose ``source`` is already serialized bytes (no :class:`ModelSerializer` hop)."""
+    meta = Metadata(
+        id=uuid.uuid4(),
+        timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+        framework=FrameworkInfo(family="ml", lib="sklearn", version="1.0.0"),
+        model=ModelInfo(obj="Obj", info=None, params=None, metrics=None),
+        extra=None,
+    )
+    return ModelArtifact(meta=meta, source=b"already-bytes", artifacts=None)
+
+
 class TestCaseV1Body:
+    def test_pack_with_bytes_source(self, compression_format: str, bytes_artifact: ModelArtifact) -> None:
+        buf = io.BytesIO()
+
+        written = v1._Body.pack(bytes_artifact, buf, compression=compression_format)
+
+        assert written == buf.tell()
+        buf.seek(0)
+        loaded = v1._Body.unpack(buf, compression=compression_format)
+        assert loaded.source == b"already-bytes"
+
+    def test_unpack_meta_reads_only_metadata(self, compression_format: str, bytes_artifact: ModelArtifact) -> None:
+        buf = io.BytesIO()
+        v1._Body.pack(bytes_artifact, buf, compression=compression_format)
+        buf.seek(0)
+
+        meta = v1._Body.unpack_meta(buf, compression=compression_format)
+
+        assert meta.id == bytes_artifact.meta.id
+        assert meta.framework.lib == "sklearn"
+
     @pytest.mark.parametrize("with_artifacts", [False, True], indirect=True)
     def test_pack(
         self,
@@ -132,6 +165,18 @@ class TestCaseV1Protocol:
         assert out.source == b"model-bytes"
         assert isinstance(out.directory, ModelDirectory)
         assert out.directory.exists()
+
+    def test_meta(self, compression_format: str, model_artifact: ModelArtifact, serializer_mock) -> None:
+        proto = v1.Protocol()
+        buf = io.BytesIO()
+        with patch.object(v1, "ModelSerializer") as MS:
+            MS.from_lib.return_value = serializer_mock
+            proto.dump(model_artifact, buf, compression=compression_format)
+
+        buf.seek(0)
+        meta = proto.meta(buf, compression=compression_format)
+
+        assert meta.id == model_artifact.meta.id
 
 
 class TestCaseV1FamilyLessRegression:

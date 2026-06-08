@@ -6,7 +6,7 @@ from flama.mcp.server import MCPServer
 
 
 class TestCaseMCPRoute:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def server(self):
         return MCPServer("test", version="0.1.0")
 

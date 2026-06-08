@@ -13,7 +13,7 @@ from flama.http.responses.templates import _FlamaTemplateResponse
 
 
 class TestCaseBaseErrorMiddleware:
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def middleware_cls(self):
         class FooMiddleware(BaseErrorMiddleware):
             async def process_exception(
@@ -85,7 +85,7 @@ class TestCaseServerErrorMiddleware:
         instance._build(app)
         return instance
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def middleware(self):
         return self._build(AsyncMock())
 
@@ -172,11 +172,11 @@ class TestCaseExceptionMiddleware:
         instance._build(app)
         return instance
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def middleware(self):
         return self._build(AsyncMock())
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def handler(self):
         def _handler(): ...
 
