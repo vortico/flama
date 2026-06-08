@@ -3,7 +3,9 @@ import json
 import pytest
 
 from flama import schemas
+from flama.mcp.data_structures import AppTemplate, Elicitation, Extensions
 from flama.mcp.server import MCPServer, Prompt, Resource, Tool
+from flama.mcp.tasks import InMemoryTaskStore
 
 
 def _nested_schema():
@@ -252,3 +254,85 @@ class TestCaseMCPServer:
         assert len(args) == 2
         assert args[0] == {"name": "text", "description": "text", "required": True}
         assert args[1] == {"name": "language", "description": "language", "required": False}
+
+    def test_init_task_store_default(self):
+        assert isinstance(MCPServer().task_store, InMemoryTaskStore)
+
+    def test_init_task_store_custom(self):
+        store = InMemoryTaskStore()
+        assert MCPServer(task_store=store).task_store is store
+
+    def test_add_tool_task_and_ui_template(self, server):
+        def func(): ...
+
+        server.add_tool(func, name="t", task=True, ui_template="ui://w")
+
+        entry = server._tools["t"]
+        assert entry.task is True
+        assert entry.ui_template == "ui://w"
+
+    def test_tool_decorator_task_and_ui_template(self, server):
+        @server.tool("t", task=True, ui_template="ui://w")
+        def func(): ...
+
+        entry = server._tools["t"]
+        assert entry.task is True
+        assert entry.ui_template == "ui://w"
+
+    @pytest.mark.parametrize(
+        ["has_task_tool", "has_template", "expected"],
+        (
+            pytest.param(False, False, set(), id="none"),
+            pytest.param(True, False, {Extensions.TASKS}, id="tasks"),
+            pytest.param(False, True, {Extensions.APPS}, id="apps"),
+            pytest.param(True, True, {Extensions.TASKS, Extensions.APPS}, id="both"),
+        ),
+    )
+    def test_supported_extensions(self, server, has_task_tool, has_template, expected):
+        if has_task_tool:
+            server.add_tool(lambda: None, name="t", task=True)
+        if has_template:
+            server.add_app_template(lambda: "<html></html>", uri="ui://w")
+
+        assert server.supported_extensions == expected
+
+    @pytest.mark.parametrize(
+        ["name", "expected_name"],
+        (pytest.param("widget", "widget", id="explicit"), pytest.param(None, "func", id="default")),
+    )
+    def test_add_app_template(self, server, name, expected_name):
+        def func():
+            """Docstring."""
+            return "<html></html>"
+
+        server.add_app_template(func, uri="ui://w", name=name)
+
+        assert "ui://w" in server._app_templates
+        template = server._app_templates["ui://w"]
+        assert isinstance(template, AppTemplate)
+        assert template.name == expected_name
+        assert template.mime_type == "text/html"
+
+    def test_app_template_decorator(self, server):
+        @server.app_template("ui://w", name="widget", description="W")
+        def func():
+            return "<html></html>"
+
+        assert "ui://w" in server._app_templates
+        assert server._app_templates["ui://w"].name == "widget"
+
+    def test_elicitation_param_excluded_from_schema(self, server):
+        def func(a: int, elicitation: Elicitation): ...
+
+        server.add_tool(func, name="t")
+
+        entry = server._tools["t"]
+        assert entry.elicitation_param == "elicitation"
+        assert set(entry.input_schema["properties"]) == {"a"}
+
+    def test_elicitation_param_absent(self, server):
+        def func(a: int): ...
+
+        server.add_tool(func, name="t")
+
+        assert server._tools["t"].elicitation_param is None

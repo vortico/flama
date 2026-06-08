@@ -2,6 +2,7 @@ import typing as t
 
 from flama.mcp.routing import MCPRoute
 from flama.mcp.server import MCPServer
+from flama.mcp.tasks import TaskStore
 from flama.modules import Module
 
 __all__ = ["MCPModule"]
@@ -30,10 +31,16 @@ class MCPModule(Module):
         instructions: str | None = None,
         cache_ttl_ms: int = 0,
         cache_scope: str = "public",
+        task_store: TaskStore | None = None,
     ) -> MCPRoute:
         if server is None:
             server = MCPServer(
-                name, version=version, instructions=instructions, cache_ttl_ms=cache_ttl_ms, cache_scope=cache_scope
+                name,
+                version=version,
+                instructions=instructions,
+                cache_ttl_ms=cache_ttl_ms,
+                cache_scope=cache_scope,
+                task_store=task_store,
             )
 
         self._servers[name] = server
@@ -56,9 +63,11 @@ class MCPModule(Module):
         *,
         name: str | None = None,
         description: str | None = None,
+        task: bool = False,
+        ui_template: str | None = None,
         mcp: str | None = None,
     ) -> None:
-        self._resolve(mcp).add_tool(handler, name=name, description=description)
+        self._resolve(mcp).add_tool(handler, name=name, description=description, task=task, ui_template=ui_template)
 
     def add_resource(
         self,
@@ -82,9 +91,29 @@ class MCPModule(Module):
     ) -> None:
         self._resolve(mcp).add_prompt(handler, name=name, description=description)
 
-    def tool(self, name: str | None = None, *, description: str | None = None, mcp: str | None = None) -> t.Callable:
+    def add_app_template(
+        self,
+        handler: t.Callable[..., t.Any],
+        *,
+        uri: str,
+        name: str | None = None,
+        description: str | None = None,
+        mime_type: str = "text/html",
+        mcp: str | None = None,
+    ) -> None:
+        self._resolve(mcp).add_app_template(handler, uri=uri, name=name, description=description, mime_type=mime_type)
+
+    def tool(
+        self,
+        name: str | None = None,
+        *,
+        description: str | None = None,
+        task: bool = False,
+        ui_template: str | None = None,
+        mcp: str | None = None,
+    ) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
-            self.add_tool(func, name=name, description=description, mcp=mcp)
+            self.add_tool(func, name=name, description=description, task=task, ui_template=ui_template, mcp=mcp)
             return func
 
         return decorator
@@ -107,6 +136,21 @@ class MCPModule(Module):
     def prompt(self, name: str | None = None, *, description: str | None = None, mcp: str | None = None) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
             self.add_prompt(func, name=name, description=description, mcp=mcp)
+            return func
+
+        return decorator
+
+    def app_template(
+        self,
+        uri: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        mime_type: str = "text/html",
+        mcp: str | None = None,
+    ) -> t.Callable:
+        def decorator(func: t.Callable) -> t.Callable:
+            self.add_app_template(func, uri=uri, name=name, description=description, mime_type=mime_type, mcp=mcp)
             return func
 
         return decorator

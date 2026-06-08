@@ -6,19 +6,24 @@ from flama import Flama, exceptions, types
 from flama.context import Context
 from flama.http import JSONRPCStatus
 from flama.http.data_structures import Headers
-from flama.mcp.components import MCPMetaComponent, MCPRequestHeadersComponent, MCPTraceContextComponent
-from flama.mcp.data_structures import MCPMeta, MCPRequestHeaders, MCPTraceContext
+from flama.mcp.components import (
+    MCPExtensionsComponent,
+    MCPMetaComponent,
+    MCPRequestHeadersComponent,
+    MCPTraceContextComponent,
+)
+from flama.mcp.data_structures import Extensions, RequestHeaders, RequestMeta, TraceContext
 
 
 def handler_fields(envelope: types.JSONRPCEnvelope, method: types.JSONRPCMethod, params: types.JSONRPCParams):
     return envelope, method, params
 
 
-def handler_meta(meta: MCPMeta):
+def handler_meta(meta: RequestMeta):
     return meta
 
 
-def handler_trace(trace: MCPTraceContext):
+def handler_trace(trace: TraceContext):
     return trace
 
 
@@ -38,7 +43,7 @@ class TestCaseMCPMetaComponent:
     def test_resolve(self, params, expected):
         meta = MCPMetaComponent().resolve(types.JSONRPCParams(params))
 
-        assert isinstance(meta, MCPMeta)
+        assert isinstance(meta, RequestMeta)
         assert meta == expected
 
 
@@ -51,47 +56,47 @@ class TestCaseMCPRequestHeadersComponent:
         ["headers", "method", "params", "meta", "expected", "exception"],
         (
             pytest.param(
-                {MCPRequestHeaders.METHOD_HEADER: "ping"},
+                {RequestHeaders.METHOD_HEADER: "ping"},
                 "ping",
                 {},
                 {},
-                MCPRequestHeaders(method="ping", name=None, protocol_version=None),
+                RequestHeaders(method="ping", name=None, protocol_version=None),
                 None,
                 id="method_only",
             ),
             pytest.param(
-                {MCPRequestHeaders.METHOD_HEADER: "tools/call", MCPRequestHeaders.NAME_HEADER: "add"},
+                {RequestHeaders.METHOD_HEADER: "tools/call", RequestHeaders.NAME_HEADER: "add"},
                 "tools/call",
                 {"name": "add"},
                 {},
-                MCPRequestHeaders(method="tools/call", name="add", protocol_version=None),
+                RequestHeaders(method="tools/call", name="add", protocol_version=None),
                 None,
                 id="name_from_params_name",
             ),
             pytest.param(
-                {MCPRequestHeaders.METHOD_HEADER: "resources/read", MCPRequestHeaders.NAME_HEADER: "res://a"},
+                {RequestHeaders.METHOD_HEADER: "resources/read", RequestHeaders.NAME_HEADER: "res://a"},
                 "resources/read",
                 {"uri": "res://a"},
                 {},
-                MCPRequestHeaders(method="resources/read", name="res://a", protocol_version=None),
+                RequestHeaders(method="resources/read", name="res://a", protocol_version=None),
                 None,
                 id="name_from_params_uri",
             ),
             pytest.param(
-                {MCPRequestHeaders.METHOD_HEADER: "ping", MCPRequestHeaders.PROTOCOL_VERSION_HEADER: "2026-07-28"},
+                {RequestHeaders.METHOD_HEADER: "ping", RequestHeaders.PROTOCOL_VERSION_HEADER: "2026-07-28"},
                 "ping",
                 {},
                 {},
-                MCPRequestHeaders(method="ping", name=None, protocol_version="2026-07-28"),
+                RequestHeaders(method="ping", name=None, protocol_version="2026-07-28"),
                 None,
                 id="version_from_header",
             ),
             pytest.param(
-                {MCPRequestHeaders.METHOD_HEADER: "ping"},
+                {RequestHeaders.METHOD_HEADER: "ping"},
                 "ping",
                 {},
-                {f"{MCPMeta.MCP_NAMESPACE}/protocolVersion": "2026-07-28"},
-                MCPRequestHeaders(method="ping", name=None, protocol_version="2026-07-28"),
+                {f"{RequestMeta.MCP_NAMESPACE}/protocolVersion": "2026-07-28"},
+                RequestHeaders(method="ping", name=None, protocol_version="2026-07-28"),
                 None,
                 id="version_from_meta",
             ),
@@ -103,55 +108,55 @@ class TestCaseMCPRequestHeadersComponent:
                 None,
                 exceptions.JSONRPCException(
                     status_code=JSONRPCStatus.INVALID_PARAMS,
-                    detail=f"Missing '{MCPRequestHeaders.METHOD_HEADER}' header",
+                    detail=f"Missing '{RequestHeaders.METHOD_HEADER}' header",
                 ),
                 id="missing_method",
             ),
             pytest.param(
-                {MCPRequestHeaders.METHOD_HEADER: "ping"},
+                {RequestHeaders.METHOD_HEADER: "ping"},
                 "tools/list",
                 {},
                 {},
                 None,
                 exceptions.JSONRPCException(
                     status_code=JSONRPCStatus.INVALID_PARAMS,
-                    detail=f"'{MCPRequestHeaders.METHOD_HEADER}' header does not match the request method",
+                    detail=f"'{RequestHeaders.METHOD_HEADER}' header does not match the request method",
                 ),
                 id="method_mismatch",
             ),
             pytest.param(
-                {MCPRequestHeaders.METHOD_HEADER: "tools/call"},
+                {RequestHeaders.METHOD_HEADER: "tools/call"},
                 "tools/call",
                 {"name": "add"},
                 {},
                 None,
                 exceptions.JSONRPCException(
                     status_code=JSONRPCStatus.INVALID_PARAMS,
-                    detail=f"Missing '{MCPRequestHeaders.NAME_HEADER}' header",
+                    detail=f"Missing '{RequestHeaders.NAME_HEADER}' header",
                 ),
                 id="missing_name",
             ),
             pytest.param(
-                {MCPRequestHeaders.METHOD_HEADER: "tools/call", MCPRequestHeaders.NAME_HEADER: "other"},
+                {RequestHeaders.METHOD_HEADER: "tools/call", RequestHeaders.NAME_HEADER: "other"},
                 "tools/call",
                 {"name": "add"},
                 {},
                 None,
                 exceptions.JSONRPCException(
                     status_code=JSONRPCStatus.INVALID_PARAMS,
-                    detail=f"'{MCPRequestHeaders.NAME_HEADER}' header does not match the request 'name'",
+                    detail=f"'{RequestHeaders.NAME_HEADER}' header does not match the request 'name'",
                 ),
                 id="name_mismatch",
             ),
             pytest.param(
-                {MCPRequestHeaders.METHOD_HEADER: "ping", MCPRequestHeaders.PROTOCOL_VERSION_HEADER: "2026-07-28"},
+                {RequestHeaders.METHOD_HEADER: "ping", RequestHeaders.PROTOCOL_VERSION_HEADER: "2026-07-28"},
                 "ping",
                 {},
-                {f"{MCPMeta.MCP_NAMESPACE}/protocolVersion": "2025-11-25"},
+                {f"{RequestMeta.MCP_NAMESPACE}/protocolVersion": "2025-11-25"},
                 None,
                 exceptions.JSONRPCException(
                     status_code=JSONRPCStatus.INVALID_PARAMS,
-                    detail=f"'{MCPRequestHeaders.PROTOCOL_VERSION_HEADER}' header does not match the request metadata",
+                    detail=f"'{RequestHeaders.PROTOCOL_VERSION_HEADER}' header does not match the request metadata",
                 ),
                 id="version_disagreement",
             ),
@@ -161,7 +166,7 @@ class TestCaseMCPRequestHeadersComponent:
     def test_resolve(self, component, headers, method, params, meta, expected, exception):
         with exception:
             result = component.resolve(
-                Headers(headers), types.JSONRPCMethod(method), types.JSONRPCParams(params), MCPMeta(meta)
+                Headers(headers), types.JSONRPCMethod(method), types.JSONRPCParams(params), RequestMeta(meta)
             )
             assert result == expected
 
@@ -172,14 +177,34 @@ class TestCaseMCPTraceContextComponent:
         (
             pytest.param(
                 {"traceparent": "00-trace-span-01", "baggage": "k=v"},
-                MCPTraceContext(traceparent="00-trace-span-01", baggage="k=v"),
+                TraceContext(traceparent="00-trace-span-01", baggage="k=v"),
                 id="with",
             ),
-            pytest.param({}, MCPTraceContext(), id="without"),
+            pytest.param({}, TraceContext(), id="without"),
         ),
     )
     def test_resolve(self, meta, expected):
-        assert MCPTraceContextComponent().resolve(MCPMeta(meta)) == expected
+        assert MCPTraceContextComponent().resolve(RequestMeta(meta)) == expected
+
+
+class TestCaseMCPExtensionsComponent:
+    @pytest.mark.parametrize(
+        ["meta", "expected"],
+        (
+            pytest.param(
+                {
+                    f"{RequestMeta.MCP_NAMESPACE}/clientCapabilities": {
+                        "extensions": {Extensions.TASKS: {}, Extensions.APPS: {}}
+                    }
+                },
+                {Extensions.TASKS, Extensions.APPS},
+                id="with",
+            ),
+            pytest.param({}, set(), id="without"),
+        ),
+    )
+    def test_resolve(self, meta, expected):
+        assert MCPExtensionsComponent().resolve(RequestMeta(meta)) == expected
 
 
 class TestCaseMCPInjection:
@@ -205,7 +230,7 @@ class TestCaseMCPInjection:
         assert (await injector.inject(handler_meta, context))() == {"v": 1}
 
     async def test_inject_trace_context(self, injector, context):
-        assert (await injector.inject(handler_trace, context))() == MCPTraceContext()
+        assert (await injector.inject(handler_trace, context))() == TraceContext()
 
     async def test_inject_no_dependencies(self, injector, context):
         assert (await injector.inject(handler_none, context))() == "ok"
