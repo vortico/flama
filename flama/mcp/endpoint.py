@@ -91,13 +91,18 @@ class MCPEndpoint(JSONRPCEndpoint):
         return {}
 
     def tools_list(self) -> dict[str, t.Any]:
-        return {
-            "tools": [
-                {"name": e.name, "description": e.description, "inputSchema": e.input_schema}
-                for e in self.server._tools.values()
-            ],
-            **self._cache_metadata(),
-        }
+        tools = []
+        for entry in self.server._tools.values():
+            tool: dict[str, t.Any] = {
+                "name": entry.name,
+                "description": entry.description,
+                "inputSchema": entry.input_schema,
+            }
+            if entry.output_schema is not None:
+                tool["outputSchema"] = entry.output_schema
+            tools.append(tool)
+
+        return {"tools": tools, **self._cache_metadata()}
 
     async def tools_call(self, params: types.JSONRPCParams) -> dict[str, t.Any]:
         name = params.get("name", "")
@@ -118,8 +123,13 @@ class MCPEndpoint(JSONRPCEndpoint):
                 status_code=http.JSONRPCStatus.INTERNAL_ERROR, detail=f"Tool '{name}' raised: {e}"
             ) from e
 
-        text = encode_json(result, compact=True).decode() if isinstance(result, dict) else str(result)
-        return {"content": [{"type": "text", "text": text}]}
+        text = encode_json(result, compact=True).decode() if isinstance(result, (dict, list)) else str(result)
+        response: dict[str, t.Any] = {"content": [{"type": "text", "text": text}]}
+
+        if entry.output_schema is not None:
+            response["structuredContent"] = result
+
+        return response
 
     def resources_list(self) -> dict[str, t.Any]:
         return {

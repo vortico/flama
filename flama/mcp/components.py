@@ -1,9 +1,9 @@
 from flama import exceptions, http, types
 from flama.http.data_structures import Headers
 from flama.injection import Component, Components
-from flama.mcp.data_structures import MCPMeta, MCPRequestHeaders
+from flama.mcp.data_structures import MCPMeta, MCPRequestHeaders, MCPTraceContext
 
-__all__ = ["MCPMetaComponent", "MCPRequestHeadersComponent", "MCP_COMPONENTS"]
+__all__ = ["MCPMetaComponent", "MCPRequestHeadersComponent", "MCPTraceContextComponent", "MCP_COMPONENTS"]
 
 
 class MCPMetaComponent(Component):
@@ -64,4 +64,15 @@ class MCPRequestHeadersComponent(Component):
         )
 
 
-MCP_COMPONENTS = Components([MCPMetaComponent(), MCPRequestHeadersComponent()])
+class MCPTraceContextComponent(Component):
+    """Resolve the W3C trace context carried un-prefixed in the request's ``_meta`` as a :class:`MCPTraceContext`.
+
+    Exposing it as an injectable lets handlers and instrumentation pick up ``traceparent``/``tracestate``/``baggage``
+    to continue a distributed trace, regardless of the underlying transport (SEP-414).
+    """
+
+    def resolve(self, meta: MCPMeta) -> MCPTraceContext:
+        return MCPTraceContext.from_meta(meta)
+
+
+MCP_COMPONENTS = Components([MCPMetaComponent(), MCPRequestHeadersComponent(), MCPTraceContextComponent()])

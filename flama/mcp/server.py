@@ -3,6 +3,7 @@ import inspect
 import typing as t
 
 from flama.schemas.data_structures import Field, Schema
+from flama.schemas.registry import SchemaRegistry
 
 __all__ = ["MCPServer"]
 
@@ -13,6 +14,7 @@ class Tool:
     description: str
     input_schema: dict[str, t.Any]
     handler: t.Callable[..., t.Any]
+    output_schema: dict[str, t.Any] | None = None
 
 
 @dataclasses.dataclass
@@ -64,6 +66,7 @@ class MCPServer:
             name=tool_name,
             description=description or inspect.getdoc(handler) or "",
             input_schema=self._input_schema(handler),
+            output_schema=self._output_schema(handler),
             handler=handler,
         )
 
@@ -121,9 +124,34 @@ class MCPServer:
 
     @staticmethod
     def _input_schema(func: t.Callable) -> dict[str, t.Any]:
-        # ``{}`` is the nested-schema name registry used for OpenAPI ``$ref`` resolution; tool arguments are
-        # self-contained, so none is needed.
-        return Schema.build(fields=Field.from_handler(func)).json_schema({})
+        """Build a tool ``inputSchema`` as a self-contained JSON Schema 2020-12 object (SEP-2106).
+
+        Tool arguments are an object whose nested models are bundled under ``$defs`` and referenced with local
+        ``#/$defs/...`` pointers, so the document never relies on external ``$ref`` dereferencing.
+        """
+        return SchemaRegistry.bundle(Schema.build(fields=Field.from_handler(func)).schema)
+
+    @staticmethod
+    def _output_schema(func: t.Callable) -> dict[str, t.Any] | None:
+        """Build a tool ``outputSchema`` from the return annotation, or ``None`` when it is unannotated (SEP-2106).
+
+        Unlike ``inputSchema``, an output may be any JSON Schema 2020-12 value: schema return types become a
+        self-contained object schema (wrapped in an array for sequence returns), while primitives and their sequences
+        use the field schema directly.
+        """
+        annotation = inspect.signature(func).return_annotation
+        if annotation in (inspect.Signature.empty, None, type(None)):
+            return None
+
+        multiple = t.get_origin(annotation) in (list, tuple, set, frozenset)
+
+        try:
+            schema = Schema.from_type(annotation)
+        except ValueError:
+            element = t.get_args(annotation)[0] if multiple else annotation
+            return Field("output", element, multiple=multiple).json_schema
+
+        return SchemaRegistry.bundle(schema.schema, multiple=multiple)
 
     @staticmethod
     def _prompt_arguments(func: t.Callable) -> list[dict[str, t.Any]]:

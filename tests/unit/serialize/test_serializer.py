@@ -338,15 +338,10 @@ class TestCaseSerializer:
 
         if expect_logs:
             messages = [
-                record.getMessage()
-                for record in caplog_flama.records
-                if record.name == "flama.serialize.serializer"
+                record.getMessage() for record in caplog_flama.records if record.name == "flama.serialize.serializer"
             ]
             assert any(f"Loading model from {target}" in m for m in messages)
-            assert any(
-                f"Loaded model from {target}" in m and "MB compressed" in m and "in " in m for m in messages
-            )
-
+            assert any(f"Loaded model from {target}" in m and "MB compressed" in m and "in " in m for m in messages)
 
     @pytest.mark.parametrize(
         ["stream", "path", "format_value", "exception"],
@@ -463,4 +458,3 @@ class TestCaseSerializer:
             assert p_proto.call_args_list == [call(protocol_version)]
             assert len(mock_protocol.manifest.call_args_list) == 1
             assert mock_protocol.manifest.call_args[1]["compression"] == compression_format
-

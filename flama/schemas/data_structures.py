@@ -147,31 +147,37 @@ class Schema:
     def name(self) -> str:
         return schemas.adapter.name(self.schema)
 
-    def _fix_ref(self, value: str, refs: dict[str, str]) -> str:
+    def _fix_ref(self, value: str, refs: dict[str, str], root: str | None = None) -> str:
         try:
             prefix, name = value.rsplit("/", 1)
-            return f"{prefix}/{refs[name]}"
+            return f"{root or prefix}/{refs[name]}"
         except KeyError:
             return value
 
-    def _replace_json_schema_refs(self, schema: types.JSONField, refs: dict[str, str]) -> types.JSONField:
+    def _map_refs(self, schema: types.JSONField, transform: t.Callable[[str], str]) -> types.JSONField:
+        """Walk a JSON Schema applying ``transform`` to every ``$ref`` value."""
         if isinstance(schema, dict):
             return {
-                k: self._fix_ref(t.cast(str, v), refs) if k == "$ref" else self._replace_json_schema_refs(v, refs)
-                for k, v in schema.items()
+                k: transform(t.cast(str, v)) if k == "$ref" else self._map_refs(v, transform) for k, v in schema.items()
             }
 
         if isinstance(schema, list | tuple | set):
-            return [self._replace_json_schema_refs(x, refs) for x in schema]
+            return [self._map_refs(x, transform) for x in schema]
 
         return schema
 
-    def json_schema(self, names: dict[int, str]) -> types.JSONSchema:
+    def _replace_json_schema_refs(
+        self, schema: types.JSONField, refs: dict[str, str], root: str | None = None
+    ) -> types.JSONField:
+        return self._map_refs(schema, lambda value: self._fix_ref(value, refs, root))
+
+    def json_schema(self, names: dict[int, str], *, root: str | None = None) -> types.JSONSchema:
         return t.cast(
             types.JSONSchema,
             self._replace_json_schema_refs(
                 schemas.adapter.to_json_schema(self.schema),
                 {Schema(x).name.rsplit(".", 1)[1]: names[id(Schema(x).unique_schema)] for x in self.nested_schemas()},
+                root,
             ),
         )
 

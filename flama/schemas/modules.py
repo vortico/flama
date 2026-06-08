@@ -4,7 +4,7 @@ from flama import exceptions, http, pagination, schemas, types
 from flama.http.responses.openapi import OpenAPIResponse
 from flama.http.responses.templates import _FlamaTemplateResponse
 from flama.modules import Module
-from flama.schemas.generator import SchemaGenerator
+from flama.schemas.openapi import SchemaGenerator
 
 __all__ = ["SchemaModule"]
 

@@ -10,7 +10,7 @@ import pytest
 from flama import types
 from flama.injection import Parameter as InjectionParameter
 from flama.schemas.data_structures import Field, Parameter, ParameterLocation, Schema
-from tests.unit.schemas.test_generator import assert_recursive_contains
+from tests._utils import assert_recursive_contains
 
 Unknown = t.NewType("Unknown", None)
 
@@ -105,7 +105,15 @@ class TestCaseField:
 class TestCaseSchema:
     @pytest.fixture(scope="function")
     def schema_type(  # noqa: C901
-        self, app, request, foo_schema, bar_schema, bar_optional_schema, bar_list_schema, bar_dict_schema
+        self,
+        app,
+        request,
+        foo_schema,
+        bar_schema,
+        bar_optional_schema,
+        bar_multiple_schema,
+        bar_list_schema,
+        bar_dict_schema,
     ):
         if request.param is None:
             return None
@@ -123,6 +131,8 @@ class TestCaseSchema:
             return t.Annotated[types.Schema, types.SchemaMetadata(foo_schema.schema, partial=True)]
         elif request.param == "schema_nested":
             return t.Annotated[types.Schema, types.SchemaMetadata(bar_schema.schema)]
+        elif request.param == "schema_nested_multiple":
+            return t.Annotated[types.Schema, types.SchemaMetadata(bar_multiple_schema.schema)]
         elif request.param == "schema_nested_optional":
             if app.schema.schema_library.name in ("typesystem", "marshmallow"):
                 pytest.skip("Library does not support optional nested schemas")
