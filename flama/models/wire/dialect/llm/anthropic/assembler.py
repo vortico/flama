@@ -20,7 +20,7 @@ class AnthropicAssembleKwargs(t.TypedDict, total=False):
     generation_id: uuid.UUID | None
 
 
-class AnthropicAssembler(Assembler[AnthropicAssembleKwargs]):
+class AnthropicAssembler(Assembler):
     """L2 -> Anthropic Messages API buffered envelope strategy.
 
     Drains the coalesced :class:`~flama.models.Event` tuple into a Messages API ``message`` envelope:
@@ -40,7 +40,9 @@ class AnthropicAssembler(Assembler[AnthropicAssembleKwargs]):
     _EVENT_ID_TEMPLATE: t.Final[string.Template] = string.Template("msg_$message_id")
 
     @classmethod
-    def envelope(
+    # Concrete envelopes deliberately require dialect identity kwargs (``model``), so they narrow the base
+    # ``**kwargs: Any`` to a TypedDict-unpacked signature. That strengthening is intentional and not LSP.
+    def envelope(  # ty: ignore[invalid-method-override]
         cls,
         events: tuple[Event, ...],
         /,

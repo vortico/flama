@@ -3,7 +3,7 @@ import uuid
 
 from flama import compat
 from flama.http.responses.sse import ServerSentEvent
-from flama.models.wire.dialect.base import Dialect
+from flama.models.wire.dialect.base import Dialect, EventSource
 from flama.models.wire.dialect.llm.openai.assembler import OpenAIAssembleKwargs, OpenAIAssembler
 from flama.models.wire.dialect.llm.openai.parser import OpenAIParser
 from flama.models.wire.dialect.llm.openai.renderer import OpenAIRenderer
@@ -24,7 +24,7 @@ class OpenAIRenderKwargs(t.TypedDict, total=False):
     generation_id: uuid.UUID | None
 
 
-class OpenAIDialect(Dialect[ServerSentEvent, OpenAIRenderKwargs, OpenAIAssembleKwargs]):
+class OpenAIDialect(Dialect[ServerSentEvent]):
     """OpenAI-compatible wire dialect.
 
     Binds three strategies that drive the :class:`~flama.models.wire.dialect.base.Dialect` façade:
@@ -41,3 +41,15 @@ class OpenAIDialect(Dialect[ServerSentEvent, OpenAIRenderKwargs, OpenAIAssembleK
     PARSER = OpenAIParser
     RENDERER = OpenAIRenderer
     ASSEMBLER = OpenAIAssembler
+
+    @classmethod
+    def render(
+        cls, source: EventSource, /, **kwargs: compat.Unpack[OpenAIRenderKwargs]
+    ) -> t.AsyncIterator[ServerSentEvent]:
+        """Typed façade over :meth:`Dialect._render` naming the OpenAI render kwargs (``api``, ``model``, ...)."""
+        return cls._render(source, kwargs)
+
+    @classmethod
+    async def assemble(cls, source: EventSource, /, **kwargs: compat.Unpack[OpenAIAssembleKwargs]) -> dict[str, t.Any]:
+        """Typed façade over :meth:`Dialect._assemble` naming the OpenAI assemble kwargs (``api``, ``model``, ...)."""
+        return await cls._assemble(source, kwargs)

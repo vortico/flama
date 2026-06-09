@@ -294,7 +294,7 @@ class QueryParams(_MultiDict[str, str]):
 
     def __init__(self, value: "str | bytes | Mapping[str, str] | list[tuple[str, str]]" = "") -> None:
         if isinstance(value, list):
-            items = list(value)
+            items = t.cast("list[tuple[str, str]]", list(value))
         elif isinstance(value, Mapping):
             items = [(str(k), str(v)) for k, v in value.items()]
         else:

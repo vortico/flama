@@ -3,7 +3,7 @@ import uuid
 
 from flama import compat
 from flama.http.responses.sse import ServerSentEvent
-from flama.models.wire.dialect.base import Dialect
+from flama.models.wire.dialect.base import Dialect, EventSource
 from flama.models.wire.dialect.llm.native.assembler import NativeAssembleKwargs, NativeAssembler
 from flama.models.wire.dialect.llm.native.parser import NativeParser
 from flama.models.wire.dialect.llm.native.renderer import EventsRenderer
@@ -24,7 +24,7 @@ class NativeRenderKwargs(t.TypedDict, total=False):
     retry: int | None
 
 
-class NativeDialect(Dialect[ServerSentEvent, NativeRenderKwargs, NativeAssembleKwargs]):
+class NativeDialect(Dialect[ServerSentEvent]):
     """Native Flama wire dialect.
 
     L1 -> L2 input parsing is delegated to :class:`~flama.models.wire.dialect.llm.native.NativeParser` via
@@ -39,3 +39,16 @@ class NativeDialect(Dialect[ServerSentEvent, NativeRenderKwargs, NativeAssembleK
     PARSER = NativeParser
     RENDERER = EventsRenderer
     ASSEMBLER = NativeAssembler
+
+    @classmethod
+    def render(
+        cls, source: EventSource, /, **kwargs: compat.Unpack[NativeRenderKwargs]
+    ) -> t.AsyncIterator[ServerSentEvent]:
+        """Typed façade over :meth:`Dialect._render` naming the native render kwargs (``message_id``, ...)."""
+        return cls._render(source, kwargs)
+
+    @classmethod
+    async def assemble(cls, source: EventSource, /, **kwargs: compat.Unpack[NativeAssembleKwargs]) -> dict[str, t.Any]:
+        """Typed façade over :meth:`Dialect._assemble`. The native wire is stream-only, so this raises
+        :class:`NotImplementedError` from :meth:`NativeAssembler.envelope`."""
+        return await cls._assemble(source, kwargs)

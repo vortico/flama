@@ -15,7 +15,7 @@ class NativeAssembleKwargs(t.TypedDict, total=False):
     """
 
 
-class NativeAssembler(Assembler[NativeAssembleKwargs]):
+class NativeAssembler(Assembler):
     """L2 -> native buffered envelope strategy.
 
     The native dialect is stream-only; :meth:`envelope` raises :class:`NotImplementedError` unconditionally.

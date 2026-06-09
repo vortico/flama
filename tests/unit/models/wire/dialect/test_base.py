@@ -25,6 +25,7 @@ from flama.models.wire.dialect.base import (
     Assembler,
     CoalescingRenderer,
     Dialect,
+    EventSource,
     Parser,
     Renderer,
 )
@@ -77,13 +78,21 @@ class _SilentAssembler(Assembler):
         return {"events": list(events), "start": start, "stop": stop, "kwargs": kwargs}
 
 
-class _SilentDialect(Dialect):
+class _SilentDialect(Dialect[Event]):
     """Concrete :class:`Dialect` subclass binding :class:`_SilentParser` / :class:`_SilentRenderer` /
     :class:`_SilentAssembler` for façade-dispatch tests."""
 
     PARSER = _SilentParser
     RENDERER = _SilentRenderer
     ASSEMBLER = _SilentAssembler
+
+    @classmethod
+    def render(cls, source: EventSource, /, **kwargs: t.Any) -> t.AsyncIterator[Event]:
+        return cls._render(source, kwargs)
+
+    @classmethod
+    async def assemble(cls, source: EventSource, /, **kwargs: t.Any) -> dict[str, t.Any]:
+        return await cls._assemble(source, kwargs)
 
 
 async def _raising_source() -> t.AsyncIterator[Event]:
@@ -574,26 +583,27 @@ class TestCaseDialect:
     def test_subclass_must_bind_renderer(self) -> None:
         """A concrete dialect that omits :attr:`RENDERER` raises ``AttributeError`` on first render."""
 
-        class _ParserOnly(Dialect):
+        class _ParserOnly(Dialect[Event]):
             PARSER = _SilentParser
 
         with pytest.raises(AttributeError):
-            _ = _ParserOnly.render([])
+            _ = _ParserOnly._render([], {})
 
     def test_subclass_must_bind_assembler(self) -> None:
         """A concrete dialect that omits :attr:`ASSEMBLER` raises ``AttributeError`` on first assemble."""
 
-        class _RendererOnly(Dialect):
+        class _RendererOnly(Dialect[Event]):
             PARSER = _SilentParser
             RENDERER = _SilentRenderer
 
         async def _drive() -> None:
-            await _RendererOnly.assemble(
+            await _RendererOnly._assemble(
                 [
                     StartEvent(id="m", created=0),
                     TextEvent(channel="output", text="hi"),
                     StopEvent(stop_reason="stop"),
-                ]
+                ],
+                {},
             )
 
         import asyncio

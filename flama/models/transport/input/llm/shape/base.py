@@ -21,10 +21,10 @@ class _ShapeFields(t.TypedDict):
     converting an iterable into an immutable sequence is the caller's responsibility.
     """
 
-    prompt: compat.NotRequired[str]
-    system: compat.NotRequired[str]
-    messages: compat.NotRequired[tuple[Message, ...]]
-    tools: compat.NotRequired[tuple[Tool, ...]]
+    prompt: compat.NotRequired[str | None]
+    system: compat.NotRequired[str | None]
+    messages: compat.NotRequired[tuple[Message, ...] | None]
+    tools: compat.NotRequired[tuple[Tool, ...] | None]
 
 
 class _ShapeRenderKwargs(t.TypedDict, total=False):
@@ -32,19 +32,15 @@ class _ShapeRenderKwargs(t.TypedDict, total=False):
 
     Carries the currently-typed fields shared across :class:`Shape` variants. ``Raw`` ignores
     every field; ``Chat`` and ``Conversation`` consume ``chat_template_kwargs`` and forward it
-    to :meth:`~flama.models.engine.backend.llm.base.LLMBackend.prepare_input`. Variants whose
-    render surface diverges from the marker introduce their own TypedDict (extending or
-    subsetting this one) and bind it through the :data:`_SK` parameter.
+    to :meth:`~flama.models.engine.backend.llm.base.LLMBackend.prepare_input`. Every variant's
+    :meth:`Shape.render` types its ``**kwargs`` against this shared shape via PEP 692 ``Unpack``.
     """
 
     chat_template_kwargs: dict[str, t.Any] | None
 
 
-_SK = t.TypeVar("_SK", bound=_ShapeRenderKwargs)
-
-
 @dataclasses.dataclass(frozen=True)
-class Shape(abc.ABC, t.Generic[_SK]):
+class Shape(abc.ABC):
     """Discriminated union for LLM input shapes.
 
     Each concrete variant declares its discriminator value via the class-level :attr:`transport`
@@ -58,18 +54,17 @@ class Shape(abc.ABC, t.Generic[_SK]):
     pick up the shared check. Use :meth:`Shape.build` as the public entry point; it
     dispatches on the discriminator and forwards the bag.
 
-    The generic parameter ``_SK`` is the variant-specific :class:`~typing.TypedDict` describing the
-    kwargs accepted by :meth:`render`; type-checked through PEP 692 ``Unpack`` on
-    :meth:`render`'s ``**kwargs``. Variants whose render surface matches the marker bind
-    :class:`_ShapeRenderKwargs` directly; future variants with divergent kwargs declare their own.
+    The kwargs accepted by :meth:`render` are typed through PEP 692 ``Unpack`` of the shared
+    :class:`_ShapeRenderKwargs` :class:`~typing.TypedDict`; every current variant consumes the same
+    marker shape (``Raw`` ignores it, templated variants read ``chat_template_kwargs``).
     """
 
     fields: dataclasses.InitVar[_ShapeFields | None] = None
     transport: t.ClassVar[types.LLMTransportShape]
-    _REGISTRY: t.ClassVar[dict[types.LLMTransportShape, type["Shape[_ShapeRenderKwargs]"]] | None] = None
+    _REGISTRY: t.ClassVar[dict[types.LLMTransportShape, type["Shape"]] | None] = None
 
     @classmethod
-    def _resolve(cls, transport: types.LLMTransportShape) -> type["Shape[_ShapeRenderKwargs]"]:
+    def _resolve(cls, transport: types.LLMTransportShape) -> type["Shape"]:
         """Lazily resolve the variant class registered for *transport*.
 
         Concrete variants are imported on first call so the side-effect-free
@@ -97,7 +92,7 @@ class Shape(abc.ABC, t.Generic[_SK]):
         transport: types.LLMTransportShape,
         /,
         **kwargs: compat.Unpack[_ShapeFields],
-    ) -> "Shape[_ShapeRenderKwargs]":
+    ) -> "Shape":
         """Dispatch on *transport* and instantiate the matching variant.
 
         Inputs are forwarded as a :class:`_ShapeFields` bag to the variant. ``None`` values
@@ -138,7 +133,7 @@ class Shape(abc.ABC, t.Generic[_SK]):
             raise ValueError(f"{formatted} {verb} not allowed when transport is '{self.transport}'")
 
     @abc.abstractmethod
-    async def render(self, backend: "LLMBackend", /, **kwargs: compat.Unpack[_SK]) -> "EngineInput":
+    async def render(self, backend: "LLMBackend", /, **kwargs: compat.Unpack[_ShapeRenderKwargs]) -> "EngineInput":
         """Convert this transport to engine-ready :class:`EngineInput` using *backend*.
 
         Returning structured inputs (not raw token IDs) keeps the multimodal pipeline uniform:
@@ -149,7 +144,7 @@ class Shape(abc.ABC, t.Generic[_SK]):
 
         :param backend: LLM backend exposing ``encode``, ``apply_chat_template`` and
             ``chat_template``.
-        :param kwargs: Variant-specific render kwargs typed by ``_SK`` (chat-template knobs for
+        :param kwargs: Render kwargs typed by :class:`_ShapeRenderKwargs` (chat-template knobs for
             templated transports; ignored by ``Raw``).
         :return: Engine-ready :class:`EngineInput` ready to be fed to
             :meth:`LLMBackend.generate`.

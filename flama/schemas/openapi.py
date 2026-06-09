@@ -428,15 +428,15 @@ class OpenAPISchemaRegistry(SchemaRegistry):
         if isinstance(schema, Reference):
             return [schema.ref]
 
-        result = []
+        result: list[str] = []
 
         if "$ref" in schema:
-            result.append(schema["$ref"])
+            result.append(t.cast(str, schema["$ref"]))
 
         if schema.get("type", "") == "array":
             items = schema.get("items", {})
             if isinstance(items, dict) and "$ref" in items:
-                result.append(items["$ref"])
+                result.append(t.cast(str, items["$ref"]))
 
         for composer in ("allOf", "anyOf", "oneOf"):
             composer_schemas = schema.get(composer, [])
@@ -837,7 +837,7 @@ class SchemaGenerator:
                     logger.error("Cannot generate schema for endpoint %s", endpoint)
 
             if operations:
-                self.spec.add_path(path, Path(**operations))  # type: ignore[arg-type]
+                self.spec.add_path(path, Path(**operations))  # ty: ignore[invalid-argument-type]
 
         for schema in self.schemas.used(self.spec).values():
             self.spec.add_schema(schema.name, Schema(schema.json_schema(self.schemas.names)))

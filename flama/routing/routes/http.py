@@ -186,7 +186,9 @@ class Route(BaseRoute):
 
     @property
     def _route_table_params(self) -> RouteTableParams:
-        return RouteTableParams(scope_type=ScopeType.http, methods=tuple(sorted(self.methods)))
+        return RouteTableParams(
+            scope_type=ScopeType.http, methods=t.cast("tuple[Method, ...]", tuple(sorted(self.methods)))
+        )
 
     def match(self, scope: types.Scope) -> BaseRoute.Match:
         """Check if this route matches with given scope.
