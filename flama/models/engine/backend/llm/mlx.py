@@ -34,7 +34,7 @@ try:
         from mlx_lm import stream_generate
         from mlx_lm.sample_utils import make_sampler
     except Exception:  # pragma: no cover
-        mx = None  # ty: ignore[invalid-assignment]
+        mx = None
         mlx_lm_load = None
         stream_generate = None
         make_sampler = None
@@ -223,7 +223,9 @@ class MLXBackend(TransformerLLMBackend):
             multimodal payloads.
         :return: Mapping merged into the ``mlx_vlm.stream_generate`` call.
         """
-        extras: dict[str, t.Any] = {"input_ids": mx.array([inputs.tokens])}
+        # ``mx`` is the optional ``mlx.core`` module (``None`` only when mlx is not installed); this
+        # backend is reached exclusively when mlx is available, so ``mx`` is non-None here.
+        extras: dict[str, t.Any] = {"input_ids": mx.array([inputs.tokens])}  # ty: ignore[unresolved-attribute]
         if not (inputs.images or inputs.audios):
             return extras
         proc_kwargs: dict[str, t.Any] = {"text": "", "return_tensors": "mlx", "add_special_tokens": False}
