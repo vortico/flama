@@ -210,9 +210,7 @@ def _verify_response_tool_without_name_skipped(frames: list[ServerSentEvent]) ->
 
 def _verify_response_reasoning_single_item(frames: list[ServerSentEvent]) -> None:
     added = [
-        f
-        for f in frames
-        if f.event == "response.output_item.added" and _decode(f)["item"].get("type") == "reasoning"
+        f for f in frames if f.event == "response.output_item.added" and _decode(f)["item"].get("type") == "reasoning"
     ]
     assert len(added) == 1
     deltas = [_decode(f)["delta"] for f in frames if f.event == "response.reasoning_summary_text.delta"]

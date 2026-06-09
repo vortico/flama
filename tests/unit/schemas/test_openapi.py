@@ -10,13 +10,6 @@ import pytest
 import typesystem
 import typesystem.fields
 
-
-class _RecursiveNode(pydantic.BaseModel):
-    """A self-referencing model used to assert OpenAPI generation does not loop on recursive schemas."""
-
-    id: int
-    children: list["_RecursiveNode"] = []
-
 from flama import Flama, types
 from flama.endpoints import HTTPEndpoint
 from flama.schemas import data_structures as ds
@@ -46,6 +39,13 @@ from flama.schemas.openapi import (
     ServerVariable,
 )
 from tests._utils import assert_recursive_contains
+
+
+class _RecursiveNode(pydantic.BaseModel):
+    """A self-referencing model used to assert OpenAPI generation does not loop on recursive schemas."""
+
+    id: int
+    children: list["_RecursiveNode"] = []
 
 
 class TestCaseOpenAPISpec:
@@ -2181,8 +2181,7 @@ class TestCaseSchemaGenerator:
             pytest.skip("Recursive-model regression is exercised through the pydantic library")
 
         @app.route("/nodes/", methods=["GET"])
-        def list_nodes() -> t.Annotated[types.SchemaList, types.SchemaMetadata(_RecursiveNode)]:
-            ...  # pragma: no cover
+        def list_nodes() -> t.Annotated[types.SchemaList, types.SchemaMetadata(_RecursiveNode)]: ...  # pragma: no cover
 
         # Run generation in a worker thread so an infinite-loop regression fails fast instead of hanging the suite.
         result: dict[str, t.Any] = {}
