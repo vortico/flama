@@ -80,11 +80,9 @@ class TestCaseFlama:
         default_components = app.components[:1]
         assert isinstance(default_components[0], WorkerComponent)
         assert app.components == [*default_components, component_obj]
-        # Check events
-        assert app.events == Events(
-            startup=[app.modules.on_startup, app.middleware.on_startup],
-            shutdown=[app.modules.on_shutdown, app.middleware.on_shutdown],
-        )
+        # Check events. Framework lifecycle (modules + middleware) is no longer merged into the user events register;
+        # it is orchestrated by the Lifespan as a barrier around user handlers (see flama/lifespan.py).
+        assert app.events == Events(startup=[], shutdown=[])
 
     def test_getattr(self, app):
         for name, module in app.modules.items():

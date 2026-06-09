@@ -19,6 +19,7 @@ class Lifespan(types.ASGIAppClass):
         """
         self.lifespan = lifespan
         self.lock = asyncio.Lock()
+        self._context: t.AsyncContextManager | None = None
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Handles a lifespan request by initialising and finalising all modules and running a user defined lifespan.
@@ -75,18 +76,35 @@ class Lifespan(types.ASGIAppClass):
             logger.debug("End lifespan for app '%s' with status '%s'", app, app.status)
 
     async def _startup(self, app: types.App) -> None:
+        # Initialise the framework lifecycle first, as a barrier: modules then middleware. User startup handlers
+        # (run concurrently below) and the user lifespan execute strictly afterwards, so they can rely on fully
+        # initialised modules -- e.g. the engine created by ``SQLAlchemyModule.on_startup``. Running everything in a
+        # single task group instead would race module init against user handlers.
+        await app.modules.on_startup()
+        await app.middleware.on_startup()
+
         if app.events.startup:
             await concurrency.run_task_group(*(f() for f in app.events.startup))
 
         if self.lifespan:
-            await self.lifespan(app).__aenter__()
+            # Keep a reference to the entered context manager so shutdown exits this very same
+            # instance. Calling the lifespan factory again would create a fresh context manager and
+            # break the canonical ``@contextlib.asynccontextmanager`` pattern (its generator would be
+            # re-run from the start on exit).
+            self._context = self.lifespan(app)
+            await self._context.__aenter__()
 
     async def _shutdown(self, app: types.App) -> None:
-        if self.lifespan:
-            await self.lifespan(app).__aexit__(None, None, None)
+        if self.lifespan and self._context is not None:
+            context, self._context = self._context, None
+            await context.__aexit__(None, None, None)
 
         if app.events.shutdown:
             await concurrency.run_task_group(*(f() for f in app.events.shutdown))
+
+        # Tear down the framework lifecycle last and in reverse order (middleware then modules), mirroring startup.
+        await app.middleware.on_shutdown()
+        await app.modules.on_shutdown()
 
     async def _child_propagation(self, app: types.App, scope: types.Scope, message: types.Message) -> None:
         async def child_receive() -> types.Message:
