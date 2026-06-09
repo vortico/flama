@@ -1,0 +1,69 @@
+name: Setup
+description: >
+  Set up the Flama toolchain (Node, uv, Rust) and install the project. When GCP
+  Workload Identity Federation credentials are provided, templates are built from
+  the private @vortico/ui registry; otherwise the public template path is used.
+
+inputs:
+  python-version:
+    description: Python version to install with uv.
+    required: true
+  gcp-workload-identity-provider:
+    description: GCP Workload Identity Provider resource. Empty disables the private template path.
+    required: false
+    default: ""
+  gcp-service-account:
+    description: GCP service account email to impersonate. Empty disables the private template path.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with:
+        node-version: 22
+
+    - name: Enable Corepack
+      shell: bash
+      run: corepack enable
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      with:
+        python-version: ${{ inputs.python-version }}
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+    - name: Cache Rust
+      uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      with:
+        workspaces: lib/core
+
+    # Core-team / same-repo runs authenticate via Workload Identity Federation to build the
+    # private @vortico/ui templates. Fork PRs (and any repo without these secrets) get no
+    # OIDC token, so they fall back to the public template path below instead of failing.
+    - name: Authenticate to Google Cloud
+      if: ${{ inputs.gcp-workload-identity-provider != '' && inputs.gcp-service-account != '' }}
+      uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
+      with:
+        workload_identity_provider: ${{ inputs.gcp-workload-identity-provider }}
+        service_account: ${{ inputs.gcp-service-account }}
+
+    - name: Set up Cloud SDK
+      if: ${{ inputs.gcp-workload-identity-provider != '' && inputs.gcp-service-account != '' }}
+      uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
+
+    - name: Install project (private templates)
+      if: ${{ inputs.gcp-workload-identity-provider != '' && inputs.gcp-service-account != '' }}
+      shell: bash
+      run: ./scripts/install --with-templates
+
+    - name: Install project (public templates)
+      if: ${{ inputs.gcp-workload-identity-provider == '' || inputs.gcp-service-account == '' }}
+      shell: bash
+      run: ./scripts/install

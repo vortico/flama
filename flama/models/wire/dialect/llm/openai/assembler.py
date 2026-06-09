@@ -21,7 +21,7 @@ class OpenAIAssembleKwargs(t.TypedDict, total=False):
     generation_id: uuid.UUID | None
 
 
-class OpenAIAssembler(Assembler[OpenAIAssembleKwargs]):
+class OpenAIAssembler(Assembler):
     """L2 -> OpenAI buffered envelope strategy.
 
     Dispatches on the *api* discriminator: ``"chat"`` -> ``chat.completion``; ``"completion"`` ->
@@ -46,7 +46,9 @@ class OpenAIAssembler(Assembler[OpenAIAssembleKwargs]):
     }
 
     @classmethod
-    def envelope(
+    # Concrete envelopes deliberately require dialect identity kwargs (``api``/``model``), so they narrow the
+    # base ``**kwargs: Any`` to a TypedDict-unpacked signature. That strengthening is intentional and not LSP.
+    def envelope(  # ty: ignore[invalid-method-override]
         cls,
         events: tuple[Event, ...],
         /,

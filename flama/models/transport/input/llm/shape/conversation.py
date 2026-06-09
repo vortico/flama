@@ -14,7 +14,7 @@ __all__ = ["Conversation"]
 
 
 @dataclasses.dataclass(frozen=True)
-class Conversation(Shape[_ShapeRenderKwargs]):
+class Conversation(Shape):
     """Multi-turn conversation input.
 
     The backend's chat template is applied to the full ``messages`` tuple to produce the engine

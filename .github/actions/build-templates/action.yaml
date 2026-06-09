@@ -1,0 +1,40 @@
+name: Build templates
+description: >
+  Authenticate to GCP via Workload Identity Federation and build the private
+  @vortico/ui templates from source into lib/templates. Strict by design: used by
+  release artifact jobs that must bundle the real templates, so it fails loudly
+  when credentials are missing.
+
+inputs:
+  gcp-workload-identity-provider:
+    description: GCP Workload Identity Provider resource.
+    required: true
+  gcp-service-account:
+    description: GCP service account email to impersonate.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with:
+        node-version: 22
+
+    - name: Enable Corepack
+      shell: bash
+      run: corepack enable
+
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
+      with:
+        token_format: access_token
+        workload_identity_provider: ${{ inputs.gcp-workload-identity-provider }}
+        service_account: ${{ inputs.gcp-service-account }}
+
+    - name: Build templates
+      shell: bash
+      run: cd lib/templates && pnpm install && pnpm build
+      env:
+        ARTIFACT_REGISTRY_TOKEN: ${{ steps.auth.outputs.access_token }}

@@ -15,7 +15,7 @@ class OllamaAssembleKwargs(t.TypedDict, total=False):
     model: compat.Required[str]
 
 
-class OllamaAssembler(Assembler[OllamaAssembleKwargs]):
+class OllamaAssembler(Assembler):
     """L2 -> Ollama buffered envelope strategy.
 
     Dispatches on the *api* discriminator: ``"chat"`` -> ``/api/chat`` envelope; ``"generate"`` ->
@@ -35,7 +35,9 @@ class OllamaAssembler(Assembler[OllamaAssembleKwargs]):
     }
 
     @classmethod
-    def envelope(
+    # Concrete envelopes deliberately require dialect identity kwargs (``api``/``model``), so they narrow the
+    # base ``**kwargs: Any`` to a TypedDict-unpacked signature. That strengthening is intentional and not LSP.
+    def envelope(  # ty: ignore[invalid-method-override]
         cls,
         events: tuple[Event, ...],
         /,

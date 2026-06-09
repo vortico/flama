@@ -1,7 +1,6 @@
 import abc
 import typing as t
 
-from flama import compat
 from flama.models.exceptions import LLMGenerationError
 from flama.models.transport.input.llm.message import (
     AssistantMessage,
@@ -25,28 +24,7 @@ _T = t.TypeVar("_T")
 _W = t.TypeVar("_W")
 _ParserKind: t.TypeAlias = t.Literal["messages", "tools"]
 _CoalescingState: t.TypeAlias = t.Literal["idle", "buffering"]
-
-
-class _RenderKwargs(t.TypedDict, total=False):
-    """Marker base for per-dialect render kwargs TypedDicts.
-
-    Subclasses declare the dialect-specific keyword shape consumed by :meth:`Dialect.render`. Empty body so
-    every concrete render-kwargs TypedDict starts from a clean payload; the inheritance only exists to bind
-    the :data:`_RK` TypeVar.
-    """
-
-
-class _AssembleKwargs(t.TypedDict, total=False):
-    """Marker base for per-dialect assemble kwargs TypedDicts.
-
-    Subclasses declare the dialect-specific keyword shape consumed by :meth:`Dialect.assemble`. Empty body so
-    every concrete assemble-kwargs TypedDict starts from a clean payload; the inheritance only exists to
-    bind the :data:`_AK` TypeVar.
-    """
-
-
-_RK = t.TypeVar("_RK", bound=_RenderKwargs)
-_AK = t.TypeVar("_AK", bound=_AssembleKwargs)
+EventSource: t.TypeAlias = t.Iterable[Event] | t.AsyncIterable[Event]
 
 
 class Parser(abc.ABC):
@@ -380,7 +358,7 @@ class CoalescingRenderer(Renderer[Event]):
             self._buffer = []
 
 
-class Assembler(abc.ABC, t.Generic[_AK]):
+class Assembler(abc.ABC):
     """Transport to wire buffered envelope strategy (L2 -> L1, single shot).
 
     Symmetric to :class:`Parser` (L1 -> L2 input) and :class:`Renderer` (L2 -> L1 streaming output).
@@ -394,9 +372,9 @@ class Assembler(abc.ABC, t.Generic[_AK]):
     wire has no buffered shape (e.g. the native channel-tagged stream) implement :meth:`envelope` to raise
     :class:`NotImplementedError`.
 
-    The generic parameter ``_AK`` is the dialect-specific :class:`~typing.TypedDict` describing the kwargs
-    accepted by :meth:`envelope`; type-checked through PEP 692 ``Unpack`` on
-    :meth:`Dialect.assemble`'s ``**kwargs``.
+    The abstract :meth:`envelope` types its ``**kwargs`` as :data:`~typing.Any`; concrete assemblers narrow it
+    to a dialect-specific :class:`~typing.TypedDict` via PEP 692 ``Unpack`` (the concrete TypedDict can only be
+    named on the override, not funnelled through a base TypeVar).
     """
 
     @classmethod
@@ -408,7 +386,7 @@ class Assembler(abc.ABC, t.Generic[_AK]):
         *,
         start: StartEvent,
         stop: StopEvent,
-        **kwargs: compat.Unpack[_AK],
+        **kwargs: t.Any,
     ) -> dict[str, t.Any]:
         """Translate a drained event tuple into the dialect's buffered envelope dict.
 
@@ -417,14 +395,15 @@ class Assembler(abc.ABC, t.Generic[_AK]):
             markers / traces).
         :param start: Captured opening lifecycle marker; carries ``input_tokens`` for usage tallies.
         :param stop: Captured terminal lifecycle marker; carries ``stop_reason`` and ``output_tokens``.
-        :param kwargs: Dialect-specific kwargs typed by ``_AK`` (envelope identity, mode flags, ...).
+        :param kwargs: Dialect-specific kwargs narrowed by the concrete override's ``Unpack[TypedDict]``
+            (envelope identity, mode flags, ...).
         :return: JSON-serialisable envelope dict matching the dialect's wire schema.
         :raises NotImplementedError: When the dialect has no buffered envelope shape.
         """
         ...
 
 
-class Dialect(abc.ABC, t.Generic[_W, _RK, _AK]):
+class Dialect(abc.ABC, t.Generic[_W]):
     """Wire to transport bridge (L1 <-> L2 façade).
 
     Concrete dialects bind three strategies as class-level :class:`~typing.ClassVar` declarations and
@@ -434,17 +413,15 @@ class Dialect(abc.ABC, t.Generic[_W, _RK, _AK]):
     - :attr:`RENDERER` -> a :class:`Renderer` subclass (L2 -> L1 streaming output).
     - :attr:`ASSEMBLER` -> an :class:`Assembler` subclass (L2 -> L1 buffered envelope construction).
 
-    The base :meth:`parse`, :meth:`render`, and :meth:`assemble` methods are concrete relays into the bound
-    strategies; concrete dialects do not override them. The dialect façade is a pure declaration of the
-    binding, not a behaviour declaration.
+    :meth:`parse` is a concrete relay shared by every dialect. The render / assemble behaviour lives in the
+    :meth:`_render` / :meth:`_assemble` cores here; each concrete dialect exposes them through a thin typed
+    ``render`` / ``assemble`` classmethod that names the dialect's render / assemble kwargs
+    :class:`~typing.TypedDict` via PEP 692 ``Unpack`` (the concrete TypedDict can only be named on the
+    dialect, not funnelled through a base TypeVar).
 
-    The generic parameters are:
-
-    - ``_W``: wire frame type emitted by :meth:`render`
-      (e.g. :class:`~flama.http.responses.sse.ServerSentEvent` for SSE dialects,
-      :data:`~flama.types.JSONSchema` for NDJSON dialects).
-    - ``_RK``: dialect-specific :class:`~typing.TypedDict` describing the kwargs accepted by :meth:`render`.
-    - ``_AK``: dialect-specific :class:`~typing.TypedDict` describing the kwargs accepted by :meth:`assemble`.
+    The generic parameter ``_W`` is the wire frame type emitted by ``render``
+    (e.g. :class:`~flama.http.responses.sse.ServerSentEvent` for SSE dialects,
+    :data:`~flama.types.JSONSchema` for NDJSON dialects).
     """
 
     PARSER: t.ClassVar[type[Parser]]
@@ -491,41 +468,36 @@ class Dialect(abc.ABC, t.Generic[_W, _RK, _AK]):
         return cls.PARSER.parse(value, kind=kind)
 
     @classmethod
-    def render(
-        cls,
-        source: t.Iterable[Event] | t.AsyncIterable[Event],
-        /,
-        **kwargs: compat.Unpack[_RK],
-    ) -> t.AsyncIterator[_W]:
+    def _render(cls, source: EventSource, options: t.Mapping[str, t.Any]) -> t.AsyncIterator[_W]:
         """Project an :class:`~flama.models.Event` source as a stream of wire frames.
 
-        Constructs a fresh :attr:`RENDERER` from *kwargs* (which match the dialect-bound ``_RK`` TypedDict)
-        and drives it through :class:`~flama.models.transport.output.llm.buffer.EventBuffer`. The method is
-        synchronous and returns an :class:`~typing.AsyncIterator` so callers can drive it with ``async for``
+        Core relay behind each dialect's typed ``render``. Constructs a fresh :attr:`RENDERER` from *options*
+        and drives it through :class:`~flama.models.transport.output.llm.buffer.EventBuffer`. Returns an
+        :class:`~typing.AsyncIterator` (without being a coroutine) so callers can drive it with ``async for``
         directly.
 
         :param source: Sync or async iterable of :class:`~flama.models.Event` blocks (lists, generators, or a
             :class:`~flama.models.streams.StreamBuffer`).
+        :param options: Render kwargs forwarded verbatim to the :attr:`RENDERER` constructor; the public
+            ``render`` of each dialect types them through its render-kwargs :class:`~typing.TypedDict`.
         :return: Async iterator yielding wire frames of type ``_W``.
         """
-        return EventBuffer(source, cls.RENDERER(**kwargs))
+        return EventBuffer(source, cls.RENDERER(**options))
 
     @classmethod
-    async def assemble(
-        cls,
-        source: t.Iterable[Event] | t.AsyncIterable[Event],
-        /,
-        **kwargs: compat.Unpack[_AK],
-    ) -> dict[str, t.Any]:
+    async def _assemble(cls, source: EventSource, options: t.Mapping[str, t.Any]) -> dict[str, t.Any]:
         """Project an :class:`~flama.models.Event` source as a single buffered envelope.
 
-        Drains *source* through :class:`~flama.models.transport.output.llm.buffer.EventBuffer` with a
-        :class:`CoalescingRenderer`, raises :class:`~flama.models.exceptions.LLMGenerationError` on
-        mid-stream failure (terminal :class:`~flama.models.StopEvent` carries ``stop_reason='error'``), and
-        relays the drained event tuple plus captured lifecycle markers to :attr:`ASSEMBLER`'s
-        :meth:`Assembler.envelope` for dialect-specific envelope construction.
+        Core relay behind each dialect's typed ``assemble``. Drains *source* through
+        :class:`~flama.models.transport.output.llm.buffer.EventBuffer` with a :class:`CoalescingRenderer`,
+        raises :class:`~flama.models.exceptions.LLMGenerationError` on mid-stream failure (terminal
+        :class:`~flama.models.StopEvent` carries ``stop_reason='error'``), and relays the drained event tuple
+        plus captured lifecycle markers to :attr:`ASSEMBLER`'s :meth:`Assembler.envelope` for dialect-specific
+        envelope construction.
 
         :param source: Sync or async iterable of :class:`~flama.models.Event` blocks.
+        :param options: Assemble kwargs forwarded verbatim to :meth:`Assembler.envelope`; the public
+            ``assemble`` of each dialect types them through its assemble-kwargs :class:`~typing.TypedDict`.
         :return: JSON-serialisable envelope dict matching the dialect's wire schema.
         :raises ~flama.models.exceptions.LLMGenerationError: Generation failed mid-stream.
         :raises NotImplementedError: When the dialect has no buffered envelope shape (e.g. the native
@@ -535,4 +507,4 @@ class Dialect(abc.ABC, t.Generic[_W, _RK, _AK]):
         events = await buffer.assemble()
         if buffer.stop.stop_reason == "error":
             raise LLMGenerationError()
-        return cls.ASSEMBLER.envelope(events, start=buffer.start, stop=buffer.stop, **kwargs)
+        return cls.ASSEMBLER.envelope(events, start=buffer.start, stop=buffer.stop, **options)

@@ -12,7 +12,7 @@ __all__ = ["Raw"]
 
 
 @dataclasses.dataclass(frozen=True)
-class Raw(Shape[_ShapeRenderKwargs]):
+class Raw(Shape):
     """Untemplated input. The prompt is sent verbatim to the engine.
 
     The tokenizer adds the BOS token via its default ``add_special_tokens=True``; no chat template

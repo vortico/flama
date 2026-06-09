@@ -33,7 +33,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
         annotation: t.Any = type_
 
         if multiple:
-            annotation = list[annotation]  # ty: ignore[invalid-type-form]
+            annotation = list[annotation]
 
         if nullable:
             annotation = annotation | None

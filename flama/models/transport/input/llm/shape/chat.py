@@ -14,7 +14,7 @@ __all__ = ["Chat"]
 
 
 @dataclasses.dataclass(frozen=True)
-class Chat(Shape[_ShapeRenderKwargs]):
+class Chat(Shape):
     """Single-turn chat input with an optional system instruction.
 
     The backend's chat template is applied to ``[system?, user(prompt)]`` to produce the engine

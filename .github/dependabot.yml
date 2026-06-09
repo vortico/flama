@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Keep SHA-pinned GitHub Actions (workflows and local composite actions) current.
+  - package-ecosystem: github-actions
+    directories:
+      - "/"
+      - "/.github/actions/setup"
+      - "/.github/actions/build-templates"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
+    # Trailing space is required: Dependabot only auto-inserts a colon when the prefix ends
+    # in a letter/number/bracket, so ":arrow_up: " yields the gitmoji-compatible
+    # ":arrow_up: Bump ..." that commitlint expects (type + space + sentence-case subject).
+    commit-message:
+      prefix: ":arrow_up: "

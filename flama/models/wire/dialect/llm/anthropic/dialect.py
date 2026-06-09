@@ -3,7 +3,7 @@ import uuid
 
 from flama import compat
 from flama.http.responses.sse import ServerSentEvent
-from flama.models.wire.dialect.base import Dialect
+from flama.models.wire.dialect.base import Dialect, EventSource
 from flama.models.wire.dialect.llm.anthropic.assembler import AnthropicAssembleKwargs, AnthropicAssembler
 from flama.models.wire.dialect.llm.anthropic.parser import AnthropicParser
 from flama.models.wire.dialect.llm.anthropic.renderer import AnthropicRenderer
@@ -23,7 +23,7 @@ class AnthropicRenderKwargs(t.TypedDict, total=False):
     generation_id: uuid.UUID | None
 
 
-class AnthropicDialect(Dialect[ServerSentEvent, AnthropicRenderKwargs, AnthropicAssembleKwargs]):
+class AnthropicDialect(Dialect[ServerSentEvent]):
     """Anthropic-compatible wire dialect.
 
     Binds three strategies that drive the :class:`~flama.models.wire.dialect.base.Dialect` façade:
@@ -38,3 +38,17 @@ class AnthropicDialect(Dialect[ServerSentEvent, AnthropicRenderKwargs, Anthropic
     PARSER = AnthropicParser
     RENDERER = AnthropicRenderer
     ASSEMBLER = AnthropicAssembler
+
+    @classmethod
+    def render(
+        cls, source: EventSource, /, **kwargs: compat.Unpack[AnthropicRenderKwargs]
+    ) -> t.AsyncIterator[ServerSentEvent]:
+        """Typed façade over :meth:`Dialect._render` naming the Anthropic render kwargs (``model``, ...)."""
+        return cls._render(source, kwargs)
+
+    @classmethod
+    async def assemble(
+        cls, source: EventSource, /, **kwargs: compat.Unpack[AnthropicAssembleKwargs]
+    ) -> dict[str, t.Any]:
+        """Typed façade over :meth:`Dialect._assemble` naming the Anthropic assemble kwargs."""
+        return await cls._assemble(source, kwargs)
