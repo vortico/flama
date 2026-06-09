@@ -119,10 +119,11 @@ class Flama(types.App):
         # Add schema routes
         self.schema.add_routes()
 
-        # Build events register including module and middleware events
+        # Build events register. Only user-defined handlers live here; the framework lifecycle (modules and
+        # middleware) is orchestrated by the Lifespan as a barrier *around* these handlers (see flama/lifespan.py).
+        # This guarantees user startup handlers (and the user lifespan) run after modules are initialised, so they can
+        # safely depend on them (e.g. accessing the engine created by ``SQLAlchemyModule.on_startup``).
         self.events = events if isinstance(events, Events) else Events.build(**(events or {}))
-        self.events.startup += [self.modules.on_startup, self.middleware.on_startup]
-        self.events.shutdown += [self.modules.on_shutdown, self.middleware.on_shutdown]
 
         # Reference to paginator from within app
         self.paginator = paginator
