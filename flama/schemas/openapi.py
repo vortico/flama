@@ -547,8 +547,9 @@ class OpenAPISchemaRegistry(SchemaRegistry):
         }
         used_schemas = {id_: schema for id_, schema in self.items() if schema.name in refs}
 
-        # Get schemas from references in schema
+        # Get schemas from references in schema, guarding against reference cycles (recursive/self-referencing schemas)
         partial_schemas = set(used_schemas.values())
+        seen: set[SchemaInfo] = set(partial_schemas)
         refs = set([])
         while partial_schemas:
             schema = partial_schemas.pop()
@@ -556,18 +557,23 @@ class OpenAPISchemaRegistry(SchemaRegistry):
                 ref.split("/")[-1]
                 for ref in self._get_schema_references_from_schema(Schema(schema.json_schema(self.names)))
             }
-            partial_schemas |= {schema for schema in self.values() if schema.name in refs_from_schema}
             refs |= refs_from_schema
+            discovered = {s for s in self.values() if s.name in refs_from_schema and s not in seen}
+            partial_schemas |= discovered
+            seen |= discovered
         used_schemas |= {id_: schema for id_, schema in self.items() if schema.name in refs}
 
-        # Get schemas from schema children
+        # Get schemas from schema children, guarding against cycles so recursive schemas do not loop forever
         partial_schemas = set(used_schemas.values())
+        seen = set(partial_schemas)
         while partial_schemas:
-            for schema in (
-                ds.Schema(s).unique_schema for s in ds.Schema(partial_schemas.pop().schema).nested_schemas()
-            ):
-                partial_schemas.add(self[schema])
-                used_schemas[id(schema)] = self[schema]
+            current = partial_schemas.pop()
+            for schema in (ds.Schema(s).unique_schema for s in ds.Schema(current.schema).nested_schemas()):
+                info = self[schema]
+                used_schemas[id(schema)] = info
+                if info not in seen:
+                    seen.add(info)
+                    partial_schemas.add(info)
 
         return used_schemas
 

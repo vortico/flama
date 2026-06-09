@@ -1,4 +1,5 @@
 import dataclasses
+import threading
 import typing as t
 from collections import namedtuple
 from unittest.mock import patch
@@ -8,6 +9,13 @@ import pydantic
 import pytest
 import typesystem
 import typesystem.fields
+
+
+class _RecursiveNode(pydantic.BaseModel):
+    """A self-referencing model used to assert OpenAPI generation does not loop on recursive schemas."""
+
+    id: int
+    children: list["_RecursiveNode"] = []
 
 from flama import Flama, types
 from flama.endpoints import HTTPEndpoint
@@ -2166,3 +2174,30 @@ class TestCaseSchemaGenerator:
 
         assert api_schema["paths"] == {}
         assert any("Cannot generate schema for endpoint" in record.message for record in caplog_flama.records)
+
+    def test_get_api_schema_recursive_schema_terminates(self, app):
+        """A self-referencing (recursive) schema must not loop forever while collecting used schemas."""
+        if app.schema.schema_library.name != "pydantic":
+            pytest.skip("Recursive-model regression is exercised through the pydantic library")
+
+        @app.route("/nodes/", methods=["GET"])
+        def list_nodes() -> t.Annotated[types.SchemaList, types.SchemaMetadata(_RecursiveNode)]:
+            ...  # pragma: no cover
+
+        # Run generation in a worker thread so an infinite-loop regression fails fast instead of hanging the suite.
+        result: dict[str, t.Any] = {}
+
+        def run() -> None:
+            result["schema"] = app.schema.schema
+
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
+        worker.join(timeout=10)
+
+        assert not worker.is_alive(), "OpenAPI generation for a recursive schema did not terminate"
+
+        schemas = result["schema"]["components"]["schemas"]
+        node_key = next(k for k in schemas if k.split(".")[-1] == "_RecursiveNode")
+        assert "_RecursiveNode" in node_key
+        # The recursive model references itself within the generated component schema.
+        assert "_RecursiveNode" in str(schemas[node_key])
