@@ -1,4 +1,5 @@
 import datetime
+import decimal
 
 import pytest
 
@@ -21,6 +22,11 @@ class TestCaseParamsValidation:
         @app.route("/float-path-param/{param}/")
         def float_path_param(param: float):
             assert isinstance(param, float)
+            return {"param": param}
+
+        @app.route("/decimal-path-param/{param}/")
+        def decimal_path_param(param: decimal.Decimal):
+            assert isinstance(param, decimal.Decimal)
             return {"param": param}
 
         @app.route("/bool-path-param/{param}/")
@@ -60,6 +66,11 @@ class TestCaseParamsValidation:
             assert isinstance(param, float)
             return {"param": param}
 
+        @app.route("/decimal-query-param/")
+        def decimal_query_param(param: decimal.Decimal):
+            assert isinstance(param, decimal.Decimal)
+            return {"param": param}
+
         @app.route("/bool-query-param/")
         def bool_query_param(param: bool):
             assert isinstance(param, bool)
@@ -95,6 +106,11 @@ class TestCaseParamsValidation:
         @app.route("/float-query-param-with_default/")
         def float_query_param_with_default(param: float = 0.0):
             assert isinstance(param, float)
+            return {"param": param}
+
+        @app.route("/decimal-query-param-with_default/")
+        def decimal_query_param_with_default(param: decimal.Decimal = decimal.Decimal("0.0")):
+            assert isinstance(param, decimal.Decimal)
             return {"param": param}
 
         @app.route("/bool-query-param-with_default/")
@@ -134,6 +150,11 @@ class TestCaseParamsValidation:
             assert param is None
             return {"param": param}
 
+        @app.route("/decimal-query-param-optional/")
+        def decimal_query_param_optional(param: decimal.Decimal | None = None):
+            assert param is None
+            return {"param": param}
+
         @app.route("/bool-query-param-optional/")
         def bool_query_param_optional(param: bool | None = None):
             assert param is None
@@ -166,6 +187,7 @@ class TestCaseParamsValidation:
             pytest.param("/str-path-param/123/", "123", id="str-path-param"),
             pytest.param("/int-path-param/123/", 123, id="int-path-param"),
             pytest.param("/float-path-param/123.321/", 123.321, id="float-path-param"),
+            pytest.param("/decimal-path-param/123.45/", 123.45, id="decimal-path-param"),
             pytest.param("/bool-path-param/true/", True, id="bool-path-param"),
             pytest.param(
                 "/datetime-path-param/2018-01-01T00:00:00+00:00/", "2018-01-01T00:00:00+00:00", id="datetime-path-param"
@@ -184,6 +206,7 @@ class TestCaseParamsValidation:
             pytest.param("/str-query-param/", "123", id="str-query-param"),
             pytest.param("/int-query-param/", 123, id="int-query-param"),
             pytest.param("/float-query-param/", 123.321, id="float-query-param"),
+            pytest.param("/decimal-query-param/", 123.45, id="decimal-query-param"),
             pytest.param("/bool-query-param/", True, id="bool-query-param"),
             pytest.param("/datetime-query-param/", "2018-01-01T00:00:00", id="datetime-query-param"),
             pytest.param("/date-query-param/", "2018-01-01", id="date-query-param"),
@@ -200,6 +223,7 @@ class TestCaseParamsValidation:
             pytest.param("/str-query-param-with_default/", "Foo", id="str-query-param-with-default"),
             pytest.param("/int-query-param-with_default/", 0, id="int-query-param-with-default"),
             pytest.param("/float-query-param-with_default/", 0.0, id="float-query-param-with-default"),
+            pytest.param("/decimal-query-param-with_default/", 0.0, id="decimal-query-param-with-default"),
             pytest.param("/bool-query-param-with_default/", False, id="bool-query-param-with-default"),
             pytest.param(
                 "/datetime-query-param-with_default/", "2018-01-01T00:00:00", id="datetime-query-param-with-default"
@@ -218,6 +242,7 @@ class TestCaseParamsValidation:
             pytest.param("/str-query-param-optional/", id="str-query-param-optional"),
             pytest.param("/int-query-param-optional/", id="int-query-param-optional"),
             pytest.param("/float-query-param-optional/", id="float-query-param-optional"),
+            pytest.param("/decimal-query-param-optional/", id="decimal-query-param-optional"),
             pytest.param("/bool-query-param-optional/", id="bool-query-param-optional"),
             pytest.param("/datetime-query-param-optional/", id="datetime-query-param-optional"),
             pytest.param("/date-query-param-optional/", id="date-query-param-optional"),

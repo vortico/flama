@@ -16,6 +16,7 @@ use std::io::Write;
 struct TypeCache {
     enum_type: Py<PyAny>,
     uuid_type: Py<PyAny>,
+    decimal_type: Py<PyAny>,
     timedelta_type: Py<PyAny>,
     datetime_type: Py<PyAny>,
     date_type: Py<PyAny>,
@@ -48,6 +49,7 @@ impl TypeCache {
         Ok(Self {
             enum_type: py.import("enum")?.getattr("Enum")?.unbind(),
             uuid_type: py.import("uuid")?.getattr("UUID")?.unbind(),
+            decimal_type: py.import("decimal")?.getattr("Decimal")?.unbind(),
             timedelta_type: datetime_mod.getattr("timedelta")?.unbind(),
             datetime_type: datetime_mod.getattr("datetime")?.unbind(),
             date_type: datetime_mod.getattr("date")?.unbind(),
@@ -288,6 +290,20 @@ impl JsonEncoder {
 
         if obj.is_instance(types.uuid_type.bind(py))? {
             self.encode_string(obj.str()?.to_str()?);
+            return Ok(());
+        }
+
+        if obj.is_instance(types.decimal_type.bind(py))? {
+            // Emit `Decimal` as a bare JSON number (no quotes): its `str()` is already a valid JSON numeric
+            // literal and preserves full precision. Non-finite values (NaN/Infinity) have no JSON representation,
+            // mirroring the float handling above.
+            if !obj.call_method0("is_finite")?.is_truthy()? {
+                return Err(PyValueError::new_err(
+                    "Out of range decimal values are not JSON compliant",
+                ));
+            }
+            let s = obj.str()?;
+            self.buf.extend_from_slice(s.to_str()?.as_bytes());
             return Ok(());
         }
 

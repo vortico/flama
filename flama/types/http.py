@@ -1,5 +1,6 @@
 import dataclasses
 import datetime
+import decimal
 import typing as t
 import uuid
 
@@ -69,6 +70,7 @@ PARAMETERS_TYPES: dict[type, type] = {
     str: str,
     bool: bool,
     uuid.UUID: uuid.UUID,
+    decimal.Decimal: decimal.Decimal,
     datetime.date: datetime.date,
     datetime.datetime: datetime.datetime,
     datetime.time: datetime.time,

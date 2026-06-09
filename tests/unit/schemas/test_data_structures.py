@@ -1,4 +1,5 @@
 import datetime
+import decimal
 import functools
 import typing as t
 import uuid
@@ -82,6 +83,7 @@ class TestCaseField:
             pytest.param(str, True, id="str"),
             pytest.param(bool, True, id="bool"),
             pytest.param(uuid.UUID, True, id="uuid"),
+            pytest.param(decimal.Decimal, True, id="decimal"),
             pytest.param(datetime.date, True, id="date"),
             pytest.param(datetime.time, True, id="date"),
             pytest.param(datetime.datetime, True, id="datetime"),

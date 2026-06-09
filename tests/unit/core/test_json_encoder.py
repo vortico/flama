@@ -1,5 +1,6 @@
 import dataclasses
 import datetime
+import decimal
 import enum
 import json
 import pathlib
@@ -78,6 +79,23 @@ class TestCaseEncodeJson:
             pytest.param(datetime.timedelta(microseconds=500), {}, b'"P.0005S"', None, id="timedelta_subsecond"),
             pytest.param(datetime.timedelta(days=5), {}, b'"P5D"', None, id="timedelta_days_only"),
             pytest.param(datetime.timedelta(days=-1), {}, b'"P-1D"', None, id="timedelta_negative"),
+            pytest.param(decimal.Decimal("3.14"), {}, b"3.14", None, id="decimal"),
+            pytest.param(decimal.Decimal("10"), {}, b"10", None, id="decimal_integer"),
+            pytest.param(decimal.Decimal("-0.001"), {}, b"-0.001", None, id="decimal_negative"),
+            pytest.param(
+                decimal.Decimal("123456789012345678901234567890.123"),
+                {},
+                b"123456789012345678901234567890.123",
+                None,
+                id="decimal_high_precision",
+            ),
+            pytest.param(
+                {"price": decimal.Decimal("9.99")},
+                {"compact": True},
+                b'{"price":9.99}',
+                None,
+                id="decimal_nested",
+            ),
             pytest.param(Color.RED, {}, b'"red"', None, id="enum"),
             pytest.param(b"hello", {}, b'"hello"', None, id="bytes"),
             pytest.param(bytearray(b"hello"), {}, b'"hello"', None, id="bytearray"),
@@ -124,6 +142,20 @@ class TestCaseEncodeJson:
             ),
             pytest.param(
                 float("inf"), {}, None, ValueError("Out of range float values are not JSON compliant"), id="error_inf"
+            ),
+            pytest.param(
+                decimal.Decimal("NaN"),
+                {},
+                None,
+                ValueError("Out of range decimal values are not JSON compliant"),
+                id="error_decimal_nan",
+            ),
+            pytest.param(
+                decimal.Decimal("Infinity"),
+                {},
+                None,
+                ValueError("Out of range decimal values are not JSON compliant"),
+                id="error_decimal_inf",
             ),
             pytest.param(
                 object(),
