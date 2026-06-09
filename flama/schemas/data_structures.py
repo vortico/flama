@@ -34,10 +34,11 @@ class Field:
     def __post_init__(self) -> None:
         object.__setattr__(self, "nullable", type(None) in t.get_args(self.type) or self.default is None)
 
-        field_type = t.get_args(self.type)[0] if t.get_origin(self.type) in (t.Union, UnionType) else self.type
+        origin = t.get_origin(self.type)
+        field_type = t.get_args(self.type)[0] if origin in (t.Union, UnionType, list) else self.type
 
         if not Schema.is_schema(field_type) and self.multiple is None:
-            object.__setattr__(self, "multiple", t.get_origin(self.type) is list)
+            object.__setattr__(self, "multiple", origin is list)
 
         object.__setattr__(
             self,

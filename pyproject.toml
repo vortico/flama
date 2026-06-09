@@ -239,6 +239,8 @@ replace-imports-with-any = [
   "transformers.**",
   "vllm",
   "vllm.**",
+  "mlx",
+  "mlx.**",
   "mlx_lm",
   "mlx_lm.**",
   "mlx_vlm",

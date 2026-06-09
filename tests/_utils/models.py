@@ -49,7 +49,7 @@ class ModelFactory:
             "sklearn-pipeline": ("sklearn", "ml", ["sklearn", "numpy"], self._sklearn_pipeline),
             "tensorflow": ("tensorflow", "ml", ["tensorflow", "numpy"], self._tensorflow),
             "torch": ("torch", "ml", ["torch", "numpy"], self._torch),
-            "transformers": ("transformers", "ml", ["transformers"], self._transformers),
+            "transformers": ("transformers", "ml", ["transformers", "torch"], self._transformers),
         }
 
         self._models = {}
