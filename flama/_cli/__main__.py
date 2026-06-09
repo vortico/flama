@@ -5,6 +5,7 @@ from flama._cli.commands.model import command as model_command
 from flama._cli.commands.run import command as run_command
 from flama._cli.commands.serve import command as serve_command
 from flama._cli.commands.start import command as start_command
+from flama._cli.commands.upgrade import command as upgrade_command
 from flama._cli.formatting import FlamaGroup
 
 
@@ -25,6 +26,7 @@ cli.add_command(run_command)
 cli.add_command(serve_command)
 cli.add_command(start_command)
 cli.add_command(model_command)
+cli.add_command(upgrade_command)
 
 
 if __name__ == "__main__":
