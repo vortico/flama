@@ -14,9 +14,17 @@ class BrotliCodec(CompressionCodec):
     encoding = "br"
 
     def __init__(self, quality: int = 4, lgwin: int = 22) -> None:
-        self._compressor = Compressor("brotli", quality=quality, lgwin=lgwin)
+        self._quality = quality
+        self._lgwin = lgwin
+        self._compressor: Compressor | None = None
+
+    def spawn(self) -> "BrotliCodec":
+        return BrotliCodec(quality=self._quality, lgwin=self._lgwin)
 
     async def decode(self, item: tuple[bytes, bool], **options) -> bytes:
         body, finish = item
+
+        if self._compressor is None:
+            self._compressor = Compressor("brotli", quality=self._quality, lgwin=self._lgwin)
 
         return self._compressor.compress(body, finish)

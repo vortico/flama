@@ -1,16 +1,22 @@
 # Benchmark Results
 
-End-to-end performance benchmarks for the Flama framework. Every test builds
-a full Flama application and measures real HTTP request/response cycles via
-ASGI transport.
+Performance benchmarks for the Flama framework. Most tests build a full
+Flama application and measure real HTTP request/response cycles via ASGI
+transport; a few exercise CPU-bound components (serialization, tool-call
+parsing) directly.
 
 | Group | What it measures |
 | ----- | ---------------- |
 | json | JSON serialization latency at different payload sizes |
 | routing | Request latency as route table size grows (10/50/200 routes) |
-| schema | Pydantic input validation and output serialization overhead |
+| schema | Pydantic validation, output serialization, and OpenAPI generation |
 | injection | Dependency injection resolution at different chain depths |
 | middleware | Per-request cost as middleware stack depth increases |
+| compression | Response compression overhead (brotli/gzip/identity) |
+| streaming | NDJSON and SSE stream drain throughput |
+| serialize | .flm dump/load round-trips (protocol v2) |
+| decoder | LLM tool-call parsing throughput |
+| mcp | Stateless MCP dispatch (tools/list, tools/call) |
 | ml | ML model inference latency (sklearn, pytorch, tensorflow) |
 
 ## Latest: 1.12.4 (2026-04-07)

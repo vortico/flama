@@ -18,6 +18,6 @@ class CompressionNegotiator(Negotiator[CompressionCodec]):
         accepted = {encoding.strip().split(";")[0].strip().lower() for encoding in (value or "").split(",")}
         for backend in self.codecs:
             if backend.encoding in accepted:
-                return backend
+                return backend.spawn()
 
         raise exceptions.NoCodecAvailable(f"Unsupported encoding in Accept-Encoding header '{value}'")

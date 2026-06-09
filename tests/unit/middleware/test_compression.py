@@ -94,6 +94,16 @@ class TestCaseCompressionMiddleware:
 
         assert response.headers.get("content-encoding", None) == expected_encoding
 
+    async def test_repeated_requests_reuse_app(self, client):
+        """Each response must get a fresh codec: repeated compressed requests through one app all succeed."""
+        first = await client.request("get", "/large/", headers={"accept-encoding": "gzip"})
+        second = await client.request("get", "/large/", headers={"accept-encoding": "gzip"})
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert first.headers.get("content-encoding") == "gzip"
+        assert second.headers.get("content-encoding") == "gzip"
+
     async def test_non_body_message_flushes_buffered_start(self):
         async def inner_app(scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
             await send(
