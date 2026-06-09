@@ -1,5 +1,6 @@
 # ruff: noqa
 import datetime
+import decimal
 import typing as t
 import uuid
 
@@ -15,6 +16,7 @@ MAPPING: t.Dict[type | None, type[Field]] = {
     list: Array,
     dict: Object,
     uuid.UUID: String,
+    decimal.Decimal: Decimal,
     datetime.date: Date,
     datetime.datetime: DateTime,
     datetime.time: Time,
