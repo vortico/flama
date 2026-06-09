@@ -21,8 +21,12 @@ class InjectionCache(LRUCache[tuple[Parameter, Context], t.Any]):
     ...
 
 
-class FunctionCache(LRUCache[int, dict[str, "ResolutionTree"]]):
-    """A cache for resolved function signatures."""
+class FunctionCache(LRUCache[int, tuple[t.Callable, dict[str, "ResolutionTree"]]]):
+    """A cache for resolved function signatures.
+
+    Entries are keyed by the id of a stable callable target and store a strong reference to that target alongside the
+    resolved signature, so its id cannot be recycled while the entry lives (see :meth:`Injector.resolve_function`).
+    """
 
     ...
 
@@ -97,9 +101,15 @@ class Injector(t.Generic[C]):
         :param func: Function to be resolved.
         :return: Mapping of parameter names and dependencies trees.
         """
-        func_id = id(func)
+        # Bound methods (and other transient callables) are recreated on each access, so caching by ``id(func)`` is
+        # unsafe: once such an object is garbage collected its address can be reused by an unrelated callable, yielding
+        # false cache hits and injecting the wrong dependencies. Normalise bound methods to their underlying function
+        # (stable, kept alive by its class and shared across instances) and keep a strong reference to the keyed target
+        # so its id cannot be recycled while the entry lives.
+        target = getattr(func, "__func__", func)
+        func_id = id(target)
         try:
-            return self._function_cache[func_id]
+            return self._function_cache[func_id][1]
         except KeyError:
             pass
 
@@ -114,7 +124,7 @@ class Injector(t.Generic[C]):
             except ComponentNotFound as e:
                 raise ComponentNotFound(e.parameter, component=e.component, function=func) from None
 
-        self._function_cache[func_id] = parameters
+        self._function_cache[func_id] = (target, parameters)
         return parameters
 
     async def inject(self, func: t.Callable, context: C) -> t.Callable:

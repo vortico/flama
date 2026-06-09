@@ -52,6 +52,16 @@ def function(foo: Foo, bar: Bar):
     return foo, bar
 
 
+class Handlers:
+    """Holder of bound-method handlers with different signatures, mirroring class-based endpoints."""
+
+    def handler_a(self, foo: Foo):
+        return foo
+
+    def handler_b(self, foo: Foo, bar: Bar):
+        return foo, bar
+
+
 class XContext(BaseContext):
     x = Field(CustomStr)
 
@@ -115,6 +125,22 @@ class TestCaseInjector:
             "foo": resolution_mock,
             "bar": resolution_mock,
         }
+
+        # Regression: class-based endpoints (HTTP, WebSocket, JSON-RPC) dispatch through ``getattr(self, handler)``,
+        # which builds a fresh, short-lived bound method on every access. Caching by ``id(bound method)`` is unsafe
+        # (a collected bound method's address can be recycled by an unrelated handler, leaking the wrong kwargs), so
+        # the cache keys on the underlying function: distinct bound methods of one handler share a single entry, and
+        # different handlers never contaminate each other.
+        injector = Injector(XContext, Components([LiteralFooComponent(), LiteralBarComponent()]))
+        obj = Handlers()
+        bound_first, bound_second = obj.handler_a, obj.handler_a
+        assert bound_first is not bound_second
+        first = injector.resolve_function(bound_first)
+        second = injector.resolve_function(bound_second)
+        assert first is second
+        assert set(first) == {"foo"}
+        assert set(injector.resolve_function(obj.handler_b)) == {"foo", "bar"}
+        assert len(injector._function_cache) == 2
 
     @pytest.mark.parametrize(
         ["annotation", "context", "components", "result", "exception"],
