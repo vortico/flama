@@ -3,7 +3,7 @@ import typing as t
 from flama import concurrency, types
 from flama.http.requests.http import Request
 from flama.http.responses.plain_text import PlainTextResponse
-from flama.middleware.base import Middleware
+from flama.middleware._base import Middleware
 
 if t.TYPE_CHECKING:
     from flama.http.requests.http import Request

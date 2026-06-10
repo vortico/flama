@@ -1,7 +1,7 @@
 import typing as t
 
 from flama import compat, types
-from flama.models.wire.dialect.base import Dialect, EventSource
+from flama.models.wire.dialect._base import Dialect, EventSource
 from flama.models.wire.dialect.llm.ollama.assembler import OllamaAssembleKwargs, OllamaAssembler
 from flama.models.wire.dialect.llm.ollama.parser import OllamaParser
 from flama.models.wire.dialect.llm.ollama.renderer import OllamaRenderer
@@ -23,7 +23,7 @@ class OllamaRenderKwargs(t.TypedDict, total=False):
 class OllamaDialect(Dialect[types.JSONSchema]):
     """Ollama-compatible wire dialect.
 
-    Binds three strategies that drive the :class:`~flama.models.wire.dialect.base.Dialect` façade:
+    Binds three strategies that drive the :class:`~flama.models.wire.dialect._base.Dialect` façade:
 
     - :attr:`PARSER` -> :class:`~flama.models.wire.dialect.llm.ollama.OllamaParser` (L1 -> L2 input;
       handles Ollama's ``images: [...]`` sibling field by pre-splicing into canonical structured parts).

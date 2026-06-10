@@ -2,8 +2,8 @@ import pytest
 
 from flama import types
 from flama.ddd.components import WorkerComponent
-from flama.ddd.repositories.base import BaseRepository
-from flama.ddd.workers.base import BaseWorker
+from flama.ddd.repositories._base import BaseRepository
+from flama.ddd.workers._base import BaseWorker
 from flama.injection.resolver import Parameter
 
 

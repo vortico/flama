@@ -8,7 +8,7 @@ from flama.exceptions import FrameworkNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.ndjson import NDJSONResponse
 from flama.models.exceptions import LLMGenerationError, LLMUnsupportedCapability, LLMUnsupportedContentPart
-from flama.models.resources.serving.llm.base import LLMServing
+from flama.models.resources.serving.llm._base import LLMServing
 from flama.models.resources.serving.llm.openai import (
     ChatCompletionsMixin,
     CompletionsMixin,
@@ -21,7 +21,7 @@ from flama.models.wire.dialect.llm.ollama import OllamaDialect
 from flama.resources.routing import ResourceRoute
 
 if t.TYPE_CHECKING:
-    from flama.models.base import LLMModel
+    from flama.models import LLMModel
 
 __all__ = ["OllamaServing"]
 

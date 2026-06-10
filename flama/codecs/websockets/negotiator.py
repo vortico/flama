@@ -1,5 +1,5 @@
 from flama import exceptions
-from flama.codecs.base import Negotiator
+from flama.codecs._base import Negotiator
 from flama.codecs.websockets.codec import WebsocketsCodec
 
 __all__ = ["WebSocketEncodingNegotiator"]

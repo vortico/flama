@@ -2,7 +2,7 @@ import typing as t
 
 from flama import concurrency, http, types
 from flama.context import Context
-from flama.endpoints.base import BaseEndpoint
+from flama.endpoints._base import BaseEndpoint
 from flama.types.http import ALL_METHODS, Method
 
 __all__ = ["HTTPEndpoint"]

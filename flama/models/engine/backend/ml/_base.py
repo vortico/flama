@@ -2,7 +2,7 @@ import abc
 import typing as t
 
 from flama import types
-from flama.models.engine.backend.base import Backend
+from flama.models.engine.backend._base import Backend
 from flama.serialize.data_structures import ModelArtifact
 
 __all__ = ["MLBackend"]
@@ -12,7 +12,7 @@ class MLBackend(Backend):
     """Framework-specific runtime adapter for a traditional ML model.
 
     Concrete subclasses implement :meth:`predict` for their framework. Streaming is layered on top
-    by :class:`~flama.models.base.MLModel` by repeatedly invoking :meth:`predict` in a thread pool.
+    by :class:`~flama.models.MLModel` by repeatedly invoking :meth:`predict` in a thread pool.
     """
 
     family: t.ClassVar[types.ModelFamily] = "ml"
@@ -23,7 +23,7 @@ class MLBackend(Backend):
         """Lazily resolve the backend class registered for *lib*.
 
         Concrete backends are imported on first call so the side-effect-free
-        ``from flama.models.engine.backend.ml.base import MLBackend`` does not pull every
+        ``from flama.models.engine.backend.ml._base import MLBackend`` does not pull every
         framework adapter into the import graph. Subsequent calls reuse the cached
         :attr:`_REGISTRY`.
 

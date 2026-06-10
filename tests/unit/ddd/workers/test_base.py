@@ -2,9 +2,9 @@ from unittest.mock import AsyncMock, call, patch
 
 import pytest
 
-from flama.ddd.repositories.base import BaseRepository
-from flama.ddd.workers import base as workers_base
-from flama.ddd.workers.base import AbstractWorker, BaseWorker
+from flama.ddd.repositories._base import BaseRepository
+from flama.ddd.workers import _base as workers_base
+from flama.ddd.workers._base import AbstractWorker, BaseWorker
 from flama.exceptions import ApplicationError
 
 

@@ -1,7 +1,7 @@
 import typing as t
 
 from flama import exceptions
-from flama.codecs.base import Negotiator
+from flama.codecs._base import Negotiator
 from flama.codecs.http.codec import HTTPCodec
 
 if t.TYPE_CHECKING:

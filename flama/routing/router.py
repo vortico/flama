@@ -5,7 +5,7 @@ from flama import exceptions, types, url
 from flama._core.route_table import Resolution, RouteTable
 from flama.injection import Component, Components
 from flama.lifespan import Lifespan
-from flama.routing.routes.base import BaseRoute, ResolveResult, ResolveType, ScopeType
+from flama.routing.routes import BaseRoute, ResolveResult, ResolveType, ScopeType
 from flama.routing.routes.http import Route
 from flama.routing.routes.mount import Mount
 from flama.routing.routes.websocket import WebSocketRoute

@@ -77,7 +77,7 @@ class UnknownCompression(ModelArtifactError):
 class UnsupportedProtocol(ModelArtifactError):
     """The requested serialization protocol cannot represent this artifact.
 
-    Raised at pack time when :class:`~flama.serialize.protocols.base.BaseProtocol` is asked to
+    Raised at pack time when :class:`~flama.serialize.protocols._base.BaseProtocol` is asked to
     write an artifact whose source / manifest combination has no representation in the chosen
     version's wire format:
 
@@ -88,7 +88,7 @@ class UnsupportedProtocol(ModelArtifactError):
       (e.g. a binary-kind ML model with a directory source).
 
     Distinct from the ``ValueError`` raised by
-    :meth:`~flama.serialize.protocols.base.Protocol.from_version` for unknown version numbers:
+    :meth:`~flama.serialize.protocols._base.Protocol.from_version` for unknown version numbers:
     that signals "version X does not exist", this signals "version X exists but does not support
     this artifact".
     """

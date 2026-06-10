@@ -4,7 +4,7 @@ import re
 import typing as t
 
 from flama import concurrency, exceptions, types
-from flama.middleware.base import Middleware
+from flama.middleware import Middleware
 from flama.telemetry.data_structures import Error, Response, TelemetryData
 
 logger = logging.getLogger(__name__)

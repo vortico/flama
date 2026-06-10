@@ -2,7 +2,7 @@ import logging
 import typing as t
 
 from flama import exceptions
-from flama.ddd.workers.base import BaseWorker
+from flama.ddd.workers._base import BaseWorker
 
 try:
     from sqlalchemy.ext.asyncio import AsyncConnection, AsyncTransaction

@@ -29,7 +29,7 @@ class Event(abc.ABC):
         """Lazily resolve the :class:`Event` subclass registered for *kind*.
 
         Concrete event types are imported on first call so the side-effect-free
-        ``from flama.models.transport.output.llm.event.base import Event`` does not pull every
+        ``from flama.models.transport.output.llm.event._base import Event`` does not pull every
         event type into the import graph. Subsequent calls reuse the cached :attr:`_REGISTRY`.
 
         :param kind: Event discriminator persisted on the wire.

@@ -1,7 +1,7 @@
 import pytest
 
 from flama.models.transport.input.llm.shape import Chat
-from flama.models.transport.input.llm.shape.base import (
+from flama.models.transport.input.llm.shape._base import (
     Shape,  # noqa
     _ShapeFields,
 )

@@ -3,7 +3,7 @@ import uuid
 
 from flama import compat
 from flama.http.responses.sse import ServerSentEvent
-from flama.models.wire.dialect.base import Dialect, EventSource
+from flama.models.wire.dialect._base import Dialect, EventSource
 from flama.models.wire.dialect.llm.native.assembler import NativeAssembleKwargs, NativeAssembler
 from flama.models.wire.dialect.llm.native.parser import NativeParser
 from flama.models.wire.dialect.llm.native.renderer import EventsRenderer
@@ -31,9 +31,9 @@ class NativeDialect(Dialect[ServerSentEvent]):
     :attr:`PARSER`. L2 -> L1 streaming output is delegated to
     :class:`~flama.models.wire.dialect.llm.native.EventsRenderer` via :attr:`RENDERER`. The dialect is
     stream-only; :attr:`ASSEMBLER` raises :class:`NotImplementedError` from
-    :meth:`~flama.models.wire.dialect.base.Assembler.envelope` because there is no native buffered envelope
+    :meth:`~flama.models.wire.dialect._base.Assembler.envelope` because there is no native buffered envelope
     shape (the buffered ``POST /query/`` handler renders its own channel-tagged response inline against the
-    same :class:`~flama.models.wire.dialect.base.CoalescingRenderer` engine).
+    same :class:`~flama.models.wire.dialect._base.CoalescingRenderer` engine).
     """
 
     PARSER = NativeParser

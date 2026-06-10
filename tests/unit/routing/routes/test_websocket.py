@@ -7,7 +7,7 @@ from flama import Flama, endpoints, exceptions, http, types
 from flama.endpoints import WebSocketEndpoint
 from flama.injection.injector import Injector
 from flama.routing.router import Router
-from flama.routing.routes.base import BaseRoute
+from flama.routing.routes._base import BaseRoute
 from flama.routing.routes.websocket import WebSocketEndpointWrapper, WebSocketFunctionWrapper, WebSocketRoute
 
 

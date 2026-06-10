@@ -3,7 +3,7 @@ import uuid
 
 from flama import compat
 from flama.http.responses.sse import ServerSentEvent
-from flama.models.wire.dialect.base import Dialect, EventSource
+from flama.models.wire.dialect._base import Dialect, EventSource
 from flama.models.wire.dialect.llm.anthropic.assembler import AnthropicAssembleKwargs, AnthropicAssembler
 from flama.models.wire.dialect.llm.anthropic.parser import AnthropicParser
 from flama.models.wire.dialect.llm.anthropic.renderer import AnthropicRenderer
@@ -26,7 +26,7 @@ class AnthropicRenderKwargs(t.TypedDict, total=False):
 class AnthropicDialect(Dialect[ServerSentEvent]):
     """Anthropic-compatible wire dialect.
 
-    Binds three strategies that drive the :class:`~flama.models.wire.dialect.base.Dialect` façade:
+    Binds three strategies that drive the :class:`~flama.models.wire.dialect._base.Dialect` façade:
 
     - :attr:`PARSER` -> :class:`~flama.models.wire.dialect.llm.anthropic.AnthropicParser` (L1 -> L2 input).
     - :attr:`RENDERER` -> :class:`~flama.models.wire.dialect.llm.anthropic.AnthropicRenderer` (L2 -> L1

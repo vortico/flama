@@ -1,4 +1,4 @@
-from flama.models.transport.input.llm.shape.base import Shape  # noqa
+from flama.models.transport.input.llm.shape._base import Shape  # noqa
 from flama.models.transport.input.llm.shape import Raw
 from tests.unit.models.transport.input.llm.shape.conftest import FakeBackend
 

@@ -9,15 +9,15 @@ from flama.http.responses.api import APIResponse
 from flama.http.responses.sse import ServerSentEvent, ServerSentEventResponse
 from flama.http.responses.templates import _FlamaTemplateResponse
 from flama.models.exceptions import LLMUnsupportedCapability, LLMUnsupportedContentPart
-from flama.models.resources.base import InspectMixin
-from flama.models.resources.serving.llm.base import LLMServing
+from flama.models.resources._base import InspectMixin
+from flama.models.resources.serving.llm._base import LLMServing
 from flama.models.transport.output.llm.buffer import EventBuffer
-from flama.models.wire.dialect.base import CoalescingRenderer
+from flama.models.wire.dialect._base import CoalescingRenderer
 from flama.models.wire.dialect.llm.native import NativeDialect
 from flama.resources.routing import ResourceRoute
 
 if t.TYPE_CHECKING:
-    from flama.models.base import LLMModel
+    from flama.models import LLMModel
 
 __all__ = ["NativeServing"]
 

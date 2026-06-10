@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from flama.models.engine.backend.llm.base import TransformerLLMBackend
+from flama.models.engine.backend.llm._base import TransformerLLMBackend
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
 from flama.serialize.data_structures import LLMModelCapabilities

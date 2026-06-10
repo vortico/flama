@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from flama.models.engine.backend.llm.base import LLMBackend, TransformerLLMBackend
+from flama.models.engine.backend.llm._base import LLMBackend, TransformerLLMBackend
 from flama.models.engine.llm.codec import LLMCodec
 from flama.models.engine.llm.decoder.decoder import ChannelPolicy, Decoder
 from flama.models.engine.llm.decoder.markers import PassthroughScanner, Scanner

@@ -3,11 +3,11 @@ import typing as t
 
 from flama import compat, types
 from flama.models.transport.input.llm.message import Message
-from flama.models.transport.input.llm.shape.base import Shape, _ShapeFields, _ShapeRenderKwargs
+from flama.models.transport.input.llm.shape._base import Shape, _ShapeFields, _ShapeRenderKwargs
 from flama.models.transport.input.llm.tool import Tool
 
 if t.TYPE_CHECKING:
-    from flama.models.engine.backend.llm.base import LLMBackend
+    from flama.models.engine.backend.llm import LLMBackend
 from flama.models.engine.llm.input import EngineInput
 
 __all__ = ["Conversation"]
@@ -22,12 +22,12 @@ class Conversation(Shape):
     for converting any iterable input. When ``tools`` is provided, the tuple is forwarded to the
     chat template so the model sees the available function specs. :meth:`render` consumes
     :attr:`_ShapeRenderKwargs.chat_template_kwargs` and forwards it to
-    :meth:`~flama.models.engine.backend.llm.base.LLMBackend.prepare_input`.
+    :meth:`~flama.models.engine.backend.llm._base.LLMBackend.prepare_input`.
 
     Multimodal payloads (messages whose ``content`` carries non-text parts) require the
-    backend's :attr:`~flama.models.engine.backend.llm.base.LLMBackend.capabilities` to advertise the
+    backend's :attr:`~flama.models.engine.backend.llm._base.LLMBackend.capabilities` to advertise the
     matching modality (``image`` / ``audio``); the per-modality gating happens inside
-    :meth:`~flama.models.engine.backend.llm.base.LLMBackend.prepare_input`, which raises
+    :meth:`~flama.models.engine.backend.llm._base.LLMBackend.prepare_input`, which raises
     :class:`~flama.models.exceptions.LLMUnsupportedCapability` so the serving layer can
     surface it as a 400.
 

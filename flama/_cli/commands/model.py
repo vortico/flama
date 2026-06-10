@@ -11,8 +11,7 @@ from flama import types
 from flama._cli.config.app import _parse_params
 from flama._cli.formatting import CONSOLE, FlamaCommand, FlamaGroup
 from flama._core.json_encoder import encode_json
-from flama.models import ModelComponentBuilder
-from flama.models.base import BaseModel, LLMModel, MLModel
+from flama.models import BaseModel, LLMModel, MLModel, ModelComponentBuilder
 from flama.models.engine.llm.decoder.decoder import Decoder
 from flama.models.transport.output.llm.event import TextEvent
 from flama.models.wire.dialect.llm.openai.dialect import OpenAIDialect
@@ -38,7 +37,7 @@ class _DecoderRef(click.ParamType):
     token ``auto``, or a ``pkg.module:Object`` path that resolves to a pre-built scanner /
     parser instance via :mod:`importlib`. Resolution happens at parse time so failures
     surface immediately; instance-level type validation is deferred to
-    :class:`~flama.models.Decoder`.
+    :class:`~flama.models.engine.llm.decoder.Decoder`.
     """
 
     name = "decoder_ref"

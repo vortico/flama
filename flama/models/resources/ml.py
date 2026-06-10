@@ -8,14 +8,14 @@ from flama._core.json_encoder import encode_json
 from flama.exceptions import FrameworkNotInstalled, HTTPException
 from flama.http.responses.sse import ServerSentEventResponse
 from flama.models.components import ModelComponentBuilder
-from flama.models.resources.base import InspectMixin
+from flama.models.resources._base import InspectMixin
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeNotFound, ResourceModelNotFound
 from flama.resources.resource import Resource, ResourceType
 from flama.resources.routing import ResourceRoute
 
 if t.TYPE_CHECKING:
-    from flama.models.base import MLModel
+    from flama.models import MLModel
     from flama.models.components import ModelComponent
 
 __all__ = ["BaseMLResource", "MLResource", "PredictMixin", "StreamMixin", "MLResourceType"]

@@ -7,7 +7,7 @@ from flama import authentication, exceptions, http, types
 from flama.context import Context
 from flama.exceptions import HTTPException
 from flama.http.responses.api import APIErrorResponse
-from flama.middleware.base import Middleware
+from flama.middleware import Middleware
 
 if t.TYPE_CHECKING:
     from flama.http.responses.response import Response

@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from flama import exceptions
-from flama.models.base import BaseModel, LLMModel, MLModel
-from flama.models.engine.backend.base import Backend
-from flama.models.engine.backend.llm.base import TransformerLLMBackend
-from flama.models.engine.backend.ml.base import MLBackend
+from flama.models._base import BaseModel, LLMModel, MLModel
+from flama.models.engine.backend._base import Backend
+from flama.models.engine.backend.llm._base import TransformerLLMBackend
+from flama.models.engine.backend.ml._base import MLBackend
 from flama.models.engine.llm.codec import LLMCodec
 from flama.models.engine.llm.decoder.decoder import _KNOWN_CHANNEL_SCANNERS, Decoder
 from flama.models.engine.llm.decoder.markers import PassthroughScanner
@@ -167,7 +167,7 @@ class TestCaseBaseModel:
     async def test_startup_idempotent_on_eager(self, model) -> None:
         m = model(MagicMock(spec=Backend), MagicMock(), None)
 
-        with patch("flama.models.base.Serializer.load") as p_load:
+        with patch("flama.models._base.Serializer.load") as p_load:
             assert await m.startup() is None
             assert not p_load.called
 
@@ -200,7 +200,7 @@ class TestCaseLazyTiers:
             kwargs["path"] = path
         m = model(**kwargs)
 
-        with exception, patch("flama.models.base.Serializer.meta", return_value=cheap) as p_meta:
+        with exception, patch("flama.models._base.Serializer.meta", return_value=cheap) as p_meta:
             assert m.meta is (eager if eager_meta else cheap)
             assert m.meta is (eager if eager_meta else cheap)
             if eager_meta:
@@ -225,7 +225,7 @@ class TestCaseLazyTiers:
             kwargs["path"] = path
         m = model(**kwargs)
 
-        with patch("flama.models.base.Serializer.manifest", return_value=expected) as p_manifest:
+        with patch("flama.models._base.Serializer.manifest", return_value=expected) as p_manifest:
             assert m.manifest == expected
             assert m.manifest == expected
             if eager_artifacts or not has_path:
@@ -250,7 +250,7 @@ class TestCaseLazyTiers:
         backend = MagicMock(spec=Backend)
         m = model(backend=backend, path=pathlib.Path("/some/path.flm"))
 
-        with patch("flama.models.base.Serializer.load") as p_load:
+        with patch("flama.models._base.Serializer.load") as p_load:
             assert m.backend is backend
             assert not p_load.called
 
@@ -269,7 +269,7 @@ class TestCaseLazyTiers:
         m = model(path=path, meta=meta, autoload=True, name="puppy")
 
         with (
-            patch("flama.models.base.Serializer.load", return_value=artifact) as p_load,
+            patch("flama.models._base.Serializer.load", return_value=artifact) as p_load,
             patch.object(MLBackend, "from_model_artifact", return_value=backend) as p_resolve,
         ):
             assert m.backend is backend
@@ -297,7 +297,7 @@ class TestCaseLazyTiers:
 
         with (
             exception,
-            patch("flama.models.base.Serializer.load", return_value=artifact) as p_load,
+            patch("flama.models._base.Serializer.load", return_value=artifact) as p_load,
             patch.object(MLBackend, "from_model_artifact", return_value=backend),
         ):
             m.load()
@@ -353,7 +353,7 @@ class TestCaseMLModel:
     async def test_startup_idempotent_on_eager(self) -> None:
         m = MLModel(_FakeMLBackend(), MagicMock(), None)
 
-        with patch("flama.models.base.Serializer.load") as p_load:
+        with patch("flama.models._base.Serializer.load") as p_load:
             assert await m.startup() is None
             assert not p_load.called
 
@@ -629,10 +629,10 @@ class TestCaseLLMModel:
         meta.id = "startup-test-id"
         m = LLMModel(_FakeLLMBackend(tokens=["plain output"]), meta, None, name="puppy", decoder=Decoder("passthrough"))
 
-        with caplog_flama.at_level(logging.INFO, logger="flama.models.base"):
+        with caplog_flama.at_level(logging.INFO, logger="flama.models._base"):
             await m.startup()
 
-        messages = [record.getMessage() for record in caplog_flama.records if record.name == "flama.models.base"]
+        messages = [record.getMessage() for record in caplog_flama.records if record.name == "flama.models._base"]
         assert any("Decoder detection starting" in m and "puppy" in m and "startup-test-id" in m for m in messages)
         assert any(
             "Decoder detection complete" in m and "puppy" in m and "startup-test-id" in m and "s" in m for m in messages

@@ -1,7 +1,7 @@
 import pytest
 
 from flama.serialize.protocols import v1, v2
-from flama.serialize.protocols.base import Protocol as ProtocolFactory
+from flama.serialize.protocols._base import Protocol as ProtocolFactory
 
 
 class TestCaseProtocolFactory:

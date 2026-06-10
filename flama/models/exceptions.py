@@ -21,7 +21,7 @@ class LLMUnsupportedContentPart(ModelError):
     """A structured-content message references a content-part type the current layer does not accept.
 
     Raised by each serving's
-    :meth:`~flama.models.resources.serving.llm.base.LLMServing.parse` when an incoming
+    :meth:`~flama.models.resources.serving.llm._base.LLMServing.parse` when an incoming
     message carries a ``type`` outside the layer's accepted wire vocabulary (for instance
     ``audio:url`` against the Ollama serving path).
     """
@@ -35,7 +35,7 @@ class LLMUnsupportedContentPart(ModelError):
 class LLMUnsupportedCapability(ModelError):
     """A multimodal request asked for a modality the loaded model does not advertise.
 
-    Raised by :meth:`~flama.models.engine.backend.llm.base.LLMBackend.prepare_input` when a
+    Raised by :meth:`~flama.models.engine.backend.llm._base.LLMBackend.prepare_input` when a
     structured-content message references an image or audio fragment but the backend's
     :class:`~flama.serialize.data_structures.LLMModelCapabilities` does not flag the matching
     modality.
@@ -49,7 +49,7 @@ class LLMUnsupportedCapability(ModelError):
 class LLMGenerationError(ModelError):
     """Generation failed mid-stream while assembling a buffered envelope.
 
-    Raised by :meth:`~flama.models.wire.dialect.base.Dialect.assemble` when the source stream's terminal
+    Raised by :meth:`~flama.models.wire.dialect._base.Dialect.assemble` when the source stream's terminal
     :class:`~flama.models.StopEvent` carries ``stop_reason="error"``. Streaming paths surface this same
     failure through dialect-specific wire frames (:class:`~flama.models.wire.dialect.llm.native.ErrorEvent`,
     :class:`~flama.models.wire.dialect.llm.openai.ErrorChunk`,

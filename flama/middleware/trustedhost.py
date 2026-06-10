@@ -4,7 +4,7 @@ from flama import concurrency, types
 from flama.http.data_structures import Headers
 from flama.http.responses.plain_text import PlainTextResponse
 from flama.http.responses.redirect import RedirectResponse
-from flama.middleware.base import Middleware
+from flama.middleware._base import Middleware
 from flama.url import URL, Netloc
 
 if t.TYPE_CHECKING:

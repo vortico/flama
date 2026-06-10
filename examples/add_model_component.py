@@ -1,10 +1,11 @@
 import typing
 from datetime import datetime
 
+from flama.models.base import Model
+
 import flama
 from flama import Flama
 from flama.models import BaseModelResource, ModelComponent
-from flama.models.base import Model
 from flama.resources import ResourceRoute
 
 

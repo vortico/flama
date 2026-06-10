@@ -3,10 +3,10 @@ import typing as t
 
 from flama import compat, types
 from flama.models.engine.llm.input import EngineInput
-from flama.models.transport.input.llm.shape.base import Shape, _ShapeFields, _ShapeRenderKwargs
+from flama.models.transport.input.llm.shape._base import Shape, _ShapeFields, _ShapeRenderKwargs
 
 if t.TYPE_CHECKING:
-    from flama.models.engine.backend.llm.base import LLMBackend
+    from flama.models.engine.backend.llm import LLMBackend
 
 __all__ = ["Raw"]
 

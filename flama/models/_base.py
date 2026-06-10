@@ -6,13 +6,13 @@ import typing as t
 import uuid
 
 from flama import concurrency, exceptions, types
-from flama.models.engine.backend.base import Backend
-from flama.models.engine.backend.llm.base import LLMBackend
-from flama.models.engine.backend.ml.base import MLBackend
+from flama.models.engine.backend import Backend
+from flama.models.engine.backend.llm import LLMBackend
+from flama.models.engine.backend.ml import MLBackend
 from flama.models.engine.llm.codec import LLMCodec
 from flama.models.engine.llm.decoder.decoder import Decoder
 from flama.models.transport.input.llm.message import Message
-from flama.models.transport.input.llm.shape.base import Shape
+from flama.models.transport.input.llm.shape import Shape
 from flama.models.transport.input.llm.tool import Tool
 from flama.models.transport.output.llm.event import Event, TextEvent, ToolEvent
 from flama.serialize.serializer import Serializer
@@ -392,11 +392,11 @@ class LLMModel(BaseModel[LLMBackend]):
         :param system: Optional system instruction (``chat`` only).
         :param messages: Conversation history (``conversation`` only). Pre-built
             :class:`Message` instances — dialect parsing happens upstream in each serving's
-            :meth:`~flama.models.resources.serving.llm.base.LLMServing.parse`.
+            :meth:`~flama.models.resources.serving.llm._base.LLMServing.parse`.
         :param transport: Explicit transport discriminator. Defaults to :attr:`default_transport`.
         :param tools: Optional list of canonical L2 :class:`Tool` specs advertised to the model
             (templated transports only). Dialect parsing happens upstream in each serving's
-            :meth:`~flama.models.resources.serving.llm.base.LLMServing.parse`.
+            :meth:`~flama.models.resources.serving.llm._base.LLMServing.parse`.
         :param chat_template_kwargs: Extra keyword arguments forwarded to the chat template
             (templated transports only).
         :param message_id: Optional stream identifier surfaced in the opening :class:`StartEvent`. When
@@ -462,7 +462,7 @@ class LLMModel(BaseModel[LLMBackend]):
         :param transport: Explicit transport discriminator. Defaults to :attr:`default_transport`.
         :param tools: Optional list of canonical L2 :class:`Tool` specs advertised to the model
             (templated transports only). Dialect parsing happens upstream in each serving's
-            :meth:`~flama.models.resources.serving.llm.base.LLMServing.parse`.
+            :meth:`~flama.models.resources.serving.llm._base.LLMServing.parse`.
         :param chat_template_kwargs: Extra keyword arguments forwarded to the chat template
             (templated transports only).
         :param message_id: Stream identifier surfaced in the opening :class:`StartEvent`. The serving layer

@@ -1,11 +1,11 @@
 import typing
 
+from flama.models.base import Model
 from sklearn.linear_model import LogisticRegression
 
 import flama
 from flama import Flama
 from flama.models import ModelComponent, ModelResource, ModelResourceType
-from flama.models.base import Model
 from flama.resources.routing import ResourceRoute
 
 app = Flama()

@@ -11,7 +11,7 @@ from pytest import param
 
 from flama import exceptions, types
 from flama.pagination import paginator
-from flama.pagination.paginators.base import PaginatedResponse
+from flama.pagination.paginators._base import PaginatedResponse
 from flama.schemas.exceptions import SchemaValidationError
 from tests._utils import assert_recursive_contains
 
@@ -330,7 +330,7 @@ class TestCasePaginatedResponse:
             response.schema = mock_schema
 
         with (
-            patch("flama.pagination.paginators.base.Schema.from_type", return_value=mock_schema_instance),
+            patch("flama.pagination.paginators._base.Schema.from_type", return_value=mock_schema_instance),
             pytest.raises(exceptions.SerializationError),
         ):
             response._encode_content({"field": "bad"})

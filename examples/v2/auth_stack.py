@@ -17,8 +17,7 @@ from flama.authentication.components import AccessTokenComponent
 from flama.authentication.jwt import JWT
 from flama.authentication.middleware import AuthenticationMiddleware
 from flama.background import BackgroundTasks, BackgroundThreadTask
-from flama.middleware import CompressionMiddleware, CorrelationIdMiddleware, CORSMiddleware
-from flama.middleware.base import Middleware
+from flama.middleware import CompressionMiddleware, CorrelationIdMiddleware, CORSMiddleware, Middleware
 
 SECRET = uuid.UUID(int=0).bytes
 

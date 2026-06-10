@@ -2,7 +2,7 @@ import logging
 import typing as t
 
 from flama import concurrency, exceptions, types, url
-from flama.routing.routes.base import BaseRoute, RouteTableParams, ScopeType
+from flama.routing.routes._base import BaseRoute, RouteTableParams, ScopeType
 
 __all__ = ["Mount"]
 

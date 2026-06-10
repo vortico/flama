@@ -16,7 +16,7 @@ from flama.models.transport.input.llm.message import (
     UserMessage,
 )
 from flama.models.transport.input.llm.shape import Conversation
-from flama.models.transport.input.llm.shape.base import Shape  # noqa
+from flama.models.transport.input.llm.shape._base import Shape  # noqa
 from flama.models.transport.input.llm.tool import Tool
 from tests.unit.models.transport.input.llm.shape.conftest import FakeBackend, FakeMultimodalBackend
 

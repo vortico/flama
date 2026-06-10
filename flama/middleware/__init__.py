@@ -1,4 +1,4 @@
-from flama.middleware.base import *  # noqa
+from flama.middleware._base import *  # noqa
 from flama.middleware.compression import *  # noqa
 from flama.middleware.cors import *  # noqa
 from flama.middleware.http import *  # noqa

@@ -3,7 +3,7 @@ import typing as t
 from flama import concurrency, exceptions, types
 from flama.codecs import BrotliCodec, CompressionCodec, CompressionNegotiator, GzipCodec
 from flama.http.data_structures import Headers, MutableHeaders
-from flama.middleware.base import Middleware
+from flama.middleware._base import Middleware
 
 if t.TYPE_CHECKING:
     from collections.abc import Sequence

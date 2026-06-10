@@ -3,7 +3,7 @@ import typing as t
 from flama.resources.routing import ResourceRoute
 
 if t.TYPE_CHECKING:
-    from flama.models.base import BaseModel
+    from flama.models import BaseModel
 
 __all__ = ["InspectMixin"]
 

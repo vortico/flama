@@ -5,7 +5,7 @@ import typing as t
 
 from flama import concurrency, exceptions, http, types
 from flama.context import Context
-from flama.endpoints.base import BaseEndpoint
+from flama.endpoints._base import BaseEndpoint
 
 __all__ = ["JSONRPCEndpoint"]
 

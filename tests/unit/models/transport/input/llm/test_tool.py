@@ -2,7 +2,7 @@ import typing as t
 
 import pytest
 
-from flama.models.transport.input.llm.shape.base import Shape  # noqa
+from flama.models.transport.input.llm.shape._base import Shape  # noqa
 from flama.models.transport.input.llm.tool import Tool
 
 

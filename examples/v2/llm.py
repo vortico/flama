@@ -20,10 +20,9 @@ import pathlib
 import typing as t
 
 from flama import Flama
-from flama.models import LLMResource, LLMResourceType
-from flama.models.base import LLMModel
+from flama.models import LLMModel, LLMResource, LLMResourceType
 from flama.models.components import ModelComponent
-from flama.models.engine.backend.llm.base import TransformerLLMBackend
+from flama.models.engine.backend.llm import TransformerLLMBackend
 from flama.models.engine.llm.decoder import Decoder
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput

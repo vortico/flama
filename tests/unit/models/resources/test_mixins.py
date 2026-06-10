@@ -2,12 +2,12 @@ import typing as t
 
 import pytest
 
-from flama.models.resources.base import InspectMixin
+from flama.models.resources._base import InspectMixin
 from flama.resources.data_structures import ResourceMethod
 
 
 class TestCaseInspectMixin:
-    """Cover the :class:`~flama.models.resources.base.InspectMixin` route-factory."""
+    """Cover the :class:`~flama.models.resources._base.InspectMixin` route-factory."""
 
     @pytest.fixture(scope="function")
     def fake_model_type(self) -> type:

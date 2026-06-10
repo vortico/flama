@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from flama import exceptions
-from flama.models.engine.backend.llm.base import LLMBackend, TransformerLLMBackend
+from flama.models.engine.backend.llm._base import LLMBackend, TransformerLLMBackend
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
 from flama.models.exceptions import LLMUnsupportedCapability
@@ -220,7 +220,7 @@ class TestCaseLLMBackend:
         backend = _FakeLLMBackend(chat_template="{{ messages }}")
         backend._max_context = probe  # type: ignore[method-assign]
 
-        with caplog_flama.at_level("WARNING", logger="flama.models.engine.backend.llm.base"):
+        with caplog_flama.at_level("WARNING", logger="flama.models.engine.backend.llm._base"):
             first = backend.max_context
             second = backend.max_context
 

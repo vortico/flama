@@ -1,7 +1,7 @@
 import typing as t
 
 from flama import types
-from flama.ddd.workers.base import BaseWorker
+from flama.ddd.workers._base import BaseWorker
 
 if t.TYPE_CHECKING:
     from flama.client import Client

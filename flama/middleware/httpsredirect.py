@@ -1,6 +1,6 @@
 from flama import concurrency, types
 from flama.http.responses.redirect import RedirectResponse
-from flama.middleware.base import Middleware
+from flama.middleware._base import Middleware
 from flama.url import URL
 
 __all__ = ["HTTPSRedirectMiddleware"]

@@ -10,8 +10,8 @@ class Tool:
 
     Lives at the transport-canonical layer (L2): wire-format dicts (OpenAI / Ollama / Native dialects all use the
     same ``{"type": "function", "function": {...}}`` envelope) are translated into :class:`Tool` instances by each
-    serving's :meth:`~flama.models.resources.serving.llm.base.LLMServing.parse` classmethod, and fed
-    engine-side via :meth:`~flama.models.engine.backend.llm.base.LLMBackend.prepare_input` on the way out.
+    serving's :meth:`~flama.models.resources.serving.llm._base.LLMServing.parse` classmethod, and fed
+    engine-side via :meth:`~flama.models.engine.backend.llm._base.LLMBackend.prepare_input` on the way out.
     The wire envelope is rebuilt
     only at the chat-template boundary so in-process code paths walk a single flat shape.
 

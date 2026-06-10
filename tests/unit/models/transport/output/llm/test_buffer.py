@@ -8,7 +8,7 @@ from flama.exceptions import FrameworkNotInstalled
 from flama.models.streams import FileStreamsBackend, StreamsRegistry
 from flama.models.transport.output.llm.buffer import EventBuffer
 from flama.models.transport.output.llm.event import Event, StartEvent, StopEvent, TextEvent, ToolEvent, TraceEvent
-from flama.models.wire.dialect.base import CoalescingRenderer, Renderer
+from flama.models.wire.dialect._base import CoalescingRenderer, Renderer
 
 
 @pytest.fixture(scope="function")
