@@ -3,12 +3,12 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from flama.models.engine.backend.ml.base import MLBackend
+from flama.models.engine.backend.ml._base import MLBackend
 from flama.models.engine.backend.ml.sklearn import SklearnBackend
 
 
 class TestCaseMLBackend:
-    """Cover the abstract :class:`~flama.models.engine.backend.ml.base.MLBackend` contract."""
+    """Cover the abstract :class:`~flama.models.engine.backend.ml._base.MLBackend` contract."""
 
     def test_predict_is_abstract(self) -> None:
         with pytest.raises(TypeError, match="abstract"):

@@ -1,6 +1,6 @@
 import typing as t
 
-from flama.codecs.base import Codec
+from flama.codecs._base import Codec
 from flama.http import Request
 
 __all__ = ["HTTPCodec"]

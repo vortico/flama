@@ -7,7 +7,7 @@ from flama.exceptions import FrameworkNotInstalled
 from flama.models.transport.output.llm.event import Event, StartEvent, StopEvent, TextEvent, ToolEvent, TraceEvent
 
 if t.TYPE_CHECKING:
-    from flama.models.wire.dialect.base import Renderer
+    from flama.models.wire.dialect._base import Renderer
 
 __all__ = ["EventBuffer"]
 
@@ -18,12 +18,12 @@ _T = t.TypeVar("_T")
 
 class EventBuffer(t.Generic[_T]):
     """L2 FSM engine: drives an :class:`Event` source through a
-    :class:`~flama.models.wire.dialect.base.Renderer` strategy.
+    :class:`~flama.models.wire.dialect._base.Renderer` strategy.
 
     Owns: source consumption (via :func:`flama.concurrency.iterate`), error pump (synthesises a
     :class:`StopEvent` with ``stop_reason='error'`` on framework / generic failures), lifecycle capture
     (exposed via :attr:`start` and :attr:`stop` post-consumption), skip-counted suppression of leading outputs,
-    and dispatch to :class:`~flama.models.wire.dialect.base.Renderer` ``on_<kind>`` methods.
+    and dispatch to :class:`~flama.models.wire.dialect._base.Renderer` ``on_<kind>`` methods.
 
     Sources can be any synchronous or asynchronous iterable of events (lists, generators,
     :class:`~flama.models.streams.StreamBuffer`). The constructor normalises them via

@@ -1,5 +1,5 @@
 from flama import types
-from flama.codecs.base import Codec
+from flama.codecs._base import Codec
 
 __all__ = ["WebsocketsCodec"]
 

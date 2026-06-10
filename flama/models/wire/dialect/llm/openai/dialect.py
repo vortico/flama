@@ -3,7 +3,7 @@ import uuid
 
 from flama import compat
 from flama.http.responses.sse import ServerSentEvent
-from flama.models.wire.dialect.base import Dialect, EventSource
+from flama.models.wire.dialect._base import Dialect, EventSource
 from flama.models.wire.dialect.llm.openai.assembler import OpenAIAssembleKwargs, OpenAIAssembler
 from flama.models.wire.dialect.llm.openai.parser import OpenAIParser
 from flama.models.wire.dialect.llm.openai.renderer import OpenAIRenderer
@@ -27,7 +27,7 @@ class OpenAIRenderKwargs(t.TypedDict, total=False):
 class OpenAIDialect(Dialect[ServerSentEvent]):
     """OpenAI-compatible wire dialect.
 
-    Binds three strategies that drive the :class:`~flama.models.wire.dialect.base.Dialect` façade:
+    Binds three strategies that drive the :class:`~flama.models.wire.dialect._base.Dialect` façade:
 
     - :attr:`PARSER` -> :class:`~flama.models.wire.dialect.llm.openai.OpenAIParser` (L1 -> L2 input).
     - :attr:`RENDERER` -> :class:`~flama.models.wire.dialect.llm.openai.OpenAIRenderer` (L2 -> L1 streaming).

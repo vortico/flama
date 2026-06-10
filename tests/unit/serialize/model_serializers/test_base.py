@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from flama.serialize.model_serializers.base import ModelSerializer
+from flama.serialize.model_serializers._base import ModelSerializer
 
 
 class TestCaseModelSerializer:
@@ -27,7 +27,7 @@ class TestCaseModelSerializer:
         fake_module = MagicMock()
         setattr(fake_module, expected_class, MagicMock(return_value=instance))
 
-        with patch("flama.serialize.model_serializers.base.importlib.import_module", return_value=fake_module) as im:
+        with patch("flama.serialize.model_serializers._base.importlib.import_module", return_value=fake_module) as im:
             result = ModelSerializer.from_lib(t.cast(t.Any, lib))
 
         assert result is instance
@@ -71,7 +71,7 @@ class TestCaseModelSerializer:
 
         with (
             patch(
-                "flama.serialize.model_serializers.base.inspect.getmodule",
+                "flama.serialize.model_serializers._base.inspect.getmodule",
                 side_effect=lambda obj: next(modules_iter),
             ),
             patch.object(ModelSerializer, "from_lib", side_effect=_from_lib),

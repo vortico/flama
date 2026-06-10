@@ -3,7 +3,7 @@ import typing as t
 
 from flama import types
 from flama.pagination import paginators
-from flama.pagination.paginators.base import BasePaginator, PaginatedResponse
+from flama.pagination.paginators._base import BasePaginator, PaginatedResponse
 
 __all__ = ["paginator"]
 

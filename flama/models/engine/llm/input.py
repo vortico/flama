@@ -12,10 +12,10 @@ if t.TYPE_CHECKING:
 class EngineInput:
     """Engine-ready bundle (L3).
 
-    Owns the token IDs that an :class:`~flama.models.engine.backend.llm.base.LLMBackend` feeds straight into its
+    Owns the token IDs that an :class:`~flama.models.engine.backend.llm._base.LLMBackend` feeds straight into its
     engine, plus the per-modality decoded payloads that travel alongside (PIL images,
     ``(samples, sample_rate)`` audio waveforms). The L2 to L3 conversion lives on
-    :meth:`~flama.models.engine.backend.llm.base.LLMBackend.prepare_input`.
+    :meth:`~flama.models.engine.backend.llm._base.LLMBackend.prepare_input`.
 
     :param tokens: Pre-rendered prompt token IDs (BOS already included by the template).
     :param images: Decoded image payloads in the order they appear in the message list.

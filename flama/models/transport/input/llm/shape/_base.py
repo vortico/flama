@@ -7,7 +7,7 @@ from flama.models.transport.input.llm.message import Message
 from flama.models.transport.input.llm.tool import Tool
 
 if t.TYPE_CHECKING:
-    from flama.models.engine.backend.llm.base import LLMBackend
+    from flama.models.engine.backend.llm import LLMBackend
     from flama.models.engine.llm.input import EngineInput
 
 __all__ = ["Shape"]
@@ -32,7 +32,7 @@ class _ShapeRenderKwargs(t.TypedDict, total=False):
 
     Carries the currently-typed fields shared across :class:`Shape` variants. ``Raw`` ignores
     every field; ``Chat`` and ``Conversation`` consume ``chat_template_kwargs`` and forward it
-    to :meth:`~flama.models.engine.backend.llm.base.LLMBackend.prepare_input`. Every variant's
+    to :meth:`~flama.models.engine.backend.llm._base.LLMBackend.prepare_input`. Every variant's
     :meth:`Shape.render` types its ``**kwargs`` against this shared shape via PEP 692 ``Unpack``.
     """
 
@@ -68,7 +68,7 @@ class Shape(abc.ABC):
         """Lazily resolve the variant class registered for *transport*.
 
         Concrete variants are imported on first call so the side-effect-free
-        ``from flama.models.transport.input.llm.shape.base import Shape`` does not pull every
+        ``from flama.models.transport.input.llm.shape._base import Shape`` does not pull every
         variant into the import graph. Subsequent calls reuse the cached :attr:`_REGISTRY`.
 
         :param transport: Shape discriminator.

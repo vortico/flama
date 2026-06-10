@@ -6,9 +6,9 @@ import pytest
 from flama import Flama
 from flama.injection import Parameter
 from flama.models import ModelComponent
-from flama.models.base import LLMModel, MLModel
-from flama.models.engine.backend.llm.base import TransformerLLMBackend
-from flama.models.engine.backend.ml.base import MLBackend
+from flama.models._base import LLMModel, MLModel
+from flama.models.engine.backend.llm._base import TransformerLLMBackend
+from flama.models.engine.backend.ml._base import MLBackend
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
 

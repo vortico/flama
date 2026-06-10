@@ -4,7 +4,7 @@ import uuid
 
 from flama import compat, types
 from flama.models.transport.output.llm.event import Event, StartEvent, StopEvent, TextEvent, ToolEvent
-from flama.models.wire.dialect.base import Assembler
+from flama.models.wire.dialect._base import Assembler
 
 __all__ = ["AnthropicAssembleKwargs", "AnthropicAssembler"]
 

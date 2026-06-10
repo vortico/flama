@@ -1,1 +1,1 @@
-from flama.ddd.repositories.base import *  # noqa
+from flama.ddd.repositories._base import *  # noqa

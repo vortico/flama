@@ -10,7 +10,7 @@ import typing as t
 from flama import exceptions, types
 from flama._core.compression import tar
 from flama.serialize.data_structures import LLMModelCapabilities
-from flama.serialize.model_serializers.base import BaseModelSerializer
+from flama.serialize.model_serializers._base import BaseModelSerializer
 
 try:
     import transformers

@@ -29,7 +29,7 @@ from flama.models.transport.input.llm.message import (
     ToolMessage,
     UserMessage,
 )
-from flama.models.transport.input.llm.shape.base import Shape  # noqa
+from flama.models.transport.input.llm.shape._base import Shape  # noqa
 
 
 def _png_bytes(*, color: str = "red", size: tuple[int, int] = (1, 1)) -> bytes:

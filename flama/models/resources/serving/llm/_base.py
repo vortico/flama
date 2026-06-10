@@ -1,10 +1,10 @@
 import typing as t
 
 from flama import types
-from flama.models.resources.serving.base import Serving
+from flama.models.resources.serving._base import Serving
 from flama.models.transport.input.llm.message import Message
 from flama.models.transport.input.llm.tool import Tool
-from flama.models.wire.dialect.base import Dialect
+from flama.models.wire.dialect._base import Dialect
 
 __all__ = ["LLMServing"]
 
@@ -12,7 +12,7 @@ __all__ = ["LLMServing"]
 class LLMServing(Serving):
     """Base class for LLM HTTP serving layers (route registration only).
 
-    Wire ↔ transport parsing lives on :class:`~flama.models.wire.dialect.base.Dialect` subclasses under
+    Wire ↔ transport parsing lives on :class:`~flama.models.wire.dialect._base.Dialect` subclasses under
     ``flama.models.wire.dialect``. Concrete servings (e.g. :class:`NativeServing`) compose route mixins
     and bind a :attr:`DIALECT` class attribute; :meth:`parse` defaults to delegating to the bound
     dialect.
@@ -26,7 +26,7 @@ class LLMServing(Serving):
         """Lazily resolve the serving class registered for *serving*.
 
         Concrete layers are imported on first call so the side-effect-free
-        ``from flama.models.resources.serving.llm.base import LLMServing`` does not pull every
+        ``from flama.models.resources.serving.llm._base import LLMServing`` does not pull every
         layer into the import graph. Subsequent calls reuse the cached :attr:`_REGISTRY`.
 
         :param serving: Serving layer name to resolve.
@@ -71,7 +71,7 @@ class LLMServing(Serving):
     ) -> tuple[Message, ...] | tuple[Tool, ...]:
         """Translate a dialect-shaped wire payload into a tuple of canonical L2 typed objects.
 
-        Thin forwarder to :meth:`DIALECT.parse <flama.models.wire.dialect.base.Dialect.parse>`. Static
+        Thin forwarder to :meth:`DIALECT.parse <flama.models.wire.dialect._base.Dialect.parse>`. Static
         return-type narrowing is provided by the literal :class:`~typing.overload` declarations.
 
         :param value: Wire payload — list of message dicts for ``kind="messages"`` or list of tool

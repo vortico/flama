@@ -11,7 +11,7 @@ class Backend(abc.ABC):
     """Adapter to a specific ML/LLM framework runtime.
 
     Concrete backends wrap a deserialised engine on :attr:`model` and expose a framework-agnostic
-    surface that the :class:`~flama.models.base.LLMModel` / :class:`~flama.models.base.MLModel`
+    surface that the :class:`~flama.models.LLMModel` / :class:`~flama.models.MLModel`
     wrappers consume. ML and LLM ABCs add their own abstract methods on top of this shared root.
     """
 

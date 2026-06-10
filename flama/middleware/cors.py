@@ -5,7 +5,7 @@ from flama import concurrency, types
 from flama.http import Response
 from flama.http.data_structures import Headers, MutableHeaders
 from flama.http.responses.plain_text import PlainTextResponse
-from flama.middleware.base import Middleware
+from flama.middleware._base import Middleware
 
 if t.TYPE_CHECKING:
     from collections.abc import Sequence

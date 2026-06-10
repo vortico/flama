@@ -4,7 +4,7 @@ import typing as t
 
 from flama import endpoints, exceptions, http, types
 from flama.context import Context
-from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute, RouteTableParams, ScopeType
+from flama.routing.routes._base import BaseEndpointWrapper, BaseRoute, RouteTableParams, ScopeType
 
 __all__ = ["WebSocketRoute"]
 

@@ -438,7 +438,7 @@ class TestCaseRouter:
             assert route_scope["path"] == endpoint_path
 
     def test_resolve_route_mount_no_path_in_scope(self, app):
-        from flama.routing.routes.base import ResolveResult, ResolveType
+        from flama.routing.routes._base import ResolveResult, ResolveType
 
         async def plain_asgi_app(scope, receive, send): ...
 

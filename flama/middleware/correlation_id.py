@@ -2,7 +2,7 @@ import uuid
 
 from flama import concurrency, types
 from flama.http.data_structures import Headers, MutableHeaders
-from flama.middleware.base import Middleware
+from flama.middleware._base import Middleware
 
 __all__ = ["CorrelationIdMiddleware"]
 

@@ -2,7 +2,7 @@ import pytest
 
 from flama._core.route_table import RouteTable
 from flama._core.url import PathMatcher
-from flama.routing.routes.base import ScopeType
+from flama.routing.routes._base import ScopeType
 
 
 def _table(*entries):

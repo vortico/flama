@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from flama.models.base import LLMModel, MLModel
+from flama.models._base import LLMModel, MLModel
 from flama.models.transport.output.llm.event import TextEvent
 
 

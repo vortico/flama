@@ -9,7 +9,7 @@ import warnings
 
 from flama import exceptions, types
 from flama.serialize.data_structures import MLModelCapabilities
-from flama.serialize.model_serializers.base import BaseModelSerializer
+from flama.serialize.model_serializers._base import BaseModelSerializer
 
 if t.TYPE_CHECKING:
     from flama.types import JSONField, JSONSchema

@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from flama import types
-from flama.models.resources.serving.llm.base import LLMServing
-from flama.models.wire.dialect.base import Dialect
+from flama.models.resources.serving.llm._base import LLMServing
+from flama.models.wire.dialect._base import Dialect
 
 
 class TestCaseLLMServingRegistry:

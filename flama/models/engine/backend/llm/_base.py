@@ -7,7 +7,7 @@ import numpy as np
 from PIL.Image import Image as PILImage
 
 from flama import exceptions, types
-from flama.models.engine.backend.base import Backend
+from flama.models.engine.backend._base import Backend
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
 from flama.models.exceptions import LLMUnsupportedCapability
@@ -56,7 +56,7 @@ class LLMBackend(Backend):
         """Lazily resolve the first runnable LLM runtime backend in probe order.
 
         Concrete backends are imported on first call so the side-effect-free
-        ``from flama.models.engine.backend.llm.base import LLMBackend`` does not pull every
+        ``from flama.models.engine.backend.llm._base import LLMBackend`` does not pull every
         runtime adapter into the import graph. Subsequent calls reuse the cached
         :attr:`_REGISTRY`. Probe order is the registry's insertion order (vLLM before MLX).
 
@@ -210,7 +210,7 @@ class LLMBackend(Backend):
 
         :param messages: Pre-built canonical L2 :class:`Message` instances. Dialect parsing
             happens upstream in each serving's
-            :meth:`~flama.models.resources.serving.llm.base.LLMServing.parse`.
+            :meth:`~flama.models.resources.serving.llm._base.LLMServing.parse`.
         :param tools: Optional canonical L2 :class:`Tool` specs forwarded to the renderer.
         :param chat_template_kwargs: Extra keyword arguments forwarded to the chat template
             (e.g. ``enable_thinking=False`` for Gemma).

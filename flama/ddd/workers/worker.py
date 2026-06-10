@@ -1,6 +1,6 @@
 import typing as t
 
-from flama.ddd.workers.base import BaseWorker
+from flama.ddd.workers._base import BaseWorker
 
 __all__ = ["Worker"]
 

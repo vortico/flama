@@ -7,7 +7,7 @@ from flama import endpoints, exceptions, types
 from flama.applications import Flama
 from flama.http.responses.api import APIResponse
 from flama.http.responses.plain_text import PlainTextResponse
-from flama.routing.routes.base import BaseRoute
+from flama.routing.routes._base import BaseRoute
 from flama.routing.routes.http import BaseHTTPEndpointWrapper, HTTPEndpointWrapper, HTTPFunctionWrapper, Route
 
 

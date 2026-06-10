@@ -9,13 +9,13 @@ from flama import exceptions, types
 from flama.models.engine.llm.decoder.decoder import Decoder, _ResolvedDecoder
 from flama.models.engine.llm.decoder.markers import Scanner, _Event, _EventKind
 from flama.models.engine.llm.delta import EngineDelta
-from flama.models.transport.input.llm.shape.base import Shape
+from flama.models.transport.input.llm.shape import Shape
 from flama.models.transport.output.llm.event import Event, StartEvent, StopEvent, TextEvent, ToolEvent, TraceEvent
 
 __all__ = ["LLMCodec"]
 
 if t.TYPE_CHECKING:
-    from flama.models.base import LLMModel
+    from flama.models import LLMModel
 
 logger = logging.getLogger(__name__)
 
@@ -222,7 +222,7 @@ class LLMCodec:
     decoder is used verbatim, otherwise the chat-template sample is tried alone (cheap), and preflight runs only
     as a last resort.
 
-    Internal - constructed by :class:`~flama.models.base.LLMModel` from a user-supplied :class:`Decoder` (or
+    Internal - constructed by :class:`~flama.models.LLMModel` from a user-supplied :class:`Decoder` (or
     :data:`None`).
 
     :param decoder: Decoder configuration to wrap, or :data:`None` to auto-detect everything.

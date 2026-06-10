@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from flama.serialize.model_serializers.base import BaseModelSerializer
+from flama.serialize.model_serializers._base import BaseModelSerializer
 from flama.serialize.model_serializers.pytorch import ModelSerializer as TorchModelSerializer
 from flama.serialize.model_serializers.sklearn import ModelSerializer as SklearnModelSerializer
 from flama.serialize.model_serializers.tensorflow import ModelSerializer as TensorflowModelSerializer

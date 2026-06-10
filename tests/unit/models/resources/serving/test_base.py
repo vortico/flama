@@ -1,10 +1,10 @@
 import typing as t
 
-from flama.models.resources.serving.base import Serving
+from flama.models.resources.serving._base import Serving
 
 
 class TestCaseServing:
-    """Cover the :class:`~flama.models.resources.serving.base.Serving` ClassVar contract."""
+    """Cover the :class:`~flama.models.resources.serving._base.Serving` ClassVar contract."""
 
     def test_declares_required_classvars(self) -> None:
         annotations = t.get_type_hints(Serving, include_extras=True)

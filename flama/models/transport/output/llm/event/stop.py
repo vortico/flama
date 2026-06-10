@@ -2,7 +2,7 @@ import dataclasses
 import typing as t
 
 from flama import types
-from flama.models.transport.output.llm.event.base import Event
+from flama.models.transport.output.llm.event._base import Event
 
 __all__ = ["StopEvent"]
 

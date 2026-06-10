@@ -1,7 +1,7 @@
 import typing as t
 
 from flama import exceptions
-from flama.models.engine.backend.ml.base import MLBackend
+from flama.models.engine.backend.ml._base import MLBackend
 
 try:
     import sklearn

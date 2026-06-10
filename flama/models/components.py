@@ -3,7 +3,7 @@ import pathlib
 import typing as t
 
 from flama.injection import Component
-from flama.models.base import BaseModel, LLMModel, MLModel
+from flama.models._base import BaseModel, LLMModel, MLModel
 from flama.models.engine.llm.decoder.decoder import Decoder
 from flama.serialize.serializer import Serializer
 
@@ -15,7 +15,7 @@ M = t.TypeVar("M", bound=BaseModel)
 class ModelComponent(Component, t.Generic[M]):
     """Thin DI wrapper around a packaged model.
 
-    Construction is cheap: the wrapped :class:`~flama.models.base.BaseModel` owns the lazy
+    Construction is cheap: the wrapped :class:`~flama.models.BaseModel` owns the lazy
     deserialisation tiers (meta / artifacts / backend); this class only exposes them to the
     application's dependency-injection runtime and forwards lifecycle hooks. The model itself is
     materialised on :meth:`load` (sync) or :meth:`startup` (async), typically registered on
@@ -25,7 +25,7 @@ class ModelComponent(Component, t.Generic[M]):
     def __init__(self, model: M, /) -> None:
         """Bind the component to *model*.
 
-        :param model: The wrapped :class:`~flama.models.base.BaseModel`. May be either eagerly
+        :param model: The wrapped :class:`~flama.models.BaseModel`. May be either eagerly
             populated (backend / meta / artifacts pre-supplied) or fully lazy.
         """
         self._model = model

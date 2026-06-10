@@ -87,7 +87,7 @@ class ModelCapabilities:
     :attr:`kind` :class:`typing.ClassVar` to their family literal so :meth:`from_dict` can
     deserialise the right concrete type from the manifest.
 
-    Detected at serialize time by each :class:`~flama.serialize.model_serializers.base.BaseModelSerializer`'s
+    Detected at serialize time by each :class:`~flama.serialize.model_serializers._base.BaseModelSerializer`'s
     :meth:`detect_capabilities` and persisted in the ``.flm`` manifest so consumers (backend
     dispatch, input validation, serving-layer advertisement) read a single source of truth
     instead of re-probing the model.
@@ -345,7 +345,7 @@ class ModelArtifact:
     live model lazily through the :attr:`model` cached property. Dispatch on first access is
     family-aware: ``family == "llm"`` returns the source path verbatim (the LLM backends consume the
     directory directly); ``family == "ml"`` calls the framework-specific
-    :class:`~flama.serialize.model_serializers.base.BaseModelSerializer` to materialise an in-memory
+    :class:`~flama.serialize.model_serializers._base.BaseModelSerializer` to materialise an in-memory
     model object.
 
     The :attr:`directory` field carries the lifetime of a :class:`ModelDirectory` extracted during
@@ -364,7 +364,7 @@ class ModelArtifact:
 
         For LLM artifacts the source path is returned verbatim (LLM backends consume the directory
         directly). For ML artifacts the framework-specific
-        :meth:`~flama.serialize.model_serializers.base.BaseModelSerializer.load` is called with the
+        :meth:`~flama.serialize.model_serializers._base.BaseModelSerializer.load` is called with the
         source. Live model objects passed through :meth:`from_model` pre-seed the cache so this
         property returns the object as-is without invoking the serializer.
 

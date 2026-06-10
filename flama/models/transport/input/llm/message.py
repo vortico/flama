@@ -223,13 +223,13 @@ class Content(abc.ABC):
     """Abstract base for typed message content parts.
 
     Concrete subclasses are pure L2 data containers. Wire-format deserialisation is owned by
-    each serving layer's :meth:`~flama.models.resources.serving.llm.base.LLMServing.parse`
+    each serving layer's :meth:`~flama.models.resources.serving.llm._base.LLMServing.parse`
     classmethod (no factory or registry lives on :class:`Content` itself). The intermediate
     :class:`ImageContent` / :class:`AudioContent` bases additionally expose a pull-shaped,
     engine-ready accessor (:meth:`ImageContent.image`, :meth:`AudioContent.audio`) that
     resolves the byte-unresolved :class:`Source` into a decoded payload on demand. Callers
     consume the accessor at the L2 to L3 boundary (see
-    :meth:`~flama.models.engine.backend.llm.base.LLMBackend.prepare_input`).
+    :meth:`~flama.models.engine.backend.llm._base.LLMBackend.prepare_input`).
 
     :cvar type: Wire-format ``type`` discriminator advertised by each concrete subclass.
     """
@@ -321,7 +321,7 @@ class ImageURL(ImageContent):
     """Image content sourced from an HTTP/HTTPS URL.
 
     Pure L2 representation. Each serving's
-    :meth:`~flama.models.resources.serving.llm.base.LLMServing.parse` translates its own
+    :meth:`~flama.models.resources.serving.llm._base.LLMServing.parse` translates its own
     dialect (OpenAI ``image_url`` parts with ``data:`` URI routing, Native ``image:url`` parts,
     etc.) into this canonical shape.
 
@@ -369,7 +369,7 @@ class AudioURL(AudioContent):
     """Audio content sourced from an HTTP/HTTPS URL.
 
     Pure L2 representation. Each serving's
-    :meth:`~flama.models.resources.serving.llm.base.LLMServing.parse` translates its own
+    :meth:`~flama.models.resources.serving.llm._base.LLMServing.parse` translates its own
     dialect (Native ``audio:url`` parts, future serving-specific shapes) into this canonical form.
 
     :cvar _MAX_BYTES: Cap on the buffered size of a fetched payload (50 MiB).
@@ -433,8 +433,8 @@ class Message(abc.ABC):
 
     Lives at the transport-canonical layer (L2): wire-format dicts (OpenAI / Ollama / Native
     dialects) are translated into a concrete :class:`Message` subclass by each dialect's
-    :meth:`~flama.models.wire.dialect.base.Parser.parse` classmethod, and fed engine-side
-    via :meth:`~flama.models.engine.backend.llm.base.LLMBackend.prepare_input` on the way out.
+    :meth:`~flama.models.wire.dialect._base.Parser.parse` classmethod, and fed engine-side
+    via :meth:`~flama.models.engine.backend.llm._base.LLMBackend.prepare_input` on the way out.
     Each concrete subclass — :class:`SystemMessage`, :class:`UserMessage`,
     :class:`AssistantMessage`, :class:`ToolMessage` — declares exactly the fields its role
     accepts, so the role-content coupling is encoded structurally in the type rather than
@@ -478,8 +478,8 @@ class UserMessage(Message):
     """User turn.
 
     Accepts polymorphic content parts (text, image, audio). Multimodal payloads are gated by
-    the backend's :attr:`~flama.models.engine.backend.llm.base.LLMBackend.capabilities` at
-    :meth:`~flama.models.engine.backend.llm.base.LLMBackend.prepare_input` time, not here.
+    the backend's :attr:`~flama.models.engine.backend.llm._base.LLMBackend.capabilities` at
+    :meth:`~flama.models.engine.backend.llm._base.LLMBackend.prepare_input` time, not here.
     """
 
     content: tuple[Content, ...]

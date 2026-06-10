@@ -7,14 +7,14 @@ from flama.exceptions import FrameworkNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.sse import ServerSentEventResponse
 from flama.models.exceptions import LLMGenerationError, LLMUnsupportedCapability, LLMUnsupportedContentPart
-from flama.models.resources.serving.llm.base import LLMServing
+from flama.models.resources.serving.llm._base import LLMServing
 from flama.models.transport.input.llm.message import Message
 from flama.models.transport.input.llm.tool import Tool
 from flama.models.wire.dialect.llm.openai import OpenAIDialect
 from flama.resources.routing import ResourceRoute
 
 if t.TYPE_CHECKING:
-    from flama.models.base import LLMModel
+    from flama.models import LLMModel
 
 __all__ = ["OpenAIServing"]
 

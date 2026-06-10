@@ -6,7 +6,7 @@ import uuid
 from flama._core.json_encoder import encode_json
 from flama.http.responses.sse import ServerSentEvent
 from flama.models.transport.output.llm.event import StartEvent, StopEvent, TextEvent, ToolEvent, TraceEvent
-from flama.models.wire.dialect.base import Renderer
+from flama.models.wire.dialect._base import Renderer
 
 __all__ = ["EventsRenderer"]
 

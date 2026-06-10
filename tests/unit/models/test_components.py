@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
-from flama.models.base import MLModel
+from flama.models._base import MLModel
 from flama.models.components import ModelComponent, ModelComponentBuilder
 from flama.models.engine.backend.ml.pytorch import PytorchBackend
 from flama.models.engine.backend.ml.sklearn import SklearnBackend

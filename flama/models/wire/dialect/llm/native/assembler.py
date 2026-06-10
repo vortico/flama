@@ -2,7 +2,7 @@ import typing as t
 
 from flama import compat
 from flama.models.transport.output.llm.event import Event, StartEvent, StopEvent
-from flama.models.wire.dialect.base import Assembler
+from flama.models.wire.dialect._base import Assembler
 
 __all__ = ["NativeAssembleKwargs", "NativeAssembler"]
 
@@ -20,7 +20,7 @@ class NativeAssembler(Assembler):
 
     The native dialect is stream-only; :meth:`envelope` raises :class:`NotImplementedError` unconditionally.
     The buffered ``POST /query/`` handler renders its own channel-tagged response inline against the same
-    :class:`~flama.models.wire.dialect.base.CoalescingRenderer` engine.
+    :class:`~flama.models.wire.dialect._base.CoalescingRenderer` engine.
     """
 
     @classmethod

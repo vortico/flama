@@ -3,7 +3,7 @@ import inspect
 import typing as t
 
 from flama import schemas, types
-from flama.pagination.paginators.base import BasePaginator, PaginatedResponse
+from flama.pagination.paginators._base import BasePaginator, PaginatedResponse
 from flama.schemas.data_structures import Field, Schema
 
 __all__ = ["LimitOffsetPaginator", "LimitOffsetResponse"]

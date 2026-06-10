@@ -1,3 +1,3 @@
-from flama.serialize.protocols.base import Protocol
+from flama.serialize.protocols._base import Protocol
 
 __all__ = ["Protocol"]

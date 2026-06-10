@@ -8,7 +8,7 @@ from flama.crypto import JWS
 from flama.crypto.exceptions import SignatureDecodeException, SignatureVerificationException
 from flama.http.data_structures import MutableHeaders
 from flama.http.requests.connection import HTTPConnection
-from flama.middleware.base import Middleware
+from flama.middleware._base import Middleware
 
 __all__ = ["SessionMiddleware"]
 

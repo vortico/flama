@@ -5,7 +5,7 @@ import typing as t
 from flama import concurrency, endpoints, exceptions, http, types
 from flama.context import Context
 from flama.http.responses.api import APIResponse
-from flama.routing.routes.base import BaseEndpointWrapper, BaseRoute, RouteTableParams, ScopeType
+from flama.routing.routes._base import BaseEndpointWrapper, BaseRoute, RouteTableParams, ScopeType
 from flama.schemas.data_structures import Schema
 from flama.types.http import Method
 

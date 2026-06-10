@@ -13,7 +13,7 @@ from flama.models.transport.input.llm.message import (
     TextContent,
 )
 from flama.models.transport.input.llm.tool import Tool
-from flama.models.wire.dialect.base import Parser
+from flama.models.wire.dialect._base import Parser
 
 __all__ = ["AnthropicParser"]
 

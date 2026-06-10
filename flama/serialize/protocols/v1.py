@@ -40,7 +40,7 @@ from flama._core.json_encoder import encode_json
 from flama.serialize.data_structures import Artifacts, Metadata, ModelArtifact, ModelDirectory
 from flama.serialize.exceptions import UnsupportedProtocol
 from flama.serialize.model_serializers import ModelSerializer
-from flama.serialize.protocols.base import BaseProtocol
+from flama.serialize.protocols._base import BaseProtocol
 
 __all__ = ["Protocol"]
 

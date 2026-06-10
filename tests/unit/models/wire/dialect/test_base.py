@@ -21,7 +21,7 @@ from flama.models.transport.output.llm.event import (
     TextEvent,
     ToolEvent,
 )
-from flama.models.wire.dialect.base import (
+from flama.models.wire.dialect._base import (
     Assembler,
     CoalescingRenderer,
     Dialect,

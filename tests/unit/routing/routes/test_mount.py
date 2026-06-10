@@ -6,7 +6,7 @@ from flama import exceptions, types, url
 from flama.applications import Flama
 from flama.injection.components import Component
 from flama.routing.router import Router
-from flama.routing.routes.base import BaseRoute
+from flama.routing.routes._base import BaseRoute
 from flama.routing.routes.http import Route
 from flama.routing.routes.mount import Mount
 

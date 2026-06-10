@@ -7,7 +7,7 @@ import typing as t
 
 from flama import exceptions, types
 from flama.serialize.data_structures import MLModelCapabilities
-from flama.serialize.model_serializers.base import BaseModelSerializer
+from flama.serialize.model_serializers._base import BaseModelSerializer
 
 try:
     import tensorflow as tf

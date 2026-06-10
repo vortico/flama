@@ -2,7 +2,7 @@ import logging
 import os
 import typing as t
 
-from flama.models.base import LLMModel
+from flama.models._base import LLMModel
 from flama.models.components import ModelComponent, ModelComponentBuilder
 from flama.models.engine.llm.decoder.decoder import Decoder
 from flama.models.resources.llm import LLMResource, LLMResourceType

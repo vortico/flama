@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 import pytest
 
 from flama import exceptions
-from flama.models.engine.backend.llm.base import TransformerLLMBackend
+from flama.models.engine.backend.llm._base import TransformerLLMBackend
 from flama.models.engine.backend.llm.vllm import VLLMBackend
 from flama.models.engine.llm.input import EngineInput
 from flama.serialize.data_structures import LLMModelCapabilities
