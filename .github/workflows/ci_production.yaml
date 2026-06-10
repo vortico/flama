@@ -20,7 +20,6 @@ permissions:
 
 env:
   DEFAULT_LINUX: "slim"
-  DEFAULT_PYTHON: "3.14"
   DEFAULT_SCHEMAS: "pydantic"
 
 jobs:
@@ -37,14 +36,19 @@ jobs:
       - name: Commit Linter
         uses: wagoid/commitlint-github-action@9763196e10f27aef304c9b8b660d31d97fce0f99 # v5
 
+  config:
+    name: Config
+    uses: ./.github/workflows/_python-versions.yaml
+
   checks:
     name: Checks (${{ matrix.python }})
+    needs: [config]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python: ${{ fromJSON(needs.config.outputs.versions) }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -76,6 +80,7 @@ jobs:
 
   test:
     name: Test (${{ matrix.python }})
+    needs: [config]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -84,7 +89,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python: ${{ fromJSON(needs.config.outputs.versions) }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -101,7 +106,7 @@ jobs:
 
   release:
     name: Release
-    needs: [commitlint, checks, test]
+    needs: [commitlint, checks, test, config]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: pypi
@@ -132,7 +137,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
-          python-version: ${{ env.DEFAULT_PYTHON }}
+          python-version: ${{ needs.config.outputs.default }}
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
@@ -155,7 +160,7 @@ jobs:
 
   benchmark:
     name: Benchmark
-    needs: [release]
+    needs: [release, config]
     if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -173,7 +178,7 @@ jobs:
       - name: Set up project
         uses: ./.github/actions/setup
         with:
-          python-version: ${{ env.DEFAULT_PYTHON }}
+          python-version: ${{ needs.config.outputs.default }}
           gcp-workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
@@ -194,19 +199,27 @@ jobs:
           git push
 
   build-wheels:
-    name: Build wheels (${{ matrix.os }}, ${{ matrix.target }})
-    needs: [release]
+    name: Build wheels (${{ matrix.name }})
+    needs: [release, config]
     if: needs.release.outputs.published == 'true'
     strategy:
+      fail-fast: false
+      # The crate is not built against PyO3's stable ABI (abi3), so each wheel is tied to a
+      # specific CPython version: one wheel per supported version (from the config job) per
+      # platform. Linux rows build inside a manylinux/musllinux container that ships the
+      # interpreters; host rows (macOS/Windows) install them via setup-python. This matrix only
+      # declares platforms — the interpreter list is resolved in the "Resolve interpreters" step.
       matrix:
         include:
-          - { os: ubuntu-latest,  target: x86_64 }
-          - { os: ubuntu-latest,  target: aarch64 }
-          - { os: macos-15-intel, target: x86_64 }
-          - { os: macos-latest,   target: aarch64 }
-          - { os: windows-latest, target: x64 }
+          - { name: linux-x86_64,      os: ubuntu-latest,  target: x86_64,  manylinux: auto,          host-python: false }
+          - { name: linux-aarch64,     os: ubuntu-latest,  target: aarch64, manylinux: auto,          host-python: false }
+          - { name: musllinux-x86_64,  os: ubuntu-latest,  target: x86_64,  manylinux: musllinux_1_2, host-python: false }
+          - { name: musllinux-aarch64, os: ubuntu-latest,  target: aarch64, manylinux: musllinux_1_2, host-python: false }
+          - { name: macos-x86_64,      os: macos-15-intel, target: x86_64,  manylinux: auto,          host-python: true }
+          - { name: macos-aarch64,     os: macos-latest,   target: aarch64, manylinux: auto,          host-python: true }
+          - { name: windows-x64,       os: windows-latest, target: x64,     manylinux: auto,          host-python: true }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: read
       id-token: write
@@ -216,8 +229,32 @@ jobs:
         with:
           ref: master
 
+      # Build maturin's -i flags from the supported versions: binary names on Linux/macOS
+      # (python3.X), bare versions on Windows (resolved via the py launcher). `lines` feeds the
+      # multiline python-version input of setup-python on host rows. A missing version fails the
+      # release loudly rather than silently shipping fewer wheels.
+      - name: Resolve interpreters
+        id: interp
+        shell: bash
+        run: |
+          v='${{ needs.config.outputs.versions }}'
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            echo "args=-i $(jq -r 'join(" ")' <<<"$v")" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=-i $(jq -r 'map("python" + .) | join(" ")' <<<"$v")" >> "$GITHUB_OUTPUT"
+          fi
+          { echo "lines<<EOF"; jq -r '.[]' <<<"$v"; echo EOF; } >> "$GITHUB_OUTPUT"
+
+      # Host rows only (see host-python in the matrix): install every supported CPython so the
+      # -i interpreters resolve.
+      - name: Set up Python
+        if: ${{ matrix.host-python }}
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ steps.interp.outputs.lines }}
+
       # Release artifacts must bundle the real @vortico/ui templates; this path is strict
-      # (no public fallback). A push to master always runs with the org GCP secrets available.
+      # (no public fallback).
       - name: Build templates
         uses: ./.github/actions/build-templates
         with:
@@ -228,13 +265,13 @@ jobs:
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist
-          manylinux: auto
+          args: --release --out dist ${{ steps.interp.outputs.args }}
+          manylinux: ${{ matrix.manylinux }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: wheels-${{ matrix.os }}-${{ matrix.target }}
+          name: wheels-${{ matrix.name }}
           path: dist/
 
   build-sdist:
@@ -295,7 +332,7 @@ jobs:
 
   docker_push:
     name: Docker Push (${{ matrix.linux }}, ${{ matrix.python }}, ${{ matrix.schemas }})
-    needs: [release, publish]
+    needs: [release, publish, config]
     if: needs.release.outputs.published == 'true'
     environment:
       name: dockerhub
@@ -305,7 +342,7 @@ jobs:
     strategy:
       matrix:
         linux: ["slim"]
-        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python: ${{ fromJSON(needs.config.outputs.versions) }}
         schemas: ["pydantic", "marshmallow", "typesystem"]
     steps:
       - name: Checkout
@@ -333,16 +370,16 @@ jobs:
           tags: |
             type=raw,enable=true,value=${{ matrix.linux }}-${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-python${{ matrix.python }}-${{ matrix.schemas }}
             type=raw,enable=true,value=${{ matrix.linux }}-latest-python${{ matrix.python }}-${{ matrix.schemas }}
-            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},value=${{ matrix.linux }}-${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-${{ matrix.schemas }}
-            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && 'true' || 'false' }},value=${{ matrix.linux }}-latest-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.python == needs.config.outputs.default && 'true' || 'false' }},value=${{ matrix.linux }}-${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.python == needs.config.outputs.default && 'true' || 'false' }},value=${{ matrix.linux }}-latest-${{ matrix.schemas }}
             type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-python${{ matrix.python }}-${{ matrix.schemas }}
             type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=latest-python${{ matrix.python }}-${{ matrix.schemas }}
             type=raw,enable=${{ matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false' }},value=${{ matrix.linux }}-${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-python${{ matrix.python }}
             type=raw,enable=${{ matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false' }},value=${{ matrix.linux }}-latest-python${{ matrix.python }}
-            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && (matrix.linux == env.DEFAULT_LINUX && 'true' || 'false') || 'false' }},value=latest-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.python == needs.config.outputs.default && (matrix.linux == env.DEFAULT_LINUX && 'true' || 'false') || 'false' }},value=latest-${{ matrix.schemas }}
             type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false' }},value=latest-python${{ matrix.python }}
-            type=raw,enable=${{ matrix.python == env.DEFAULT_PYTHON && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false' }},value=${{ matrix.linux }}-latest
-            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && (matrix.python == env.DEFAULT_PYTHON && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false') || 'false' }},value=latest
+            type=raw,enable=${{ matrix.python == needs.config.outputs.default && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false' }},value=${{ matrix.linux }}-latest
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && (matrix.python == needs.config.outputs.default && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false') || 'false' }},value=latest
 
       - name: Build and push Docker image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6

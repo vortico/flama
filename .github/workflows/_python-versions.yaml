@@ -1,0 +1,30 @@
+name: Python versions
+
+# Single source of truth for the Python versions Flama supports across every workflow.
+# To add or drop a version, edit the `versions` array below — nothing else in CI hard-codes it.
+# Consumers read the `versions` (JSON array) and `default` (highest) outputs; any consumer-specific
+# formatting (e.g. maturin's -i interpreter flags) is derived by the consumer that needs it.
+on:
+  workflow_call:
+    outputs:
+      versions:
+        description: JSON array of supported Python versions, e.g. '["3.10", "3.11"]'.
+        value: ${{ jobs.versions.outputs.versions }}
+      default:
+        description: Highest supported version, e.g. "3.14".
+        value: ${{ jobs.versions.outputs.default }}
+
+jobs:
+  versions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      versions: ${{ steps.set.outputs.versions }}
+      default: ${{ steps.set.outputs.default }}
+    steps:
+      - id: set
+        shell: bash
+        run: |
+          versions='["3.10", "3.11", "3.12", "3.13", "3.14"]'
+          echo "versions=$versions" >> "$GITHUB_OUTPUT"
+          echo "default=$(jq -r '.[-1]' <<<"$versions")" >> "$GITHUB_OUTPUT"
