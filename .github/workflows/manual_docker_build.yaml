@@ -35,6 +35,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
+      # Don't let one image's transient failure (e.g. a Docker Hub registry timeout) cancel the
+      # other matrix builds — each tag is independent and re-runnable on its own.
+      fail-fast: false
       matrix:
         linux: ["slim"]
         python: ${{ fromJSON(needs.config.outputs.versions) }}
