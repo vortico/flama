@@ -28,14 +28,19 @@ jobs:
       - name: Commit Linter
         uses: wagoid/commitlint-github-action@9763196e10f27aef304c9b8b660d31d97fce0f99 # v5
 
+  config:
+    name: Config
+    uses: ./.github/workflows/_python-versions.yaml
+
   checks:
     name: Checks (${{ matrix.python }})
+    needs: [config]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python: ${{ fromJSON(needs.config.outputs.versions) }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -75,6 +80,7 @@ jobs:
 
   test:
     name: Test (${{ matrix.python }})
+    needs: [config]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -83,7 +89,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python: ${{ fromJSON(needs.config.outputs.versions) }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -104,6 +110,7 @@ jobs:
 
   performance:
     name: Performance
+    needs: [config]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -116,7 +123,7 @@ jobs:
       - name: Set up project
         uses: ./.github/actions/setup
         with:
-          python-version: "3.14"
+          python-version: ${{ needs.config.outputs.default }}
           gcp-workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
