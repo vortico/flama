@@ -1,5 +1,47 @@
 # Semantic Versioning Changelog
 
+# [v2.0.0](https://github.com/vortico/flama/compare/v1.12.4...v2.0.0) (2026-06-10)
+
+## ✨ New Features
+- [`ea21469`](https://github.com/vortico/flama/commit/ea21469)  Libs including templates and core (#202) (Issues: [`#202`](https://github.com/vortico/flama/issues/))
+- [`1b221ad`](https://github.com/vortico/flama/commit/1b221ad)  Path matching to core lib (#202) (Issues: [`#202`](https://github.com/vortico/flama/issues/))
+- [`d52dc91`](https://github.com/vortico/flama/commit/d52dc91)  JSON encoding to core lib (#202) (Issues: [`#202`](https://github.com/vortico/flama/issues/))
+- [`880d0b5`](https://github.com/vortico/flama/commit/880d0b5)  Route resolving to core lib (#202) (Issues: [`#202`](https://github.com/vortico/flama/issues/))
+- [`2b84eea`](https://github.com/vortico/flama/commit/2b84eea)  Server-Sent Event response (#201) (Issues: [`#201`](https://github.com/vortico/flama/issues/))
+- [`9115a68`](https://github.com/vortico/flama/commit/9115a68)  Models streaming (#201) (Issues: [`#201`](https://github.com/vortico/flama/issues/))
+- [`3f0daca`](https://github.com/vortico/flama/commit/3f0daca)  HuggingFace integration (#205) (Issues: [`#205`](https://github.com/vortico/flama/issues/))
+- [`cc0e7b9`](https://github.com/vortico/flama/commit/cc0e7b9)  Add vLLM integration for LLM models (#206) (Issues: [`#206`](https://github.com/vortico/flama/issues/))
+- [`983ff27`](https://github.com/vortico/flama/commit/983ff27)  Add NDJSON response and stream-oriented HTTP responses (#213) (Issues: [`#213`](https://github.com/vortico/flama/issues/) [`#213`](https://github.com/vortico/flama/issues/) [`#201`](https://github.com/vortico/flama/issues/) [`#200`](https://github.com/vortico/flama/issues/))
+- [`74e59ca`](https://github.com/vortico/flama/commit/74e59ca)  Add transport layer for LLM messages and events (#212) (Issues: [`#212`](https://github.com/vortico/flama/issues/) [`#212`](https://github.com/vortico/flama/issues/))
+- [`7b9ff98`](https://github.com/vortico/flama/commit/7b9ff98)  Add dialect and serving base abstractions (#212) (Issues: [`#212`](https://github.com/vortico/flama/issues/) [`#212`](https://github.com/vortico/flama/issues/))
+- [`2248248`](https://github.com/vortico/flama/commit/2248248)  Add engine backends and LLM codec/decoder (#212) (Issues: [`#212`](https://github.com/vortico/flama/issues/) [`#212`](https://github.com/vortico/flama/issues/) [`#205`](https://github.com/vortico/flama/issues/) [`#206`](https://github.com/vortico/flama/issues/))
+- [`4c0746b`](https://github.com/vortico/flama/commit/4c0746b)  Add stream backends and registry (#212) (Issues: [`#212`](https://github.com/vortico/flama/issues/) [`#212`](https://github.com/vortico/flama/issues/) [`#201`](https://github.com/vortico/flama/issues/))
+- [`76879f3`](https://github.com/vortico/flama/commit/76879f3)  Add CLI command to serve LLM models (#213) (Issues: [`#213`](https://github.com/vortico/flama/issues/) [`#213`](https://github.com/vortico/flama/issues/))
+- [`a72d55c`](https://github.com/vortico/flama/commit/a72d55c)  Add OpenAI dialect and serving (#214) (Issues: [`#214`](https://github.com/vortico/flama/issues/) [`#214`](https://github.com/vortico/flama/issues/))
+- [`783f5c0`](https://github.com/vortico/flama/commit/783f5c0)  Add Ollama dialect and serving (#215) (Issues: [`#215`](https://github.com/vortico/flama/issues/) [`#215`](https://github.com/vortico/flama/issues/))
+- [`44ad967`](https://github.com/vortico/flama/commit/44ad967)  Add native dialect and serving (#216) (Issues: [`#216`](https://github.com/vortico/flama/issues/) [`#216`](https://github.com/vortico/flama/issues/))
+- [`3982f21`](https://github.com/vortico/flama/commit/3982f21)  Add Anthropic dialect and serving (#217) (Issues: [`#217`](https://github.com/vortico/flama/issues/) [`#217`](https://github.com/vortico/flama/issues/))
+- [`ee1a000`](https://github.com/vortico/flama/commit/ee1a000)  Add chatbot template application (#218) (Issues: [`#218`](https://github.com/vortico/flama/issues/) [`#218`](https://github.com/vortico/flama/issues/))
+- [`7f8e40c`](https://github.com/vortico/flama/commit/7f8e40c)  Add LaTeX math rendering to chatbot Markdown (#218) (Issues: [`#218`](https://github.com/vortico/flama/issues/))
+- [`87613b0`](https://github.com/vortico/flama/commit/87613b0)  Add Mermaid diagram rendering to chatbot Markdown (#218) (Issues: [`#218`](https://github.com/vortico/flama/issues/))
+- [`feea534`](https://github.com/vortico/flama/commit/feea534)  Add 2020-12 tool schemas and trace context to MCP (#221) (Issues: [`#221`](https://github.com/vortico/flama/issues/))
+- [`dd4c974`](https://github.com/vortico/flama/commit/dd4c974)  Add Tasks, Elicitation and MCP Apps extensions to MCP (#221) (Issues: [`#221`](https://github.com/vortico/flama/issues/))
+- [`cb37272`](https://github.com/vortico/flama/commit/cb37272)  Upgrade utility (#223) (Issues: [`#223`](https://github.com/vortico/flama/issues/))
+- [`e73b0f3`](https://github.com/vortico/flama/commit/e73b0f3)  Support decimal.Decimal parameters end-to-end 
+
+## 🐛 Bug Fixes
+- [`4aaff1f`](https://github.com/vortico/flama/commit/4aaff1f)  Prevent OpenAPI generation from hanging on recursive schemas 
+- [`d9e43ee`](https://github.com/vortico/flama/commit/d9e43ee)  Key the DI signature cache on the underlying function 
+- [`6676d16`](https://github.com/vortico/flama/commit/6676d16)  Fix lifespan instance reuse and order framework startup 
+
+## 💥 Breaking Changes
+- [`8c9ec76`](https://github.com/vortico/flama/commit/8c9ec76)  Support for MCP (#203) (Issues: [`#203`](https://github.com/vortico/flama/issues/))
+- [`d2632f5`](https://github.com/vortico/flama/commit/d2632f5)  HTTP foundational package (#200) (Issues: [`#200`](https://github.com/vortico/flama/issues/))
+- [`496594a`](https://github.com/vortico/flama/commit/496594a)  Middlewares foundational package (#200) (Issues: [`#200`](https://github.com/vortico/flama/issues/))
+- [`496b810`](https://github.com/vortico/flama/commit/496b810)  Upgrade to new torch.export serialization (#210) (Issues: [`#210`](https://github.com/vortico/flama/issues/))
+- [`7524e58`](https://github.com/vortico/flama/commit/7524e58)  Add serialization protocol v2 (#211) (Issues: [`#211`](https://github.com/vortico/flama/issues/) [`#211`](https://github.com/vortico/flama/issues/) [`#192`](https://github.com/vortico/flama/issues/))
+- [`7e18410`](https://github.com/vortico/flama/commit/7e18410)  Adapt MCP to stateless 2026-07-28 protocol (#221) (Issues: [`#221`](https://github.com/vortico/flama/issues/))
+
 # [v1.12.4](https://github.com/vortico/flama/compare/v1.12.3...v1.12.4) (2026-03-24)
 
 ## 🐛 Bug Fixes

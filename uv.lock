@@ -1296,7 +1296,7 @@ wheels = [
 
 [[package]]
 name = "flama"
-version = "1.12.4"
+version = "2.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "click", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32'" },
