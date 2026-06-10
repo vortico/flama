@@ -25,6 +25,7 @@ from flama.models.transport.input.llm.message import (
     ToolMessage,
     UserMessage,
 )
+from tests._utils import requires_templates
 
 SERVING = "native"
 
@@ -46,6 +47,7 @@ class TestCaseEndToEndStreaming:
 
         assert response.status_code == expected_status
 
+    @requires_templates
     async def test_chat_html_renders_resolved_stream_url(self, client: Client) -> None:
         response = await client.get("/llm/chat/")
 

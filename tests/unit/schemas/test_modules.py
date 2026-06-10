@@ -4,6 +4,7 @@ import pytest
 
 from flama import Flama, exceptions, pagination, schemas
 from flama.schemas.modules import SchemaModule
+from tests._utils import requires_templates
 
 
 class TestCaseSchemaModule:
@@ -103,6 +104,7 @@ class TestCaseSchemaModule:
         assert response.status_code == 200
         assert response.headers.get("content-type") == "application/vnd.oai.openapi+json"
 
+    @requires_templates
     async def test_view_docs(self, client):
         response = await client.request("get", "/docs/")
         assert response.status_code == 200
