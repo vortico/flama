@@ -7,7 +7,7 @@ updates:
       - "/.github/actions/setup"
       - "/.github/actions/build-templates"
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       actions:
         patterns: ["*"]
@@ -21,7 +21,7 @@ updates:
   - package-ecosystem: cargo
     directory: "/"
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       cargo:
         patterns: ["*"]
@@ -33,7 +33,7 @@ updates:
   - package-ecosystem: uv
     directory: "/"
     schedule:
-      interval: weekly
+      interval: monthly
     versioning-strategy: lockfile-only
     groups:
       python:
