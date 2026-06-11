@@ -111,8 +111,12 @@ jobs:
   performance:
     name: Performance
     needs: [config]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Pinned (not ubuntu-latest): a stable OS + Valgrind version keeps the simulated cycle/instruction
+    # counts reproducible across runs.
+    runs-on: ubuntu-24.04
+    # Valgrind adds heavy slowdown; instrumentation is off during import/setup, but the measured loops
+    # are simulated, so the suite needs more headroom than a normal test job.
+    timeout-minutes: 40
     permissions:
       contents: read
       id-token: write
@@ -126,8 +130,15 @@ jobs:
           python-version: ${{ needs.config.outputs.default }}
           gcp-workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          # Measure an optimized _core; a debug build would make instruction counts meaningless.
+          release: "true"
+
+      - name: Install Valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
 
       - name: Run performance tests
+        env:
+          PYTHONHASHSEED: "0"
         run: ./scripts/performance --output /tmp/performance-pr.json
 
       - name: Generate comparison

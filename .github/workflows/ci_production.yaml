@@ -162,8 +162,12 @@ jobs:
     name: Benchmark
     needs: [release, config]
     if: needs.release.outputs.published == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Pinned (not ubuntu-latest) to match the PR performance job: a stable OS + Valgrind version
+    # keeps the simulated cycle/instruction counts reproducible across releases.
+    runs-on: ubuntu-24.04
+    # Valgrind adds heavy slowdown; the measured loops are simulated, so this needs more headroom
+    # than a normal job.
+    timeout-minutes: 40
     permissions:
       contents: write
       id-token: write
@@ -181,8 +185,15 @@ jobs:
           python-version: ${{ needs.config.outputs.default }}
           gcp-workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          # Measure an optimized _core; a debug build would make instruction counts meaningless.
+          release: "true"
+
+      - name: Install Valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
 
       - name: Run performance tests
+        env:
+          PYTHONHASHSEED: "0"
         run: ./scripts/performance --output "benchmarks/results/${{ needs.release.outputs.version }}.json"
 
       - name: Generate report

@@ -6,10 +6,12 @@ source "./scripts/build" # provides build_templates (and sources _env, clean)
 
 run_install() {
   local with_templates=false
+  local release=false
   local args=()
   for arg in "$@"; do
     case "$arg" in
     --with-templates) with_templates=true ;;
+    --release) release=true ;;
     *) args+=("$arg") ;;
     esac
   done
@@ -23,8 +25,13 @@ run_install() {
     ./scripts/fetch_templates
   fi
 
-  echo "🦀 Building Rust extension (dev)..."
-  uv run maturin develop
+  if $release; then
+    echo "🦀 Building Rust extension (release)..."
+    uv run maturin develop --release
+  else
+    echo "🦀 Building Rust extension (dev)..."
+    uv run maturin develop
+  fi
 
   echo "✅ Install complete."
 }

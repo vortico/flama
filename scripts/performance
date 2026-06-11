@@ -1,13 +1,44 @@
 #!/bin/bash
 set -e
 
-source "./scripts/version"
+# Resolve paths relative to this script so the harness can run from any working directory (the 1.12.4
+# reseed runs it from an isolated tree that has no local flama/ source to shadow the pinned install).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/version"
 
 # ─── Performance ──────────────────────────────────────────────────────────────
+#
+# Measures performance in CI only, under Valgrind/Callgrind, as a deterministic,
+# hardware-independent CPU cost: an estimated cycle count (the headline metric) on top of the
+# raw instruction count. Each benchmark runs in its own Callgrind process with instrumentation
+# disabled at start; the `benchmark` fixture (tests/performance/conftest.py) toggles it on only
+# around a fixed-iteration loop, so import/setup is excluded. Not runnable on macOS (Valgrind is
+# Linux-only).
+#
+# Usage:
+#   ./scripts/performance [--output FILE] [--iterations N] [NODE_ID ...]
+
+PERF_DIR="tests/performance"
+
+# Cycle-estimate weights (tunable): approximate penalties for an L1 miss, a last-level/RAM miss
+# and a branch mispredict, added on top of each retired instruction. Pinned so the estimate is
+# reproducible regardless of the host CPU.
+W_L1=10
+W_LL=100
+W_BM=10
+
+# Pinned cache geometry (size,assoc,line-size). Without these Callgrind auto-detects the host's
+# caches via CPUID, so miss counts — and therefore the cycle estimate — would drift whenever the
+# runner hardware changes (exactly what this metric exists to avoid). Fixed values make the
+# simulated CPU host-independent: a generic 32 KiB L1 (I/D) and 8 MiB last-level cache.
+CACHE_I1="32768,8,64"
+CACHE_D1="32768,8,64"
+CACHE_LL="8388608,16,64"
 
 run_performance() {
   local output=""
-  local args=()
+  local iterations="${FLAMA_BENCH_ITER:-10}"
+  local ids=()
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -15,8 +46,12 @@ run_performance() {
       output="$2"
       shift 2
       ;;
+    --iterations)
+      iterations="$2"
+      shift 2
+      ;;
     *)
-      args+=("$1")
+      ids+=("$1")
       shift
       ;;
     esac
@@ -28,13 +63,116 @@ run_performance() {
     output="benchmarks/results/${version}.json"
   fi
 
+  if ! command -v valgrind >/dev/null 2>&1; then
+    echo "❌ valgrind not found; the performance suite only runs on Linux CI" >&2
+    exit 1
+  fi
+
+  # Interpreter to run *under* Valgrind. Valgrind must instrument Python directly, so we resolve the
+  # interpreter once instead of running `uv run` inside Valgrind (that would profile the uv launcher,
+  # not Python). Default: the project venv, resolved via uv with --no-sync so it does NOT re-sync and
+  # rebuild the _core in debug, which would clobber a release build. Override with FLAMA_BENCH_PYTHON
+  # to measure a different install (e.g. an older flama pinned from PyPI for the baseline).
+  local python_bin="${FLAMA_BENCH_PYTHON:-}"
+  if [[ -z "$python_bin" ]]; then
+    python_bin=$(uv run --no-sync python -c 'import sys; print(sys.executable)' 2>/dev/null || true)
+  fi
+  if [[ -z "$python_bin" ]]; then
+    echo "❌ could not resolve a Python interpreter (set FLAMA_BENCH_PYTHON)" >&2
+    exit 1
+  fi
+
+  # Disable ASLR for stable memory layout → stable cache-miss counts, but only if it actually works:
+  # setarch -R needs the personality syscall, which some sandboxes/containers deny. Probe once and
+  # skip silently if denied (the simulation still runs; layout is just slightly less pinned).
+  local arch_prefix=()
+  if command -v setarch >/dev/null 2>&1 && setarch "$(uname -m)" -R true >/dev/null 2>&1; then
+    arch_prefix=(setarch "$(uname -m)" -R)
+  fi
+
+  if [[ ${#ids[@]} -eq 0 ]]; then
+    mapfile -t ids < <("$python_bin" -m pytest "$PERF_DIR" --collect-only -q --override-ini="addopts=" -p no:xdist -p no:cacheprovider 2>/dev/null | grep '::' || true)
+  fi
+
+  if [[ ${#ids[@]} -eq 0 ]]; then
+    echo "❌ no benchmarks collected" >&2
+    exit 1
+  fi
+
   mkdir -p "$(dirname "$output")"
 
-  echo "🏋️ Running performance tests..."
-  uv run pytest tests/performance/ --benchmark-json="$output" --benchmark-enable -p no:xdist --override-ini="addopts=" -v "${args[@]}"
+  local work
+  work=$(mktemp -d)
 
-  ./scripts/benchmark --strip "$output"
-  echo "✅ Performance tests complete. Results saved to ${output}"
+  echo "🏋️ Running ${#ids[@]} performance benchmarks (Callgrind, ${iterations} iterations)..."
+
+  local entries=()
+  local i=0
+  for id in "${ids[@]}"; do
+    i=$((i + 1))
+    echo "[${i}/${#ids[@]}] ${id}"
+    rm -f "$work/cg.out" "$work/meta.tsv"
+
+    if ! FLAMA_BENCH_ITER="$iterations" FLAMA_BENCH_META="$work/meta.tsv" PYTHONHASHSEED=0 \
+      "${arch_prefix[@]}" valgrind --tool=callgrind --instr-atstart=no \
+      --cache-sim=yes --branch-sim=yes \
+      --I1="$CACHE_I1" --D1="$CACHE_D1" --LL="$CACHE_LL" \
+      --callgrind-out-file="$work/cg.out" \
+      "$python_bin" -m pytest "$id" -p no:xdist -p no:cacheprovider --override-ini="addopts=" -q >/dev/null 2>&1; then
+      echo "  ! benchmark failed, skipping" >&2
+      continue
+    fi
+
+    if [[ ! -f "$work/cg.out" || ! -f "$work/meta.tsv" ]]; then
+      echo "  ! no measurement recorded, skipping" >&2
+      continue
+    fi
+
+    # Zip the `events:` header with the `totals:` row (same column layout, both prefixed by their
+    # label) so event lookup is by name and robust to ordering, then apply the cycle weights. We read
+    # `totals:` (the cumulative grand total at end of file) rather than `summary:`: under
+    # instrumentation toggling (--instr-atstart=no + callgrind_control) the header `summary:` is
+    # written as 0, while `totals:` holds the real counts for the instrumented (measured) region.
+    local mean ir
+    read -r mean ir < <(awk -v it="$iterations" -v wl1="$W_L1" -v wll="$W_LL" -v wbm="$W_BM" '
+      /^events:/  { for (n = 2; n <= NF; n++) col[$n] = n }
+      /^totals:/ {
+        Ir = $(col["Ir"])
+        l1 = $(col["I1mr"]) + $(col["D1mr"]) + $(col["D1mw"])
+        ll = $(col["ILmr"]) + $(col["DLmr"]) + $(col["DLmw"])
+        bm = $(col["Bcm"]) + $(col["Bim"])
+        printf "%.0f %.0f\n", (Ir + wl1 * l1 + wll * ll + wbm * bm) / it, Ir / it
+      }' "$work/cg.out")
+
+    if [[ -z "$mean" || -z "$ir" ]]; then
+      echo "  ! could not parse Callgrind output, skipping" >&2
+      continue
+    fi
+
+    local group fullname name
+    IFS=$'\t' read -r group fullname name <"$work/meta.tsv"
+
+    entries+=("$(jq -nc \
+      --arg group "$group" --arg fullname "$fullname" --arg name "$name" \
+      --argjson mean "$mean" --argjson ir "$ir" --argjson rounds "$iterations" \
+      '{group: $group, fullname: $fullname, name: $name, stats: {mean: $mean, ir: $ir, stddev: 0, rounds: $rounds}}')")
+  done
+
+  if [[ ${#entries[@]} -eq 0 ]]; then
+    rm -rf "$work"
+    echo "❌ no benchmark produced a measurement" >&2
+    exit 1
+  fi
+
+  printf '%s\n' "${entries[@]}" | jq -s \
+    --arg datetime "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg commit "$(git rev-parse HEAD 2>/dev/null || echo '')" \
+    --argjson iterations "$iterations" \
+    '{datetime: $datetime, commit_info: {id: $commit}, metric: {unit: "callgrind", iterations: $iterations}, benchmarks: .}' \
+    >"$output"
+
+  rm -rf "$work"
+  echo "✅ Performance tests complete. ${#entries[@]} benchmarks saved to ${output}"
 }
 
 if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then

@@ -3,7 +3,7 @@ set -e
 
 # ─── Benchmark ────────────────────────────────────────────────────────────────
 #
-# Generates benchmark reports from stored pytest-benchmark JSON results.
+# Generates benchmark reports from stored Callgrind JSON results.
 #
 # Usage:
 #   ./scripts/benchmark                  Generate benchmarks/README.md
@@ -14,13 +14,13 @@ RESULTS_DIR="benchmarks/results"
 README_PATH="benchmarks/README.md"
 THRESHOLD=5
 
-# Reusable awk function for formatting seconds to human-readable units.
+# Reusable awk function for formatting event counts (instructions / estimated cycles) to human-readable units.
 read -r -d '' AWK_FMT <<'AWKFMT' || true
-function fmt(s) {
-  if (s < 1e-6) return sprintf("%.2f ns", s * 1e9)
-  if (s < 1e-3) return sprintf("%.2f us", s * 1e6)
-  if (s < 1)    return sprintf("%.2f ms", s * 1e3)
-  return sprintf("%.2f s", s)
+function fmt(n) {
+  if (n < 1e3) return sprintf("%.0f", n)
+  if (n < 1e6) return sprintf("%.2f k", n / 1e3)
+  if (n < 1e9) return sprintf("%.2f M", n / 1e6)
+  return sprintf("%.2f G", n / 1e9)
 }
 AWKFMT
 
@@ -72,9 +72,9 @@ cmd_strip() {
 
 latest_table() {
   local file="$1"
-  echo "| Group | Test | Mean | Std Dev | Rounds |"
-  echo "| ----- | ---- | ---: | ------: | -----: |"
-  jq -r '.benchmarks | sort_by(.group, .fullname)[] | [.group, .fullname, .stats.mean, .stats.stddev, .stats.rounds] | @tsv' "$file" |
+  echo "| Group | Test | Cycles (est) | Instructions | Iters |"
+  echo "| ----- | ---- | -----------: | -----------: | ----: |"
+  jq -r '.benchmarks | sort_by(.group, .fullname)[] | [.group, .fullname, .stats.mean, (.stats.ir // 0), .stats.rounds] | @tsv' "$file" |
     awk -F'\t' "$AWK_FMT"'{
       name = $2
       gsub(/.*::TestCase/, "TestCase", name)
@@ -176,8 +176,10 @@ cmd_report() {
   {
     echo "# Benchmark Results"
     echo ""
-    echo "Performance benchmarks for the Flama framework. Most tests build a full"
-    echo "Flama application and measure real HTTP request/response cycles via ASGI"
+    echo "Performance benchmarks for the Flama framework, measured in CI under"
+    echo "Valgrind/Callgrind as deterministic, hardware-independent CPU cost"
+    echo "(estimated cycles, with raw instruction counts). Most tests build a full"
+    echo "Flama application and exercise real HTTP request/response cycles via ASGI"
     echo "transport; a few exercise CPU-bound components (serialization, tool-call"
     echo "parsing) directly."
     echo ""
@@ -190,10 +192,9 @@ cmd_report() {
     echo "| middleware | Per-request cost as middleware stack depth increases |"
     echo "| compression | Response compression overhead (brotli/gzip/identity) |"
     echo "| streaming | NDJSON and SSE stream drain throughput |"
-    echo "| serialize | .flm dump/load round-trips (protocol v2) |"
+    echo "| serialize | .flm dump/load round-trips (sklearn, protocol v2) |"
     echo "| decoder | LLM tool-call parsing throughput |"
     echo "| mcp | Stateless MCP dispatch (tools/list, tools/call) |"
-    echo "| ml | ML model inference latency (sklearn, pytorch, tensorflow) |"
     echo ""
     echo "## Latest: ${latest_version} (${latest_date})"
     echo ""

@@ -16,6 +16,10 @@ inputs:
     description: GCP service account email to impersonate. Empty disables the private template path.
     required: false
     default: ""
+  release:
+    description: Build the Rust extension in release mode (required for meaningful performance numbers).
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -61,9 +65,9 @@ runs:
     - name: Install project (private templates)
       if: ${{ inputs.gcp-workload-identity-provider != '' && inputs.gcp-service-account != '' }}
       shell: bash
-      run: ./scripts/install --with-templates
+      run: ./scripts/install --with-templates ${{ inputs.release == 'true' && '--release' || '' }}
 
     - name: Install project (public templates)
       if: ${{ inputs.gcp-workload-identity-provider == '' || inputs.gcp-service-account == '' }}
       shell: bash
-      run: ./scripts/install
+      run: ./scripts/install ${{ inputs.release == 'true' && '--release' || '' }}
