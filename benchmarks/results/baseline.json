@@ -1,0 +1,177 @@
+{
+  "datetime": "2026-06-11T00:33:47Z",
+  "commit_info": {
+    "id": ""
+  },
+  "metric": {
+    "unit": "callgrind",
+    "iterations": 10
+  },
+  "benchmarks": [
+    {
+      "group": "json",
+      "fullname": "tests/performance/test_json.py::TestCaseJsonPayloadSize::test_small_dict",
+      "name": "test_small_dict",
+      "stats": {
+        "mean": 2695186,
+        "ir": 1569732,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "json",
+      "fullname": "tests/performance/test_json.py::TestCaseJsonPayloadSize::test_nested_dict",
+      "name": "test_nested_dict",
+      "stats": {
+        "mean": 2807975,
+        "ir": 1658248,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "json",
+      "fullname": "tests/performance/test_json.py::TestCaseJsonPayloadSize::test_large_list",
+      "name": "test_large_list",
+      "stats": {
+        "mean": 13506820,
+        "ir": 11157931,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "json",
+      "fullname": "tests/performance/test_json.py::TestCaseJsonPayloadSize::test_complex_types",
+      "name": "test_complex_types",
+      "stats": {
+        "mean": 2805790,
+        "ir": 1661341,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseStaticRoutes::test_static_10",
+      "name": "test_static_10",
+      "stats": {
+        "mean": 2787577,
+        "ir": 1646316,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseRoutes10::test_first",
+      "name": "test_first",
+      "stats": {
+        "mean": 2713057,
+        "ir": 1583065,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseRoutes10::test_last",
+      "name": "test_last",
+      "stats": {
+        "mean": 2885822,
+        "ir": 1724941,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseRoutes50::test_first",
+      "name": "test_first",
+      "stats": {
+        "mean": 2712298,
+        "ir": 1582682,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseRoutes50::test_last",
+      "name": "test_last",
+      "stats": {
+        "mean": 3621511,
+        "ir": 2352573,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseRoutes200::test_first",
+      "name": "test_first",
+      "stats": {
+        "mean": 2717793,
+        "ir": 1583606,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseRoutes200::test_last",
+      "name": "test_last",
+      "stats": {
+        "mean": 6399531,
+        "ir": 4689176,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "injection",
+      "fullname": "tests/performance/test_injection.py::TestCaseInjection::test_simple",
+      "name": "test_simple",
+      "stats": {
+        "mean": 4195731,
+        "ir": 2842104,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "injection",
+      "fullname": "tests/performance/test_injection.py::TestCaseInjection::test_nested",
+      "name": "test_nested",
+      "stats": {
+        "mean": 5670903,
+        "ir": 4115541,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "injection",
+      "fullname": "tests/performance/test_injection.py::TestCaseInjection::test_multi",
+      "name": "test_multi",
+      "stats": {
+        "mean": 5711894,
+        "ir": 4150153,
+        "stddev": 0,
+        "rounds": 10
+      }
+    },
+    {
+      "group": "middleware",
+      "fullname": "tests/performance/test_middleware.py::TestCaseMiddleware::test_no_middleware",
+      "name": "test_no_middleware",
+      "stats": {
+        "mean": 2682327,
+        "ir": 1562351,
+        "stddev": 0,
+        "rounds": 10
+      }
+    }
+  ]
+}
