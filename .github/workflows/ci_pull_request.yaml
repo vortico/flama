@@ -153,6 +153,19 @@ jobs:
     outputs:
       result: ${{ job.status }}
 
+  ci:
+    name: CI
+    if: always()
+    needs: [commitlint, config, checks, test, performance]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All required jobs green?
+        run: |
+          for r in ${{ join(needs.*.result, ' ') }}; do
+            [ "$r" = "success" ] || { echo "A required job concluded '$r'."; exit 1; }
+          done
+
   update-pr:
     name: Update PR
     runs-on: ubuntu-latest

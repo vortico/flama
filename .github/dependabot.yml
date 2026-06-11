@@ -10,10 +10,45 @@ updates:
       interval: weekly
     groups:
       actions:
-        patterns:
-          - "*"
+        patterns: ["*"]
     # Trailing space is required: Dependabot only auto-inserts a colon when the prefix ends
     # in a letter/number/bracket, so ":arrow_up: " yields the gitmoji-compatible
     # ":arrow_up: Bump ..." that commitlint expects (type + space + sentence-case subject).
+    commit-message:
+      prefix: ":arrow_up: "
+
+  # Rust core — the workspace root covers lib/core. Covered by tests → auto-merged on green CI.
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      cargo:
+        patterns: ["*"]
+    commit-message:
+      prefix: ":arrow_up: "
+
+  # Python — lockfile-only keeps uv.lock fresh without churning pyproject ranges.
+  # Covered by tests → auto-merged on green CI.
+  - package-ecosystem: uv
+    directory: "/"
+    schedule:
+      interval: weekly
+    versioning-strategy: lockfile-only
+    groups:
+      python:
+        patterns: ["*"]
+    commit-message:
+      prefix: ":arrow_up: "
+
+  # Frontend templates (private @vortico/ui) — not validated by PR CI. Single grouped PR,
+  # merged manually right before a release (run `pnpm build` locally first).
+  - package-ecosystem: npm
+    directory: "/lib/templates"
+    schedule:
+      interval: monthly
+    groups:
+      templates:
+        patterns: ["*"]
     commit-message:
       prefix: ":arrow_up: "

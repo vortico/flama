@@ -1,0 +1,25 @@
+name: Dependabot auto-merge
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    name: Auto-merge safe Dependabot updates
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Fetch metadata
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      # cargo + uv are covered by the test matrix → auto-merge on green CI.
+      # npm is intentionally excluded → stays open for manual merge at release time.
+      - name: Enable auto-merge (cargo & uv)
+        if: contains(fromJSON('["cargo", "uv"]'), steps.meta.outputs.package-ecosystem)
+        run: gh pr merge --auto --rebase "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
