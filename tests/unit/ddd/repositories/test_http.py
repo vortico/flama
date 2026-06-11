@@ -11,6 +11,19 @@ from flama.ddd import exceptions
 from flama.ddd.repositories.http import HTTPRepository, HTTPResourceManager, HTTPResourceRepository
 
 
+class TestCaseHTTPRepositoryExports:
+    @pytest.mark.parametrize("name", ["HTTPRepository", "HTTPResourceManager", "HTTPResourceRepository"])
+    def test_reexported_from_packages(self, name):
+        import flama.ddd
+        import flama.ddd.repositories
+        import flama.ddd.repositories.http as http_module
+
+        expected = getattr(http_module, name)
+
+        assert getattr(flama.ddd.repositories, name) is expected
+        assert getattr(flama.ddd, name) is expected
+
+
 class TestCaseHTTPRepository:
     @pytest.fixture(scope="function")
     def client(self):
