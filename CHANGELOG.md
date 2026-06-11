@@ -1,5 +1,11 @@
 # Semantic Versioning Changelog
 
+# [v2.0.1](https://github.com/vortico/flama/compare/v2.0.0...v2.0.1) (2026-06-11)
+
+## 🐛 Bug Fixes
+- [`35d797d`](https://github.com/vortico/flama/commit/35d797d)  Lazy-load optional ML dependencies in the LLM backend 
+- [`39cf716`](https://github.com/vortico/flama/commit/39cf716)  Re-export HTTP repositories from flama.ddd.repositories
+
 # [v2.0.0](https://github.com/vortico/flama/compare/v1.12.4...v2.0.0) (2026-06-10)
 
 ## ✨ New Features
