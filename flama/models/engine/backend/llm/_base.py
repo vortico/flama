@@ -3,9 +3,6 @@ import functools
 import logging
 import typing as t
 
-import numpy as np
-from PIL.Image import Image as PILImage
-
 from flama import exceptions, types
 from flama.models.engine.backend._base import Backend
 from flama.models.engine.llm.delta import EngineDelta
@@ -24,6 +21,10 @@ from flama.models.transport.input.llm.message import (
 )
 from flama.models.transport.input.llm.tool import Tool
 from flama.serialize.data_structures import LLMModelCapabilities, ModelArtifact
+
+if t.TYPE_CHECKING:
+    import numpy as np
+    from PIL.Image import Image as PILImage
 
 __all__ = ["LLMBackend", "TransformerLLMBackend"]
 
