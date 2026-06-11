@@ -1,7 +1,7 @@
 import click
 
 from flama._cli.formatting import FlamaCommand
-from flama.upgrade import run as run_upgrade
+from flama._upgrade import run as run_upgrade
 
 __all__ = ["upgrade", "command"]
 

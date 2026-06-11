@@ -8,7 +8,7 @@ from rich.table import Table
 from rich.text import Text
 
 from flama._cli.formatting import CONSOLE
-from flama.upgrade.operations import Todo
+from flama._upgrade.operations import Todo
 
 __all__ = ["FileReport", "Report"]
 

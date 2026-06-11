@@ -3,7 +3,7 @@ import dataclasses
 import pathlib
 import typing as t
 
-__all__ = ["Edit", "Source"]
+__all__ = ["Edit", "ImportStatement", "Keyword", "Source"]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -26,6 +26,54 @@ class Edit:
     end_line: int
     end_col: int
     text: str
+
+    @classmethod
+    def from_node(cls, node: ast.stmt | ast.expr, text: str) -> "Edit":
+        """Build an edit covering the full span of ``node``, replaced by ``text``.
+
+        :param node: AST node whose source span is replaced.
+        :param text: Replacement text.
+        :return: An edit covering ``node``.
+        """
+        return cls(node.lineno, node.col_offset, t.cast(int, node.end_lineno), t.cast(int, node.end_col_offset), text)
+
+
+@dataclasses.dataclass(frozen=True)
+class ImportStatement:
+    """A renderable ``import`` / ``from ... import`` statement.
+
+    :param module: Module for a ``from`` import, or ``None`` for a plain ``import``.
+    :param aliases: ``(name, asname)`` pairs imported by the statement.
+    """
+
+    module: str | None
+    aliases: tuple[tuple[str, str | None], ...]
+
+    def render(self) -> str:
+        """Render the statement back to source."""
+        names = ", ".join(name if asname is None else f"{name} as {asname}" for name, asname in self.aliases)
+        return f"from {self.module} import {names}" if self.module is not None else f"import {names}"
+
+
+@dataclasses.dataclass(frozen=True)
+class Keyword:
+    """A renderable call argument (``name=value``, or ``**value`` when :attr:`arg` is ``None``).
+
+    :param arg: Keyword name, or ``None`` for a ``**value`` unpacking.
+    :param value: Source of the argument value.
+    """
+
+    arg: str | None
+    value: str
+
+    @classmethod
+    def from_node(cls, text: str, keyword: ast.keyword) -> "Keyword":
+        """Build a keyword from an :class:`ast.keyword` node, reading its value segment from ``text``."""
+        return cls(keyword.arg, t.cast(str, ast.get_source_segment(text, keyword.value)))
+
+    def render(self) -> str:
+        """Render the argument back to source."""
+        return f"**{self.value}" if self.arg is None else f"{self.arg}={self.value}"
 
 
 class _BindingFinder(ast.NodeVisitor):
@@ -75,7 +123,7 @@ class _BindingFinder(ast.NodeVisitor):
 class Source:
     """An immutable view over a single Python source file and its parsed syntax tree.
 
-    A :class:`Source` is the unit every :class:`~flama.upgrade.operations.Operation` works on. It exposes
+    A :class:`Source` is the unit every :class:`~flama._upgrade.operations.Operation` works on. It exposes
     the import statements and name references an operation needs to inspect, a conservative shadowing
     check, and an offset-based splicer that rewrites only the spans an operation targets while preserving
     the rest of the file byte-for-byte.
@@ -129,6 +177,35 @@ class Source:
         finder = _BindingFinder(name)
         finder.visit(self.tree)
         return finder.found
+
+    def local_binding(self, module: str, name: str) -> str | None:
+        """Return the local name ``name`` is bound to when imported from ``module``.
+
+        Only top-level ``from <module> import <name>`` statements are considered. The binding is the alias
+        when one is present (``import X as Y`` -> ``Y``), otherwise the name itself. ``None`` is returned
+        when the symbol is not imported from that module.
+
+        :param module: Module the symbol is imported from.
+        :param name: Symbol name to resolve.
+        :return: The local binding, or ``None`` when not imported from ``module``.
+        """
+        for node in self.imports:
+            if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module == module:
+                for alias in node.names:
+                    if alias.name == name:
+                        return alias.asname or alias.name
+        return None
+
+    def delete_statement(self, node: ast.stmt) -> Edit:
+        """Build an edit that removes ``node``'s full lines, including the trailing newline.
+
+        :param node: Statement to delete.
+        :return: An edit that blanks the statement's span.
+        """
+        lines = self.text.splitlines(keepends=True)
+        end_line = t.cast(int, node.end_lineno)
+        end_col = len(lines[end_line - 1].encode("utf-8"))
+        return Edit(node.lineno, 0, end_line, end_col, "")
 
     def with_edits(self, edits: t.Sequence[Edit]) -> "Source":
         """Return a new :class:`Source` with ``edits`` applied.

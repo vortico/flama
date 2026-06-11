@@ -5,8 +5,8 @@ import pytest
 from rich.console import Console
 
 from flama._cli.formatting import FLAMA_THEME
-from flama.upgrade.operations import Todo
-from flama.upgrade.report import FileReport, Report
+from flama._upgrade.operations import Todo
+from flama._upgrade.report import FileReport, Report
 
 
 class TestCaseReport:

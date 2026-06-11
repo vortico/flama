@@ -2,9 +2,9 @@ import pathlib
 
 import pytest
 
-from flama.upgrade.codemods import MIGRATIONS
-from flama.upgrade.codemods.v2 import V2
-from flama.upgrade.source import Source
+from flama._upgrade.codemods import MIGRATIONS
+from flama._upgrade.codemods.v2 import V2
+from flama._upgrade.source import Source
 
 
 class TestCaseUpgradeV2:
@@ -65,6 +65,26 @@ class TestCaseUpgradeV2:
                 "from flama.codecs.http.negotiator import HTTPContentTypeNegotiator\n",
                 id="content_type_negotiator_renamed_relocated",
             ),
+            pytest.param(
+                "from flama.types import Headers\n",
+                "from flama.http import Headers\n",
+                id="headers_relocated_to_http",
+            ),
+            pytest.param(
+                "from flama.schemas.generator import SchemaRegistry\n",
+                "from flama.schemas.openapi import SchemaRegistry\n",
+                id="schema_registry_relocated",
+            ),
+            pytest.param(
+                "from flama.middleware import Middleware\nm = Middleware(Foo, a=1)\n",
+                "m = Foo(a=1)\n",
+                id="middleware_call_unwrapped",
+            ),
+            pytest.param(
+                "from flama.http import APIResponse\nr = APIResponse(content=x, status_code=201)\n",
+                "from flama.http import APIResponse\nr = APIResponse(x, status_code=201)\n",
+                id="api_response_content_to_positional",
+            ),
         ],
     )
     def test_apply(self, before: str, after: str) -> None:
@@ -72,11 +92,28 @@ class TestCaseUpgradeV2:
 
         assert result.text == after
 
-    def test_removed_symbol_is_marked(self) -> None:
-        result, todos, changed = V2.apply(
-            Source.parse(pathlib.Path("a.py"), "from flama.http import HTMLFileResponse\n")
-        )
+    @pytest.mark.parametrize(
+        "before",
+        [
+            pytest.param("from flama.http import HTMLFileResponse\n", id="removed_symbol"),
+            pytest.param("from flama.http import EnhancedJSONEncoder\n", id="removed_encoder"),
+            pytest.param("from flama.routing.routes.base import BaseRoute\n", id="privatized_base_module"),
+        ],
+    )
+    def test_marks_and_reports(self, before: str) -> None:
+        result, todos, changed = V2.apply(Source.parse(pathlib.Path("a.py"), before))
 
         assert changed is True
         assert "# flama-upgrade:" in result.text
         assert len(todos) == 1
+
+    @pytest.mark.parametrize("name", ["APIResponse", "JSONResponse", "HTMLResponse"])
+    def test_empty_response_todo_points_to_concrete_class(self, name: str) -> None:
+        before = f"from flama.http import {name}\nr = {name}(status_code=204)\n"
+
+        _, todos, _ = V2.apply(Source.parse(pathlib.Path("a.py"), before))
+
+        assert len(todos) == 1
+        # The empty-body recommendation must be a concrete, instantiable class, never the abstract base.
+        assert "PlainTextResponse" in todos[0].message
+        assert "`flama.http.Response`" not in todos[0].message

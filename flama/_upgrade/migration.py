@@ -1,8 +1,8 @@
 import dataclasses
 import typing as t
 
-from flama.upgrade.operations import Operation, Todo
-from flama.upgrade.source import Source
+from flama._upgrade.operations import Operation, Todo
+from flama._upgrade.source import Source
 
 __all__ = ["Migration", "resolve"]
 

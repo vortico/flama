@@ -2,9 +2,9 @@ import pathlib
 
 import pytest
 
-from flama.upgrade.migration import Migration, resolve
-from flama.upgrade.operations import MoveModule, MoveSymbol
-from flama.upgrade.source import Source
+from flama._upgrade.migration import Migration, resolve
+from flama._upgrade.operations import MoveModule, MoveSymbol
+from flama._upgrade.source import Source
 
 
 class TestCaseMigration:

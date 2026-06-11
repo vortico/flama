@@ -5,7 +5,7 @@ import pytest
 from rich.console import Console
 
 from flama._cli.formatting import FLAMA_THEME
-from flama.upgrade.runner import discover, run
+from flama._upgrade.runner import discover, run
 
 
 class TestCaseDiscover:

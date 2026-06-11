@@ -2,8 +2,15 @@ import pathlib
 
 import pytest
 
-from flama.upgrade.operations import MoveModule, MoveSymbol, RemoveSymbol
-from flama.upgrade.source import Source
+from flama._upgrade.operations import (
+    FlagModule,
+    KeywordToPositional,
+    MoveModule,
+    MoveSymbol,
+    RemoveSymbol,
+    UnwrapCall,
+)
+from flama._upgrade.source import Source
 
 
 class TestCaseMoveModule:
@@ -154,3 +161,168 @@ class TestCaseRemoveSymbol:
         )
 
         assert result.changed is False
+
+
+class TestCaseUnwrapCall:
+    @pytest.fixture
+    def operation(self) -> UnwrapCall:
+        return UnwrapCall("flama.middleware", "Middleware", "must subclass `flama.middleware.Middleware`")
+
+    def test_id(self, operation: UnwrapCall) -> None:
+        assert operation.id == "unwrap-call:flama.middleware:Middleware"
+
+    @pytest.mark.parametrize(
+        ["before", "after"],
+        [
+            pytest.param(
+                "from flama.middleware import Middleware\nx = Middleware(Foo, a=1)\n",
+                "x = Foo(a=1)\n",
+                id="unwrap_drops_unused_import",
+            ),
+            pytest.param(
+                "from flama.middleware import CORSMiddleware, Middleware\nx = Middleware(CORSMiddleware, a=1)\n",
+                "from flama.middleware import CORSMiddleware\nx = CORSMiddleware(a=1)\n",
+                id="unwrap_keeps_other_names",
+            ),
+            pytest.param(
+                "from flama.middleware import Middleware\nx = Middleware(Foo)\n",
+                "x = Foo()\n",
+                id="unwrap_no_kwargs",
+            ),
+            pytest.param(
+                "import os\nfrom flama.middleware import Middleware\nx = Middleware(Foo)\n",
+                "import os\nx = Foo()\n",
+                id="unwrap_drops_import_after_unrelated",
+            ),
+            pytest.param(
+                "from flama.middleware import Middleware\nx = Middleware(Foo, *rest, **opts)\n",
+                "x = Foo(*rest, **opts)\n",
+                id="unwrap_passes_through_varargs",
+            ),
+            pytest.param(
+                "from flama.middleware import Middleware\n\n\nclass M(Middleware):\n    pass\n\n\ny = Middleware(M)\n",
+                "from flama.middleware import Middleware\n\n\nclass M(Middleware):\n    pass\n\n\ny = M()\n",
+                id="keeps_import_when_subclassed",
+            ),
+            pytest.param(
+                "import os\nx = Middleware(Foo)\n",
+                "import os\nx = Middleware(Foo)\n",
+                id="not_imported_noop",
+            ),
+        ],
+    )
+    def test_apply(self, operation: UnwrapCall, before: str, after: str) -> None:
+        assert operation.apply(Source.parse(pathlib.Path("a.py"), before)).source.text == after
+
+    def test_emits_todo_per_unwrapped_call(self, operation: UnwrapCall) -> None:
+        result = operation.apply(
+            Source.parse(pathlib.Path("a.py"), "from flama.middleware import Middleware\nx = Middleware(Foo, a=1)\n")
+        )
+
+        assert [todo.line for todo in result.todos] == [2]
+        assert "Foo" in result.todos[0].message
+
+    def test_starred_first_argument_is_flagged_not_rewritten(self, operation: UnwrapCall) -> None:
+        result = operation.apply(
+            Source.parse(pathlib.Path("a.py"), "from flama.middleware import Middleware\nx = Middleware(*items)\n")
+        )
+
+        assert result.changed is False
+        assert len(result.todos) == 1
+
+
+class TestCaseKeywordToPositional:
+    @pytest.fixture
+    def operation(self) -> KeywordToPositional:
+        return KeywordToPositional("flama.http", "APIResponse", alternatives=("path",), note="needs content or path")
+
+    def test_id(self, operation: KeywordToPositional) -> None:
+        assert operation.id == "keyword-to-positional:flama.http:APIResponse:content"
+
+    @pytest.mark.parametrize(
+        ["before", "after"],
+        [
+            pytest.param(
+                "from flama.http import APIResponse\nr = APIResponse(content=x, status_code=201)\n",
+                "from flama.http import APIResponse\nr = APIResponse(x, status_code=201)\n",
+                id="keyword_to_positional",
+            ),
+            pytest.param(
+                "from flama.http import APIResponse\nr = APIResponse(schema=S, content=data, status_code=201)\n",
+                "from flama.http import APIResponse\nr = APIResponse(data, schema=S, status_code=201)\n",
+                id="keyword_to_positional_reorders",
+            ),
+            pytest.param(
+                "from flama.http import APIResponse\nr = APIResponse(x, status_code=204)\n",
+                "from flama.http import APIResponse\nr = APIResponse(x, status_code=204)\n",
+                id="already_positional_noop",
+            ),
+            pytest.param(
+                "from flama.http import APIResponse\nr = APIResponse(path='a.html')\n",
+                "from flama.http import APIResponse\nr = APIResponse(path='a.html')\n",
+                id="alternative_keyword_noop",
+            ),
+            pytest.param(
+                "r = APIResponse(content=x)\n",
+                "r = APIResponse(content=x)\n",
+                id="not_imported_noop",
+            ),
+        ],
+    )
+    def test_apply(self, operation: KeywordToPositional, before: str, after: str) -> None:
+        assert operation.apply(Source.parse(pathlib.Path("a.py"), before)).source.text == after
+
+    def test_missing_required_argument_is_flagged(self, operation: KeywordToPositional) -> None:
+        result = operation.apply(
+            Source.parse(pathlib.Path("a.py"), "from flama.http import APIResponse\nr = APIResponse(status_code=204)\n")
+        )
+
+        assert result.changed is False
+        assert [todo.line for todo in result.todos] == [2]
+
+    def test_double_star_kwargs_is_not_flagged(self, operation: KeywordToPositional) -> None:
+        result = operation.apply(
+            Source.parse(pathlib.Path("a.py"), "from flama.http import APIResponse\nr = APIResponse(**payload)\n")
+        )
+
+        assert result.changed is False
+        assert result.todos == ()
+
+
+class TestCaseFlagModule:
+    def test_id(self) -> None:
+        assert FlagModule("flama.cli", "now private").id == "flag-module:flama.cli"
+
+    @pytest.mark.parametrize(
+        ["before", "after"],
+        [
+            pytest.param(
+                "from flama.cli import main\n",
+                "from flama.cli import main  # flama-upgrade: now private\n",
+                id="from_import",
+            ),
+            pytest.param(
+                "import flama.cli\n",
+                "import flama.cli  # flama-upgrade: now private\n",
+                id="import_module",
+            ),
+            pytest.param(
+                "import flama.cli.commands\n",
+                "import flama.cli.commands  # flama-upgrade: now private\n",
+                id="import_submodule",
+            ),
+            pytest.param("from other import main\n", "from other import main\n", id="unrelated"),
+        ],
+    )
+    def test_apply(self, before: str, after: str) -> None:
+        assert FlagModule("flama.cli", "now private").apply(Source.parse(pathlib.Path("a.py"), before)).source.text == (
+            after
+        )
+
+    def test_reports_follow_up(self) -> None:
+        result = FlagModule("flama.cli", "now private").apply(
+            Source.parse(pathlib.Path("a.py"), "from flama.cli import main\n")
+        )
+
+        assert result.changed is True
+        assert [todo.line for todo in result.todos] == [1]

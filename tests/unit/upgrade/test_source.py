@@ -2,7 +2,7 @@ import pathlib
 
 import pytest
 
-from flama.upgrade.source import Edit, Source
+from flama._upgrade.source import Edit, Source
 
 
 class TestCaseSource:

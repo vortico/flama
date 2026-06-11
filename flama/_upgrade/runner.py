@@ -4,10 +4,10 @@ import typing as t
 from rich.console import Console
 
 from flama._cli.formatting import CONSOLE
-from flama.upgrade.codemods import MIGRATIONS
-from flama.upgrade.migration import resolve
-from flama.upgrade.report import FileReport, Report
-from flama.upgrade.source import Source
+from flama._upgrade.codemods import MIGRATIONS
+from flama._upgrade.migration import resolve
+from flama._upgrade.report import FileReport, Report
+from flama._upgrade.source import Source
 
 __all__ = ["discover", "run"]
 
