@@ -122,7 +122,7 @@ module-name = "flama._core"
 manifest-path = "lib/core/Cargo.toml"
 python-source = "."
 features = ["pyo3/extension-module"]
-include = [{ path = "flama/_templates/**", format = "wheel" }]
+include = [{ path = "flama/_templates/**/*", format = "wheel" }]
 
 [tool.uv]
 environments = [
