@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v2.0.2](https://github.com/vortico/flama/compare/v2.0.1...v2.0.2) (2026-06-12)
+
+## 🐛 Bug Fixes
+- [`96472d0`](https://github.com/vortico/flama/commit/96472d0)  Templates included in maturin building
+
 # [v2.0.1](https://github.com/vortico/flama/compare/v2.0.0...v2.0.1) (2026-06-11)
 
 ## 🐛 Bug Fixes
