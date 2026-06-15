@@ -2,6 +2,7 @@ import pathlib
 import typing as t
 from unittest.mock import MagicMock, Mock, call, patch
 
+import numpy as np
 import pytest
 
 from flama import exceptions
@@ -188,6 +189,17 @@ class TestCaseVLLMBackend:
                 [1, 2, 3, 4],
                 None,
                 id="batch_encoding_normalises_to_input_ids",
+            ),
+            pytest.param(
+                True, "template", np.array([[1, 2, 3, 4]]), [1, 2, 3, 4], None, id="batched_array_unwraps_batch_dim"
+            ),
+            pytest.param(
+                True,
+                "template",
+                {"input_ids": np.array([[1, 2, 3, 4]]), "attention_mask": np.array([[1, 1, 1, 1]])},
+                [1, 2, 3, 4],
+                None,
+                id="batch_encoding_2d_input_ids",
             ),
             pytest.param(
                 False, "template", "rendered prompt", "rendered prompt", None, id="no_tokenize_returns_string"
