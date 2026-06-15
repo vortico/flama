@@ -25,7 +25,8 @@ def _build_app(n: int, pattern: str = "/resource_{i}/{{id:int}}/") -> Flama:
 
 class TestCaseStaticRoutes:
     @pytest.fixture(scope="class")
-    def client(self, loop):
+    @classmethod
+    def client(cls, loop):
         app = _build_app(10, pattern="/static_{i}/")
         client = Client(app=app)
         loop.run_until_complete(client.__aenter__())
@@ -44,7 +45,8 @@ class TestCaseStaticRoutes:
 
 class TestCaseRoutes10:
     @pytest.fixture(scope="class")
-    def client(self, loop):
+    @classmethod
+    def client(cls, loop):
         app = _build_app(10)
         client = Client(app=app)
         loop.run_until_complete(client.__aenter__())
@@ -66,7 +68,8 @@ class TestCaseRoutes10:
 
 class TestCaseRoutes50:
     @pytest.fixture(scope="class")
-    def client(self, loop):
+    @classmethod
+    def client(cls, loop):
         app = _build_app(50)
         client = Client(app=app)
         loop.run_until_complete(client.__aenter__())
@@ -88,7 +91,8 @@ class TestCaseRoutes50:
 
 class TestCaseRoutes200:
     @pytest.fixture(scope="class")
-    def client(self, loop):
+    @classmethod
+    def client(cls, loop):
         app = _build_app(200)
         client = Client(app=app)
         loop.run_until_complete(client.__aenter__())

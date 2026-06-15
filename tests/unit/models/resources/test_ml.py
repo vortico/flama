@@ -15,15 +15,6 @@ from tests._utils import NotInstalled, model_factory
 
 
 class TestCaseMLResource:
-    @pytest.mark.parametrize(
-        ["model"],
-        [
-            pytest.param("tensorflow", id="tensorflow"),
-            pytest.param("sklearn", id="sklearn"),
-            pytest.param("torch", id="torch"),
-        ],
-        indirect=["model"],
-    )
     def test_resource_using_component(self, app, model, component):
         component_ = component
 

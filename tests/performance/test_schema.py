@@ -101,7 +101,8 @@ def _build_app() -> Flama:
 
 class TestCaseSchemaSmall:
     @pytest.fixture(scope="class")
-    def client(self, loop):
+    @classmethod
+    def client(cls, loop):
         app = _build_app()
         client = Client(app=app)
         loop.run_until_complete(client.__aenter__())
@@ -129,7 +130,8 @@ class TestCaseSchemaSmall:
 
 class TestCaseSchemaMedium:
     @pytest.fixture(scope="class")
-    def client(self, loop):
+    @classmethod
+    def client(cls, loop):
         app = _build_app()
         client = Client(app=app)
         loop.run_until_complete(client.__aenter__())

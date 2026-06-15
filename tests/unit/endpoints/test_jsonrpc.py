@@ -10,7 +10,8 @@ from flama.types import JSONRPCParams
 
 class TestCaseJSONRPCEndpoint:
     @pytest.fixture(scope="class")
-    def app(self, app):
+    @classmethod
+    def app(cls, app):
         return Flama(schema=None, docs=None)
 
     @pytest.fixture(scope="function")

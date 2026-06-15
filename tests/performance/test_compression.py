@@ -20,7 +20,8 @@ LARGE_LIST = [
 
 class TestCaseCompression:
     @pytest.fixture(scope="class")
-    def client(self, loop):
+    @classmethod
+    def client(cls, loop):
         app = Flama(schema=None, docs=None, middleware=[CompressionMiddleware(minimum_size=500)])
 
         @app.route("/large/")

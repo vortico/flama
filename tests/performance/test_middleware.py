@@ -31,21 +31,24 @@ def _build_app(n_middleware: int) -> Flama:
 
 class TestCaseMiddleware:
     @pytest.fixture(scope="class")
-    def client_0(self, loop):
+    @classmethod
+    def client_0(cls, loop):
         client = Client(app=_build_app(0))
         loop.run_until_complete(client.__aenter__())
         yield client
         loop.run_until_complete(client.__aexit__(None, None, None))
 
     @pytest.fixture(scope="class")
-    def client_5(self, loop):
+    @classmethod
+    def client_5(cls, loop):
         client = Client(app=_build_app(5))
         loop.run_until_complete(client.__aenter__())
         yield client
         loop.run_until_complete(client.__aexit__(None, None, None))
 
     @pytest.fixture(scope="class")
-    def client_10(self, loop):
+    @classmethod
+    def client_10(cls, loop):
         client = Client(app=_build_app(10))
         loop.run_until_complete(client.__aenter__())
         yield client
