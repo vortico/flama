@@ -70,10 +70,10 @@ database = ["SQLAlchemy[asyncio]>=2.0,<3.0"]
 llm = [
   "Pillow>=12.0,<13.0",
   "soundfile>=0.13,<1.0",
-  "vllm>=0.21,<0.22; sys_platform == 'linux' and python_version >= '3.10' and python_version < '3.14'",
+  "vllm>=0.21,<0.24; sys_platform == 'linux' and python_version >= '3.10' and python_version < '3.14'",
   "mlx>=0.31,<0.32; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
   "mlx-lm>=0.31,<0.32; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
-  "mlx-vlm>=0.5,<0.6; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
+  "mlx-vlm>=0.6,<0.7; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
 ]
 full = [
   "pydantic>=2.12,<3.0",
@@ -83,10 +83,10 @@ full = [
   "SQLAlchemy[asyncio]>=2.0,<3.0",
   "Pillow>=12.0,<13.0",
   "soundfile>=0.13,<1.0",
-  "vllm>=0.21,<0.22; sys_platform == 'linux' and python_version >= '3.10' and python_version < '3.14'",
+  "vllm>=0.21,<0.24; sys_platform == 'linux' and python_version >= '3.10' and python_version < '3.14'",
   "mlx>=0.31,<0.32; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
   "mlx-lm>=0.31,<0.32; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
-  "mlx-vlm>=0.5,<0.6; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
+  "mlx-vlm>=0.6,<0.7; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
 ]
 
 [project.scripts]
