@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v2.0.3](https://github.com/vortico/flama/compare/v2.0.2...v2.0.3) (2026-06-15)
+
+## 🐛 Bug Fixes
+- [`5c3be4b`](https://github.com/vortico/flama/commit/5c3be4b)  Wrong import in CLI app template
+
 # [v2.0.2](https://github.com/vortico/flama/compare/v2.0.1...v2.0.2) (2026-06-12)
 
 ## 🐛 Bug Fixes
