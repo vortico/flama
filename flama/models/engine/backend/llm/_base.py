@@ -367,9 +367,24 @@ class TransformerLLMBackend(LLMBackend):
         )
         if not tokenize:
             return rendered
+        return self._to_token_ids(rendered)
+
+    @staticmethod
+    def _to_token_ids(rendered: t.Any) -> list[int]:
+        """Normalise a chat-template renderer's token-ID output into a flat ``list[int]``.
+
+        :param rendered: Raw output of ``_renderer.apply_chat_template(tokenize=True)``: a
+            ``BatchEncoding`` (unwrapped via its ``input_ids`` key), an array / tensor (converted
+            through ``tolist``), a plain sequence, or any of these wrapped in a leading batch
+            dimension.
+        :return: The token IDs as a flat ``list[int]``.
+        """
         if hasattr(rendered, "keys") and "input_ids" in rendered:
             rendered = rendered["input_ids"]
-        return list(rendered)
+        ids = rendered.tolist() if hasattr(rendered, "tolist") else list(rendered)
+        while ids and isinstance(ids[0], (list, tuple)):
+            ids = ids[0]
+        return [int(i) for i in ids]
 
     @classmethod
     def _dump_content_part(cls, content: Content) -> dict[str, t.Any]:
