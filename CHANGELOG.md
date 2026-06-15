@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v2.0.4](https://github.com/vortico/flama/compare/v2.0.3...v2.0.4) (2026-06-15)
+
+## 🐛 Bug Fixes
+- [`bf61775`](https://github.com/vortico/flama/commit/bf61775)  Normalise multimodal chat template tokens
+
 # [v2.0.3](https://github.com/vortico/flama/compare/v2.0.2...v2.0.3) (2026-06-15)
 
 ## 🐛 Bug Fixes
