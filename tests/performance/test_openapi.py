@@ -20,7 +20,8 @@ _EXTRA_FIELDS = {f"field_{i}": (str, "") for i in range(8)}
 
 class TestCaseOpenAPIGeneration:
     @pytest.fixture(scope="class")
-    def client(self, loop):
+    @classmethod
+    def client(cls, loop):
         app = Flama(schema="/schema/", docs=None, schema_library="pydantic")
         for i in range(N_MODELS):
             model = pydantic.create_model(

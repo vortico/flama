@@ -22,7 +22,8 @@ class PuppyComponent(Component):
 
 class TestCaseHTTPEndpoint:
     @pytest.fixture(scope="class")
-    def app(self, app):
+    @classmethod
+    def app(cls, app):
         return Flama(schema=None, docs=None, components=[PuppyComponent()])
 
     @pytest.fixture(scope="function")
@@ -37,7 +38,8 @@ class TestCaseHTTPEndpoint:
         return FooEndpoint(asgi_scope, asgi_receive, asgi_send)
 
     @pytest.fixture(scope="class")
-    def puppy_schema(self, app):
+    @classmethod
+    def puppy_schema(cls, app):
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("Puppy", name=(str, ...))
         elif app.schema.schema_library.name == "typesystem":
@@ -50,7 +52,8 @@ class TestCaseHTTPEndpoint:
         return schema
 
     @pytest.fixture(scope="class")
-    def puppy_endpoint(self, app, puppy_schema):
+    @classmethod
+    def puppy_endpoint(cls, app, puppy_schema):
         @app.route("/puppy/")
         class PuppyEndpoint(endpoints.HTTPEndpoint):
             def get(self, puppy: Puppy) -> t.Annotated[types.Schema, types.SchemaMetadata(puppy_schema)]:

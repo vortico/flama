@@ -36,9 +36,11 @@ except Exception:
     torch = None
 
 try:
+    import tokenizers
     import transformers
 except Exception:
     warnings.warn("Transformers not installed")
+    tokenizers = None
     transformers = None
 
 
@@ -209,9 +211,48 @@ class ModelFactory:
     def _transformers(self):
         directory = tempfile.TemporaryDirectory()
         self._tmpdirs.append(directory)
-        transformers.pipeline("text-generation", model="hf-internal-testing/tiny-random-gpt2").save_pretrained(
-            directory.name
+
+        # Build a tiny byte-level BPE tokenizer and a random GPT-2 entirely offline. Downloading a
+        # model from the HuggingFace Hub at test time is flaky in CI (the Hub rate-limits the parallel
+        # version matrix, causing `OSError: We couldn't connect to 'https://huggingface.co'`).
+        tokenizer = tokenizers.Tokenizer(tokenizers.models.BPE(unk_token="<unk>"))
+        tokenizer.pre_tokenizer = tokenizers.pre_tokenizers.ByteLevel(add_prefix_space=False)
+        tokenizer.decoder = tokenizers.decoders.ByteLevel()
+        tokenizer.post_processor = tokenizers.processors.ByteLevel(trim_offsets=False)
+        tokenizer.train_from_iterator(
+            ["hello world", "the quick brown fox", "flama transformers test"],
+            trainer=tokenizers.trainers.BpeTrainer(
+                vocab_size=300,
+                special_tokens=["<unk>", "<|endoftext|>"],
+                initial_alphabet=tokenizers.pre_tokenizers.ByteLevel.alphabet(),
+            ),
         )
+
+        fast_tokenizer = transformers.GPT2TokenizerFast(
+            tokenizer_object=tokenizer,
+            unk_token="<unk>",
+            eos_token="<|endoftext|>",
+            pad_token="<|endoftext|>",
+            clean_up_tokenization_spaces=False,
+        )
+
+        # The text-generation pipeline ignores the model's generation_config and applies its own
+        # default (max_new_tokens=256 on transformers 5.x), so the learned position embedding must
+        # be able to absorb the prompt plus those generated tokens. Sizing n_positions at 64
+        # overflowed it ("index out of range in self") on torch builds that bound-check embedding
+        # indices (the Linux CI runners) while silently passing on others (macOS).
+        config = transformers.GPT2Config(
+            vocab_size=len(fast_tokenizer),
+            n_positions=1024,
+            n_embd=8,
+            n_layer=2,
+            n_head=2,
+            bos_token_id=fast_tokenizer.eos_token_id,
+            eos_token_id=fast_tokenizer.eos_token_id,
+        )
+        model = transformers.GPT2LMHeadModel(config)
+
+        transformers.pipeline("text-generation", model=model, tokenizer=fast_tokenizer).save_pretrained(directory.name)
 
         return directory.name, transformers.pipelines.base.Pipeline
 

@@ -27,7 +27,8 @@ class Foo:
 
 class TestCaseComponentsInjection:
     @pytest.fixture(scope="class")
-    def puppy_component(self):
+    @classmethod
+    def puppy_component(cls):
         class PuppyComponent(injection.Component):
             def resolve(self) -> Puppy:
                 return Puppy()
@@ -35,7 +36,8 @@ class TestCaseComponentsInjection:
         return PuppyComponent()
 
     @pytest.fixture(scope="class")
-    def unknown_param_component(self):
+    @classmethod
+    def unknown_param_component(cls):
         class UnknownParamComponent(injection.Component):
             def resolve(self, foo: Unknown) -> Foo:
                 return Foo()
@@ -43,7 +45,8 @@ class TestCaseComponentsInjection:
         return UnknownParamComponent()
 
     @pytest.fixture(scope="class")
-    def owner_component(self):
+    @classmethod
+    def owner_component(cls):
         class OwnerComponent(injection.Component):
             def resolve(self, puppy: Puppy) -> Owner:
                 return Owner(puppy=puppy)

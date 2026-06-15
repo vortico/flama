@@ -17,7 +17,8 @@ class PuppyComponent(Component):
 
 class TestCaseWebSocketEndpoint:
     @pytest.fixture(scope="class")
-    def app(self, app):
+    @classmethod
+    def app(cls, app):
         return Flama(schema=None, docs=None, components=[PuppyComponent()])
 
     @pytest.fixture(scope="function")

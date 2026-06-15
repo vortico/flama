@@ -36,7 +36,8 @@ CALL_HEADERS = {
 
 class TestCaseMCP:
     @pytest.fixture(scope="class")
-    def client(self, loop):
+    @classmethod
+    def client(cls, loop):
         app = Flama(schema=None, docs=None)
         server = MCPServer("bench", version="0.1.0")
 
