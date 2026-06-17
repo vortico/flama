@@ -1,6 +1,9 @@
+{% set needs_decoder = (models | selectattr("channel_scanner") | list)
+    or (models | selectattr("tool_scanner") | list)
+    or (models | selectattr("tool_parser") | list) -%}
 from flama import Flama
-from flama.models.engine.llm.decoder import Decoder
-
+{% if needs_decoder %}from flama.models.engine.llm.decoder import Decoder
+{% endif %}
 app = Flama(
     debug={{ debug }},
     openapi={
@@ -20,10 +23,14 @@ for model in models:
         path=model["url"],
         model=model["path"],
         name=model["name"],
-        decoder=Decoder(
-            channel_scanner=model["channel_scanner"],
-            tool_scanner=model["tool_scanner"],
-            tool_parser=model["tool_parser"],
+        decoder=(
+            Decoder(
+                channel_scanner=model["channel_scanner"],
+                tool_scanner=model["tool_scanner"],
+                tool_parser=model["tool_parser"],
+            )
+            if model["channel_scanner"] or model["tool_scanner"] or model["tool_parser"]
+            else None
         ),
         params=model["params"],
         serving=tuple(model["serving"]) if model["serving"] is not None else None,

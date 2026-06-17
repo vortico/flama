@@ -46,6 +46,34 @@ class TestCaseModel:
         assert m.params is None
         assert m.serving is None
 
+    @pytest.mark.parametrize(
+        ["channel_scanner", "tool_scanner", "tool_parser", "expected"],
+        [
+            pytest.param("auto", "auto", "auto", (None, None, None), id="auto_normalised_to_none"),
+            pytest.param(
+                "think", "tool_call", "json_object", ("think", "tool_call", "json_object"), id="refs_preserved"
+            ),
+            pytest.param(None, None, None, (None, None, None), id="defaults"),
+        ],
+    )
+    def test_decoder_refs(
+        self,
+        channel_scanner: str | None,
+        tool_scanner: str | None,
+        tool_parser: str | None,
+        expected: tuple[str | None, str | None, str | None],
+    ) -> None:
+        m = Model(
+            url="/u",
+            path="m.flm",
+            name="n",
+            channel_scanner=channel_scanner,
+            tool_scanner=tool_scanner,
+            tool_parser=tool_parser,
+        )
+
+        assert (m.channel_scanner, m.tool_scanner, m.tool_parser) == expected
+
 
 class TestCaseModelSpec:
     @pytest.fixture(scope="function")
@@ -82,7 +110,7 @@ class TestCaseModelSpec:
             ),
             pytest.param(
                 "file=m.flm,channel_scanner=auto",
-                Model(url="/", path="m.flm", name="model", channel_scanner="auto"),
+                Model(url="/", path="m.flm", name="model"),
                 None,
                 id="kv_channel_scanner_auto",
             ),
@@ -106,7 +134,7 @@ class TestCaseModelSpec:
             ),
             pytest.param(
                 "file=m.flm,tool_scanner=auto",
-                Model(url="/", path="m.flm", name="model", tool_scanner="auto"),
+                Model(url="/", path="m.flm", name="model"),
                 None,
                 id="kv_tool_scanner_auto",
             ),
@@ -130,7 +158,7 @@ class TestCaseModelSpec:
             ),
             pytest.param(
                 "file=m.flm,tool_parser=auto",
-                Model(url="/", path="m.flm", name="model", tool_parser="auto"),
+                Model(url="/", path="m.flm", name="model"),
                 None,
                 id="kv_tool_parser_auto",
             ),
@@ -275,9 +303,6 @@ class TestCaseModelSpec:
                     url="/u",
                     path="m.flm",
                     name="n",
-                    channel_scanner="auto",
-                    tool_scanner="auto",
-                    tool_parser="auto",
                     params={"temperature": 0.7, "max_tokens": 200},
                     serving=("native", "openai"),
                 ),
@@ -440,6 +465,25 @@ class TestCaseDictApp:
             assert Path(ctx.dir).is_dir()
             assert isinstance(ctx.app, str)
             assert ctx.app.endswith(":app")
+
+    @pytest.mark.parametrize(
+        ["model", "imports_decoder"],
+        [
+            pytest.param(Model(url="/", path="m.flm", name="ml"), False, id="ml_model_omits_decoder"),
+            pytest.param(
+                Model(url="/", path="m.flm", name="llm", channel_scanner="think"),
+                True,
+                id="decoder_model_imports_decoder",
+            ),
+        ],
+    )
+    def test_context_decoder_import(self, model: Model, imports_decoder: bool) -> None:
+        with DictApp(models=[model]).context as ctx:
+            module = str(ctx.app).split(":")[0]
+            source = (Path(ctx.dir) / f"{module}.py").read_text()
+
+        assert ("from flama.models.engine.llm.decoder import Decoder" in source) is imports_decoder
+        compile(source, "<generated>", "exec")
 
 
 class TestCaseStrApp:

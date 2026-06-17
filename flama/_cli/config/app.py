@@ -286,6 +286,11 @@ class Model:
     params: dict[str, t.Any] | None = None
     serving: tuple[types.LLMServing, ...] | None = None
 
+    def __post_init__(self) -> None:
+        self.channel_scanner = None if self.channel_scanner == "auto" else self.channel_scanner
+        self.tool_scanner = None if self.tool_scanner == "auto" else self.tool_scanner
+        self.tool_parser = None if self.tool_parser == "auto" else self.tool_parser
+
 
 class App(metaclass=abc.ABCMeta):
     @property
