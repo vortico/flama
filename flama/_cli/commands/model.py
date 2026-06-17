@@ -63,16 +63,6 @@ class _DecoderRef(click.ParamType):
             self.fail(f"Cannot resolve {value!r}: {exc}", param, ctx)
 
 
-def _resolve_cli_value(value: t.Any) -> t.Any:
-    """Map CLI tokens to the values :class:`Decoder` consumes natively.
-
-    ``"auto"`` is translated to :data:`None` (defer to engine detection); everything else
-    (registry names including ``"passthrough"``, and import-path-resolved instances) is
-    passed through verbatim.
-    """
-    return None if value == "auto" else value
-
-
 class _Args(t.TypedDict):
     """Common base for parsed CLI args.
 
@@ -163,9 +153,9 @@ def command(
 
     decoder = (
         Decoder(
-            _resolve_cli_value(channel_scanner),
-            _resolve_cli_value(tool_scanner),
-            _resolve_cli_value(tool_parser),
+            None if channel_scanner == "auto" else channel_scanner,
+            None if tool_scanner == "auto" else tool_scanner,
+            None if tool_parser == "auto" else tool_parser,
         )
         if family == "llm"
         else None
