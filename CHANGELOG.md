@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v2.0.5](https://github.com/vortico/flama/compare/v2.0.4...v2.0.5) (2026-06-17)
+
+## 🐛 Bug Fixes
+- [`8db9859`](https://github.com/vortico/flama/commit/8db9859)  Code block autoscrolling on error page
+
 # [v2.0.4](https://github.com/vortico/flama/compare/v2.0.3...v2.0.4) (2026-06-15)
 
 ## 🐛 Bug Fixes
