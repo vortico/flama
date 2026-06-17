@@ -18,8 +18,8 @@ importers:
         specifier: ^3.30.0
         version: 3.44.0(react@19.2.6)
       '@vortico/ui':
-        specifier: 1.4.2
-        version: 1.4.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+        specifier: 1.4.4
+        version: 1.4.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       katex:
         specifier: ^0.17.0
         version: 0.17.0
@@ -1588,8 +1588,8 @@ packages:
   '@vortico/config@1.0.1':
     resolution: {integrity: sha512-N61UlUw0NX7u6s++QNI4eNL0HRKMUCyCjx1q8XjvRDkShGddVu1y8RualPV2JiLP8nOzGEYA4tFRzEd0gfmCXw==, tarball: https://europe-west1-npm.pkg.dev/vortico-core/npm-registry/@vortico/config/-/@vortico/config-1.0.1.tgz}
 
-  '@vortico/ui@1.4.2':
-    resolution: {integrity: sha512-GSPVS3hpF60Z4ImR7W3SpbBkFSm1mOYsT+VTBJ629qDBzZX+g9V+lygE8qpxR54uy7cjpc8QkHxv/csaN+Sbnw==, tarball: https://europe-west1-npm.pkg.dev/vortico-core/npm-registry/@vortico/ui/-/@vortico/ui-1.4.2.tgz}
+  '@vortico/ui@1.4.4':
+    resolution: {integrity: sha512-4eh4wbnhd5L7Ij/OUknfUEKhkUS9IqwQv9ZzcvZt5sROfyEnLRdvhCkXjG6fhvzegMdveXCBsjgyBAvL+kyz3Q==, tarball: https://europe-west1-npm.pkg.dev/vortico-core/npm-registry/@vortico/ui/-/@vortico/ui-1.4.4.tgz}
     peerDependencies:
       '@tailwindcss/forms': ^0.5.11
       react: '>=18.0.0'
@@ -6775,7 +6775,7 @@ snapshots:
       - turbo
       - typescript
 
-  '@vortico/ui@1.4.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
+  '@vortico/ui@1.4.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
     dependencies:
       '@tabler/icons-react': 3.44.0(react@19.2.6)
       '@vortico/api': 1.0.4

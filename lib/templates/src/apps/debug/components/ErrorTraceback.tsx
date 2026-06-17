@@ -90,6 +90,10 @@ export default function ErrorTraceback() {
   const { traceback } = new Error()
   const [selected, setSelected] = useState(traceback.length - 1)
 
+  // Shared between the selected line and the Window: ``Code`` registers the line's node here and the ``Window`` (which
+  // owns the scroll, since the code renders taller than its frame) centres that node in view.
+  const lineRef = useRef<HTMLElement>(null)
+
   const code = useMemo(() => html.decode(traceback[selected].code), [selected, traceback])
 
   return (
@@ -98,8 +102,15 @@ export default function ErrorTraceback() {
         <TracebackList traceback={traceback} selected={selected} setSelected={setSelected} />
       </div>
       <div className="h-[672px] max-h-[calc(85vh)] flex-auto overflow-hidden">
-        <Window title={traceback[selected].filename}>
-          <Code code={code} language="python" lines={{ type: 'number' }} selectedLine={traceback[selected].line} />
+        {/* ``key`` remounts the Window's scroll container on frame change so its mount-time autoScroll re-centres. */}
+        <Window key={selected} title={traceback[selected].filename} autoScroll={lineRef}>
+          <Code
+            code={code}
+            size="sm"
+            language="python"
+            lines={{ type: 'number' }}
+            selectedLine={{ number: traceback[selected].line, ref: lineRef }}
+          />
         </Window>
       </div>
     </div>
