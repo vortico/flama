@@ -5,12 +5,20 @@ source "./scripts/build" # provides build_templates (and sources _env, clean)
 # ─── Install ─────────────────────────────────────────────────────────────────
 
 run_install() {
-  local with_templates=false
+  local templates="skip" # build | fetch | skip
   local release=false
   local args=()
   for arg in "$@"; do
     case "$arg" in
-    --with-templates) with_templates=true ;;
+    --build-templates)
+      [[ "$templates" == "fetch" ]] && conflicting_templates_error
+      templates="build"
+      ;;
+    --fetch-templates)
+      [[ "$templates" == "build" ]] && conflicting_templates_error
+      templates="fetch"
+      ;;
+    --no-build-templates) templates="skip" ;;
     --release) release=true ;;
     *) args+=("$arg") ;;
     esac
@@ -19,11 +27,10 @@ run_install() {
   echo "📦 Installing Python dependencies..."
   uv sync --all-extras --dev "${args[@]}"
 
-  if $with_templates; then
-    build_templates
-  else
-    ./scripts/fetch_templates
-  fi
+  case "$templates" in
+  build) build_templates ;;
+  fetch) ./scripts/fetch_templates ;;
+  esac
 
   if $release; then
     echo "🦀 Building Rust extension (release)..."

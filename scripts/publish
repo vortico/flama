@@ -9,7 +9,7 @@ source "./scripts/build"
 run_publish() {
   if [[ "$1" == "--build" ]]; then
     run_clean
-    run_build --with-templates
+    run_build --build-templates
   fi
 
   echo "📤 Publishing package..."

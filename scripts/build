@@ -6,42 +6,56 @@ source "./scripts/clean"
 
 # ─── Build ───────────────────────────────────────────────────────────────────
 
-# Build the templates from source using the private @vortico/ui registry. This
-# is the core-team path; it requires an Artifact Registry token.
-build_templates() {
-  echo "🔐 Fetching Artifact Registry token..."
-  local token
-  token=$(require_token)
+# Abort: --build-templates and --fetch-templates are mutually exclusive.
+conflicting_templates_error() {
+  echo "❌ Error: --build-templates and --fetch-templates are mutually exclusive." >&2
+  exit 1
+}
 
+# Build the templates from source using the private @vortico/ui registry.
+build_templates() {
   echo "📦 Building templates from source..."
-  (cd lib/templates && ARTIFACT_REGISTRY_TOKEN="$token" pnpm install && pnpm build)
+  (cd lib/templates && pnpm_auth install && pnpm build)
 }
 
 run_build() {
-  local with_templates=false
-  local templates_only=false
+  local build_core=true
+  local templates="skip" # build | fetch | skip
+  local clean=false
   for arg in "$@"; do
     case "$arg" in
-    -c | --clean) run_clean ;;
-    --with-templates) with_templates=true ;;
-    --templates-only) templates_only=true ;;
+    -c | --clean) clean=true ;;
+    --build-core) build_core=true ;;
+    --no-build-core) build_core=false ;;
+    --build-templates)
+      [[ "$templates" == "fetch" ]] && conflicting_templates_error
+      templates="build"
+      ;;
+    --fetch-templates)
+      [[ "$templates" == "build" ]] && conflicting_templates_error
+      templates="fetch"
+      ;;
+    --no-build-templates) templates="skip" ;;
+    *)
+      echo "❌ Error: unknown option '$arg'." >&2
+      exit 1
+      ;;
     esac
   done
 
-  if $templates_only; then
-    build_templates
-    echo "✅ Templates build complete."
-    return 0
+  if $clean; then
+    run_clean
   fi
 
-  if $with_templates; then
-    build_templates
-  else
-    ./scripts/fetch_templates
-  fi
+  case "$templates" in
+  build) build_templates ;;
+  fetch) ./scripts/fetch_templates ;;
+  esac
 
-  echo "📦 Building package..."
-  uv run maturin build --release
+  if $build_core; then
+    echo "📦 Building package..."
+    uv run maturin build --release
+  fi
 
   echo "✅ Build complete."
 }

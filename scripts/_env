@@ -1,23 +1,14 @@
 #!/bin/bash
 
+# ─── Artifact Registry ──────────────────────────────────────────────────────
+ARTIFACT_REGISTRY_NPM_HOST="europe-west1-npm.pkg.dev/vortico-core/npm-registry"
+
 # ─── Auth Helpers ────────────────────────────────────────────────────────────
 
-# Print a GCP access token, or return 1 on failure.
-get_token() {
-  local token
-  token=$(gcloud auth print-access-token 2>/dev/null) || true
-
-  if [[ -z "$token" ]]; then
-    return 1
-  fi
-
-  echo "$token"
-}
-
-# Fetch a GCP access token or exit with a helpful message.
+# Print a GCP access token or exit with a helpful message.
 require_token() {
   local token
-  token=$(get_token) || true
+  token=$(gcloud auth print-access-token 2>/dev/null) || true
 
   if [[ -z "$token" ]]; then
     echo "❌ Error: Could not fetch GCP access token." >&2
@@ -26,4 +17,14 @@ require_token() {
   fi
 
   echo "$token"
+}
+
+# Run pnpm with a short-lived @vortico auth token injected in-memory (no .npmrc is
+# written). The token comes from $ARTIFACT_REGISTRY_TOKEN (CI/WIF) or gcloud (local),
+# and the @vortico registry mapping lives in pnpm-workspace.yaml. Requires pnpm >= 11.7.
+# Usage: pnpm_auth <pnpm-args...>
+pnpm_auth() {
+  local token
+  token="${ARTIFACT_REGISTRY_TOKEN:-$(require_token)}"
+  env "pnpm_config_//${ARTIFACT_REGISTRY_NPM_HOST}/:_authToken=${token}" pnpm "$@"
 }

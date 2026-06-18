@@ -99,6 +99,8 @@ venv.bak/
 lib/templates/node_modules/
 lib/templates/out/
 flama/_templates
+# Local pnpm auth token (registry mapping lives in lib/templates/pnpm-workspace.yaml)
+lib/templates/.npmrc
 
 # Models
 *.flm

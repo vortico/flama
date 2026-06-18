@@ -1,3 +1,5 @@
+registries:
+  '@vortico': https://europe-west1-npm.pkg.dev/vortico-core/npm-registry/
 allowBuilds:
   core-js: true
   unrs-resolver: true

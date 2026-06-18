@@ -1,11 +1,14 @@
 benchmark: ## Generates benchmark comparison report
 	@./scripts/benchmark
 
-build: ## Builds the package (pass ARGS=--with-templates to build templates from the private registry)
-	@./scripts/build $(ARGS)
+build: ## Builds the package with prebuilt templates fetched from the latest published wheel
+	@./scripts/build --fetch-templates $(ARGS)
 
-build-templates: ## Builds the templates from source (core-team; needs Artifact Registry access)
-	@./scripts/build --templates-only $(ARGS)
+build-from-source: ## Builds the package, building templates from source (core-team; needs Artifact Registry access)
+	@./scripts/build --build-templates $(ARGS)
+
+build-templates: ## Builds only the templates from source, without the core package (core-team; needs Artifact Registry access)
+	@./scripts/build --no-build-core --build-templates $(ARGS)
 
 check: ## Checks the dependencies of the project and install those missing
 	@./scripts/check
@@ -22,8 +25,11 @@ fetch-templates: ## Fetches prebuilt templates from the latest published wheel
 format: ## Runs code formatting
 	@./scripts/format .
 
-install: ## Installs the package and dependencies (pass ARGS=--with-templates for the core-team template build)
-	@./scripts/install $(ARGS)
+install: ## Installs the package and dependencies with prebuilt templates fetched from the latest published wheel
+	@./scripts/install --fetch-templates $(ARGS)
+
+install-from-source: ## Installs the package, building templates from source (core-team; needs Artifact Registry access)
+	@./scripts/install --build-templates $(ARGS)
 
 lint: ## Runs code linting
 	@./scripts/lint .
@@ -46,7 +52,7 @@ typecheck: ## Runs static types checking
 version: ## Gets the current version of the package
 	@./scripts/version
 
-.PHONY: help benchmark build build-templates check clean docker_push fetch-templates format install lint lint-fix performance publish test typecheck version
+.PHONY: help benchmark build build-from-source build-templates check clean docker_push fetch-templates format install install-from-source lint lint-fix performance publish test typecheck version
 .DEFAULT_GOAL := help
 
 help:
