@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v2.0.6](https://github.com/vortico/flama/compare/v2.0.5...v2.0.6) (2026-06-18)
+
+## 🐛 Bug Fixes
+- [`419d9aa`](https://github.com/vortico/flama/commit/419d9aa)  Decoder is not created when not needed in cli app template
+
 # [v2.0.5](https://github.com/vortico/flama/compare/v2.0.4...v2.0.5) (2026-06-17)
 
 ## 🐛 Bug Fixes
