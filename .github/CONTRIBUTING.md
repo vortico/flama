@@ -40,7 +40,7 @@ Building those templates from source is restricted to the core team, as it depen
 If you are a core team member with registry access, build them from source instead with:
 
 ```commandline
-make install ARGS=--with-templates
+make install-from-source
 ```
 
 ## Coding standards

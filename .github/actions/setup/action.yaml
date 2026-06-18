@@ -65,9 +65,9 @@ runs:
     - name: Install project (private templates)
       if: ${{ inputs.gcp-workload-identity-provider != '' && inputs.gcp-service-account != '' }}
       shell: bash
-      run: ./scripts/install --with-templates ${{ inputs.release == 'true' && '--release' || '' }}
+      run: ./scripts/install --build-templates ${{ inputs.release == 'true' && '--release' || '' }}
 
     - name: Install project (public templates)
       if: ${{ inputs.gcp-workload-identity-provider == '' || inputs.gcp-service-account == '' }}
       shell: bash
-      run: ./scripts/install ${{ inputs.release == 'true' && '--release' || '' }}
+      run: ./scripts/install --fetch-templates ${{ inputs.release == 'true' && '--release' || '' }}

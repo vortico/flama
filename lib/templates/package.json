@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "sideEffects": false,
-  "packageManager": "pnpm@11.1.3",
+  "packageManager": "pnpm@11.8.0",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "prebuild": "tsc --noEmit",

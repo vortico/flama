@@ -35,6 +35,6 @@ runs:
 
     - name: Build templates
       shell: bash
-      run: cd lib/templates && pnpm install && pnpm build
+      run: ./scripts/build --no-build-core --build-templates
       env:
         ARTIFACT_REGISTRY_TOKEN: ${{ steps.auth.outputs.access_token }}
