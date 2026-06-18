@@ -208,7 +208,10 @@ jobs:
           release: "true"
 
       - name: Install Valgrind
-        run: sudo apt-get update && sudo apt-get install -y valgrind
+        # The runner image does not ship Valgrind. Try a direct install first (the image's apt cache is
+        # usually fresh enough) and only fall back to a full `apt-get update` when that misses, trimming
+        # ~20s off the common path.
+        run: sudo apt-get install -y --no-install-recommends valgrind || { sudo apt-get update && sudo apt-get install -y --no-install-recommends valgrind; }
 
       - name: Run performance tests
         env:

@@ -32,6 +32,34 @@ jobs:
     name: Config
     uses: ./.github/workflows/_python-versions.yaml
 
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      performance: ${{ steps.filter.outputs.performance }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+
+      - id: filter
+        name: Detect performance-relevant changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # The performance suite is slow, so run it only when something that can move the numbers
+          # changes: the framework, the Rust core, the perf tests/harness, or the locked dependency set.
+          # Docs/examples/CI-only PRs skip it.
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" |
+            grep -qE '^(flama/|lib/|tests/performance/|scripts/performance$|scripts/benchmark$|pyproject\.toml$|uv\.lock$)'; then
+            echo "performance=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "performance=false" >> "$GITHUB_OUTPUT"
+          fi
+
   checks:
     name: Checks (${{ matrix.python }})
     needs: [config]
@@ -110,7 +138,10 @@ jobs:
 
   performance:
     name: Performance
-    needs: [config]
+    needs: [config, changes]
+    # Skip on PRs that touch nothing performance-relevant (see the `changes` job). The `ci` gate
+    # treats this job's "skipped" result as acceptable.
+    if: needs.changes.outputs.performance == 'true'
     # Pinned (not ubuntu-latest): a stable OS + Valgrind version keeps the simulated cycle/instruction
     # counts reproducible across runs.
     runs-on: ubuntu-24.04
@@ -134,7 +165,10 @@ jobs:
           release: "true"
 
       - name: Install Valgrind
-        run: sudo apt-get update && sudo apt-get install -y valgrind
+        # The runner image does not ship Valgrind. Try a direct install first (the image's apt cache is
+        # usually fresh enough) and only fall back to a full `apt-get update` when that misses, trimming
+        # ~20s off the common path.
+        run: sudo apt-get install -y --no-install-recommends valgrind || { sudo apt-get update && sudo apt-get install -y --no-install-recommends valgrind; }
 
       - name: Run performance tests
         env:
@@ -156,14 +190,22 @@ jobs:
   ci:
     name: CI
     if: always()
-    needs: [commitlint, config, checks, test, performance]
+    needs: [commitlint, config, changes, checks, test, performance]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: All required jobs green?
+        # "skipped" is acceptable so the conditionally-run performance job (see the `changes` job)
+        # doesn't fail the gate; any job that actually ran must be "success".
         run: |
           for r in ${{ join(needs.*.result, ' ') }}; do
-            [ "$r" = "success" ] || { echo "A required job concluded '$r'."; exit 1; }
+            case "$r" in
+            success | skipped) ;;
+            *)
+              echo "A required job concluded '$r'."
+              exit 1
+              ;;
+            esac
           done
 
   update-pr:
