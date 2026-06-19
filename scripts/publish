@@ -5,15 +5,37 @@ source "./scripts/clean"
 source "./scripts/build"
 
 # ─── Publish ─────────────────────────────────────────────────────────────────
+#
+# Uploads distributions with `uv publish`. In CI this relies on PyPI Trusted Publishing
+# (OIDC) — uv detects the GitHub Actions environment automatically, so no token is needed.
+# `--check-url` makes re-runs idempotent by skipping artifacts already present on the index
+# (the replacement for maturin's deprecated `upload --skip-existing`).
+#
+# Usage:
+#   ./scripts/publish                 Upload pre-built artifacts (default: dist/*)
+#   ./scripts/publish PATH...         Upload the given files/globs
+#   ./scripts/publish --build         Clean, build (host wheel + templates), then upload target/wheels/*
 
 run_publish() {
-  if [[ "$1" == "--build" ]]; then
+  local build=false
+  local paths=()
+  for arg in "$@"; do
+    case "$arg" in
+    --build) build=true ;;
+    *) paths+=("$arg") ;;
+    esac
+  done
+
+  if $build; then
     run_clean
     run_build --build-templates
+    [[ ${#paths[@]} -eq 0 ]] && paths=(target/wheels/*)
   fi
 
+  [[ ${#paths[@]} -eq 0 ]] && paths=(dist/*)
+
   echo "📤 Publishing package..."
-  uv run maturin publish
+  uv publish --check-url https://pypi.org/simple/flama/ "${paths[@]}"
   echo "✅ Publish complete."
 }
 
