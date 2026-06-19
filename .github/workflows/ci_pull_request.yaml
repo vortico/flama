@@ -53,12 +53,52 @@ jobs:
           # The performance suite is slow, so run it only when something that can move the numbers
           # changes: the framework, the Rust core, the perf tests/harness, or the locked dependency set.
           # Docs/examples/CI-only PRs skip it.
-          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" |
+          #
+          # Three-dot (merge-base) diff: only count what THIS PR changed, not commits that landed on
+          # master after the branch point. A two-dot diff would otherwise flag pyproject.toml/uv.lock
+          # whenever the branch is merely behind a release and re-run the whole suite for nothing.
+          if git diff --name-only "$BASE_SHA...$HEAD_SHA" |
             grep -qE '^(flama/|lib/|tests/performance/|scripts/performance$|scripts/benchmark$|pyproject\.toml$|uv\.lock$)'; then
             echo "performance=true" >> "$GITHUB_OUTPUT"
           else
             echo "performance=false" >> "$GITHUB_OUTPUT"
           fi
+
+  templates:
+    name: Templates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      # 'true' only when the artifact was built+uploaded (same-repo). Fork PRs skip the build, so
+      # consumers fall back to fetching prebuilt templates from a published wheel.
+      available: ${{ steps.mark.outputs.available }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Build templates
+        id: build
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: ./.github/actions/build-templates
+        with:
+          gcp-workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Upload templates
+        if: ${{ steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: templates
+          path: flama/_templates
+          if-no-files-found: error
+          retention-days: 1
+
+      - id: mark
+        shell: bash
+        run: echo "available=${{ steps.build.outcome == 'success' }}" >> "$GITHUB_OUTPUT"
 
   checks:
     name: Checks (${{ matrix.python }})
@@ -79,11 +119,19 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
           cache-dependency-glob: "uv.lock"
+          # Per-job suffix: `checks` and `test` build the same per-Python uv cache and would otherwise
+          # race to save the same key (the "Unable to reserve cache" warning). Distinct suffixes split
+          # them cleanly.
+          cache-suffix: ${{ github.job }}
 
+      # Only the typecheck step (>= 3.13) builds the Rust extension; format/lint run via `uvx ruff`
+      # and need no toolchain. Skip Rust setup/cache on the other rows.
       - name: Set up Rust
+        if: matrix.python >= '3.13'
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
 
       - name: Cache Rust
+        if: matrix.python >= '3.13'
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: lib/core
@@ -108,7 +156,7 @@ jobs:
 
   test:
     name: Test (${{ matrix.python }})
-    needs: [config]
+    needs: [config, templates]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -122,12 +170,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
+      - name: Download templates
+        if: ${{ needs.templates.outputs.available == 'true' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: templates
+          path: flama/_templates
+
       - name: Set up project
         uses: ./.github/actions/setup
         with:
           python-version: ${{ matrix.python }}
           gcp-workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          # Reuse the prebuilt templates artifact when available; fork PRs fetch from a published wheel.
+          templates: ${{ needs.templates.outputs.available == 'true' && 'skip' || 'fetch' }}
 
       - id: tests
         name: Tests
@@ -163,6 +220,8 @@ jobs:
           gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
           # Measure an optimized _core; a debug build would make instruction counts meaningless.
           release: "true"
+          # The benchmarks don't render docs pages, so skip templates entirely (no Node/pnpm build).
+          templates: "skip"
 
       - name: Install Valgrind
         # The runner image does not ship Valgrind. Try a direct install first (the image's apt cache is
@@ -190,7 +249,7 @@ jobs:
   ci:
     name: CI
     if: always()
-    needs: [commitlint, config, changes, checks, test, performance]
+    needs: [commitlint, config, changes, templates, checks, test, performance]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -218,7 +277,10 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      # Only when the performance job ran and produced the artifact. Attempting the download on PRs
+      # where performance was skipped just emits a noisy "artifact not found" warning.
       - name: Download performance comparison
+        if: needs.performance.result == 'success'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: performance-comparison

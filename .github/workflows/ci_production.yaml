@@ -40,6 +40,41 @@ jobs:
     name: Config
     uses: ./.github/workflows/_python-versions.yaml
 
+  templates:
+    name: Templates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      available: ${{ steps.mark.outputs.available }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      # Build the private @vortico/ui templates once; every test/wheel/sdist/benchmark job downloads
+      # this artifact instead of rebuilding (templates are arch-independent web assets).
+      - name: Build templates
+        id: build
+        uses: ./.github/actions/build-templates
+        with:
+          gcp-workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Upload templates
+        if: ${{ steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: templates
+          path: flama/_templates
+          if-no-files-found: error
+          retention-days: 1
+
+      - id: mark
+        shell: bash
+        run: echo "available=${{ steps.build.outcome == 'success' }}" >> "$GITHUB_OUTPUT"
+
   checks:
     name: Checks (${{ matrix.python }})
     needs: [config]
@@ -59,11 +94,19 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
           cache-dependency-glob: "uv.lock"
+          # Per-job suffix: `checks` and `test` build the same per-Python uv cache and would otherwise
+          # race to save the same key (the "Unable to reserve cache" warning). Distinct suffixes split
+          # them cleanly.
+          cache-suffix: ${{ github.job }}
 
+      # Only the typecheck step (>= 3.13) builds the Rust extension; format/lint run via `uvx ruff`
+      # and need no toolchain. Skip Rust setup/cache on the other rows.
       - name: Set up Rust
+        if: matrix.python >= '3.13'
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
 
       - name: Cache Rust
+        if: matrix.python >= '3.13'
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: lib/core
@@ -80,7 +123,7 @@ jobs:
 
   test:
     name: Test (${{ matrix.python }})
-    needs: [config]
+    needs: [config, templates]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -94,12 +137,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
+      - name: Download templates
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: templates
+          path: flama/_templates
+
       - name: Set up project
         uses: ./.github/actions/setup
         with:
           python-version: ${{ matrix.python }}
           gcp-workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          # Reuse the prebuilt templates artifact (push to master is always same-repo).
+          templates: "skip"
 
       - name: Tests
         run: ./scripts/test
@@ -129,7 +180,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ secrets.RELEASE_APP_ID }}
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
       - name: Checkout
@@ -188,7 +239,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ secrets.RELEASE_APP_ID }}
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
       - name: Checkout
@@ -206,6 +257,8 @@ jobs:
           gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
           # Measure an optimized _core; a debug build would make instruction counts meaningless.
           release: "true"
+          # The benchmarks don't render docs pages, so skip templates entirely (no Node/pnpm build).
+          templates: "skip"
 
       - name: Install Valgrind
         # The runner image does not ship Valgrind. Try a direct install first (the image's apt cache is
@@ -233,7 +286,7 @@ jobs:
 
   build-wheels:
     name: Build wheels (${{ matrix.name }})
-    needs: [release, config]
+    needs: [release, config, templates]
     if: needs.release.outputs.published == 'true'
     strategy:
       fail-fast: false
@@ -286,13 +339,13 @@ jobs:
         with:
           python-version: ${{ steps.interp.outputs.lines }}
 
-      # Release artifacts must bundle the real @vortico/ui templates; this path is strict
-      # (no public fallback).
-      - name: Build templates
-        uses: ./.github/actions/build-templates
+      # Release artifacts must bundle the real @vortico/ui templates; reuse the prebuilt artifact from
+      # the `templates` job instead of rebuilding here.
+      - name: Download templates
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          gcp-workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          name: templates
+          path: flama/_templates
 
       - name: Build wheels
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1
@@ -300,6 +353,9 @@ jobs:
           target: ${{ matrix.target }}
           args: --release --out dist ${{ steps.interp.outputs.args }}
           manylinux: ${{ matrix.manylinux }}
+          # Cache Rust compilation across releases (this is the only heavy Rust consumer with no cache;
+          # the emulated aarch64/musl rows dominate release time). sccache uses the GitHub Actions cache.
+          sccache: "true"
 
       - name: Upload wheels
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -309,7 +365,7 @@ jobs:
 
   build-sdist:
     name: Build sdist
-    needs: [release]
+    needs: [release, templates]
     if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -322,13 +378,13 @@ jobs:
         with:
           ref: master
 
-      # Release artifacts must bundle the real @vortico/ui templates; this path is strict
-      # (no public fallback). A push to master always runs with the org GCP secrets available.
-      - name: Build templates
-        uses: ./.github/actions/build-templates
+      # Release artifacts must bundle the real @vortico/ui templates; reuse the prebuilt artifact from
+      # the `templates` job instead of rebuilding here.
+      - name: Download templates
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          gcp-workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          name: templates
+          path: flama/_templates
 
       - name: Build sdist
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1
@@ -349,27 +405,36 @@ jobs:
     timeout-minutes: 15
     environment: pypi
     permissions:
+      contents: read
       id-token: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: master
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+
       - name: Download artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: dist/
           merge-multiple: true
 
+      # `uv publish` uses PyPI Trusted Publishing (OIDC) via the `pypi` environment + id-token; the
+      # PyPI trusted-publisher config (workflow file + environment) is unchanged from the previous
+      # maturin upload, so no PyPI-side change is needed.
       - name: Publish to PyPI
-        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1
-        with:
-          command: upload
-          args: --non-interactive --skip-existing dist/*
+        run: ./scripts/publish
 
   docker_push:
     name: Docker Push (${{ matrix.linux }}, ${{ matrix.python }}, ${{ matrix.schemas }})
     needs: [release, publish, config]
     if: needs.release.outputs.published == 'true'
-    environment:
-      name: dockerhub
-      url: https://hub.docker.com/r/vortico/flama
+    # No environment `url:` here on purpose: the `dockerhub` environment holds secrets, so GitHub
+    # refuses to publish a URL for it and warns on every matrix job. The link added nothing.
+    environment: dockerhub
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -428,3 +493,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Run-over-run layer cache, scoped per tag combination so the 15 matrix builds don't clobber
+          # each other's cache. Helps most with the emulated arm64 layers.
+          cache-from: type=gha,scope=${{ matrix.linux }}-${{ matrix.python }}-${{ matrix.schemas }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.linux }}-${{ matrix.python }}-${{ matrix.schemas }}

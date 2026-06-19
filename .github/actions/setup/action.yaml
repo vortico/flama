@@ -1,8 +1,9 @@
 name: Setup
 description: >
-  Set up the Flama toolchain (Node, uv, Rust) and install the project. When GCP
-  Workload Identity Federation credentials are provided, templates are built from
-  the private @vortico/ui registry; otherwise the public template path is used.
+  Set up the Flama toolchain (uv, Rust, and Node only when templates are built) and install the
+  project. Templates can be built from the private @vortico/ui registry (GCP WIF), fetched from a
+  published wheel (public path), or skipped entirely when the caller already provides
+  flama/_templates (e.g. a downloaded artifact).
 
 inputs:
   python-version:
@@ -20,16 +21,40 @@ inputs:
     description: Build the Rust extension in release mode (required for meaningful performance numbers).
     required: false
     default: "false"
+  templates:
+    description: >
+      Template handling: 'auto' (build when GCP creds are present, else fetch from a published wheel),
+      'build', 'fetch', or 'skip' (the caller already placed flama/_templates, e.g. via a downloaded
+      artifact). 'skip' and 'fetch' do not set up Node.
+    required: false
+    default: "auto"
 
 runs:
   using: composite
   steps:
+    # Collapse 'auto' into a concrete mode (build/fetch) once, so the steps below stay simple.
+    - name: Resolve templates mode
+      id: tpl
+      shell: bash
+      env:
+        MODE: ${{ inputs.templates }}
+        HAS_CREDS: ${{ inputs.gcp-workload-identity-provider != '' && inputs.gcp-service-account != '' }}
+      run: |
+        mode="$MODE"
+        if [[ "$mode" == "auto" ]]; then
+          if [[ "$HAS_CREDS" == "true" ]]; then mode="build"; else mode="fetch"; fi
+        fi
+        echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
+    # Node is only needed to build templates from source; fetch/skip don't need it.
     - name: Set up Node
+      if: ${{ steps.tpl.outputs.mode == 'build' }}
       uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
       with:
         node-version: 22
 
     - name: Enable Corepack
+      if: ${{ steps.tpl.outputs.mode == 'build' }}
       shell: bash
       run: corepack enable
 
@@ -39,6 +64,9 @@ runs:
         python-version: ${{ inputs.python-version }}
         enable-cache: true
         cache-dependency-glob: "uv.lock"
+        # Per-job suffix so the jobs that share this composite action (test/performance/benchmark) and
+        # the standalone `checks` job don't race to save the same per-Python uv cache key.
+        cache-suffix: ${{ github.job }}
 
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
@@ -48,26 +76,31 @@ runs:
       with:
         workspaces: lib/core
 
-    # Core-team / same-repo runs authenticate via Workload Identity Federation to build the
-    # private @vortico/ui templates. Fork PRs (and any repo without these secrets) get no
-    # OIDC token, so they fall back to the public template path below instead of failing.
+    # Build path: authenticate to GCP (WIF) and build the private @vortico/ui templates.
     - name: Authenticate to Google Cloud
-      if: ${{ inputs.gcp-workload-identity-provider != '' && inputs.gcp-service-account != '' }}
+      if: ${{ steps.tpl.outputs.mode == 'build' }}
       uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
       with:
         workload_identity_provider: ${{ inputs.gcp-workload-identity-provider }}
         service_account: ${{ inputs.gcp-service-account }}
 
     - name: Set up Cloud SDK
-      if: ${{ inputs.gcp-workload-identity-provider != '' && inputs.gcp-service-account != '' }}
+      if: ${{ steps.tpl.outputs.mode == 'build' }}
       uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
-    - name: Install project (private templates)
-      if: ${{ inputs.gcp-workload-identity-provider != '' && inputs.gcp-service-account != '' }}
+    - name: Install project (build templates)
+      if: ${{ steps.tpl.outputs.mode == 'build' }}
       shell: bash
       run: ./scripts/install --build-templates ${{ inputs.release == 'true' && '--release' || '' }}
 
-    - name: Install project (public templates)
-      if: ${{ inputs.gcp-workload-identity-provider == '' || inputs.gcp-service-account == '' }}
+    # Fetch path: download prebuilt templates from a published wheel (fork PRs / no creds).
+    - name: Install project (fetch templates)
+      if: ${{ steps.tpl.outputs.mode == 'fetch' }}
       shell: bash
       run: ./scripts/install --fetch-templates ${{ inputs.release == 'true' && '--release' || '' }}
+
+    # Skip path: the caller already placed flama/_templates (e.g. a downloaded artifact).
+    - name: Install project (templates already provided)
+      if: ${{ steps.tpl.outputs.mode == 'skip' }}
+      shell: bash
+      run: ./scripts/install --no-build-templates ${{ inputs.release == 'true' && '--release' || '' }}
