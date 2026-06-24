@@ -52,7 +52,7 @@ jobs:
         run: |
           # The performance suite is slow, so run it only when something that can move the numbers
           # changes: the framework, the Rust core, the perf tests/harness, or the locked dependency set.
-          # Docs/examples/CI-only PRs skip it.
+          # Docs/CI-only PRs skip it.
           #
           # Three-dot (merge-base) diff: only count what THIS PR changed, not commits that landed on
           # master after the branch point. A two-dot diff would otherwise flag pyproject.toml/uv.lock

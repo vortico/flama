@@ -43,4 +43,4 @@ repos:
         entry: ./scripts/typecheck
         language: system
         types: [file, python]
-        exclude: "(make|tests/|examples/)"
+        exclude: "(make|tests/)"
