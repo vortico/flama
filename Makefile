@@ -52,7 +52,13 @@ typecheck: ## Runs static types checking
 version: ## Gets the current version of the package
 	@./scripts/version
 
-.PHONY: help benchmark build build-from-source build-templates check clean docker_push fetch-templates format install install-from-source lint lint-fix performance publish test typecheck version
+update: ## Updates Python dependencies to their latest allowed versions
+	@./scripts/update $(ARGS)
+
+update-templates: ## Updates the templates' npm dependencies (core-team; needs Artifact Registry access)
+	@./scripts/update_templates $(ARGS)
+
+.PHONY: help benchmark build build-from-source build-templates check clean docker_push fetch-templates format install install-from-source lint lint-fix performance publish test typecheck version update update-templates
 .DEFAULT_GOAL := help
 
 help:

@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+
+# ─── Update ──────────────────────────────────────────────────────────────────
+
+run_update() {
+  echo "🐍 Updating Python dependencies..."
+  uv lock --upgrade
+  uv sync --all-extras --dev "$@"
+
+  echo "✅ Update complete."
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  run_update "$@"
+fi

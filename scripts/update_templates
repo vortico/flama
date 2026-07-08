@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+source "./scripts/_env" # provides pnpm_auth
+
+# ─── Update Templates ─────────────────────────────────────────────────────────
+
+run_update_templates() {
+  echo "📦 Updating template dependencies via the private @vortico registry..."
+  (cd lib/templates && pnpm_auth update "$@")
+
+  echo "✅ Templates update complete."
+}
+
+if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
+  run_update_templates "$@"
+fi
