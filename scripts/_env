@@ -19,12 +19,18 @@ require_token() {
   echo "$token"
 }
 
-# Run pnpm with a short-lived @vortico auth token injected in-memory (no .npmrc is
-# written). The token comes from $ARTIFACT_REGISTRY_TOKEN (CI/WIF) or gcloud (local),
-# and the @vortico registry mapping lives in pnpm-workspace.yaml. Requires pnpm >= 11.7.
-# Usage: pnpm_auth <pnpm-args...>
+# Run pnpm authenticated against the private @vortico registry. The short-lived token
+# (from $ARTIFACT_REGISTRY_TOKEN in CI/WIF, or gcloud locally) is supplied two ways, since
+# the environments disagree on which one pnpm honours: the env-config form works locally,
+# while the ephemeral userconfig .npmrc is what the GitHub runner's pnpm reads. Both carry
+# the same token (env takes precedence where both are read) and neither lands in the repo
+# tree. Usage: pnpm_auth <pnpm-args...>
 pnpm_auth() {
-  local token
+  local token rc ret=0
   token="${ARTIFACT_REGISTRY_TOKEN:-$(require_token)}"
-  env "pnpm_config_//${ARTIFACT_REGISTRY_NPM_HOST}/:_authToken=${token}" pnpm "$@"
+  rc="$(mktemp)"
+  printf '//%s/:_authToken=%s\n' "${ARTIFACT_REGISTRY_NPM_HOST}" "${token}" >"${rc}"
+  env "pnpm_config_//${ARTIFACT_REGISTRY_NPM_HOST}/:_authToken=${token}" npm_config_userconfig="${rc}" pnpm "$@" || ret=$?
+  rm -f "${rc}"
+  return ${ret}
 }
