@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/vortico-flama-badge.png)](https://mseep.ai/app/vortico-flama)
+
 <p align="center">
     <a href="https://flama.dev"><img src="https://raw.githubusercontent.com/vortico/flama/master/.github/logo.png" alt='Flama'></a>
 </p>
