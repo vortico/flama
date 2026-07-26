@@ -11,6 +11,7 @@ from flama.models.engine.backend.llm import LLMBackend
 from flama.models.engine.backend.ml import MLBackend
 from flama.models.engine.llm.codec import LLMCodec
 from flama.models.engine.llm.decoder.decoder import Decoder
+from flama.models.exceptions import LLMEmptyGeneration
 from flama.models.transport.input.llm.message import Message
 from flama.models.transport.input.llm.shape import Shape
 from flama.models.transport.input.llm.tool import Tool
@@ -408,7 +409,7 @@ class LLMModel(BaseModel[LLMBackend]):
             :class:`StopEvent` lifecycle markers.
         :raises ValueError: For invalid transport / field combinations, or non-positive
             ``max_tokens``.
-        :raises RuntimeError: If the engine produces no content blocks.
+        :raises ~flama.models.exceptions.LLMEmptyGeneration: If the engine produces no content blocks.
         """
         t = Shape.build(
             transport or self.backend.default_transport,
@@ -428,7 +429,7 @@ class LLMModel(BaseModel[LLMBackend]):
             blocks.append(item)
 
         if not any(isinstance(b, (TextEvent, ToolEvent)) for b in blocks):
-            raise RuntimeError("LLM engine produced no output")
+            raise LLMEmptyGeneration()
 
         return blocks
 

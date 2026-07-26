@@ -31,11 +31,20 @@ from flama.serialize.data_structures import LLMModelCapabilities
 class _FakeLLMBackend(TransformerLLMBackend):
     """Minimal concrete :class:`LLMBackend` exposing a configurable chat template and capabilities."""
 
-    def __init__(self, *, chat_template: str | None, capabilities: LLMModelCapabilities | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        chat_template: str | None,
+        capabilities: LLMModelCapabilities | None = None,
+        render: t.Callable[[list[dict[str, t.Any]], bool], str] | None = None,
+    ) -> None:
         super().__init__(None)
         self._chat_template = chat_template
         self.capabilities = capabilities or LLMModelCapabilities()
         self.template_calls: list[tuple[list[dict[str, t.Any]], dict[str, t.Any]]] = []
+        # Tests covering the narrated-tool-call probe need a template that produces real text; the default
+        # token-count stub cannot express *where* a rendered prompt ends, which is what the probe compares.
+        self._render = render
 
     @classmethod
     def runnable(cls) -> bool:
@@ -64,9 +73,12 @@ class _FakeLLMBackend(TransformerLLMBackend):
         tokenize: bool = True,
         add_generation_prompt: bool = True,
         **kwargs: t.Any,
-    ) -> list[int]:
-        self.template_calls.append((messages, kwargs))
-        return [len(messages)]
+    ) -> list[int] | str:
+        self.template_calls.append(([dict(m) for m in messages], kwargs))
+        if self._render is None:
+            return [len(messages)]
+        rendered = self._render(messages, add_generation_prompt)
+        return rendered if not tokenize else [len(rendered)]
 
     def chat_template_sample(self) -> str | None:
         return None
@@ -88,6 +100,45 @@ def _stub_image() -> ImageURI:
 def _stub_audio() -> AudioURI:
     """Build an :class:`AudioURI` with a placeholder base64 payload (``"AAAA"`` = 3 null bytes)."""
     return AudioURI(source=SourceURI(data="AAAA"), format="wav")
+
+
+def _render_narration_first(messages: list[dict[str, t.Any]], add_generation_prompt: bool) -> str:
+    """Template in the Qwen / Phi mould: assistant narration renders before its tool call, and the prompt
+    always reopens for the model, so narration never moves the generation point."""
+    out: list[str] = []
+    for message in messages:
+        if message["role"] == "assistant":
+            if message.get("content"):
+                out.append(f"A:{message['content']}")
+            out.extend(f"CALL:{c['function']['name']}" for c in message.get("tool_calls", ()))
+        else:
+            out.append(f"{message['role'][0].upper()}:{message.get('content', '')}")
+    if add_generation_prompt:
+        out.append("A:")
+    return "\n".join(out)
+
+
+def _render_narration_last(messages: list[dict[str, t.Any]], add_generation_prompt: bool) -> str:
+    """Template in the Gemma 4 mould: assistant narration renders *after* the tool result and closes the
+    turn, so a narrated turn ends the prompt where an un-narrated one would have left it open."""
+    out: list[str] = []
+    narration = ""
+    for message in messages:
+        if message["role"] == "assistant":
+            narration = message.get("content") or ""
+            out.extend(f"CALL:{c['function']['name']}" for c in message.get("tool_calls", ()))
+        else:
+            out.append(f"{message['role'][0].upper()}:{message.get('content', '')}")
+    if narration:
+        out.append(f"{narration}</turn>")
+    return "\n".join(out)
+
+
+def _render_rejecting_narration(messages: list[dict[str, t.Any]], add_generation_prompt: bool) -> str:
+    """Template that refuses the mixed shape outright rather than mis-rendering it."""
+    if any(m["role"] == "assistant" and m.get("content") and m.get("tool_calls") for m in messages):
+        raise ValueError("assistant turns cannot carry both content and tool calls")
+    return _render_narration_first(messages, add_generation_prompt)
 
 
 _AUDIO_SENTINEL = (np.zeros(8, dtype=np.float32), 16000)
@@ -487,6 +538,73 @@ class TestCaseLLMBackend:
             assert backend.template_calls == []
 
     @pytest.mark.parametrize(
+        ["render", "expected"],
+        [
+            pytest.param(_render_narration_first, False, id="narration_before_call_is_sound"),
+            pytest.param(_render_narration_last, True, id="narration_after_result_closes_turn"),
+            pytest.param(_render_rejecting_narration, True, id="template_rejecting_the_shape"),
+            pytest.param(None, False, id="unrenderable_baseline_assumed_sound"),
+        ],
+    )
+    def test_wrong_tool_narration(
+        self, render: t.Callable[[list[dict[str, t.Any]], bool], str] | None, expected: bool
+    ) -> None:
+        """The probe compares where the prompt ends with and without assistant narration.
+
+        A template is only flagged when adding narration moves the generation point (or when it refuses the
+        shape outright). Templates that render narration before the tool call, and templates the probe cannot
+        render at all, are left alone — :meth:`prepare_input` must not rewrite history on a probe that never
+        produced a usable baseline.
+        """
+        backend = _FakeLLMBackend(chat_template="{{ messages }}", render=render)
+
+        assert backend._wrong_tool_narration is expected
+
+    @pytest.mark.parametrize(
+        ["render", "narrated", "expected_content", "expected_renders"],
+        [
+            pytest.param(_render_narration_last, True, None, 3, id="flagged_template_drops_narration"),
+            pytest.param(_render_narration_first, True, "Reading it.", 3, id="sound_template_keeps_narration"),
+            pytest.param(_render_narration_last, False, None, 1, id="probe_skipped_without_narration"),
+        ],
+    )
+    async def test_prepare_input_narrated_tool_call(
+        self,
+        render: t.Callable[[list[dict[str, t.Any]], bool], str],
+        narrated: bool,
+        expected_content: str | None,
+        expected_renders: int,
+    ) -> None:
+        """``prepare_input`` passes ``drop_tool_narration`` only for templates the probe flagged.
+
+        The dropping mechanics themselves belong to :meth:`test_dump_message`; what matters here is the
+        wiring and the gating. ``expected_renders`` pins the latter: the probe adds two renders on top of
+        the real one, and only for a conversation that actually carries a narrated tool call — evaluating
+        the probe unconditionally would cost every request two extra template renders.
+        """
+        backend = _FakeLLMBackend(chat_template="{{ messages }}", render=render)
+        messages = [
+            UserMessage(content=(TextContent(text="what is in calc.py?"),)),
+            AssistantMessage(
+                content=(TextContent(text="Reading it."),) if narrated else None,
+                reasoning_content="thinking about it",
+                tool_calls=(ToolCall(id="c1", function={"name": "Read", "arguments": {}}),),
+            ),
+            ToolMessage(content=(TextContent(text="def add(a, b): ..."),), tool_call_id="c1"),
+        ]
+
+        await backend.prepare_input(messages)
+
+        assert len(backend.template_calls) == expected_renders
+        sent_messages, _ = backend.template_calls[-1]
+        assistant = next(m for m in sent_messages if m["role"] == "assistant")
+        assert assistant.get("content") == expected_content
+        assert assistant["reasoning_content"] == "thinking about it"
+        assert assistant["tool_calls"] == [
+            {"type": "function", "function": {"name": "Read", "arguments": {}}, "id": "c1"}
+        ]
+
+    @pytest.mark.parametrize(
         ["scenario", "registry_kinds", "expected_idx", "exception"],
         [
             pytest.param("dispatch", ["runnable", "runnable"], 0, None, id="first_runnable_wins"),
@@ -734,20 +852,23 @@ class TestCaseTransformerLLMBackend:
         assert TransformerLLMBackend._dump_tool(tool) == expected
 
     @pytest.mark.parametrize(
-        ["message", "expected"],
+        ["message", "drop_tool_narration", "expected"],
         [
             pytest.param(
                 UserMessage(content=(TextContent(text="hi"),)),
+                False,
                 {"role": "user", "content": "hi"},
                 id="single_text_collapses_to_str",
             ),
             pytest.param(
                 UserMessage(content=(TextContent(text="a"), TextContent(text="b"))),
+                False,
                 {"role": "user", "content": [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]},
                 id="multiple_text_parts_keep_list_shape",
             ),
             pytest.param(
                 UserMessage(content=(TextContent(text="hi"), _stub_image())),
+                False,
                 {"role": "user", "content": [{"type": "text", "text": "hi"}, {"type": "image"}]},
                 id="text_plus_image",
             ),
@@ -756,6 +877,7 @@ class TestCaseTransformerLLMBackend:
                     content=(TextContent(text="ok"),),
                     reasoning_content="thinking…",
                 ),
+                False,
                 {"role": "assistant", "content": "ok", "reasoning_content": "thinking…"},
                 id="assistant_with_reasoning_content",
             ),
@@ -763,6 +885,7 @@ class TestCaseTransformerLLMBackend:
                 AssistantMessage(
                     tool_calls=(ToolCall(function={"name": "fn", "arguments": {}}),),
                 ),
+                False,
                 {
                     "role": "assistant",
                     "tool_calls": [{"type": "function", "function": {"name": "fn", "arguments": {}}}],
@@ -770,14 +893,50 @@ class TestCaseTransformerLLMBackend:
                 id="assistant_with_tool_calls_only",
             ),
             pytest.param(
+                AssistantMessage(
+                    content=(TextContent(text="Reading it."),),
+                    reasoning_content="thinking…",
+                    tool_calls=(ToolCall(function={"name": "fn", "arguments": {}}),),
+                ),
+                False,
+                {
+                    "role": "assistant",
+                    "content": "Reading it.",
+                    "reasoning_content": "thinking…",
+                    "tool_calls": [{"type": "function", "function": {"name": "fn", "arguments": {}}}],
+                },
+                id="narrated_tool_call_kept_by_default",
+            ),
+            pytest.param(
+                AssistantMessage(
+                    content=(TextContent(text="Reading it."),),
+                    reasoning_content="thinking…",
+                    tool_calls=(ToolCall(function={"name": "fn", "arguments": {}}),),
+                ),
+                True,
+                {
+                    "role": "assistant",
+                    "reasoning_content": "thinking…",
+                    "tool_calls": [{"type": "function", "function": {"name": "fn", "arguments": {}}}],
+                },
+                id="narrated_tool_call_drops_only_the_narration",
+            ),
+            pytest.param(
+                AssistantMessage(content=(TextContent(text="ok"),)),
+                True,
+                {"role": "assistant", "content": "ok"},
+                id="narration_kept_without_tool_calls",
+            ),
+            pytest.param(
                 ToolMessage(tool_call_id="c1", content=(TextContent(text="result"),)),
+                False,
                 {"role": "tool", "tool_call_id": "c1", "content": "result"},
                 id="tool_response",
             ),
         ],
     )
-    def test_dump_message(self, message: Message, expected: dict[str, t.Any]) -> None:
-        assert TransformerLLMBackend._dump_message(message) == expected
+    def test_dump_message(self, message: Message, drop_tool_narration: bool, expected: dict[str, t.Any]) -> None:
+        assert TransformerLLMBackend._dump_message(message, drop_tool_narration=drop_tool_narration) == expected
 
     def test_encode_delegates_to_tokenizer(self) -> None:
         tokenizer = MagicMock()

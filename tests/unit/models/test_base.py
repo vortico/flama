@@ -15,6 +15,7 @@ from flama.models.engine.llm.decoder.decoder import _KNOWN_CHANNEL_SCANNERS, Dec
 from flama.models.engine.llm.decoder.markers import PassthroughScanner
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
+from flama.models.exceptions import LLMEmptyGeneration
 from flama.models.transport.input.llm.message import AssistantMessage, TextContent, UserMessage
 from flama.models.transport.output.llm.event import Event, TextEvent, ToolEvent
 
@@ -446,8 +447,8 @@ class TestCaseLLMModel:
                 [],
                 None,
                 None,
-                (RuntimeError, "no output"),
-                id="empty_output_raises_runtime_error",
+                (LLMEmptyGeneration, "LLM engine produced no output"),
+                id="empty_output_raises_empty_generation",
             ),
             pytest.param(
                 "hello",

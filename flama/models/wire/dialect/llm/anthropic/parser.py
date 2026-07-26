@@ -70,6 +70,12 @@ class AnthropicParser(Parser):
         Claude Code emits them after the user turn. Both routes converge on the shared
         :meth:`~flama.models.wire.dialect._base.Parser._parse_message`, which rejects non-text content and
         missing ``content`` with role-specific errors.
+
+        :param values: Raw wire ``messages`` list.
+        :param system: Optional top-level ``system`` payload, flattened into a leading system turn.
+        :return: Canonical L2 messages in wire order, with the top-level system turn prepended.
+        :raises ValueError: On a non-object element, an unknown role, or any per-role violation raised by
+            :meth:`~flama.models.wire.dialect._base.Parser._parse_message`.
         """
         out: list[Message] = []
         if (system_text := cls._flatten_system(system)) is not None:

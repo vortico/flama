@@ -291,6 +291,10 @@ class TransformerLLMBackend(LLMBackend):
     )
     _SAMPLE_TOOLS: t.ClassVar[tuple[Tool, ...]] = (Tool(name="fn", description="", parameters={}),)
 
+    _PROBE_USER_MESSAGE: t.ClassVar[str] = "__flama_probe_user_message__"
+    _PROBE_NARRATION: t.ClassVar[str] = "__flama_probe_narration__"
+    _PROBE_TOOL_RESULT: t.ClassVar[str] = "__flama_probe_tool_result__"
+
     @property
     @abc.abstractmethod
     def _tokenizer(self) -> t.Any:
@@ -312,6 +316,69 @@ class TransformerLLMBackend(LLMBackend):
     def chat_template(self) -> str | None:
         """The chat template embedded in the tokenizer / processor, or :data:`None` for base models."""
         return getattr(self._renderer, "chat_template", None) or getattr(self._tokenizer, "chat_template", None)
+
+    @functools.cached_property
+    def _wrong_tool_narration(self) -> bool:
+        """Whether this template moves the generation point when an assistant turn narrates *and* calls a tool.
+
+        Templates disagree on where an assistant turn's ``content`` belongs when the same turn carries
+        ``tool_calls``. Most read it as narration spoken before the call and render it there, leaving the
+        prompt open for the model to answer once the tool result arrives. The Gemma 4 family reads it as the
+        assistant's closing remark and renders it *after* the tool result, then closes the turn — a finished
+        conversation the model correctly declines to continue, which surfaces as
+        :class:`~flama.models.exceptions.LLMEmptyGeneration`.
+
+        The probe renders one fixture conversation twice, identical but for the narration, and compares the
+        text that follows the tool result. Adding narration must not move where the prompt ends; when it
+        does, the template belongs to the second group. Comparing after the tool result (and discounting the
+        narration itself) keeps the check free of any per-template delimiter knowledge, so an unfamiliar
+        template that happens to place narration late but still opens a turn is not misread as broken.
+
+        A template that cannot render either fixture is reported as sound: :meth:`prepare_input` must not
+        start rewriting history on the strength of a probe that never ran.
+
+        Cached, so the warning announcing the compensation is emitted once per backend rather than once per
+        request. Evaluation is lazy — :meth:`prepare_input` only consults it for a conversation that actually
+        carries a narrated tool call — so the line lands on the first such request rather than at load.
+        """
+        tools = [self._dump_tool(tool) for tool in self._SAMPLE_TOOLS]
+        call = self._dump_tool_call(ToolCall(id="call_0", function={"name": "fn", "arguments": {}}))
+        plain: list[dict[str, t.Any]] = [
+            {"role": "user", "content": self._PROBE_USER_MESSAGE},
+            {"role": "assistant", "tool_calls": [call]},
+            {"role": "tool", "tool_call_id": "call_0", "content": self._PROBE_TOOL_RESULT},
+        ]
+        narrated = [plain[0], {**plain[1], "content": self._PROBE_NARRATION}, plain[2]]
+
+        def tail(messages: list[dict[str, t.Any]]) -> str | None:
+            rendered = self.apply_chat_template(messages, tools=tools, tokenize=False, add_generation_prompt=True)
+            head, separator, rest = rendered.rpartition(self._PROBE_TOOL_RESULT)
+            return rest if separator else None
+
+        try:
+            expected = tail(plain)
+        except Exception:
+            # An unrenderable baseline leaves nothing to compare the narrated render against.
+            return False
+        if expected is None:
+            return False
+
+        try:
+            observed = tail(narrated)
+        except Exception:
+            # A template that rejects the shape outright mishandles it just as surely as one that
+            # renders it into a closed turn.
+            mishandles = True
+        else:
+            mishandles = observed is None or observed.replace(self._PROBE_NARRATION, "") != expected
+
+        if mishandles:
+            logger.warning(
+                "This model's chat template renders an assistant turn's narration after the tool result and "
+                "closes the turn, leaving the model no opening to answer. Narration will be dropped from turns "
+                "that also carry tool calls; 'reasoning_content' on those turns is kept."
+            )
+        return mishandles
 
     def encode(self, text: str, /, *, add_special_tokens: bool = True) -> list[int]:
         return list(self._tokenizer.encode(text, add_special_tokens=add_special_tokens))
@@ -408,7 +475,7 @@ class TransformerLLMBackend(LLMBackend):
         return out
 
     @classmethod
-    def _dump_message(cls, message: Message) -> dict[str, t.Any]:
+    def _dump_message(cls, message: Message, *, drop_tool_narration: bool = False) -> dict[str, t.Any]:
         """Project an L2 :class:`Message` into the HuggingFace chat-template input shape.
 
         Single-text content collapses to a bare ``content: str`` for compatibility with
@@ -416,6 +483,13 @@ class TransformerLLMBackend(LLMBackend):
         of typed parts. ``reasoning_content`` is forwarded verbatim for reasoning-aware
         templates. Role-specific fields (``tool_calls`` / ``reasoning_content`` on assistant
         turns, ``tool_call_id`` on tool turns) are gated by subclass dispatch.
+
+        :param message: Canonical L2 message to project.
+        :param drop_tool_narration: Omit ``content`` from assistant turns that also carry ``tool_calls``.
+            Set by :meth:`prepare_input` for templates whose rendering of that shape leaves the model no
+            opening to speak; see :attr:`_wrong_tool_narration`. Defaults to :data:`False` so the
+            projection stays a faithful translation for every other caller.
+        :return: Chat-template input dict for *message*.
         """
         entry: dict[str, t.Any] = {"role": message.role}
         if message.content is not None:
@@ -428,6 +502,8 @@ class TransformerLLMBackend(LLMBackend):
                 entry["reasoning_content"] = message.reasoning_content
             if message.tool_calls is not None:
                 entry["tool_calls"] = [cls._dump_tool_call(tc) for tc in message.tool_calls]
+                if drop_tool_narration:
+                    entry.pop("content", None)
         elif isinstance(message, ToolMessage):
             entry["tool_call_id"] = message.tool_call_id
         return entry
@@ -459,6 +535,12 @@ class TransformerLLMBackend(LLMBackend):
         projection is delegated to :meth:`_dump_message` / :meth:`_dump_tool` so the
         HuggingFace dialect is anchored in one place.
 
+        On templates flagged by :attr:`_wrong_tool_narration`, assistant turns carrying both
+        ``content`` and ``tool_calls`` are dumped with ``drop_tool_narration=True``: those templates place
+        the narration after the tool result and close the turn, so keeping it would render a prompt the
+        model cannot continue. The narration is the turn's least load-bearing part — the tool call and its
+        result carry the substance — and ``reasoning_content`` is left untouched.
+
         :param messages: Pre-built canonical L2 :class:`Message` instances.
         :param tools: Optional canonical L2 :class:`Tool` specs forwarded to the chat template.
         :param chat_template_kwargs: Extra keyword arguments forwarded to the chat template.
@@ -485,7 +567,12 @@ class TransformerLLMBackend(LLMBackend):
                             raise LLMUnsupportedCapability("audio")
                         audios.append(await content.audio())
 
-        template_msgs = [self._dump_message(msg) for msg in messages]
+        drop_tool_narration = (
+            any(isinstance(m, AssistantMessage) and m.content is not None and m.tool_calls for m in messages)
+            and self._wrong_tool_narration
+        )
+
+        template_msgs = [self._dump_message(msg, drop_tool_narration=drop_tool_narration) for msg in messages]
         tokens = list(self.apply_chat_template(template_msgs, **kwargs))
         return EngineInput(tokens=tokens, images=tuple(images), audios=tuple(audios))
 

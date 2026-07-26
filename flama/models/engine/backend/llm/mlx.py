@@ -193,6 +193,12 @@ class MLXBackend(TransformerLLMBackend):
         stay text-only across the fallback — the towers really are absent, so the backend must not
         advertise modalities it cannot serve, and ``strict`` is therefore keyed off the advertised
         modalities rather than off the runtime that ends up loading.
+
+        :param model_dir: Path to the extracted HuggingFace model directory.
+        :param capabilities: Modal capabilities resolved from the artifact manifest or the serializer probe.
+        :return: Runtime bundle wrapping the loaded model, its tokenizer and (for mlx-vlm) its processor.
+        :raises FrameworkNotInstalled: If the runtime the resolved capabilities call for is not importable.
+        :raises ValueError: Propagated from mlx-lm for any load failure other than an unknown architecture.
         """
         if not capabilities.is_multimodal:
             if mlx_lm_load is None:  # noqa
