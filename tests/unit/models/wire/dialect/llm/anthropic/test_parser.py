@@ -328,10 +328,70 @@ class TestCaseAnthropicParser:
                 id="non_dict_message",
             ),
             pytest.param(
-                [{"role": "system", "content": "be brief"}],
+                [{"role": "system", "content": "be brief"}, {"role": "user", "content": "hi"}],
+                None,
+                (
+                    SystemMessage(content=(TextContent(text="be brief"),)),
+                    UserMessage(content=(TextContent(text="hi"),)),
+                ),
+                None,
+                id="system_turn_leading",
+            ),
+            pytest.param(
+                # ``mid-conversation-system-2026-04-07`` shape: Claude Code appends the operator
+                # instruction after the user turn so the cached history prefix stays valid.
+                [
+                    {"role": "user", "content": "hi"},
+                    {"role": "system", "content": [{"type": "text", "text": "be brief"}]},
+                ],
+                None,
+                (
+                    UserMessage(content=(TextContent(text="hi"),)),
+                    SystemMessage(content=(TextContent(text="be brief"),)),
+                ),
+                None,
+                id="system_turn_mid_conversation",
+            ),
+            pytest.param(
+                [
+                    {"role": "user", "content": "hi"},
+                    {"role": "system", "content": "now be terse"},
+                ],
+                "be brief",
+                (
+                    SystemMessage(content=(TextContent(text="be brief"),)),
+                    UserMessage(content=(TextContent(text="hi"),)),
+                    SystemMessage(content=(TextContent(text="now be terse"),)),
+                ),
+                None,
+                id="system_turn_alongside_top_level_system",
+            ),
+            pytest.param(
+                [{"role": "system", "content": [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]}],
+                None,
+                (SystemMessage(content=(TextContent(text="a"), TextContent(text="b"))),),
+                None,
+                id="system_turn_multi_block",
+            ),
+            pytest.param(
+                [{"role": "system", "content": [{"type": "image", "source": {"type": "url", "url": "https://x"}}]}],
                 None,
                 None,
-                ValueError("Wrong role 'system', expected one of: ['user', 'assistant']"),
+                ValueError("'system' messages only support text content"),
+                id="system_turn_rejects_non_text",
+            ),
+            pytest.param(
+                [{"role": "system"}],
+                None,
+                None,
+                ValueError("'content' is required for 'system' messages"),
+                id="system_turn_without_content",
+            ),
+            pytest.param(
+                [{"role": "ghost", "content": "x"}],
+                None,
+                None,
+                ValueError("Wrong role 'ghost', expected one of: ['system', 'user', 'assistant']"),
                 id="invalid_role",
             ),
             pytest.param(

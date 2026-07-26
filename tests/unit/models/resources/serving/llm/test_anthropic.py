@@ -106,20 +106,39 @@ class TestCaseEndToEndMessages:
         assert tool == {"type": "tool_use", "id": "c1", "name": "lookup", "input": {"q": "x"}}
 
     async def test_malformed_messages_rejected_with_400(self, client: Client) -> None:
-        """A wire-shape violation surfaced by :meth:`AnthropicServing.parse` (here a ``system`` role,
-        which Anthropic only accepts as a top-level field, not inside ``messages``) is translated into an
-        HTTP 400 by the handler's parse guard."""
+        """A wire-shape violation surfaced by :meth:`AnthropicServing.parse` (here an unknown role) is
+        translated into an HTTP 400 by the handler's parse guard."""
         response = await client.post(
             "/llm/anthropic/v1/messages",
             json={
                 "model": "stub",
                 "max_tokens": 16,
-                "messages": [{"role": "system", "content": "be brief"}],
+                "messages": [{"role": "ghost", "content": "be brief"}],
                 "stream": False,
             },
         )
 
         assert response.status_code == 400, response.text
+
+    async def test_mid_conversation_system_turn_accepted(self, client: Client) -> None:
+        """Clients on ``mid-conversation-system-2026-04-07`` append ``{"role": "system"}`` turns to
+        ``messages`` instead of editing the top-level ``system`` field, so that the cached history prefix
+        stays valid. Such a turn arrives *after* the user turn and must parse rather than be rejected as a
+        wire violation."""
+        response = await client.post(
+            "/llm/anthropic/v1/messages",
+            json={
+                "model": "stub",
+                "max_tokens": 16,
+                "messages": [
+                    {"role": "user", "content": "hi"},
+                    {"role": "system", "content": [{"type": "text", "text": "be brief"}]},
+                ],
+                "stream": False,
+            },
+        )
+
+        assert response.status_code == 200, response.text
 
     async def test_thinking_routes_to_thinking_block(self, client: Client, llm_component) -> None:
         async def _mock_query(self, *args: t.Any, **kwargs: t.Any) -> t.AsyncIterator[t.Any]:

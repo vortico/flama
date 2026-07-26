@@ -39,10 +39,11 @@ class AnthropicParser(Parser):
     Owns every wire-translation step the Anthropic Messages API needs:
 
     - :meth:`_parse_messages` flattens the optional top-level ``system`` payload into a leading
-      :class:`~flama.models.SystemMessage`, expands user turns carrying ``tool_result`` blocks into one
-      canonical ``tool`` message per result (Anthropic packs them into a single user turn; Flama's L2
-      ``tool`` messages take a single ``tool_call_id`` each), and splits assistant turns into the
-      canonical ``content`` / ``tool_calls`` / ``reasoning_content`` triple.
+      :class:`~flama.models.SystemMessage`, accepts ``system`` turns inside ``messages`` at any position,
+      expands user turns carrying ``tool_result`` blocks into one canonical ``tool`` message per result
+      (Anthropic packs them into a single user turn; Flama's L2 ``tool`` messages take a single
+      ``tool_call_id`` each), and splits assistant turns into the canonical ``content`` / ``tool_calls`` /
+      ``reasoning_content`` triple.
     - :meth:`_parse_tool` consumes Anthropic's flat ``{name, description, input_schema}`` shape (no
       OpenAI-style ``function:`` envelope).
     - :meth:`_parse_part` translates ``text`` / ``image`` parts only; ``tool_use`` / ``tool_result`` /
@@ -59,6 +60,17 @@ class AnthropicParser(Parser):
         *,
         system: t.Any = None,
     ) -> tuple[Message, ...]:
+        """Translate Anthropic's ``messages`` list (plus the optional top-level ``system``) into L2 messages.
+
+        ``system`` reaches the parser through two independent routes and both are accepted. The top-level
+        ``system`` field is the classic conversation prompt and is flattened into a leading
+        :class:`~flama.models.SystemMessage`. Separately, the ``mid-conversation-system-2026-04-07`` beta
+        lets clients append ``{"role": "system", ...}`` turns to ``messages`` to carry operator instructions
+        without invalidating the cached history prefix, so a ``system`` turn may appear at *any* index —
+        Claude Code emits them after the user turn. Both routes converge on the shared
+        :meth:`~flama.models.wire.dialect._base.Parser._parse_message`, which rejects non-text content and
+        missing ``content`` with role-specific errors.
+        """
         out: list[Message] = []
         if (system_text := cls._flatten_system(system)) is not None:
             out.append(cls._parse_message({"role": "system", "content": system_text}))
@@ -71,8 +83,10 @@ class AnthropicParser(Parser):
                     out.extend(cls._parse_message(turn) for turn in cls._expand_user(raw.get("content")))
                 case "assistant":
                     out.append(cls._parse_message(cls._expand_assistant(raw.get("content"))))
+                case "system":
+                    out.append(cls._parse_message(raw))
                 case role:
-                    raise ValueError(f"Wrong role {role!r}, expected one of: ['user', 'assistant']")
+                    raise ValueError(f"Wrong role {role!r}, expected one of: ['system', 'user', 'assistant']")
         return tuple(out)
 
     @classmethod
