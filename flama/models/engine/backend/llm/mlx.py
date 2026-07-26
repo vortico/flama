@@ -2,8 +2,10 @@ import concurrent.futures
 import contextlib
 import dataclasses
 import functools
+import logging
 import os
 import pathlib
+import re
 import typing as t
 
 from flama import concurrency, exceptions
@@ -65,6 +67,14 @@ except Exception:  # pragma: no cover - tqdm not installed
 
 __all__ = ["MLXBackend", "MlxRuntime"]
 
+# ``mlx_lm.utils.get_model_classes`` raises exactly this when ``mlx_lm.models.<model_type>`` cannot be
+# imported, i.e. the architecture is not in mlx-lm's registry. Matched narrowly so the mlx-vlm fallback
+# in :meth:`MLXBackend._load_runtime` only fires on an unknown architecture and never masks a genuine
+# load failure (corrupt shard, unsupported quantization, ...).
+_UNSUPPORTED_ARCHITECTURE: t.Final[re.Pattern[str]] = re.compile(r"\AModel type .+ not supported\.\Z")
+
+logger = logging.getLogger(__name__)
+
 
 class _MlxStreamResp(t.Protocol):
     """Shape of items yielded by :func:`mlx_lm.stream_generate` and :func:`mlx_vlm.stream_generate`.
@@ -102,16 +112,31 @@ class MlxRuntime:
     processor: t.Any = None
     capabilities: LLMModelCapabilities = dataclasses.field(default_factory=LLMModelCapabilities)
 
+    @property
+    def is_vlm(self) -> bool:
+        """Whether the bundled model object came from :func:`mlx_vlm.load`.
+
+        Distinct from :attr:`capabilities` ``.is_multimodal``: capabilities describe what the backend
+        *serves*, this describes which runtime actually holds the weights. The two diverge when a
+        text-only checkpoint declares an architecture only mlx-vlm implements — see
+        :meth:`MLXBackend._load_runtime`. Generation must dispatch on this, since the call convention
+        belongs to the runtime, not to the advertised modalities.
+        """
+        return self.processor is not None
+
 
 class MLXBackend(TransformerLLMBackend):
     """LLM backend backed by MLX for macOS / Apple Silicon.
 
     The backend builds its own :class:`MlxRuntime` from the extracted HuggingFace model
-    directory so the protocol layer never imports MLX. Dispatch keys off
-    :attr:`capabilities.is_multimodal`: text-only models go through :func:`mlx_lm.load` /
-    :func:`mlx_lm.stream_generate`; multimodal models (vision, audio, or both) go through
-    :func:`mlx_vlm.load` / :func:`mlx_vlm.stream_generate` and carry the bound
-    :class:`~transformers.AutoProcessor`.
+    directory so the protocol layer never imports MLX. Runtime selection keys off
+    :attr:`capabilities.is_multimodal`: text-only models go through :func:`mlx_lm.load`;
+    multimodal models (vision, audio, or both) go through :func:`mlx_vlm.load` and carry the
+    bound :class:`~transformers.AutoProcessor`. A text-only bundle whose architecture mlx-lm
+    does not implement falls back to :func:`mlx_vlm.load` with a lenient weight load while
+    staying text-only (see :meth:`_load_runtime`), so *generation* dispatches on
+    :attr:`MlxRuntime.is_vlm` — the runtime that holds the weights — rather than on the
+    advertised modalities.
 
     Capability resolution: when *capabilities* is provided (typically read from the
     ``.flm`` manifest) it is used verbatim; otherwise the backend falls back to the
@@ -159,17 +184,40 @@ class MLXBackend(TransformerLLMBackend):
 
     @staticmethod
     def _load_runtime(model_dir: pathlib.Path, capabilities: LLMModelCapabilities) -> "MlxRuntime":
-        if capabilities.is_multimodal:
-            if mlx_vlm_load is None:  # noqa
-                raise exceptions.FrameworkNotInstalled("mlx-vlm")
-            vlm_model, processor = mlx_vlm_load(str(model_dir))
-            return MlxRuntime(
-                model=vlm_model, tokenizer=processor.tokenizer, processor=processor, capabilities=capabilities
-            )
-        if mlx_lm_load is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("mlx-lm")
-        lm_model, tokenizer = mlx_lm_load(str(model_dir))
-        return MlxRuntime(model=lm_model, tokenizer=tokenizer, capabilities=capabilities)
+        """Build the :class:`MlxRuntime` for *model_dir* under the resolved *capabilities*.
+
+        Text-only bundles load through mlx-lm. When mlx-lm has no implementation for the bundle's
+        declared architecture it is retried through mlx-vlm with a lenient weight load: text-only
+        derivatives of multimodal models keep the upstream ``model_type`` (so only mlx-vlm implements
+        it) while shipping none of the tower weights (so a strict load fails on them). *capabilities*
+        stay text-only across the fallback — the towers really are absent, so the backend must not
+        advertise modalities it cannot serve, and ``strict`` is therefore keyed off the advertised
+        modalities rather than off the runtime that ends up loading.
+        """
+        if not capabilities.is_multimodal:
+            if mlx_lm_load is None:  # noqa
+                raise exceptions.FrameworkNotInstalled("mlx-lm")
+            try:
+                lm_model, tokenizer = mlx_lm_load(str(model_dir))
+            except ValueError as e:
+                if mlx_vlm_load is None or not _UNSUPPORTED_ARCHITECTURE.match(str(e)):  # noqa
+                    raise
+                logger.warning(
+                    "mlx-lm cannot load the architecture of '%s' (%s); retrying through mlx-vlm with a lenient "
+                    "weight load. The model is served as text-only: the multimodal towers its architecture "
+                    "declares are absent from the checkpoint and stay uninitialised.",
+                    model_dir,
+                    e,
+                )
+            else:
+                return MlxRuntime(model=lm_model, tokenizer=tokenizer, capabilities=capabilities)
+
+        if mlx_vlm_load is None:  # noqa
+            raise exceptions.FrameworkNotInstalled("mlx-vlm")
+        vlm_model, processor = mlx_vlm_load(str(model_dir), strict=capabilities.is_multimodal)
+        return MlxRuntime(
+            model=vlm_model, tokenizer=processor.tokenizer, processor=processor, capabilities=capabilities
+        )
 
     @functools.cached_property
     def capabilities(self) -> LLMModelCapabilities:
@@ -275,7 +323,7 @@ class MLXBackend(TransformerLLMBackend):
         max_tokens = self._resolve_max_tokens(params, len(inputs.tokens))
         sampler = make_sampler(temp=params.pop("temperature", self.DEFAULT_TEMP))
 
-        if self.capabilities.is_multimodal:
+        if self.model.is_vlm:
             if mlx_vlm_stream_generate is None or mx is None:  # noqa
                 raise exceptions.FrameworkNotInstalled("mlx-vlm")
             source: t.Iterator[_MlxStreamResp] = mlx_vlm_stream_generate(
@@ -297,7 +345,7 @@ class MLXBackend(TransformerLLMBackend):
                 sampler=sampler,
             )
 
-        is_vlm = self.capabilities.is_multimodal
+        is_vlm = self.model.is_vlm
         previous_total = 0
         async with contextlib.aclosing(concurrency.iterate(source, executor=self._executor)) as items:
             async for chunk in items:

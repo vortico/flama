@@ -89,6 +89,10 @@ class TestCaseMLXBackend:
         Dispatch keys off the resolved capabilities: when *capabilities* is multimodal (or
         *processor* is given), the constructor goes through ``mlx_vlm.load``; otherwise it goes
         through ``mlx_lm.load``.
+
+        Passing a *processor* alongside text-only *capabilities* selects the fallback shape: ``mlx_lm.load``
+        is stubbed to reject the architecture, so the constructor rebuilds the runtime through
+        ``mlx_vlm.load`` while the backend keeps advertising text only.
         """
         if model is None:
             model = Mock()
@@ -108,6 +112,13 @@ class TestCaseMLXBackend:
         if multimodal:
             proc = processor if processor is not None else Mock(tokenizer=tokenizer)
             patches.append(patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", Mock(return_value=(model, proc))))
+            if not resolved.is_multimodal:
+                patches.append(
+                    patch(
+                        "flama.models.engine.backend.llm.mlx.mlx_lm_load",
+                        Mock(side_effect=ValueError("Model type dummy_unified not supported.")),
+                    )
+                )
         else:
             patches.append(
                 patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", Mock(return_value=(model, tokenizer)))
@@ -180,7 +191,62 @@ class TestCaseMLXBackend:
         assert backend.model.processor is processor
         assert backend.model.tokenizer is processor.tokenizer
         assert backend.capabilities is override
-        assert mlx_vlm_load.call_args == call("/tmp/model")
+        assert mlx_vlm_load.call_args == call("/tmp/model", strict=True)
+
+    def test_init_text_falls_back_to_mlx_vlm_on_unsupported_architecture(self):
+        """A text-only checkpoint whose architecture only mlx-vlm implements is rebuilt through mlx-vlm.
+
+        Text-only derivatives of multimodal models keep the upstream ``model_type`` (so mlx-lm has no
+        implementation for it) while shipping none of the tower weights (so mlx-vlm's default strict load
+        fails on them). The backend keeps advertising text only, because the towers really are absent.
+        """
+        model = Mock()
+        processor = Mock()
+        processor.tokenizer = Mock()
+        mlx_lm_load = Mock(side_effect=ValueError("Model type gemma4_unified not supported."))
+        mlx_vlm_load = Mock(return_value=(model, processor))
+
+        with (
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", mlx_lm_load),
+            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", mlx_vlm_load),
+            patch.object(
+                TransformersModelSerializer, "detect_capabilities", return_value=LLMModelCapabilities(text=True)
+            ),
+        ):
+            backend = MLXBackend(pathlib.Path("/tmp/model"))
+
+        assert backend.model.model is model
+        assert backend.model.processor is processor
+        assert backend.model.is_vlm is True
+        assert backend.capabilities == LLMModelCapabilities(text=True)
+        assert mlx_vlm_load.call_args == call("/tmp/model", strict=False)
+
+    @pytest.mark.parametrize(
+        ["error", "mlx_vlm_installed"],
+        [
+            pytest.param(ValueError("Failed to load shard 2"), True, id="unrelated_mlx_lm_failure"),
+            pytest.param(ValueError("Model type foo not supported."), False, id="mlx_vlm_not_installed"),
+        ],
+    )
+    def test_init_text_propagates_when_fallback_does_not_apply(
+        self, error: ValueError, mlx_vlm_installed: bool
+    ) -> None:
+        """The fallback is narrow: it never masks a genuine load failure, nor invents a missing dependency."""
+        mlx_lm_load = Mock(side_effect=error)
+        mlx_vlm_load = Mock(return_value=(Mock(), Mock())) if mlx_vlm_installed else None
+
+        with (
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", mlx_lm_load),
+            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", mlx_vlm_load),
+            patch.object(
+                TransformersModelSerializer, "detect_capabilities", return_value=LLMModelCapabilities(text=True)
+            ),
+            pytest.raises(ValueError, match=str(error)),
+        ):
+            MLXBackend(pathlib.Path("/tmp/model"))
+
+        if mlx_vlm_load is not None:
+            assert not mlx_vlm_load.called
 
     def test_init_raises_on_unknown_capabilities(self):
         with (
@@ -417,6 +483,36 @@ class TestCaseMLXBackend:
         else:
             _, processor_call_kwargs = backend.model.processor.call_args
             assert processor_call_kwargs == expected_processor_kwargs
+
+    async def test_generate_dispatches_on_runtime_not_capabilities(self, vlm_runtime_args) -> None:
+        """A text-only backend running on the mlx-vlm fallback still generates through mlx-vlm.
+
+        The call convention belongs to the runtime holding the weights, not to the advertised
+        modalities: routing this shape through ``mlx_lm.stream_generate`` would hand an mlx-vlm model
+        to the wrong generator.
+        """
+        vlm_runtime_args["capabilities"] = LLMModelCapabilities(text=True)
+        backend = self._make_backend(**vlm_runtime_args)
+        mock_vlm_stream_generate = Mock(return_value=iter([_FakeMlxResp("ok", generation_tokens=1)]))
+        mock_lm_stream_generate = Mock()
+        mock_mx = Mock()
+        mock_mx.array = Mock(side_effect=lambda value: ("mx-array", value))
+
+        with (
+            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_stream_generate", mock_vlm_stream_generate),
+            patch("flama.models.engine.backend.llm.mlx.stream_generate", mock_lm_stream_generate),
+            patch("flama.models.engine.backend.llm.mlx.make_sampler", Mock(return_value="sampler")),
+            patch("flama.models.engine.backend.llm.mlx.mx", mock_mx),
+        ):
+            deltas = [d async for d in backend.generate(EngineInput(tokens=[1, 2, 3]))]
+
+        assert backend.capabilities.is_multimodal is False
+        assert backend.model.is_vlm is True
+        assert [d.text for d in deltas] == ["ok"]
+        assert not mock_lm_stream_generate.called
+        _, call_kwargs = mock_vlm_stream_generate.call_args
+        assert call_kwargs["input_ids"] == ("mx-array", [[1, 2, 3]])
+        assert not backend.model.processor.called
 
     @pytest.mark.parametrize(
         ["mlx_vlm_installed", "mx_installed"],
