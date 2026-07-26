@@ -1,6 +1,7 @@
 import importlib.metadata
 import json
 import pathlib
+import struct
 import types as py_types
 import typing as t
 from contextlib import ExitStack
@@ -47,6 +48,12 @@ class TestCaseTransformersModelSerializer:
             path = tmp_path / name
             if content is _INVALID_JSON_SENTINEL:
                 path.write_text("not json{")
+            elif name.endswith(".safetensors"):
+                # Safetensors framing: little-endian uint64 header length followed by a JSON header
+                # keyed by tensor name, so the single-file branch of the weight probe parses a real
+                # header instead of a stand-in. Params declare the payload as a list of tensor names.
+                header = json.dumps({tensor: {} for tensor in content}).encode()
+                path.write_bytes(struct.pack("<Q", len(header)) + header)
             else:
                 # ``json.dumps`` even for str payloads so a ``"not-a-dict"`` case writes a JSON-encoded
                 # string rather than raw text — matching what the production reader handles when the
@@ -244,16 +251,104 @@ class TestCaseTransformersModelSerializer:
                 id="invalid_json",
             ),
             pytest.param(
-                {"preprocessor_config.json": {}},
+                {"preprocessor_config.json": {"image_processor_type": "SiglipImageProcessor"}},
                 "directory_path",
                 LLMModelCapabilities(text=True, image=True),
-                id="preprocessor_fallback",
+                id="preprocessor_fallback_image",
+            ),
+            pytest.param(
+                {"preprocessor_config.json": {"feature_extractor_type": "WhisperFeatureExtractor"}},
+                "directory_path",
+                LLMModelCapabilities(text=True, audio=True),
+                id="preprocessor_fallback_audio",
+            ),
+            pytest.param(
+                {"preprocessor_config.json": {}},
+                "directory_path",
+                LLMModelCapabilities(text=True),
+                id="preprocessor_fallback_without_declared_types",
             ),
             pytest.param(
                 {"config.json": {"vision_config": {}}, "preprocessor_config.json": {}},
                 "directory_path",
                 LLMModelCapabilities(text=True, image=True),
                 id="preprocessor_skipped_when_config_advertises",
+            ),
+            pytest.param(
+                {
+                    "config.json": {"audio_config": {}},
+                    "model.safetensors.index.json": {
+                        "weight_map": {"language_model.model.layers.0.mlp.down_proj.weight": "shard.safetensors"}
+                    },
+                },
+                "directory_path",
+                LLMModelCapabilities(text=True),
+                id="declared_audio_cleared_when_weights_lack_tower",
+            ),
+            pytest.param(
+                {
+                    "config.json": {"audio_config": {}},
+                    "model.safetensors.index.json": {
+                        "weight_map": {"audio_tower.encoder.layers.0.weight": "shard.safetensors"}
+                    },
+                },
+                "directory_path",
+                LLMModelCapabilities(text=True, audio=True),
+                id="declared_audio_kept_when_weights_carry_tower",
+            ),
+            pytest.param(
+                {
+                    "config.json": {"vision_config": {}},
+                    "model.safetensors.index.json": {
+                        "weight_map": {"model.layers.0.self_attn.q_proj.weight": "shard.safetensors"}
+                    },
+                },
+                "directory_path",
+                LLMModelCapabilities(text=True),
+                id="declared_image_cleared_when_weights_lack_tower",
+            ),
+            pytest.param(
+                {
+                    "config.json": {"vision_config": {}},
+                    "model.safetensors.index.json": {
+                        "weight_map": {"model.vision_tower.encoder.weight": "shard.safetensors"}
+                    },
+                },
+                "directory_path",
+                LLMModelCapabilities(text=True, image=True),
+                id="declared_image_kept_when_weights_carry_tower",
+            ),
+            pytest.param(
+                {
+                    "config.json": {"vision_config": {}},
+                    "model.safetensors.index.json": {
+                        "weight_map": {"model.embed_visionary.weight": "shard.safetensors"}
+                    },
+                },
+                "directory_path",
+                LLMModelCapabilities(text=True),
+                id="tensor_match_is_segment_wise_not_substring",
+            ),
+            pytest.param(
+                {
+                    "config.json": {"vision_config": {}, "audio_config": {}},
+                    "model.safetensors": ["language_model.model.norm.weight", "embed_vision.projection.weight"],
+                },
+                "directory_path",
+                LLMModelCapabilities(text=True, image=True),
+                id="single_file_header_corroborates_each_modality",
+            ),
+            pytest.param(
+                {"config.json": {"vision_config": {}}, "model.safetensors.index.json": _INVALID_JSON_SENTINEL},
+                "directory_path",
+                LLMModelCapabilities(text=True, image=True),
+                id="unreadable_index_keeps_declared_capabilities",
+            ),
+            pytest.param(
+                {"config.json": {"audio_config": {}}, "model.safetensors.index.json": {"metadata": {}}},
+                "directory_path",
+                LLMModelCapabilities(text=True, audio=True),
+                id="index_without_weight_map_keeps_declared_capabilities",
             ),
             pytest.param({}, "directory_path", None, id="empty_directory_returns_none"),
             pytest.param(

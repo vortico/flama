@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import pathlib
+import struct
 import tempfile
 import typing as t
 
@@ -95,14 +96,43 @@ class ModelSerializer(BaseModelSerializer):
     _PROBE_TOOL_DESCRIPTION: t.ClassVar[str] = "__flama_probe_tool_description__"
     _PROBE_USER_MESSAGE: t.ClassVar[str] = "__flama_probe_user_message__"
 
+    _WEIGHT_INDEX: t.ClassVar[str] = "model.safetensors.index.json"
+    _WEIGHT_FILE: t.ClassVar[str] = "model.safetensors"
+    _VISION_TENSORS: t.ClassVar[frozenset[str]] = frozenset(
+        {
+            "vision_tower",
+            "vision_model",
+            "vision_embedder",
+            "embed_vision",
+            "visual",
+            "multi_modal_projector",
+            "mm_projector",
+            "image_projector",
+        }
+    )
+    _AUDIO_TENSORS: t.ClassVar[frozenset[str]] = frozenset(
+        {"audio_tower", "audio_model", "audio_embedder", "embed_audio", "audio_projector"}
+    )
+
     def detect_capabilities(self, model: t.Any, /) -> "LLMModelCapabilities | None":
         """Detect modal capabilities by inspecting the HuggingFace bundle on disk.
 
         Accepts either a directory path or an in-memory :class:`transformers.Pipeline` whose
         underlying model points at a local snapshot; both shapes resolve to a filesystem path
         that is probed for the canonical HuggingFace signal site: ``vision_config`` /
-        ``audio_config`` blocks in ``config.json``, with ``preprocessor_config.json``'s
-        presence acting as a softer image-only fallback.
+        ``audio_config`` blocks in ``config.json``, with the modality-specific processor types
+        declared in ``preprocessor_config.json`` acting as a softer fallback when the config
+        carries no modality block at all.
+
+        A declared config block is treated as *necessary but not sufficient*: it advertises what
+        the architecture can do, not what the checkpoint actually ships. Text-only derivatives
+        routinely keep the upstream multimodal ``config.json`` while dropping the tower weights,
+        which would strand the artifact on a runtime that strict-loads them. :meth:`_probe_weights`
+        therefore corroborates each declared modality against the bundle's tensor names, and a
+        modality is cleared when the tensor set is known and carries no matching tower. The
+        corroboration is deliberately downgrade-only — when the weight layout cannot be read the
+        config-derived answer stands — so an unfamiliar naming scheme degrades to the declared
+        capabilities instead of silently dropping a real one.
 
         Tool and reasoning support are derived from the chat template at serialize time. The
         primary path loads the tokenizer and renders the template against sentinel inputs:
@@ -149,10 +179,93 @@ class ModelSerializer(BaseModelSerializer):
         image = isinstance(config, dict) and isinstance(config.get("vision_config"), dict)
         audio = isinstance(config, dict) and isinstance(config.get("audio_config"), dict)
         if not (image or audio):
-            image = has_preprocessor
+            image, audio = self._probe_preprocessor(preprocessor_path)
+
+        if (tensors := self._probe_weights(path)) is not None:
+            architectures = config.get("architectures") if isinstance(config, dict) else None
+            if image and not self._carries(tensors, self._VISION_TENSORS):
+                logger.warning(
+                    "Bundle at '%s' declares image support (architectures=%s) but ships no vision tensors; "
+                    "reporting the model as image-incapable",
+                    path,
+                    architectures,
+                )
+                image = False
+            if audio and not self._carries(tensors, self._AUDIO_TENSORS):
+                logger.warning(
+                    "Bundle at '%s' declares audio support (architectures=%s) but ships no audio tensors; "
+                    "reporting the model as audio-incapable",
+                    path,
+                    architectures,
+                )
+                audio = False
 
         tools, reasoning = self._probe_chat_template(path, tokenizer_config_path)
         return LLMModelCapabilities(text=True, image=image, audio=audio, tools=tools, reasoning=reasoning)
+
+    @staticmethod
+    def _probe_preprocessor(preprocessor_path: pathlib.Path, /) -> tuple[bool, bool]:
+        """Read the image / audio modalities declared by ``preprocessor_config.json``.
+
+        Fallback for bundles whose ``config.json`` carries no modality block at all: a multimodal
+        bundle has to ship a processor to preprocess its non-text inputs, and that processor names its
+        own type. Keying off the declared ``image_processor_type`` / ``feature_extractor_type`` rather
+        than the file's mere presence keeps text-only bundles that happen to carry a processor config
+        from being reported as multimodal. ``feature_extractor_type`` is ambiguous on older vision
+        bundles predating ``image_processor_type``; :meth:`_probe_weights` corroborates the result.
+
+        :param preprocessor_path: Candidate ``preprocessor_config.json`` path (need not exist).
+        :return: Tuple of ``(image, audio)``, both :data:`False` when the file is absent or unreadable.
+        """
+        try:
+            preprocessor = json.loads(preprocessor_path.read_text())
+        except (OSError, ValueError):
+            return False, False
+        if not isinstance(preprocessor, dict):
+            return False, False
+        return "image_processor_type" in preprocessor, "feature_extractor_type" in preprocessor
+
+    def _probe_weights(self, path: pathlib.Path, /) -> frozenset[str] | None:
+        """Enumerate the bundle's tensor names without reading any tensor data.
+
+        Sharded bundles are read from ``model.safetensors.index.json``'s ``weight_map`` keys;
+        single-file bundles from the safetensors header (a little-endian ``uint64`` header length
+        followed by that many bytes of JSON, whose keys are the tensor names).
+
+        :param path: Extracted HuggingFace bundle directory.
+        :return: Tensor names, or :data:`None` when the layout cannot be read (legacy ``.bin``
+            pickles, absent weights, truncated or malformed headers) so callers keep whatever the
+            config declared.
+        """
+        if (index := path / self._WEIGHT_INDEX).is_file():
+            try:
+                names = json.loads(index.read_text())["weight_map"]
+            except (OSError, ValueError, KeyError, TypeError):
+                return None
+        elif (single := path / self._WEIGHT_FILE).is_file():
+            try:
+                with single.open("rb") as f:
+                    (header_size,) = struct.unpack("<Q", f.read(struct.calcsize("<Q")))
+                    names = json.loads(f.read(header_size))
+            except (OSError, ValueError, struct.error):
+                return None
+        else:
+            return None
+
+        # Both shapes are objects keyed by tensor name, so they normalise identically; ``__metadata__``
+        # is the safetensors header's reserved non-tensor entry.
+        if not isinstance(names, dict):
+            return None
+        return frozenset(name for name in names if isinstance(name, str) and name != "__metadata__")
+
+    @staticmethod
+    def _carries(tensors: frozenset[str], tokens: frozenset[str], /) -> bool:
+        """Whether any tensor name carries one of *tokens* as a dotted segment.
+
+        Segment-wise rather than substring matching so ``language_model.model.embed_tokens.weight``
+        never trips the ``embed_vision`` / ``embed_audio`` tokens.
+        """
+        return any(not tokens.isdisjoint(name.split(".")) for name in tensors)
 
     def _probe_chat_template(self, path: pathlib.Path, tokenizer_config_path: pathlib.Path) -> tuple[bool, bool]:
         """Probe the bundle's chat template for tool and reasoning support.
