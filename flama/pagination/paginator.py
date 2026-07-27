@@ -28,17 +28,25 @@ class Paginator:
     def apply(
         self,
         pagination: types.Pagination,
-        func: t.Callable[P, t.Coroutine[R, t.Any, t.Any]],
+        func: t.Callable[P, t.Coroutine[t.Any, t.Any, R]],
         *,
         signature: inspect.Signature | None = None,
-    ) -> t.Callable[P, t.Coroutine[PaginatedResponse[R], t.Any, t.Any]]: ...
+    ) -> t.Callable[P, t.Coroutine[t.Any, t.Any, PaginatedResponse[R]]]: ...
+    @t.overload
     def apply(
         self,
         pagination: types.Pagination,
-        func: t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]],
+        func: t.Callable[P, R | t.Coroutine[t.Any, t.Any, R]],
         *,
         signature: inspect.Signature | None = None,
-    ) -> t.Callable[P, PaginatedResponse[R] | t.Coroutine[PaginatedResponse[R], t.Any, t.Any]]:
+    ) -> t.Callable[P, PaginatedResponse[R] | t.Coroutine[t.Any, t.Any, PaginatedResponse[R]]]: ...
+    def apply(
+        self,
+        pagination: types.Pagination,
+        func: t.Callable[P, R | t.Coroutine[t.Any, t.Any, R]],
+        *,
+        signature: inspect.Signature | None = None,
+    ) -> t.Callable[P, PaginatedResponse[R] | t.Coroutine[t.Any, t.Any, PaginatedResponse[R]]]:
         """Apply pagination to a function.
 
         :param pagination: Pagination techinque to apply.
@@ -56,10 +64,10 @@ class Paginator:
     def paginated(
         self, pagination: types.Pagination
     ) -> t.Callable[
-        [t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]]],
-        t.Callable[P, PaginatedResponse[R] | t.Coroutine[PaginatedResponse[R], t.Any, t.Any]],
+        [t.Callable[P, R | t.Coroutine[t.Any, t.Any, R]]],
+        t.Callable[P, PaginatedResponse[R] | t.Coroutine[t.Any, t.Any, PaginatedResponse[R]]],
     ]:
-        def wrapper(func: t.Callable[P, R | t.Coroutine[R, t.Any, t.Any]]):
+        def wrapper(func: t.Callable[P, R | t.Coroutine[t.Any, t.Any, R]]):
             return self.apply(pagination, func)
 
         return wrapper

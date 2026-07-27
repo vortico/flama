@@ -3,7 +3,6 @@ import contextlib
 import dataclasses
 import functools
 import logging
-import os
 import pathlib
 import typing as t
 
@@ -15,54 +14,23 @@ from flama.serialize.data_structures import LLMModelCapabilities
 from flama.serialize.exceptions import UnknownModelCapabilities
 from flama.serialize.model_serializers import ModelSerializer
 
-# HACK: silence ``mlx_vlm.generate`` chunked-prefill ``tqdm`` bar (line 1304 of
-# ``mlx_vlm/generate.py`` instantiates ``tqdm(total=..., desc="Prefill", unit="tok")`` with no
-# ``disable`` kwarg). Two-step belt-and-braces: (1) set ``TQDM_DISABLE=1`` around the
-# ``mlx_lm`` / ``mlx_vlm`` imports so ``tqdm`` snapshots ``disable=True`` into the partialmethod
-# keyword defaults at ``@envwrap`` decoration time when ``mlx_lm`` / ``mlx_vlm`` are the first
-# transitive importers; (2) post-hoc, rebuild ``tqdm.std.tqdm.__init__``'s partialmethod with
-# ``disable=True`` baked in so the snapshot lands even if some earlier importer (``torch.hub``
-# in tests, ``transformers`` in some deployments) already captured the env var when it was
-# unset. Either path leaves explicit ``disable=False`` callers untouched (keyword override
-# wins). Replace with a proper opt-in once ``mlx_vlm`` exposes a ``progress=False`` (or
-# equivalent) kwarg on :func:`mlx_vlm.stream_generate`.
-_TQDM_DISABLE_PRESET = os.environ.get("TQDM_DISABLE")
-os.environ["TQDM_DISABLE"] = "1"
 try:
-    try:
-        import mlx.core as mx
-        from mlx_lm import load as mlx_lm_load
-        from mlx_lm import stream_generate
-        from mlx_lm.sample_utils import make_sampler
-    except Exception:  # pragma: no cover
-        mx = None
-        mlx_lm_load = None
-        stream_generate = None
-        make_sampler = None
-
-    try:
-        from mlx_vlm import load as mlx_vlm_load
-        from mlx_vlm import stream_generate as mlx_vlm_stream_generate
-    except Exception:  # pragma: no cover
-        mlx_vlm_load = None
-        mlx_vlm_stream_generate = None
-finally:
-    if _TQDM_DISABLE_PRESET is None:
-        os.environ.pop("TQDM_DISABLE", None)
-    else:
-        os.environ["TQDM_DISABLE"] = _TQDM_DISABLE_PRESET
+    import mlx.core as mx
+    from mlx_lm import load as mlx_lm_load
+    from mlx_lm import stream_generate
+    from mlx_lm.sample_utils import make_sampler
+except Exception:  # pragma: no cover
+    mx = None
+    mlx_lm_load = None
+    stream_generate = None
+    make_sampler = None
 
 try:
-    from tqdm.std import tqdm as _Tqdm
-
-    _init = _Tqdm.__dict__.get("__init__")
-    if isinstance(_init, functools.partialmethod) and _init.keywords.get("disable") is not True:
-        _Tqdm.__init__ = functools.partialmethod(  # ty: ignore[invalid-assignment]
-            _init.func, *_init.args, **{**_init.keywords, "disable": True}
-        )
-    del _init, _Tqdm
-except Exception:  # pragma: no cover - tqdm not installed
-    pass
+    from mlx_vlm import load as mlx_vlm_load
+    from mlx_vlm import stream_generate as mlx_vlm_stream_generate
+except Exception:  # pragma: no cover
+    mlx_vlm_load = None
+    mlx_vlm_stream_generate = None
 
 __all__ = ["MLXBackend", "MlxRuntime"]
 

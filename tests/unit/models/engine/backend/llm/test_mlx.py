@@ -818,24 +818,6 @@ class TestCaseMLXBackend:
         assert backend._executor._max_workers == 1
         assert tracker.close_called.is_set()
 
-    def test_tqdm_disable_default_baked_at_import(self) -> None:
-        """The HACK at the top of ``flama/models/engine/backend/llm/mlx.py`` sets ``TQDM_DISABLE=1``
-        around the ``mlx_lm`` / ``mlx_vlm`` imports so :func:`mlx_vlm.stream_generate`'s chunked-prefill
-        ``tqdm`` bar is silenced. ``tqdm`` reads ``TQDM_*`` env vars once at decoration time via
-        ``@envwrap`` and stores them on ``tqdm.std.tqdm.__init__``'s :class:`functools.partialmethod`
-        keyword defaults; this test asserts that snapshot landed (i.e. ``mlx_lm`` / ``mlx_vlm`` were
-        the first transitive importers of ``tqdm`` in the test process). If it fails, an earlier
-        importer captured ``TQDM_DISABLE=None`` and the silencing is no longer in effect — fix the
-        import order so ``mlx.py`` (or another module that snapshots the env var) lands first.
-        """
-        import functools
-
-        from tqdm.std import tqdm as _Tqdm
-
-        init = _Tqdm.__dict__["__init__"]
-        assert isinstance(init, functools.partialmethod)
-        assert init.keywords.get("disable") is True
-
 
 class TestCaseMlxRuntime:
     def test_default_values(self):

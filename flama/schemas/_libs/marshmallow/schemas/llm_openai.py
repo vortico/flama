@@ -1,6 +1,7 @@
 import typing as t
 
 import marshmallow
+import marshmallow.validate
 
 from flama.schemas._libs.marshmallow.schemas.core import SCHEMAS
 from flama.schemas._libs.marshmallow.schemas.llm_native import Message, Tool, ToolCall

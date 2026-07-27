@@ -41,23 +41,34 @@ class BasePaginator(abc.ABC):
     @classmethod
     def _decorate(
         cls,
-        func: t.Callable[P, t.Coroutine[SchemaType, t.Any, t.Any]],
+        func: t.Callable[P, t.Coroutine[t.Any, t.Any, SchemaType]],
         signature: inspect.Signature,
         schema: SchemaType,
-    ) -> t.Callable[P, t.Coroutine[PaginatedResponse[SchemaType], t.Any, t.Any]]: ...
+    ) -> t.Callable[P, t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]]: ...
+    @t.overload
     @classmethod
     def _decorate(
         cls,
-        func: t.Callable[P, SchemaType | t.Coroutine[SchemaType, t.Any, t.Any]],
+        func: t.Callable[P, SchemaType | t.Coroutine[t.Any, t.Any, SchemaType]],
         signature: inspect.Signature,
         schema: SchemaType,
-    ) -> t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[PaginatedResponse[SchemaType], t.Any, t.Any]]:
+    ) -> t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]]: ...
+    @classmethod
+    def _decorate(
+        cls,
+        func: t.Callable[P, SchemaType | t.Coroutine[t.Any, t.Any, SchemaType]],
+        signature: inspect.Signature,
+        schema: SchemaType,
+    ) -> t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]]:
         if "kwargs" not in signature.parameters:
             raise TypeError("Paginated views must define **kwargs param")
 
-        decorated_func = (
-            cls._decorate_async(func, schema) if concurrency.is_async(func) else cls._decorate_sync(func, schema)
-        )
+        if concurrency.is_async(func):
+            decorated_func = cls._decorate_async(func, schema)
+        else:
+            # ``is_async`` is a ``TypeGuard``, so it only narrows the positive branch; here *func* is
+            # still the full union even though it can no longer be the coroutine half of it.
+            decorated_func = cls._decorate_sync(t.cast("t.Callable[P, SchemaType]", func), schema)
 
         decorated_func.__signature__ = inspect.Signature(  # type: ignore
             parameters=[
@@ -72,8 +83,8 @@ class BasePaginator(abc.ABC):
     @classmethod
     @abc.abstractmethod
     def _decorate_async(
-        cls, func: t.Callable[P, t.Coroutine[SchemaType, t.Any, t.Any]], schema: t.Any
-    ) -> t.Callable[P, t.Coroutine[PaginatedResponse[SchemaType], t.Any, t.Any]]: ...
+        cls, func: t.Callable[P, t.Coroutine[t.Any, t.Any, SchemaType]], schema: t.Any
+    ) -> t.Callable[P, t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]]: ...
 
     @classmethod
     @abc.abstractmethod
@@ -91,14 +102,23 @@ class BasePaginator(abc.ABC):
     @classmethod
     @abc.abstractmethod
     def wraps(
-        cls, func: t.Callable[P, t.Coroutine[SchemaType, t.Any, t.Any]], signature: inspect.Signature
-    ) -> tuple[t.Callable[P, t.Coroutine[PaginatedResponse[SchemaType], t.Any, t.Any]], dict[str, t.Any]]: ...
+        cls, func: t.Callable[P, t.Coroutine[t.Any, t.Any, SchemaType]], signature: inspect.Signature
+    ) -> tuple[t.Callable[P, t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]], dict[str, t.Any]]: ...
+    @t.overload
     @classmethod
     @abc.abstractmethod
     def wraps(
-        cls, func: t.Callable[P, SchemaType | t.Coroutine[SchemaType, t.Any, t.Any]], signature: inspect.Signature
+        cls, func: t.Callable[P, SchemaType | t.Coroutine[t.Any, t.Any, SchemaType]], signature: inspect.Signature
     ) -> tuple[
-        t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[PaginatedResponse[SchemaType], t.Any, t.Any]],
+        t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]],
+        dict[str, t.Any],
+    ]: ...
+    @classmethod
+    @abc.abstractmethod
+    def wraps(
+        cls, func: t.Callable[P, SchemaType | t.Coroutine[t.Any, t.Any, SchemaType]], signature: inspect.Signature
+    ) -> tuple[
+        t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]],
         dict[str, t.Any],
     ]:
         """

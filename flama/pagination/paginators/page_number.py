@@ -70,8 +70,8 @@ class PageNumberPaginator(BasePaginator):
 
     @classmethod
     def _decorate_async(
-        cls, func: t.Callable[P, t.Coroutine[SchemaType, t.Any, t.Any]], schema: t.Any
-    ) -> t.Callable[P, t.Coroutine[PageNumberResponse[SchemaType], t.Any, t.Any]]:
+        cls, func: t.Callable[P, t.Coroutine[t.Any, t.Any, SchemaType]], schema: t.Any
+    ) -> t.Callable[P, t.Coroutine[t.Any, t.Any, PageNumberResponse[SchemaType]]]:
         @functools.wraps(func)
         async def decorator(
             *args, page: int | None = None, page_size: int | None = None, count: bool | None = False, **kwargs
@@ -102,13 +102,13 @@ class PageNumberPaginator(BasePaginator):
     @t.overload
     @classmethod
     def wraps(
-        cls, func: t.Callable[P, t.Coroutine[SchemaType, t.Any, t.Any]], signature: inspect.Signature
-    ) -> tuple[t.Callable[P, t.Coroutine[PaginatedResponse[SchemaType], t.Any, t.Any]], dict[str, t.Any]]: ...
+        cls, func: t.Callable[P, t.Coroutine[t.Any, t.Any, SchemaType]], signature: inspect.Signature
+    ) -> tuple[t.Callable[P, t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]], dict[str, t.Any]]: ...
     @classmethod
     def wraps(
-        cls, func: t.Callable[P, SchemaType | t.Coroutine[SchemaType, t.Any, t.Any]], signature: inspect.Signature
+        cls, func: t.Callable[P, SchemaType | t.Coroutine[t.Any, t.Any, SchemaType]], signature: inspect.Signature
     ) -> tuple[
-        t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[PaginatedResponse[SchemaType], t.Any, t.Any]],
+        t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]],
         dict[str, t.Any],
     ]:
         """

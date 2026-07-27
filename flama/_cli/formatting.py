@@ -61,7 +61,7 @@ class RichHelpFormatter(click.HelpFormatter):
     def write_paragraph(self) -> None:
         pass
 
-    def write_dl(self, rows: t.Sequence[tuple[str, str]], col_max: int = 30, col_spacing: int = 2) -> None:
+    def write_dl(self, rows: t.Iterable[tuple[str, str]], col_max: int = 30, col_spacing: int = 2) -> None:
         heading = getattr(self, "_current_heading", "")
 
         table = Table(show_header=False, box=None, padding=(0, 2, 0, 2), expand=True)

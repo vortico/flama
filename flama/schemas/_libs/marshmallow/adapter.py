@@ -39,7 +39,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         }
 
         if not required:
-            field_args["load_default"] = default if default is not Parameter.empty else None  # ty: ignore[invalid-assignment]
+            field_args["load_default"] = default if default is not Parameter.empty else None
 
         if multiple:
             return marshmallow.fields.List(

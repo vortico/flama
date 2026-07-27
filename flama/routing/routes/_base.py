@@ -61,7 +61,7 @@ class BaseEndpointWrapper(abc.ABC):
         :param pagination: Apply a pagination technique.
         """
         if pagination:
-            handler = paginator.apply(pagination, handler, signature=signature)
+            handler = paginator.apply(pagination, t.cast("t.Callable[..., t.Any]", handler), signature=signature)
 
         self.handler = handler
         functools.update_wrapper(self, handler)

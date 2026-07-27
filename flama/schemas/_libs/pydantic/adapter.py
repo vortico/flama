@@ -1,3 +1,4 @@
+import copy
 import inspect
 import typing as t
 
@@ -51,7 +52,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
         name: str | None = None,
         module: str | None = None,
         schema: Schema | type[Schema] | None = None,
-        fields: dict[str, type[Field]] | None = None,
+        fields: dict[str, Field] | None = None,
         partial: bool = False,
     ) -> type[Schema]:
         fields_ = {
@@ -64,8 +65,9 @@ class PydanticAdapter(Adapter[Schema, Field]):
 
         if partial:
             for name, (annotation, field) in fields_.items():
-                field.default = None
-                fields_[name] = (annotation | None, field)  # ty: ignore[unsupported-operator]
+                optional = copy.copy(field)
+                optional.default = None
+                fields_[name] = ((t.Any if annotation is None else annotation) | None, optional)
 
         return pydantic.create_model(  # ty: ignore[no-matching-overload]
             name or self.DEFAULT_SCHEMA_NAME,
@@ -103,7 +105,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
         schema_name = f"{prefix or ''}{schema_cls.__qualname__}"
         return schema_name if schema_cls.__module__ == "builtins" else f"{schema_cls.__module__}.{schema_name}"
 
-    def to_json_schema(self, schema: type[Schema] | type[Field]) -> JSONSchema:
+    def to_json_schema(self, schema: type[Schema] | Field) -> JSONSchema:
         try:
             if self.is_schema(schema):
                 json_schema = model_json_schema(schema, ref_template="#/components/schemas/{model}")
@@ -146,5 +148,5 @@ class PydanticAdapter(Adapter[Schema, Field]):
 
         return inspect.isclass(obj) and issubclass(obj, Schema)
 
-    def is_field(self, obj: t.Any) -> t.TypeGuard[type[Field]]:
+    def is_field(self, obj: t.Any) -> t.TypeGuard[Field]:
         return isinstance(obj, Field)
