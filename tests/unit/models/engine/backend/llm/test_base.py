@@ -9,7 +9,7 @@ from flama import exceptions
 from flama.models.engine.backend.llm._base import LLMBackend, TransformerLLMBackend
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
-from flama.models.exceptions import LLMUnsupportedCapability
+from flama.models.exceptions import LLMUnsupportedCapability, LLMUnsupportedModel
 from flama.models.transport.input.llm.message import (
     AssistantMessage,
     AudioContent,
@@ -26,6 +26,7 @@ from flama.models.transport.input.llm.message import (
 )
 from flama.models.transport.input.llm.tool import Tool
 from flama.serialize.data_structures import LLMModelCapabilities
+from flama.serialize.exceptions import UnknownModelCapabilities
 
 
 class _FakeLLMBackend(TransformerLLMBackend):
@@ -669,17 +670,26 @@ class TestCaseLLMBackend:
                 assert cls.runnable.called
 
     @pytest.mark.parametrize(
-        ["meta_capabilities", "framework_config", "resolve_side_effect", "expected_call", "exception"],
+        [
+            "meta_capabilities",
+            "framework_config",
+            "resolve_side_effect",
+            "construct_side_effect",
+            "expected_call",
+            "exception",
+        ],
         [
             pytest.param(
                 "caps-sentinel",
                 {"max_model_len": 256},
+                None,
                 None,
                 call("model-dir", capabilities="caps-sentinel", max_model_len=256),
                 None,
                 id="forwards_capabilities_and_config",
             ),
             pytest.param(
+                None,
                 None,
                 None,
                 None,
@@ -692,8 +702,36 @@ class TestCaseLLMBackend:
                 None,
                 exceptions.FrameworkNotInstalled("vllm or mlx-lm"),
                 None,
+                None,
                 exceptions.FrameworkNotInstalled("vllm or mlx-lm"),
                 id="propagates_resolve_failure",
+            ),
+            pytest.param(
+                None,
+                None,
+                None,
+                RuntimeError("the runtime refused this model"),
+                None,
+                LLMUnsupportedModel("model-dir"),
+                id="translates_construction_failure",
+            ),
+            pytest.param(
+                None,
+                None,
+                None,
+                exceptions.FrameworkNotInstalled("mlx-lm or mlx-vlm"),
+                None,
+                exceptions.FrameworkNotInstalled("mlx-lm or mlx-vlm"),
+                id="passes_through_missing_framework",
+            ),
+            pytest.param(
+                None,
+                None,
+                None,
+                UnknownModelCapabilities("model-dir"),
+                None,
+                UnknownModelCapabilities("model-dir"),
+                id="passes_through_unknown_capabilities",
             ),
         ],
         indirect=["exception"],
@@ -703,17 +741,24 @@ class TestCaseLLMBackend:
         meta_capabilities: t.Any,
         framework_config: dict[str, t.Any] | None,
         resolve_side_effect: BaseException | None,
+        construct_side_effect: BaseException | None,
         expected_call,
         exception,
     ) -> None:
-        """Cover :meth:`LLMBackend.from_model_artifact` engine-param forwarding: the artifact's
-        ``meta.capabilities`` and ``meta.framework.config`` are forwarded as kwargs, missing config
-        is tolerated, and resolution failures bubble up unchanged.
+        """Cover :meth:`LLMBackend.from_model_artifact` engine-param forwarding and error translation.
+
+        The artifact's ``meta.capabilities`` and ``meta.framework.config`` are forwarded as kwargs and a
+        missing config is tolerated. A runtime that refuses the model becomes
+        :class:`~flama.models.exceptions.LLMUnsupportedModel` carrying the runtime's own error as its
+        cause, while failures that describe the environment rather than the model —
+        :class:`~flama.exceptions.FrameworkNotInstalled`,
+        :class:`~flama.serialize.exceptions.UnknownModelCapabilities` — pass through untouched so they
+        stay distinguishable.
         """
         artifact = MagicMock(model="model-dir")
         artifact.meta.capabilities = meta_capabilities
         artifact.meta.framework.config = framework_config
-        backend_cls = MagicMock(return_value=MagicMock(model="model-dir"))
+        backend_cls = MagicMock(return_value=MagicMock(model="model-dir"), side_effect=construct_side_effect)
 
         with (
             patch.object(
@@ -722,13 +767,15 @@ class TestCaseLLMBackend:
                 return_value=backend_cls if resolve_side_effect is None else None,
                 side_effect=resolve_side_effect,
             ),
-            exception,
+            exception as raised,
         ):
             result = LLMBackend.from_model_artifact(artifact)
 
         if not exception:
             assert backend_cls.call_args_list == [expected_call]
             assert result is backend_cls.return_value
+        elif isinstance(raised.value, LLMUnsupportedModel):
+            assert raised.value.__cause__ is construct_side_effect
 
     @pytest.mark.parametrize(
         ("module", "guards", "expected"),

@@ -193,47 +193,55 @@ class TestCaseMLXBackend:
         assert backend.capabilities is override
         assert mlx_vlm_load.call_args == call("/tmp/model", strict=True)
 
-    def test_init_text_falls_back_to_mlx_vlm_on_unsupported_architecture(self):
-        """A text-only checkpoint whose architecture only mlx-vlm implements is rebuilt through mlx-vlm.
-
-        Text-only derivatives of multimodal models keep the upstream ``model_type`` (so mlx-lm has no
-        implementation for it) while shipping none of the tower weights (so mlx-vlm's default strict load
-        fails on them). The backend keeps advertising text only, because the towers really are absent.
-        """
-        model = Mock()
-        processor = Mock()
-        processor.tokenizer = Mock()
-        mlx_lm_load = Mock(side_effect=ValueError("Model type gemma4_unified not supported."))
-        mlx_vlm_load = Mock(return_value=(model, processor))
-
-        with (
-            patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", mlx_lm_load),
-            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", mlx_vlm_load),
-            patch.object(
-                TransformersModelSerializer, "detect_capabilities", return_value=LLMModelCapabilities(text=True)
-            ),
-        ):
-            backend = MLXBackend(pathlib.Path("/tmp/model"))
-
-        assert backend.model.model is model
-        assert backend.model.processor is processor
-        assert backend.model.is_vlm is True
-        assert backend.capabilities == LLMModelCapabilities(text=True)
-        assert mlx_vlm_load.call_args == call("/tmp/model", strict=False)
-
     @pytest.mark.parametrize(
-        ["error", "mlx_vlm_installed"],
+        ["capabilities", "refusing", "expected_is_vlm"],
         [
-            pytest.param(ValueError("Failed to load shard 2"), True, id="unrelated_mlx_lm_failure"),
-            pytest.param(ValueError("Model type foo not supported."), False, id="mlx_vlm_not_installed"),
+            pytest.param(LLMModelCapabilities(text=True), "mlx_lm_load", True, id="text_only_falls_back_to_mlx_vlm"),
+            pytest.param(
+                LLMModelCapabilities(text=True, image=True),
+                "mlx_vlm_load",
+                False,
+                id="multimodal_falls_back_to_mlx_lm",
+            ),
         ],
     )
-    def test_init_text_propagates_when_fallback_does_not_apply(
-        self, error: ValueError, mlx_vlm_installed: bool
+    def test_init_falls_back_to_the_other_runtime(
+        self, capabilities: LLMModelCapabilities, refusing: str, expected_is_vlm: bool
     ) -> None:
-        """The fallback is narrow: it never masks a genuine load failure, nor invents a missing dependency."""
-        mlx_lm_load = Mock(side_effect=error)
-        mlx_vlm_load = Mock(return_value=(Mock(), Mock())) if mlx_vlm_installed else None
+        """Capabilities order the attempt rather than decide it: whichever runtime is not preferred is the
+        fallback, in both directions.
+
+        A manifest can disagree with its checkpoint either way — a text-only derivative keeps the upstream
+        multimodal ``model_type`` only mlx-vlm implements, and a bundle advertising towers it does not ship
+        fails mlx-vlm's strict load yet loads fine as text. Whichever runtime accepts, the capabilities the
+        backend advertises are the artifact's, never a side effect of the loader that happened to work.
+        """
+        processor = Mock(tokenizer=Mock())
+        loaders = {
+            "mlx_lm_load": Mock(return_value=(Mock(), Mock())),
+            "mlx_vlm_load": Mock(return_value=(Mock(), processor)),
+        }
+        loaders[refusing].side_effect = ValueError("this runtime refuses the model")
+
+        with (
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", loaders["mlx_lm_load"]),
+            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", loaders["mlx_vlm_load"]),
+        ):
+            backend = MLXBackend(pathlib.Path("/tmp/model"), capabilities=capabilities)
+
+        assert backend.model.is_vlm is expected_is_vlm
+        assert backend.capabilities is capabilities
+        assert all(loader.called for loader in loaders.values())
+
+    def test_init_propagates_when_every_runtime_refuses(self) -> None:
+        """With no runtime left to try, the last one's own error surfaces.
+
+        Translating it into :class:`~flama.models.exceptions.LLMUnsupportedModel` belongs to
+        :meth:`LLMBackend.from_model_artifact`, so that a caller constructing a backend directly still sees
+        the runtime's diagnosis rather than a generic one.
+        """
+        mlx_lm_load = Mock(side_effect=ValueError("mlx-lm refused the model"))
+        mlx_vlm_load = Mock(side_effect=ValueError("mlx-vlm refused the model too"))
 
         with (
             patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", mlx_lm_load),
@@ -241,12 +249,9 @@ class TestCaseMLXBackend:
             patch.object(
                 TransformersModelSerializer, "detect_capabilities", return_value=LLMModelCapabilities(text=True)
             ),
-            pytest.raises(ValueError, match=str(error)),
+            pytest.raises(ValueError, match="mlx-vlm refused the model too"),
         ):
             MLXBackend(pathlib.Path("/tmp/model"))
-
-        if mlx_vlm_load is not None:
-            assert not mlx_vlm_load.called
 
     def test_init_raises_on_unknown_capabilities(self):
         with (
@@ -257,21 +262,36 @@ class TestCaseMLXBackend:
         ):
             MLXBackend(pathlib.Path("/tmp/model"))
 
-    def test_init_text_raises_when_mlx_lm_missing(self):
-        text_cap = LLMModelCapabilities(text=True)
-        with (
-            patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", None),
-            patch.object(TransformersModelSerializer, "detect_capabilities", return_value=text_cap),
-            pytest.raises(exceptions.FrameworkNotInstalled),
-        ):
-            MLXBackend(pathlib.Path("/tmp/model"))
+    @pytest.mark.parametrize(
+        ["mlx_lm_available", "mlx_vlm_available", "expected_is_vlm", "exception"],
+        [
+            pytest.param(False, True, True, None, id="absent_mlx_lm_uses_mlx_vlm"),
+            pytest.param(True, False, False, None, id="absent_mlx_vlm_uses_mlx_lm"),
+            pytest.param(
+                False, False, None, exceptions.FrameworkNotInstalled("mlx-lm or mlx-vlm"), id="neither_installed"
+            ),
+        ],
+        indirect=["exception"],
+    )
+    def test_init_runtime_availability(
+        self, mlx_lm_available: bool, mlx_vlm_available: bool, expected_is_vlm: bool | None, exception
+    ) -> None:
+        """An uninstalled runtime is skipped rather than fatal; only losing both is a missing dependency."""
+        mlx_lm_load = Mock(return_value=(Mock(), Mock())) if mlx_lm_available else None
+        mlx_vlm_load = Mock(return_value=(Mock(), Mock(tokenizer=Mock()))) if mlx_vlm_available else None
 
-    def test_init_multimodal_raises_when_mlx_vlm_missing(self):
         with (
-            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", None),
-            pytest.raises(exceptions.FrameworkNotInstalled),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", mlx_lm_load),
+            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", mlx_vlm_load),
+            patch.object(
+                TransformersModelSerializer, "detect_capabilities", return_value=LLMModelCapabilities(text=True)
+            ),
+            exception,
         ):
-            MLXBackend(pathlib.Path("/tmp/model"), capabilities=LLMModelCapabilities(text=True, image=True))
+            backend = MLXBackend(pathlib.Path("/tmp/model"))
+
+        if not exception:
+            assert backend.model.is_vlm is expected_is_vlm
 
     def test_tokenizer(self, text_runtime_args):
         backend = self._make_backend(**text_runtime_args)

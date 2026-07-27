@@ -5,7 +5,6 @@ import functools
 import logging
 import os
 import pathlib
-import re
 import typing as t
 
 from flama import concurrency, exceptions
@@ -67,11 +66,7 @@ except Exception:  # pragma: no cover - tqdm not installed
 
 __all__ = ["MLXBackend", "MlxRuntime"]
 
-# ``mlx_lm.utils.get_model_classes`` raises exactly this when ``mlx_lm.models.<model_type>`` cannot be
-# imported, i.e. the architecture is not in mlx-lm's registry. Matched narrowly so the mlx-vlm fallback
-# in :meth:`MLXBackend._load_runtime` only fires on an unknown architecture and never masks a genuine
-# load failure (corrupt shard, unsupported quantization, ...).
-_UNSUPPORTED_ARCHITECTURE: t.Final[re.Pattern[str]] = re.compile(r"\AModel type .+ not supported\.\Z")
+_Loader: t.TypeAlias = t.Callable[[pathlib.Path, LLMModelCapabilities], "MlxRuntime"]
 
 logger = logging.getLogger(__name__)
 
@@ -183,47 +178,66 @@ class MLXBackend(TransformerLLMBackend):
         super().__init__(runtime)
 
     @staticmethod
-    def _load_runtime(model_dir: pathlib.Path, capabilities: LLMModelCapabilities) -> "MlxRuntime":
-        """Build the :class:`MlxRuntime` for *model_dir* under the resolved *capabilities*.
+    def _load_lm(model_dir: pathlib.Path, capabilities: LLMModelCapabilities) -> "MlxRuntime":
+        """Load *model_dir* through mlx-lm."""
+        lm_model, tokenizer = mlx_lm_load(str(model_dir))  # ty: ignore[call-non-callable]
+        return MlxRuntime(model=lm_model, tokenizer=tokenizer, capabilities=capabilities)
 
-        Text-only bundles load through mlx-lm. When mlx-lm has no implementation for the bundle's
-        declared architecture it is retried through mlx-vlm with a lenient weight load: text-only
-        derivatives of multimodal models keep the upstream ``model_type`` (so only mlx-vlm implements
-        it) while shipping none of the tower weights (so a strict load fails on them). *capabilities*
-        stay text-only across the fallback — the towers really are absent, so the backend must not
-        advertise modalities it cannot serve, and ``strict`` is therefore keyed off the advertised
-        modalities rather than off the runtime that ends up loading.
+    @staticmethod
+    def _load_vlm(model_dir: pathlib.Path, capabilities: LLMModelCapabilities) -> "MlxRuntime":
+        """Load *model_dir* through mlx-vlm.
+
+        ``strict`` follows the advertised modalities rather than the runtime doing the loading: as the
+        preferred runtime for a multimodal model every declared tower must be present, whereas as the
+        fallback for a text-only one the towers are legitimately absent and a strict load would reject
+        a model that serves text perfectly well.
+        """
+        vlm_model, processor = mlx_vlm_load(str(model_dir), strict=capabilities.is_multimodal)  # ty: ignore[call-non-callable]
+        return MlxRuntime(
+            model=vlm_model, tokenizer=processor.tokenizer, processor=processor, capabilities=capabilities
+        )
+
+    @classmethod
+    def _load_runtime(cls, model_dir: pathlib.Path, capabilities: LLMModelCapabilities) -> "MlxRuntime":
+        """Build the :class:`MlxRuntime` for *model_dir*, trying each runtime in turn.
+
+        *capabilities* order the attempt rather than decide it outright: mlx-vlm leads for multimodal
+        models and mlx-lm for text-only ones, and whichever is left is the fallback. Both directions
+        need one, because the manifest can disagree with the checkpoint either way — a text-only
+        derivative keeps the upstream multimodal ``model_type`` that only mlx-vlm implements, while a
+        bundle advertising towers it does not ship fails mlx-vlm's strict load yet loads fine as text.
+        The runtime that succeeds never changes *capabilities*: what the backend serves is what the
+        artifact advertises, not a side effect of which loader happened to accept it.
+
+        No attempt is made to ask a runtime whether it supports the model first. That question is only
+        reliably answered by loading, so failures are left to surface and be translated once, in
+        :meth:`LLMBackend.from_model_artifact`.
 
         :param model_dir: Path to the extracted HuggingFace model directory.
         :param capabilities: Modal capabilities resolved from the artifact manifest or the serializer probe.
         :return: Runtime bundle wrapping the loaded model, its tokenizer and (for mlx-vlm) its processor.
-        :raises FrameworkNotInstalled: If the runtime the resolved capabilities call for is not importable.
-        :raises ValueError: Propagated from mlx-lm for any load failure other than an unknown architecture.
+        :raises FrameworkNotInstalled: If neither mlx-lm nor mlx-vlm is importable.
+        :raises Exception: The last runtime's own failure when every available runtime refused the model.
         """
-        if not capabilities.is_multimodal:
-            if mlx_lm_load is None:  # noqa
-                raise exceptions.FrameworkNotInstalled("mlx-lm")
-            try:
-                lm_model, tokenizer = mlx_lm_load(str(model_dir))
-            except ValueError as e:
-                if mlx_vlm_load is None or not _UNSUPPORTED_ARCHITECTURE.match(str(e)):  # noqa
-                    raise
-                logger.warning(
-                    "mlx-lm cannot load the architecture of '%s' (%s); retrying through mlx-vlm with a lenient "
-                    "weight load. The model is served as text-only: the multimodal towers its architecture "
-                    "declares are absent from the checkpoint and stay uninitialised.",
-                    model_dir,
-                    e,
-                )
-            else:
-                return MlxRuntime(model=lm_model, tokenizer=tokenizer, capabilities=capabilities)
+        loaders: list[tuple[str, _Loader]] = []
+        if mlx_lm_load is not None:
+            loaders.append(("mlx-lm", cls._load_lm))
+        if mlx_vlm_load is not None:
+            loaders.append(("mlx-vlm", cls._load_vlm))
+        if not loaders:
+            raise exceptions.FrameworkNotInstalled("mlx-lm or mlx-vlm")
+        if capabilities.is_multimodal:
+            loaders.reverse()
 
-        if mlx_vlm_load is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("mlx-vlm")
-        vlm_model, processor = mlx_vlm_load(str(model_dir), strict=capabilities.is_multimodal)
-        return MlxRuntime(
-            model=vlm_model, tokenizer=processor.tokenizer, processor=processor, capabilities=capabilities
-        )
+        # Every runtime but the last has its failure logged and swallowed; the last one's propagates, so
+        # a model no runtime accepts still surfaces a real error rather than an exhausted loop.
+        for name, loader in loaders[:-1]:
+            try:
+                return loader(model_dir, capabilities)
+            except Exception as e:
+                logger.warning("%s could not load '%s' (%s); trying the remaining MLX runtime.", name, model_dir, e)
+
+        return loaders[-1][1](model_dir, capabilities)
 
     @functools.cached_property
     def capabilities(self) -> LLMModelCapabilities:

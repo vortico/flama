@@ -7,7 +7,7 @@ from flama import exceptions, types
 from flama.models.engine.backend._base import Backend
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
-from flama.models.exceptions import LLMUnsupportedCapability
+from flama.models.exceptions import LLMUnsupportedCapability, LLMUnsupportedModel
 from flama.models.transport.input.llm.message import (
     AssistantMessage,
     AudioContent,
@@ -21,6 +21,7 @@ from flama.models.transport.input.llm.message import (
 )
 from flama.models.transport.input.llm.tool import Tool
 from flama.serialize.data_structures import LLMModelCapabilities, ModelArtifact
+from flama.serialize.exceptions import UnknownModelCapabilities
 
 if t.TYPE_CHECKING:
     import numpy as np
@@ -96,14 +97,31 @@ class LLMBackend(Backend):
         Engine parameters persisted on :attr:`Metadata.framework.config` and
         :attr:`Metadata.capabilities` are forwarded to the backend constructor.
 
+        Whether a runtime can build a given model is only answerable by asking it to: registries are
+        not the whole story (vLLM falls back to a generic transformers implementation for
+        architectures it does not register), and a model can be refused for reasons that have nothing
+        to do with its architecture. So no backend is probed beforehand — construction is attempted and
+        its failure translated here, once, on behalf of every runtime. This is the single place that
+        knows a load failed, which is what keeps the backends free of each other's error vocabulary.
+
         :param artifact: Deserialised model artifact.
         :return: Backend instance bound to :attr:`ModelArtifact.model`.
         :raises FrameworkNotInstalled: When no probed runtime is importable on this system.
+        :raises ~flama.models.exceptions.LLMUnsupportedModel: When a runtime was available but refused
+            the artifact; the runtime's own error is chained as the cause.
         """
-        return cls._resolve()(
-            artifact.model,
-            **{"capabilities": artifact.meta.capabilities, **(artifact.meta.framework.config or {})},
-        )
+        backend = cls._resolve()
+
+        try:
+            return backend(
+                artifact.model,
+                **{"capabilities": artifact.meta.capabilities, **(artifact.meta.framework.config or {})},
+            )
+        except (exceptions.FrameworkNotInstalled, UnknownModelCapabilities):
+            # Already precise, and about the environment rather than the model. Leave them alone.
+            raise
+        except Exception as e:
+            raise LLMUnsupportedModel(str(artifact.model)) from e
 
     @functools.cached_property
     def capabilities(self) -> LLMModelCapabilities:

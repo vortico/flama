@@ -8,6 +8,7 @@ __all__ = [
     "LLMUnsupportedCapability",
     "LLMGenerationError",
     "LLMEmptyGeneration",
+    "LLMUnsupportedModel",
 ]
 
 
@@ -66,6 +67,29 @@ class LLMGenerationError(ModelError):
     def __init__(self, detail: str = "LLM stream generation failed") -> None:
         self.detail = detail
         super().__init__(detail)
+
+
+class LLMUnsupportedModel(ModelError):
+    """No installed LLM runtime could load the model.
+
+    Raised by :meth:`~flama.models.engine.backend.llm._base.LLMBackend.from_model_artifact` when every
+    runtime it tried refused the artifact. The reasons are runtime-specific and numerous — an
+    architecture absent from the runtime's registry, weights that fail a strict load, an unsupported
+    quantization — and each runtime words them differently, so this exception deliberately reports only
+    the observable outcome and defers the diagnosis to the chained cause.
+
+    Read ``__cause__`` for the failure of the last runtime attempted; where a backend tries more than
+    one (MLX falls back between mlx-lm and mlx-vlm), the earlier failures are logged as they happen.
+
+    A missing runtime is not this error: an uninstallable dependency surfaces as
+    :class:`~flama.exceptions.FrameworkNotInstalled`, and an artifact whose capabilities cannot be
+    resolved as :class:`~flama.serialize.exceptions.UnknownModelCapabilities`. Both pass through
+    untouched so they stay distinguishable from a model the runtimes simply cannot build.
+    """
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__(f"No installed LLM runtime could load the model at '{name}'")
 
 
 class LLMEmptyGeneration(ModelError):
