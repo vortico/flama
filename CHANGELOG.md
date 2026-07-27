@@ -1,5 +1,14 @@
 # Semantic Versioning Changelog
 
+# [v2.0.7](https://github.com/vortico/flama/compare/v2.0.6...v2.0.7) (2026-07-27)
+
+## 🐛 Bug Fixes
+- [`9ebbc2d`](https://github.com/vortico/flama/commit/9ebbc2d)  Capabilities declared in config but absent from checkpoint 
+- [`e2f8cd1`](https://github.com/vortico/flama/commit/e2f8cd1)  Text-only bundle fails when mlx-lm lacks its architecture 
+- [`0add188`](https://github.com/vortico/flama/commit/0add188)  Mid-conversation system turns rejected by Anthropic parser 
+- [`5eb4a08`](https://github.com/vortico/flama/commit/5eb4a08)  Drop tool narration on wrong templates 
+- [`df095bf`](https://github.com/vortico/flama/commit/df095bf)  Properly notify unsupported llm
+
 # [v2.0.6](https://github.com/vortico/flama/compare/v2.0.5...v2.0.6) (2026-06-18)
 
 ## 🐛 Bug Fixes
