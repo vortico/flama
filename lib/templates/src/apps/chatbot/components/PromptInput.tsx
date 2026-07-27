@@ -57,7 +57,7 @@ export default function PromptInput() {
       loading={isStreaming}
       className={`mx-auto flex max-h-48 min-h-10 w-full items-center justify-between gap-2 ${mainShadow} ${shadowColor['flama']} ${mainBgColor}`}
     >
-      <div className="max-h-47.5 flex-1 overflow-y-auto">
+      <div className="prompt-field max-h-47.5 flex-1 overflow-y-auto">
         <TextArea
           ref={inputRef}
           name="prompt"

@@ -1,0 +1,13 @@
+/* The prompt field.
+ *
+ * `TextArea` renders an inset focus ring (`focusRingWithinInset`) on its own wrapper whenever
+ * `inline` is set, and exposes no prop to turn it off. Text-entry elements match `:focus-visible`
+ * on pointer clicks as well as keyboard focus, so the ring fires on every click into the prompt and
+ * reads as a stray box drawn inside the surrounding `BorderBox`.
+ *
+ * The override needs `!important`: the ring is applied by a conditional utility
+ * (`has-[:focus-visible]:outline-2`) from a third-party component, so an unconditional rule of the
+ * same specificity would lose while the field is focused. */
+.prompt-field :has(> label > textarea) {
+  outline: none !important;
+}

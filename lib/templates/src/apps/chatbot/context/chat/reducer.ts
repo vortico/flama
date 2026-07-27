@@ -63,7 +63,7 @@ function applyDelta(block: Block, delta: BlockDelta): Block {
 // previous one) or `void` (no-op, preserves state identity). All immutable splice gymnastics live here.
 function withLastAssistantTurn(
   state: State,
-  fn: (turn: AssistantMessage) => AssistantMessage | void,
+  fn: (turn: AssistantMessage) => AssistantMessage | undefined,
 ): State {
   const last = state.messages.at(-1)
   if (!last || last.role !== 'assistant') return state

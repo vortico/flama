@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { IconChevronRight, IconCircleFilled } from '@tabler/icons-react'
 
@@ -7,9 +7,13 @@ import { URLs } from '../data'
 type TApp = URLs['apps'][number]
 type TEndpoint = URLs['endpoints'][number]
 
+function countItems(apps: TApp[], endpoints: TEndpoint[]): number {
+  return endpoints.length + apps.reduce((y, x) => y + 1 + countItems(x.apps, x.endpoints), 0)
+}
+
 function Tooltip({ data }: { data: Map<string, string | number | undefined> }) {
   return (
-    <div className="bg-primary-800 text-primary-200 after:border-b-primary-800 absolute -bottom-2 left-1/2 z-20 hidden -translate-x-1/2 translate-y-full rounded-lg p-3 text-left text-sm group-hover:block after:absolute after:bottom-[100%] after:left-1/2 after:-translate-x-1/2 after:border-8 after:border-x-transparent after:border-t-transparent after:content-['']">
+    <div className="bg-primary-800 text-primary-200 after:border-b-primary-800 absolute -bottom-2 left-1/2 z-20 hidden -translate-x-1/2 translate-y-full rounded-lg p-3 text-left text-sm group-hover:block after:absolute after:bottom-full after:left-1/2 after:-translate-x-1/2 after:border-8 after:border-x-transparent after:border-t-transparent after:content-['']">
       <ul>
         {Array.from(data.entries())
           .sort((a, b) => a[0].localeCompare(b[0]))
@@ -44,13 +48,7 @@ function App({ app }: { app: TApp }) {
   const [isOpen, setIsOpen] = useState<boolean>(false)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  const countItems = useCallback(
-    (apps: TApp[], endpoints: TEndpoint[]): number =>
-      endpoints.length + apps.reduce((y, x) => y + 1 + countItems(x.apps, x.endpoints), 0),
-    [],
-  )
-
-  const urlsLength = useMemo(() => countItems(apps, endpoints), [countItems, apps, endpoints])
+  const urlsLength = useMemo(() => countItems(apps, endpoints), [apps, endpoints])
 
   useEffect(() => {
     if (contentRef.current) contentRef.current.style.maxHeight = `${isOpen ? urlsLength * 34 : 0}px`

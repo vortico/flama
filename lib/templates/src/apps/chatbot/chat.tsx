@@ -7,6 +7,7 @@ import { Chat } from './data'
 
 import 'katex/dist/katex.min.css'
 import '@/ui/styles/base.css'
+import './styles/chat.css'
 
 function Page() {
   const chat = new Chat()

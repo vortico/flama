@@ -20,4 +20,7 @@ function Page() {
   )
 }
 
-ReactDOM.createRoot(document.getElementById('app')!).render(<Page />)
+const container = document.getElementById('app')
+if (container) {
+  ReactDOM.createRoot(container).render(<Page />)
+}
