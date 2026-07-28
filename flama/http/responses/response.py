@@ -13,7 +13,7 @@ if t.TYPE_CHECKING:
 
     from flama.background import BackgroundTask
 
-__all__ = ["Response", "BufferedResponse", "StreamingResponse"]
+__all__ = ["Response", "BufferedResponse", "StreamingResponse", "Payload"]
 
 
 class Response(abc.ABC):
@@ -122,9 +122,10 @@ class Response(abc.ABC):
 
 
 Content = t.TypeVar("Content")
+Payload = t.TypeVar("Payload")
 
 
-class BufferedResponse(Response, t.Generic[Content]):
+class BufferedResponse(Response, t.Generic[Content, Payload]):
     def __init__(
         self,
         content: Content | None = None,
@@ -175,7 +176,7 @@ class BufferedResponse(Response, t.Generic[Content]):
     def render(self, content: Content) -> bytes: ...
 
 
-class StreamingResponse(Response, t.Generic[Content]):
+class StreamingResponse(Response, t.Generic[Content, Payload]):
     def __init__(
         self,
         content: t.Iterable[Content] | t.AsyncIterable[Content],

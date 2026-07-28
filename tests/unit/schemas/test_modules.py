@@ -39,7 +39,7 @@ class TestCaseSchemaModule:
 
     def test_schema(self, module):
         assert module.schema == {
-            "openapi": "3.1.0",
+            "openapi": "3.2.0",
             "info": {"title": "Foo", "version": "1.0.0", "description": "Bar"},
             "paths": {},
             "components": {

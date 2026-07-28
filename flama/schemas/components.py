@@ -84,7 +84,7 @@ class ValidatePathParamsComponent(Component):
     async def resolve(
         self, request: http.Request, route: routing.BaseRoute, path_params: types.PathParams
     ) -> ValidatedPathParams:
-        fields = [f.field for f in route.parameters.path[request.method].values()]
+        fields = [p.field for p in route.parameters.path[request.method].values() if p.field is not None]
 
         try:
             validated = Schema.build(name="ValidationSchema", fields=fields).validate(path_params)
@@ -97,7 +97,7 @@ class ValidateQueryParamsComponent(Component):
     def resolve(
         self, request: http.Request, route: routing.BaseRoute, query_params: QueryParams
     ) -> ValidatedQueryParams:
-        fields = [f.field for f in route.parameters.query[request.method].values()]
+        fields = [p.field for p in route.parameters.query[request.method].values() if p.field is not None]
 
         try:
             validated = Schema.build(name="ValidationSchema", fields=fields).validate(dict(query_params))
@@ -110,7 +110,7 @@ class ValidateRequestDataComponent(Component):
     def resolve(self, request: http.Request, route: routing.BaseRoute, data: types.RequestData) -> ValidatedRequestData:
         body_param = route.parameters.body[request.method]
 
-        if body_param is None:
+        if body_param is None or body_param.schema is None:
             raise exceptions.ApplicationError(
                 f"Body schema parameter not defined for route '{route}' and method '{request.method}'"
             )
@@ -145,7 +145,7 @@ class CompositeParamComponent(Component):
     def resolve(self, parameter: Parameter, request: http.Request, route: routing.BaseRoute, data: types.RequestData):
         body_param = route.parameters.body[request.method]
 
-        if body_param is None:
+        if body_param is None or body_param.schema is None:
             raise exceptions.ApplicationError(
                 f"Body schema parameter not defined for route '{route}' and method '{request.method}'"
             )

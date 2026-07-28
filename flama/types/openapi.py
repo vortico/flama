@@ -45,6 +45,7 @@ class OpenAPISpecServerVariable(t.TypedDict):
 
 class OpenAPISpecServer(t.TypedDict):
     url: str
+    name: compat.NotRequired[str | None]
     description: compat.NotRequired[str | None]
     variables: compat.NotRequired[dict[str, OpenAPISpecServerVariable] | None]
 
@@ -56,7 +57,10 @@ class OpenAPISpecExternalDocs(t.TypedDict):
 
 class OpenAPISpecTag(t.TypedDict):
     name: str
+    summary: compat.NotRequired[str | None]
     description: compat.NotRequired[str | None]
+    parent: compat.NotRequired[str | None]
+    kind: compat.NotRequired[str | None]
     externalDocs: compat.NotRequired[OpenAPISpecExternalDocs | None]
 
 

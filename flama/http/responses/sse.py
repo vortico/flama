@@ -2,7 +2,7 @@ import dataclasses
 import typing as t
 
 from flama import concurrency
-from flama.http.responses.response import Response, StreamingResponse
+from flama.http.responses.response import Payload, Response, StreamingResponse
 
 if t.TYPE_CHECKING:
     from collections.abc import AsyncIterable, Iterable, Mapping
@@ -52,7 +52,13 @@ class ServerSentEvent:
         return ("\n".join(lines) + "\n\n").encode()
 
 
-class ServerSentEventResponse(StreamingResponse[ServerSentEvent | str]):
+class ServerSentEventResponse(StreamingResponse[ServerSentEvent | str, Payload], t.Generic[Payload]):
+    """Server-sent events response (``text/event-stream``).
+
+    Subscript with the schema of a single event payload, as in ``ServerSentEventResponse[Event]``, to
+    document the shape of the stream. Doing so has no runtime effect.
+    """
+
     media_type = "text/event-stream"
 
     def __init__(

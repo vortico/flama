@@ -97,14 +97,20 @@ class Example:
 @dataclasses.dataclass(frozen=True)
 class Tag:
     name: str
+    summary: str | None = None
     description: str | None = None
+    parent: str | None = None
+    kind: str | None = None
     externalDocs: ExternalDocs | None = None
 
     @classmethod
     def from_spec(cls, spec: types.OpenAPISpecTag, /) -> "Tag":
         return cls(
             name=spec["name"],
+            summary=spec.get("summary"),
             description=spec.get("description"),
+            parent=spec.get("parent"),
+            kind=spec.get("kind"),
             externalDocs=(
                 ExternalDocs.from_spec(t.cast(types.OpenAPISpecExternalDocs, spec.get("externalDocs")))
                 if "externalDocs" in spec
@@ -154,6 +160,7 @@ class ServerVariable:
 @dataclasses.dataclass(frozen=True)
 class Server:
     url: str
+    name: str | None = None
     description: str | None = None
     variables: dict[str, ServerVariable] | None = None
 
@@ -161,6 +168,7 @@ class Server:
     def from_spec(cls, spec: types.OpenAPISpecServer, /) -> "Server":
         return cls(
             url=spec["url"],
+            name=spec.get("name"),
             description=spec.get("description"),
             variables=(
                 {name: ServerVariable.from_spec(variable) for name, variable in spec["variables"].items()}
@@ -228,9 +236,25 @@ class Encoding:
 @dataclasses.dataclass(frozen=True)
 class MediaType:
     schema: Schema | Reference | None = None
+    itemSchema: Schema | Reference | None = None
     example: t.Any | None = None
     examples: dict[str, t.Any | Reference] | None = None
     encoding: dict[str, Encoding] | None = None
+
+    @classmethod
+    def from_spec(cls, spec: dict[str, t.Any], /) -> "MediaType":
+        """Build a media type from the mapping declared in a handler docstring.
+
+        :param spec: Media type fields.
+        :return: Media type.
+        """
+        return cls(
+            schema=spec.get("schema"),
+            itemSchema=spec.get("itemSchema"),
+            example=spec.get("example"),
+            examples=spec.get("examples"),
+            encoding=spec.get("encoding"),
+        )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -242,7 +266,8 @@ class RequestBody:
 
 @dataclasses.dataclass(frozen=True)
 class Response:
-    description: str
+    description: str | None = None
+    summary: str | None = None
     headers: dict[str, Header | Reference] | None = None
     content: dict[str, MediaType] | None = None
     links: dict[str, Link | Reference] | None = None
@@ -280,6 +305,7 @@ class Path:
     head: Operation | None = None
     patch: Operation | None = None
     trace: Operation | None = None
+    query: Operation | None = None
     servers: list[Server] | None = None
     parameters: list[Parameter | Reference] | None = None
 
@@ -287,7 +313,7 @@ class Path:
     def operations(self) -> dict[str, Operation]:
         return {
             x: getattr(self, x)
-            for x in ("get", "put", "post", "delete", "options", "head", "patch", "trace")
+            for x in ("get", "put", "post", "delete", "options", "head", "patch", "trace", "query")
             if getattr(self, x) is not None
         }
 
@@ -321,7 +347,7 @@ class OpenAPI:
 
 
 class OpenAPISpec:
-    OPENAPI_VERSION = "3.1.0"
+    OPENAPI_VERSION = "3.2.0"
 
     def __init__(
         self,
@@ -478,12 +504,9 @@ class OpenAPISchemaRegistry(SchemaRegistry):
             if not content:
                 continue
             for media_type in content.values():
-                if not isinstance(media_type, MediaType):
-                    continue
-                schema = media_type.schema
-                if schema is None:
-                    continue
-                refs += self._get_schema_references_from_schema(schema)
+                for schema in (media_type.schema, media_type.itemSchema):
+                    if schema is not None:
+                        refs += self._get_schema_references_from_schema(schema)
 
         return refs
 
@@ -512,12 +535,9 @@ class OpenAPISchemaRegistry(SchemaRegistry):
                 refs.append(request_body.ref)
             else:
                 for media_type in request_body.content.values():
-                    if not isinstance(media_type, MediaType):
-                        continue
-                    schema = media_type.schema
-                    if schema is None:
-                        continue
-                    refs += self._get_schema_references_from_schema(schema)
+                    for schema in (media_type.schema, media_type.itemSchema):
+                        if schema is not None:
+                            refs += self._get_schema_references_from_schema(schema)
 
         return refs
 
@@ -679,13 +699,13 @@ class SchemaGenerator:
 
         return [
             Parameter(
-                schema=Schema(field.field.json_schema),
-                name=field.name,
-                in_=field.location.name,
-                required=field.required,
+                schema=Schema(parameter.field.json_schema),
+                name=parameter.name,
+                in_=parameter.location.name,
+                required=parameter.required,
                 **{
                     x: y.get(x)
-                    for y in [x for x in metadata.get("parameters", []) if x.get("name") == field.name]
+                    for y in [x for x in metadata.get("parameters", []) if x.get("name") == parameter.name]
                     if y
                     for x in (
                         "description",
@@ -698,20 +718,25 @@ class SchemaGenerator:
                     )
                 },
             )
-            for field in itertools.chain(endpoint.query_parameters.values(), endpoint.path_parameters.values())
+            for parameter in itertools.chain(endpoint.query_parameters.values(), endpoint.path_parameters.values())
+            if parameter.field is not None
         ]
 
     def _build_endpoint_body(self, endpoint: EndpointInfo, metadata: dict[str, t.Any]) -> RequestBody | None:
-        content = {k: v for k, v in metadata.get("requestBody", {}).get("content", {}).items()}
+        content: dict[str, MediaType] = {
+            mime: MediaType.from_spec(content_entry)
+            for mime, content_entry in metadata.get("requestBody", {}).get("content", {}).items()
+        }
 
         if endpoint.body_parameter:
             if endpoint.body_parameter.schema is None:
                 # A bare field body, such as a lone `UploadFile`, has no schema to reference. Wrap it in
                 # the single-property object that the field occupies on the wire.
+                body_field = t.cast("ds.Field", endpoint.body_parameter.field)
                 body_schema: Schema | Reference = Schema(
                     {
                         "type": "object",
-                        "properties": {endpoint.body_parameter.name: endpoint.body_parameter.field.json_schema},
+                        "properties": {endpoint.body_parameter.name: body_field.json_schema},
                         "required": [endpoint.body_parameter.name],
                     }
                 )
@@ -723,7 +748,8 @@ class SchemaGenerator:
                     endpoint.body_parameter.schema.schema, multiple=endpoint.body_parameter.multiple
                 )
 
-            content[endpoint.body_parameter.media_type] = MediaType(schema=body_schema)
+            # Only a response resolves to no media type, and a body parameter is never one.
+            content[t.cast(str, endpoint.body_parameter.media_type)] = MediaType(schema=body_schema)
 
         if not content:
             return None
@@ -740,27 +766,27 @@ class SchemaGenerator:
             assert 100 <= int(main_response_code) < 600
         except (ValueError, AssertionError, StopIteration):
             main_response_code = 200
-            responses[main_response_code] = {
-                "description": "Description not provided.",
-            }
-            logger.warning(
-                'OpenAPI description not provided in docstring for main response in endpoint "%s", adding a standard '
-                '"%s" response',
-                main_response_code,
-                endpoint.path,
-            )
+            responses[main_response_code] = {}
 
-        if endpoint.response_parameter.schema is not None and endpoint.response_parameter.schema.schema:
-            if endpoint.response_parameter.schema.schema not in self.schemas:
-                self.schemas.register(schema=endpoint.response_parameter.schema.schema)
+        response_parameter = endpoint.response_parameter
+        media_type = response_parameter.media_type
+        response_schema = response_parameter.schema.schema if response_parameter.schema is not None else None
 
+        if media_type is not None and response_schema is not None:
+            if response_schema not in self.schemas:
+                self.schemas.register(schema=response_schema)
+
+            # A sequential media type is described frame by frame, so the reference belongs under
+            # `itemSchema`, which applies to each item independently rather than to the whole payload.
+            key = "itemSchema" if response_parameter.streaming else "schema"
             responses[main_response_code]["content"] = {
                 **responses[main_response_code].get("content", {}),
-                "application/json": {
-                    "schema": self.schemas.get_openapi_ref(
-                        endpoint.response_parameter.schema.schema, multiple=endpoint.response_parameter.multiple
-                    )
-                },
+                media_type: {key: self.schemas.get_openapi_ref(response_schema, multiple=response_parameter.multiple)},
+            }
+        elif media_type is not None and response_parameter.response is not None:
+            responses[main_response_code]["content"] = {
+                media_type: {},
+                **responses[main_response_code].get("content", {}),
             }
 
         responses["default"] = {
@@ -776,16 +802,12 @@ class SchemaGenerator:
         return Responses(
             {
                 str(code): Response(
-                    description=response["description"],
+                    description=response.get("description"),
+                    summary=response.get("summary"),
                     headers=response.get("headers"),
                     content={
-                        mime: MediaType(
-                            schema=media_type.get("schema"),
-                            example=media_type.get("example"),
-                            examples=media_type.get("examples"),
-                            encoding=media_type.get("encoding"),
-                        )
-                        for mime, media_type in response.get("content", {}).items()
+                        mime: MediaType.from_spec(content_entry)
+                        for mime, content_entry in response.get("content", {}).items()
                     },
                     links=response.get("links"),
                 )
@@ -799,12 +821,9 @@ class SchemaGenerator:
         :param func: Function to analyze docstring.
         :return: Schema extracted.
         """
-        try:
-            # It's possible to define a standard docstring along with the schema definition, for doing so the schema
-            # should start with a line with three dashes "---" as it's the usual notation for starting a yaml file.
-            schema = yaml.safe_load((func.__doc__ or "").split("---")[-1])
-        except AttributeError:
-            schema = None
+        # It's possible to define a standard docstring along with the schema definition, for doing so the schema
+        # should start with a line with three dashes "---" as it's the usual notation for starting a yaml file.
+        schema = yaml.safe_load((func.__doc__ or "").split("---")[-1])
 
         if not isinstance(schema, dict):
             raise ValueError
