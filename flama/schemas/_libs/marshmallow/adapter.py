@@ -100,7 +100,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         json_schema: dict[str, t.Any]
         try:
             plugin = MarshmallowPlugin(schema_name_resolver=lambda x: t.cast(type, resolve_schema_cls(x)).__name__)
-            APISpec("", "", "3.1.0", [plugin])
+            APISpec("", "", "3.2.0", [plugin])
             converter: OpenAPIConverter = t.cast("OpenAPIConverter", plugin.converter)
 
             if (inspect.isclass(schema) and issubclass(schema, Field)) or isinstance(schema, Field):

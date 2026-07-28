@@ -116,7 +116,6 @@ class TestCasePageNumberPagination:
         assert component_schema["type"] == "object"
 
         assert response_schema == {
-            "description": "Description not provided.",
             "content": {
                 "application/json": {
                     "schema": {"$ref": f"#/components/schemas/{paginated_output_schema_name}"},
@@ -257,7 +256,6 @@ class TestCaseLimitOffsetPagination:
         assert component_schema["type"] == "object"
 
         assert response_schema == {
-            "description": "Description not provided.",
             "content": {
                 "application/json": {
                     "schema": {"$ref": f"#/components/schemas/{paginated_output_schema_name}"},

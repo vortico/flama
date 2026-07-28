@@ -7,6 +7,7 @@ from types import UnionType
 
 from flama import compat, schemas, types
 from flama.http.data_structures import UploadFile
+from flama.http.responses.response import Response, StreamingResponse
 from flama.injection.resolver import Parameter as InjectionParameter
 
 __all__ = ["Field", "Schema", "Parameter", "Parameters"]
@@ -262,43 +263,71 @@ class Parameter:
     default: t.Any = InjectionParameter.empty
     nullable: bool = dataclasses.field(init=False)
     multiple: bool = dataclasses.field(init=False)
-    schema: "Schema" = dataclasses.field(hash=False, init=False, compare=False)
-    field: "Field" = dataclasses.field(hash=False, init=False, compare=False)
+    # Exactly one of these is set: a parameter is described either by a schema or by a single field.
+    schema: "Schema | None" = dataclasses.field(hash=False, init=False, compare=False)
+    field: "Field | None" = dataclasses.field(hash=False, init=False, compare=False)
+    response: "type[Response] | None" = dataclasses.field(hash=False, init=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "nullable", type(None) in t.get_args(self.type) or self.default is None)
 
-        try:
-            schema = Schema.from_type(self.type)
-            field = None
-        except ValueError:
-            if self.type in (None, InjectionParameter.empty):
+        origin = t.get_origin(self.type) or self.type
+        response = origin if inspect.isclass(origin) and issubclass(origin, Response) else None
+
+        if response is not None:
+            # A response class carries its own media type, and a type argument, when given, the schema
+            # of its payload.
+            args = t.get_args(self.type)
+            try:
+                schema = Schema.from_type(args[0]) if args else Schema(schema=None)
+            except ValueError:
                 schema = Schema(schema=None)
+            field = None
+        else:
+            try:
+                schema = Schema.from_type(self.type)
                 field = None
-            else:
-                schema = None
-                field = Field(self.name, self.type, required=self.required, default=self.default)
+            except ValueError:
+                if self.type in (None, InjectionParameter.empty):
+                    schema = Schema(schema=None)
+                    field = None
+                else:
+                    schema = None
+                    field = Field(self.name, self.type, required=self.required, default=self.default)
 
         object.__setattr__(self, "schema", schema)
         object.__setattr__(self, "field", field)
+        object.__setattr__(self, "response", response)
         object.__setattr__(self, "multiple", t.get_origin(self.type) in (list, tuple, set, frozenset))
 
     @property
-    def media_type(self) -> str:
-        """Media type of the request body carrying this parameter.
+    def media_type(self) -> str | None:
+        """Media type of the payload carried by this parameter.
 
-        A body is multipart as soon as any of its fields is a file upload, because a binary payload
-        cannot be represented in JSON. Only direct fields are inspected: multipart is a flat format,
-        so a file nested inside another schema is not expressible on the wire anyway.
+        A response class declares its own, and may declare none, as a redirect does. A request body is
+        multipart as soon as any of its fields is a file upload, since a binary payload cannot be
+        represented in JSON. Only direct fields are inspected, because multipart is a flat format and a
+        file nested inside another schema is not expressible on the wire.
 
-        :return: The media type to advertise for this parameter.
+        :return: The media type to advertise, or ``None`` when there is no payload to describe.
         """
+        if self.response is not None:
+            return self.response.media_type
+
         if self.schema is None or self.schema.schema is None:
             candidates = [self.type]
         else:
             candidates = [field_type for field_type, _ in self.schema.fields.values()]
 
         return "multipart/form-data" if any(self._is_file(x) for x in candidates) else "application/json"
+
+    @property
+    def streaming(self) -> bool:
+        """Whether the payload is a sequence of frames rather than a single document.
+
+        :return: True when each frame is to be described independently.
+        """
+        return self.response is not None and issubclass(self.response, StreamingResponse)
 
     def _is_file(self, annotation: t.Any) -> bool:
         """Whether an annotation is a file upload, or a container or union holding one.

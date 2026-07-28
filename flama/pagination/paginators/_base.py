@@ -13,7 +13,7 @@ SchemaType = t.TypeVar("SchemaType", bound=type, covariant=True)
 P = t.ParamSpec("P")
 
 
-class PaginatedResponse(BufferedResponse[t.Sequence[types.JSONSchema]], t.Generic[SchemaType]):
+class PaginatedResponse(BufferedResponse[t.Sequence[types.JSONSchema], t.Any], t.Generic[SchemaType]):
     media_type = "application/json"
 
     def __init__(self, *args, schema: SchemaType, **kwargs):
