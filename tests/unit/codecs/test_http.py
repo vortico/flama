@@ -7,6 +7,10 @@ from flama.codecs.http.jsondata import JSONDataCodec
 from flama.codecs.http.multipart import MultiPartCodec
 from flama.codecs.http.negotiator import HTTPContentTypeNegotiator
 from flama.codecs.http.urlencoded import URLEncodedCodec
+from flama.http.data_structures import FormData, UploadFile
+
+_FILE_A = UploadFile(filename="a.txt", data=b"A")
+_FILE_B = UploadFile(filename="b.txt", data=b"B")
 
 
 class TestCaseJSONDataCodec:
@@ -40,8 +44,9 @@ class TestCaseURLEncodedCodec:
     @pytest.mark.parametrize(
         ["form_data", "expected"],
         [
-            pytest.param({"name": "alice"}, {"name": "alice"}, id="success"),
-            pytest.param({}, None, id="empty_form"),
+            pytest.param(FormData([("name", "alice")]), {"name": "alice"}, id="single_value"),
+            pytest.param(FormData([("tag", "a"), ("tag", "b")]), {"tag": ["a", "b"]}, id="repeated_field_is_a_list"),
+            pytest.param(FormData(), None, id="empty_form"),
         ],
     )
     async def test_decode(self, form_data, expected):
@@ -57,8 +62,19 @@ class TestCaseMultiPartCodec:
     @pytest.mark.parametrize(
         ["form_data", "expected"],
         [
-            pytest.param({"file": "data"}, {"file": "data"}, id="success"),
-            pytest.param({}, None, id="empty_form"),
+            pytest.param(FormData([("name", "alice")]), {"name": "alice"}, id="single_value"),
+            pytest.param(FormData([("file", _FILE_A)]), {"file": _FILE_A}, id="single_file"),
+            pytest.param(
+                FormData([("file", _FILE_A), ("file", _FILE_B)]),
+                {"file": [_FILE_A, _FILE_B]},
+                id="repeated_file_is_a_list",
+            ),
+            pytest.param(
+                FormData([("file", _FILE_A), ("name", "alice")]),
+                {"file": _FILE_A, "name": "alice"},
+                id="file_and_text_field",
+            ),
+            pytest.param(FormData(), None, id="empty_form"),
         ],
     )
     async def test_decode(self, form_data, expected):

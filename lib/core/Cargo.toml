@@ -15,8 +15,9 @@ extension-module = ["pyo3/extension-module"]
 [dependencies]
 pyo3 = { version = "0.29" }
 pyo3-async-runtimes = { version = "0.29", features = ["tokio-runtime"] }
-tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "fs", "io-util"] }
 multer = "3"
+tempfile = "3"
 bytes = "1"
 futures-util = "0.3"
 form_urlencoded = "1"
@@ -27,6 +28,9 @@ bzip2 = "0.6"
 lzma-rs = "0.3"
 zstd = "0.13"
 tar = "0.4"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
 
 [lints.rust]
 unsafe_code = "forbid"

@@ -1,6 +1,9 @@
+import contextlib
 import enum
 import io
+import os
 import typing as t
+import warnings
 from collections.abc import Mapping
 from urllib.parse import urlencode
 
@@ -317,12 +320,17 @@ class QueryParams(_MultiDict[str, str]):
 
 
 class UploadFile:
-    """In-memory representation of a file uploaded via ``multipart/form-data``.
+    """A file uploaded via ``multipart/form-data``.
+
+    Small uploads are held in memory. Once a part grows past the parser's spool threshold it is
+    streamed to a temporary file instead, and ``path`` points at it; :meth:`close` then unlinks that
+    file, so a request must always be closed to avoid leaving it behind.
 
     :param filename: Original filename from the ``Content-Disposition`` header.
     :param content_type: MIME type declared in the part headers.
-    :param data: Raw file bytes.
+    :param data: Raw file bytes, for an upload held in memory.
     :param headers: Part headers as a :class:`Headers` instance.
+    :param path: Temporary file backing the upload, for one spooled to disk.
     """
 
     def __init__(
@@ -331,12 +339,36 @@ class UploadFile:
         content_type: str = "application/octet-stream",
         data: bytes = b"",
         headers: Headers | None = None,
+        path: str | None = None,
     ) -> None:
         self.filename = filename
         self.content_type = content_type
-        self.data = data
         self.headers = headers or Headers()
-        self._file = io.BytesIO(data)
+        self.path = path
+        self._file: t.IO[bytes] = open(path, "rb") if path is not None else io.BytesIO(data)  # noqa: SIM115
+
+    @property
+    def data(self) -> bytes:
+        """Full contents of the upload.
+
+        .. deprecated::
+            Reading the whole upload into memory defeats the spooling of large files. Use
+            :meth:`read` instead. This property will be removed in Flama 2.2.
+
+        :return: Raw file bytes.
+        """
+        warnings.warn(
+            "'UploadFile.data' is deprecated and will be removed in Flama 2.2, use 'await UploadFile.read()' instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        position = self._file.tell()
+        self._file.seek(0)
+        try:
+            return self._file.read()
+        finally:
+            self._file.seek(position)
 
     async def read(self, size: int = -1) -> bytes:
         return self._file.read(size)
@@ -346,6 +378,11 @@ class UploadFile:
 
     async def close(self) -> None:
         self._file.close()
+
+        if self.path is not None:
+            with contextlib.suppress(OSError):
+                os.remove(self.path)
+            self.path = None
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(filename={self.filename!r}, content_type={self.content_type!r})"
@@ -368,6 +405,22 @@ class FormData(_MultiDict[str, "str | UploadFile"]):
             if isinstance(value, UploadFile):
                 await value.close()
 
+    def to_dict(self) -> "dict[str, str | UploadFile | list[str | UploadFile]]":
+        """Collapse the form into a plain dict, preserving repeated fields as lists.
+
+        A field present once maps to its single value, whereas a field repeated across several entries
+        maps to the list of all of them, which is how a form expresses a collection.
+
+        :return: Form values keyed by field name.
+        """
+        result: dict[str, str | UploadFile | list[str | UploadFile]] = {}
+
+        for key in self:
+            values = self.get_values(key)
+            result[key] = values[0] if len(values) == 1 else values
+
+        return result
+
     @classmethod
     def from_urlencoded(cls, body: bytes) -> "FormData":
         """Parse an ``application/x-www-form-urlencoded`` body.
@@ -381,7 +434,15 @@ class FormData(_MultiDict[str, "str | UploadFile"]):
 
     @classmethod
     async def from_multipart(
-        cls, receive: t.Any, boundary: str, *, max_files: int = 1000, max_fields: int = 1000
+        cls,
+        receive: t.Any,
+        boundary: str,
+        *,
+        max_files: int = 1000,
+        max_fields: int = 1000,
+        spool_threshold: int = 1024 * 1024,
+        max_file_size: int | None = None,
+        max_body_size: int | None = None,
     ) -> "FormData":
         """Parse ``multipart/form-data`` by streaming from an ASGI ``receive`` callable.
 
@@ -392,6 +453,10 @@ class FormData(_MultiDict[str, "str | UploadFile"]):
         :param boundary: Multipart boundary string.
         :param max_files: Maximum file uploads allowed.
         :param max_fields: Maximum non-file fields allowed.
+        :param spool_threshold: Size in bytes above which an upload is streamed to a temporary file
+            instead of being held in memory.
+        :param max_file_size: Maximum size in bytes of a single upload, unlimited when ``None``.
+        :param max_body_size: Maximum total size in bytes of the request body, unlimited when ``None``.
         :return: Parsed form data.
         """
         return cls(
@@ -404,10 +469,19 @@ class FormData(_MultiDict[str, "str | UploadFile"]):
                         filename=value[0],
                         content_type=value[1],
                         data=value[2],
-                        headers=Headers(raw=value[3]),
+                        path=value[3],
+                        headers=Headers(raw=value[4]),
                     ),
                 )
-                for name, value in await parse_multipart(receive, boundary, max_files=max_files, max_fields=max_fields)
+                for name, value in await parse_multipart(
+                    receive,
+                    boundary,
+                    max_files=max_files,
+                    max_fields=max_fields,
+                    spool_threshold=spool_threshold,
+                    max_file_size=max_file_size,
+                    max_body_size=max_body_size,
+                )
             ]
         )
 

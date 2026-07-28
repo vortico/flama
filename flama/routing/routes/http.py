@@ -76,11 +76,14 @@ class HTTPFunctionWrapper(BaseHTTPEndpointWrapper):
             request=http.Request(route_scope, receive=receive),
         )
 
-        injected_func = await app.injector.inject(self.handler, context)
-        response = await concurrency.run(injected_func)
-        response = self._build_api_response(response)
+        try:
+            injected_func = await app.injector.inject(self.handler, context)
+            response = await concurrency.run(injected_func)
+            response = self._build_api_response(response)
 
-        await response(route_scope, receive, send)
+            await response(route_scope, receive, send)
+        finally:
+            await context.request.close()
 
 
 class HTTPEndpointWrapper(BaseHTTPEndpointWrapper):
@@ -93,10 +96,14 @@ class HTTPEndpointWrapper(BaseHTTPEndpointWrapper):
         :param receive: ASGI receive.
         :param send: ASGI send.
         """
-        response = await self.handler(scope, receive, send)
-        response = self._build_api_response(response)
+        endpoint = self.handler(scope, receive, send)
 
-        await response(scope, receive, send)
+        try:
+            response = self._build_api_response(await endpoint)
+
+            await response(scope, receive, send)
+        finally:
+            await endpoint.state.request.close()
 
 
 class Route(BaseRoute):

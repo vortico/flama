@@ -120,7 +120,8 @@ class Components(tuple[Component, ...]):
                     custom_indices.append(i)
                     continue
                 if return_annotation is not inspect.Signature.empty:
-                    type_map[id(return_annotation)] = i
+                    # First registration wins, as it already does when scanning `_custom_indices`.
+                    type_map.setdefault(id(return_annotation), i)
                 else:
                     custom_indices.append(i)
             else:

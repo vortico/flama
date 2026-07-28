@@ -7,6 +7,7 @@ from pydantic.fields import FieldInfo
 from pydantic.json_schema import model_json_schema
 
 from flama.injection import Parameter
+from flama.schemas._libs.pydantic.fields import MAPPING
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 from flama.types import JSONSchema
@@ -31,7 +32,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
         if not required:
             kwargs["default"] = None if default is Parameter.empty else default
 
-        annotation: t.Any = type_
+        annotation: t.Any = MAPPING.get(type_, type_)
 
         if multiple:
             annotation = list[annotation]
@@ -85,9 +86,33 @@ class PydanticAdapter(Adapter[Schema, Field]):
         except pydantic.ValidationError as errors:
             raise SchemaValidationError(
                 errors={
-                    ".".join(str(x) for x in error.get("loc", [])): error for error in errors.errors(include_url=False)
+                    ".".join(str(x) for x in error.get("loc", [])): {
+                        **error,
+                        "input": self._json_safe(error.get("input")),
+                    }
+                    for error in errors.errors(include_url=False)
                 }
             )
+
+    def _json_safe(self, value: t.Any) -> t.Any:
+        """Recursively replace values that JSON cannot represent with their repr.
+
+        Validation errors echo the offending value back, and for a missing field that value is the whole
+        object being validated, so it may hold anything the caller passed in.
+
+        :param value: Value to make representable.
+        :return: An equivalent value that the JSON encoder accepts.
+        """
+        if isinstance(value, dict):
+            return {k: self._json_safe(v) for k, v in value.items()}
+
+        if isinstance(value, list | tuple | set):
+            return [self._json_safe(v) for v in value]
+
+        if isinstance(value, str | int | float | bool | None):
+            return value
+
+        return repr(value)
 
     def load(self, schema: Schema | type[Schema], value: dict[str, t.Any]) -> Schema:
         schema_cls = self.unique_schema(schema)
