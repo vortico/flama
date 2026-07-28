@@ -5,6 +5,7 @@ import pytest
 
 from flama import endpoints, exceptions, types
 from flama.applications import Flama
+from flama.http.requests.http import Request
 from flama.http.responses.api import APIResponse
 from flama.http.responses.plain_text import PlainTextResponse
 from flama.routing.routes._base import BaseRoute
@@ -81,6 +82,35 @@ class TestCaseHTTPFunctionWrapper:
             call({"type": "http.response.body", "body": b'{"foo":"bar"}'}),
         ]
 
+    @pytest.mark.parametrize(
+        ["failing"],
+        [
+            pytest.param(False, id="handler_succeeds"),
+            pytest.param(True, id="handler_raises"),
+        ],
+    )
+    async def test_call_closes_request(self, app, failing):
+        async def foo():
+            if failing:
+                raise ValueError("handler failed")
+            return {"foo": "bar"}
+
+        endpoint = HTTPFunctionWrapper(foo, signature=inspect.signature(foo))
+        scope, receive, send = (
+            types.Scope({"app": app, "path": "/", "root_app": app, "type": "http", "method": "GET"}),
+            AsyncMock(),
+            AsyncMock(),
+        )
+
+        with patch.object(Request, "close", new_callable=AsyncMock) as close:
+            if failing:
+                with pytest.raises(ValueError, match="handler failed"):
+                    await endpoint(scope, receive, send)
+            else:
+                await endpoint(scope, receive, send)
+
+        assert close.await_count == 1
+
 
 class TestCaseHTTPEndpointWrapper:
     @pytest.fixture(scope="function")
@@ -118,6 +148,36 @@ class TestCaseHTTPEndpointWrapper:
             ),
             call({"type": "http.response.body", "body": b'{"foo":"bar"}'}),
         ]
+
+    @pytest.mark.parametrize(
+        ["failing"],
+        [
+            pytest.param(False, id="handler_succeeds"),
+            pytest.param(True, id="handler_raises"),
+        ],
+    )
+    async def test_call_closes_request(self, app, failing):
+        class Endpoint(endpoints.HTTPEndpoint):
+            async def get(self):
+                if failing:
+                    raise ValueError("handler failed")
+                return {"foo": "bar"}
+
+        endpoint = HTTPEndpointWrapper(Endpoint)
+        scope, receive, send = (
+            types.Scope({"app": app, "path": "/", "root_app": app, "type": "http", "method": "GET"}),
+            AsyncMock(),
+            AsyncMock(),
+        )
+
+        with patch.object(Request, "close", new_callable=AsyncMock) as close:
+            if failing:
+                with pytest.raises(ValueError, match="handler failed"):
+                    await endpoint(scope, receive, send)
+            else:
+                await endpoint(scope, receive, send)
+
+        assert close.await_count == 1
 
 
 class TestCaseRoute:

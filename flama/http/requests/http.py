@@ -102,7 +102,15 @@ class Request(HTTPConnection):
             self._json = json.loads(await self.body())
         return self._json
 
-    async def form(self, *, max_files: int = 1000, max_fields: int = 1000) -> FormData:
+    async def form(
+        self,
+        *,
+        max_files: int = 1000,
+        max_fields: int = 1000,
+        spool_threshold: int = 1024 * 1024,
+        max_file_size: int | None = None,
+        max_body_size: int | None = None,
+    ) -> FormData:
         """Parse the request body as form data.
 
         Supports both ``application/x-www-form-urlencoded`` and ``multipart/form-data``.
@@ -112,6 +120,10 @@ class Request(HTTPConnection):
 
         :param max_files: Maximum file uploads allowed.
         :param max_fields: Maximum non-file fields allowed.
+        :param spool_threshold: Size in bytes above which an upload is streamed to a temporary file
+            instead of being held in memory.
+        :param max_file_size: Maximum size in bytes of a single upload, unlimited when ``None``.
+        :param max_body_size: Maximum total size in bytes of the request body, unlimited when ``None``.
         :return: Parsed form data.
         """
         if self._form is None:
@@ -120,7 +132,13 @@ class Request(HTTPConnection):
             if content_type == "multipart/form-data":
                 boundary = options.get("boundary", "")
                 self._form = await FormData.from_multipart(
-                    self._receive, boundary, max_files=max_files, max_fields=max_fields
+                    self._receive,
+                    boundary,
+                    max_files=max_files,
+                    max_fields=max_fields,
+                    spool_threshold=spool_threshold,
+                    max_file_size=max_file_size,
+                    max_body_size=max_body_size,
                 )
             elif content_type == "application/x-www-form-urlencoded":
                 body = await self.body()

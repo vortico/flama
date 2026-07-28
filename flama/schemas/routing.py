@@ -2,6 +2,7 @@ import inspect
 import typing as t
 
 from flama import exceptions, types
+from flama.http.data_structures import UploadFile
 from flama.injection.resolver import Return
 from flama.schemas.data_structures import Field, Parameter, Parameters
 
@@ -74,7 +75,11 @@ class ParametersDescriptor:
                 (
                     Parameter.build("body", p)
                     for p in parameters
-                    if (types.is_schema(p.annotation) or t.get_origin(p.annotation) == list)
+                    if (
+                        types.is_schema(p.annotation)
+                        or t.get_origin(p.annotation) == list
+                        or p.annotation is UploadFile
+                    )
                     and p.name not in self._route.path.parameters
                 ),
                 None,

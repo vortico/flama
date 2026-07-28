@@ -705,14 +705,25 @@ class SchemaGenerator:
         content = {k: v for k, v in metadata.get("requestBody", {}).get("content", {}).items()}
 
         if endpoint.body_parameter:
-            if endpoint.body_parameter.schema.schema not in self.schemas:
-                self.schemas.register(schema=endpoint.body_parameter.schema.schema)
+            if endpoint.body_parameter.schema is None:
+                # A bare field body, such as a lone `UploadFile`, has no schema to reference. Wrap it in
+                # the single-property object that the field occupies on the wire.
+                body_schema: Schema | Reference = Schema(
+                    {
+                        "type": "object",
+                        "properties": {endpoint.body_parameter.name: endpoint.body_parameter.field.json_schema},
+                        "required": [endpoint.body_parameter.name],
+                    }
+                )
+            else:
+                if endpoint.body_parameter.schema.schema not in self.schemas:
+                    self.schemas.register(schema=endpoint.body_parameter.schema.schema)
 
-            content["application/json"] = MediaType(
-                schema=self.schemas.get_openapi_ref(
+                body_schema = self.schemas.get_openapi_ref(
                     endpoint.body_parameter.schema.schema, multiple=endpoint.body_parameter.multiple
-                ),
-            )
+                )
+
+            content[endpoint.body_parameter.media_type] = MediaType(schema=body_schema)
 
         if not content:
             return None
@@ -739,7 +750,7 @@ class SchemaGenerator:
                 endpoint.path,
             )
 
-        if endpoint.response_parameter.schema.schema:
+        if endpoint.response_parameter.schema is not None and endpoint.response_parameter.schema.schema:
             if endpoint.response_parameter.schema.schema not in self.schemas:
                 self.schemas.register(schema=endpoint.response_parameter.schema.schema)
 

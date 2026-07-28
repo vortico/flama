@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from flama import types
@@ -401,7 +403,50 @@ class TestCaseUploadFile:
 
         assert upload.filename == ""
         assert upload.content_type == "application/octet-stream"
-        assert upload.data == b""
+        assert upload.path is None
+
+    @pytest.mark.parametrize(
+        ["read_first"],
+        [
+            pytest.param(False, id="unread"),
+            pytest.param(True, id="already_read"),
+        ],
+    )
+    async def test_data_is_deprecated(self, upload, read_first):
+        if read_first:
+            await upload.read()
+
+        with pytest.warns(DeprecationWarning):
+            data = upload.data
+
+        # Reading through the deprecated property must not disturb the stream position.
+        assert data == b"hello world"
+        assert await upload.read() == (b"" if read_first else b"hello world")
+
+    @pytest.fixture(scope="function")
+    def spooled(self, tmp_path):
+        path = tmp_path / "spooled.bin"
+        path.write_bytes(b"spooled content")
+        return UploadFile(filename="big.bin", data=b"", path=str(path))
+
+    async def test_spooled_read(self, spooled):
+        assert await spooled.read() == b"spooled content"
+
+    async def test_spooled_close_removes_file(self, spooled):
+        path = spooled.path
+
+        assert os.path.exists(path)
+
+        await spooled.close()
+
+        assert not os.path.exists(path)
+        assert spooled.path is None
+
+    async def test_spooled_close_is_idempotent(self, spooled):
+        await spooled.close()
+        await spooled.close()
+
+        assert spooled.path is None
 
 
 class TestCaseFormData:
@@ -429,6 +474,27 @@ class TestCaseFormData:
         assert form["text"] == "hello"
         assert isinstance(form["file"], UploadFile)
         assert form["file"].filename == "f.txt"
+
+    @pytest.mark.parametrize(
+        ["items", "expected"],
+        [
+            pytest.param([("name", "alice")], {"name": "alice"}, id="single_value"),
+            pytest.param([("name", "alice"), ("age", "30")], {"name": "alice", "age": "30"}, id="several_fields"),
+            pytest.param([("tag", "a"), ("tag", "b")], {"tag": ["a", "b"]}, id="repeated_field_is_a_list"),
+            pytest.param([("tag", "a"), ("tag", "b"), ("tag", "c")], {"tag": ["a", "b", "c"]}, id="three_values"),
+            pytest.param([], {}, id="empty"),
+        ],
+    )
+    def test_to_dict(self, items, expected):
+        assert FormData(items).to_dict() == expected
+
+    def test_to_dict_with_upload_files(self):
+        first = UploadFile(filename="a.txt", data=b"A")
+        second = UploadFile(filename="b.txt", data=b"B")
+
+        result = FormData([("file", first), ("file", second), ("name", "alice")]).to_dict()
+
+        assert result == {"file": [first, second], "name": "alice"}
 
     @pytest.mark.parametrize(
         ["has_file"],

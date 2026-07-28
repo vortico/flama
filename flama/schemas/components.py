@@ -1,7 +1,7 @@
 import typing as t
 
 from flama import codecs, exceptions, http, routing, types
-from flama.http.data_structures import QueryParams
+from flama.http.data_structures import QueryParams, UploadFile
 from flama.injection import Component, Components
 from flama.injection.resolver import Parameter
 from flama.schemas.data_structures import Field, Schema
@@ -16,6 +16,7 @@ __all__ = [
     "ValidateRequestDataComponent",
     "PrimitiveParamComponent",
     "CompositeParamComponent",
+    "FileParamComponent",
     "WebSocketMessageDataComponent",
     "VALIDATION_COMPONENTS",
 ]
@@ -31,9 +32,37 @@ class ValidatedRequestData(dict[str, t.Any]): ...
 
 
 class RequestDataComponent(Component):
-    def __init__(self):
+    """Decode the request body into :class:`~flama.types.RequestData`.
+
+    :param max_files: Maximum file uploads allowed in a multipart body.
+    :param max_fields: Maximum non-file fields allowed in a multipart body.
+    :param spool_threshold: Size in bytes above which an upload is streamed to a temporary file
+        instead of being held in memory.
+    :param max_file_size: Maximum size in bytes of a single upload, unlimited when ``None``.
+    :param max_body_size: Maximum total size in bytes of the request body, unlimited when ``None``.
+    """
+
+    def __init__(
+        self,
+        *,
+        max_files: int = 1000,
+        max_fields: int = 1000,
+        spool_threshold: int = 1024 * 1024,
+        max_file_size: int | None = None,
+        max_body_size: int | None = None,
+    ):
         self.negotiator = codecs.HTTPContentTypeNegotiator(
-            [codecs.JSONDataCodec(), codecs.URLEncodedCodec(), codecs.MultiPartCodec()]
+            [
+                codecs.JSONDataCodec(),
+                codecs.URLEncodedCodec(),
+                codecs.MultiPartCodec(
+                    max_files=max_files,
+                    max_fields=max_fields,
+                    spool_threshold=spool_threshold,
+                    max_file_size=max_file_size,
+                    max_body_size=max_body_size,
+                ),
+            ]
         )
 
     async def resolve(self, request: http.Request) -> types.RequestData:
@@ -127,6 +156,16 @@ class CompositeParamComponent(Component):
             raise exceptions.ValidationError(detail=exc.errors)
 
 
+class FileParamComponent(Component):
+    def resolve(self, parameter: Parameter, data: types.RequestData) -> UploadFile:
+        value = (data.data or {}).get(parameter.name)
+
+        if not isinstance(value, UploadFile):
+            raise exceptions.ValidationError(detail={parameter.name: ["Expected a file upload."]})
+
+        return value
+
+
 class WebSocketMessageDataComponent(Component):
     def __init__(self):
         self.negotiator = codecs.WebSocketEncodingNegotiator(
@@ -149,6 +188,7 @@ VALIDATION_COMPONENTS = Components(
         ValidateRequestDataComponent(),
         PrimitiveParamComponent(),
         CompositeParamComponent(),
+        FileParamComponent(),
         WebSocketMessageDataComponent(),
     ]
 )

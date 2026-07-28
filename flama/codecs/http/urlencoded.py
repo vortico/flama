@@ -13,6 +13,6 @@ class URLEncodedCodec(HTTPCodec):
 
     async def decode(self, item: "Request", **options) -> dict[str, t.Any] | None:
         if form := await item.form():
-            return dict(form)
+            return form.to_dict()
 
         return None

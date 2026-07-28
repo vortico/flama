@@ -6,6 +6,7 @@ import typing as t
 from types import UnionType
 
 from flama import compat, schemas, types
+from flama.http.data_structures import UploadFile
 from flama.injection.resolver import Parameter as InjectionParameter
 
 __all__ = ["Field", "Schema", "Parameter", "Parameters"]
@@ -281,6 +282,31 @@ class Parameter:
         object.__setattr__(self, "schema", schema)
         object.__setattr__(self, "field", field)
         object.__setattr__(self, "multiple", t.get_origin(self.type) in (list, tuple, set, frozenset))
+
+    @property
+    def media_type(self) -> str:
+        """Media type of the request body carrying this parameter.
+
+        A body is multipart as soon as any of its fields is a file upload, because a binary payload
+        cannot be represented in JSON. Only direct fields are inspected: multipart is a flat format,
+        so a file nested inside another schema is not expressible on the wire anyway.
+
+        :return: The media type to advertise for this parameter.
+        """
+        if self.schema is None or self.schema.schema is None:
+            candidates = [self.type]
+        else:
+            candidates = [field_type for field_type, _ in self.schema.fields.values()]
+
+        return "multipart/form-data" if any(self._is_file(x) for x in candidates) else "application/json"
+
+    def _is_file(self, annotation: t.Any) -> bool:
+        """Whether an annotation is a file upload, or a container or union holding one.
+
+        :param annotation: Annotation to inspect.
+        :return: True when a file upload can appear under this annotation.
+        """
+        return annotation is UploadFile or any(self._is_file(arg) for arg in t.get_args(annotation))
 
     @classmethod
     def build(cls, type_: str, parameter: InjectionParameter):
