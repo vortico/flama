@@ -39,7 +39,12 @@ class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
 
         :return: Handlers mapping.
         """
-        return {method: getattr(cls, method.lower(), getattr(cls, "get")) for method in cls.allowed_methods()}
+        # `HEAD` is the only method that may be allowed without a handler of its own, having been added
+        # alongside `GET`, so it is the only one that falls back.
+        return {
+            method: handler if (handler := getattr(cls, method.lower(), None)) is not None else getattr(cls, "get")
+            for method in cls.allowed_methods()
+        }
 
     async def resolve_handler(self) -> t.Callable[..., t.Awaitable[t.Any] | t.Any]:
         """Resolve the handler used for dispatching this request.

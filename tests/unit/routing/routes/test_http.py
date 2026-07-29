@@ -364,3 +364,51 @@ class TestCaseRoute:
 
         with patch.object(BaseRoute, "match", return_value=path_match_return):
             assert route.match(asgi_scope) == result
+
+
+@pytest.mark.parametrize(
+    ["path"],
+    [
+        pytest.param("/search/", id="function_handler"),
+        pytest.param("/endpoint/", id="endpoint_handler"),
+    ],
+)
+class TestCaseQueryMethod:
+    """`QUERY` is safe and idempotent like `GET`, but carries a request body."""
+
+    @pytest.fixture(scope="function", autouse=True)
+    def add_endpoints(self, app):
+        @app.query("/search/")
+        async def search(request_data: types.RequestData):
+            """
+            description: Search with a structured body.
+            responses:
+              200:
+                description: Matches.
+            """
+            return {"criteria": request_data.data}
+
+        @app.route("/endpoint/", methods=["QUERY"])
+        class SearchEndpoint(endpoints.HTTPEndpoint):
+            async def query(self, request_data: types.RequestData):
+                """
+                description: Search from an endpoint.
+                responses:
+                  200:
+                    description: Matches.
+                """
+                return {"criteria": request_data.data}
+
+    async def test_request_carries_a_body(self, client, path):
+        response = await client.request("QUERY", path, json={"name": "puppy", "limit": 5})
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"criteria": {"name": "puppy", "limit": 5}}
+
+    async def test_other_methods_are_rejected(self, client, path):
+        response = await client.get(path)
+
+        assert response.status_code == 405
+
+    def test_operation_is_documented_under_query(self, app, path):
+        assert list(app.schema.schema["paths"][path]) == ["query"]

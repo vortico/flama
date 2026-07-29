@@ -184,6 +184,26 @@ class TestCaseFlama:
             call("/", methods=None, name=None, include_in_schema=True, pagination=None, tags=tags)
         ]
 
+    @pytest.mark.parametrize(
+        ["method"],
+        [pytest.param(m, id=m.lower()) for m in types.ALL_METHODS],
+    )
+    def test_method_shortcuts(self, app, method):
+        """Every method in the literal has a matching pair of route decorators."""
+
+        def foo(): ...
+
+        with patch.object(app, "router", spec=routing.Router) as router_mock:
+            getattr(app, method.lower())("/")(foo)
+            getattr(app, f"add_{method.lower()}")("/", foo)
+
+        assert router_mock.route.call_args_list == [
+            call("/", methods=[method], name=None, include_in_schema=True, pagination=None, tags=None)
+        ]
+        assert router_mock.add_route.call_args_list == [
+            call("/", foo, methods=[method], name=None, include_in_schema=True, route=None, pagination=None, tags=None)
+        ]
+
     def test_add_websocket_route(self, app, tags):
         def foo(): ...
 

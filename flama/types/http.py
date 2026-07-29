@@ -25,7 +25,7 @@ __all__ = [
 ]
 
 
-Method = t.Literal["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"]
+Method = t.Literal["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH", "QUERY"]
 ALL_METHODS: tuple[Method, ...] = t.get_args(Method)
 
 
