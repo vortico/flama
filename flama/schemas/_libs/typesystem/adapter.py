@@ -1,3 +1,4 @@
+import enum
 import inspect
 import itertools
 import typing as t
@@ -6,7 +7,7 @@ import warnings
 import typesystem
 
 from flama.injection import Parameter
-from flama.schemas._libs.typesystem.fields import MAPPING, MAPPING_TYPES
+from flama.schemas._libs.typesystem.fields import MAPPING, MAPPING_TYPES, Enum
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 from flama.types import JSONSchema
@@ -38,12 +39,12 @@ class TypesystemAdapter(Adapter[Schema, Field]):
                 (
                     typesystem.Reference(to=type_.title, definitions=typesystem.Definitions({type_.title: type_}))
                     if self.is_schema(type_)
-                    else MAPPING[type_]()
+                    else self._build_scalar_field(type_)
                 ),
                 **kwargs,
             )
 
-        return MAPPING[type_](**kwargs)
+        return self._build_scalar_field(type_, **kwargs)
 
     def build_schema(  # type: ignore[return-value]
         self,
@@ -111,6 +112,18 @@ class TypesystemAdapter(Adapter[Schema, Field]):
 
     def unique_schema(self, schema: Schema) -> Schema:
         return schema
+
+    def _build_scalar_field(self, type_: type, **kwargs: t.Any) -> Field:
+        """Build the field describing a single value of the given type.
+
+        :param type_: Type of the value.
+        :param kwargs: Arguments forwarded to the field.
+        :return: Field for a single value.
+        """
+        if inspect.isclass(type_) and issubclass(type_, enum.Enum):
+            return Enum(type_, **kwargs)
+
+        return MAPPING[type_](**kwargs)
 
     def _get_field_type(self, field: Field) -> t.Any:
         if isinstance(field, typesystem.Reference):
