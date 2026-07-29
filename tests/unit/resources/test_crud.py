@@ -13,6 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 from flama import types
 from flama.resources.crud import CRUDResource
+from flama.resources.exceptions import ResourceFilterInvalid
 from flama.resources.routing import ResourceRoute
 from flama.resources.workers import FlamaWorker
 from tests.unit.resources.conftest import Model
@@ -770,3 +771,142 @@ class TestCaseCRUDFilters:
 
         assert response.status_code == 200, response.json()
         assert response.json()["data"] == []
+
+
+class TestCaseCRUDDeclaredFilters:
+    """A resource declaring its filters is filtered by those columns, through those operators, and no other."""
+
+    @pytest.fixture(scope="function")
+    async def widget_model(self, app):
+        if app.schema.schema_library.name == "pydantic":
+            schema = pydantic.create_model(
+                "Widget", custom_id=(int | None, None), name=(str, ...), age=(int | None, None)
+            )
+        elif app.schema.schema_library.name == "typesystem":
+            schema = typesystem.Schema(
+                title="Widget",
+                fields={
+                    "custom_id": typesystem.Integer(allow_null=True),
+                    "name": typesystem.String(),
+                    "age": typesystem.Integer(allow_null=True),
+                },
+            )
+        elif app.schema.schema_library.name == "marshmallow":
+            schema = type(
+                "Widget",
+                (marshmallow.Schema,),
+                {
+                    "custom_id": marshmallow.fields.Integer(allow_none=True),
+                    "name": marshmallow.fields.String(),
+                    "age": marshmallow.fields.Integer(allow_none=True),
+                },
+            )
+        else:
+            raise ValueError("Wrong schema lib")
+
+        model = sqlalchemy.Table(
+            "widget",
+            app.sqlalchemy.metadata,
+            sqlalchemy.Column("custom_id", sqlalchemy.Integer, primary_key=True, autoincrement=True),
+            sqlalchemy.Column("name", sqlalchemy.String, nullable=False),
+            sqlalchemy.Column("age", sqlalchemy.Integer, nullable=True),
+            sqlalchemy.Column("secret", sqlalchemy.String, nullable=True),
+        )
+
+        return Model(model=model, schema=schema, name="widget")
+
+    @pytest.fixture(scope="function")
+    async def tables(self, widget_model):
+        return [widget_model.model]
+
+    @pytest.fixture(scope="function", autouse=True)
+    def add_resource(self, app, widget_model):
+        class WidgetResource(CRUDResource):
+            model = widget_model.model
+            schema = widget_model.schema
+            name = widget_model.name
+
+            filters = {"name": ("eq", "contains"), "age": ("eq", "gte", "lte", "in", "isnull")}
+
+        app.resources.add_resource("/widget/", WidgetResource())
+
+    def test_declaration_narrows_the_surface(self, app):
+        resource_route = next(route for route in app.routes if route.path == "/widget/")
+        list_route = next(route for route in resource_route.routes if route.path == "/" and "GET" in route.methods)
+
+        # `secret` is a perfectly filterable column that the resource chose not to offer.
+        assert sorted(list_route.parameters.query["GET"]) == [
+            "age",
+            "count",
+            "name",
+            "order_by",
+            "order_direction",
+            "page",
+            "page_size",
+        ]
+
+    @pytest.fixture(scope="function")
+    async def widgets(self, client):
+        for name, age in (("alpha", 2), ("beta", 6), ("gamma", 11), ("delta", None)):
+            response = await client.request("post", "/widget/", json={"name": name, "age": age})
+            assert response.status_code == 201, response.json()
+
+    @pytest.mark.parametrize(
+        ["query", "expected"],
+        [
+            pytest.param({}, ["alpha", "beta", "gamma", "delta"], id="unfiltered"),
+            pytest.param({"age": "6"}, ["beta"], id="bare_value_is_equality"),
+            pytest.param({"age": "gte:6"}, ["beta", "gamma"], id="operator"),
+            # Naming a column twice narrows it, which is how a range is asked for.
+            pytest.param({"age": ["gte:6", "lte:10"]}, ["beta"], id="range"),
+            # Naming it twice with an aggregating operator offers alternatives instead.
+            pytest.param({"age": ["in:2", "in:11"]}, ["alpha", "gamma"], id="membership"),
+            pytest.param({"age": "isnull"}, ["delta"], id="null"),
+            pytest.param({"age": "not:isnull"}, ["alpha", "beta", "gamma"], id="not_null"),
+            pytest.param({"name": "contains:mm"}, ["gamma"], id="pattern"),
+            pytest.param({"name": "not:contains:a"}, [], id="negated_pattern"),
+            pytest.param({"name": "beta", "age": "gte:6"}, ["beta"], id="two_columns"),
+        ],
+    )
+    async def test_list_filter(self, client, widgets, query, expected):
+        response = await client.request("get", "/widget/", params=query)
+
+        assert response.status_code == 200, response.json()
+        assert [x["name"] for x in response.json()["data"]] == expected
+
+    @pytest.mark.parametrize(
+        ["query", "detail"],
+        [
+            pytest.param(
+                {"name": "gte:x"},
+                {"name": ["Operator 'gte' is not available, expected one of: 'eq', 'contains'."]},
+                id="operator_not_granted",
+            ),
+            pytest.param({"age": "gte"}, {"age": ["Operator 'gte' expects a value."]}, id="value_missing"),
+            pytest.param(
+                {"age": "isnull:yes"}, {"age": ["Operator 'isnull' expects no value."]}, id="value_unexpected"
+            ),
+            # The wording comes from the schema library, so only the refusal itself is shared by all three.
+            pytest.param({"age": "gte:old"}, None, id="value_the_column_cannot_hold"),
+        ],
+    )
+    async def test_list_filter_rejected(self, client, widgets, query, detail):
+        response = await client.request("get", "/widget/", params=query)
+
+        assert response.status_code == 400, response.json()
+
+        if detail is not None:
+            assert response.json()["detail"] == detail
+
+    def test_declaring_an_impossible_filter_fails_where_it_is_declared(self, app, widget_model):
+        with pytest.raises(
+            ResourceFilterInvalid,
+            match="BrokenResource cannot be filtered by 'age' because operator 'contains' cannot compare what it holds",
+        ):
+
+            class BrokenResource(CRUDResource):
+                model = widget_model.model
+                schema = widget_model.schema
+                name = "broken"
+
+                filters = {"age": ("contains",)}

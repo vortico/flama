@@ -1,4 +1,3 @@
-import builtins
 import inspect
 import typing as t
 from http import HTTPStatus
@@ -7,10 +6,10 @@ from flama import exceptions, schemas, types
 from flama.ddd import exceptions as ddd_exceptions
 from flama.http.responses.api import APIResponse
 from flama.resources import data_structures
+from flama.resources.filtering import Filters
 from flama.resources.rest import RESTResource, RESTResourceType
 from flama.resources.routing import ResourceRoute
 from flama.resources.workers import FlamaWorker
-from flama.schemas.data_structures import Field
 
 __all__ = ["CreateMixin", "RetrieveMixin", "UpdateMixin", "DeleteMixin", "ListMixin", "DropMixin", "CRUDResourceType"]
 
@@ -254,6 +253,7 @@ class ListMixin:
         verbose_name: str,
         rest_schemas: data_structures.Schemas,
         rest_model: data_structures.Model,
+        rest_filters: Filters,
         **kwargs,
     ) -> dict[str, t.Any]:
         async def list(
@@ -263,53 +263,30 @@ class ListMixin:
             order_direction: str = "asc",
             **kwargs,
         ) -> t.Annotated[types.SchemaList, types.SchemaMetadata(rest_schemas.output.schema)]:
-            filters = {k: v for k, v in kwargs.items() if v is not None}
+            clauses = rest_filters.clauses(kwargs)
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 return [  # type: ignore[return-value]
                     x
                     async for x in repository.list(
+                        *clauses,
                         order_by=order_by,
                         order_direction=t.cast(t.Literal["asc", "desc"], order_direction),
-                        **filters,
                     )
                 ]
 
         # Filters are declared on the signature, because parameter discovery, validation, and injection
         # are all signature driven: an undeclared query parameter never reaches the handler.
         _signature = inspect.signature(list)
+        # A column sharing a name with an ordering or pagination parameter cannot be told apart from it
+        # in a query string.
         _reserved = {*_signature.parameters, "page", "page_size", "count", "offset", "limit"}
-        _filters: builtins.list[inspect.Parameter] = []
-        for _column in rest_model.table.columns:
-            # The primary key is served by the retrieve route, and a column sharing a name with an
-            # ordering or pagination parameter cannot be told apart from it in a query string.
-            if _column.name == rest_model.primary_key.name or _column.name in _reserved:
-                continue
-
-            try:
-                # Built as a value, since the column type is only known at runtime.
-                _annotation = t.cast("type", _column.type.python_type) | None
-            except NotImplementedError:  # A column type naming no Python equivalent, as a custom one may not.
-                continue
-
-            # Only a column whose values a query string can carry becomes a filter. One that cannot be
-            # expressed there is left out, rather than making every request to the collection fail.
-            if not Field.is_http_valid_type(_annotation):
-                continue
-
-            # Positional-or-keyword to match the parameters the paginator appends after these.
-            _filters.append(
-                inspect.Parameter(
-                    _column.name, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None, annotation=_annotation
-                )
-            )
 
         list.__signature__ = inspect.Signature(  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
             parameters=[
                 *[p for n, p in _signature.parameters.items() if n != "kwargs"],
-                *_filters,
-                # The paginator requires a `**kwargs` to forward through, and drops it from the signature
-                # it publishes.
+                *rest_filters.parameters(exclude=_reserved),
+                # The paginator requires a `**kwargs` to forward through, and drops it from the signature it publishes.
                 _signature.parameters["kwargs"],
             ],
             return_annotation=_signature.return_annotation,

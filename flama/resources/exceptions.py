@@ -9,6 +9,7 @@ __all__ = [
     "ResourceModelInvalid",
     "ResourcePrimaryKeyNotFound",
     "ResourcePrimaryKeyInvalid",
+    "ResourceFilterInvalid",
     "ResourceServingLayerUnknown",
     "ResourceServingMethodInvalidPrefix",
 ]
@@ -74,6 +75,13 @@ class ResourcePrimaryKeyInvalid(ResourceError):
 
     def __init__(self, name: str) -> None:
         super().__init__(name, "model primary key wrong type")
+
+
+class ResourceFilterInvalid(ResourceError):
+    """REST resource declares a filter its model cannot answer."""
+
+    def __init__(self, name: str, column: str, reason: str) -> None:
+        super().__init__(name, f"cannot be filtered by '{column}' because {reason}")
 
 
 class ResourceServingLayerUnknown(ResourceError):

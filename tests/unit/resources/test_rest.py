@@ -33,6 +33,8 @@ class TestCaseRESTResource:
         assert puppy_resource._meta.verbose_name == "Puppy"
         namespaces = puppy_resource._meta.namespaces
         ddd_namespace = namespaces.pop("ddd")
+        # Declaring no filters asks for the default surface, equality on every column but the key.
+        assert set(namespaces["rest"].pop("filters").filters) == {"name", "age", "owner"}
 
         assert list(ddd_namespace.keys()) == ["repository"]
         assert issubclass(ddd_namespace["repository"], SQLAlchemyRepository)
