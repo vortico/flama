@@ -383,6 +383,7 @@ class Flama(types.App):
     options = functools.partialmethod(route, methods=["OPTIONS"])
     trace = functools.partialmethod(route, methods=["TRACE"])
     patch = functools.partialmethod(route, methods=["PATCH"])
+    query = functools.partialmethod(route, methods=["QUERY"])
     add_get = functools.partialmethod(add_route, methods=["GET"])
     add_head = functools.partialmethod(add_route, methods=["HEAD"])
     add_post = functools.partialmethod(add_route, methods=["POST"])
@@ -392,3 +393,4 @@ class Flama(types.App):
     add_options = functools.partialmethod(add_route, methods=["OPTIONS"])
     add_trace = functools.partialmethod(add_route, methods=["TRACE"])
     add_patch = functools.partialmethod(add_route, methods=["PATCH"])
+    add_query = functools.partialmethod(add_route, methods=["QUERY"])

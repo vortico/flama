@@ -135,6 +135,24 @@ class TestCaseHTTPEndpoint:
 
         assert BarEndpoint.allowed_methods() == {"POST"}
 
+        class QueryEndpoint(endpoints.HTTPEndpoint):
+            def query(self): ...
+
+        assert QueryEndpoint.allowed_methods() == {"QUERY"}
+
+    def test_allowed_handlers(self):
+        """Only `HEAD` may be allowed without a handler of its own, so only it falls back to `get`."""
+
+        class GetEndpoint(endpoints.HTTPEndpoint):
+            def get(self): ...
+
+        assert GetEndpoint.allowed_handlers() == {"GET": GetEndpoint.get, "HEAD": GetEndpoint.get}
+
+        class QueryEndpoint(endpoints.HTTPEndpoint):
+            def query(self): ...
+
+        assert QueryEndpoint.allowed_handlers() == {"QUERY": QueryEndpoint.query}
+
     async def test_resolve_handler(self, endpoint):
         endpoint.state.request.scope["method"] = "GET"
         assert await endpoint.resolve_handler() == endpoint.get
