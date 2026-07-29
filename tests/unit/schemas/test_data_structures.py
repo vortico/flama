@@ -62,6 +62,19 @@ class TestCaseField:
                 },
                 id="multiple",
             ),
+            # Optionality says whether a value is required, never what it is, so it must not hide the list.
+            pytest.param(
+                {"name": "foo", "type": list[int] | None},
+                {
+                    "name": "foo",
+                    "type": list[int] | None,
+                    "nullable": True,
+                    "multiple": True,
+                    "required": True,
+                    "default": InjectionParameter.empty,
+                },
+                id="nullable_multiple",
+            ),
         ),
     )
     def test_init(self, params, result):
@@ -101,6 +114,13 @@ class TestCaseField:
             pytest.param(_Colour, True, id="enum"),
             pytest.param(_Colour | None, True, id="nullable_enum"),
             pytest.param(list[_Colour], True, id="list_of_enum"),
+            pytest.param(list[int] | None, True, id="nullable_list"),
+            pytest.param(list[_Colour] | None, True, id="nullable_list_of_enum"),
+            # The same type however it is spelled, so where `None` sits in the union cannot matter.
+            pytest.param(None | int, True, id="nullable_reversed"),
+            pytest.param(None | list[int], True, id="nullable_list_reversed"),
+            # A union still naming several types once `None` is out describes no single value.
+            pytest.param(int | str | None, False, id="nullable_union_of_two_types"),
             pytest.param(Mock, False, id="not_valid"),
             pytest.param(dict[str, int], False, id="mapping"),
             pytest.param(int | str, False, id="union_of_two_types"),

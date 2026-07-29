@@ -1,3 +1,4 @@
+from flama.types.annotations import *  # noqa
 from flama.types.applications import *  # noqa
 from flama.types.asgi import *  # noqa
 from flama.types.config import *  # noqa

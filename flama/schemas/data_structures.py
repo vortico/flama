@@ -33,13 +33,13 @@ class Field:
     default: t.Any = InjectionParameter.empty
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "nullable", type(None) in t.get_args(self.type) or self.default is None)
+        annotation = types.Annotation(self.type)
+        field_type = annotation.element(list)
 
-        origin = t.get_origin(self.type)
-        field_type = t.get_args(self.type)[0] if origin in (t.Union, UnionType, list) else self.type
+        object.__setattr__(self, "nullable", annotation.optional or self.default is None)
 
         if not Schema.is_schema(field_type) and self.multiple is None:
-            object.__setattr__(self, "multiple", origin is list)
+            object.__setattr__(self, "multiple", annotation.is_multiple(list))
 
         object.__setattr__(
             self,
@@ -94,17 +94,13 @@ class Field:
         :param type_: Annotation to check, which a union or a subscription makes something other than a type.
         :return: True if a parameter of this type can be read from a request.
         """
-        origin = t.get_origin(type_)
-        args = t.get_args(type_)
+        carried = types.Annotation(type_).element(list)
 
-        if origin in (t.Union, UnionType) and len(args) == 2 and args[1] is type(None):
-            type_ = args[0]
-        elif origin is list and args:
-            type_ = args[0]
-        elif origin is not None:
+        # Anything still generic once the list is unwrapped names no single value, so nothing can carry it.
+        if t.get_origin(carried) is not None:
             return False
 
-        return type_ in types.PARAMETERS_TYPES or (inspect.isclass(type_) and issubclass(type_, enum.Enum))
+        return carried in types.PARAMETERS_TYPES or (inspect.isclass(carried) and issubclass(carried, enum.Enum))
 
     @property
     def json_schema(self) -> types.JSONSchema:
@@ -274,7 +270,9 @@ class Parameter:
     response: "type[Response] | None" = dataclasses.field(hash=False, init=False, compare=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "nullable", type(None) in t.get_args(self.type) or self.default is None)
+        annotation = types.Annotation(self.type)
+
+        object.__setattr__(self, "nullable", annotation.optional or self.default is None)
 
         origin = t.get_origin(self.type) or self.type
         response = origin if inspect.isclass(origin) and issubclass(origin, Response) else None
@@ -303,7 +301,7 @@ class Parameter:
         object.__setattr__(self, "schema", schema)
         object.__setattr__(self, "field", field)
         object.__setattr__(self, "response", response)
-        object.__setattr__(self, "multiple", t.get_origin(self.type) in (list, tuple, set, frozenset))
+        object.__setattr__(self, "multiple", annotation.is_multiple(list, tuple, set, frozenset))
 
     @property
     def media_type(self) -> str | None:
