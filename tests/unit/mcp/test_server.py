@@ -198,6 +198,13 @@ class TestCaseMCPServer:
             pytest.param(list[int], {"type": "array", "items": {"type": "integer"}}, id="sequence"),
             pytest.param(dict[str, int], {"type": "object", "additionalProperties": {"type": "integer"}}, id="mapping"),
             pytest.param(type(None), None, id="none"),
+            pytest.param(int | None, {"anyOf": [{"type": "integer"}, {"type": "null"}]}, id="optional_primitive"),
+            # An optional sequence still returns a sequence, and must not be read as a single value.
+            pytest.param(
+                list[int] | None,
+                {"anyOf": [{"type": "array", "items": {"type": "integer"}}, {"type": "null"}]},
+                id="optional_sequence",
+            ),
         ),
     )
     def test_output_schema(self, annotation, expected):

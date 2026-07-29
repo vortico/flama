@@ -2,6 +2,7 @@ import dataclasses
 import inspect
 import typing as t
 
+from flama import types
 from flama.mcp.data_structures import AppTemplate, Elicitation, Extensions
 from flama.mcp.tasks import InMemoryTaskStore, TaskStore
 from flama.schemas.data_structures import Field, Schema
@@ -216,13 +217,12 @@ class MCPServer:
         if annotation in (inspect.Signature.empty, None, type(None)):
             return None
 
-        multiple = t.get_origin(annotation) in (list, tuple, set, frozenset)
-
         try:
             schema = Schema.from_type(annotation)
         except ValueError:
-            element = t.get_args(annotation)[0] if multiple else annotation
-            return Field("output", element, multiple=multiple).json_schema
+            return Field("output", annotation).json_schema
+
+        multiple = types.Annotation(annotation).is_multiple(list, tuple, set, frozenset)
 
         return SchemaRegistry.bundle(schema.schema, multiple=multiple)
 

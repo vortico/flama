@@ -292,6 +292,11 @@ class TestCaseListQueryParamsValidation:
             assert isinstance(param, list)
             return {"param": param}
 
+        @app.route("/optional-list-query-param/")
+        def optional_list_query_param(param: list[int] | None = None):
+            assert param is None or isinstance(param, list)
+            return {"param": param}
+
     @pytest.mark.parametrize(
         ["query", "expected"],
         [
@@ -332,6 +337,21 @@ class TestCaseListQueryParamsValidation:
     )
     async def test_list_query_param_with_mutable_default(self, client, query, expected):
         response = await client.get(f"/list-query-param-default/{query}")
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"param": expected}
+
+    @pytest.mark.parametrize(
+        ["query", "expected"],
+        [
+            # Making a list optional must not turn it back into a scalar.
+            pytest.param("?param=1&param=2", [1, 2], id="repeated"),
+            pytest.param("?param=7", [7], id="single_occurrence"),
+            pytest.param("", None, id="absent"),
+        ],
+    )
+    async def test_optional_list_query_param(self, client, query, expected):
+        response = await client.get(f"/optional-list-query-param/{query}")
 
         assert response.status_code == 200, response.text
         assert response.json() == {"param": expected}

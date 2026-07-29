@@ -146,10 +146,7 @@ class PrimitiveParamComponent(Component):
 
 class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: Parameter):
-        schema = (
-            t.get_args(parameter.annotation)[0] if t.get_origin(parameter.annotation) == list else parameter.annotation
-        )
-        return types.is_schema(schema)
+        return types.is_schema(types.Annotation(parameter.annotation).element(list))
 
     def resolve(self, parameter: Parameter, request: http.Request, route: routing.BaseRoute, data: types.RequestData):
         body_param = route.parameters.body[request.method]
