@@ -1,5 +1,6 @@
 import datetime
 import decimal
+import enum
 import functools
 import typing as t
 import uuid
@@ -14,6 +15,11 @@ from flama.schemas.data_structures import Field, Parameter, ParameterLocation, S
 from tests._utils import assert_recursive_contains
 
 Unknown = t.NewType("Unknown", None)
+
+
+class _Colour(enum.Enum):
+    red = "red"
+    blue = "blue"
 
 
 class TestCaseField:
@@ -91,7 +97,13 @@ class TestCaseField:
             pytest.param(types.PathParam, True, id="path_param"),
             pytest.param(int | None, True, id="nullable"),
             pytest.param(list[int], True, id="list"),
+            # An enum is a string constrained to its values, so it qualifies wherever a primitive does.
+            pytest.param(_Colour, True, id="enum"),
+            pytest.param(_Colour | None, True, id="nullable_enum"),
+            pytest.param(list[_Colour], True, id="list_of_enum"),
             pytest.param(Mock, False, id="not_valid"),
+            pytest.param(dict[str, int], False, id="mapping"),
+            pytest.param(int | str, False, id="union_of_two_types"),
         ),
     )
     def test_is_http_valid_type(self, type_, result):

@@ -1,4 +1,5 @@
 import datetime
+import enum
 import typing as t
 import uuid
 
@@ -17,6 +18,13 @@ from flama.resources.workers import FlamaWorker
 from tests.unit.resources.conftest import Model
 
 DATABASE_URL = "sqlite+aiosqlite://"
+
+
+class _Status(enum.Enum):
+    """A column type a query string can carry, unlike the other non-primitive ones."""
+
+    available = "available"
+    broken = "broken"
 
 
 @pytest.fixture(scope="function")
@@ -690,3 +698,75 @@ class TestCaseCRUDUniqueConstraint:
         # PATCH row 2's name to one already owned by row 1
         response = await client.request("patch", "/unique_name/2/", json={"name": "a"})
         assert response.status_code == 400, response.json()
+
+
+class TestCaseCRUDFilters:
+    """A collection is filtered through the columns a query string can carry, and only through those."""
+
+    @pytest.fixture(scope="function")
+    async def gadget_model(self, app):
+        if app.schema.schema_library.name == "pydantic":
+            schema = pydantic.create_model("Gadget", custom_id=(int | None, None), name=(str, ...))
+        elif app.schema.schema_library.name == "typesystem":
+            schema = typesystem.Schema(
+                title="Gadget",
+                fields={"custom_id": typesystem.Integer(allow_null=True), "name": typesystem.String()},
+            )
+        elif app.schema.schema_library.name == "marshmallow":
+            schema = type(
+                "Gadget",
+                (marshmallow.Schema,),
+                {"custom_id": marshmallow.fields.Integer(allow_none=True), "name": marshmallow.fields.String()},
+            )
+        else:
+            raise ValueError("Wrong schema lib")
+
+        model = sqlalchemy.Table(
+            "gadget",
+            app.sqlalchemy.metadata,
+            sqlalchemy.Column("custom_id", sqlalchemy.Integer, primary_key=True, autoincrement=True),
+            sqlalchemy.Column("name", sqlalchemy.String, nullable=False),
+            sqlalchemy.Column("status", sqlalchemy.Enum(_Status), nullable=True),
+            # None of these can be written in a query string, so none of them is a filter.
+            sqlalchemy.Column("payload", sqlalchemy.JSON, nullable=True),
+            sqlalchemy.Column("blob", sqlalchemy.LargeBinary, nullable=True),
+            sqlalchemy.Column("span", sqlalchemy.Interval, nullable=True),
+        )
+
+        return Model(model=model, schema=schema, name="gadget")
+
+    @pytest.fixture(scope="function")
+    async def tables(self, gadget_model):
+        return [gadget_model.model]
+
+    @pytest.fixture(scope="function", autouse=True)
+    def add_resource(self, app, gadget_model):
+        class GadgetResource(CRUDResource):
+            model = gadget_model.model
+            schema = gadget_model.schema
+            name = gadget_model.name
+
+        app.resources.add_resource("/gadget/", GadgetResource())
+
+    def test_only_expressible_columns_become_filters(self, app):
+        resource_route = next(route for route in app.routes if route.path == "/gadget/")
+        list_route = next(route for route in resource_route.routes if route.path == "/" and "GET" in route.methods)
+
+        # The primary key is served by the retrieve route, and the remaining columns have no query string
+        # representation, so neither kind is offered alongside the ordering and pagination parameters.
+        assert sorted(list_route.parameters.query["GET"]) == [
+            "count",
+            "name",
+            "order_by",
+            "order_direction",
+            "page",
+            "page_size",
+            "status",
+        ]
+
+    async def test_list_serves_a_table_holding_columns_that_cannot_be_filters(self, client):
+        """A column nobody filters by must not break the requests that never mention it."""
+        response = await client.request("get", "/gadget/")
+
+        assert response.status_code == 200, response.json()
+        assert response.json()["data"] == []

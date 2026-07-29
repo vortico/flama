@@ -1,4 +1,3 @@
-import builtins
 import dataclasses
 import enum
 import inspect
@@ -85,21 +84,27 @@ class Field:
         return schemas.adapter.is_field(obj)
 
     @classmethod
-    def is_http_valid_type(cls, type_: builtins.type) -> bool:
+    def is_http_valid_type(cls, type_: t.Any) -> bool:
+        """Whether a type can be carried by a query or path parameter.
+
+        An optional or repeated parameter is described by the type it wraps, so both are unwrapped down to the
+        type actually travelling on the wire. An enum qualifies wherever a primitive does, being a string
+        constrained to the set of its values.
+
+        :param type_: Annotation to check, which a union or a subscription makes something other than a type.
+        :return: True if a parameter of this type can be read from a request.
+        """
         origin = t.get_origin(type_)
         args = t.get_args(type_)
-        NoneType = type(None)
 
-        return (
-            (type_ in types.PARAMETERS_TYPES)
-            or (
-                origin in (t.Union, UnionType)
-                and len(args) == 2
-                and args[0] in types.PARAMETERS_TYPES
-                and args[1] is NoneType
-            )
-            or (origin is list and args[0] in types.PARAMETERS_TYPES)
-        )
+        if origin in (t.Union, UnionType) and len(args) == 2 and args[1] is type(None):
+            type_ = args[0]
+        elif origin is list and args:
+            type_ = args[0]
+        elif origin is not None:
+            return False
+
+        return type_ in types.PARAMETERS_TYPES or (inspect.isclass(type_) and issubclass(type_, enum.Enum))
 
     @property
     def json_schema(self) -> types.JSONSchema:

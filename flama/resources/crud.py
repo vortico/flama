@@ -1,3 +1,4 @@
+import builtins
 import inspect
 import typing as t
 from http import HTTPStatus
@@ -9,6 +10,7 @@ from flama.resources import data_structures
 from flama.resources.rest import RESTResource, RESTResourceType
 from flama.resources.routing import ResourceRoute
 from flama.resources.workers import FlamaWorker
+from flama.schemas.data_structures import Field
 
 __all__ = ["CreateMixin", "RetrieveMixin", "UpdateMixin", "DeleteMixin", "ListMixin", "DropMixin", "CRUDResourceType"]
 
@@ -277,27 +279,35 @@ class ListMixin:
         # are all signature driven: an undeclared query parameter never reaches the handler.
         _signature = inspect.signature(list)
         _reserved = {*_signature.parameters, "page", "page_size", "count", "offset", "limit"}
-        _filterable = [
-            column
-            for column in rest_model.table.columns
+        _filters: builtins.list[inspect.Parameter] = []
+        for _column in rest_model.table.columns:
             # The primary key is served by the retrieve route, and a column sharing a name with an
             # ordering or pagination parameter cannot be told apart from it in a query string.
-            if column.name != rest_model.primary_key.name and column.name not in _reserved
-        ]
+            if _column.name == rest_model.primary_key.name or _column.name in _reserved:
+                continue
+
+            try:
+                # Built as a value, since the column type is only known at runtime.
+                _annotation = t.cast("type", _column.type.python_type) | None
+            except NotImplementedError:  # A column type naming no Python equivalent, as a custom one may not.
+                continue
+
+            # Only a column whose values a query string can carry becomes a filter. One that cannot be
+            # expressed there is left out, rather than making every request to the collection fail.
+            if not Field.is_http_valid_type(_annotation):
+                continue
+
+            # Positional-or-keyword to match the parameters the paginator appends after these.
+            _filters.append(
+                inspect.Parameter(
+                    _column.name, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None, annotation=_annotation
+                )
+            )
+
         list.__signature__ = inspect.Signature(  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
             parameters=[
                 *[p for n, p in _signature.parameters.items() if n != "kwargs"],
-                *[
-                    # Positional-or-keyword to match the parameters the paginator appends after these.
-                    inspect.Parameter(
-                        column.name,
-                        inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                        default=None,
-                        # Built as a value, since the column type is only known at runtime.
-                        annotation=t.cast("type", column.type.python_type) | None,
-                    )
-                    for column in _filterable
-                ],
+                *_filters,
                 # The paginator requires a `**kwargs` to forward through, and drops it from the signature
                 # it publishes.
                 _signature.parameters["kwargs"],

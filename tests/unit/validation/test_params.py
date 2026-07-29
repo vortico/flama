@@ -1,9 +1,15 @@
 import datetime
 import decimal
+import enum
 
 import pytest
 
 from flama.injection.exceptions import ComponentNotFound
+
+
+class _Colour(enum.Enum):
+    red = "red"
+    blue = "blue"
 
 
 class TestCaseParamsValidation:
@@ -329,3 +335,46 @@ class TestCaseListQueryParamsValidation:
 
         assert response.status_code == 200, response.text
         assert response.json() == {"param": expected}
+
+
+class TestCaseEnumParamsValidation:
+    """An enum travels as the plain text of its value, in a query string as much as in a path."""
+
+    @pytest.fixture(scope="function", autouse=True)
+    def add_endpoints(self, app):
+        @app.route("/enum-query-param/")
+        def enum_query_param(param: _Colour):
+            assert isinstance(param, _Colour)
+            return {"param": param.value}
+
+        @app.route("/optional-enum-query-param/")
+        def optional_enum_query_param(param: _Colour | None = None):
+            assert param is None or isinstance(param, _Colour)
+            return {"param": param.value if param else None}
+
+        @app.route("/enum-path-param/{param}/")
+        def enum_path_param(param: _Colour):
+            assert isinstance(param, _Colour)
+            return {"param": param.value}
+
+    @pytest.mark.parametrize(
+        ["path", "query", "status_code", "expected"],
+        [
+            pytest.param("/enum-query-param/", "?param=red", 200, {"param": "red"}, id="query_by_value"),
+            # A member is addressed by its value, so its name is not a second way to name it.
+            pytest.param("/enum-query-param/", "?param=RED", 400, None, id="query_by_name_is_rejected"),
+            pytest.param("/enum-query-param/", "?param=green", 400, None, id="query_outside_the_value_set"),
+            pytest.param("/enum-query-param/", "", 400, None, id="query_missing"),
+            pytest.param("/optional-enum-query-param/", "?param=blue", 200, {"param": "blue"}, id="optional_given"),
+            pytest.param("/optional-enum-query-param/", "", 200, {"param": None}, id="optional_absent"),
+            pytest.param("/enum-path-param/red/", "", 200, {"param": "red"}, id="path_by_value"),
+            pytest.param("/enum-path-param/green/", "", 400, None, id="path_outside_the_value_set"),
+        ],
+    )
+    async def test_enum_param(self, client, path, query, status_code, expected):
+        response = await client.get(f"{path}{query}")
+
+        assert response.status_code == status_code, response.text
+
+        if expected is not None:
+            assert response.json() == expected

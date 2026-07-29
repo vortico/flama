@@ -1,3 +1,4 @@
+import enum
 import inspect
 import itertools
 import typing as t
@@ -43,11 +44,11 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
         if multiple:
             return marshmallow.fields.List(
-                marshmallow.fields.Nested(type_) if self.is_schema(type_) else MAPPING[type_](),
+                marshmallow.fields.Nested(type_) if self.is_schema(type_) else self._build_scalar_field(type_),
                 **field_args,
             )
 
-        return MAPPING[type_](**field_args)  # ty: ignore[invalid-argument-type]
+        return self._build_scalar_field(type_, **field_args)
 
     def build_schema(
         self,
@@ -133,6 +134,19 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
             return schema.__class__
 
         return schema
+
+    def _build_scalar_field(self, type_: type, **kwargs: t.Any) -> Field:
+        """Build the field describing a single value of the given type.
+
+        :param type_: Type of the value.
+        :param kwargs: Arguments forwarded to the field.
+        :return: Field for a single value.
+        """
+        if inspect.isclass(type_) and issubclass(type_, enum.Enum):
+            # Addressed by value, which is the form a member takes on the wire.
+            return marshmallow.fields.Enum(type_, by_value=True, **kwargs)
+
+        return MAPPING[type_](**kwargs)
 
     def _get_field_type(self, field: Field) -> t.Any:
         if isinstance(field, marshmallow.fields.Nested):
