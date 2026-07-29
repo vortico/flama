@@ -134,23 +134,54 @@ class PydanticAdapter(Adapter[Schema, Field]):
         try:
             if self.is_schema(schema):
                 json_schema = model_json_schema(schema, ref_template="#/components/schemas/{model}")
-                if "$defs" in json_schema:
-                    del json_schema["$defs"]
+                definitions = json_schema.pop("$defs", {})
             elif self.is_field(schema):
-                json_schema = model_json_schema(
+                document = model_json_schema(
                     self.build_schema(fields={"x": schema}), ref_template="#/components/schemas/{model}"
-                )["properties"]["x"]
+                )
+                definitions = document.pop("$defs", {})
+                json_schema = document["properties"]["x"]
                 if not schema.title:  # Pydantic is introducing a default title, so we drop it
-                    del json_schema["title"]
+                    json_schema.pop("title", None)
             else:
                 raise TypeError("Not a valid schema class or field")
 
-            return json_schema
+            # A nested schema is published as a component of its own, so dropping its definition here leaves a
+            # reference that still resolves. A value set is not a schema and nothing publishes it, so it is
+            # inlined instead of dropped.
+            return t.cast(
+                JSONSchema,
+                self._inline_definitions(json_schema, {k: v for k, v in definitions.items() if "enum" in v}),
+            )
         except Exception as e:
             raise SchemaGenerationError from e
 
     def unique_schema(self, schema: Schema | type[Schema]) -> type[Schema]:
         return schema.__class__ if isinstance(schema, Schema) else schema
+
+    def _inline_definitions(self, schema: t.Any, definitions: dict[str, t.Any]) -> t.Any:
+        """Replace every reference to one of ``definitions`` with the definition itself.
+
+        Keys already present next to the reference win over the definition, so a sibling such as a default is
+        not lost when the reference it accompanies is expanded.
+
+        :param schema: JSON Schema to walk.
+        :param definitions: Definitions to inline, keyed by the name their references carry.
+        :return: JSON Schema holding no reference to any of the given definitions.
+        """
+        if not definitions:
+            return schema
+
+        if isinstance(schema, dict):
+            if (ref := schema.get("$ref")) and (definition := definitions.get(ref.rsplit("/", 1)[1])):
+                return {**definition, **{k: v for k, v in schema.items() if k != "$ref"}}
+
+            return {k: self._inline_definitions(v, definitions) for k, v in schema.items()}
+
+        if isinstance(schema, list):
+            return [self._inline_definitions(x, definitions) for x in schema]
+
+        return schema
 
     def _get_field_type(self, field: Field) -> t.Any:
         if not self.is_field(field):
