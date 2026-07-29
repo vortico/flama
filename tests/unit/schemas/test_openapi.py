@@ -1,4 +1,7 @@
 import dataclasses
+import enum
+import json
+import re
 import threading
 import typing as t
 from collections import namedtuple
@@ -51,6 +54,19 @@ class _RecursiveNode(pydantic.BaseModel):
 
     id: int
     children: list["_RecursiveNode"] = []
+
+
+class _Status(enum.Enum):
+    """An enum whose member names differ from their values, so resolving by either is distinguishable."""
+
+    AVAILABLE = "available"
+    ADOPTED = "adopted"
+
+
+class _EnumNode(pydantic.BaseModel):
+    """A model carrying an enum, which pydantic emits as a definition of its own rather than in place."""
+
+    status: _Status
 
 
 class TestCaseOpenAPISpec:
@@ -2231,6 +2247,30 @@ class TestCaseSchemaGenerator:
         assert "_RecursiveNode" in node_key
         # The recursive model references itself within the generated component schema.
         assert "_RecursiveNode" in str(schemas[node_key])
+
+    def test_schema_references_resolve(self, app):
+        """A reference to a component that the document never declares makes the whole document unusable."""
+        schema = app.schema.schema
+        references = set(re.findall(r'"\$ref": "([^"]+)"', json.dumps(schema)))
+
+        assert references, "the document declares no reference, so nothing is being checked"
+        assert {r for r in references if not r.startswith("#/components/schemas/")} == set()
+        assert {r.rsplit("/", 1)[1] for r in references} <= set(schema["components"]["schemas"])
+
+    def test_enum_is_described_where_it_is_used(self, app):
+        """An enum is not published as a component, so a reference to one would never resolve."""
+        if app.schema.schema_library.name != "pydantic":
+            pytest.skip("Only pydantic emits an enum as a definition of its own")
+
+        @app.route("/enum/", methods=["GET"])
+        def get_enum() -> t.Annotated[types.Schema, types.SchemaMetadata(_EnumNode)]: ...  # pragma: no cover
+
+        schema = app.schema.schema
+        node = next(v for k, v in schema["components"]["schemas"].items() if k.split(".")[-1] == "_EnumNode")
+        references = set(re.findall(r'"\$ref": "([^"]+)"', json.dumps(schema)))
+
+        assert node["properties"]["status"]["enum"] == ["available", "adopted"]
+        assert {r.rsplit("/", 1)[1] for r in references} <= set(schema["components"]["schemas"])
 
     @pytest.fixture(scope="function")
     def docstring_schema(self, app):
