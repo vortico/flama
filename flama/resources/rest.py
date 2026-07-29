@@ -12,6 +12,7 @@ from flama.resources.exceptions import (
     ResourcePrimaryKeyNotFound,
     ResourceSchemaNotFound,
 )
+from flama.resources.filtering import Filters
 from flama.resources.resource import Resource, ResourceType
 
 try:
@@ -42,9 +43,11 @@ class RESTResourceType(ResourceType):
             resource_schemas = mcs._get_schemas(name, bases, namespace)
             namespace["schemas"] = resource_schemas
 
+            resource_filters = mcs._get_filters(name, bases, namespace, model)
+
             namespace.setdefault("_meta", data_structures.Metadata()).namespaces.update(
                 {
-                    "rest": {"model": model, "schemas": resource_schemas},
+                    "rest": {"model": model, "schemas": resource_schemas, "filters": resource_filters},
                     "ddd": {
                         "repository": type(f"{name}Repository", (SQLAlchemyTableRepository,), {"_table": model.table})
                     },
@@ -148,9 +151,34 @@ class RESTResourceType(ResourceType):
 
         raise ResourceSchemaNotFound(name=name)
 
+    @classmethod
+    def _get_filters(
+        cls, name: str, bases: t.Sequence[t.Any], namespace: dict[str, t.Any], model: data_structures.Model
+    ) -> Filters:
+        """Look for the resource filter declaration and read it into the surface it describes.
+
+        Declaring no ``filters`` is not the same as declaring an empty one: it asks for the default
+        surface, equality on every column a query string can carry, rather than for no filtering at all.
+
+        :param name: Class name (used to qualify error messages).
+        :param bases: List of superclasses.
+        :param namespace: Variables namespace used to create the class.
+        :param model: Resource model.
+        :return: Resource filters.
+        :raises ResourceFilterInvalid: If the declaration names a column the model cannot be filtered by,
+            or an operator that cannot compare what the column holds.
+        """
+        try:
+            declaration = cls._get_attribute(name, "filters", bases, namespace, metadata_namespace="rest")
+        except ResourceAttributeNotFound:
+            declaration = None
+
+        return declaration if isinstance(declaration, Filters) else Filters.build(name, model, declaration)
+
 
 class RESTResource(Resource, metaclass=RESTResourceType):
     model: sqlalchemy.Table
     schema: t.Any
     input_schema: t.Any
     output_schema: t.Any
+    filters: t.Any
