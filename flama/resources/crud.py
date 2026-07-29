@@ -1,3 +1,4 @@
+import inspect
 import typing as t
 from http import HTTPStatus
 
@@ -246,9 +247,13 @@ class DeleteMixin:
 class ListMixin:
     @classmethod
     def _add_list(
-        cls, name: str, verbose_name: str, rest_schemas: data_structures.Schemas, **kwargs
+        cls,
+        name: str,
+        verbose_name: str,
+        rest_schemas: data_structures.Schemas,
+        rest_model: data_structures.Model,
+        **kwargs,
     ) -> dict[str, t.Any]:
-        @ResourceRoute.method("/", methods=["GET"], name="list", pagination="page_number")
         async def list(
             self,
             worker: FlamaWorker,
@@ -256,14 +261,50 @@ class ListMixin:
             order_direction: str = "asc",
             **kwargs,
         ) -> t.Annotated[types.SchemaList, types.SchemaMetadata(rest_schemas.output.schema)]:
+            filters = {k: v for k, v in kwargs.items() if v is not None}
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 return [  # type: ignore[return-value]
                     x
                     async for x in repository.list(
-                        order_by=order_by, order_direction=t.cast(t.Literal["asc", "desc"], order_direction)
+                        order_by=order_by,
+                        order_direction=t.cast(t.Literal["asc", "desc"], order_direction),
+                        **filters,
                     )
                 ]
+
+        # Filters are declared on the signature, because parameter discovery, validation, and injection
+        # are all signature driven: an undeclared query parameter never reaches the handler.
+        _signature = inspect.signature(list)
+        _reserved = {*_signature.parameters, "page", "page_size", "count", "offset", "limit"}
+        _filterable = [
+            column
+            for column in rest_model.table.columns
+            # The primary key is served by the retrieve route, and a column sharing a name with an
+            # ordering or pagination parameter cannot be told apart from it in a query string.
+            if column.name != rest_model.primary_key.name and column.name not in _reserved
+        ]
+        list.__signature__ = inspect.Signature(  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
+            parameters=[
+                *[p for n, p in _signature.parameters.items() if n != "kwargs"],
+                *[
+                    # Positional-or-keyword to match the parameters the paginator appends after these.
+                    inspect.Parameter(
+                        column.name,
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        default=None,
+                        # Built as a value, since the column type is only known at runtime.
+                        annotation=t.cast("type", column.type.python_type) | None,
+                    )
+                    for column in _filterable
+                ],
+                # The paginator requires a `**kwargs` to forward through, and drops it from the signature
+                # it publishes.
+                _signature.parameters["kwargs"],
+            ],
+            return_annotation=_signature.return_annotation,
+        )
+        list = ResourceRoute.method("/", methods=["GET"], name="list", pagination="page_number")(list)
 
         list.__doc__ = f"""
             tags:

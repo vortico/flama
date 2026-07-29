@@ -97,11 +97,20 @@ class ValidateQueryParamsComponent(Component):
     def resolve(
         self, request: http.Request, route: routing.BaseRoute, query_params: QueryParams
     ) -> ValidatedQueryParams:
-        fields = [p.field for p in route.parameters.query[request.method].values() if p.field is not None]
+        parameters = route.parameters.query[request.method]
+        fields = [p.field for p in parameters.values() if p.field is not None]
+        # A query string expresses a collection by repeating a name, so a list-valued parameter takes
+        # every value sent under its own, even when only one was. Any other parameter keeps the last.
+        values: dict[str, str | list[str]] = {
+            name: query_params.get_values(name)
+            if (parameter := parameters.get(name)) is not None and parameter.multiple
+            else query_params[name]
+            for name in query_params
+        }
 
         try:
-            validated = Schema.build(name="ValidationSchema", fields=fields).validate(dict(query_params))
-            return ValidatedQueryParams({k: v for k, v in query_params.items() if k in validated})
+            validated = Schema.build(name="ValidationSchema", fields=fields).validate(values)
+            return ValidatedQueryParams({k: v for k, v in values.items() if k in validated})
         except SchemaValidationError as exc:
             raise exceptions.ValidationError(detail=exc.errors)
 

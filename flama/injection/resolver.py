@@ -25,7 +25,10 @@ class Parameter:
 
     name: str
     annotation: type = Empty
-    default: t.Any = Empty
+    # Kept out of the hash so that a mutable default, such as an empty list, does not make the whole
+    # parameter unhashable when it is used as a cache key. Equality still accounts for it, so two
+    # parameters differing only by default share a bucket while remaining distinct keys.
+    default: t.Any = dataclasses.field(default=Empty, hash=False)
 
     @classmethod
     def from_parameter(cls, parameter: inspect.Parameter) -> "Parameter":

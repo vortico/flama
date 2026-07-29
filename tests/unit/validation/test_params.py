@@ -264,3 +264,68 @@ class TestCaseParamsValidation:
     async def test_no_type_param(self, client):
         with pytest.raises(ComponentNotFound, match="No component able to handle parameter 'foo' for function 'empty'"):
             await client.post("/empty/")
+
+
+class TestCaseListQueryParamsValidation:
+    """A query string expresses a collection by repeating a name."""
+
+    @pytest.fixture(scope="function", autouse=True)
+    def add_endpoints(self, app):
+        @app.route("/list-query-param/")
+        def list_query_param(param: list[int]):
+            assert isinstance(param, list)
+            return {"param": param}
+
+        @app.route("/scalar-query-param/")
+        def scalar_query_param(param: str = "default"):
+            assert isinstance(param, str)
+            return {"param": param}
+
+        @app.route("/list-query-param-default/")
+        def list_query_param_default(param: list[int] = []):  # noqa: B006
+            assert isinstance(param, list)
+            return {"param": param}
+
+    @pytest.mark.parametrize(
+        ["query", "expected"],
+        [
+            pytest.param("?param=1&param=2&param=3", [1, 2, 3], id="repeated"),
+            # A one-element collection is indistinguishable from a scalar in a query string.
+            pytest.param("?param=7", [7], id="single_occurrence"),
+        ],
+    )
+    async def test_list_query_param(self, client, query, expected):
+        response = await client.get(f"/list-query-param/{query}")
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"param": expected}
+
+    @pytest.mark.parametrize(
+        ["query", "expected"],
+        [
+            pytest.param("?param=a", "a", id="single"),
+            # Repeating a scalar is not an error; the last value wins as it always has.
+            pytest.param("?param=a&param=b", "b", id="repeated_keeps_last"),
+            pytest.param("", "default", id="absent"),
+        ],
+    )
+    async def test_scalar_query_param_is_unaffected(self, client, query, expected):
+        response = await client.get(f"/scalar-query-param/{query}")
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"param": expected}
+
+    @pytest.mark.parametrize(
+        ["query", "expected"],
+        [
+            # A mutable default must not make the parameter unhashable when it is used as a cache key.
+            pytest.param("", [], id="absent"),
+            pytest.param("?param=1", [1], id="single_occurrence"),
+            pytest.param("?param=1&param=2", [1, 2], id="repeated"),
+        ],
+    )
+    async def test_list_query_param_with_mutable_default(self, client, query, expected):
+        response = await client.get(f"/list-query-param-default/{query}")
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"param": expected}
