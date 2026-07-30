@@ -246,7 +246,6 @@ class ResolutionTree(t.Generic[C]):
         if context_name is not None:
             return ContextNode(parameter.name, Parameter(context_name, parameter.annotation), nodes=[])
 
-        # The 'Parameter' annotation can be used to get the parameter itself, so it is stored as a constant.
         if parameter.annotation is Parameter:
             if parent is None:
                 raise exceptions.InjectionError("A root function cannot define an argument with Parameter type")

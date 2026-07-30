@@ -127,6 +127,69 @@ class TestCaseMarkerScanner:
         assert scanner.detect(buffer) is expected
 
     @pytest.mark.parametrize(
+        ["scanner", "buffer", "expected"],
+        [
+            pytest.param(
+                MarkerScanner(name="think", start="<think>", end="</think>"),
+                "<|im_start|>assistant\n<think>\n",
+                _Event(kind="open", length=7, channel=None),
+                id="open_terminates_buffer",
+            ),
+            pytest.param(
+                MarkerScanner(name="think", start="<think>", end="</think>"),
+                "<|im_start|>assistant\n",
+                None,
+                id="no_open_at_all",
+            ),
+            pytest.param(
+                MarkerScanner(name="think", start="<think>", end="</think>"),
+                "<think>\nr\n</think>\n\nanswer",
+                None,
+                id="open_is_closed",
+            ),
+            pytest.param(
+                MarkerScanner(name="think", start="<think>", end="</think>"),
+                "<think>\nr\n</think>\n\nanswer<think>\n",
+                _Event(kind="open", length=7, channel=None),
+                id="later_open_left_dangling",
+            ),
+            pytest.param(
+                MarkerScanner(name="think", start="<think>", end="</think>"),
+                # Only an open terminating the buffer counts, so user text mentioning the marker is ignored.
+                "<|im_start|>user\nwhat does <think> do?<|im_end|>\n<|im_start|>assistant\n",
+                None,
+                id="open_followed_by_content",
+            ),
+            pytest.param(
+                MarkerScanner(name="channel", start="<|channel>", end="<channel|>", inner=r"\w+", separator="\n"),
+                "<tool_response|><|channel>thought\n",
+                _Event(kind="open", length=18, channel="thought"),
+                id="captures_inner_name",
+            ),
+            pytest.param(
+                MarkerScanner(name="channel", start="<|channel>", end="<channel|>", inner=r"\w+", separator="\n"),
+                "<|turn>model\n<|channel>thought\n<channel|>",
+                None,
+                id="named_open_is_closed",
+            ),
+            pytest.param(
+                MarkerScanner(name="channel", start="<|channel>", end="<channel|>", inner=r"\w+", separator="\n"),
+                "<|channel>thou",
+                None,
+                id="truncated_multipart_open",
+            ),
+            pytest.param(
+                MarkerScanner(name="tool_calls", start="[TOOL_CALLS]"),
+                "prefix[TOOL_CALLS]",
+                None,
+                id="one_sided_never_qualifies",
+            ),
+        ],
+    )
+    def test_trailing_open(self, scanner: MarkerScanner, buffer: str, expected: _Event | None) -> None:
+        assert scanner.trailing_open(buffer) == expected
+
+    @pytest.mark.parametrize(
         ["scanner", "buffer", "inside", "expected"],
         [
             pytest.param(
@@ -233,6 +296,9 @@ class TestCasePassthroughScanner:
 
     def test_detect(self) -> None:
         assert PassthroughScanner().detect("<x>anything</x>") is False
+
+    def test_trailing_open(self) -> None:
+        assert PassthroughScanner().trailing_open("<x>anything") is None
 
     @pytest.mark.parametrize(
         ["inside"],

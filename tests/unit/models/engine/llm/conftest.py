@@ -72,9 +72,15 @@ class FakeLLMBackend(TransformerLLMBackend):
         return [1, 2, 3]
 
     def apply_chat_template(
-        self, messages: list[dict[str, t.Any]], /, *, add_generation_prompt: bool = True, **kwargs: t.Any
-    ) -> list[int]:
-        return [10, 20, 30]
+        self,
+        messages: list[dict[str, t.Any]],
+        /,
+        *,
+        tokenize: bool = True,
+        add_generation_prompt: bool = True,
+        **kwargs: t.Any,
+    ) -> list[int] | str:
+        return [10, 20, 30] if tokenize else "rendered"
 
     async def generate(self, inputs: EngineInput, /, **params: t.Any) -> t.AsyncIterator[EngineDelta]:
         self.generate_calls.append((list(inputs.tokens), params))

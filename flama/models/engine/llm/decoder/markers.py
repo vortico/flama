@@ -48,6 +48,14 @@ class Scanner(abc.ABC):
         """Scan *s* and return the next role-agnostic event, or :data:`None` to hold."""
         ...
 
+    @abc.abstractmethod
+    def trailing_open(self, s: str, /) -> _Event | None:
+        """The region left open at the end of *s* as an ``open`` event, or :data:`None`.
+
+        Answers "where does this text leave you", as opposed to :meth:`scan`'s "what comes next".
+        """
+        ...
+
 
 @dataclasses.dataclass(frozen=True)
 class MarkerScanner(Scanner):
@@ -153,6 +161,23 @@ class MarkerScanner(Scanner):
                 return len(s) - k
         return len(s)
 
+    def trailing_open(self, s: str, /) -> _Event | None:
+        """The region left open at the end of *s* as an ``open`` event, or :data:`None`.
+
+        The open must *terminate* *s* — only trailing whitespace may follow — rather than merely lack a close.
+        Earlier turns of a rendered prompt carry user text, so accepting an unclosed marker anywhere would let
+        a user asking "what does ``<think>`` do?" seed the decoder into the reasoning channel and take the
+        whole answer with it. One-sided markers (``end is None``) never qualify; they close at the next marker
+        or at EOS.
+        """
+        if self.end is None or (last_open := s.rfind(self.start)) < 0:
+            return None
+        if s.find(self.end, last_open + len(self.start)) >= 0:
+            return None
+        if (match := self.open.match(s, last_open)) is None or s[match.end() :].strip():
+            return None
+        return _Event(kind="open", length=match.end() - match.start(), channel=match.groupdict().get("inner"))
+
     def scan(self, s: str, /, *, inside: bool) -> _Event | None:
         """Scan *s* and return the next role-agnostic event, or :data:`None` to hold.
 
@@ -190,33 +215,26 @@ class MarkerScanner(Scanner):
         return _Event(kind="content", length=boundary) if boundary > 0 else None
 
     def _scan_outside(self, s: str) -> _Event | None:
+        """Next event while outside the region: leftmost marker wins, open beating close on a tie.
+
+        A close found out here was opened by something this scanner never saw — a prompt prefix, or model
+        noise — and is still reported, so the FSM can swallow the literal instead of leaking it. Patterns with
+        :attr:`start_of_buffer_only` are exempt from close detection and from the close-side holdback: their
+        literals are ordinary characters, so a bare ``]`` is evidence of nothing.
+        """
         m_open = self.find_open(s)
-        # `start_of_buffer_only` markers (e.g. pythonic `[`/`]`) use non-distinctive literals that legitimately
-        # occur in regular text, so we can't safely treat a bare close as a stray; fall back to the open-only
-        # legacy path for them.
         m_close = self.find_close(s) if not self.start_of_buffer_only else None
-        # An open match is only "complete" when the captured `inner` can no longer extend with future input;
-        # this mirrors the original holdback guard so stray-close detection never overrides a partial open.
+        # An `inner` capture that the next delta could still extend is not a complete open yet.
         if m_open is not None and (self.inner is None or m_open.end() < len(s) or self.separator is not None):
-            # Leftmost-wins: a complete open at or before a close beats the close (their roles differ via event
-            # kind); a close that strictly precedes the open is handled below.
             if m_close is None or m_open.start() <= m_close.start():
-                if self.start_of_buffer_only and s[: m_open.start()].strip():
-                    return _Event(kind="content", length=m_open.start())
                 if m_open.start() > 0:
                     return _Event(kind="content", length=m_open.start())
                 return _Event(kind="open", length=m_open.end(), channel=m_open.groupdict().get("inner"))
-        # Stray close while outside any region: emit a close event so the FSM can consume it silently rather than
-        # letting the literal bytes leak through to the user (e.g. Gemma 4's empty prompt-prefix `<channel|>` that
-        # the FSM never saw open).
         if m_close is not None:
             if m_close.start() > 0:
                 return _Event(kind="content", length=m_close.start())
             return _Event(kind="close", length=m_close.end())
-        # Conservative holdback: any partial prefix of either literal at the buffer tail blocks emission so a
-        # marker split across deltas never leaks the head of its bytes as content. For
-        # `start_of_buffer_only` markers we keep the legacy open-only holdback to avoid false positives on
-        # ambiguous close literals.
+        # Hold back a partial literal at the tail so a marker split across deltas never leaks its head.
         end_boundary = self.partial_prefix_index(s, end=True) if not self.start_of_buffer_only else len(s)
         boundary = min(self.partial_prefix_index(s, end=False), end_boundary)
         return _Event(kind="content", length=boundary) if boundary > 0 else None
@@ -235,6 +253,10 @@ class PassthroughScanner(Scanner):
     def detect(self, s: str, /) -> bool:
         """Always :data:`False`; passthrough is the explicit fallback, never auto-detected."""
         return False
+
+    def trailing_open(self, s: str, /) -> None:
+        """Always :data:`None`; a marker-less sentinel has no region to be inside of."""
+        return None
 
     def scan(self, s: str, /, *, inside: bool = False) -> _Event:  # pragma: no branch
         return _Event(kind="content", length=len(s))

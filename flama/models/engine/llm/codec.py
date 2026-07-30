@@ -47,7 +47,14 @@ class _FSM:
     and the FSM is the only place in the pipeline where both ingredients are visible at once
     (engines like MLX never surface ``finish_reason``; tool detection lives in the scanner).
 
+    The initial state is not a constant: a template that ends its generation prompt mid-channel
+    (Qwen3.5+, Gemma 4 after a tool response) leaves the stream carrying only the close, so the
+    FSM has to start inside. :meth:`Scanner.trailing_open` reads that from *prompt*.
+
     :param decoder: Fully-resolved decoder configuration.
+    :param prompt: Rendered prompt this run generates from, or :data:`None` when there is none (raw
+        transport, one-off decodes). Required rather than defaulted so a caller holding a prompt
+        cannot silently omit it.
     """
 
     _Action: t.TypeAlias = t.Callable[["_FSM", _Event, str], t.Iterable[Event]]
@@ -58,7 +65,7 @@ class _FSM:
         "tool_calls": "tool_use",
     }
 
-    def __init__(self, decoder: _ResolvedDecoder, /) -> None:
+    def __init__(self, decoder: _ResolvedDecoder, prompt: str | None, /) -> None:
         self._decoder = decoder
         self._buffer: str = ""
         self._tool_buffer: str = ""
@@ -67,6 +74,9 @@ class _FSM:
         self._channel: str | None = decoder.policy.output
         self._tool_count: int = 0
         self._engine_reason: str | None = None
+
+        if prompt and (opened := decoder.channel_scanner.trailing_open(prompt)) is not None:
+            self._action_enter_channel(opened, "")
 
     def feed(self, delta: EngineDelta, /) -> t.Iterator[Event]:
         """Process one backend delta: scan text, latch engine metadata, emit events.
@@ -192,9 +202,8 @@ class _FSM:
         self._previous_state = ("outside", self._decoder.policy.output)
 
     def _action_consume_close(self, event: _Event, slice_: str) -> t.Iterable[Event]:
-        # Strip a stray close literal whose paired open the FSM never saw (e.g. Gemma 4's prompt-prefix empty
-        # channel pair). The slice has already been removed from the buffer by `feed`; the action just suppresses
-        # any text emission so the literal bytes don't surface to the user.
+        # A close with no open the FSM ever entered: model noise, since a prompt-opened region is seeded at
+        # construction. `feed` has already dropped the slice, so emitting nothing hides the literal.
         return ()
 
     _TRANSITIONS: t.ClassVar[dict[tuple[_State, _EventKind, _Source], _Action]] = {
@@ -233,10 +242,8 @@ class LLMCodec:
         self._resolved_decoder: _ResolvedDecoder | None = None
         self._preflight_prompt = preflight_prompt
         self._lock = asyncio.Lock()
-        # Backend-agnostic fallback used when a delta arrives without a backend-supplied token
-        # count (e.g. older MLX runtimes that don't expose ``generation_tokens``). Populated in
-        # :meth:`detect` from the bound model's tokenizer; kept as ``None`` when detection has
-        # not run yet or the backend lacks a usable :meth:`encode` primitive.
+        # Fallback for deltas arriving without a token count (older MLX runtimes expose no
+        # ``generation_tokens``); populated by :meth:`detect` when the backend offers ``encode``.
         self._count_tokens: t.Callable[[str], int] | None = None
 
     @property
@@ -311,6 +318,7 @@ class LLMCodec:
         *,
         message_id: uuid.UUID | None = None,
         input_tokens: int | None = None,
+        prompt: str | None = None,
     ) -> t.AsyncIterator[Event]:
         """Consume *stream* and yield :class:`Event` events with surrounding lifecycle markers.
 
@@ -333,6 +341,8 @@ class LLMCodec:
         :param message_id: Optional stream identifier surfaced in the opening :class:`StartEvent`.
         :param input_tokens: Optional prompt token count surfaced in the opening :class:`StartEvent` and the
             terminal :class:`StopEvent` usage snapshot.
+        :param prompt: Rendered prompt this run generates from (:attr:`EngineInput.text`), forwarded to
+            :class:`_FSM` so a channel the template left open at its tail is not misread as output.
         """
         started = time.monotonic()
         if message_id is not None:
@@ -347,7 +357,7 @@ class LLMCodec:
             )
             yield StartEvent(id=str(message_id), created=int(time.time()), input_tokens=input_tokens)
 
-        fsm = _FSM(self.decoder)
+        fsm = _FSM(self.decoder, prompt)
         output_tokens = 0
         async for delta in stream:
             if delta.token_count is None and delta.text and self._count_tokens is not None:

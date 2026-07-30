@@ -48,10 +48,12 @@ class TestCaseConversation:
     async def test_render(self, backend: FakeBackend) -> None:
         messages = (_user("a"), _assistant("b"))
 
-        await Conversation(fields={"messages": messages}).render(backend)
+        inputs = await Conversation(fields={"messages": messages}).render(backend)
 
         assert backend.template_calls == [[{"role": "user", "content": "a"}, {"role": "assistant", "content": "b"}]]
-        assert backend.encode_calls == []
+        # Tokens must come from the template render, never from the bare messages.
+        assert inputs.text is not None
+        assert backend.encode_calls == [(inputs.text, False)]
 
     @pytest.mark.parametrize(
         ["exception"],

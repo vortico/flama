@@ -43,10 +43,12 @@ class TestCaseChat:
         if system is not None:
             bag["system"] = system
 
-        await Chat(fields=bag).render(backend)
+        inputs = await Chat(fields=bag).render(backend)
 
         assert backend.template_calls == [expected_messages]
-        assert backend.encode_calls == []
+        # Tokens must come from the template render, never from the bare prompt.
+        assert inputs.text is not None
+        assert backend.encode_calls == [(inputs.text, False)]
 
     @pytest.mark.parametrize(
         ["exception"],

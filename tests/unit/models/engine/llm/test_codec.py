@@ -32,12 +32,46 @@ _PYTHONIC_SCANNER = _KNOWN_TOOL_SCANNERS["pythonic"]
 
 class TestCaseFSM:
     def test_initial_state(self) -> None:
-        fsm = _FSM(Decoder("passthrough", "passthrough", "passthrough").resolve())
+        fsm = _FSM(Decoder("passthrough", "passthrough", "passthrough").resolve(), None)
 
         assert fsm._state == "outside"
         assert fsm._channel == "output"
         assert fsm._tool_count == 0
         assert fsm._engine_reason is None
+
+    @pytest.mark.parametrize(
+        ["prompt", "expected_state", "expected_channel"],
+        [
+            pytest.param(None, "outside", "output", id="no_prompt"),
+            pytest.param("<|im_start|>assistant\n", "outside", "output", id="prompt_leaves_nothing_open"),
+            pytest.param("<|im_start|>assistant\n<think>\n", "channel", None, id="prompt_pre_opens_channel"),
+            pytest.param("<think>\nr\n</think>\n\nhi", "outside", "output", id="prompt_closes_what_it_opened"),
+            pytest.param(
+                # Only an open terminating the prompt counts; the generation prompt is always rendered last.
+                "<|im_start|>user\nwhat does <think> do?<|im_end|>\n<|im_start|>assistant\n",
+                "outside",
+                "output",
+                id="user_content_mentioning_marker_ignored",
+            ),
+        ],
+    )
+    def test_initial_state_from_prompt(
+        self, prompt: str | None, expected_state: str, expected_channel: str | None
+    ) -> None:
+        """Templates disagree on which side of the prompt / generation boundary the opening marker falls, so
+        the FSM's starting position is read from the rendered prompt rather than assumed.
+        """
+        fsm = _FSM(Decoder("think", "passthrough", "passthrough").resolve(), prompt)
+
+        assert fsm._state == expected_state
+        assert fsm._channel == expected_channel
+
+    def test_initial_state_from_prompt_captures_channel_name(self) -> None:
+        """Gemma 4 pre-opens a *named* channel after a tool response, so the captured name has to survive."""
+        fsm = _FSM(Decoder("channel", "passthrough", "passthrough").resolve(), "<tool_response|><|channel>thought\n")
+
+        assert fsm._state == "channel"
+        assert fsm._channel == "thought"
 
     def test_transitions_table(self) -> None:
         for (state, kind, source), action in _FSM._TRANSITIONS.items():
@@ -69,7 +103,7 @@ class TestCaseFSM:
         warns: bool,
         caplog_flama: pytest.LogCaptureFixture,
     ) -> None:
-        fsm = _FSM(Decoder("passthrough", "passthrough", "passthrough").resolve())
+        fsm = _FSM(Decoder("passthrough", "passthrough", "passthrough").resolve(), None)
         fsm._engine_reason = engine_reason
         fsm._tool_count = tool_count
 
@@ -82,7 +116,7 @@ class TestCaseFSM:
 
     async def test_feed_increments_tool_count(self) -> None:
         engine = make_engine(tool_scanner=_TOOL_CALL_SCANNER, tool_parser=JSONObjectParser())
-        fsm = _FSM(engine.decoder)
+        fsm = _FSM(engine.decoder, None)
 
         list(fsm.feed(EngineDelta(text='<tool_call>{"name":"a","arguments":{}}</tool_call>')))
         list(fsm.feed(EngineDelta(text='<tool_call>{"name":"b","arguments":{}}</tool_call>')))
@@ -90,7 +124,7 @@ class TestCaseFSM:
         assert fsm._tool_count == 2
 
     async def test_feed_latches_finish_reason(self) -> None:
-        fsm = _FSM(Decoder("passthrough", "passthrough", "passthrough").resolve())
+        fsm = _FSM(Decoder("passthrough", "passthrough", "passthrough").resolve(), None)
 
         list(fsm.feed(EngineDelta(text="hi", token_count=2)))
         assert fsm._engine_reason is None
@@ -484,47 +518,71 @@ class TestCaseLLMCodec:
         assert text == "hello <thi"
 
     @pytest.mark.parametrize(
-        ["chunks", "expected_output", "expected_thought"],
+        ["chunks", "prompt", "expected_output", "expected_thought"],
         [
             pytest.param(
                 ["<channel|>The answer is 42."],
+                None,
                 "The answer is 42.",
                 "",
                 id="stray_close_at_buffer_start",
             ),
             pytest.param(
                 ["The answer is <channel|> 42."],
+                None,
                 "The answer is  42.",
                 "",
                 id="stray_close_mid_content",
             ),
             pytest.param(
                 ["the answer is <chann", "el|>tail"],
+                None,
                 "the answer is tail",
                 "",
                 id="partial_close_split_across_deltas",
             ),
             pytest.param(
                 ["<|channel>thought\n<channel|>The answer is 42."],
+                None,
                 "The answer is 42.",
                 "",
                 id="empty_thought_pair_then_content",
             ),
             pytest.param(
                 ["<|channel>thought\nLet me think.\n<channel|>The answer is 42."],
+                None,
                 "The answer is 42.",
                 "Let me think.\n",
                 id="thought_block_then_content",
             ),
+            pytest.param(
+                # Same bytes as `stray_close_at_buffer_start`, but the close is matched rather than stray.
+                ["<channel|>The answer is 42."],
+                "<|turn>model\n<|channel>thought\n",
+                "The answer is 42.",
+                "",
+                id="pre_opened_channel_with_empty_body",
+            ),
+            pytest.param(
+                # Same bytes as `stray_close_mid_content`, but the leading text is reasoning, not output.
+                ["The answer is <channel|> 42."],
+                "<|turn>model\n<|channel>thought\n",
+                " 42.",
+                "The answer is ",
+                id="pre_opened_channel_routes_leading_text_to_thought",
+            ),
         ],
     )
     async def test_decode_channel_scanner_strips_stray_close_marker(
-        self, chunks: list[str], expected_output: str, expected_thought: str
+        self, chunks: list[str], prompt: str | None, expected_output: str, expected_thought: str
     ) -> None:
-        """Stray ``<channel|>`` literals (Gemma 4 prompt-prefix artifact) must never leak to the output channel."""
+        """A close with no open in the stream is ambiguous: either the model emitted a stray literal, or the
+        template opened the channel in the generation prompt. Only *prompt* distinguishes them, and either way
+        the marker itself must never leak to the client.
+        """
         engine = make_engine(channel_scanner=_CHANNEL_SCANNER)
 
-        items = await consume(engine.decode(aiter([EngineDelta(text=c) for c in chunks])))
+        items = await consume(engine.decode(aiter([EngineDelta(text=c) for c in chunks]), prompt=prompt))
 
         text_blocks = [b for b in items if isinstance(b, TextEvent)]
         assert "".join(b.text for b in text_blocks if b.channel == "output") == expected_output

@@ -425,6 +425,7 @@ class LLMModel(BaseModel[LLMBackend]):
             self.backend.generate(inputs, **{**self.params, **params}),
             message_id=message_id or uuid.uuid4(),
             input_tokens=len(inputs.tokens),
+            prompt=inputs.text,
         ):
             blocks.append(item)
 
@@ -488,4 +489,5 @@ class LLMModel(BaseModel[LLMBackend]):
             self.backend.generate(inputs, **{**self.params, **params}),
             message_id=message_id,
             input_tokens=len(inputs.tokens),
+            prompt=inputs.text,
         )

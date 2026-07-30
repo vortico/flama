@@ -63,11 +63,11 @@ class FakeBackend(TransformerLLMBackend):
         tokenize: bool = True,
         add_generation_prompt: bool = True,
         **kwargs: t.Any,
-    ) -> list[int]:
+    ) -> list[int] | str:
         self.template_calls.append(messages)
         self.template_kwargs.append(kwargs)
         rendered = "|".join(f"{m['role']}:{m.get('content', '')}" for m in messages)
-        return [ord(c) for c in rendered]
+        return [ord(c) for c in rendered] if tokenize else rendered
 
     async def generate(self, inputs: EngineInput, /, **params: t.Any) -> t.AsyncIterator[EngineDelta]:
         if False:
