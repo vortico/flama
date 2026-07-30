@@ -1,0 +1,386 @@
+{
+  "datetime": "2026-07-30T12:57:46Z",
+  "commit_info": {
+    "id": "967d510971f86528ef11be372934e5bc6e9ae55f"
+  },
+  "metric": {
+    "unit": "callgrind",
+    "iterations": 3
+  },
+  "benchmarks": [
+    {
+      "group": "compression",
+      "fullname": "tests/performance/test_compression.py::TestCaseCompression::test_request[brotli]",
+      "name": "test_request[brotli]",
+      "stats": {
+        "mean": 49424931,
+        "ir": 25943971,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "compression",
+      "fullname": "tests/performance/test_compression.py::TestCaseCompression::test_request[gzip]",
+      "name": "test_request[gzip]",
+      "stats": {
+        "mean": 27396471,
+        "ir": 20234068,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "compression",
+      "fullname": "tests/performance/test_compression.py::TestCaseCompression::test_request[identity]",
+      "name": "test_request[identity]",
+      "stats": {
+        "mean": 11117520,
+        "ir": 8340987,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "decoder",
+      "fullname": "tests/performance/test_decoder.py::TestCaseToolParsers::test_parse[json_array]",
+      "name": "test_parse[json_array]",
+      "stats": {
+        "mean": 553505,
+        "ir": 260481,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "decoder",
+      "fullname": "tests/performance/test_decoder.py::TestCaseToolParsers::test_parse[json_object]",
+      "name": "test_parse[json_object]",
+      "stats": {
+        "mean": 384641,
+        "ir": 131044,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "decoder",
+      "fullname": "tests/performance/test_decoder.py::TestCaseToolParsers::test_parse[pythonic]",
+      "name": "test_parse[pythonic]",
+      "stats": {
+        "mean": 2014359,
+        "ir": 1344302,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "injection",
+      "fullname": "tests/performance/test_injection.py::TestCaseInjection::test_multi",
+      "name": "test_multi",
+      "stats": {
+        "mean": 6130901,
+        "ir": 4082688,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "injection",
+      "fullname": "tests/performance/test_injection.py::TestCaseInjection::test_nested",
+      "name": "test_nested",
+      "stats": {
+        "mean": 6125046,
+        "ir": 4083246,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "injection",
+      "fullname": "tests/performance/test_injection.py::TestCaseInjection::test_simple",
+      "name": "test_simple",
+      "stats": {
+        "mean": 4861148,
+        "ir": 2990052,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "json",
+      "fullname": "tests/performance/test_json.py::TestCaseJsonPayloadSize::test_complex_types",
+      "name": "test_complex_types",
+      "stats": {
+        "mean": 3558622,
+        "ir": 1893852,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "json",
+      "fullname": "tests/performance/test_json.py::TestCaseJsonPayloadSize::test_large_list",
+      "name": "test_large_list",
+      "stats": {
+        "mean": 10873328,
+        "ir": 8208521,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "json",
+      "fullname": "tests/performance/test_json.py::TestCaseJsonPayloadSize::test_nested_dict",
+      "name": "test_nested_dict",
+      "stats": {
+        "mean": 3594214,
+        "ir": 1915644,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "json",
+      "fullname": "tests/performance/test_json.py::TestCaseJsonPayloadSize::test_small_dict",
+      "name": "test_small_dict",
+      "stats": {
+        "mean": 3523783,
+        "ir": 1868683,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "mcp",
+      "fullname": "tests/performance/test_mcp.py::TestCaseMCP::test_request[tools_call]",
+      "name": "test_request[tools_call]",
+      "stats": {
+        "mean": 31098264,
+        "ir": 24849627,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "mcp",
+      "fullname": "tests/performance/test_mcp.py::TestCaseMCP::test_request[tools_list]",
+      "name": "test_request[tools_list]",
+      "stats": {
+        "mean": 25198793,
+        "ir": 19711666,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "middleware",
+      "fullname": "tests/performance/test_middleware.py::TestCaseMiddleware::test_10_middleware",
+      "name": "test_10_middleware",
+      "stats": {
+        "mean": 3534407,
+        "ir": 1884553,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "middleware",
+      "fullname": "tests/performance/test_middleware.py::TestCaseMiddleware::test_5_middleware",
+      "name": "test_5_middleware",
+      "stats": {
+        "mean": 3525208,
+        "ir": 1875091,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "middleware",
+      "fullname": "tests/performance/test_middleware.py::TestCaseMiddleware::test_no_middleware",
+      "name": "test_no_middleware",
+      "stats": {
+        "mean": 3505688,
+        "ir": 1864808,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseRoutes10::test_first",
+      "name": "test_first",
+      "stats": {
+        "mean": 3528344,
+        "ir": 1878051,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseRoutes10::test_last",
+      "name": "test_last",
+      "stats": {
+        "mean": 3534932,
+        "ir": 1882649,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseRoutes200::test_first",
+      "name": "test_first",
+      "stats": {
+        "mean": 3523091,
+        "ir": 1876378,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseRoutes200::test_last",
+      "name": "test_last",
+      "stats": {
+        "mean": 3683923,
+        "ir": 1992199,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseRoutes50::test_first",
+      "name": "test_first",
+      "stats": {
+        "mean": 3536077,
+        "ir": 1881597,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseRoutes50::test_last",
+      "name": "test_last",
+      "stats": {
+        "mean": 3575785,
+        "ir": 1910642,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "routing",
+      "fullname": "tests/performance/test_routing.py::TestCaseStaticRoutes::test_static_10",
+      "name": "test_static_10",
+      "stats": {
+        "mean": 3506921,
+        "ir": 1867044,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "schema",
+      "fullname": "tests/performance/test_openapi.py::TestCaseOpenAPIGeneration::test_request",
+      "name": "test_request",
+      "stats": {
+        "mean": 820137184,
+        "ir": 581756711,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "schema",
+      "fullname": "tests/performance/test_schema.py::TestCaseSchemaMedium::test_get",
+      "name": "test_get",
+      "stats": {
+        "mean": 17215809,
+        "ir": 12152889,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "schema",
+      "fullname": "tests/performance/test_schema.py::TestCaseSchemaMedium::test_post",
+      "name": "test_post",
+      "stats": {
+        "mean": 7508146,
+        "ir": 5003910,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "schema",
+      "fullname": "tests/performance/test_schema.py::TestCaseSchemaSmall::test_get",
+      "name": "test_get",
+      "stats": {
+        "mean": 17153285,
+        "ir": 12110069,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "schema",
+      "fullname": "tests/performance/test_schema.py::TestCaseSchemaSmall::test_post",
+      "name": "test_post",
+      "stats": {
+        "mean": 7319278,
+        "ir": 4867358,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "serialize",
+      "fullname": "tests/performance/test_serialize.py::TestCaseSerialize::test_dump[sklearn]",
+      "name": "test_dump[sklearn]",
+      "stats": {
+        "mean": 44222882,
+        "ir": 34542442,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "serialize",
+      "fullname": "tests/performance/test_serialize.py::TestCaseSerialize::test_load[sklearn]",
+      "name": "test_load[sklearn]",
+      "stats": {
+        "mean": 6394086,
+        "ir": 4404756,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "streaming",
+      "fullname": "tests/performance/test_streaming.py::TestCaseStreaming::test_request[ndjson]",
+      "name": "test_request[ndjson]",
+      "stats": {
+        "mean": 36642878,
+        "ir": 22340802,
+        "stddev": 0,
+        "rounds": 3
+      }
+    },
+    {
+      "group": "streaming",
+      "fullname": "tests/performance/test_streaming.py::TestCaseStreaming::test_request[sse]",
+      "name": "test_request[sse]",
+      "stats": {
+        "mean": 42360414,
+        "ir": 27670034,
+        "stddev": 0,
+        "rounds": 3
+      }
+    }
+  ]
+}
