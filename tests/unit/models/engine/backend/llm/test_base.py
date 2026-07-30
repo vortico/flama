@@ -861,7 +861,7 @@ class TestCaseTransformerLLMBackend:
             ),
             pytest.param(
                 ToolCall(function={"name": "fn", "arguments": '{"x":1}'}),
-                {"type": "function", "function": {"name": "fn", "arguments": '{"x":1}'}},
+                {"type": "function", "function": {"name": "fn", "arguments": {"x": 1}}},
                 id="string_encoded_arguments",
             ),
         ],
