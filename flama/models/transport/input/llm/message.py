@@ -4,6 +4,7 @@ import binascii
 import dataclasses
 import io
 import ipaddress
+import json
 import socket
 import typing as t
 import urllib.parse
@@ -405,26 +406,55 @@ class AudioURI(AudioContent):
         return self.source.content()
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, init=False)
 class ToolCall:
     """Assistant-issued tool call.
 
     Mirrors the OpenAI Chat Completions ``tool_calls`` element. ``id`` is optional to
-    accommodate Ollama's wire format, which only carries ``function``. ``function`` keeps a
-    free-form mapping shape on purpose: OpenAI passes ``arguments`` as a JSON-encoded string,
-    while Ollama passes a parsed object — both are valid here so the same structure flows
-    through chat templates without translation.
+    accommodate Ollama's wire format, which only carries ``function``.
+
+    Wire formats disagree on ``arguments``: OpenAI sends a JSON-encoded string and Ollama a
+    parsed object, so both shapes arrive here and a string is decoded to the object it encodes.
+    Chat templates disagree just as much on what they accept — some iterate the field as a
+    mapping (Qwen3.5+, which raises outright on a string), some apply ``tojson`` unguarded
+    (Qwen2.5, which double-encodes it into a quoted string the model was never trained to read),
+    and some branch on the type themselves. Normalising once here is what lets a single
+    projection feed all of them.
+
+    The constructor is hand-written rather than generated so ``function`` and ``id`` can be
+    accepted as :data:`~typing.Any` and validated, while the fields they land in stay narrowly
+    typed for consumers. A generated ``__init__`` would declare those parameters already-narrow,
+    making the checks unreachable to a type checker even though the dialect parsers feed them
+    unvalidated wire values.
     """
 
     function: dict[str, t.Any]
-    id: str | None = None
-    type: t.Literal["function"] = "function"
+    id: str | None
+    type: t.Literal["function"]
 
-    def __post_init__(self) -> None:
-        if not isinstance(self.function, dict):
+    def __init__(self, function: t.Any, id: t.Any = None, type: t.Literal["function"] = "function") -> None:
+        """
+        :param function: Function payload (``name`` plus ``arguments``) the model is requesting to invoke.
+        :param id: Tool call identifier; absent on Ollama-shaped payloads.
+        :param type: Tool call kind discriminator.
+        :raises ValueError: If ``function`` is not an object, or ``id`` is set to a non-string.
+        """
+        if not isinstance(function, dict):
             raise ValueError("'function' must be an object")
-        if self.id is not None and not isinstance(self.id, str):
+        if id is not None and not isinstance(id, str):
             raise ValueError("'id' must be a string when set")
+
+        if isinstance(arguments := function.get("arguments"), str):
+            try:
+                decoded = json.loads(arguments)
+            except json.JSONDecodeError:
+                decoded = None
+            if isinstance(decoded, dict):
+                function = {**function, "arguments": decoded}
+
+        object.__setattr__(self, "function", function)
+        object.__setattr__(self, "id", id)
+        object.__setattr__(self, "type", type)
 
 
 @dataclasses.dataclass(frozen=True)

@@ -445,7 +445,7 @@ class TestCaseToolCall:
     def test_init(self) -> None:
         call_ = ToolCall(function={"name": "lookup", "arguments": "{}"}, id="call_1")
 
-        assert call_.function == {"name": "lookup", "arguments": "{}"}
+        assert call_.function == {"name": "lookup", "arguments": {}}
         assert call_.id == "call_1"
         assert call_.type == "function"
 
@@ -472,9 +472,42 @@ class TestCaseToolCall:
         ],
         indirect=["exception"],
     )
-    def test_post_init(self, kwargs: dict[str, t.Any], exception) -> None:
+    def test_init_validation(self, kwargs: dict[str, t.Any], exception) -> None:
         with exception:
             ToolCall(**kwargs)
+
+    @pytest.mark.parametrize(
+        ["arguments", "expected"],
+        [
+            pytest.param('{"location": "Paris"}', {"location": "Paris"}, id="json_string_decoded"),
+            pytest.param("{}", {}, id="empty_json_string_decoded"),
+            pytest.param({"location": "Paris"}, {"location": "Paris"}, id="object_left_untouched"),
+            pytest.param("not json", "not json", id="undecodable_string_left_untouched"),
+            pytest.param("[1, 2]", "[1, 2]", id="non_object_json_left_untouched"),
+            pytest.param("42", "42", id="scalar_json_left_untouched"),
+        ],
+    )
+    def test_init_normalises_arguments(self, arguments: t.Any, expected: t.Any) -> None:
+        """OpenAI and Anthropic deliver ``arguments`` JSON-encoded while Ollama sends an object; templates
+        disagree on which they accept, so a string encoding an object is decoded once here. Anything else
+        is forwarded verbatim rather than rejected.
+        """
+        call_ = ToolCall(function={"name": "lookup", "arguments": arguments})
+
+        assert call_.function == {"name": "lookup", "arguments": expected}
+
+    def test_init_keeps_absent_arguments_absent(self) -> None:
+        call_ = ToolCall(function={"name": "lookup"})
+
+        assert call_.function == {"name": "lookup"}
+
+    def test_init_does_not_mutate_caller_function(self) -> None:
+        function = {"name": "lookup", "arguments": '{"location": "Paris"}'}
+
+        call_ = ToolCall(function=function)
+
+        assert function["arguments"] == '{"location": "Paris"}'
+        assert call_.function["arguments"] == {"location": "Paris"}
 
 
 class TestCaseContent:

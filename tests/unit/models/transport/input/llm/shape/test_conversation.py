@@ -96,7 +96,7 @@ class TestCaseConversation:
                 {"role": "user", "content": "hi"},
                 {
                     "role": "assistant",
-                    "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}}],
+                    "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "f", "arguments": {}}}],
                 },
                 {"role": "tool", "content": "42", "tool_call_id": "c1"},
             ]
