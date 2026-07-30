@@ -17,7 +17,7 @@ from flama.models.engine.llm.decoder.decoder import (
     _KNOWN_TOOL_SCANNERS,
     _ResolvedDecoder,
 )
-from flama.models.engine.llm.decoder.parsers import JSONObjectParser, JSONParser
+from flama.models.engine.llm.decoder.parsers import JSONObjectParser, JSONParser, TagNotationParser
 
 
 class TestCaseLLMTypes:
@@ -300,6 +300,25 @@ class TestCaseDecoder:
                 JSONParser,
                 None,
                 id="walks_past_unparseable_first_body",
+            ),
+            pytest.param(
+                Decoder(),
+                # Qwen3-Coder / Qwen3.5 / Qwen3.6 share the tool_call marker with the JSON-bodied Qwen
+                # generations but fill it with tag notation, so the scanner alone cannot tell them apart
+                # and the parser has to be chosen from the body.
+                (
+                    "<tool_call>\n"
+                    "<function=example_function_name>\n"
+                    "<parameter=example_parameter_1>\n"
+                    "value_1\n"
+                    "</parameter>\n"
+                    "</function>\n"
+                    "</tool_call>",
+                ),
+                _KNOWN_TOOL_SCANNERS["tool_call"],
+                TagNotationParser,
+                None,
+                id="tag_notation_body",
             ),
             pytest.param(
                 Decoder(tool_parser=_KNOWN_TOOL_PARSERS["json_array"]),

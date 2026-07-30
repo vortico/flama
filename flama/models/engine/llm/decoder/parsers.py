@@ -13,6 +13,7 @@ __all__ = [
     "JSONSequenceParser",
     "PassthroughParser",
     "PythonicParser",
+    "TagNotationParser",
     "ToolCall",
     "ToolParser",
 ]
@@ -65,6 +66,19 @@ class ToolParser(abc.ABC):
         :class:`PassthroughParser`-shaped fallbacks without requiring subclasses to opt out explicitly.
         """
         return any(call.name for call in self.parse(body))
+
+    @staticmethod
+    def _coerce_literal(raw: str) -> t.Any:
+        """Best-effort literal coercion (number / bool / null / fallback to string).
+
+        Shared by the formats that emit argument values without a per-value type marker: strings arrive bare
+        and everything else arrives JSON-encoded, so decoding is the only way to tell them apart. A value that
+        is not valid JSON is a string by elimination.
+        """
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return raw
 
 
 @dataclasses.dataclass(frozen=True)
@@ -329,13 +343,55 @@ class CallNotationParser(ToolParser):
             pos = pair.end()
         return args, -1
 
-    @staticmethod
-    def _coerce_literal(raw: str) -> t.Any:
-        """Best-effort literal coercion (number / bool / null / fallback to string)."""
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            return raw
+
+@dataclasses.dataclass(frozen=True)
+class TagNotationParser(ToolParser):
+    """``<function=NAME><parameter=KEY>value</parameter></function>`` body built from named tags.
+
+    Used by the Qwen3-Coder / Qwen3.5 / Qwen3.6 family. Argument values carry no type marker — strings are
+    emitted bare and everything else JSON-encoded — so each one goes through :meth:`ToolParser._coerce_literal`.
+    A value spans to its closing tag verbatim, newlines included, with only the single newline the template
+    writes on either side removed.
+
+    Both closing tags are optional. These models are documented to intermittently emit a stray ``</function>``
+    or a ``</function_invocation>`` left over from an older training format, so anchoring on the opening tags
+    and ending a region at the next opening tag (or the end of the body) recovers the call either way.
+
+    :param function_tag: Tag name introducing a call, ``<function=NAME>``.
+    :param parameter_tag: Tag name introducing an argument, ``<parameter=KEY>``.
+    """
+
+    function_tag: str = "function"
+    parameter_tag: str = "parameter"
+
+    _function_re: re.Pattern[str] = dataclasses.field(init=False, repr=False, compare=False)
+    _parameter_re: re.Pattern[str] = dataclasses.field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        function, parameter = re.escape(self.function_tag), re.escape(self.parameter_tag)
+        object.__setattr__(
+            self,
+            "_function_re",
+            re.compile(rf"<{function}=([^>\s]+)>(.*?)(?=</{function}>|<{function}=|\Z)", re.DOTALL),
+        )
+        object.__setattr__(
+            self,
+            "_parameter_re",
+            re.compile(rf"<{parameter}=([^>\s]+)>\n?(.*?)\n?(?:</{parameter}>|(?=<{parameter}=)|\Z)", re.DOTALL),
+        )
+
+    def parse(self, body: str, /) -> t.Iterator[ToolCall]:
+        yield from self._iter_calls(body.strip())
+
+    def _iter_calls(self, s: str, /) -> t.Iterator[ToolCall]:
+        for function in self._function_re.finditer(s):
+            yield ToolCall(
+                name=function.group(1).strip(),
+                arguments={
+                    parameter.group(1): self._coerce_literal(parameter.group(2))
+                    for parameter in self._parameter_re.finditer(function.group(2))
+                },
+            )
 
 
 @dataclasses.dataclass(frozen=True)
