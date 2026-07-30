@@ -413,19 +413,12 @@ class ToolCall:
     Mirrors the OpenAI Chat Completions ``tool_calls`` element. ``id`` is optional to
     accommodate Ollama's wire format, which only carries ``function``.
 
-    Wire formats disagree on ``arguments``: OpenAI sends a JSON-encoded string and Ollama a
-    parsed object, so both shapes arrive here and a string is decoded to the object it encodes.
-    Chat templates disagree just as much on what they accept — some iterate the field as a
-    mapping (Qwen3.5+, which raises outright on a string), some apply ``tojson`` unguarded
-    (Qwen2.5, which double-encodes it into a quoted string the model was never trained to read),
-    and some branch on the type themselves. Normalising once here is what lets a single
-    projection feed all of them.
+    Wire formats disagree on ``arguments`` — OpenAI sends a JSON-encoded string, Ollama a parsed
+    object — and chat templates disagree on which they accept, some raising on a string and others
+    double-encoding it. A string encoding an object is decoded here so one projection feeds all of them.
 
-    The constructor is hand-written rather than generated so ``function`` and ``id`` can be
-    accepted as :data:`~typing.Any` and validated, while the fields they land in stay narrowly
-    typed for consumers. A generated ``__init__`` would declare those parameters already-narrow,
-    making the checks unreachable to a type checker even though the dialect parsers feed them
-    unvalidated wire values.
+    The constructor is hand-written so ``function`` and ``id`` can arrive as :data:`~typing.Any` and be
+    validated, while the fields they land in stay narrowly typed for consumers.
     """
 
     function: dict[str, t.Any]

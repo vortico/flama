@@ -18,10 +18,14 @@ class EngineInput:
     :meth:`~flama.models.engine.backend.llm._base.LLMBackend.prepare_input`.
 
     :param tokens: Pre-rendered prompt token IDs (BOS already included by the template).
+    :param text: The rendered prompt the tokens were encoded from, carried so the decoder can read the
+        channel state the template left open at its end. :data:`None` for transports that render no
+        template (``raw``).
     :param images: Decoded image payloads in the order they appear in the message list.
     :param audios: Decoded audio payloads as ``(samples, sample_rate)`` pairs in the order they appear.
     """
 
     tokens: list[int]
+    text: str | None = None
     images: tuple["PILImage", ...] = ()
     audios: tuple[tuple["np.ndarray", int], ...] = ()

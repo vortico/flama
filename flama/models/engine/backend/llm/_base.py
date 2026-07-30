@@ -559,6 +559,9 @@ class TransformerLLMBackend(LLMBackend):
         model cannot continue. The narration is the turn's least load-bearing part — the tool call and its
         result carry the substance — and ``reasoning_content`` is left untouched.
 
+        Rendering and tokenising run as separate steps, rather than letting the renderer do both, so the
+        prompt text survives on :attr:`EngineInput.text` for the decoder to read its trailing state from.
+
         :param messages: Pre-built canonical L2 :class:`Message` instances.
         :param tools: Optional canonical L2 :class:`Tool` specs forwarded to the chat template.
         :param chat_template_kwargs: Extra keyword arguments forwarded to the chat template.
@@ -591,8 +594,10 @@ class TransformerLLMBackend(LLMBackend):
         )
 
         template_msgs = [self._dump_message(msg, drop_tool_narration=drop_tool_narration) for msg in messages]
-        tokens = list(self.apply_chat_template(template_msgs, **kwargs))
-        return EngineInput(tokens=tokens, images=tuple(images), audios=tuple(audios))
+        # The template has already emitted BOS, hence `add_special_tokens=False`.
+        rendered = self.apply_chat_template(template_msgs, tokenize=False, **kwargs)
+        tokens = self.encode(rendered, add_special_tokens=False)
+        return EngineInput(tokens=tokens, text=rendered, images=tuple(images), audios=tuple(audios))
 
     def chat_template_sample(self) -> str | None:
         """Render the class-level L2 fixture through the chat template for warmup detection.

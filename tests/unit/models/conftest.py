@@ -57,11 +57,12 @@ class _StubLLMBackend(TransformerLLMBackend):
         messages: list[dict[str, t.Any]],
         /,
         *,
+        tokenize: bool = True,
         add_generation_prompt: bool = True,
         **kwargs: t.Any,
-    ) -> list[int]:
+    ) -> list[int] | str:
         rendered = "".join(f"{m['role']}: {m['content']}\n" for m in messages)
-        return [ord(c) for c in rendered]
+        return [ord(c) for c in rendered] if tokenize else rendered
 
     async def generate(self, inputs: EngineInput, /, **params: t.Any) -> t.AsyncIterator[EngineDelta]:
         prompt = "".join(chr(i) for i in inputs.tokens)

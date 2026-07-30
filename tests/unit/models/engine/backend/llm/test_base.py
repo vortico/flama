@@ -77,7 +77,7 @@ class _FakeLLMBackend(TransformerLLMBackend):
     ) -> list[int] | str:
         self.template_calls.append(([dict(m) for m in messages], kwargs))
         if self._render is None:
-            return [len(messages)]
+            return [len(messages)] if tokenize else "|".join(m["role"] for m in messages)
         rendered = self._render(messages, add_generation_prompt)
         return rendered if not tokenize else [len(rendered)]
 
