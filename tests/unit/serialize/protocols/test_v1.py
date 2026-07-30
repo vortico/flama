@@ -11,7 +11,7 @@ from flama._core.compression import compress
 from flama._core.json_encoder import encode_json
 from flama.serialize import data_structures
 from flama.serialize.data_structures import FrameworkInfo, Metadata, ModelArtifact, ModelDirectory, ModelInfo
-from flama.serialize.exceptions import UnsupportedProtocol
+from flama.serialize.exceptions import UnsafeArtifactName, UnsupportedProtocol
 from flama.serialize.protocols import v1
 
 
@@ -32,6 +32,34 @@ class TestCaseV1Artifact:
 
         assert path.read_bytes() == content
         assert size == len(packed)
+
+    @pytest.mark.parametrize(
+        ["template", "exception"],
+        [
+            pytest.param("sidecar.json", None, id="plain-name"),
+            pytest.param("{escape}", UnsafeArtifactName, id="absolute"),
+            pytest.param("../escaped.bin", UnsafeArtifactName, id="traversal"),
+            pytest.param("nested/escaped.bin", UnsafeArtifactName, id="nested"),
+        ],
+        indirect=["exception"],
+    )
+    def test_unpack_rejects_unsafe_name(
+        self, compression_format: str, tmp_path: pathlib.Path, template: str, exception
+    ) -> None:
+        """A hand-crafted entry cannot materialise outside the extraction directory (``CWE-22``)."""
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+        escape = tmp_path / "escaped.bin"
+        name = template.format(escape=escape)
+        content = compress(b"escaped", compression_format)
+        frame = struct.pack(v1._Artifact._header_format, len(name), len(content)) + name.encode() + content
+
+        with exception:
+            path, _consumed = v1._Artifact.unpack(frame, compression=compression_format, directory=out_dir)
+
+        assert not escape.exists()
+        if not exception:
+            assert path.read_bytes() == b"escaped"
 
 
 @pytest.fixture(scope="function")
@@ -137,6 +165,31 @@ class TestCaseV1Body:
             v1._Body.pack(ma, buf, compression=compression_format)
         assert excinfo.value.protocol == 1
         assert "directory path" in excinfo.value.reason
+
+    @pytest.mark.parametrize(
+        ["name", "exception"],
+        [
+            pytest.param("extra.bin", None, id="plain-name"),
+            pytest.param("../escaped.bin", UnsafeArtifactName, id="traversal"),
+        ],
+        indirect=["exception"],
+    )
+    def test_unpack_manifest(self, compression_format: str, name: str, exception) -> None:
+        """Manifest names reach callers (and API responses) verbatim, so they are validated too."""
+        meta_bytes = compress(b"{}", compression_format)
+        entry = struct.pack(v1._Artifact._header_format, len(name), 0) + name.encode()
+
+        buf = io.BytesIO()
+        buf.write(struct.pack(v1._Body._header_format, len(meta_bytes), 0, 1, len(entry)))
+        buf.write(meta_bytes)
+        buf.write(entry)
+        buf.seek(0)
+
+        with exception:
+            names = v1._Body.unpack_manifest(buf, compression=compression_format)
+
+        if not exception:
+            assert names == (name,)
 
 
 class TestCaseV1Protocol:

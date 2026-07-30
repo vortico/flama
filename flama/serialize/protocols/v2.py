@@ -20,7 +20,7 @@ Wire layout::
         artifact * count
             name_size          I
             content_size       Q
-            name               utf-8 bytes
+            name               utf-8 bytes (a single plain file name)
             content            payload bytes
     model section
         compression            B
@@ -190,7 +190,10 @@ class _Artifact:
         :param name: Name to record on the wire.
         :param path: Source file to read and compress.
         :return: Wire frame: ``(name_size, content_size, name, compressed content)``.
+        :raises UnsafeArtifactName: When *name* is not a plain file name.
         """
+        name = BaseProtocol.artifact_name(name)
+
         with path.open("rb") as f:
             body = self._compression.compress(f.read())
 
@@ -200,11 +203,12 @@ class _Artifact:
         """Unpack a single artifact entry from *b* into *directory*.
 
         :return: Tuple of the materialised path and the number of bytes consumed from *b*.
+        :raises UnsafeArtifactName: When the entry's name is not a plain file name.
         """
         name_size, content_size = struct.unpack(self._header_format, b[: self._header_size])
         offset = self._header_size
 
-        name = b[offset : offset + name_size].decode()
+        name = BaseProtocol.artifact_name(b[offset : offset + name_size].decode())
         offset += name_size
 
         content = b[offset : offset + content_size]
@@ -403,6 +407,8 @@ class _Body:
         Walks the artifacts section header (compression byte + count) and the per-entry headers to
         collect names, seeking past each content payload — never decompressing or decoding any
         metadata, model body, or artifact payload. Cheapest possible introspection.
+
+        :raises UnsafeArtifactName: When an entry's name is not a plain file name.
         """
         meta_size, _artifacts_size, _model_size = struct.unpack(self._header_format, f.read(self._header_size))
         f.seek(meta_size, 1)
@@ -412,7 +418,7 @@ class _Body:
         names: list[str] = []
         for _ in range(count):
             name_size, content_size = struct.unpack(_Artifact._header_format, f.read(_Artifact._header_size))
-            names.append(f.read(name_size).decode())
+            names.append(BaseProtocol.artifact_name(f.read(name_size).decode()))
             f.seek(content_size, 1)
 
         return tuple(names)
@@ -438,6 +444,7 @@ class Protocol(BaseProtocol):
         :param kwargs: Forwarded to the framework-specific serializer (and the per-section
             compression overrides above).
         :return: Total number of body bytes written to *f*.
+        :raises UnsafeArtifactName: If a bundled artifact name is not a plain file name.
         :raises UnsupportedProtocol: If *m*'s kind / source pair has no v2 wire encoding.
         """
         return _Body(compression).pack(m, f, **kwargs)
@@ -457,6 +464,7 @@ class Protocol(BaseProtocol):
             byte resolves to ``"inherit"``).
         :return: Reconstructed :class:`ModelArtifact`. The returned artifact's :attr:`directory`
             field owns a temp directory kept alive for as long as the artifact is referenced.
+        :raises UnsafeArtifactName: If a bundled artifact name is not a plain file name.
         """
         artifact = _Body(compression).unpack(f, **kwargs)
 
@@ -469,5 +477,8 @@ class Protocol(BaseProtocol):
         return _Body(compression).unpack_meta(f)
 
     def manifest(self, f: t.BinaryIO, /, *, compression: types.SerializationCompression, **kwargs) -> tuple[str, ...]:
-        """Read the bundled artifact names from *f*."""
+        """Read the bundled artifact names from *f*.
+
+        :raises UnsafeArtifactName: If a bundled artifact name is not a plain file name.
+        """
         return _Body(compression).unpack_manifest(f)

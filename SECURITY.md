@@ -10,6 +10,18 @@ running the most recent version of Flama.
 | 2.x     | :white_check_mark: |
 | < 2.0   | :x:                |
 
+## Loading model artifacts
+
+Deserialising a `.flm` artifact executes code from that artifact. The model section is handed
+to the framework that produced it, and for several of the supported frameworks that means
+unpickling: `pickle` and `torch` payloads can run arbitrary code as soon as the model is
+materialised. This is inherent to the underlying formats, not a defect Flama can patch away.
+
+Treat a `.flm` file exactly as you would treat a pickle: **only load artifacts from sources you
+trust**. Loading a model downloaded from an untrusted or unverified location is equivalent to
+running that publisher's code on your machine, regardless of any hardening in the serialisation
+layer.
+
 ## Reporting a vulnerability
 
 Please **do not** report security vulnerabilities through public GitHub issues,

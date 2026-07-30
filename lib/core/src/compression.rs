@@ -6,7 +6,7 @@
 //! abstraction so that adding or changing a backend only requires editing the [`Encoder`]
 //! enum.
 
-use ::tar::{Archive, Builder};
+use ::tar::{Archive, Builder, EntryType};
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
@@ -543,21 +543,26 @@ fn tar(directory: &str, writer: Py<PyAny>, format: Option<&str>) -> PyResult<usi
     Ok(py_writer.written)
 }
 
-/// Walk *archive* and unpack every entry into *dir*, skipping unsafe paths.
+/// Walk *archive* and unpack every entry into *dir*, skipping unsafe entries.
 ///
-/// Sets ``overwrite=true`` on *archive* so existing files in *dir* are replaced; entries
-/// with absolute paths or ``..`` components are skipped, mirroring ``tarfile``'s
-/// ``filter="data"`` policy. Errors are prefixed with *context* so the call site shows up in
-/// the bridged Python exception.
+/// Sets ``overwrite=true`` on *archive* so existing files in *dir* are replaced. Entries are
+/// dropped rather than rewritten when they carry an absolute path, a ``..`` component, or a link
+/// (symbolic or hard) — mirroring ``tarfile``'s ``filter="data"`` policy. Survivors are written
+/// through [`Entry::unpack_in`] rather than [`Entry::unpack`] so the write is confined to *dir*
+/// even if a previously extracted path turns out to be a symlink. Errors are prefixed with
+/// *context* so the call site shows up in the bridged Python exception.
 fn unpack_entries<R: Read>(mut archive: Archive<R>, dir: &Path, context: &'static str) -> PyResult<()> {
     archive.set_overwrite(true);
     for entry in archive.entries().map_err(map_io(context))? {
         let mut entry = entry.map_err(map_io(context))?;
+        if matches!(entry.header().entry_type(), EntryType::Symlink | EntryType::Link) {
+            continue;
+        }
         let path = entry.path().map_err(map_io(context))?.into_owned();
         if path.is_absolute() || path.components().any(|c| matches!(c, Component::ParentDir)) {
             continue;
         }
-        entry.unpack(dir.join(&path)).map_err(map_io(context))?;
+        entry.unpack_in(dir).map_err(map_io(context))?;
     }
     Ok(())
 }
@@ -565,8 +570,8 @@ fn unpack_entries<R: Read>(mut archive: Archive<R>, dir: &Path, context: &'stati
 /// Extract a tar archive from *data* into *directory*.
 ///
 /// When *format* is ``None`` *data* is treated as raw tar; otherwise it is first
-/// decompressed using the matching decoder. Entries with absolute paths or ``..``
-/// components are skipped, mirroring ``tarfile``'s ``filter="data"``.
+/// decompressed using the matching decoder. Link entries and entries with absolute paths or
+/// ``..`` components are skipped, mirroring ``tarfile``'s ``filter="data"``.
 #[pyfunction]
 #[pyo3(signature = (data, directory, format=None))]
 fn untar(data: &[u8], directory: &str, format: Option<&str>) -> PyResult<()> {
@@ -599,8 +604,8 @@ fn untar(data: &[u8], directory: &str, format: Option<&str>) -> PyResult<()> {
 /// stream terminator; callers that care about the file position past this call should
 /// ``seek`` explicitly.
 ///
-/// Entries with absolute paths or ``..`` components are skipped, mirroring [`untar`]'s
-/// safety policy.
+/// Link entries and entries with absolute paths or ``..`` components are skipped, mirroring
+/// [`untar`]'s safety policy.
 ///
 /// :param reader: A Python file-like object exposing ``.read(size)`` returning ``bytes``.
 /// :param directory: Filesystem path of the output directory.

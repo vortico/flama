@@ -5,6 +5,8 @@ __all__ = [
     "UnknownCompression",
     "UnknownModelCapabilities",
     "UnknownModelKind",
+    "UnsafeArtifactName",
+    "UnsafeArtifactPath",
     "UnsupportedProtocol",
 ]
 
@@ -72,6 +74,34 @@ class UnknownCompression(ModelArtifactError):
         self.value = value
         rendered = f"0x{value:02x}" if isinstance(value, int) and value >= 0 else repr(value)
         super().__init__(rendered, "is not a known compression format")
+
+
+class UnsafeArtifactName(ModelArtifactError):
+    """A bundled artifact name cannot be safely materialised on disk.
+
+    Artifact names travel verbatim inside a ``.flm`` body, so a hostile file could otherwise name an
+    absolute path or a ``..`` traversal segment and have extraction write anywhere the loading
+    process can reach (``CWE-22``, "zip-slip"). Raised by
+    :meth:`~flama.serialize.protocols._base.BaseProtocol.artifact_name` on both the pack and the
+    unpack side, so a malformed name is refused when a ``.flm`` is written as well as when it is
+    read.
+    """
+
+    def __init__(self, name: str) -> None:
+        super().__init__(repr(name), "is not a safe artifact name")
+
+
+class UnsafeArtifactPath(ModelArtifactError):
+    """A staged artifact file resolves outside its destination directory.
+
+    Raised while assembling an artifact from a remote source, where file names come from the
+    source's own listing and are therefore attacker-controlled for any third-party repository.
+    Unlike :class:`UnsafeArtifactName`, nested names are legitimate here, so the invariant is
+    containment within the destination root rather than a single path component.
+    """
+
+    def __init__(self, name: str) -> None:
+        super().__init__(repr(name), "resolves outside the destination directory")
 
 
 class UnsupportedProtocol(ModelArtifactError):

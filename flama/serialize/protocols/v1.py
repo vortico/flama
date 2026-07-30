@@ -20,7 +20,7 @@ Wire layout::
         artifact * count
             name_size          I
             content_size       Q
-            name               utf-8 bytes
+            name               utf-8 bytes (a single plain file name)
             content            compressed payload bytes
 
 v1 stays available so older ``.flm`` files keep loading; the
@@ -53,6 +53,8 @@ class _Artifact:
 
     @classmethod
     def pack(cls, name: str, path: pathlib.Path, /, *, compression: types.SerializationCompression, **kwargs) -> bytes:
+        name = BaseProtocol.artifact_name(name)
+
         with path.open("rb") as f:
             body = compress(f.read(), compression)
 
@@ -71,7 +73,7 @@ class _Artifact:
         name_size, content_size = struct.unpack(cls._header_format, b[: cls._header_size])
         offset = cls._header_size
 
-        name = (b[offset : offset + name_size]).decode()
+        name = BaseProtocol.artifact_name((b[offset : offset + name_size]).decode())
         offset += name_size
 
         content = b[offset : offset + content_size]
@@ -242,6 +244,8 @@ class _Body:
         Walks the per-artifact ``(name_size, content_size)`` headers, reads the names, and seeks
         past the content bytes — never decompressing or decoding the metadata, model, or artifact
         contents. Cheapest possible introspection.
+
+        :raises UnsafeArtifactName: When an entry's name is not a plain file name.
         """
         meta_size, model_size, artifacts_count, _artifacts_size = struct.unpack(
             cls._header_format, f.read(cls._header_size)
@@ -251,7 +255,7 @@ class _Body:
         names: list[str] = []
         for _ in range(artifacts_count):
             name_size, content_size = struct.unpack(_Artifact._header_format, f.read(_Artifact._header_size))
-            names.append(f.read(name_size).decode())
+            names.append(BaseProtocol.artifact_name(f.read(name_size).decode()))
             f.seek(content_size, 1)
 
         return tuple(names)
@@ -274,6 +278,7 @@ class Protocol(BaseProtocol):
         :param compression: Compression format name applied uniformly to every section.
         :param kwargs: Forwarded to the framework-specific serializer.
         :return: Total number of body bytes written to *f*.
+        :raises UnsafeArtifactName: If a bundled artifact name is not a plain file name.
         :raises UnsupportedProtocol: If *m*'s shape is not representable in v1 (directory source).
         """
         return _Body.pack(m, f, compression=compression, **kwargs)
@@ -292,6 +297,7 @@ class Protocol(BaseProtocol):
         :param compression: Compression format used when packing.
         :return: Reconstructed :class:`ModelArtifact`. The returned artifact's :attr:`directory`
             field owns a temp directory kept alive for as long as the artifact is referenced.
+        :raises UnsafeArtifactName: If a bundled artifact name is not a plain file name.
         """
         artifact = _Body.unpack(f, compression=compression, **kwargs)
 
@@ -304,5 +310,8 @@ class Protocol(BaseProtocol):
         return _Body.unpack_meta(f, compression=compression)
 
     def manifest(self, f: t.BinaryIO, /, *, compression: types.SerializationCompression, **kwargs) -> tuple[str, ...]:
-        """Read the bundled artifact names from *f*."""
+        """Read the bundled artifact names from *f*.
+
+        :raises UnsafeArtifactName: If a bundled artifact name is not a plain file name.
+        """
         return _Body.unpack_manifest(f, compression=compression)

@@ -1,5 +1,6 @@
 import io
 import pathlib
+import tarfile
 
 import pytest
 
@@ -115,6 +116,33 @@ class TestCaseTar:
         assert (dst / "a.txt").read_text() == "hello"
         assert (dst / "sub" / "b.txt").read_text() == "world"
         assert not (dst / ".hidden.txt").exists()
+
+    def test_untar_skips_unsafe_entries(self, tmp_path: pathlib.Path) -> None:
+        """Traversal, absolute and link entries are dropped instead of written (``CWE-22``)."""
+        escape = tmp_path / "escaped.txt"
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w") as archive:
+            for name, payload in (("../escaped.txt", b"escaped"), ("/escaped.txt", b"escaped"), ("a.txt", b"hello")):
+                info = tarfile.TarInfo(name)
+                info.size = len(payload)
+                archive.addfile(info, io.BytesIO(payload))
+
+            link = tarfile.TarInfo("link")
+            link.type = tarfile.SYMTYPE
+            link.linkname = str(tmp_path)
+            archive.addfile(link)
+
+            through = tarfile.TarInfo("link/escaped.txt")
+            through.size = len(b"escaped")
+            archive.addfile(through, io.BytesIO(b"escaped"))
+
+        dst = tmp_path / "dst"
+        untar(buf.getvalue(), str(dst), format=None)
+
+        assert (dst / "a.txt").read_text() == "hello"
+        assert not escape.exists()
+        assert not (dst / "escaped.txt").exists()
+        assert not (dst / "link").is_symlink()
 
     def test_untar_from_advances_only_within_length(self, directory: pathlib.Path, tmp_path: pathlib.Path) -> None:
         body = io.BytesIO()

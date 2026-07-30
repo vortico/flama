@@ -1,9 +1,11 @@
 import abc
 import importlib
+import pathlib
 import typing as t
 
 from flama import types
 from flama.serialize.data_structures import Metadata, ModelArtifact
+from flama.serialize.exceptions import UnsafeArtifactName
 
 __all__ = ["BaseProtocol", "Protocol"]
 
@@ -12,6 +14,36 @@ class BaseProtocol(abc.ABC):
     """Base class for defining a serialization protocol for ML models."""
 
     lib: t.ClassVar[types.ModelLib]
+
+    @staticmethod
+    def artifact_name(name: str, /) -> str:
+        """Validate a bundled artifact *name* against the wire format's naming contract.
+
+        Only a single plain file name is accepted: absolute, nested, drive-qualified, traversal and
+        empty names are all refused, so an artifact read from an untrusted ``.flm`` can never be
+        materialised outside its extraction directory (``CWE-22``). Names are checked under both
+        POSIX and Windows semantics, so an artifact written on one platform cannot escape on the
+        other, and the relative directory names are rejected up front because :mod:`pathlib` keeps
+        ``".."`` as an ordinary final component rather than normalising it away.
+
+        Restricting to a single component also keeps
+        :data:`~flama.serialize.data_structures.Artifacts` unambiguously keyed, as every protocol
+        keys the unpacked mapping by file name.
+
+        :param name: Artifact name as decoded from, or destined for, the wire format.
+        :return: The validated name, unchanged.
+        :raises UnsafeArtifactName: When *name* is not a plain file name.
+        """
+        if (
+            not name
+            or name in {".", ".."}
+            or "\x00" in name
+            or name != pathlib.PurePosixPath(name).name
+            or name != pathlib.PureWindowsPath(name).name
+        ):
+            raise UnsafeArtifactName(name)
+
+        return name
 
     @abc.abstractmethod
     def dump(self, m: ModelArtifact, f: t.BinaryIO, /, *, compression: types.SerializationCompression, **kwargs) -> int:
