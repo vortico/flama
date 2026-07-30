@@ -23,6 +23,7 @@ from rich.progress import (
 from flama import concurrency, types
 from flama._cli.formatting import CONSOLE, FlamaCommand
 from flama.client import Client
+from flama.serialize.exceptions import UnsafeArtifactPath
 from flama.serialize.serializer import Serializer
 
 __all__ = ["get", "command"]
@@ -179,8 +180,20 @@ class _HuggingFaceDownloader(_Downloader):
                 task.result()
 
     async def _download_file(self, filename: str, progress: Progress, progress_id: TaskID) -> None:
+        """Stage *filename* under the download directory, refusing names that escape it.
+
+        Remote file names come from the source's own API listing, so they are attacker-controlled
+        for any third-party repository; the resolved destination is confined to the staging root
+        (``CWE-22``).
+
+        :raises UnsafeArtifactPath: When *filename* resolves outside the staging directory.
+        """
         async with self.semaphore:
-            dest = pathlib.Path(self.tmp.name) / filename
+            root = pathlib.Path(self.tmp.name).resolve()
+            dest = (root / filename).resolve()
+            if not dest.is_relative_to(root):
+                raise UnsafeArtifactPath(filename)
+
             await concurrency.run(dest.parent.mkdir, parents=True, exist_ok=True)
             await self.retry(lambda: self._stream_to_file(filename, dest, progress, progress_id))
 

@@ -8,6 +8,7 @@ import pytest
 from click.testing import CliRunner
 
 from flama._cli.commands.get import _Downloader, _HuggingFaceDownloader, _RetryPolicy, command
+from flama.serialize.exceptions import UnsafeArtifactPath
 
 
 def _make_response(*, pipeline_tag: str | None = "text-generation", files=(("config.json", 12),)) -> MagicMock:
@@ -267,6 +268,30 @@ class TestCaseHuggingFaceDownloader:
                 assert downloader.retry.await_count == 1
                 ((fn,), _) = downloader.retry.await_args
                 assert callable(fn)
+
+    @pytest.mark.parametrize(
+        ["filename", "exception"],
+        [
+            pytest.param("config.json", None, id="plain-name"),
+            pytest.param("nested/config.json", None, id="nested-name"),
+            pytest.param("../escaped.bin", UnsafeArtifactPath, id="traversal"),
+            pytest.param("/tmp/escaped.bin", UnsafeArtifactPath, id="absolute"),
+        ],
+        indirect=["exception"],
+    )
+    async def test__download_file_confines_destination(
+        self, make_downloader: t.Callable[..., _HuggingFaceDownloader], filename: str, exception
+    ) -> None:
+        """Remote listings are attacker-controlled, so destinations stay under the staging root."""
+        with patch("flama._cli.commands.get.Client", return_value=_make_client(_make_response(files=[]), MagicMock())):
+            downloader = make_downloader(max_concurrent=2)
+            async with downloader:
+                downloader.retry = AsyncMock()  # type: ignore[assignment]
+
+                with exception:
+                    await downloader._download_file(filename, MagicMock(), 0)
+
+                assert downloader.retry.await_count == (0 if exception else 1)
 
     async def test__download_file_respects_concurrency_cap(
         self, make_downloader: t.Callable[..., _HuggingFaceDownloader]
