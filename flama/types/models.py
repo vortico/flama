@@ -24,7 +24,14 @@ LLMEngineToolScanners = t.Literal[
     "passthrough", "tool_call", "tool_calls", "python_tag", "pythonic", "python_block", "tool_call_pipe"
 ]
 LLMEngineToolParsers = t.Literal[
-    "passthrough", "json_object", "json_array", "json_sequence", "named_json_sequence", "pythonic", "call_notation"
+    "passthrough",
+    "json_object",
+    "json_array",
+    "json_sequence",
+    "named_json_sequence",
+    "pythonic",
+    "call_notation",
+    "tag_notation",
 ]
 
 # LLM Transport Layer

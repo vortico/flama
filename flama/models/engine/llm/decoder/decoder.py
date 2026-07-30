@@ -11,6 +11,7 @@ from flama.models.engine.llm.decoder.parsers import (
     JSONSequenceParser,
     PassthroughParser,
     PythonicParser,
+    TagNotationParser,
     ToolParser,
 )
 
@@ -45,6 +46,7 @@ _KNOWN_TOOL_PARSERS: t.Final[dict[types.LLMEngineToolParsers, ToolParser]] = {
     "named_json_sequence": JSONNamedSequenceParser(name="named_json_sequence"),
     "pythonic": PythonicParser(name="pythonic"),
     "call_notation": CallNotationParser(name="call_notation"),
+    "tag_notation": TagNotationParser(name="tag_notation"),
 }
 
 

@@ -12,6 +12,7 @@ from flama.models.engine.llm.decoder.parsers import (
     JSONSequenceParser,
     PassthroughParser,
     PythonicParser,
+    TagNotationParser,
     ToolCall,
     ToolParser,
 )
@@ -50,6 +51,20 @@ class TestCaseToolParser:
     )
     def test_detect(self, body: str, expected: bool) -> None:
         assert JSONObjectParser().detect(body) is expected
+
+    @pytest.mark.parametrize(
+        ["raw", "expected"],
+        [
+            pytest.param("true", True, id="true"),
+            pytest.param("false", False, id="false"),
+            pytest.param("null", None, id="null"),
+            pytest.param("1", 1, id="int"),
+            pytest.param("1.5", 1.5, id="float"),
+            pytest.param("bare", "bare", id="fallback_string"),
+        ],
+    )
+    def test_coerce_literal(self, raw: str, expected: t.Any) -> None:
+        assert ToolParser._coerce_literal(raw) == expected
 
 
 class TestCasePassthroughParser:
@@ -252,16 +267,77 @@ class TestCaseCallNotationParser:
     def test_parse(self, body: str, expected: list[ToolCall]) -> None:
         assert list(CallNotationParser().parse(body)) == expected
 
+
+class TestCaseTagNotationParser:
     @pytest.mark.parametrize(
-        ["raw", "expected"],
+        ["body", "expected"],
         [
-            pytest.param("true", True, id="true"),
-            pytest.param("false", False, id="false"),
-            pytest.param("null", None, id="null"),
-            pytest.param("1", 1, id="int"),
-            pytest.param("1.5", 1.5, id="float"),
-            pytest.param("bare", "bare", id="fallback_string"),
+            pytest.param(
+                "<function=fn>\n</function>",
+                [ToolCall(name="fn", arguments={})],
+                id="no_arguments",
+            ),
+            pytest.param(
+                "<function=get_weather>\n<parameter=location>\nParis\n</parameter>\n</function>",
+                [ToolCall(name="get_weather", arguments={"location": "Paris"})],
+                id="single_argument",
+            ),
+            pytest.param(
+                "<function=fn>\n<parameter=a>\nbare\n</parameter>\n<parameter=b>\n3\n</parameter>\n"
+                '<parameter=c>\n{"units": "c"}\n</parameter>\n<parameter=d>\ntrue\n</parameter>\n</function>',
+                [ToolCall(name="fn", arguments={"a": "bare", "b": 3, "c": {"units": "c"}, "d": True})],
+                id="value_coercion",
+            ),
+            pytest.param(
+                "<function=write>\n<parameter=body>\nline one\nline two\n</parameter>\n</function>",
+                [ToolCall(name="write", arguments={"body": "line one\nline two"})],
+                id="multiline_value",
+            ),
+            pytest.param(
+                "<function=a>\n<parameter=x>\n1\n</parameter>\n</function>\n<function=b>\n</function>",
+                [ToolCall(name="a", arguments={"x": 1}), ToolCall(name="b", arguments={})],
+                id="multiple_calls",
+            ),
+            pytest.param(
+                "<function=get_weather>\n<parameter=location>\nParis\n</parameter>\n</function>\n"
+                "</function>\n</function_invocation>",
+                [ToolCall(name="get_weather", arguments={"location": "Paris"})],
+                id="stray_close_tags_tolerated",
+            ),
+            pytest.param(
+                "<function=fn>\n<parameter=a>\n1\n</parameter>",
+                [ToolCall(name="fn", arguments={"a": 1})],
+                id="missing_close_tags_tolerated",
+            ),
+            pytest.param(
+                "<function=fn>\n<parameter=empty>\n\n</parameter>\n</function>",
+                [ToolCall(name="fn", arguments={"empty": ""})],
+                id="empty_value",
+            ),
+            pytest.param('{"name": "fn", "arguments": {}}', [], id="json_body_ignored"),
+            pytest.param("no tags here", [], id="invalid_body"),
+            pytest.param("", [], id="empty_body"),
         ],
     )
-    def test_coerce_literal(self, raw: str, expected: t.Any) -> None:
-        assert CallNotationParser._coerce_literal(raw) == expected
+    def test_parse(self, body: str, expected: list[ToolCall]) -> None:
+        assert list(TagNotationParser().parse(body)) == expected
+
+    @pytest.mark.parametrize(
+        ["body", "expected"],
+        [
+            pytest.param(
+                "<function=example_function_name>\n<parameter=example_parameter_1>\nvalue_1\n</parameter>\n</function>",
+                True,
+                id="template_example_body",
+            ),
+            pytest.param('{"name": "fn", "arguments": {}}', False, id="json_object_body"),
+            pytest.param("[fn(a=1)]", False, id="pythonic_body"),
+        ],
+    )
+    def test_detect(self, body: str, expected: bool) -> None:
+        assert TagNotationParser().detect(body) is expected
+
+    def test_custom_tags(self) -> None:
+        parser = TagNotationParser(function_tag="tool", parameter_tag="arg")
+
+        assert list(parser.parse("<tool=fn>\n<arg=a>\n1\n</arg>\n</tool>")) == [ToolCall(name="fn", arguments={"a": 1})]
