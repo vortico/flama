@@ -620,19 +620,45 @@ class TestCaseLLMCodec:
 
         assert any(isinstance(b, ToolEvent) for b in items)
 
-    async def test_decode_tool_inside_channel_restores_channel(self) -> None:
+    async def test_decode_tool_inside_channel_is_not_a_call(self) -> None:
+        """A reasoning model writes the tool syntax out while working through the required format, so a
+        marker inside a channel is the model describing a call rather than making one: it stays reasoning
+        text, and only the marker outside the channel dispatches.
+        """
+        engine = make_engine(
+            channel_scanner=_THINK_SCANNER, tool_scanner=_TOOL_CALL_SCANNER, tool_parser=JSONObjectParser()
+        )
+
+        items = await consume(
+            engine.decode(
+                aiter(
+                    [
+                        EngineDelta(
+                            text='<think>maybe <tool_call>{"name":"rehearsed","arguments":{}}</tool_call> yes</think>'
+                            '<tool_call>{"name":"real","arguments":{}}</tool_call>'
+                        )
+                    ]
+                )
+            )
+        )
+
+        reasoning = "".join(b.text for b in items if isinstance(b, TextEvent) and b.channel is None)
+        assert reasoning == 'maybe <tool_call>{"name":"rehearsed","arguments":{}}</tool_call> yes'
+        assert [b.name for b in items if isinstance(b, ToolEvent)] == ["real"]
+
+    async def test_decode_tool_after_channel_restores_output(self) -> None:
         engine = make_engine(
             channel_scanner=_THINK_SCANNER, tool_scanner=_TOOL_CALL_SCANNER, tool_parser=PassthroughParser()
         )
 
         items = await consume(
-            engine.decode(aiter([EngineDelta(text="<think>before<tool_call>{}</tool_call>after</think>tail")]))
+            engine.decode(aiter([EngineDelta(text="<think>before</think><tool_call>{}</tool_call>tail")]))
         )
 
         text_blocks = [b for b in items if isinstance(b, TextEvent)]
         assert any(b.channel is None and b.text == "before" for b in text_blocks)
-        assert any(b.channel is None and b.text == "after" for b in text_blocks)
         assert any(b.channel == "output" and b.text == "tail" for b in text_blocks)
+        assert any(isinstance(b, ToolEvent) for b in items)
 
     async def test_decode_propagates_trace_metadata(self) -> None:
         engine = make_engine()
