@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import pathlib
+import re
 import struct
 import tempfile
 import typing as t
@@ -28,6 +29,9 @@ if t.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __all__ = ["ModelSerializer"]
+
+# A Jinja reference to the thinking toggle, as opposed to a mention of it in prose or a string literal.
+_ENABLE_THINKING_REFERENCE: t.Final[re.Pattern[str]] = re.compile(r"\{[{%]-?[^}%]*\benable_thinking\b")
 
 
 class ModelSerializer(BaseModelSerializer):
@@ -142,8 +146,12 @@ class ModelSerializer(BaseModelSerializer):
           the template wires tools through. Templates that ignore the ``tools`` argument leave
           the sentinel out and are reported as tool-less.
         * **Reasoning** — render the same conversation twice with ``enable_thinking=True`` and
-          ``enable_thinking=False``; if the outputs differ, the template observes the flag and
-          the model is considered reasoning-capable.
+          ``enable_thinking=False``; if the outputs differ, the template observes the flag. Both
+          renders include the generation prompt, since that is where templates place the toggle.
+
+        Reasoning therefore means "a caller can turn thinking off", not "the model reasons": the two
+        part company on a model that reasons unconditionally, and the former is what the servings ask
+        when they gate ``enable_thinking``.
 
         When the tokenizer cannot be loaded (e.g. ``trust_remote_code`` requirements, missing
         files, or sandboxed environments), falls back to a tightened textual heuristic that
@@ -306,15 +314,24 @@ class ModelSerializer(BaseModelSerializer):
             },
         }
 
+        # ``add_generation_prompt`` defaults to False in transformers, and this is the one place that calls
+        # the tokenizer directly instead of through the backend wrapper that defaults it on. Templates gate
+        # the thinking toggle inside that block, so omitting it renders ``enable_thinking`` inert.
         try:
-            with_tools = tokenizer.apply_chat_template(messages, tools=[tool_schema], tokenize=False)
+            with_tools = tokenizer.apply_chat_template(
+                messages, tools=[tool_schema], tokenize=False, add_generation_prompt=True
+            )
         except Exception:
             with_tools = None
         tools_supported = isinstance(with_tools, str) and self._PROBE_TOOL_NAME in with_tools
 
         try:
-            thinking_on = tokenizer.apply_chat_template(messages, tokenize=False, enable_thinking=True)
-            thinking_off = tokenizer.apply_chat_template(messages, tokenize=False, enable_thinking=False)
+            thinking_on = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True, enable_thinking=True
+            )
+            thinking_off = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
+            )
         except Exception:
             return tools_supported, False
         reasoning_supported = (
@@ -327,10 +344,12 @@ class ModelSerializer(BaseModelSerializer):
     def _probe_with_heuristic(tokenizer_config_path: pathlib.Path) -> tuple[bool, bool]:
         """Detect tools/reasoning by inspecting Jinja references in the chat template source.
 
-        Tighter than the legacy ``"tools" in template`` substring check: requires a full Jinja
-        reference (``{{ tools ...}}`` or ``{% ... tools ...%}``) so that templates which merely
-        document tools in a comment or string literal don't trip the heuristic. Reasoning is
-        gated on a similar reference to ``enable_thinking`` plus the historical channel markers.
+        Tighter than a bare ``"tools" in template`` substring check: both flags require a Jinja
+        reference, so a template merely documenting either in a comment or string literal does not
+        trip the heuristic. Reasoning rests on ``enable_thinking`` alone rather than on channel
+        markers, since the flag is what :meth:`_probe_with_tokenizer` measures and what the capability
+        means — a marker like ``<think>`` says the model reasons, not that the template lets a caller
+        stop it.
         """
         if not tokenizer_config_path.is_file():
             return False, False
@@ -347,9 +366,7 @@ class ModelSerializer(BaseModelSerializer):
             return False, False
 
         tools = "{{ tools" in chat_template or "{%- if tools" in chat_template or "{% if tools" in chat_template
-        reasoning = (
-            "enable_thinking" in chat_template or "<think>" in chat_template or "reasoning_content" in chat_template
-        )
+        reasoning = _ENABLE_THINKING_REFERENCE.search(chat_template) is not None
         return tools, reasoning
 
     def info(self, model: t.Any, /) -> "JSONSchema | None":

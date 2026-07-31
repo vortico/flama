@@ -88,7 +88,9 @@ class TestCaseTransformersModelSerializer:
         tokenizer = MagicMock()
         tokenizer.chat_template = "irrelevant"
 
-        def apply(messages, tokenize=False, tools=None, enable_thinking=None):
+        def apply(messages, tokenize=False, add_generation_prompt=False, tools=None, enable_thinking=None):
+            # The probe must render the generation prompt: templates gate the thinking toggle on it.
+            assert add_generation_prompt is True
             if tools is not None:
                 if isinstance(with_tools, type) and issubclass(with_tools, BaseException):
                     raise with_tools()
@@ -450,14 +452,26 @@ class TestCaseTransformersModelSerializer:
             ),
             pytest.param({"chat_template": "{{ enable_thinking }}"}, (False, True), id="reasoning_enable_thinking"),
             pytest.param(
-                {"chat_template": "<think>{{ messages }}</think>"},
+                {"chat_template": "{%- if enable_thinking %}<think>{% endif %}"},
                 (False, True),
-                id="reasoning_think_tag",
+                id="reasoning_enable_thinking_in_statement",
+            ),
+            pytest.param(
+                # A marker says the model reasons; the capability says a caller can stop it. Only the
+                # latter has a consumer, so a template with no toggle reports False.
+                {"chat_template": "<think>{{ messages }}</think>"},
+                (False, False),
+                id="reasoning_think_tag_without_toggle",
             ),
             pytest.param(
                 {"chat_template": "{{ message.reasoning_content }}"},
-                (False, True),
-                id="reasoning_content_field",
+                (False, False),
+                id="reasoning_content_field_without_toggle",
+            ),
+            pytest.param(
+                {"chat_template": "the docs mention enable_thinking in prose"},
+                (False, False),
+                id="reasoning_bare_substring_does_not_trip",
             ),
             pytest.param({"chat_template": "{{ tools }} {{ enable_thinking }}"}, (True, True), id="both_supported"),
             pytest.param(

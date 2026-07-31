@@ -145,7 +145,9 @@ class LLMModelCapabilities(ModelCapabilities):
     :param audio: Whether the model accepts audio content parts.
     :param video: Whether the model accepts video content parts.
     :param tools: Whether the model can be advertised with function-tool specs.
-    :param reasoning: Whether the model emits a separate ``reasoning_content`` channel.
+    :param reasoning: Whether the chat template honours ``enable_thinking``, i.e. whether a caller can
+        turn thinking off. This is not "the model reasons": a model that reasons unconditionally has no
+        toggle to offer and reports :data:`False`. The servings read it to gate ``enable_thinking``.
     """
 
     kind: t.ClassVar[types.ModelFamily] = "llm"
