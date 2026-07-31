@@ -1,5 +1,24 @@
 # Semantic Versioning Changelog
 
+# [v2.1.0](https://github.com/vortico/flama/compare/v2.0.8...v2.1.0) (2026-07-31)
+
+## ✨ New Features
+- [`66e7f58`](https://github.com/vortico/flama/commit/66e7f58)  File uploads in request body schemas (#247) (Issues: [`#247`](https://github.com/vortico/flama/issues/))
+- [`0a2c0db`](https://github.com/vortico/flama/commit/0a2c0db)  Upgrade OpenAPI to 3.2.0 (#248) (Issues: [`#248`](https://github.com/vortico/flama/issues/))
+- [`6796038`](https://github.com/vortico/flama/commit/6796038)  Support for the HTTP QUERY method (#249) (Issues: [`#249`](https://github.com/vortico/flama/issues/))
+- [`866ab24`](https://github.com/vortico/flama/commit/866ab24)  Enum support for parameters and resource filtering (#252) (Issues: [`#252`](https://github.com/vortico/flama/issues/))
+- [`6c1f569`](https://github.com/vortico/flama/commit/6c1f569)  Collection filtering by operator (#255) (Issues: [`#255`](https://github.com/vortico/flama/issues/))
+
+## 🐛 Bug Fixes
+- [`016a566`](https://github.com/vortico/flama/commit/016a566)  Repeated query parameters collapse to a single value (#250) (Issues: [`#250`](https://github.com/vortico/flama/issues/))
+- [`8b1017b`](https://github.com/vortico/flama/commit/8b1017b)  Enum definitions dropped from the generated OpenAPI document (#251) (Issues: [`#251`](https://github.com/vortico/flama/issues/))
+- [`c2ec96a`](https://github.com/vortico/flama/commit/c2ec96a)  Annotation introspection duplicated across modules (#254) (Issues: [`#254`](https://github.com/vortico/flama/issues/))
+- [`d2d339e`](https://github.com/vortico/flama/commit/d2d339e)  Tool call arguments forwarded to chat templates as a JSON string (#258) (Issues: [`#258`](https://github.com/vortico/flama/issues/))
+- [`e7ad25e`](https://github.com/vortico/flama/commit/e7ad25e)  No tool parser for tag-notation tool-call bodies (#259) (Issues: [`#259`](https://github.com/vortico/flama/issues/))
+- [`32363c7`](https://github.com/vortico/flama/commit/32363c7)  Reasoning served as the answer when the chat template pre-opens a channel (#260) (Issues: [`#260`](https://github.com/vortico/flama/issues/))
+- [`d6dd5eb`](https://github.com/vortico/flama/commit/d6dd5eb)  Reasoning capability misdetected when the template gates thinking on the generation prompt (#261) (Issues: [`#261`](https://github.com/vortico/flama/issues/))
+- [`903aea0`](https://github.com/vortico/flama/commit/903aea0)  Tool markers written inside a reasoning channel are dispatched as real calls (#262) (Issues: [`#262`](https://github.com/vortico/flama/issues/))
+
 # [v2.0.8](https://github.com/vortico/flama/compare/v2.0.7...v2.0.8) (2026-07-30)
 
 ## 🔒 Security Issues
