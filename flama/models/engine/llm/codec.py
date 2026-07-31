@@ -140,20 +140,30 @@ class _FSM:
     def _scan(self) -> tuple[_Event, _Source] | None:
         """Pick the next ``(event, source)`` pair from the head of the buffer.
 
-        Both scanners run in lockstep when the FSM is outside any tool body. If either active
-        scanner returns :data:`None` the entire buffer is held until more input arrives -
-        otherwise a partial marker prefix could be wrongly emitted as content by the
-        passthrough on the other side. When both report an event the candidate with the
-        smallest leading content slice wins (a length-0 marker beats any content); tool wins
-        on ties because the iteration is reversed before :func:`min` (stable-min keeps the
-        last-seen candidate, and tool is appended last).
+        Both scanners run in lockstep only outside every region, and each state narrows to the one
+        scanner that can act on it: inside a tool body only the tool markers matter, and inside a
+        channel only the channel's own, because a tool marker appearing there is the model writing
+        the syntax out while reasoning about it rather than calling anything.
+
+        If either active scanner returns :data:`None` the entire buffer is held until more input
+        arrives - otherwise a partial marker prefix could be wrongly emitted as content by the
+        passthrough on the other side. When both report an event the candidate with the smallest
+        leading content slice wins (a length-0 marker beats any content); tool wins on ties because
+        the iteration is reversed before :func:`min` (stable-min keeps the last-seen candidate, and
+        tool is appended last).
         """
         decoder = self._decoder
-        sources: list[tuple[Scanner, _Source, bool]] = (
-            [(decoder.tool_scanner, "tool", True)]
-            if self._state == "tool"
-            else [(decoder.channel_scanner, "channel", self._state == "channel"), (decoder.tool_scanner, "tool", False)]
-        )
+        sources: list[tuple[Scanner, _Source, bool]]
+        match self._state:
+            case "tool":
+                sources = [(decoder.tool_scanner, "tool", True)]
+            case "channel":
+                sources = [(decoder.channel_scanner, "channel", True)]
+            case _:
+                sources = [
+                    (decoder.channel_scanner, "channel", False),
+                    (decoder.tool_scanner, "tool", False),
+                ]
 
         candidates: list[tuple[_Event, _Source]] = []
         for scanner, source, inside in sources:
@@ -214,10 +224,7 @@ class _FSM:
         ("outside", "close", "channel"): _action_consume_close,
         ("outside", "close", "tool"): _action_consume_close,
         ("channel", "content", "channel"): _action_emit_text,
-        ("channel", "content", "tool"): _action_emit_text,
         ("channel", "close", "channel"): _action_leave_channel,
-        ("channel", "open", "tool"): _action_enter_tool,
-        ("channel", "close", "tool"): _action_consume_close,
         ("tool", "content", "tool"): _action_buffer_tool,
         ("tool", "close", "tool"): _action_exit_tool,
     }
