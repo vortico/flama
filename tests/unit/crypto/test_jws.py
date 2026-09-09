@@ -2,6 +2,7 @@ import uuid
 
 import pytest
 
+from flama.crypto.algorithms import EdDSAAlgorithm
 from flama.crypto.exceptions import SignatureDecodeException, SignatureVerificationException
 from flama.crypto.jws import JWS
 
@@ -94,3 +95,16 @@ class TestCaseJWS:
     def test_decode(self, key, token, result, exception):
         with exception:
             assert JWS.decode(token, key) == result
+
+    def test_encode_and_decode_asymmetrically(self):
+        private, public = EdDSAAlgorithm.generate()
+        header, payload = {"alg": "EdDSA", "typ": "JWT"}, {"data": {"foo": "bar"}, "iat": 0}
+
+        token = JWS.encode(header, payload, key=private)
+
+        assert JWS.decode(token, public)[:2] == (header, payload)
+
+        # The key a token is signed with is not the key it is checked against, so the private one does not
+        # stand in for the public one.
+        with pytest.raises(SignatureVerificationException):
+            JWS.decode(token, private)
