@@ -38,6 +38,21 @@ class Header:
     typ: str = "JWT"
     alg: str | None = None
     cty: str | None = None
+    kid: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, t.Any], /) -> "Header":
+        """Build a header from its dict form.
+
+        Parameters that are not recognised are ignored, as RFC 7515 asks of a header parameter that carries no
+        meaning to the reader.
+
+        :param data: Header as a dictionary.
+        :return: Header.
+        """
+        fields = {field.name for field in dataclasses.fields(cls)}
+
+        return cls(**{k: v for k, v in data.items() if k in fields})
 
     def to_dict(self) -> dict[str, t.Any]:
         """Return the header as a dictionary.
@@ -145,7 +160,7 @@ class JWT:
     def __init__(
         self, _header: Header | dict[str, t.Any] | None = None, _payload: Payload | dict[str, t.Any] | None = None
     ) -> None:
-        object.__setattr__(self, "header", _header if isinstance(_header, Header) else Header(**(_header or {})))
+        object.__setattr__(self, "header", _header if isinstance(_header, Header) else Header.from_dict(_header or {}))
         object.__setattr__(self, "payload", _payload if isinstance(_payload, Payload) else Payload(**(_payload or {})))
 
     def encode(self, key: bytes) -> bytes:

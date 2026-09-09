@@ -122,6 +122,22 @@ class TestCaseJWT:
                 exceptions.JWTValidateException("Invalid claims (exp)"),
                 id="expired-exp",
             ),
+            pytest.param(
+                b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Im9uZSJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9."
+                b"Y_LrANOtiqv6Ie9hlDMaQoStwXhHIzrxaD9B_T1c3oc=",
+                JWT({"alg": "HS256", "typ": "JWT", "kid": "one"}, {"data": {"foo": "bar"}, "iat": 0}),
+                None,
+                None,
+                id="names-a-key",
+            ),
+            pytest.param(
+                b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImprdSI6Imh0dHBzOi8vaXNzdWVyL2tleXMifQ==."
+                b"eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.N2q0cBoMBIrRvewluxWHVZJj57ojrd35m7StLg4kJ-k=",
+                JWT({"alg": "HS256", "typ": "JWT"}, {"data": {"foo": "bar"}, "iat": 0}),
+                None,
+                None,
+                id="header-parameter-not-recognised",
+            ),
         ),
         indirect=["exception"],
     )

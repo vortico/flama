@@ -53,6 +53,28 @@ class JWS:
         return cls.ALGORITHMS[header["alg"]]
 
     @classmethod
+    def header(cls, token: bytes) -> dict[str, t.Any]:
+        """Read a token's header without verifying its signature.
+
+        The header names the algorithm and, when the issuer sets one, the identity of the key that signed the
+        token, which is what a verifier needs to choose a key before it can verify anything. Nothing in the
+        token has been checked at this point, so nothing beyond that choice should rest on it.
+
+        :param token: Token to read.
+        :return: Decoded header.
+        :raises SignatureDecodeException: If the header is not a JSON object.
+        """
+        try:
+            header = json.loads(base64.urlsafe_b64decode(token.split(b".", 1)[0]))
+        except ValueError:
+            raise exceptions.SignatureDecodeException("Wrong header format")
+
+        if not isinstance(header, dict):
+            raise exceptions.SignatureDecodeException("Wrong header format")
+
+        return header
+
+    @classmethod
     def encode(cls, header: dict[str, t.Any], payload: dict[str, t.Any], key: bytes) -> bytes:
         """Encode a JWS token.
 
