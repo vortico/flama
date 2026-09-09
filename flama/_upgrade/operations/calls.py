@@ -6,7 +6,7 @@ import typing as t
 from flama._upgrade.operations._base import ApplyResult, Operation, Todo
 from flama._upgrade.source import Edit, ImportStatement, Keyword, Source
 
-__all__ = ["CallOperation", "UnwrapCall", "KeywordToPositional"]
+__all__ = ["CallOperation", "UnwrapCall", "KeywordToPositional", "ArgumentToLiteral"]
 
 
 def _drop_nested(nodes: t.Sequence[ast.Call]) -> list[ast.Call]:
@@ -170,3 +170,48 @@ class KeywordToPositional(CallOperation):
         ):
             return None, Todo(node.lineno, self.note or f"`{self.name}(...)` now requires `{self.keyword}`")
         return None, None
+
+
+@dataclasses.dataclass(frozen=True)
+class ArgumentToLiteral(CallOperation):
+    """Replace a call's single argument with the literal that now stands for it.
+
+    Rewrites ``name(<expression>)`` into ``name("<literal>")`` by the argument's trailing attribute, so both
+    ``hashlib.sha256`` and a bare ``sha256`` match the same entry. This migrates constructors that took an
+    object to ones that take the name of what that object meant (``HMACAlgorithm(hashlib.sha256)`` ->
+    ``HMACAlgorithm("HS256")``). A call already passing a string is left alone, so the operation may run more
+    than once, and an argument the mapping does not cover emits a follow-up.
+
+    :param module: Module the callee is imported from.
+    :param name: Callee symbol name.
+    :param values: Pairs of argument name and the literal that replaces it.
+    :param note: Follow-up message for arguments the mapping does not cover.
+    """
+
+    values: tuple[tuple[str, str], ...] = ()
+    note: str = ""
+
+    @property
+    def id(self) -> str:
+        return f"argument-to-literal:{self.module}:{self.name}"
+
+    def _select(self, calls: list[ast.Call]) -> list[ast.Call]:
+        return [node for node in calls if len(node.args) == 1 and not node.keywords]
+
+    def _rewrite(self, node: ast.Call, text: str) -> tuple[Edit | None, Todo | None]:
+        match node.args[0]:
+            case ast.Constant(value=str()):
+                # The argument is already the literal.
+                return None, None
+            case ast.Attribute(attr=argument) | ast.Name(id=argument):
+                literal = dict(self.values).get(argument)
+            case _:
+                literal = None
+
+        if literal is None:
+            written = ast.get_source_segment(text, node.args[0])
+            return None, Todo(node.lineno, self.note or f"`{self.name}({written})` now takes a literal")
+
+        func = t.cast(str, ast.get_source_segment(text, node.func))
+
+        return Edit.from_node(node, f'{func}("{literal}")'), None

@@ -47,12 +47,29 @@ class TestCaseMigration:
         assert todos == []
         assert result.text == "x = 1\n"
 
+    @pytest.fixture(scope="function")
+    def migrations(self) -> tuple[Migration, ...]:
+        # Registered out of order, and spanning 2.9 to 2.10.
+        return (
+            Migration(target="2.10", source=">=2.9,<2.10", operations=()),
+            Migration(target="2.0", source=">=1.0,<2.0", operations=()),
+            Migration(target="3.0", source=">=2.10,<3.0", operations=()),
+            Migration(target="2.9", source=">=2.0,<2.9", operations=()),
+        )
+
     @pytest.mark.parametrize(
-        ["target", "expected"],
-        [pytest.param(None, "2.0", id="latest"), pytest.param("2.0", "2.0", id="explicit")],
+        ["target", "source", "expected"],
+        [
+            pytest.param(None, None, ["2.0", "2.9", "2.10", "3.0"], id="whole_chain"),
+            pytest.param("2.10", None, ["2.0", "2.9", "2.10"], id="up_to_target"),
+            pytest.param(None, "2.0", ["2.9", "2.10", "3.0"], id="from_source"),
+            pytest.param("3.0", "2.9", ["2.10", "3.0"], id="between_source_and_target"),
+            pytest.param("2.9", "2.9", [], id="already_at_target"),
+            pytest.param("2.0", "3.0", [], id="source_beyond_target"),
+        ],
     )
-    def test_resolve(self, migration: Migration, target, expected: str) -> None:
-        assert resolve((migration,), target=target).target == expected
+    def test_resolve(self, migrations: tuple[Migration, ...], target, source, expected: list[str]) -> None:
+        assert [migration.target for migration in resolve(migrations, target=target, source=source)] == expected
 
     @pytest.mark.parametrize(
         ["registered", "target", "exception"],
