@@ -12,6 +12,7 @@ use pyo3::prelude::*;
 
 mod compression;
 mod cookies;
+mod crypto;
 mod http;
 mod json_encoder;
 mod multipart;
@@ -42,6 +43,7 @@ fn register_submodule(
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     register_submodule(m, "compression", compression::build)?;
     register_submodule(m, "cookies", cookies::build)?;
+    register_submodule(m, "crypto", crypto::build)?;
     register_submodule(m, "http", http::build)?;
     register_submodule(m, "json_encoder", json_encoder::build)?;
     register_submodule(m, "multipart", multipart::build)?;
