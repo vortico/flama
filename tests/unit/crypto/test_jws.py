@@ -96,6 +96,35 @@ class TestCaseJWS:
         with exception:
             assert JWS.decode(token, key) == result
 
+    @pytest.mark.parametrize(
+        ["token", "result", "exception"],
+        (
+            pytest.param(TOKEN, {"alg": "HS256", "typ": "JWT"}, None, id="ok"),
+            pytest.param(
+                b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCIsICJraWQiOiAib3JnLTEyMyJ9.unchecked.unchecked",
+                {"alg": "HS256", "typ": "JWT", "kid": "org-123"},
+                None,
+                id="names_a_key",
+            ),
+            pytest.param(
+                b"wrong.format.0000",
+                None,
+                SignatureDecodeException("Wrong header format"),
+                id="wrong_header",
+            ),
+            pytest.param(
+                b"NQ==.format.0000",
+                None,
+                SignatureDecodeException("Wrong header format"),
+                id="header_is_not_an_object",
+            ),
+        ),
+        indirect=["exception"],
+    )
+    def test_header(self, token, result, exception):
+        with exception:
+            assert JWS.header(token) == result
+
     def test_encode_and_decode_asymmetrically(self):
         private, public = EdDSAAlgorithm.generate()
         header, payload = {"alg": "EdDSA", "typ": "JWT"}, {"data": {"foo": "bar"}, "iat": 0}
