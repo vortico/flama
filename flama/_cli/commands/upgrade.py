@@ -16,7 +16,12 @@ def _split(value: str | None) -> set[str] | None:
 @click.command(name="upgrade", cls=FlamaCommand, context_settings={"auto_envvar_prefix": "FLAMA"})
 @click.argument("paths", nargs=-1, type=click.Path(exists=True), required=True)
 @click.option("--to", "target", default=None, help="Target Flama version (default: latest known migration).")
-@click.option("--from", "source", default=None, help="Source Flama version (default: detect installed).")
+@click.option(
+    "--from",
+    "source",
+    default=None,
+    help="Source Flama version; only migrations newer than it are applied (default: all of them).",
+)
 @click.option("--diff/--write", "diff_only", default=True, help="Preview a diff (default) or rewrite files in place.")
 @click.option("--select", default=None, help="Comma-separated operation ids to run exclusively.")
 @click.option("--skip", default=None, help="Comma-separated operation ids to skip.")
@@ -30,12 +35,13 @@ def command(
     select: str | None,
     skip: str | None,
 ) -> None:
-    """Upgrade a Flama codebase to a newer major version.
+    """Upgrade a Flama codebase to a newer version.
 
     Rewrite import statements and renamed symbols across the Python files under <PATHS> so they match the
-    target Flama version. By default the command previews a unified diff and leaves files untouched; pass
-    --write to apply the changes in place. Symbols that have no automatic replacement are flagged with a
-    '# flama-upgrade' marker and listed as manual follow-ups.
+    target Flama version, applying every migration between --from and --to in turn. By default the command
+    previews a unified diff and leaves files untouched; pass --write to apply the changes in place. Symbols
+    that have no automatic replacement are flagged with a '# flama-upgrade' marker and listed as manual
+    follow-ups.
 
     <PATHS> are the files and/or directories to process; directories are scanned recursively.
 

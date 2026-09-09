@@ -1,6 +1,8 @@
 import dataclasses
 import typing as t
 
+from packaging.version import Version
+
 from flama._upgrade.operations import Operation, Todo
 from flama._upgrade.source import Source
 
@@ -9,7 +11,7 @@ __all__ = ["Migration", "resolve"]
 
 @dataclasses.dataclass(frozen=True)
 class Migration:
-    """An ordered set of operations that upgrades code from one major version to another.
+    """An ordered set of operations that upgrades code from one version to another.
 
     A migration is pure data: it carries the version it targets, the source range it applies to, and the
     operations to run in order. Operations are applied sequentially, each re-parsing the source produced
@@ -49,23 +51,39 @@ class Migration:
         return source, todos, changed
 
 
-def resolve(migrations: t.Sequence[Migration], *, target: str | None = None, source: str | None = None) -> Migration:
-    """Select the migration matching ``target`` from a registry.
+def resolve(
+    migrations: t.Sequence[Migration], *, target: str | None = None, source: str | None = None
+) -> tuple[Migration, ...]:
+    """Select the migrations that carry code up to ``target``, in the order to apply them.
+
+    Every migration targeting a version newer than ``source`` and no newer than ``target`` applies, so a
+    codebase several versions behind is brought forward a step at a time. Omitting ``source`` leaves the chain
+    unbounded below, applying every migration up to the target.
+
+    Versions are compared as versions rather than as strings, so 2.10 follows 2.9 rather than preceding it.
 
     :param migrations: Registered migrations.
-    :param target: Target version to resolve; the latest registered migration is used when omitted.
-    :param source: Source version (reserved for multi-step chains; currently informational).
-    :return: The matching migration.
-    :raises ValueError: When no migrations are registered or none match ``target``.
+    :param target: Version to upgrade to; the newest registered migration when omitted.
+    :param source: Version to upgrade from; unbounded when omitted.
+    :return: The migrations to apply, oldest target first, empty when there is nothing to do.
+    :raises ValueError: When no migrations are registered or none targets ``target``.
     """
     if not migrations:
         raise ValueError("No migrations are registered.")
 
-    if target is None:
-        return migrations[-1]
+    if target is not None and all(migration.target != target for migration in migrations):
+        raise ValueError(f"No migration found for target version {target!r}.")
 
-    for migration in migrations:
-        if migration.target == target:
-            return migration
+    ceiling = Version(target) if target is not None else max(Version(migration.target) for migration in migrations)
+    floor = Version(source) if source is not None else None
 
-    raise ValueError(f"No migration found for target version {target!r}.")
+    return tuple(
+        sorted(
+            (
+                migration
+                for migration in migrations
+                if Version(migration.target) <= ceiling and (floor is None or Version(migration.target) > floor)
+            ),
+            key=lambda migration: Version(migration.target),
+        )
+    )

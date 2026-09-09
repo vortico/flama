@@ -1,6 +1,7 @@
 from flama._upgrade.migration import Migration  # noqa
 from flama._upgrade.operations import (  # noqa
     ApplyResult,
+    ArgumentToLiteral,
     CallOperation,
     FlagModule,
     KeywordToPositional,
@@ -27,6 +28,7 @@ __all__ = [
     "CallOperation",
     "UnwrapCall",
     "KeywordToPositional",
+    "ArgumentToLiteral",
     "FlagModule",
     "Todo",
     "Source",
