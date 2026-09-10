@@ -17,6 +17,41 @@ __all__ = ["Endpoint", "Authentication", "Request", "Response", "Error", "Teleme
 
 
 @dataclasses.dataclass
+class _Body:
+    """The payload of an exchange, holding as much of it as was kept."""
+
+    content: bytes = b""
+    truncated: bool = False
+
+    def append(self, payload: bytes, max_body: int | None, /) -> None:
+        """Keep as much of a payload as the bound leaves room for.
+
+        Whatever does not fit is dropped and the body is marked truncated, so a consumer can tell a short
+        payload from a clipped one. A bound of ``None`` keeps everything, and a bound of zero keeps nothing.
+
+        :param payload: Payload that has just passed through.
+        :param max_body: Bytes of payload to keep, or ``None`` to keep all of them.
+        """
+        if max_body is None:
+            self.content += payload
+            return
+
+        room = max(max_body - len(self.content), 0)
+        self.content += payload[:room]
+        self.truncated |= len(payload) > room
+
+    def to_dict(self) -> dict[str, t.Any]:
+        """Return the body as a dictionary.
+
+        :return: Body as a dictionary.
+        """
+        return {
+            "content": self.content,
+            "truncated": self.truncated,
+        }
+
+
+@dataclasses.dataclass
 class Endpoint:
     path: str
     name: str | None
@@ -72,7 +107,7 @@ class Request:
     cookies: dict[str, t.Any]
     query_parameters: dict[str, t.Any]
     path_parameters: dict[str, t.Any]
-    body: bytes = b""
+    body: _Body = dataclasses.field(default_factory=_Body)
     timestamp: datetime.datetime = dataclasses.field(
         init=False, default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
     )
@@ -96,22 +131,23 @@ class Request:
             "cookies": self.cookies,
             "query_parameters": self.query_parameters,
             "path_parameters": self.path_parameters,
-            "body": self.body,
+            "body": self.body.to_dict(),
         }
 
 
 @dataclasses.dataclass
 class Response:
     headers: dict[str, t.Any] | None
-    cookies: dict[str, t.Any] | None = dataclasses.field(init=False)
-    body: bytes = b""
+    body: _Body = dataclasses.field(default_factory=_Body)
     status_code: int | None = None
     timestamp: datetime.datetime = dataclasses.field(
         init=False, default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
     )
 
-    def __post_init__(self):
-        self.cookies = (
+    @property
+    def cookies(self) -> dict[str, t.Any]:
+        """The cookies carried by the headers, which arrive after the response is first recorded."""
+        return (
             {name: {"value": value} for name, value in parse_cookie_header(self.headers.get("cookie", ""))}
             if self.headers
             else {}
@@ -122,7 +158,7 @@ class Response:
             "timestamp": self.timestamp.isoformat(),
             "headers": self.headers,
             "cookies": self.cookies,
-            "body": self.body,
+            "body": self.body.to_dict(),
             "status_code": self.status_code,
         }
 
