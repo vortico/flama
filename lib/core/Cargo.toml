@@ -16,7 +16,7 @@ extension-module = ["pyo3/extension-module"]
 pyo3 = { version = "0.29" }
 pyo3-async-runtimes = { version = "0.29", features = ["tokio-runtime"] }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "fs", "io-util"] }
-ed25519-dalek = { version = "2", features = ["rand_core"] }
+ed25519-dalek = { version = "3", features = ["rand_core"] }
 multer = "3"
 rand_core = { version = "0.6", features = ["getrandom"] }
 tempfile = "3"
@@ -24,11 +24,11 @@ bytes = "1"
 futures-util = "0.3"
 form_urlencoded = "1"
 flate2 = "1"
-brotli = "8"
+brotli = "9"
 cookie = "0.18"
 bzip2 = "0.6"
 lzma-rs = "0.3"
-zstd = "0.13"
+zstd = "0.14"
 tar = "0.4"
 
 [dev-dependencies]
