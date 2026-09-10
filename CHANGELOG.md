@@ -1,5 +1,15 @@
 # Semantic Versioning Changelog
 
+# [v2.2.0](https://github.com/vortico/flama/compare/v2.1.0...v2.2.0) (2026-09-10)
+
+## ✨ New Features
+- [`8202097`](https://github.com/vortico/flama/commit/8202097)  Chained upgrade migrations (#271) (Issues: [`#271`](https://github.com/vortico/flama/issues/))
+- [`4b5d477`](https://github.com/vortico/flama/commit/4b5d477)  EdDSA signing for JSON Web Signature (#269) (Issues: [`#269`](https://github.com/vortico/flama/issues/))
+- [`ed3402b`](https://github.com/vortico/flama/commit/ed3402b)  Key identity and per-key token verification (#270) (Issues: [`#270`](https://github.com/vortico/flama/issues/))
+
+## 🐛 Bug Fixes
+- [`628a95e`](https://github.com/vortico/flama/commit/628a95e)  Unbounded payload capture in the telemetry middleware (#274) (Issues: [`#274`](https://github.com/vortico/flama/issues/))
+
 # [v2.1.0](https://github.com/vortico/flama/compare/v2.0.8...v2.1.0) (2026-07-31)
 
 ## ✨ New Features
