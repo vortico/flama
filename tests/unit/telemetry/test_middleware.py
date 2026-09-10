@@ -8,9 +8,12 @@ import pytest
 
 from flama import Flama, authentication, types
 from flama.telemetry import Authentication, Endpoint, Error, Request, Response, TelemetryData, TelemetryMiddleware
+from flama.telemetry.data_structures import _Body
 from flama.telemetry.middleware import HTTPWrapper, WebSocketWrapper, Wrapper
 
 SECRET = uuid.UUID(int=0)
+
+MAX_BODY = 1024
 
 TOKEN = (
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.PWRDHe1X53ydEpCCKW8_oDMVveSlvdqg"
@@ -103,11 +106,11 @@ class TestCaseTelemetryMiddleware:
                         cookies={"access_token": {"value": TOKEN}},
                         query_parameters={"y": "1"},
                         path_parameters={"x": 1},
-                        body=b"body",
+                        body=_Body(content=b"body"),
                     ),
                     response=Response(
                         headers={"content-length": "27", "content-type": "application/json"},
-                        body=b'{"x":1,"y":1,"body":"body"}',
+                        body=_Body(content=b'{"x":1,"y":1,"body":"body"}'),
                         status_code=http.HTTPStatus.OK,
                     ),
                 ),
@@ -140,11 +143,11 @@ class TestCaseTelemetryMiddleware:
                         cookies={"access_token": {"value": TOKEN}},
                         query_parameters={"y": "1"},
                         path_parameters={"x": 1},
-                        body=b"body",
+                        body=_Body(content=b"body"),
                     ),
                     response=Response(
                         headers={"content-length": "27", "content-type": "application/json"},
-                        body=b'{"x":1,"y":1,"body":"body"}',
+                        body=_Body(content=b'{"x":1,"y":1,"body":"body"}'),
                         status_code=http.HTTPStatus.OK,
                     ),
                 ),
@@ -189,7 +192,7 @@ class TestCaseTelemetryMiddleware:
                         cookies={},
                         query_parameters={},
                         path_parameters={},
-                        body=b"",
+                        body=_Body(content=b""),
                     ),
                     error=Error(detail="foo", status_code=None),
                 ),
@@ -221,7 +224,7 @@ class TestCaseTelemetryMiddleware:
                         cookies={},
                         query_parameters={},
                         path_parameters={},
-                        body=b"",
+                        body=_Body(content=b""),
                     ),
                     error=Error(detail="foo", status_code=None),
                 ),
@@ -317,7 +320,7 @@ def telemetry_data():
             type=scope_type,
             endpoint=Endpoint(path="/", name=None, tags={}),
             authentication=Authentication(access=None, refresh=None),
-            request=Request(headers={}, cookies={}, query_parameters={}, path_parameters={}, body=b""),
+            request=Request(headers={}, cookies={}, query_parameters={}, path_parameters={}, body=_Body(content=b"")),
         )
 
     return _factory
@@ -326,183 +329,300 @@ def telemetry_data():
 class TestCaseHTTPWrapper:
     def test_build(self, telemetry_data):
         data = telemetry_data("http")
-        wrapper = Wrapper.build("http", AsyncMock(), data)
+        wrapper = Wrapper.build("http", AsyncMock(), data, max_body=MAX_BODY)
 
         assert isinstance(wrapper, HTTPWrapper)
 
     @pytest.mark.parametrize(
-        ["message", "expected_body"],
+        ["max_body", "message", "expected_body", "expected_truncated"],
         [
             pytest.param(
+                MAX_BODY,
                 types.Message({"type": "http.request", "body": b"abc"}),
                 b"abc",
+                False,
                 id="request_accumulates_body",
             ),
             pytest.param(
+                MAX_BODY,
                 types.Message({"type": "http.disconnect"}),
                 b"",
+                False,
                 id="non_request_passthrough",
+            ),
+            pytest.param(
+                2,
+                types.Message({"type": "http.request", "body": b"abc"}),
+                b"ab",
+                True,
+                id="request_bounded",
+            ),
+            pytest.param(
+                0,
+                types.Message({"type": "http.request", "body": b"abc"}),
+                b"",
+                True,
+                id="request_declined",
+            ),
+            pytest.param(
+                None,
+                types.Message({"type": "http.request", "body": b"abc"}),
+                b"abc",
+                False,
+                id="request_unbounded",
             ),
         ],
     )
-    async def test_receive(self, telemetry_data, message, expected_body):
+    async def test_receive(self, telemetry_data, max_body, message, expected_body, expected_truncated):
         data = telemetry_data("http")
-        wrapper = HTTPWrapper(AsyncMock(), data)
+        wrapper = HTTPWrapper(AsyncMock(), data, max_body=max_body)
         wrapper._receive = AsyncMock(return_value=message)
 
         msg = await wrapper.receive()
 
         assert msg["type"] == message["type"]
-        assert data.request.body == expected_body
+        assert data.request.body.content == expected_body
+        assert data.request.body.truncated is expected_truncated
 
     @pytest.mark.parametrize(
-        ["message", "expected_status", "expected_headers", "expected_body"],
+        ["max_body", "message", "expected_status", "expected_headers", "expected_body", "expected_truncated"],
         [
             pytest.param(
+                MAX_BODY,
                 types.Message({"type": "http.response.start", "status": 200, "headers": [(b"x-foo", b"bar")]}),
                 200,
                 {"x-foo": "bar"},
                 b"",
+                False,
                 id="response_start",
             ),
             pytest.param(
+                MAX_BODY,
                 types.Message({"type": "http.response.body", "body": b"hello"}),
                 None,
                 None,
                 b"hello",
+                False,
                 id="response_body",
             ),
             pytest.param(
+                MAX_BODY,
                 types.Message({"type": "http.response.trailers"}),
                 None,
                 None,
                 b"",
+                False,
                 id="other_message",
+            ),
+            pytest.param(
+                2,
+                types.Message({"type": "http.response.body", "body": b"hello"}),
+                None,
+                None,
+                b"he",
+                True,
+                id="response_bounded",
+            ),
+            pytest.param(
+                0,
+                types.Message({"type": "http.response.body", "body": b"hello"}),
+                None,
+                None,
+                b"",
+                True,
+                id="response_declined",
+            ),
+            pytest.param(
+                None,
+                types.Message({"type": "http.response.body", "body": b"hello"}),
+                None,
+                None,
+                b"hello",
+                False,
+                id="response_unbounded",
             ),
         ],
     )
-    async def test_send(self, telemetry_data, message, expected_status, expected_headers, expected_body):
+    async def test_send(
+        self, telemetry_data, max_body, message, expected_status, expected_headers, expected_body, expected_truncated
+    ):
         data = telemetry_data("http")
-        wrapper = HTTPWrapper(AsyncMock(), data)
-        wrapper._response_body = b""
+        wrapper = HTTPWrapper(AsyncMock(), data, max_body=max_body)
         wrapper._send = AsyncMock()
 
         await wrapper.send(message)
 
         if expected_status is not None:
-            assert wrapper._response_status_code == expected_status
+            assert wrapper._response.status_code == expected_status
         if expected_headers is not None:
-            assert wrapper._response_headers == expected_headers
-        assert wrapper._response_body == expected_body
+            assert wrapper._response.headers == expected_headers
+        assert wrapper._response.body.content == expected_body
+        assert wrapper._response.body.truncated is expected_truncated
         assert wrapper._send.await_args_list == [call(message)]
 
 
 class TestCaseWebSocketWrapper:
     def test_build(self, telemetry_data):
         data = telemetry_data()
-        wrapper = Wrapper.build("websocket", AsyncMock(), data)
+        wrapper = Wrapper.build("websocket", AsyncMock(), data, max_body=MAX_BODY)
 
         assert isinstance(wrapper, WebSocketWrapper)
 
     @pytest.mark.parametrize(
-        ["message", "expected_body", "expected_status"],
+        ["max_body", "message", "expected_body", "expected_truncated", "expected_reason", "expected_status"],
         [
             pytest.param(
-                types.Message({"type": "websocket.receive", "body": b"abc"}),
-                b"abc",
+                MAX_BODY,
+                types.Message({"type": "websocket.receive", "bytes": b"bin"}),
+                b"bin",
+                False,
+                b"",
                 None,
-                id="receive_accumulates_body",
+                id="receive_bytes",
             ),
             pytest.param(
+                MAX_BODY,
+                types.Message({"type": "websocket.receive", "text": "txt"}),
+                b"txt",
+                False,
+                b"",
+                None,
+                id="receive_text",
+            ),
+            pytest.param(
+                2,
+                types.Message({"type": "websocket.receive", "bytes": b"bin"}),
+                b"bi",
+                True,
+                b"",
+                None,
+                id="receive_bounded",
+            ),
+            pytest.param(
+                0,
+                types.Message({"type": "websocket.receive", "bytes": b"bin"}),
+                b"",
+                True,
+                b"",
+                None,
+                id="receive_declined",
+            ),
+            pytest.param(
+                MAX_BODY,
                 types.Message({"type": "websocket.disconnect", "code": 1000, "reason": "gone"}),
+                b"",
+                False,
                 b"gone",
                 1000,
                 id="disconnect",
             ),
             pytest.param(
+                MAX_BODY,
                 types.Message({"type": "websocket.disconnect", "reason": "x"}),
+                b"",
+                False,
                 b"x",
                 None,
                 id="disconnect_default_code",
             ),
             pytest.param(
+                MAX_BODY,
                 types.Message({"type": "websocket.connect"}),
+                b"",
+                False,
                 b"",
                 None,
                 id="other_message",
             ),
         ],
     )
-    async def test_receive(self, telemetry_data, message, expected_body, expected_status):
+    async def test_receive(
+        self, telemetry_data, max_body, message, expected_body, expected_truncated, expected_reason, expected_status
+    ):
         data = telemetry_data()
-        wrapper = WebSocketWrapper(AsyncMock(), data)
-        wrapper._response_body = b""
+        wrapper = WebSocketWrapper(AsyncMock(), data, max_body=max_body)
         wrapper._receive = AsyncMock(return_value=message)
 
         msg = await wrapper.receive()
 
         assert msg["type"] == message["type"]
-        assert wrapper._response_body == expected_body
+        assert data.request.body.content == expected_body
+        assert data.request.body.truncated is expected_truncated
+        assert wrapper._response.body.content == expected_reason
         if expected_status is not None:
-            assert wrapper._response_status_code == expected_status
+            assert wrapper._response.status_code == expected_status
 
     @pytest.mark.parametrize(
-        ["message", "expected_request_body", "expected_response_body", "expected_status"],
+        ["max_body", "message", "expected_body", "expected_truncated", "expected_status"],
         [
             pytest.param(
+                MAX_BODY,
                 types.Message({"type": "websocket.send", "bytes": b"bin"}),
                 b"bin",
-                b"",
+                False,
                 None,
                 id="send_bytes",
             ),
             pytest.param(
+                MAX_BODY,
                 types.Message({"type": "websocket.send", "text": "txt"}),
                 b"txt",
-                b"",
+                False,
                 None,
                 id="send_text",
             ),
             pytest.param(
-                types.Message({"type": "websocket.close", "code": 4000, "reason": "bye"}),
+                2,
+                types.Message({"type": "websocket.send", "bytes": b"bin"}),
+                b"bi",
+                True,
+                None,
+                id="send_bounded",
+            ),
+            pytest.param(
+                0,
+                types.Message({"type": "websocket.send", "bytes": b"bin"}),
                 b"",
+                True,
+                None,
+                id="send_declined",
+            ),
+            pytest.param(
+                MAX_BODY,
+                types.Message({"type": "websocket.close", "code": 4000, "reason": "bye"}),
                 b"bye",
+                False,
                 4000,
                 id="close",
             ),
             pytest.param(
+                MAX_BODY,
                 types.Message({"type": "websocket.close", "code": 1000}),
                 b"",
-                b"",
+                False,
                 1000,
                 id="close_default_reason",
             ),
             pytest.param(
+                MAX_BODY,
                 types.Message({"type": "websocket.ping"}),
                 b"",
-                b"",
+                False,
                 None,
                 id="other_message",
             ),
         ],
     )
-    async def test_send(
-        self,
-        telemetry_data,
-        message,
-        expected_request_body,
-        expected_response_body,
-        expected_status,
-    ):
+    async def test_send(self, telemetry_data, max_body, message, expected_body, expected_truncated, expected_status):
         data = telemetry_data()
-        wrapper = WebSocketWrapper(AsyncMock(), data)
-        wrapper._response_body = b""
+        wrapper = WebSocketWrapper(AsyncMock(), data, max_body=max_body)
         wrapper._send = AsyncMock()
 
         await wrapper.send(message)
 
-        assert data.request.body == expected_request_body
-        assert wrapper._response_body == expected_response_body
+        assert data.request.body.content == b""
+        assert wrapper._response.body.content == expected_body
+        assert wrapper._response.body.truncated is expected_truncated
         if expected_status is not None:
-            assert wrapper._response_status_code == expected_status
+            assert wrapper._response.status_code == expected_status
         assert wrapper._send.await_args_list == [call(message)]
