@@ -76,6 +76,11 @@ class TestCaseInjector:
     def injector(self):
         return Injector(XContext)
 
+    def test_injection_cache_is_held_smaller(self, injector):
+        # A context is built per request, so entries turn over quickly and each holds a resolved value.
+        assert injector.cache.max_size == 2**8
+        assert injector._function_cache.max_size == 2**10
+
     def test_components_property(self, injector):
         value = Components([LiteralFooComponent()])
 

@@ -3,8 +3,8 @@ import dataclasses
 import inspect
 import typing as t
 
+from flama.cache import LRUCache
 from flama.injection import exceptions
-from flama.injection.cache import LRUCache
 from flama.injection.context import C
 from flama.injection.types import BUILTIN_TYPES
 

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from flama.injection.cache import LRUCache
+from flama.cache import LRUCache
 from flama.injection.components import Component, Components
 from flama.injection.context import Context as BaseContext
 from flama.injection.context import Field
