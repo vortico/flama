@@ -1,6 +1,6 @@
 [project]
 name = "flama"
-version = "2.2.0"
+version = "2.2.1"
 description = "Fire up your models with the flame 🔥"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
