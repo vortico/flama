@@ -10,9 +10,11 @@ from flama.exceptions import HTTPException
 from flama.http.data_structures import Headers
 from flama.types.http import Cookies
 
-logger = logging.getLogger(__name__)
+T = t.TypeVar("T", bound=jwt.JWT)
 
 __all__ = ["AccessTokenComponent", "RefreshTokenComponent"]
+
+logger = logging.getLogger(__name__)
 
 
 class BaseTokenComponent(Component):
@@ -63,7 +65,7 @@ class BaseTokenComponent(Component):
 
         return token.encode()
 
-    async def _resolve_token(self, headers: Headers, cookies: Cookies) -> jwt.JWT:
+    async def _resolve_token(self, token_cls: type[T], headers: Headers, cookies: Cookies, /) -> T:
         try:
             try:
                 encoded_token = self._token_from_header(headers)
@@ -82,7 +84,7 @@ class BaseTokenComponent(Component):
             else:
                 key = t.cast(bytes, self.secret)
 
-            token = jwt.JWT.decode(encoded_token, key)
+            token = token_cls.decode(encoded_token, key)
         except (
             exceptions.Unauthorized,
             SignatureDecodeException,
@@ -115,8 +117,7 @@ class AccessTokenComponent(BaseTokenComponent):
         )
 
     async def resolve(self, headers: Headers, cookies: Cookies) -> types.AccessToken:
-        token = await self._resolve_token(headers, cookies)
-        return types.AccessToken(token.header, token.payload)
+        return await self._resolve_token(types.AccessToken, headers, cookies)
 
 
 class RefreshTokenComponent(BaseTokenComponent):
@@ -138,5 +139,4 @@ class RefreshTokenComponent(BaseTokenComponent):
         )
 
     async def resolve(self, headers: Headers, cookies: Cookies) -> types.RefreshToken:
-        token = await self._resolve_token(headers, cookies)
-        return types.RefreshToken(token.header, token.payload)
+        return await self._resolve_token(types.RefreshToken, headers, cookies)
