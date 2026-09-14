@@ -1,5 +1,10 @@
 # Semantic Versioning Changelog
 
+# [v2.2.2](https://github.com/vortico/flama/compare/v2.2.1...v2.2.2) (2026-09-14)
+
+## 🐛 Bug Fixes
+- [`76508bd`](https://github.com/vortico/flama/commit/76508bd)  Keep raw token on decode (#282) (Issues: [`#282`](https://github.com/vortico/flama/issues/))
+
 # [v2.2.1](https://github.com/vortico/flama/compare/v2.2.0...v2.2.1) (2026-09-11)
 
 ## 🐛 Bug Fixes
