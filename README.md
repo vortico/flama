@@ -87,7 +87,7 @@ from sklearn.neural_network import MLPClassifier
 
 model = MLPClassifier(activation="tanh", hidden_layer_sizes=(10,))
 # ... training ...
-flama.dump(model, "model.flm")
+flama.dump(model, family="ml", path="model.flm", metrics={"accuracy": 0.947})
 ```
 
 Or fetch one straight from the Hub, then serve it:
@@ -173,17 +173,18 @@ flama model model.flm inspect --pretty
 ```json
 {
   "meta": {
-    "id": "classifier-v2",
+    "id": "42342016-bade-48d4-a185-0a3352fb7561",
     "timestamp": "2026-09-15T10:30:00",
-    "framework": {"lib": "sklearn", "version": "1.7.2"},
+    "framework": {"family": "ml", "lib": "sklearn", "version": "1.9.1", "config": null},
     "model": {
       "obj": "RandomForestClassifier",
       "params": {"n_estimators": 100, "max_depth": 8},
       "metrics": {"accuracy": 0.947, "f1": 0.932}
     },
-    "extra": {"dataset": "prod-2024-q3", "author": "team-ml"}
+    "extra": {"dataset": "prod-2024-q3", "author": "team-ml"},
+    "capabilities": {"kind": "ml"}
   },
-  "artifacts": {}
+  "manifest": []
 }
 ```
 
