@@ -24,7 +24,7 @@ from flama.types.http import Method
 try:
     from flama.resources.workers import FlamaWorker
 except exceptions.DependencyNotInstalled:  # pragma: no cover
-    FlamaWorker = None  # ty: ignore[invalid-assignment]
+    FlamaWorker = None
 
 if t.TYPE_CHECKING:
     from flama.middleware import Middleware
