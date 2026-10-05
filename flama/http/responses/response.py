@@ -140,7 +140,7 @@ class BufferedResponse(Response, t.Generic[Content, Payload]):
         if path is not None:
             try:
                 with open(path) as f:
-                    self.body = self.render(f.read())
+                    self.body = self.render(f.read())  # ty: ignore[invalid-argument-type]
             except Exception as e:
                 raise exceptions.HTTPException(status_code=http.HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(e))
         elif content is not None:
