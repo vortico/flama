@@ -7,7 +7,15 @@ import pytest
 
 from flama import Flama, authentication
 from flama.exceptions import HTTPException
-from flama.telemetry.data_structures import Authentication, Endpoint, Error, Request, Response, TelemetryData
+from flama.telemetry.data_structures import (
+    Authentication,
+    Endpoint,
+    Error,
+    Request,
+    Response,
+    TelemetryData,
+    _Body,
+)
 
 TOKEN = (
     "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.J3zdedMZSFNOimstjJat0V"
@@ -212,6 +220,7 @@ class TestCaseRequest:
         asgi_scope.update(scope)
         now = datetime.datetime.now()
         result["timestamp"] = now.isoformat()
+        result["body"] = {"content": result["body"], "truncated": False}
         with patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
             data = await Request.from_scope(scope=asgi_scope, receive=asgi_receive, send=asgi_send)
 
@@ -275,8 +284,9 @@ class TestCaseResponse:
     def test_init(self, headers, body, status_code, result):
         now = datetime.datetime.now()
         result["timestamp"] = now.isoformat()
+        result["body"] = {"content": result["body"], "truncated": False}
         with patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
-            data = Response(headers=headers, body=body, status_code=status_code)
+            data = Response(headers=headers, body=_Body(content=body), status_code=status_code)
 
             assert data.to_dict() == result
 
@@ -321,7 +331,7 @@ class TestCaseTelemetryData:
                 "error": None,
                 "extra": {},
                 "request": {
-                    "body": b"",
+                    "body": {"content": b"", "truncated": False},
                     "cookies": {},
                     "headers": {},
                     "path_parameters": {},

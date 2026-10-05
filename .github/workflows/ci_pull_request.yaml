@@ -72,8 +72,8 @@ jobs:
       contents: read
       id-token: write
     outputs:
-      # 'true' only when the artifact was built+uploaded (same-repo). Fork PRs skip the build, so
-      # consumers fall back to fetching prebuilt templates from a published wheel.
+      # 'true' only when the artifact was built+uploaded (same-repo). Fork and Dependabot PRs skip the
+      # build, so consumers fall back to fetching prebuilt templates from a published wheel.
       available: ${{ steps.mark.outputs.available }}
     steps:
       - name: Checkout
@@ -81,7 +81,12 @@ jobs:
 
       - name: Build templates
         id: build
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        # Keyed on the PR author rather than github.actor, so a maintainer pushing onto a Dependabot
+        # branch doesn't hand that run the GCP credentials.
+        if: >-
+          ${{ github.event_name != 'pull_request'
+              || (github.event.pull_request.head.repo.full_name == github.repository
+                  && github.event.pull_request.user.login != 'dependabot[bot]') }}
         uses: ./.github/actions/build-templates
         with:
           gcp-workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -183,7 +188,8 @@ jobs:
           python-version: ${{ matrix.python }}
           gcp-workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          # Reuse the prebuilt templates artifact when available; fork PRs fetch from a published wheel.
+          # Reuse the prebuilt templates artifact when available; fork and Dependabot PRs fetch from a
+          # published wheel.
           templates: ${{ needs.templates.outputs.available == 'true' && 'skip' || 'fetch' }}
 
       - id: tests

@@ -3,6 +3,7 @@ import pathlib
 import pytest
 
 from flama._upgrade.operations import (
+    ArgumentToLiteral,
     FlagModule,
     KeywordToPositional,
     MoveModule,
@@ -283,6 +284,90 @@ class TestCaseKeywordToPositional:
     def test_double_star_kwargs_is_not_flagged(self, operation: KeywordToPositional) -> None:
         result = operation.apply(
             Source.parse(pathlib.Path("a.py"), "from flama.http import APIResponse\nr = APIResponse(**payload)\n")
+        )
+
+        assert result.changed is False
+        assert result.todos == ()
+
+
+class TestCaseArgumentToLiteral:
+    @pytest.fixture(scope="function")
+    def operation(self) -> ArgumentToLiteral:
+        return ArgumentToLiteral(
+            "flama.crypto.algorithms",
+            "HMACAlgorithm",
+            values=(("sha256", "HS256"), ("sha512", "HS512")),
+            note="takes an algorithm name",
+        )
+
+    def test_id(self, operation: ArgumentToLiteral) -> None:
+        assert operation.id == "argument-to-literal:flama.crypto.algorithms:HMACAlgorithm"
+
+    @pytest.mark.parametrize(
+        ["before", "after"],
+        [
+            pytest.param(
+                "from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm(hashlib.sha256)\n",
+                'from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm("HS256")\n',
+                id="attribute_argument",
+            ),
+            pytest.param(
+                "from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm(sha512)\n",
+                'from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm("HS512")\n',
+                id="bare_name_argument",
+            ),
+            pytest.param(
+                "from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm(h.sha256)\n",
+                'from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm("HS256")\n',
+                id="aliased_module_argument",
+            ),
+            pytest.param(
+                'from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm("HS256")\n',
+                'from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm("HS256")\n',
+                id="already_migrated_noop",
+            ),
+            pytest.param(
+                "from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm(hashlib.sha384)\n",
+                "from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm(hashlib.sha384)\n",
+                id="unmapped_argument_left_alone",
+            ),
+            pytest.param(
+                "from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm(sha, key=k)\n",
+                "from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm(sha, key=k)\n",
+                id="keywords_not_matched",
+            ),
+            pytest.param(
+                "from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm(pick())\n",
+                "from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm(pick())\n",
+                id="computed_argument_left_alone",
+            ),
+            pytest.param(
+                "a = HMACAlgorithm(hashlib.sha256)\n",
+                "a = HMACAlgorithm(hashlib.sha256)\n",
+                id="not_imported_noop",
+            ),
+        ],
+    )
+    def test_apply(self, operation: ArgumentToLiteral, before: str, after: str) -> None:
+        assert operation.apply(Source.parse(pathlib.Path("a.py"), before)).source.text == after
+
+    def test_unmapped_argument_is_flagged(self, operation: ArgumentToLiteral) -> None:
+        result = operation.apply(
+            Source.parse(
+                pathlib.Path("a.py"),
+                "from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm(hashlib.sha384)\n",
+            )
+        )
+
+        assert result.changed is False
+        assert [(todo.line, todo.message) for todo in result.todos] == [(2, "takes an algorithm name")]
+
+    def test_already_migrated_is_not_flagged(self, operation: ArgumentToLiteral) -> None:
+        result = operation.apply(
+            Source.parse(
+                pathlib.Path("a.py"),
+                'from flama.crypto.algorithms import HMACAlgorithm\na = HMACAlgorithm("HS256")\n',
+            )
         )
 
         assert result.changed is False

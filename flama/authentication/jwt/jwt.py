@@ -38,6 +38,21 @@ class Header:
     typ: str = "JWT"
     alg: str | None = None
     cty: str | None = None
+    kid: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, t.Any], /) -> "Header":
+        """Build a header from its dict form.
+
+        Parameters that are not recognised are ignored, as RFC 7515 asks of a header parameter that carries no
+        meaning to the reader.
+
+        :param data: Header as a dictionary.
+        :return: Header.
+        """
+        fields = {field.name for field in dataclasses.fields(cls)}
+
+        return cls(**{k: v for k, v in data.items() if k in fields})
 
     def to_dict(self) -> dict[str, t.Any]:
         """Return the header as a dictionary.
@@ -135,18 +150,24 @@ class JWT:
     tokens, and to validate the signature of the token.
 
     The token is signed using JSW, and the signature is validated using the algorithm specified in the header.
+
+    A token that came from :meth:`decode` keeps the encoded form it arrived as, so an application calling
+    another on the caller's behalf can present that token rather than signing a new one. A token built here
+    has nothing to present until :meth:`encode` gives it one.
     """
 
     header: Header = dataclasses.field(init=False)
     payload: Payload = dataclasses.field(init=False)
+    raw: bytes | None = dataclasses.field(init=False, compare=False, repr=False)
     _header = dataclasses.InitVar[Header | dict[str, t.Any] | None]
     _payload = dataclasses.InitVar[Payload | dict[str, t.Any] | None]
 
     def __init__(
         self, _header: Header | dict[str, t.Any] | None = None, _payload: Payload | dict[str, t.Any] | None = None
     ) -> None:
-        object.__setattr__(self, "header", _header if isinstance(_header, Header) else Header(**(_header or {})))
+        object.__setattr__(self, "header", _header if isinstance(_header, Header) else Header.from_dict(_header or {}))
         object.__setattr__(self, "payload", _payload if isinstance(_payload, Payload) else Payload(**(_payload or {})))
+        object.__setattr__(self, "raw", None)
 
     def encode(self, key: bytes) -> bytes:
         """Encode a JWT token.
@@ -168,6 +189,9 @@ class JWT:
 
         The token format must be: <header>.<payload>.<signature>
 
+        The token keeps the encoded form it was decoded from, so it can be presented to another service
+        without being signed again.
+
         :param token: Token to decode.
         :param key: Key used to sign the token.
         :return: An instance of JWT with the decoded token.
@@ -177,6 +201,7 @@ class JWT:
         try:
             header, payload, _ = JWS.decode(token, key)
             decoded_token = cls(header, payload)
+            object.__setattr__(decoded_token, "raw", token)
             decoded_token.validate()
         except SignatureDecodeException as e:
             logger.debug("Error decoding token")

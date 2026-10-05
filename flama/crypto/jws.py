@@ -1,11 +1,10 @@
 import base64
-import hashlib
 import json
 import typing as t
 
 from flama._core.json_encoder import encode_json
 from flama.crypto import exceptions
-from flama.crypto.algorithms import HMACAlgorithm
+from flama.crypto.algorithms import EdDSAAlgorithm, HMACAlgorithm
 
 if t.TYPE_CHECKING:
     from flama.crypto.algorithms import SignAlgorithm
@@ -23,12 +22,18 @@ class JWS:
     - HMAC with SHA-256 (``HS256``)
     - HMAC with SHA-384 (``HS384``)
     - HMAC with SHA-512 (``HS512``)
+    - EdDSA with Ed25519 (``EdDSA``)
+
+    The HMAC algorithms sign and verify with the same key, so a token can only be checked by whoever could
+    also have written it. ``EdDSA`` signs with a private key and verifies with the matching public one, so
+    only the public half needs publishing.
     """
 
     ALGORITHMS: dict[str, "SignAlgorithm"] = {
-        "HS256": HMACAlgorithm(hashlib.sha256),
-        "HS384": HMACAlgorithm(hashlib.sha384),
-        "HS512": HMACAlgorithm(hashlib.sha512),
+        "HS256": HMACAlgorithm("HS256"),
+        "HS384": HMACAlgorithm("HS384"),
+        "HS512": HMACAlgorithm("HS512"),
+        "EdDSA": EdDSAAlgorithm(),
     }
 
     @classmethod
@@ -46,6 +51,28 @@ class JWS:
             raise exceptions.SignatureDecodeException(f"Unsupported algorithm '{header['alg']}'")
 
         return cls.ALGORITHMS[header["alg"]]
+
+    @classmethod
+    def header(cls, token: bytes) -> dict[str, t.Any]:
+        """Read a token's header without verifying its signature.
+
+        The header names the algorithm and, when the issuer sets one, the identity of the key that signed the
+        token, which is what a verifier needs to choose a key before it can verify anything. Nothing in the
+        token has been checked at this point, so nothing beyond that choice should rest on it.
+
+        :param token: Token to read.
+        :return: Decoded header.
+        :raises SignatureDecodeException: If the header is not a JSON object.
+        """
+        try:
+            header = json.loads(base64.urlsafe_b64decode(token.split(b".", 1)[0]))
+        except ValueError:
+            raise exceptions.SignatureDecodeException("Wrong header format")
+
+        if not isinstance(header, dict):
+            raise exceptions.SignatureDecodeException("Wrong header format")
+
+        return header
 
     @classmethod
     def encode(cls, header: dict[str, t.Any], payload: dict[str, t.Any], key: bytes) -> bytes:

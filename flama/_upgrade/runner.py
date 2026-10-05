@@ -6,6 +6,7 @@ from rich.console import Console
 from flama._cli.formatting import CONSOLE
 from flama._upgrade.codemods import MIGRATIONS
 from flama._upgrade.migration import resolve
+from flama._upgrade.operations import Todo
 from flama._upgrade.report import FileReport, Report
 from flama._upgrade.source import Source
 
@@ -65,15 +66,15 @@ def run(
 
     :param paths: Files and/or directories to process.
     :param target: Target version; the latest registered migration is used when omitted.
-    :param source: Source version (informational).
+    :param source: Version to upgrade from; every migration up to the target applies when omitted.
     :param write: When ``True`` rewrite files in place; otherwise preview a diff.
     :param select: When given, only operations whose id is in this set run.
     :param skip: Operations whose id is in this set are skipped.
     :param console: Console used for rendering.
     :return: The aggregated run report.
     """
-    migration = resolve(MIGRATIONS, target=target, source=source)
-    report = Report(migration.target)
+    migrations = resolve(MIGRATIONS, target=target, source=source)
+    report = Report(migrations[-1].target if migrations else target or MIGRATIONS[-1].target)
 
     for path in discover(paths):
         text = path.read_text(encoding="utf-8")
@@ -83,7 +84,14 @@ def run(
             report.add_skipped(path)
             continue
 
-        upgraded, todos, changed = migration.apply(parsed, select=select, skip=skip)
+        upgraded = parsed
+        todos: list[Todo] = []
+        changed = False
+        for migration in migrations:
+            upgraded, migration_todos, migration_changed = migration.apply(upgraded, select=select, skip=skip)
+            todos.extend(migration_todos)
+            changed = changed or migration_changed
+
         report.add(FileReport(path, text, upgraded.text, tuple(todos), changed))
         if changed and write:
             path.write_text(upgraded.text, encoding="utf-8")

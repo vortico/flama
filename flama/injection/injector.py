@@ -2,7 +2,7 @@ import functools
 import inspect
 import typing as t
 
-from flama.injection.cache import LRUCache
+from flama.cache import LRUCache
 from flama.injection.components import Component, Components
 from flama.injection.context import C, Context
 from flama.injection.exceptions import ComponentNotFound
@@ -16,9 +16,14 @@ ROOT_NAME = "_root"
 
 
 class InjectionCache(LRUCache[tuple[Parameter, Context], t.Any]):
-    """A cache for injected component values."""
+    """A cache for injected component values.
 
-    ...
+    Held smaller than the default, since a fresh context per request means entries turn over quickly and each
+    one keeps whatever a component resolved to alive for as long as it stays.
+    """
+
+    def __init__(self, *, max_size: int = 2**8) -> None:
+        super().__init__(max_size=max_size)
 
 
 class FunctionCache(LRUCache[int, tuple[t.Callable, dict[str, "ResolutionTree"]]]):

@@ -1,20 +1,37 @@
 import http
 import logging
+import typing as t
 
-from flama import Component
+from flama import Component, concurrency
 from flama.authentication import exceptions, jwt, types
+from flama.crypto import JWS
+from flama.crypto.exceptions import SignatureDecodeException
 from flama.exceptions import HTTPException
 from flama.http.data_structures import Headers
 from flama.types.http import Cookies
 
-logger = logging.getLogger(__name__)
+T = t.TypeVar("T", bound=jwt.JWT)
 
 __all__ = ["AccessTokenComponent", "RefreshTokenComponent"]
 
+logger = logging.getLogger(__name__)
+
 
 class BaseTokenComponent(Component):
-    def __init__(self, secret: bytes, *, header_key: str, header_prefix: str, cookie_key: str):
+    def __init__(
+        self,
+        secret: bytes | None = None,
+        *,
+        secret_resolver: types.KeyResolver | None = None,
+        header_key: str,
+        header_prefix: str,
+        cookie_key: str,
+    ):
+        if (secret is None) == (secret_resolver is None):
+            raise ValueError("Give either a secret or a resolver, not both and not neither")
+
         self.secret = secret
+        self.secret_resolver = secret_resolver
         self.header_key = header_key
         self.header_prefix = header_prefix
         self.cookie_key = cookie_key
@@ -48,7 +65,7 @@ class BaseTokenComponent(Component):
 
         return token.encode()
 
-    def _resolve_token(self, headers: Headers, cookies: Cookies) -> jwt.JWT:
+    async def _resolve_token(self, token_cls: type[T], headers: Headers, cookies: Cookies, /) -> T:
         try:
             try:
                 encoded_token = self._token_from_header(headers)
@@ -62,8 +79,18 @@ class BaseTokenComponent(Component):
             )
 
         try:
-            token = jwt.JWT.decode(encoded_token, self.secret)
-        except (exceptions.JWTDecodeException, exceptions.JWTValidateException) as e:
+            if self.secret_resolver is not None:
+                key = await concurrency.run(self.secret_resolver, JWS.header(encoded_token).get("kid"))
+            else:
+                key = t.cast(bytes, self.secret)
+
+            token = token_cls.decode(encoded_token, key)
+        except (
+            exceptions.Unauthorized,
+            SignatureDecodeException,
+            exceptions.JWTDecodeException,
+            exceptions.JWTValidateException,
+        ) as e:
             raise HTTPException(
                 status_code=http.HTTPStatus.UNAUTHORIZED, detail={"error": e.__class__, "description": str(e)}
             )
@@ -74,30 +101,42 @@ class BaseTokenComponent(Component):
 class AccessTokenComponent(BaseTokenComponent):
     def __init__(
         self,
-        secret: bytes,
+        secret: bytes | None = None,
         *,
+        resolver: types.KeyResolver | None = None,
         header_prefix: str = "Bearer",
         header_key: str = "access_token",
         cookie_key: str = "access_token",
     ):
-        super().__init__(secret, header_prefix=header_prefix, header_key=header_key, cookie_key=cookie_key)
+        super().__init__(
+            secret,
+            secret_resolver=resolver,
+            header_prefix=header_prefix,
+            header_key=header_key,
+            cookie_key=cookie_key,
+        )
 
-    def resolve(self, headers: Headers, cookies: Cookies) -> types.AccessToken:
-        token = self._resolve_token(headers, cookies)
-        return types.AccessToken(token.header, token.payload)
+    async def resolve(self, headers: Headers, cookies: Cookies) -> types.AccessToken:
+        return await self._resolve_token(types.AccessToken, headers, cookies)
 
 
 class RefreshTokenComponent(BaseTokenComponent):
     def __init__(
         self,
-        secret: bytes,
+        secret: bytes | None = None,
         *,
+        resolver: types.KeyResolver | None = None,
         header_prefix: str = "Bearer",
         header_key: str = "refresh_token",
         cookie_key: str = "refresh_token",
     ):
-        super().__init__(secret, header_prefix=header_prefix, header_key=header_key, cookie_key=cookie_key)
+        super().__init__(
+            secret,
+            secret_resolver=resolver,
+            header_prefix=header_prefix,
+            header_key=header_key,
+            cookie_key=cookie_key,
+        )
 
-    def resolve(self, headers: Headers, cookies: Cookies) -> types.RefreshToken:
-        token = self._resolve_token(headers, cookies)
-        return types.RefreshToken(token.header, token.payload)
+    async def resolve(self, headers: Headers, cookies: Cookies) -> types.RefreshToken:
+        return await self._resolve_token(types.RefreshToken, headers, cookies)

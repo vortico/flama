@@ -2,6 +2,7 @@ import uuid
 
 import pytest
 
+from flama.crypto.algorithms import EdDSAAlgorithm
 from flama.crypto.exceptions import SignatureDecodeException, SignatureVerificationException
 from flama.crypto.jws import JWS
 
@@ -94,3 +95,45 @@ class TestCaseJWS:
     def test_decode(self, key, token, result, exception):
         with exception:
             assert JWS.decode(token, key) == result
+
+    @pytest.mark.parametrize(
+        ["token", "result", "exception"],
+        (
+            pytest.param(TOKEN, {"alg": "HS256", "typ": "JWT"}, None, id="ok"),
+            pytest.param(
+                b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCIsICJraWQiOiAib3JnLTEyMyJ9.unchecked.unchecked",
+                {"alg": "HS256", "typ": "JWT", "kid": "org-123"},
+                None,
+                id="names_a_key",
+            ),
+            pytest.param(
+                b"wrong.format.0000",
+                None,
+                SignatureDecodeException("Wrong header format"),
+                id="wrong_header",
+            ),
+            pytest.param(
+                b"NQ==.format.0000",
+                None,
+                SignatureDecodeException("Wrong header format"),
+                id="header_is_not_an_object",
+            ),
+        ),
+        indirect=["exception"],
+    )
+    def test_header(self, token, result, exception):
+        with exception:
+            assert JWS.header(token) == result
+
+    def test_encode_and_decode_asymmetrically(self):
+        private, public = EdDSAAlgorithm.generate()
+        header, payload = {"alg": "EdDSA", "typ": "JWT"}, {"data": {"foo": "bar"}, "iat": 0}
+
+        token = JWS.encode(header, payload, key=private)
+
+        assert JWS.decode(token, public)[:2] == (header, payload)
+
+        # The key a token is signed with is not the key it is checked against, so the private one does not
+        # stand in for the public one.
+        with pytest.raises(SignatureVerificationException):
+            JWS.decode(token, private)
