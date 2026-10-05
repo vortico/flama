@@ -153,3 +153,24 @@ class TestCaseJWT:
             "header": {"alg": "HS256", "typ": "JWT"},
             "payload": {"data": {"foo": "bar"}, "iat": 0},
         }
+
+    def test_raw(self, key):
+        jwt = JWT({"alg": "HS256", "typ": "JWT"}, {"data": {"foo": "bar"}, "iat": 0})
+
+        # A token built here has nothing to present until it is encoded.
+        assert jwt.raw is None
+
+        encoded = jwt.encode(key)
+
+        assert JWT.decode(encoded, key).raw == encoded
+
+    def test_raw_is_not_told(self, key):
+        jwt = JWT({"alg": "HS256", "typ": "JWT"}, {"data": {"foo": "bar"}, "iat": 0})
+        encoded = jwt.encode(key)
+        decoded = JWT.decode(encoded, key)
+
+        # The same token whether or not it remembers how it arrived, and never printed, since a credential
+        # in a repr is a credential in the logs.
+        assert decoded == jwt
+        assert encoded.decode() not in repr(decoded)
+        assert decoded.to_dict() == jwt.to_dict()

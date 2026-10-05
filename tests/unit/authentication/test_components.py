@@ -116,6 +116,35 @@ class TestCaseAccessTokenComponent:
         assert response.json() == result
 
 
+class TestCaseTokenRelay:
+    @pytest.fixture(scope="function", autouse=True)
+    def add_endpoints(self, app):
+        @app.get("/access/")
+        def access_token(token: authentication.AccessToken):
+            return {"type": type(token).__name__, "raw": token.raw.decode() if token.raw else None}
+
+        @app.get("/refresh/")
+        def refresh_token(token: authentication.RefreshToken):
+            return {"type": type(token).__name__, "raw": token.raw.decode() if token.raw else None}
+
+    @pytest.mark.parametrize(
+        ["path", "key", "token_cls"],
+        (
+            pytest.param("/access/", "access_token", "AccessToken", id="access"),
+            pytest.param("/refresh/", "refresh_token", "RefreshToken", id="refresh"),
+        ),
+    )
+    async def test_injection(self, client, path, key, token_cls):
+        client.headers = {key: f"Bearer {TOKEN.decode()}"}
+
+        response = await client.request("get", path)
+
+        # An injected token carries the form it arrived as, so it can be presented to another service
+        # without being signed again.
+        assert response.status_code == 200
+        assert response.json() == {"type": token_cls, "raw": TOKEN.decode()}
+
+
 class TestCaseKeyResolution:
     TOKENS: t.ClassVar[dict[str, bytes]] = {
         "one": b"eyJhbGciOiJIUzI1NiIsImtpZCI6Im9uZSIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9."

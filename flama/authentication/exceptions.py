@@ -3,6 +3,7 @@ from flama.crypto.exceptions import SignatureDecodeException, SignatureVerificat
 __all__ = [
     "AuthenticationException",
     "Unauthorized",
+    "KeysUnavailable",
     "JWTException",
     "JWTDecodeException",
     "JWTValidateException",
@@ -17,6 +18,11 @@ class Unauthorized(AuthenticationException): ...
 
 
 class Forbidden(AuthenticationException): ...
+
+
+# Deliberately not an ``Unauthorized``: being unable to look a key up says nothing about the token presented,
+# so it must not be reported to the caller as a rejected one.
+class KeysUnavailable(AuthenticationException): ...
 
 
 class JWTException(AuthenticationException): ...
