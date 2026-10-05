@@ -8,7 +8,7 @@ from flama.types.http import Method
 try:
     from sqlalchemy import Table
 except Exception:  # pragma: no cover
-    Table = t.Any  # ty: ignore[invalid-assignment]
+    Table = t.Any
 
 if t.TYPE_CHECKING:
     from flama.resources.resource import Resource
