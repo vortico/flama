@@ -21,7 +21,7 @@ except ImportError:  # pragma: no cover
 try:
     import soundfile
 except ImportError:  # pragma: no cover
-    soundfile = None  # ty: ignore[invalid-assignment]
+    soundfile = None
 
 if t.TYPE_CHECKING:
     import numpy as np
