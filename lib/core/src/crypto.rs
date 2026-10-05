@@ -11,9 +11,9 @@
 use std::str::FromStr;
 
 use ed25519_dalek::{Signature, Signer as _, SigningKey, VerifyingKey};
+use getrandom::{SysRng, rand_core::UnwrapErr};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use rand_core::OsRng;
 
 /// Length of an Ed25519 key, private or public, in bytes.
 const KEY_LENGTH: usize = 32;
@@ -100,7 +100,7 @@ impl AsymmetricSigner {
     fn generate(&self) -> (Vec<u8>, Vec<u8>) {
         match self.algorithm {
             AsymmetricAlgorithm::EdDsa => {
-                let key = SigningKey::generate(&mut OsRng);
+                let key = SigningKey::generate(&mut UnwrapErr(SysRng));
 
                 (key.to_bytes().to_vec(), key.verifying_key().to_bytes().to_vec())
             }
