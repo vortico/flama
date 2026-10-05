@@ -72,10 +72,49 @@ pip install "flama[full]"          # everything
 
 See the [installation docs](https://flama.dev/docs/getting-started/installation/) for details.
 
-## Quickstart: serve an LLM
+## Quickstart
 
-From zero to a production API with a built-in chat UI in three commands, no Python code
-required:
+The same two commands serve both families of model: package it into a `.flm`, then point
+`flama serve` at the file. No application code either way.
+
+### Serve a predictive model
+
+Package a model trained in any mainstream framework:
+
+```python
+import flama
+from sklearn.neural_network import MLPClassifier
+
+model = MLPClassifier(activation="tanh", hidden_layer_sizes=(10,))
+# ... training ...
+flama.dump(model, family="ml", path="model.flm", metrics={"accuracy": 0.947})
+```
+
+Or fetch one straight from the Hub, then serve it:
+
+```commandline
+flama get --family ml --source huggingface scikit-learn/Fish-Weight
+flama serve --model file=scikit-learn_Fish-Weight.flm,url=/model,name=fish
+```
+
+You get two endpoints, an OpenAPI schema at `/schema/`, and Swagger UI at `/docs/`.
+`GET /model/` returns the artifact's metadata; `POST /model/predict/` runs inference:
+
+```commandline
+curl -X POST http://127.0.0.1:8000/model/predict/ \
+  -H "Content-Type: application/json" \
+  -d '{"input": [[23.2, 25.4, 30.0, 11.52, 4.02]]}'
+```
+
+```json
+{"output": [242.0]}
+```
+
+Learn more in the [Predictive AI docs](https://flama.dev/docs/predictive-ai/packaging-models/).
+
+### Serve a generative model
+
+From zero to a production API with a built-in chat UI in three commands:
 
 ```commandline
 pip install "flama[llm,pydantic]"
@@ -83,7 +122,7 @@ pip install "flama[llm,pydantic]"
 # 1. Download and package a model from HuggingFace into a portable .flm
 flama get --family llm --source huggingface mlx-community/gemma-4-E2B-it-qat-4bit
 
-# 2. Try it straight from your terminal
+# 2. Try it straight from your terminal, no server needed
 echo "What is Flama?" | flama model mlx-community_gemma-4-E2B-it-qat-4bit.flm stream --system "Be concise."
 
 # 3. Serve it over HTTP
@@ -99,16 +138,16 @@ Flama selecting the backend at load time.
     <img src="https://raw.githubusercontent.com/vortico/flama/master/.github/assets/serve.gif" alt="A single flama serve command booting a packaged model into a live API" width="100%">
 </p>
 
-### Chat from your terminal
-
-You do not even need a server to try a model. Pipe a prompt into `flama model ... stream`
-and the response streams straight into your shell:
+Step 2 above needs no server at all. Pipe a prompt into `flama model ... stream` and the
+response streams straight into your shell:
 
 <p align="center">
     <img src="https://raw.githubusercontent.com/vortico/flama/master/.github/assets/stream.gif" alt="Chatting with a model straight from the terminal using flama model stream" width="100%">
 </p>
 
-### Speak the protocols your clients already use
+Learn more in the [Generative AI docs](https://flama.dev/docs/generative-ai/serving-llms/).
+
+## Speak the protocols your clients already use
 
 A single model can serve multiple wire protocols simultaneously, so existing OpenAI,
 Anthropic, and Ollama clients work without code changes, just point them at your server.
@@ -120,30 +159,79 @@ Anthropic, and Ollama clients work without code changes, just point them at your
 | Anthropic | `/anthropic` | `/v1/messages`, `/v1/models`                                        |
 | Ollama    | `/ollama`    | `/api/chat`, `/api/generate`, `/api/tags`                           |
 
-Learn more in the [Generative AI docs](https://flama.dev/docs/generative-ai/serving-llms/).
+## Inspect, test, and deploy
 
-## Quickstart: serve a predictive model
-
-The same workflow serves classic ML models. Package a model trained in any mainstream
-framework:
-
-```python
-import flama
-from sklearn.neural_network import MLPClassifier
-
-model = MLPClassifier(activation="tanh", hidden_layer_sizes=(10,))
-# ... training ...
-flama.dump(model, "model.flm")
-```
-
-Or fetch one straight from the Hub, then serve it:
+Every `.flm` file is self-describing. Alongside the weights it carries the framework and
+version, the model class, its hyperparameters, the training metrics, and any auxiliary
+files needed at inference time. The metadata sits ahead of the weights, so reading it is a
+header parse rather than a full decompression, even on a multi-gigabyte artifact.
 
 ```commandline
-flama get --family ml --source huggingface scikit-learn/Fish-Weight
-flama serve --model file=scikit-learn_Fish-Weight.flm,url=/model,name=fish
+flama model model.flm inspect --pretty
 ```
 
-Learn more in the [Predictive AI docs](https://flama.dev/docs/predictive-ai/packaging-models/).
+```json
+{
+  "meta": {
+    "id": "42342016-bade-48d4-a185-0a3352fb7561",
+    "timestamp": "2026-09-15T10:30:00",
+    "framework": {"family": "ml", "lib": "sklearn", "version": "1.9.1", "config": null},
+    "model": {
+      "obj": "RandomForestClassifier",
+      "params": {"n_estimators": 100, "max_depth": 8},
+      "metrics": {"accuracy": 0.947, "f1": 0.932}
+    },
+    "extra": {"dataset": "prod-2024-q3", "author": "team-ml"},
+    "capabilities": {"kind": "ml"}
+  },
+  "manifest": []
+}
+```
+
+Because the metrics travel inside the file, a CI job can gate promotion on them without
+standing up a server. The same command group runs inference offline, so a reference set is
+scored on exactly the code path the server would use:
+
+```commandline
+flama model model.flm run -i reference.json -o predictions.json
+```
+
+### Deploy several models from one file
+
+`flama start` reads a `flama.json` describing the application and the models it serves,
+which makes a deployment reviewable in a pull request:
+
+```json
+{
+  "app": {
+    "title": "ML Platform",
+    "models": [
+      {"url": "/sentiment", "path": "models/sentiment.flm", "name": "sentiment"},
+      {"url": "/assistant", "path": "models/assistant.flm", "name": "assistant",
+       "serving": ["native", "openai"]}
+    ]
+  },
+  "server": {"host": "0.0.0.0", "port": 8000, "workers": 4}
+}
+```
+
+```commandline
+flama start --create-config full   # write a template to start from
+flama start                        # run it
+```
+
+Every option also binds to a `FLAMA_*` environment variable, so one image serves every
+environment. Official images ship per Python version and schema library, which leaves the
+Dockerfile as a `FROM` and two `COPY`s:
+
+```dockerfile
+FROM vortico/flama:latest-python3.12-pydantic
+COPY models/ models/
+COPY flama.json .
+CMD ["start"]
+```
+
+Learn more in the [CLI docs](https://flama.dev/docs/flama-cli/model/).
 
 ## Expose tools to AI agents with MCP
 
