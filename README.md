@@ -54,19 +54,19 @@ no matter where it came from, and serves it over HTTP in seconds.
 
 ## Installation
 
-Flama is published on PyPI and ships native wheels for every supported Python version
-(3.10 to 3.14) on Linux, macOS, and Windows. No Rust toolchain required.
+Flama is published on PyPI and ships native wheels for every supported Python version on Linux, macOS, and Windows. No Rust toolchain required. It
+needs one schema library, and Pydantic is the usual choice:
 
 ```commandline
-pip install flama
+pip install "flama[pydantic]"
 ```
 
-Schema, database, and LLM support are optional extras, so you install only what you need:
+Everything else is an optional extra, so you install only what you need:
 
 ```commandline
-pip install "flama[pydantic]"      # schema validation (also: typesystem, marshmallow)
+pip install "flama[typesystem]"    # or marshmallow, instead of pydantic
 pip install "flama[database]"      # SQLAlchemy-backed resources
-pip install "flama[llm]"           # generative AI serving (vLLM on Linux, MLX on Apple Silicon)
+pip install "flama[llm]"           # generative AI serving (vLLM on Linux, MLX on Apple Silicon; Python 3.10 to 3.13)
 pip install "flama[full]"          # everything
 ```
 
@@ -79,22 +79,22 @@ The same two commands serve both families of model: package it into a `.flm`, th
 
 ### Serve a predictive model
 
-Package a model trained in any mainstream framework:
+Package a model trained in any mainstream framework (this one needs `scikit-learn`):
 
 ```python
 import flama
+from sklearn.datasets import load_iris
 from sklearn.neural_network import MLPClassifier
 
-model = MLPClassifier(activation="tanh", hidden_layer_sizes=(10,))
-# ... training ...
-flama.dump(model, family="ml", path="model.flm", metrics={"accuracy": 0.947})
+X, y = load_iris(return_X_y=True)
+model = MLPClassifier(activation="tanh", hidden_layer_sizes=(10,), max_iter=2000).fit(X, y)
+flama.dump(model, family="ml", path="model.flm", metrics={"accuracy": model.score(X, y)})
 ```
 
-Or fetch one straight from the Hub, then serve it:
+Then serve it:
 
 ```commandline
-flama get --family ml --source huggingface scikit-learn/Fish-Weight
-flama serve --model file=scikit-learn_Fish-Weight.flm,url=/model,name=fish
+flama serve --model file=model.flm,url=/model,name=iris
 ```
 
 You get two endpoints, an OpenAPI schema at `/schema/`, and Swagger UI at `/docs/`.
@@ -103,11 +103,11 @@ You get two endpoints, an OpenAPI schema at `/schema/`, and Swagger UI at `/docs
 ```commandline
 curl -X POST http://127.0.0.1:8000/model/predict/ \
   -H "Content-Type: application/json" \
-  -d '{"input": [[23.2, 25.4, 30.0, 11.52, 4.02]]}'
+  -d '{"input": [[5.1, 3.5, 1.4, 0.2], [6.7, 3.0, 5.2, 2.3]]}'
 ```
 
 ```json
-{"output": [242.0]}
+{ "output": [0, 2] }
 ```
 
 Learn more in the [Predictive AI docs](https://flama.dev/docs/predictive-ai/packaging-models/).
@@ -123,7 +123,7 @@ pip install "flama[llm,pydantic]"
 flama get --family llm --source huggingface mlx-community/gemma-4-E2B-it-qat-4bit
 
 # 2. Try it straight from your terminal, no server needed
-echo "What is Flama?" | flama model mlx-community_gemma-4-E2B-it-qat-4bit.flm stream --system "Be concise."
+echo '"What is Flama?"' | flama model mlx-community_gemma-4-E2B-it-qat-4bit.flm stream --set system="Be concise."
 
 # 3. Serve it over HTTP
 flama serve --model file=mlx-community_gemma-4-E2B-it-qat-4bit.flm,url=/,name=gemma
@@ -152,12 +152,12 @@ Learn more in the [Generative AI docs](https://flama.dev/docs/generative-ai/serv
 A single model can serve multiple wire protocols simultaneously, so existing OpenAI,
 Anthropic, and Ollama clients work without code changes, just point them at your server.
 
-| Dialect   | Prefix       | Representative routes                                                |
-|-----------|--------------|----------------------------------------------------------------------|
-| Native    | (none)       | `/query/`, `/stream/`, `/chat/`                                      |
+| Dialect   | Prefix       | Representative routes                                                    |
+| --------- | ------------ | ------------------------------------------------------------------------ |
+| Native    | (none)       | `/query/`, `/stream/`, `/chat/`                                          |
 | OpenAI    | `/openai`    | `/v1/chat/completions`, `/v1/completions`, `/v1/responses`, `/v1/models` |
-| Anthropic | `/anthropic` | `/v1/messages`, `/v1/models`                                        |
-| Ollama    | `/ollama`    | `/api/chat`, `/api/generate`, `/api/tags`                           |
+| Anthropic | `/anthropic` | `/v1/messages`, `/v1/models`                                             |
+| Ollama    | `/ollama`    | `/api/chat`, `/api/generate`, `/api/tags`                                |
 
 ## Inspect, test, and deploy
 
@@ -167,7 +167,7 @@ files needed at inference time. The metadata sits ahead of the weights, so readi
 header parse rather than a full decompression, even on a multi-gigabyte artifact.
 
 ```commandline
-flama model model.flm inspect --pretty
+flama model model.flm inspect -f pretty-json
 ```
 
 ```json
@@ -175,25 +175,45 @@ flama model model.flm inspect --pretty
   "meta": {
     "id": "42342016-bade-48d4-a185-0a3352fb7561",
     "timestamp": "2026-09-15T10:30:00",
-    "framework": {"family": "ml", "lib": "sklearn", "version": "1.9.1", "config": null},
+    "framework": {
+      "family": "ml",
+      "lib": "sklearn",
+      "version": "1.9.1",
+      "config": null
+    },
     "model": {
       "obj": "RandomForestClassifier",
-      "params": {"n_estimators": 100, "max_depth": 8},
-      "metrics": {"accuracy": 0.947, "f1": 0.932}
+      "params": { "n_estimators": 100, "max_depth": 8 },
+      "metrics": { "accuracy": 0.947, "f1": 0.932 }
     },
-    "extra": {"dataset": "prod-2024-q3", "author": "team-ml"},
-    "capabilities": {"kind": "ml"}
+    "extra": { "dataset": "prod-2024-q3", "author": "team-ml" },
+    "capabilities": { "kind": "ml" }
   },
-  "manifest": []
+  "manifest": [],
+  "schemas": {
+    "request": {
+      "type": "object",
+      "properties": { "input": { "type": "array", "items": {} } },
+      "required": ["input"]
+    },
+    "response": {
+      "type": "object",
+      "properties": { "output": { "type": "array", "items": {} } },
+      "required": ["output"]
+    }
+  }
 }
 ```
+
+The `schemas` describe what `run` accepts and returns; without `-f`, `inspect` renders the same metadata for
+reading, followed by an example request ready to pipe into `run`.
 
 Because the metrics travel inside the file, a CI job can gate promotion on them without
 standing up a server. The same command group runs inference offline, so a reference set is
 scored on exactly the code path the server would use:
 
 ```commandline
-flama model model.flm run -i reference.json -o predictions.json
+flama model model.flm run -i reference.json -o predictions.json -f json
 ```
 
 ### Deploy several models from one file
@@ -206,12 +226,20 @@ which makes a deployment reviewable in a pull request:
   "app": {
     "title": "ML Platform",
     "models": [
-      {"url": "/sentiment", "path": "models/sentiment.flm", "name": "sentiment"},
-      {"url": "/assistant", "path": "models/assistant.flm", "name": "assistant",
-       "serving": ["native", "openai"]}
+      {
+        "url": "/sentiment",
+        "path": "models/sentiment.flm",
+        "name": "sentiment"
+      },
+      {
+        "url": "/assistant",
+        "path": "models/assistant.flm",
+        "name": "assistant",
+        "serving": ["native", "openai"]
+      }
     ]
   },
-  "server": {"host": "0.0.0.0", "port": 8000, "workers": 4}
+  "server": { "host": "0.0.0.0", "port": 8000, "workers": 4 }
 }
 ```
 
