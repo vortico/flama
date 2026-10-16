@@ -179,11 +179,6 @@ class Serializer:
             raise ValueError("Either a 'stream' or a 'path' needs to be provided")
         elif f is not None and path is not None:
             raise ValueError("Parameters 'stream' and 'path' are mutually exclusive")
-        elif f is not None:
-            managed_stream = False
-        else:
-            managed_stream = True
-            f = pathlib.Path(str(path)).open("wb")
 
         p = Protocol.from_version(protocol)
         try:
@@ -205,20 +200,32 @@ class Serializer:
             lib=lib,
         )
 
+        def _write(stream: t.BinaryIO) -> None:
+            header_pos = stream.tell()
+            stream.write(b"\x00" * cls._header_size)
+
+            body_size = p.dump(artifact, stream, compression=fmt.name, **kwargs)
+
+            end_pos = stream.tell()
+            stream.seek(header_pos)
+            stream.write(struct.pack(cls._header_format, protocol, fmt.value, body_size))
+            stream.seek(end_pos)
+
+        if f is not None:
+            _write(f)
+            return
+
+        # Write to a sibling temporary file and move it into place only once the artifact is complete, so a failed
+        # dump never leaves a truncated artifact behind nor clobbers an existing one.
+        destination = pathlib.Path(str(path))
+        tmp = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
         try:
-            header_pos = f.tell()
-            f.write(b"\x00" * cls._header_size)
-
-            body_size = p.dump(artifact, f, compression=fmt.name, **kwargs)
-
-            end_pos = f.tell()
-            f.seek(header_pos)
-            f.write(struct.pack(cls._header_format, protocol, fmt.value, body_size))
-            f.seek(end_pos)
-        finally:
-            if managed_stream:
-                f.flush()
-                f.close()
+            with tmp.open("wb") as stream:
+                _write(stream)
+            os.replace(tmp, destination)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
 
     @t.overload
     @classmethod
