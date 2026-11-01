@@ -11,7 +11,7 @@ import typesystem.fields
 from flama import types
 from tests._utils import assert_recursive_contains
 
-utc = datetime.timezone.utc
+utc = datetime.UTC
 
 
 class TestCaseSchemaValidation:

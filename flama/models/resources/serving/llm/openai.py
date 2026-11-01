@@ -3,7 +3,7 @@ import time
 import typing as t
 
 from flama import concurrency, schemas, types
-from flama.exceptions import FrameworkNotInstalled, HTTPException
+from flama.exceptions import DependencyNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.sse import ServerSentEventResponse
 from flama.models.exceptions import LLMGenerationError, LLMUnsupportedCapability, LLMUnsupportedContentPart
@@ -43,7 +43,7 @@ class ChatCompletionsMixin:
             )
         except (ValueError, LLMUnsupportedContentPart, LLMUnsupportedCapability) as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
-        except FrameworkNotInstalled:
+        except DependencyNotInstalled:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
@@ -225,7 +225,7 @@ class ResponsesMixin:
             )
         except (ValueError, LLMUnsupportedContentPart, LLMUnsupportedCapability) as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
-        except FrameworkNotInstalled:
+        except DependencyNotInstalled:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
@@ -365,7 +365,7 @@ class CompletionsMixin:
             blocks = await model.query(prompt, transport="raw", **params)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
-        except FrameworkNotInstalled:
+        except DependencyNotInstalled:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e)) from e

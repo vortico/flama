@@ -8,7 +8,8 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{
-    PyBool, PyByteArray, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PySet, PyString, PyTuple, PyType,
+    PyBool, PyByteArray, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PyMapping, PySet, PyString, PyTuple,
+    PyType,
 };
 use std::io::Write;
 
@@ -27,6 +28,7 @@ struct TypeCache {
     dc_asdict: Py<PyAny>,
     flama_path: Option<Py<PyAny>>,
     flama_url: Option<Py<PyAny>>,
+    frozendict_type: Option<Py<PyAny>>,
 }
 
 static TYPE_CACHE: PyOnceLock<TypeCache> = PyOnceLock::new();
@@ -46,6 +48,8 @@ impl TypeCache {
             },
         );
 
+        let builtins_mod = py.import("builtins")?;
+
         Ok(Self {
             enum_type: py.import("enum")?.getattr("Enum")?.unbind(),
             uuid_type: py.import("uuid")?.getattr("UUID")?.unbind(),
@@ -55,11 +59,13 @@ impl TypeCache {
             date_type: datetime_mod.getattr("date")?.unbind(),
             time_type: datetime_mod.getattr("time")?.unbind(),
             pathlike_type: py.import("os")?.getattr("PathLike")?.unbind(),
-            base_exc_type: py.import("builtins")?.getattr("BaseException")?.unbind(),
+            base_exc_type: builtins_mod.getattr("BaseException")?.unbind(),
             dc_is_dataclass: dataclasses_mod.getattr("is_dataclass")?.unbind(),
             dc_asdict: dataclasses_mod.getattr("asdict")?.unbind(),
             flama_path,
             flama_url,
+            // `frozendict` only exists from Python 3.15 on.
+            frozendict_type: builtins_mod.getattr("frozendict").ok().map(Bound::unbind),
         })
     }
 
@@ -281,6 +287,14 @@ impl JsonEncoder {
 
         if obj.is_instance_of::<PySet>() || obj.is_instance_of::<PyFrozenSet>() {
             return self.encode_seq(obj);
+        }
+
+        if let Some(ref t) = types.frozendict_type {
+            if obj.is_instance(t.bind(py))? {
+                let dict = PyDict::new(py);
+                dict.update(obj.cast::<PyMapping>()?)?;
+                return self.encode_dict(&dict);
+            }
         }
 
         if obj.is_instance(types.enum_type.bind(py))? {

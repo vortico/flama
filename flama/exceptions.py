@@ -1,7 +1,7 @@
 import http
 import typing as t
 
-from flama import compat
+from flama import _imports
 
 __all__ = [
     "ApplicationError",
@@ -16,7 +16,6 @@ __all__ = [
     "WebSocketException",
     "NotFoundException",
     "MethodNotAllowedException",
-    "FrameworkNotInstalled",
     "FrameworkVersionWarning",
 ]
 
@@ -25,38 +24,29 @@ class ApplicationError(Exception): ...
 
 
 class DependencyNotInstalled(ApplicationError):
-    class Dependency(compat.StrEnum):  # PORT: Replace compat when stop supporting 3.10
-        pydantic = "pydantic"
-        marshmallow = "marshmallow"
-        apispec = "apispec"
-        typesystem = "typesystem"
-        sqlalchemy = "sqlalchemy[asyncio]"
-        tomli = "tomli"  # PORT: Remove when stop supporting 3.10
+    """Cannot find an installed version of a dependency.
 
-    def __init__(
-        self, *, dependency: str | Dependency | None = None, dependant: str | None = None, msg: str = ""
-    ) -> None:
-        super().__init__()
-        self.dependency = self.Dependency(dependency) if dependency else None
-        self.dependant = dependant
+    :param dependencies: Dependencies any of which would satisfy the requirement.
+    :param msg: Detail on what needs them.
+    """
+
+    def __init__(self, *dependencies: "_imports.DependencyPackage | _imports.DependencyName", msg: str = "") -> None:
+        self.dependencies = tuple(_imports.DependencyPackage(dependency) for dependency in dependencies)
         self.msg = msg
+        super().__init__(*self.dependencies)
 
     def __str__(self) -> str:
-        if self.dependency:
-            s = f"Dependency '{self.dependency.value}' must be installed"
-            if self.dependant:
-                s += f" to use '{self.dependant}'"
-            if self.msg:
-                s += f" ({self.msg})"
-        else:
-            s = self.msg
+        if not self.dependencies:
+            return self.msg
 
-        return s
+        packages = " or ".join(f"'{dependency.package}'" for dependency in self.dependencies)
+        detail = f" ({self.msg})" if self.msg else ""
+        install = _imports.DependencyPackage.install(*self.dependencies)
+        return f"Dependency {packages} must be installed{detail} ({install})"
 
     def __repr__(self) -> str:
-        params = ("msg", "dependency", "dependant")
-        formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
-        return f"{self.__class__.__name__}({formatted_params})"
+        params = ", ".join([*(repr(str(d)) for d in self.dependencies), *([f"msg={self.msg!r}"] if self.msg else [])])
+        return f"{self.__class__.__name__}({params})"
 
 
 class SQLAlchemyError(ApplicationError): ...
@@ -209,12 +199,6 @@ class JSONRPCException(Exception):
             and self.status_code == other.status_code
             and self.detail == other.detail
         )
-
-
-class FrameworkNotInstalled(Exception):
-    """Cannot find an installed version of the framework."""
-
-    ...
 
 
 class FrameworkVersionWarning(Warning):

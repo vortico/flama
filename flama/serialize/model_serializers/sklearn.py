@@ -1,5 +1,4 @@
 import codecs
-import importlib.metadata
 import logging
 import math
 import pathlib
@@ -7,7 +6,7 @@ import pickle
 import typing as t
 import warnings
 
-from flama import exceptions, types
+from flama import types
 from flama.serialize.data_structures import MLModelCapabilities
 from flama.serialize.model_serializers._base import BaseModelSerializer
 
@@ -58,9 +57,3 @@ class ModelSerializer(BaseModelSerializer):
     def detect_capabilities(self, model: t.Any, /) -> MLModelCapabilities:
         """Return the empty :class:`MLModelCapabilities` placeholder for traditional ML artifacts."""
         return MLModelCapabilities()
-
-    def version(self) -> str:
-        try:
-            return importlib.metadata.version("scikit-learn")
-        except Exception:  # noqa
-            raise exceptions.FrameworkNotInstalled("scikit-learn")

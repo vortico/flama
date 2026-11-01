@@ -6,6 +6,7 @@ import warnings
 
 import typesystem
 
+from flama import compat
 from flama.injection import Parameter
 from flama.schemas._libs.typesystem.fields import MAPPING, MAPPING_TYPES, Enum
 from flama.schemas.adapter import Adapter
@@ -22,7 +23,7 @@ class TypesystemAdapter(Adapter[Schema, Field]):
     def build_field(
         self,
         name: str,
-        type_: type,
+        type_: compat.TypeForm[t.Any],
         nullable: bool = False,
         required: bool = True,
         default: t.Any = None,
@@ -113,7 +114,7 @@ class TypesystemAdapter(Adapter[Schema, Field]):
     def unique_schema(self, schema: Schema) -> Schema:
         return schema
 
-    def _build_scalar_field(self, type_: type, **kwargs: t.Any) -> Field:
+    def _build_scalar_field(self, type_: compat.TypeForm[t.Any], **kwargs: t.Any) -> Field:
         """Build the field describing a single value of the given type.
 
         :param type_: Type of the value.

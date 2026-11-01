@@ -40,7 +40,7 @@ class _FileStat:
         if not stat.S_ISREG(result.st_mode):
             raise exceptions.HTTPException(status_code=404, detail=f"File at path {path} is not a file.")
 
-        last_modified = datetime.datetime.fromtimestamp(result.st_mtime, datetime.timezone.utc).strftime(
+        last_modified = datetime.datetime.fromtimestamp(result.st_mtime, datetime.UTC).strftime(
             "%a, %d %b %Y %H:%M:%S GMT"
         )
         etag_base = f"{result.st_mtime}-{result.st_size}"

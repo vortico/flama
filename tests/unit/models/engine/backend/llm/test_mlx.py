@@ -15,6 +15,7 @@ from flama.models.engine.llm.input import EngineInput
 from flama.serialize.data_structures import LLMModelCapabilities
 from flama.serialize.exceptions import UnknownModelCapabilities
 from flama.serialize.model_serializers.transformers import ModelSerializer as TransformersModelSerializer
+from tests._utils import missing
 
 
 class _FakeMlxResp:
@@ -111,17 +112,19 @@ class TestCaseMLXBackend:
         ]
         if multimodal:
             proc = processor if processor is not None else Mock(tokenizer=tokenizer)
-            patches.append(patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", Mock(return_value=(model, proc))))
+            patches.append(
+                patch("flama.models.engine.backend.llm.mlx.mlx_vlm", Mock(load=Mock(return_value=(model, proc))))
+            )
             if not resolved.is_multimodal:
                 patches.append(
                     patch(
-                        "flama.models.engine.backend.llm.mlx.mlx_lm_load",
-                        Mock(side_effect=ValueError("Model type dummy_unified not supported.")),
+                        "flama.models.engine.backend.llm.mlx.mlx_lm",
+                        Mock(load=Mock(side_effect=ValueError("Model type dummy_unified not supported."))),
                     )
                 )
         else:
             patches.append(
-                patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", Mock(return_value=(model, tokenizer)))
+                patch("flama.models.engine.backend.llm.mlx.mlx_lm", Mock(load=Mock(return_value=(model, tokenizer))))
             )
 
         with contextlib.ExitStack() as stack:
@@ -166,7 +169,7 @@ class TestCaseMLXBackend:
 
         text_cap = LLMModelCapabilities(text=True)
         with (
-            patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", mlx_lm_load),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm", Mock(load=mlx_lm_load)),
             patch.object(TransformersModelSerializer, "detect_capabilities", return_value=text_cap),
         ):
             backend = MLXBackend(pathlib.Path("/tmp/model"))
@@ -184,7 +187,7 @@ class TestCaseMLXBackend:
         mlx_vlm_load = Mock(return_value=(model, processor))
         override = LLMModelCapabilities(text=True, image=True)
 
-        with patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", mlx_vlm_load):
+        with patch("flama.models.engine.backend.llm.mlx.mlx_vlm", Mock(load=mlx_vlm_load)):
             backend = MLXBackend(pathlib.Path("/tmp/model"), capabilities=override)
 
         assert backend.model.model is model
@@ -224,8 +227,8 @@ class TestCaseMLXBackend:
         loaders[refusing].side_effect = ValueError("this runtime refuses the model")
 
         with (
-            patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", loaders["mlx_lm_load"]),
-            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", loaders["mlx_vlm_load"]),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm", Mock(load=loaders["mlx_lm_load"])),
+            patch("flama.models.engine.backend.llm.mlx.mlx_vlm", Mock(load=loaders["mlx_vlm_load"])),
         ):
             backend = MLXBackend(pathlib.Path("/tmp/model"), capabilities=capabilities)
 
@@ -244,8 +247,8 @@ class TestCaseMLXBackend:
         mlx_vlm_load = Mock(side_effect=ValueError("mlx-vlm refused the model too"))
 
         with (
-            patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", mlx_lm_load),
-            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", mlx_vlm_load),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm", Mock(load=mlx_lm_load)),
+            patch("flama.models.engine.backend.llm.mlx.mlx_vlm", Mock(load=mlx_vlm_load)),
             patch.object(
                 TransformersModelSerializer, "detect_capabilities", return_value=LLMModelCapabilities(text=True)
             ),
@@ -255,8 +258,8 @@ class TestCaseMLXBackend:
 
     def test_init_raises_on_unknown_capabilities(self):
         with (
-            patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", Mock()),
-            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", Mock()),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm", Mock(load=Mock())),
+            patch("flama.models.engine.backend.llm.mlx.mlx_vlm", Mock(load=Mock())),
             patch.object(TransformersModelSerializer, "detect_capabilities", return_value=None),
             pytest.raises(UnknownModelCapabilities),
         ):
@@ -268,7 +271,7 @@ class TestCaseMLXBackend:
             pytest.param(False, True, True, None, id="absent_mlx_lm_uses_mlx_vlm"),
             pytest.param(True, False, False, None, id="absent_mlx_vlm_uses_mlx_lm"),
             pytest.param(
-                False, False, None, exceptions.FrameworkNotInstalled("mlx-lm or mlx-vlm"), id="neither_installed"
+                False, False, None, exceptions.DependencyNotInstalled("mlx_lm", "mlx_vlm"), id="neither_installed"
             ),
         ],
         indirect=["exception"],
@@ -277,12 +280,14 @@ class TestCaseMLXBackend:
         self, mlx_lm_available: bool, mlx_vlm_available: bool, expected_is_vlm: bool | None, exception
     ) -> None:
         """An uninstalled runtime is skipped rather than fatal; only losing both is a missing dependency."""
-        mlx_lm_load = Mock(return_value=(Mock(), Mock())) if mlx_lm_available else None
-        mlx_vlm_load = Mock(return_value=(Mock(), Mock(tokenizer=Mock()))) if mlx_vlm_available else None
+        mlx_lm = Mock(load=Mock(return_value=(Mock(), Mock()))) if mlx_lm_available else missing("mlx_lm")
+        mlx_vlm = (
+            Mock(load=Mock(return_value=(Mock(), Mock(tokenizer=Mock())))) if mlx_vlm_available else missing("mlx_vlm")
+        )
 
         with (
-            patch("flama.models.engine.backend.llm.mlx.mlx_lm_load", mlx_lm_load),
-            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_load", mlx_vlm_load),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm", mlx_lm),
+            patch("flama.models.engine.backend.llm.mlx.mlx_vlm", mlx_vlm),
             patch.object(
                 TransformersModelSerializer, "detect_capabilities", return_value=LLMModelCapabilities(text=True)
             ),
@@ -480,8 +485,8 @@ class TestCaseMLXBackend:
         inputs = EngineInput(tokens=[1, 2, 3], images=images, audios=audios)
 
         with (
-            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_stream_generate", mock_vlm_stream_generate),
-            patch("flama.models.engine.backend.llm.mlx.make_sampler", mock_make_sampler),
+            patch("flama.models.engine.backend.llm.mlx.mlx_vlm", Mock(stream_generate=mock_vlm_stream_generate)),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils", Mock(make_sampler=mock_make_sampler)),
             patch("flama.models.engine.backend.llm.mlx.mx", mock_mx),
         ):
             deltas = [d async for d in backend.generate(inputs)]
@@ -519,9 +524,12 @@ class TestCaseMLXBackend:
         mock_mx.array = Mock(side_effect=lambda value: ("mx-array", value))
 
         with (
-            patch("flama.models.engine.backend.llm.mlx.mlx_vlm_stream_generate", mock_vlm_stream_generate),
-            patch("flama.models.engine.backend.llm.mlx.stream_generate", mock_lm_stream_generate),
-            patch("flama.models.engine.backend.llm.mlx.make_sampler", Mock(return_value="sampler")),
+            patch("flama.models.engine.backend.llm.mlx.mlx_vlm", Mock(stream_generate=mock_vlm_stream_generate)),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm", Mock(stream_generate=mock_lm_stream_generate)),
+            patch(
+                "flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils",
+                Mock(make_sampler=Mock(return_value="sampler")),
+            ),
             patch("flama.models.engine.backend.llm.mlx.mx", mock_mx),
         ):
             deltas = [d async for d in backend.generate(EngineInput(tokens=[1, 2, 3]))]
@@ -547,12 +555,15 @@ class TestCaseMLXBackend:
         backend = self._make_backend(**vlm_runtime_args)
         with (
             patch(
-                "flama.models.engine.backend.llm.mlx.mlx_vlm_stream_generate",
-                Mock() if mlx_vlm_installed else None,
+                "flama.models.engine.backend.llm.mlx.mlx_vlm",
+                Mock(stream_generate=Mock()) if mlx_vlm_installed else missing("mlx_vlm"),
             ),
-            patch("flama.models.engine.backend.llm.mlx.make_sampler", Mock()),
-            patch("flama.models.engine.backend.llm.mlx.mx", Mock() if mx_installed else None),
-            pytest.raises(exceptions.FrameworkNotInstalled),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils", Mock(make_sampler=Mock())),
+            patch(
+                "flama.models.engine.backend.llm.mlx.mx",
+                Mock() if mx_installed else missing("mlx", "core"),
+            ),
+            pytest.raises(exceptions.DependencyNotInstalled),
         ):
             [d async for d in backend.generate(EngineInput(tokens=[1]))]
 
@@ -599,7 +610,7 @@ class TestCaseMLXBackend:
                 None,
                 id="empty_text_terminal_chunk",
             ),
-            pytest.param(False, None, None, None, None, exceptions.FrameworkNotInstalled, id="not_installed"),
+            pytest.param(False, None, None, None, None, exceptions.DependencyNotInstalled, id="not_installed"),
         ],
         indirect=["exception"],
     )
@@ -624,8 +635,14 @@ class TestCaseMLXBackend:
         inputs = EngineInput(tokens=tokens)
 
         with (
-            patch("flama.models.engine.backend.llm.mlx.stream_generate", mock_stream_generate if installed else None),
-            patch("flama.models.engine.backend.llm.mlx.make_sampler", mock_make_sampler if installed else None),
+            patch(
+                "flama.models.engine.backend.llm.mlx.mlx_lm",
+                Mock(stream_generate=mock_stream_generate) if installed else missing("mlx_lm"),
+            ),
+            patch(
+                "flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils",
+                Mock(make_sampler=mock_make_sampler) if installed else missing("mlx_lm", "sample_utils"),
+            ),
             exception,
         ):
             deltas = [delta async for delta in backend.generate(inputs)]
@@ -647,8 +664,8 @@ class TestCaseMLXBackend:
         backend = self._make_backend(**text_runtime_args)
 
         with (
-            patch("flama.models.engine.backend.llm.mlx.stream_generate", mock_stream_generate),
-            patch("flama.models.engine.backend.llm.mlx.make_sampler", mock_make_sampler),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm", Mock(stream_generate=mock_stream_generate)),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils", Mock(make_sampler=mock_make_sampler)),
         ):
             inputs = EngineInput(tokens=[1, 2])
             deltas = [delta async for delta in backend.generate(inputs, temperature=0.7, max_new_tokens=64)]
@@ -714,8 +731,11 @@ class TestCaseMLXBackend:
         backend = self._make_backend(**text_runtime_args)
 
         with (
-            patch("flama.models.engine.backend.llm.mlx.stream_generate", Mock()),
-            patch("flama.models.engine.backend.llm.mlx.make_sampler", Mock(return_value="sampler")),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm", Mock(stream_generate=Mock())),
+            patch(
+                "flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils",
+                Mock(make_sampler=Mock(return_value="sampler")),
+            ),
             pytest.raises(ValueError, match="max_tokens must be a positive integer"),
         ):
             [d async for d in backend.generate(EngineInput(tokens=[1]), max_tokens=invalid)]
@@ -734,8 +754,11 @@ class TestCaseMLXBackend:
         backend = self._make_backend(**text_runtime_args)
 
         with (
-            patch("flama.models.engine.backend.llm.mlx.stream_generate", Mock(return_value=tracker)),
-            patch("flama.models.engine.backend.llm.mlx.make_sampler", Mock(return_value="sampler")),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm", Mock(stream_generate=Mock(return_value=tracker))),
+            patch(
+                "flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils",
+                Mock(make_sampler=Mock(return_value="sampler")),
+            ),
         ):
             deltas = [d async for d in backend.generate(EngineInput(tokens=[1]))]
 
@@ -755,8 +778,11 @@ class TestCaseMLXBackend:
         backend = self._make_backend(**text_runtime_args)
 
         with (
-            patch("flama.models.engine.backend.llm.mlx.stream_generate", Mock(return_value=tracker)),
-            patch("flama.models.engine.backend.llm.mlx.make_sampler", Mock(return_value="sampler")),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm", Mock(stream_generate=Mock(return_value=tracker))),
+            patch(
+                "flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils",
+                Mock(make_sampler=Mock(return_value="sampler")),
+            ),
         ):
 
             async def _consume() -> None:
@@ -781,8 +807,11 @@ class TestCaseMLXBackend:
         backend = self._make_backend(**text_runtime_args)
 
         with (
-            patch("flama.models.engine.backend.llm.mlx.stream_generate", Mock(return_value=tracker)),
-            patch("flama.models.engine.backend.llm.mlx.make_sampler", Mock(return_value="sampler")),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm", Mock(stream_generate=Mock(return_value=tracker))),
+            patch(
+                "flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils",
+                Mock(make_sampler=Mock(return_value="sampler")),
+            ),
         ):
             gen = t.cast(t.AsyncGenerator[EngineDelta, None], backend.generate(EngineInput(tokens=[1])))
             first = await anext(gen)
@@ -809,8 +838,11 @@ class TestCaseMLXBackend:
         backend = self._make_backend(**text_runtime_args)
 
         with (
-            patch("flama.models.engine.backend.llm.mlx.stream_generate", Mock(return_value=tracker)),
-            patch("flama.models.engine.backend.llm.mlx.make_sampler", Mock(return_value="sampler")),
+            patch("flama.models.engine.backend.llm.mlx.mlx_lm", Mock(stream_generate=Mock(return_value=tracker))),
+            patch(
+                "flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils",
+                Mock(make_sampler=Mock(return_value="sampler")),
+            ),
         ):
             deltas = [d async for d in backend.generate(EngineInput(tokens=[1]))]
 

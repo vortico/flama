@@ -8,6 +8,7 @@ import uuid
 from typesystem.fields import *
 from typesystem.schemas import Reference
 
+from flama import compat
 from flama.http.data_structures import UploadFile
 
 __all__ = ["Enum", "File", "MAPPING", "MAPPING_TYPES"]
@@ -53,7 +54,7 @@ class Enum(Choice):
         return self.enum(validated) if validated is not None else None
 
 
-MAPPING: dict[type | None, type[Field]] = {
+MAPPING: dict[compat.TypeForm[t.Any] | None, type[Field]] = {
     None: Field,
     int: Integer,
     float: Float,

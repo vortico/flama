@@ -329,8 +329,8 @@ class TestCaseImageURI:
     async def test_image_requires_pillow(self) -> None:
         part = ImageURI(source=SourceURI(data=base64.b64encode(_png_bytes()).decode()), format="png")
 
-        with patch("flama.models.transport.input.llm.message.Image", None):
-            with pytest.raises(exceptions.FrameworkNotInstalled, match="Pillow"):
+        with patch("flama.models.transport.input.llm.message.Image.available", False):
+            with pytest.raises(exceptions.DependencyNotInstalled, match="Pillow"):
                 await part.image()
 
     @pytest.mark.parametrize(
@@ -417,8 +417,8 @@ class TestCaseAudioURI:
         samples = np.linspace(-0.5, 0.5, 8, dtype=np.float32)
         part = AudioURI(source=SourceURI(data=_wav_b64(samples=samples, sample_rate=8000)), format="wav")
 
-        with patch("flama.models.transport.input.llm.message.soundfile", None):
-            with pytest.raises(exceptions.FrameworkNotInstalled, match="soundfile"):
+        with patch("flama.models.transport.input.llm.message.soundfile.available", False):
+            with pytest.raises(exceptions.DependencyNotInstalled, match="soundfile"):
                 await part.audio()
 
     @pytest.mark.parametrize(

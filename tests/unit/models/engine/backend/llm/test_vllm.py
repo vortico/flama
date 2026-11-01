@@ -10,6 +10,7 @@ from flama.models.engine.backend.llm._base import TransformerLLMBackend
 from flama.models.engine.backend.llm.vllm import VLLMBackend
 from flama.models.engine.llm.input import EngineInput
 from flama.serialize.data_structures import LLMModelCapabilities
+from tests._utils import missing
 
 
 class _FakeRequestOutputKind:
@@ -71,7 +72,7 @@ class TestCaseVLLMBackend:
 
         with (
             patch("flama.models.engine.backend.llm.vllm.vllm", fake_vllm),
-            patch("flama.models.engine.backend.llm.vllm.AsyncEngineArgs", fake_args),
+            patch("flama.models.engine.backend.llm.vllm.vllm_arg_utils", Mock(AsyncEngineArgs=fake_args)),
         ):
             return VLLMBackend(model_dir or pathlib.Path("/tmp/model"), capabilities=capabilities, **engine_params)
 
@@ -102,7 +103,7 @@ class TestCaseVLLMBackend:
 
         with (
             patch("flama.models.engine.backend.llm.vllm.vllm", fake_vllm),
-            patch("flama.models.engine.backend.llm.vllm.AsyncEngineArgs", fake_args),
+            patch("flama.models.engine.backend.llm.vllm.vllm_arg_utils", Mock(AsyncEngineArgs=fake_args)),
             patch("flama.models.engine.backend.llm.vllm.weakref") as mock_weakref,
         ):
             backend = VLLMBackend(pathlib.Path("/tmp/model"), max_model_len=512)
@@ -117,9 +118,8 @@ class TestCaseVLLMBackend:
 
     def test_init_raises_when_vllm_missing(self):
         with (
-            patch("flama.models.engine.backend.llm.vllm.vllm", None),
-            patch("flama.models.engine.backend.llm.vllm.AsyncEngineArgs", None),
-            pytest.raises(exceptions.FrameworkNotInstalled),
+            patch("flama.models.engine.backend.llm.vllm.vllm", missing("vllm")),
+            pytest.raises(exceptions.DependencyNotInstalled),
         ):
             VLLMBackend(pathlib.Path("/tmp/model"))
 
@@ -252,7 +252,7 @@ class TestCaseVLLMBackend:
             pytest.param(True, ["Hello", " ", "world"], ["Hello", " ", "world"], None, id="success"),
             pytest.param(True, [], [], None, id="empty"),
             pytest.param(True, ["Hello", "", "world"], ["Hello", "world"], None, id="skip_empty"),
-            pytest.param(False, None, None, exceptions.FrameworkNotInstalled, id="not_installed"),
+            pytest.param(False, None, None, exceptions.DependencyNotInstalled, id="not_installed"),
             pytest.param(True, "access-error", None, IndexError, id="access_error"),
             pytest.param(True, "engine-error", None, RuntimeError, id="engine_error"),
         ],
@@ -271,9 +271,13 @@ class TestCaseVLLMBackend:
         inputs = EngineInput(tokens=tokens)
 
         with (
-            patch("flama.models.engine.backend.llm.vllm.vllm", MagicMock() if installed else None),
             patch(
-                "flama.models.engine.backend.llm.vllm.RequestOutputKind", _FakeRequestOutputKind if installed else None
+                "flama.models.engine.backend.llm.vllm.vllm",
+                MagicMock() if installed else missing("vllm"),
+            ),
+            patch(
+                "flama.models.engine.backend.llm.vllm.vllm_sampling_params",
+                Mock(RequestOutputKind=_FakeRequestOutputKind),
             ),
             exception,
         ):
@@ -290,7 +294,10 @@ class TestCaseVLLMBackend:
 
         with (
             patch("flama.models.engine.backend.llm.vllm.vllm", fake_vllm),
-            patch("flama.models.engine.backend.llm.vllm.RequestOutputKind", _FakeRequestOutputKind),
+            patch(
+                "flama.models.engine.backend.llm.vllm.vllm_sampling_params",
+                Mock(RequestOutputKind=_FakeRequestOutputKind),
+            ),
         ):
             [d async for d in backend.generate(EngineInput(tokens=[1, 2, 3]), max_tokens=128)]
 
@@ -305,7 +312,10 @@ class TestCaseVLLMBackend:
 
         with (
             patch("flama.models.engine.backend.llm.vllm.vllm", fake_vllm),
-            patch("flama.models.engine.backend.llm.vllm.RequestOutputKind", _FakeRequestOutputKind),
+            patch(
+                "flama.models.engine.backend.llm.vllm.vllm_sampling_params",
+                Mock(RequestOutputKind=_FakeRequestOutputKind),
+            ),
         ):
             [d async for d in backend.generate(EngineInput(tokens=[1, 2, 3]))]
 
@@ -318,7 +328,10 @@ class TestCaseVLLMBackend:
 
         with (
             patch("flama.models.engine.backend.llm.vllm.vllm", MagicMock()),
-            patch("flama.models.engine.backend.llm.vllm.RequestOutputKind", _FakeRequestOutputKind),
+            patch(
+                "flama.models.engine.backend.llm.vllm.vllm_sampling_params",
+                Mock(RequestOutputKind=_FakeRequestOutputKind),
+            ),
             pytest.raises(ValueError, match="max_tokens must be a positive integer"),
         ):
             [d async for d in backend.generate(EngineInput(tokens=[1]), max_tokens=invalid)]
@@ -351,7 +364,10 @@ class TestCaseVLLMBackend:
 
         with (
             patch("flama.models.engine.backend.llm.vllm.vllm", MagicMock()),
-            patch("flama.models.engine.backend.llm.vllm.RequestOutputKind", _FakeRequestOutputKind),
+            patch(
+                "flama.models.engine.backend.llm.vllm.vllm_sampling_params",
+                Mock(RequestOutputKind=_FakeRequestOutputKind),
+            ),
         ):
             [d async for d in backend.generate(inputs)]
 
@@ -366,7 +382,10 @@ class TestCaseVLLMBackend:
 
         with (
             patch("flama.models.engine.backend.llm.vllm.vllm", MagicMock()),
-            patch("flama.models.engine.backend.llm.vllm.RequestOutputKind", _FakeRequestOutputKind),
+            patch(
+                "flama.models.engine.backend.llm.vllm.vllm_sampling_params",
+                Mock(RequestOutputKind=_FakeRequestOutputKind),
+            ),
         ):
             [d async for d in backend.generate(inputs)]
 
@@ -386,7 +405,10 @@ class TestCaseVLLMBackend:
 
         with (
             patch("flama.models.engine.backend.llm.vllm.vllm", MagicMock()),
-            patch("flama.models.engine.backend.llm.vllm.RequestOutputKind", _FakeRequestOutputKind),
+            patch(
+                "flama.models.engine.backend.llm.vllm.vllm_sampling_params",
+                Mock(RequestOutputKind=_FakeRequestOutputKind),
+            ),
         ):
             [d async for d in backend.generate(inputs)]
 
@@ -488,7 +510,7 @@ class TestCaseVLLMBackend:
         auto_processor = Mock()
         auto_processor.from_pretrained = Mock(return_value=loaded)
 
-        with patch("flama.models.engine.backend.llm.vllm.AutoProcessor", auto_processor):
+        with patch("flama.models.engine.backend.llm.vllm.transformers", Mock(AutoProcessor=auto_processor)):
             backend = self._make_backend(engine=engine, model_dir=pathlib.Path("/tmp/model"))
             assert backend._renderer is loaded
 
@@ -500,6 +522,6 @@ class TestCaseVLLMBackend:
         auto_processor.from_pretrained = Mock(return_value=loaded)
         engine.tokenizer = Mock(tokenizer="tok-sentinel")
 
-        with patch("flama.models.engine.backend.llm.vllm.AutoProcessor", auto_processor):
+        with patch("flama.models.engine.backend.llm.vllm.transformers", Mock(AutoProcessor=auto_processor)):
             backend = self._make_backend(engine=engine, model_dir=pathlib.Path("/tmp/model"))
             assert backend._renderer == "tok-sentinel"

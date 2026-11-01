@@ -109,7 +109,7 @@ class TestCaseKind:
     def test_from_meta(self, family: str, lib: str, expected_name: str, expected_byte: int) -> None:
         meta = Metadata(
             id=uuid.uuid4(),
-            timestamp=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+            timestamp=datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC),
             framework=FrameworkInfo(family=family, lib=lib, version="0.0.0"),  # type: ignore[arg-type]
             model=ModelInfo(obj="Obj", info=None, params=None, metrics=None),
         )
@@ -239,7 +239,7 @@ class TestCaseBody:
 
         meta = Metadata(
             id=uuid.uuid4(),
-            timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+            timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.UTC),
             framework=FrameworkInfo(family=family, lib=lib, version="0.0.0"),  # type: ignore[arg-type]
             model=ModelInfo(obj="Obj", info=None, params=None, metrics=None),
             extra=None,
@@ -283,7 +283,7 @@ class TestCaseBody:
         src.mkdir()
         meta = Metadata(
             id=uuid.uuid4(),
-            timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+            timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.UTC),
             framework=FrameworkInfo(family="ml", lib="sklearn", version="1.0.0"),
             model=ModelInfo(obj="Obj", info=None, params=None, metrics=None),
             extra=None,
@@ -367,7 +367,7 @@ class TestCaseBody:
     def test_unknown_model_kind_rejected(self, compression_format: str, exception) -> None:
         meta = Metadata(
             id=uuid.uuid4(),
-            timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+            timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.UTC),
             framework=FrameworkInfo(family="ml", lib="sklearn", version="1.0.0"),
             model=ModelInfo(obj="Obj", info=None, params=None, metrics=None),
             extra=None,

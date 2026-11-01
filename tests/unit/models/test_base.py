@@ -312,9 +312,9 @@ class TestCaseMLModel:
             pytest.param(None, [0, 2], None, id="success"),
             pytest.param(RuntimeError("boom"), None, RuntimeError, id="error_propagates"),
             pytest.param(
-                exceptions.FrameworkNotInstalled("torch"),
+                exceptions.DependencyNotInstalled("torch"),
                 None,
-                exceptions.FrameworkNotInstalled,
+                exceptions.DependencyNotInstalled,
                 id="not-installed",
             ),
         ],
@@ -333,7 +333,7 @@ class TestCaseMLModel:
             pytest.param(None, [[0], [2]], None, id="success"),
             pytest.param(RuntimeError("boom"), [], None, id="error-terminates"),
             pytest.param(
-                exceptions.FrameworkNotInstalled("torch"), None, exceptions.FrameworkNotInstalled, id="not-installed"
+                exceptions.DependencyNotInstalled("torch"), None, exceptions.DependencyNotInstalled, id="not-installed"
             ),
         ],
         indirect=["exception"],

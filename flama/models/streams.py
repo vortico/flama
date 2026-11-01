@@ -14,7 +14,7 @@ import uuid
 
 from flama import concurrency, types
 from flama._core.json_encoder import encode_json
-from flama.exceptions import FrameworkNotInstalled
+from flama.exceptions import DependencyNotInstalled
 from flama.models.transport.output.llm.event import Event, StopEvent, TraceEvent
 
 __all__ = [
@@ -589,7 +589,7 @@ class StreamBuffer:
         never emits its terminal :class:`StopEvent`, so :meth:`error` is invoked to synthesise one;
         downstream consumers render that as a dialect-appropriate error frame.
 
-        :class:`~flama.exceptions.FrameworkNotInstalled` is logged at ``error`` level (no traceback —
+        :class:`~flama.exceptions.DependencyNotInstalled` is logged at ``error`` level (no traceback —
         it's a deployment issue, not a bug); every other exception goes through
         :meth:`logging.Logger.exception`.
 
@@ -598,7 +598,7 @@ class StreamBuffer:
         try:
             async for block in stream:
                 await self.append(block)
-        except FrameworkNotInstalled as exc:
+        except DependencyNotInstalled as exc:
             logger.error("Stream backend missing dependency: %s", exc)
             await self.error()
         except Exception as exc:

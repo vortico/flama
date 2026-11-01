@@ -296,7 +296,7 @@ class TestCaseMetadata:
     @pytest.mark.parametrize(
         ["timestamp"],
         [
-            pytest.param(datetime.datetime(2024, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc).isoformat(), id="string"),
+            pytest.param(datetime.datetime(2024, 1, 2, 3, 4, 5, tzinfo=datetime.UTC).isoformat(), id="string"),
             pytest.param(datetime.datetime(2024, 6, 1, 12, 0, 0), id="datetime"),
         ],
     )
@@ -351,7 +351,7 @@ class TestCaseMetadata:
 
     def test_to_dict(self) -> None:
         id_ = uuid.uuid4()
-        ts = datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+        ts = datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.UTC)
         meta = Metadata(
             id=id_,
             timestamp=ts,
@@ -371,7 +371,7 @@ class TestCaseMetadata:
         cap = LLMModelCapabilities(image=True, audio=True)
         meta = Metadata(
             id=uuid.uuid4(),
-            timestamp=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+            timestamp=datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC),
             framework=FrameworkInfo(family="llm", lib="transformers", version="4.50.0"),
             model=ModelInfo(obj="X", info=None),
             capabilities=cap,
@@ -385,7 +385,7 @@ class TestCaseMetadata:
     def test_from_model(self) -> None:
         model = object()
         model_id = uuid.uuid4()
-        ts = datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc)
+        ts = datetime.datetime(2020, 1, 1, tzinfo=datetime.UTC)
         mock_ser = MagicMock()
         mock_ser.lib = "sklearn"
         mock_ser.version.return_value = "1.2.3"
@@ -544,7 +544,7 @@ class TestCaseModelArtifact:
     def test_model_property_raises_when_unbound(self) -> None:
         meta = Metadata(
             id=uuid.uuid4(),
-            timestamp=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+            timestamp=datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC),
             framework=FrameworkInfo(family="ml", lib="sklearn", version="1.0"),
             model=ModelInfo(obj="X", info=None),
             extra=None,
@@ -557,7 +557,7 @@ class TestCaseModelArtifact:
     def test_model_property_llm_returns_source_verbatim(self, tmp_path: pathlib.Path) -> None:
         meta = Metadata(
             id=uuid.uuid4(),
-            timestamp=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+            timestamp=datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC),
             framework=FrameworkInfo(family="llm", lib="transformers", version="4.50"),
             model=ModelInfo(obj="X", info=None),
             extra=None,
@@ -571,7 +571,7 @@ class TestCaseModelArtifact:
     def test_model_property_ml_materialises_once(self) -> None:
         meta = Metadata(
             id=uuid.uuid4(),
-            timestamp=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+            timestamp=datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC),
             framework=FrameworkInfo(family="ml", lib="sklearn", version="1.0", config={"task": "tg"}),
             model=ModelInfo(obj="X", info=None),
             extra=None,
@@ -595,7 +595,7 @@ class TestCaseModelArtifact:
     def test_directory_field(self) -> None:
         meta = Metadata(
             id=uuid.uuid4(),
-            timestamp=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+            timestamp=datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC),
             framework=FrameworkInfo(family="ml", lib="sklearn", version="1.0"),
             model=ModelInfo(obj="X", info=None),
             extra=None,

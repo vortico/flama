@@ -9,14 +9,14 @@ from flama.models.wire.dialect._base import Assembler
 __all__ = ["AnthropicAssembleKwargs", "AnthropicAssembler"]
 
 
-class AnthropicAssembleKwargs(t.TypedDict, total=False):
+class AnthropicAssembleKwargs(compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :class:`AnthropicAssembler.envelope`.
 
     ``model`` is required; ``generation_id`` carries a sensible default (a fresh UUID is allocated when
     omitted).
     """
 
-    model: compat.Required[str]
+    model: t.Required[str]
     generation_id: uuid.UUID | None
 
 
@@ -49,7 +49,7 @@ class AnthropicAssembler(Assembler):
         *,
         start: StartEvent,
         stop: StopEvent,
-        **kwargs: compat.Unpack[AnthropicAssembleKwargs],
+        **kwargs: t.Unpack[AnthropicAssembleKwargs],
     ) -> dict[str, t.Any]:
         model = kwargs["model"]
         generation_id = kwargs.get("generation_id")

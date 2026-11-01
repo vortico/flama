@@ -109,7 +109,7 @@ class Request:
     path_parameters: dict[str, t.Any]
     body: _Body = dataclasses.field(default_factory=_Body)
     timestamp: datetime.datetime = dataclasses.field(
-        init=False, default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+        init=False, default_factory=lambda: datetime.datetime.now(datetime.UTC)
     )
 
     @classmethod
@@ -141,7 +141,7 @@ class Response:
     body: _Body = dataclasses.field(default_factory=_Body)
     status_code: int | None = None
     timestamp: datetime.datetime = dataclasses.field(
-        init=False, default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+        init=False, default_factory=lambda: datetime.datetime.now(datetime.UTC)
     )
 
     @property
@@ -168,7 +168,7 @@ class Error:
     detail: str
     status_code: int | None = None
     timestamp: datetime.datetime = dataclasses.field(
-        init=False, default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+        init=False, default_factory=lambda: datetime.datetime.now(datetime.UTC)
     )
 
     @classmethod

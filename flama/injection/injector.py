@@ -2,15 +2,20 @@ import functools
 import inspect
 import typing as t
 
+from flama import compat
 from flama.cache import LRUCache
 from flama.injection.components import Component, Components
 from flama.injection.context import C, Context
 from flama.injection.exceptions import ComponentNotFound
 from flama.injection.resolver import Parameter, Resolver
 
+__all__ = ["InjectionCache", "FunctionCache", "Injector"]
+
 if t.TYPE_CHECKING:
     from flama.injection.resolver import ResolutionTree
 
+
+T = t.TypeVar("T")
 
 ROOT_NAME = "_root"
 
@@ -80,15 +85,15 @@ class Injector(t.Generic[C]):
         self._function_cache.reset()
 
     @t.overload
-    def resolve(self, annotation: type) -> "ResolutionTree[C]": ...
+    def resolve(self, annotation: compat.TypeForm[t.Any]) -> "ResolutionTree[C]": ...
     @t.overload
-    def resolve(self, annotation: type, *, name: str) -> "ResolutionTree[C]": ...
+    def resolve(self, annotation: compat.TypeForm[t.Any], *, name: str) -> "ResolutionTree[C]": ...
     @t.overload
-    def resolve(self, annotation: type, *, default: t.Any) -> "ResolutionTree[C]": ...
+    def resolve(self, annotation: compat.TypeForm[t.Any], *, default: t.Any) -> "ResolutionTree[C]": ...
     @t.overload
-    def resolve(self, annotation: type, *, name: str, default: t.Any) -> "ResolutionTree[C]": ...
+    def resolve(self, annotation: compat.TypeForm[t.Any], *, name: str, default: t.Any) -> "ResolutionTree[C]": ...
     def resolve(
-        self, annotation: type, *, name: str = ROOT_NAME, default: t.Any = Parameter.empty
+        self, annotation: compat.TypeForm[t.Any], *, name: str = ROOT_NAME, default: t.Any = Parameter.empty
     ) -> "ResolutionTree[C]":
         """Generate a dependencies tree for a given type annotation.
 
@@ -152,16 +157,16 @@ class Injector(t.Generic[C]):
         )
 
     @t.overload
-    async def value(self, annotation: type, context: C) -> t.Any: ...
+    async def value(self, annotation: compat.TypeForm[T], context: C) -> T: ...
     @t.overload
-    async def value(self, annotation: type, context: C, *, name: str) -> t.Any: ...
+    async def value(self, annotation: compat.TypeForm[T], context: C, *, name: str) -> T: ...
     @t.overload
-    async def value(self, annotation: type, context: C, *, default: t.Any) -> t.Any: ...
+    async def value(self, annotation: compat.TypeForm[T], context: C, *, default: t.Any) -> T: ...
     @t.overload
-    async def value(self, annotation: type, context: C, *, name: str, default: t.Any) -> t.Any: ...
+    async def value(self, annotation: compat.TypeForm[T], context: C, *, name: str, default: t.Any) -> T: ...
     async def value(
         self,
-        annotation: type,
+        annotation: compat.TypeForm[t.Any],
         context: C,
         *,
         name: str = ROOT_NAME,

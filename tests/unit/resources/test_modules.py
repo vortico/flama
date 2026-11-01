@@ -2,8 +2,10 @@ from unittest.mock import MagicMock, Mock, call
 
 import pytest
 
+from flama.ddd.components import WorkerComponent
 from flama.resources.modules import ResourcesModule
 from flama.resources.routing import ResourceRoute
+from flama.resources.workers import ResourcesWorker
 
 
 class TestCaseResourcesModule:
@@ -92,20 +94,18 @@ class TestCaseResourcesModule:
     )
     def test_repository_forwarding(self, method: str, args: tuple) -> None:
         worker = MagicMock()
-        module = ResourcesModule(worker=worker)
+        module = ResourcesModule()
+        module.worker = worker
 
         getattr(module, method)(*args)
 
         assert getattr(worker, method).call_args_list == [call(*args)]
 
-    @pytest.mark.parametrize(
-        ["method", "args"],
-        [
-            pytest.param("add_repository", ("foo", Mock()), id="add_without_worker"),
-            pytest.param("remove_repository", ("foo",), id="remove_without_worker"),
-        ],
-    )
-    def test_repository_forwarding_without_worker(self, method: str, args: tuple) -> None:
-        module = ResourcesModule(worker=None)
 
-        getattr(module, method)(*args)
+class TestCaseResourcesModuleWorker:
+    def test_default_worker(self) -> None:
+        module = ResourcesModule()
+
+        assert isinstance(module.worker, ResourcesWorker)
+        assert [type(component) for component in module.components] == [WorkerComponent]
+        assert module.components[0].worker is module.worker

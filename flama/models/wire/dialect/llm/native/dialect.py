@@ -11,7 +11,7 @@ from flama.models.wire.dialect.llm.native.renderer import EventsRenderer
 __all__ = ["NativeDialect", "NativeRenderKwargs"]
 
 
-class NativeRenderKwargs(t.TypedDict, total=False):
+class NativeRenderKwargs(compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :meth:`NativeDialect.render`.
 
     Carries the SSE identity (``message_id``) and the optional resume / retry hints. Mirrors the constructor
@@ -19,7 +19,7 @@ class NativeRenderKwargs(t.TypedDict, total=False):
     :meth:`Dialect.render` can forward ``**kwargs`` directly.
     """
 
-    message_id: compat.Required[uuid.UUID]
+    message_id: t.Required[uuid.UUID]
     resume_id: str | None
     retry: int | None
 
@@ -41,14 +41,12 @@ class NativeDialect(Dialect[ServerSentEvent]):
     ASSEMBLER = NativeAssembler
 
     @classmethod
-    def render(
-        cls, source: EventSource, /, **kwargs: compat.Unpack[NativeRenderKwargs]
-    ) -> t.AsyncIterator[ServerSentEvent]:
+    def render(cls, source: EventSource, /, **kwargs: t.Unpack[NativeRenderKwargs]) -> t.AsyncIterator[ServerSentEvent]:
         """Typed façade over :meth:`Dialect._render` naming the native render kwargs (``message_id``, ...)."""
         return cls._render(source, kwargs)
 
     @classmethod
-    async def assemble(cls, source: EventSource, /, **kwargs: compat.Unpack[NativeAssembleKwargs]) -> dict[str, t.Any]:
+    async def assemble(cls, source: EventSource, /, **kwargs: t.Unpack[NativeAssembleKwargs]) -> dict[str, t.Any]:
         """Typed façade over :meth:`Dialect._assemble`. The native wire is stream-only, so this raises
         :class:`NotImplementedError` from :meth:`NativeAssembler.envelope`."""
         return await cls._assemble(source, kwargs)

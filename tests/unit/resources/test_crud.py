@@ -15,7 +15,7 @@ from flama import types
 from flama.resources.crud import CRUDResource
 from flama.resources.exceptions import ResourceFilterInvalid
 from flama.resources.routing import ResourceRoute
-from flama.resources.workers import FlamaWorker
+from flama.resources.workers import ResourcesWorker
 from tests.unit.resources.conftest import Model
 
 DATABASE_URL = "sqlite+aiosqlite://"
@@ -122,7 +122,7 @@ class TestCaseCRUDResource:
             @app.resources.method("/", methods=["GET"], name="list", pagination="page_number")
             async def list(
                 self,
-                worker: FlamaWorker,
+                worker: ResourcesWorker,
                 order_by: str | None = None,
                 order_direction: str = "asc",
                 name: str | None = None,

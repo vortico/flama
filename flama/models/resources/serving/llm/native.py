@@ -4,7 +4,7 @@ import uuid
 
 from flama import concurrency, http, schemas, types
 from flama.background import BackgroundTask
-from flama.exceptions import FrameworkNotInstalled, HTTPException
+from flama.exceptions import DependencyNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.sse import ServerSentEvent, ServerSentEventResponse
 from flama.http.responses.templates import _FlamaTemplateResponse
@@ -101,7 +101,7 @@ class QueryMixin:
                 )
             except (ValueError, LLMUnsupportedContentPart, LLMUnsupportedCapability) as e:
                 raise HTTPException(status_code=400, detail=str(e)) from e
-            except FrameworkNotInstalled:
+            except DependencyNotInstalled:
                 raise
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e)) from e

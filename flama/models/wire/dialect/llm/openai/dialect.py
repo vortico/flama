@@ -11,7 +11,7 @@ from flama.models.wire.dialect.llm.openai.renderer import OpenAIRenderer
 __all__ = ["OpenAIDialect", "OpenAIRenderKwargs"]
 
 
-class OpenAIRenderKwargs(t.TypedDict, total=False):
+class OpenAIRenderKwargs(compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :meth:`OpenAIDialect.render`.
 
     Mirrors the constructor signature of
@@ -19,8 +19,8 @@ class OpenAIRenderKwargs(t.TypedDict, total=False):
     forward ``**kwargs`` directly.
     """
 
-    api: compat.Required[t.Literal["chat", "completion", "response"]]
-    model: compat.Required[str]
+    api: t.Required[t.Literal["chat", "completion", "response"]]
+    model: t.Required[str]
     generation_id: uuid.UUID | None
 
 
@@ -43,13 +43,11 @@ class OpenAIDialect(Dialect[ServerSentEvent]):
     ASSEMBLER = OpenAIAssembler
 
     @classmethod
-    def render(
-        cls, source: EventSource, /, **kwargs: compat.Unpack[OpenAIRenderKwargs]
-    ) -> t.AsyncIterator[ServerSentEvent]:
+    def render(cls, source: EventSource, /, **kwargs: t.Unpack[OpenAIRenderKwargs]) -> t.AsyncIterator[ServerSentEvent]:
         """Typed façade over :meth:`Dialect._render` naming the OpenAI render kwargs (``api``, ``model``, ...)."""
         return cls._render(source, kwargs)
 
     @classmethod
-    async def assemble(cls, source: EventSource, /, **kwargs: compat.Unpack[OpenAIAssembleKwargs]) -> dict[str, t.Any]:
+    async def assemble(cls, source: EventSource, /, **kwargs: t.Unpack[OpenAIAssembleKwargs]) -> dict[str, t.Any]:
         """Typed façade over :meth:`Dialect._assemble` naming the OpenAI assemble kwargs (``api``, ``model``, ...)."""
         return await cls._assemble(source, kwargs)

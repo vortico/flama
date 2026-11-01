@@ -60,7 +60,7 @@ class TestCaseSchemaValidateOutput:
             return {
                 "name": "foo",
                 "rating": 0,
-                "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+                "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.UTC),
             }
 
         @app.route("/many-products", methods=["GET"])
@@ -70,12 +70,12 @@ class TestCaseSchemaValidateOutput:
                 {
                     "name": "foo",
                     "rating": 0,
-                    "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+                    "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.UTC),
                 },
                 {
                     "name": "bar",
                     "rating": 1,
-                    "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+                    "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.UTC),
                 },
             ]
 

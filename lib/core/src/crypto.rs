@@ -11,7 +11,7 @@
 use std::str::FromStr;
 
 use ed25519_dalek::{Signature, Signer as _, SigningKey, VerifyingKey};
-use getrandom::{SysRng, rand_core::UnwrapErr};
+use getrandom::{rand_core::UnwrapErr, SysRng};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 

@@ -65,6 +65,6 @@ class MLBackend(Backend):
 
         :param x: Batch of input feature vectors.
         :return: Framework-specific prediction output (typically a list of predictions).
-        :raises FrameworkNotInstalled: If the underlying framework is not installed.
+        :raises DependencyNotInstalled: If the underlying framework is not installed.
         """
         ...

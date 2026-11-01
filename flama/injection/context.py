@@ -1,5 +1,6 @@
 import typing as t
 
+from flama import compat
 from flama.injection.exceptions import ContextError
 
 __all__ = ["C", "Context", "ContextType", "Field"]
@@ -117,7 +118,7 @@ class Context(metaclass=ContextType):
         return value
 
     @classmethod
-    def lookup(cls, annotation: type) -> str | None:
+    def lookup(cls, annotation: compat.TypeForm[t.Any]) -> str | None:
         """Look up the context field name matching the given annotation type.
 
         Checks for an exact type match first, then falls back to subclass matching.

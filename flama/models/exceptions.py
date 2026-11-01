@@ -82,7 +82,7 @@ class LLMUnsupportedModel(ModelError):
     one (MLX falls back between mlx-lm and mlx-vlm), the earlier failures are logged as they happen.
 
     A missing runtime is not this error: an uninstallable dependency surfaces as
-    :class:`~flama.exceptions.FrameworkNotInstalled`, and an artifact whose capabilities cannot be
+    :class:`~flama.exceptions.DependencyNotInstalled`, and an artifact whose capabilities cannot be
     resolved as :class:`~flama.serialize.exceptions.UnknownModelCapabilities`. Both pass through
     untouched so they stay distinguishable from a model the runtimes simply cannot build.
     """

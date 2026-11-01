@@ -67,7 +67,7 @@ def bytes_artifact() -> ModelArtifact:
     """A v1 artifact whose ``source`` is already serialized bytes (no :class:`ModelSerializer` hop)."""
     meta = Metadata(
         id=uuid.uuid4(),
-        timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+        timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.UTC),
         framework=FrameworkInfo(family="ml", lib="sklearn", version="1.0.0"),
         model=ModelInfo(obj="Obj", info=None, params=None, metrics=None),
         extra=None,
@@ -153,7 +153,7 @@ class TestCaseV1Body:
 
         meta = Metadata(
             id=uuid.uuid4(),
-            timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+            timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.UTC),
             framework=FrameworkInfo(family="ml", lib="sklearn", version="1.0.0"),
             model=ModelInfo(obj="Obj", info=None, params=None, metrics=None),
             extra=None,
@@ -238,7 +238,7 @@ class TestCaseV1FamilyLessRegression:
     def test_v1_reader_loads_family_less_meta(self, compression_format: str) -> None:
         meta_dict = {
             "id": str(uuid.uuid4()),
-            "timestamp": datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc).isoformat(),
+            "timestamp": datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC).isoformat(),
             "framework": {"lib": "sklearn", "version": "1.0.0"},
             "model": {"obj": "Obj", "info": None, "params": None, "metrics": None},
             "extra": None,

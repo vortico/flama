@@ -9,7 +9,9 @@ import httpx
 from httpx import HTTPError, HTTPStatusError
 
 from flama import exceptions, types
-from flama.applications import Flama
+
+if t.TYPE_CHECKING:
+    from flama.applications import Flama
 
 __all__ = ["Client", "LifespanContextManager", "HTTPError", "HTTPStatusError"]
 
@@ -27,13 +29,15 @@ class LifespanContextManager:
 
     async def _startup(self) -> None:
         await self._receive_queue.put(types.Message({"type": "lifespan.startup"}))
-        await asyncio.wait_for(self._startup_complete.wait(), timeout=self.timeout)
+        async with asyncio.timeout(self.timeout):
+            await self._startup_complete.wait()
         if self._exception:
             raise self._exception
 
     async def _shutdown(self) -> None:
         await self._receive_queue.put(types.Message({"type": "lifespan.shutdown"}))
-        await asyncio.wait_for(self._shutdown_complete.wait(), timeout=self.timeout)
+        async with asyncio.timeout(self.timeout):
+            await self._shutdown_complete.wait()
 
     async def _receive(self) -> types.Message:
         return await self._receive_queue.get()
@@ -56,7 +60,7 @@ class LifespanContextManager:
 
             raise
 
-    async def __aenter__(self) -> "LifespanContextManager":
+    async def __aenter__(self) -> t.Self:
         task = asyncio.create_task(self._app_task())
 
         try:
@@ -91,7 +95,7 @@ class _BaseClient(httpx.AsyncClient):
 
         super().__init__(**kwargs)
 
-    async def __aenter__(self) -> "_BaseClient":
+    async def __aenter__(self) -> t.Self:
         await super().__aenter__()
 
         return self
@@ -114,7 +118,7 @@ class _AppClient(_BaseClient):
 
         super().__init__(**kwargs)
 
-    async def __aenter__(self) -> "_AppClient":
+    async def __aenter__(self) -> t.Self:
         await self.lifespan.__aenter__()
         await super().__aenter__()
 
@@ -162,7 +166,10 @@ class Client(httpx.AsyncClient):
         **kwargs,
     ):
         if models:
-            app = Flama(schema=None, docs=None) if not app else app
+            if not app:
+                from flama.applications import Flama
+
+                app = Flama(schema=None, docs=None)
             for name, url, path in models:
                 app.models.add_model(url, path, name)
 
@@ -176,7 +183,7 @@ class Client(httpx.AsyncClient):
 
         super().__init__(**kwargs)
 
-    async def __aenter__(self) -> "Client":
+    async def __aenter__(self) -> t.Self:
         if self.lifespan:
             await self.lifespan.__aenter__()
         await super().__aenter__()

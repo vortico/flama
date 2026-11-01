@@ -7,7 +7,7 @@ import pytest
 
 import flama
 from flama.client import Client
-from flama.exceptions import FrameworkNotInstalled
+from flama.exceptions import DependencyNotInstalled
 from flama.models import MLResource, MLResourceType
 from flama.models.components import ModelComponent
 from flama.resources.exceptions import ResourceModelNotFound
@@ -159,11 +159,11 @@ class TestCaseMLResourceMethods:
         component = next(c for c in client.app.injector.components if isinstance(c, ModelComponent))
 
         def _missing(self, *args, **kwargs):
-            raise FrameworkNotInstalled("sklearn")
+            raise DependencyNotInstalled("sklearn")
 
         with (
             patch.object(type(component.model), "predict", _missing),
-            pytest.raises(FrameworkNotInstalled, match="sklearn"),
+            pytest.raises(DependencyNotInstalled, match="sklearn"),
         ):
             await client.post("/model/predict/", json={"input": [[0, 0]]})
 

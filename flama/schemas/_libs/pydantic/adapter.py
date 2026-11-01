@@ -6,6 +6,7 @@ import pydantic
 from pydantic.fields import FieldInfo
 from pydantic.json_schema import model_json_schema
 
+from flama import compat
 from flama.injection import Parameter
 from flama.schemas._libs.pydantic.fields import MAPPING
 from flama.schemas.adapter import Adapter
@@ -22,7 +23,7 @@ class PydanticAdapter(Adapter[Schema, Field]):
     def build_field(
         self,
         name: str,
-        type_: type,
+        type_: compat.TypeForm[t.Any],
         nullable: bool = False,
         required: bool = True,
         default: t.Any = None,

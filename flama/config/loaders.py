@@ -2,11 +2,10 @@ import abc
 import configparser
 import json
 import os
+import tomllib
 import typing as t
 
 import yaml
-
-from flama import compat, exceptions
 
 __all__ = ["FileLoader", "ConfigFileLoader", "JSONFileLoader", "YAMLFileLoader", "TOMLFileLoader"]
 
@@ -79,12 +78,5 @@ class TOMLFileLoader(FileLoader):
         :param f: File path.
         :return: Dict with the file contents.
         """
-        if compat.tomllib is None:  # PORT: Replace compat when stop supporting 3.10
-            raise exceptions.DependencyNotInstalled(  # pragma: no cover
-                dependency=exceptions.DependencyNotInstalled.Dependency.tomli,
-                dependant=f"{self.__class__.__module__}.{self.__class__.__name__}",
-                msg="for Python versions lower than 3.11",
-            )
-
         with open(f, "rb") as fs:
-            return compat.tomllib.load(fs)  # PORT: Replace compat when stop supporting 3.10
+            return tomllib.load(fs)

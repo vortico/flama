@@ -3,6 +3,8 @@ from importlib.metadata import version
 
 from flama import http
 
+__all__ = ["MCPResponse"]
+
 
 class MCPResponse(http.JSONRPCResponse):
     def __init__(self, result: t.Any = None, *, id: str | int | None = None, **kwargs):

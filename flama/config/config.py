@@ -14,7 +14,6 @@ __all__ = ["Config"]
 logger = logging.getLogger(__name__)
 
 R = t.TypeVar("R")
-unknown = types.Unknown()
 
 
 class Config:
@@ -80,7 +79,7 @@ class Config:
     def _get_item_from_config_file(self, key: str) -> t.Any:
         return functools.reduce(lambda x, k: x[k], key.split("."), self.config_file)
 
-    def _get_item(self, key: str, default: R | types.Unknown = unknown) -> R:
+    def _get_item(self, key: str, default: R | types.Unknown = types.Unknown) -> R:
         try:
             return self._get_item_from_environment(key)
         except KeyError:
@@ -91,7 +90,7 @@ class Config:
         except KeyError:
             ...
 
-        if default is not unknown:
+        if default is not types.Unknown:
             return t.cast(R, default)
 
         raise KeyError(key)
@@ -134,7 +133,7 @@ class Config:
         self,
         key: str,
         *,
-        default: R | types.Unknown = unknown,
+        default: R | types.Unknown = types.Unknown,
         cast: type[R] | t.Callable[[t.Any], R] | None = None,
     ) -> R:
         """Get config parameter value.

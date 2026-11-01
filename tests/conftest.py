@@ -1,5 +1,5 @@
-# Pre-import TensorFlow before anything else so its OpenMP runtime binds first. ``import flama``
-# transitively loads ``mlx_lm`` (and through it ``torch`` / ``transformers`` / ``sklearn``); on
+# Pre-import TensorFlow before anything else so its OpenMP runtime binds first. The test helpers
+# load ``sklearn`` (alongside ``torch`` / ``transformers``) to build fixture models; on
 # Apple Silicon, ``sklearn`` ships its own ``libomp.dylib`` which initialises a thread pool that
 # deadlocks TF's eager runtime if TF binds OpenMP afterwards. Importing TF first sidesteps the
 # clash so subsequent ``model.fit`` calls don't hang inside

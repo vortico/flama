@@ -10,6 +10,11 @@ from flama.types import Schema, SchemaList, SchemaMetadata
 if t.TYPE_CHECKING:
     from flama.schemas.data_structures import Parameter
 
+    adapter: t.Any
+    fields: dict[t.Any, Parameter]
+    lib: ModuleType | None
+    schemas: t.Any
+
 __all__ = [
     "Module",
     "SchemaValidationError",
@@ -22,11 +27,6 @@ __all__ = [
     "lib",
     "schemas",
 ]
-
-adapter: t.Any
-fields: dict[t.Any, "Parameter"] = {}
-lib: ModuleType | None = None
-schemas: t.Any = None
 
 
 class Module:
@@ -49,6 +49,11 @@ class Module:
             except ModuleNotFoundError:
                 pass
 
+    @property
+    def ready(self) -> bool:
+        """Whether a schema library has been selected."""
+        return hasattr(self, "lib")
+
     def setup(self, library: str | None = None):
         try:
             if library is None:
@@ -61,19 +66,40 @@ class Module:
         self.name = library
         self.lib = importlib.import_module(f"flama.schemas._libs.{library}")
 
-        global schemas, lib, fields, adapter
-        schemas = self.lib.schemas
-        lib = self.lib.lib
-        fields = self.lib.fields
-        adapter = self.lib.adapter
 
-
-# Find the first schema lib available and setup the module using it
 _module = Module()
-_module.setup()
 
-# Check that at least one of the schema libs is installed
-if _module.lib is None:
-    raise DependencyNotInstalled(
-        msg=f"Any of the schema libraries ({', '.join(_module.SCHEMA_LIBS)}) must be installed."
-    )
+
+def _library() -> ModuleType:
+    """The selected schema library, selecting the first one available on first use."""
+    if not _module.ready:
+        _module.setup()
+
+    return _module.lib
+
+
+class _Package(ModuleType):
+    """``flama.schemas`` itself, resolving the selected library's objects on access.
+
+    Properties rather than module globals, so that importing a schema library is deferred until it is needed, and so
+    that the ``flama.schemas.adapter`` submodule, once imported, does not shadow the adapter instance.
+    """
+
+    @property
+    def schemas(self) -> t.Any:
+        return _library().schemas
+
+    @property
+    def lib(self) -> t.Any:
+        return _library().lib
+
+    @property
+    def fields(self) -> dict[t.Any, "Parameter"]:
+        return _library().fields
+
+    @property
+    def adapter(self) -> t.Any:
+        return _library().adapter
+
+
+sys.modules[__name__].__class__ = _Package

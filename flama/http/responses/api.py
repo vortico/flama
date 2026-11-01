@@ -2,7 +2,6 @@ import typing as t
 
 from flama import exceptions, schemas, types
 from flama.http.responses.json import JSONResponse
-from flama.schemas.data_structures import Schema
 
 __all__ = ["APIResponse", "APIErrorResponse"]
 
@@ -16,6 +15,8 @@ class APIResponse(JSONResponse):
 
     def render(self, content: types.JSONSchema) -> bytes:
         if self.schema is not None:
+            from flama.schemas.data_structures import Schema
+
             try:
                 content = Schema.from_type(self.schema).dump(content)
             except schemas.SchemaValidationError as e:

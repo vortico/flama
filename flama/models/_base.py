@@ -214,12 +214,12 @@ class MLModel(BaseModel[MLBackend]):
         """Run a synchronous prediction against the backend.
 
         Engine errors propagate as plain Python exceptions; HTTP error mapping happens at the
-        resource boundary. :class:`~flama.exceptions.FrameworkNotInstalled` is propagated so
+        resource boundary. :class:`~flama.exceptions.DependencyNotInstalled` is propagated so
         callers see missing-dependency errors directly.
 
         :param x: Batch of input feature vectors.
         :return: Backend prediction.
-        :raises FrameworkNotInstalled: If the underlying framework is not installed.
+        :raises DependencyNotInstalled: If the underlying framework is not installed.
         """
         return self.backend.predict(x)
 
@@ -230,7 +230,7 @@ class MLModel(BaseModel[MLBackend]):
 
         Accepts either a synchronous or asynchronous iterable; each item is forwarded to
         :meth:`MLBackend.predict` (wrapped in a one-element batch) inside a thread to avoid
-        blocking the event loop. :class:`~flama.exceptions.FrameworkNotInstalled` is propagated
+        blocking the event loop. :class:`~flama.exceptions.DependencyNotInstalled` is propagated
         so callers see missing-dependency errors; any other exception terminates the stream
         cleanly, since the HTTP response has already started by the time predictions are being
         produced.
@@ -242,7 +242,7 @@ class MLModel(BaseModel[MLBackend]):
         async for item in concurrency.iterate(x):
             try:
                 yield await concurrency.run(self.backend.predict, [item])
-            except exceptions.FrameworkNotInstalled:
+            except exceptions.DependencyNotInstalled:
                 raise
             except Exception:
                 return

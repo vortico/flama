@@ -442,6 +442,27 @@ class TestCaseOpenAPISpec:
 
         assert {k: v for k, v in dataclasses.asdict(server).items() if v is not None} == expected
 
+    def test_from_spec_ignores_extensions(self):
+        spec = OpenAPISpec.from_spec(
+            {
+                "info": {
+                    "title": "Title",
+                    "version": "1.0.0",
+                    "contact": {"name": "Name", "url": "Url", "email": "Email", "x-team": "core"},
+                    "license": {"name": "MIT", "x-spdx": True},
+                },
+                "servers": [{"url": "https://example.com", "variables": {"v": {"default": "v1", "x-note": "note"}}}],
+                "tags": [{"name": "users", "externalDocs": {"url": "https://docs.example.com", "x-lang": "en"}}],
+            }
+        ).spec
+
+        assert spec.info.contact == Contact(name="Name", url="Url", email="Email")
+        assert spec.info.license == License(name="MIT")
+        assert spec.servers is not None and spec.servers[0].variables is not None
+        assert spec.servers[0].variables["v"].default == "v1"
+        assert spec.tags is not None and spec.tags[0].externalDocs is not None
+        assert spec.tags[0].externalDocs.url == "https://docs.example.com"
+
     def test_add_path(self, spec, path):
         path_name = "foo"
         expected_result = spec.to_dict()

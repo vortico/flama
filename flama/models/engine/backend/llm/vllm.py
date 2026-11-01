@@ -4,24 +4,18 @@ import typing as t
 import uuid
 import weakref
 
-from flama import exceptions
+from flama import _imports
 from flama.models.engine.backend.llm._base import TransformerLLMBackend
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
 from flama.serialize.data_structures import LLMModelCapabilities
 
-try:
-    import vllm
-    from transformers import AutoProcessor
-    from vllm.engine.arg_utils import AsyncEngineArgs
-    from vllm.sampling_params import RequestOutputKind
-except Exception:  # pragma: no cover
-    vllm = None
-    AutoProcessor = None
-    AsyncEngineArgs = None
-    RequestOutputKind = None
-
 __all__ = ["VLLMBackend"]
+
+vllm = _imports.Dependency("vllm")
+vllm_arg_utils = _imports.Dependency("vllm", "engine.arg_utils")
+vllm_sampling_params = _imports.Dependency("vllm", "sampling_params")
+transformers = _imports.Dependency("transformers")
 
 
 class VLLMBackend(TransformerLLMBackend):
@@ -49,7 +43,7 @@ class VLLMBackend(TransformerLLMBackend):
     @classmethod
     def runnable(cls) -> bool:
         """Return ``True`` when ``vllm`` is importable on the host."""
-        return vllm is not None and AsyncEngineArgs is not None
+        return vllm.available
 
     def __init__(
         self,
@@ -59,11 +53,10 @@ class VLLMBackend(TransformerLLMBackend):
         capabilities: LLMModelCapabilities | None = None,
         **engine_params: t.Any,
     ) -> None:
-        if vllm is None or AsyncEngineArgs is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("vllm")
+        vllm.require()
 
         engine = vllm.AsyncLLMEngine.from_engine_args(
-            AsyncEngineArgs(model=str(model_dir), disable_log_stats=True, **engine_params)
+            vllm_arg_utils.AsyncEngineArgs(model=str(model_dir), disable_log_stats=True, **engine_params)
         )
         super().__init__(engine)
         self._model_dir = pathlib.Path(model_dir)
@@ -125,11 +118,11 @@ class VLLMBackend(TransformerLLMBackend):
         ):
             return candidate
 
-        if AutoProcessor is None:  # pragma: no cover
+        if not transformers.available:  # pragma: no cover
             return self._tokenizer
 
         try:
-            processor = AutoProcessor.from_pretrained(str(self._model_dir), trust_remote_code=True)
+            processor = transformers.AutoProcessor.from_pretrained(str(self._model_dir), trust_remote_code=True)
         except Exception:  # pragma: no cover
             return self._tokenizer
 
@@ -149,10 +142,9 @@ class VLLMBackend(TransformerLLMBackend):
             multimodal payloads).
         :param params: Sampling parameters forwarded to :class:`vllm.SamplingParams`.
         :return: Async iterator of :class:`EngineDelta`.
-        :raises FrameworkNotInstalled: If vllm is not installed.
+        :raises DependencyNotInstalled: If vllm is not installed.
         """
-        if vllm is None or RequestOutputKind is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("vllm")
+        vllm.require()
 
         max_tokens = self._resolve_max_tokens(params, len(inputs.tokens))
 
@@ -167,7 +159,9 @@ class VLLMBackend(TransformerLLMBackend):
 
         async for x in self.model.generate(
             engine_inputs,
-            vllm.SamplingParams(max_tokens=max_tokens, **params, output_kind=RequestOutputKind.DELTA),
+            vllm.SamplingParams(
+                max_tokens=max_tokens, **params, output_kind=vllm_sampling_params.RequestOutputKind.DELTA
+            ),
             str(uuid.uuid4()),
         ):
             output = x.outputs[0]

@@ -10,14 +10,14 @@ from flama.models.wire.dialect._base import Assembler
 __all__ = ["OpenAIAssembleKwargs", "OpenAIAssembler"]
 
 
-class OpenAIAssembleKwargs(t.TypedDict, total=False):
+class OpenAIAssembleKwargs(compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :class:`OpenAIAssembler.envelope` (and so by :meth:`Dialect.assemble`).
 
     ``api`` and ``model`` are required; ``generation_id`` carries a sensible default.
     """
 
-    api: compat.Required[t.Literal["chat", "completion", "response"]]
-    model: compat.Required[str]
+    api: t.Required[t.Literal["chat", "completion", "response"]]
+    model: t.Required[str]
     generation_id: uuid.UUID | None
 
 
@@ -55,7 +55,7 @@ class OpenAIAssembler(Assembler):
         *,
         start: StartEvent,
         stop: StopEvent,
-        **kwargs: compat.Unpack[OpenAIAssembleKwargs],
+        **kwargs: t.Unpack[OpenAIAssembleKwargs],
     ) -> dict[str, t.Any]:
         api = kwargs["api"]
         model = kwargs["model"]

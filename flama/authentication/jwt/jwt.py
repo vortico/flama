@@ -3,7 +3,6 @@ import logging
 import time
 import typing as t
 
-from flama import compat
 from flama.authentication import exceptions
 from flama.authentication.jwt import claims
 from flama.crypto import JWS
@@ -184,7 +183,7 @@ class JWT:
             raise exceptions.JWTDecodeException(str(e)) from e
 
     @classmethod
-    def decode(cls, token: bytes, key: bytes) -> compat.Self:  # PORT: Replace compat when stop supporting 3.10
+    def decode(cls, token: bytes, key: bytes) -> t.Self:
         """Decode a JWT token.
 
         The token format must be: <header>.<payload>.<signature>

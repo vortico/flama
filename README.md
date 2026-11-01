@@ -66,8 +66,9 @@ Everything else is an optional extra, so you install only what you need:
 ```commandline
 pip install "flama[typesystem]"    # or marshmallow, instead of pydantic
 pip install "flama[database]"      # SQLAlchemy-backed resources
-pip install "flama[llm]"           # generative AI serving (vLLM on Linux, MLX on Apple Silicon; Python 3.10 to 3.13)
-pip install "flama[full]"          # everything
+pip install "flama[llm]"           # generative AI serving (vLLM on Linux, MLX on Apple Silicon; Python 3.11 to 3.13)
+pip install "flama[sklearn]"       # or torch, tensorflow, transformers: the framework your models are built with
+pip install "flama[full]"          # every framework capability (schemas and database), without model runtimes
 ```
 
 See the [installation docs](https://flama.dev/docs/getting-started/installation/) for details.

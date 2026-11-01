@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from flama.client import Client
-from flama.exceptions import FrameworkNotInstalled
+from flama.exceptions import DependencyNotInstalled
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
 from flama.models.exceptions import LLMUnsupportedContentPart
@@ -310,15 +310,15 @@ class TestCaseEndToEndGenerate:
 
     @pytest.mark.parametrize(
         ["exception"],
-        [pytest.param(FrameworkNotInstalled, id="framework_not_installed")],
+        [pytest.param(DependencyNotInstalled, id="framework_not_installed")],
         indirect=["exception"],
     )
     async def test_buffered_framework_not_installed_propagates(self, client: Client, llm_component, exception) -> None:
-        """``FrameworkNotInstalled`` raised by ``model.query`` is re-raised verbatim (not downgraded to an
+        """``DependencyNotInstalled`` raised by ``model.query`` is re-raised verbatim (not downgraded to an
         HTTP 400 / 500) so the missing-runtime failure surfaces to the ASGI server unchanged."""
 
         async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise FrameworkNotInstalled("vllm or mlx-lm")
+            raise DependencyNotInstalled("vllm", "mlx_lm")
 
         with patch.object(type(llm_component.model), "query", _mock), exception:
             await client.post("/llm/ollama/api/generate", json={"model": "stub", "prompt": "hi", "stream": False})

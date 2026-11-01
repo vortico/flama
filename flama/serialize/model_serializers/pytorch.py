@@ -1,18 +1,14 @@
 import codecs
-import importlib.metadata
 import io
 import pathlib
 import typing as t
 import warnings
 
-from flama import exceptions
+from flama import _imports
 from flama.serialize.data_structures import MLModelCapabilities
 from flama.serialize.model_serializers._base import BaseModelSerializer
 
-try:
-    import torch
-except Exception:  # pragma: no cover
-    torch = None
+torch = _imports.Dependency("torch")
 
 if t.TYPE_CHECKING:
     from flama.types import JSONSchema
@@ -32,8 +28,7 @@ class ModelSerializer(BaseModelSerializer):
         dynamic_shapes: dict[str, t.Any] | None = None,
         **kwargs,
     ) -> bytes:
-        if torch is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("pytorch")
+        torch.require()
 
         if example_inputs is None:
             for m in obj.modules():
@@ -52,8 +47,7 @@ class ModelSerializer(BaseModelSerializer):
         return codecs.encode(buffer.getvalue(), "base64")
 
     def load(self, source: bytes | pathlib.Path, /, **kwargs) -> t.Any:
-        if torch is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("pytorch")
+        torch.require()
 
         if isinstance(source, pathlib.Path):
             raise TypeError("pytorch serializer expects raw bytes, not a directory path")
@@ -72,9 +66,3 @@ class ModelSerializer(BaseModelSerializer):
     def detect_capabilities(self, model: t.Any, /) -> MLModelCapabilities:
         """Return the empty :class:`MLModelCapabilities` placeholder for traditional ML artifacts."""
         return MLModelCapabilities()
-
-    def version(self) -> str:
-        try:
-            return importlib.metadata.version("torch")
-        except Exception:  # noqa
-            raise exceptions.FrameworkNotInstalled("pytorch")

@@ -1,10 +1,10 @@
 import importlib.metadata
 import logging
 import typing as t
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flama import concurrency, schemas, types
-from flama.exceptions import FrameworkNotInstalled, HTTPException
+from flama.exceptions import DependencyNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.ndjson import NDJSONResponse
 from flama.models.exceptions import LLMGenerationError, LLMUnsupportedCapability, LLMUnsupportedContentPart
@@ -49,7 +49,7 @@ class ChatMixin:
             )
         except (ValueError, LLMUnsupportedContentPart, LLMUnsupportedCapability) as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
-        except FrameworkNotInstalled:
+        except DependencyNotInstalled:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
@@ -178,7 +178,7 @@ class GenerateMixin:
             blocks = await model.query(prompt, transport="raw", **params)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
-        except FrameworkNotInstalled:
+        except DependencyNotInstalled:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
@@ -291,7 +291,7 @@ class TagsMixin:
                     {
                         "name": name,
                         "model": name,
-                        "modified_at": datetime.now(timezone.utc).isoformat(),
+                        "modified_at": datetime.now(UTC).isoformat(),
                         "size": 0,
                         "digest": "",
                         "details": {"family": "flama", "format": "flama"},

@@ -5,12 +5,10 @@ import enum
 import typing as t
 import uuid
 
-from flama import compat
-
 __all__ = ["TaskStatus", "Task", "TaskStore", "InMemoryTaskStore"]
 
 
-class TaskStatus(compat.StrEnum):  # PORT: Replace compat when stop supporting 3.10
+class TaskStatus(enum.StrEnum):
     """Lifecycle states of a task-augmented tool call (SEP-2322)."""
 
     WORKING = enum.auto()

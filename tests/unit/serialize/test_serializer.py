@@ -78,7 +78,7 @@ class TestCaseSerializer:
             pytest.skip("Protocol v1 is binary-only; bundle artifacts require protocol >= 2")
 
         id_ = uuid.uuid4()
-        timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
+        timestamp = datetime.datetime.now(tz=datetime.UTC)
         params = {"param": "1"}
         metrics = {"metric": "1"}
         extra = {"foo": "bar"}

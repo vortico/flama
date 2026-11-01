@@ -25,7 +25,7 @@ def model_artifact(tmp_path: pathlib.Path, with_artifacts: bool) -> ModelArtifac
     """
     meta = Metadata(
         id=uuid.uuid4(),
-        timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+        timestamp=datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.UTC),
         framework=FrameworkInfo(family="ml", lib="sklearn", version="1.0.0"),  # type: ignore[arg-type]
         model=ModelInfo(obj="Obj", info={"x": 1}, params={"p": 1}, metrics=None),
         extra={"e": 2},

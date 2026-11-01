@@ -112,12 +112,18 @@ Until each of these is ready, the corresponding step fails loudly — which is t
 ### Checklist
 
 - **`.github/workflows/_python-versions.yaml`**: add (or remove) `3.X` in the `versions` array. This is the
-  only CI edit needed — all workflow matrices and the default version are derived from it.
+  only CI edit needed — all workflow matrices are derived from it. The `default` version (release,
+  benchmarks and `latest` images) is set explicitly; move it deliberately, since benchmark results are compared
+  release over release.
+- **`scripts/docker_push`**: keep `PYTHON_VERSIONS` and `DEFAULT_PYTHON` in line with the workflow above.
 - **`pyproject.toml`**
   - Raise the `requires-python` upper bound.
   - Add the `Programming Language :: Python :: 3.X` classifier.
   - Raise the upper bounds in `[tool.uv]` `environments`.
   - Revisit dependency markers flagged with `# PORT:` and the ML extras gated on `python_version < '…'`
     (e.g. `vllm`, `mlx*`, `torch`, `tensorflow`) — extend them once those projects publish `3.X` wheels.
+- **`uv.lock`**: re-lock, and install every extra on `3.X` (`uv sync --python 3.X --all-extras --dev`) to catch
+  dependencies that lack `3.X` wheels and would otherwise be built from source.
+- **`README.md`**: update the Python range quoted for the `llm` extra.
 
 Dropping a version is the reverse of the same checklist.

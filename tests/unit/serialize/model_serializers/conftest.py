@@ -45,7 +45,7 @@ SPECS: dict[str, Spec] = {
     "sklearn": Spec(
         serializer_cls=SklearnModelSerializer,
         lib="sklearn",
-        version_patch="flama.serialize.model_serializers.sklearn.importlib.metadata.version",
+        version_patch="flama._imports.importlib.metadata.version",
         version_key="scikit-learn",
         framework_patch=None,
         source_kind="binary",
@@ -53,7 +53,7 @@ SPECS: dict[str, Spec] = {
     "torch": Spec(
         serializer_cls=TorchModelSerializer,
         lib="torch",
-        version_patch="flama.serialize.model_serializers.pytorch.importlib.metadata.version",
+        version_patch="flama._imports.importlib.metadata.version",
         version_key="torch",
         framework_patch="flama.serialize.model_serializers.pytorch.torch",
         source_kind="binary",
@@ -61,7 +61,7 @@ SPECS: dict[str, Spec] = {
     "tensorflow": Spec(
         serializer_cls=TensorflowModelSerializer,
         lib="tensorflow",
-        version_patch="flama.serialize.model_serializers.tensorflow.importlib.metadata.version",
+        version_patch="flama._imports.importlib.metadata.version",
         version_key="tensorflow",
         framework_patch="flama.serialize.model_serializers.tensorflow.keras_models",
         source_kind="binary",
@@ -69,7 +69,7 @@ SPECS: dict[str, Spec] = {
     "transformers": Spec(
         serializer_cls=TransformersModelSerializer,
         lib="transformers",
-        version_patch="flama.serialize.model_serializers.transformers.importlib.metadata.version",
+        version_patch="flama._imports.importlib.metadata.version",
         version_key="transformers",
         framework_patch="flama.serialize.model_serializers.transformers.transformers",
         source_kind="bundle",
@@ -145,7 +145,7 @@ def load_setup(
 
     if scenario == "not-installed":
         assert spec.framework_patch is not None
-        stack.enter_context(patch(spec.framework_patch, None))
+        stack.enter_context(patch(f"{spec.framework_patch}.available", False))
     else:
         for name, target in LOAD_PATCHES.get(framework, {}).items():
             setattr(mocks, name, stack.enter_context(patch(target)))

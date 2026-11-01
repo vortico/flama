@@ -3,7 +3,7 @@ import logging
 import typing as t
 
 from flama import concurrency
-from flama.exceptions import FrameworkNotInstalled
+from flama.exceptions import DependencyNotInstalled
 from flama.models.transport.output.llm.event import Event, StartEvent, StopEvent, TextEvent, ToolEvent, TraceEvent
 
 if t.TYPE_CHECKING:
@@ -32,7 +32,7 @@ class EventBuffer(t.Generic[_T]):
 
     Exceptions raised by the source iterator during consumption are intercepted: a synthesised
     :class:`StopEvent` with ``stop_reason='error'`` is dispatched through the renderer and the iterator
-    terminates cleanly. :class:`FrameworkNotInstalled` is logged at ``error`` level without traceback;
+    terminates cleanly. :class:`DependencyNotInstalled` is logged at ``error`` level without traceback;
     every other exception goes through :meth:`logging.Logger.exception`.
 
     The leading-output suppression count is read from :attr:`Renderer.skip` (default ``0``). Resume-aware
@@ -93,7 +93,7 @@ class EventBuffer(t.Generic[_T]):
                 if not self._pending:
                     raise
                 continue
-            except FrameworkNotInstalled as exc:
+            except DependencyNotInstalled as exc:
                 logger.error("Stream backend missing dependency: %s", exc)
                 block = StopEvent(stop_reason="error")
                 self._exhausted = True
