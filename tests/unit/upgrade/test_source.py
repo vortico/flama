@@ -58,6 +58,37 @@ class TestCaseSource:
     def test_with_edits(self, text: str, edits: list[Edit], expected: str) -> None:
         assert Source.parse(pathlib.Path("a.py"), text).with_edits(edits).text == expected
 
+    @pytest.mark.parametrize(
+        ["text", "expected"],
+        [
+            pytest.param("from flama import exceptions\n", {"exceptions"}, id="from_parent"),
+            pytest.param("from flama import exceptions as exc\n", {"exc"}, id="from_parent_alias"),
+            pytest.param("import flama.exceptions as exc\n", {"exc"}, id="import_alias"),
+            pytest.param("import flama.exceptions\n", {"flama.exceptions"}, id="import_dotted"),
+            pytest.param("import flama\n", {"flama.exceptions"}, id="import_parent"),
+            pytest.param("from flama import exceptions\nexceptions = None\n", set(), id="rebound"),
+            pytest.param("from flama.exceptions import HTTPException\n", set(), id="symbol_import"),
+            pytest.param("import flama.http\n", set(), id="unrelated"),
+        ],
+    )
+    def test_module_aliases(self, text: str, expected: set[str]) -> None:
+        assert Source.parse(pathlib.Path("a.py"), text).module_aliases("flama.exceptions") == expected
+
+    @pytest.mark.parametrize(
+        ["text", "expected"],
+        [
+            pytest.param("from flama import exceptions\nx = exceptions.Error\n", [2], id="through_alias"),
+            pytest.param("import flama\nx = flama.exceptions.Error\n", [2], id="through_dotted_path"),
+            pytest.param("from flama import exceptions\nx = exceptions.Other\n", [], id="other_attribute"),
+            pytest.param("from flama import http\nx = http.Error\n", [], id="other_module"),
+            pytest.param("x = exceptions.Error\n", [], id="not_imported"),
+        ],
+    )
+    def test_attribute_references(self, text: str, expected: list[int]) -> None:
+        source = Source.parse(pathlib.Path("a.py"), text)
+
+        assert [node.lineno for node in source.attribute_references("flama.exceptions", "Error")] == expected
+
     def test_with_edits_empty_returns_same(self, source: Source) -> None:
         assert source.with_edits([]) is source
 

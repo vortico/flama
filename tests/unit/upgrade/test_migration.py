@@ -3,7 +3,7 @@ import pathlib
 import pytest
 
 from flama._upgrade.migration import Migration, resolve
-from flama._upgrade.operations import MoveModule, MoveSymbol
+from flama._upgrade.operations import Module, Move, Symbol
 from flama._upgrade.source import Source
 
 
@@ -13,7 +13,7 @@ class TestCaseMigration:
         return Migration(
             target="2.0",
             source=">=1.0,<2.0",
-            operations=(MoveModule("a", "b"), MoveSymbol("c", "D", to_name="E")),
+            operations=(Move(Module("a"), Module("b")), Move(Symbol("c", "D"), Symbol("c", "E"))),
         )
 
     def test_apply_runs_all_operations(self, migration: Migration) -> None:
@@ -29,8 +29,8 @@ class TestCaseMigration:
         ["select", "skip", "expected"],
         [
             pytest.param(None, None, "from b import X\nfrom c import E\n", id="all"),
-            pytest.param({"move-module:a"}, None, "from b import X\nfrom c import D\n", id="select_one"),
-            pytest.param(None, {"move-module:a"}, "from a import X\nfrom c import E\n", id="skip_one"),
+            pytest.param({"move:module:a"}, None, "from b import X\nfrom c import D\n", id="select_one"),
+            pytest.param(None, {"move:module:a"}, "from a import X\nfrom c import E\n", id="skip_one"),
         ],
     )
     def test_select_and_skip(self, migration: Migration, select, skip, expected: str) -> None:
