@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import logging
 import os
@@ -8,7 +9,7 @@ import typing as t
 import uuid
 import warnings
 
-from flama import exceptions, types
+from flama import _io, exceptions, types
 from flama.serialize.data_structures import (
     Artifacts,
     CompressionFormat,
@@ -200,7 +201,8 @@ class Serializer:
             lib=lib,
         )
 
-        def _write(stream: t.BinaryIO) -> None:
+        destination = contextlib.nullcontext(f) if f is not None else _io.AtomicFile(t.cast(str | os.PathLike, path))
+        with destination as stream:
             header_pos = stream.tell()
             stream.write(b"\x00" * cls._header_size)
 
@@ -210,22 +212,6 @@ class Serializer:
             stream.seek(header_pos)
             stream.write(struct.pack(cls._header_format, protocol, fmt.value, body_size))
             stream.seek(end_pos)
-
-        if f is not None:
-            _write(f)
-            return
-
-        # Write to a sibling temporary file and move it into place only once the artifact is complete, so a failed
-        # dump never leaves a truncated artifact behind nor clobbers an existing one.
-        destination = pathlib.Path(str(path))
-        tmp = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
-        try:
-            with tmp.open("wb") as stream:
-                _write(stream)
-            os.replace(tmp, destination)
-        except BaseException:
-            tmp.unlink(missing_ok=True)
-            raise
 
     @t.overload
     @classmethod

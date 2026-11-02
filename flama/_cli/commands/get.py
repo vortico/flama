@@ -1,7 +1,6 @@
 import abc
 import asyncio
 import dataclasses
-import os
 import pathlib
 import random
 import tempfile
@@ -20,7 +19,7 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
-from flama import concurrency, types
+from flama import _io, concurrency, types
 from flama._cli.formatting import CONSOLE, FlamaCommand
 from flama.client import Client
 from flama.serialize.exceptions import UnsafeArtifactPath
@@ -198,24 +197,19 @@ class _HuggingFaceDownloader(_Downloader):
             await self.retry(lambda: self._stream_to_file(filename, dest, progress, progress_id))
 
     async def _stream_to_file(self, filename: str, dest: pathlib.Path, progress: Progress, progress_id: TaskID) -> None:
-        tmp = dest.with_suffix(dest.suffix + ".tmp")
         written = 0
         try:
             async with self.client.stream("GET", f"/{self.model_name}/resolve/main/{filename}") as stream:
                 stream.raise_for_status()
-                f = t.cast(t.BinaryIO, await concurrency.run(tmp.open, "wb"))
-                try:
+                # The staging directory is discarded after packaging, so there is no need to sync each file to disk.
+                with _io.AtomicFile(dest, durable=False) as f:
                     async for chunk in stream.aiter_bytes(chunk_size=60 * 2**10):
                         await concurrency.run(f.write, chunk)
                         written += len(chunk)
                         progress.update(progress_id, advance=len(chunk))
-                finally:
-                    await concurrency.run(f.close)
-            await concurrency.run(os.replace, tmp, dest)
         except BaseException:
             if written:
                 progress.update(progress_id, advance=-written)
-            await concurrency.run(tmp.unlink, missing_ok=True)
             raise
 
     async def __aenter__(self) -> "_Downloader":

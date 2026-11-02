@@ -254,16 +254,16 @@ class TestCaseSerializer:
                 assert p_art.call_args.kwargs["capabilities"] is capabilities
 
     @pytest.mark.parametrize(
-        ["compression", "existing"],
+        ["compression", "existing", "error"],
         [
-            pytest.param("zstd", False, id="serialization_error"),
-            pytest.param("zstd", True, id="serialization_error_keeps_existing_file"),
-            pytest.param("wrong", False, id="unknown_compression"),
-            pytest.param("wrong", True, id="unknown_compression_keeps_existing_file"),
+            pytest.param("zstd", False, RuntimeError, id="serialization_error"),
+            pytest.param("zstd", True, RuntimeError, id="serialization_error_keeps_existing_file"),
+            pytest.param("wrong", False, UnknownCompression, id="unknown_compression"),
+            pytest.param("wrong", True, UnknownCompression, id="unknown_compression_keeps_existing_file"),
         ],
     )
     def test_dump_failure_leaves_no_partial_artifact(
-        self, tmp_path: pathlib.Path, compression: str, existing: bool
+        self, tmp_path: pathlib.Path, compression: str, existing: bool, error: type[Exception]
     ) -> None:
         target = tmp_path / "out.flm"
         if existing:
@@ -280,7 +280,7 @@ class TestCaseSerializer:
         with (
             patch("flama.serialize.serializer.Protocol.from_version", return_value=mock_protocol),
             patch("flama.serialize.serializer.ModelArtifact.from_model", return_value=MagicMock()),
-            pytest.raises((RuntimeError, UnknownCompression)),
+            pytest.raises(error),
         ):
             Serializer.dump(object(), path=target, family="ml", compression=t.cast(t.Any, compression))
 
@@ -289,6 +289,26 @@ class TestCaseSerializer:
         else:
             assert not target.exists()
         assert [p.name for p in tmp_path.iterdir()] == (["out.flm"] if existing else [])
+
+    def test_dump_replaces_existing_artifact(self, tmp_path: pathlib.Path) -> None:
+        target = tmp_path / "out.flm"
+        target.write_bytes(b"previous-artifact")
+        mock_protocol = MagicMock()
+
+        def fake_dump(_m, f, *, compression, **kwargs):
+            f.write(b"body")
+            return len(b"body")
+
+        mock_protocol.dump.side_effect = fake_dump
+
+        with (
+            patch("flama.serialize.serializer.Protocol.from_version", return_value=mock_protocol),
+            patch("flama.serialize.serializer.ModelArtifact.from_model", return_value=MagicMock()),
+        ):
+            Serializer.dump(object(), path=target, family="ml", compression="zstd")
+
+        assert target.read_bytes().endswith(b"body")
+        assert [p.name for p in tmp_path.iterdir()] == ["out.flm"]
 
     @pytest.mark.parametrize(
         ["stream", "path", "format_value", "expect_logs", "exception"],
