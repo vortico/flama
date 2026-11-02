@@ -6,7 +6,7 @@ import logging
 import pathlib
 import typing as t
 
-from flama import _imports, concurrency, exceptions
+from flama import _concurrency, _imports, exceptions
 from flama.models.engine.backend.llm._base import TransformerLLMBackend
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
@@ -264,7 +264,7 @@ class MLXBackend(TransformerLLMBackend):
         """Yield deltas from the synchronous MLX generator.
 
         Bridges :func:`mlx_lm.stream_generate` (text runtime) or :func:`mlx_vlm.stream_generate`
-        (multimodal runtime) into an async iterator via :func:`flama.concurrency.iterate` pinned
+        (multimodal runtime) into an async iterator via :func:`flama._concurrency.iterate` pinned
         to :attr:`_executor` - MLX binds its Metal/CUDA stream to whichever thread first
         allocates an array, so every step has to run on the same worker the model was loaded
         on or MLX raises ``no Stream(gpu, 1) in current thread``. Token IDs are passed straight
@@ -318,7 +318,7 @@ class MLXBackend(TransformerLLMBackend):
 
         is_vlm = self.model.is_vlm
         previous_total = 0
-        async with contextlib.aclosing(concurrency.iterate(source, executor=self._executor)) as items:
+        async with contextlib.aclosing(_concurrency.iterate(source, executor=self._executor)) as items:
             async for chunk in items:
                 text = chunk.text or ""
                 finish_reason = getattr(chunk, "finish_reason", None)

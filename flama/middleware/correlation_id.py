@@ -1,6 +1,6 @@
 import uuid
 
-from flama import concurrency, types
+from flama import _concurrency, types
 from flama.http.data_structures import Headers, MutableHeaders
 from flama.middleware._base import Middleware
 
@@ -21,7 +21,7 @@ class CorrelationIdMiddleware(Middleware):
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if scope["type"] not in ("http", "websocket"):
-            await concurrency.run(self.app, scope, receive, send)
+            await _concurrency.run(self.app, scope, receive, send)
             return
 
         correlation_id = Headers(scope=scope).get(self._header) or uuid.uuid4().hex
@@ -34,4 +34,4 @@ class CorrelationIdMiddleware(Middleware):
 
             await send(message)
 
-        await concurrency.run(self.app, scope, receive, _send)
+        await _concurrency.run(self.app, scope, receive, _send)

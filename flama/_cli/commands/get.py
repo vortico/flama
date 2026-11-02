@@ -19,7 +19,7 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
-from flama import _io, concurrency, types
+from flama import _concurrency, _io, types
 from flama._cli.formatting import CONSOLE, FlamaCommand
 from flama.client import Client
 from flama.serialize.exceptions import UnsafeArtifactPath
@@ -172,7 +172,7 @@ class _HuggingFaceDownloader(_Downloader):
         ) as progress:
             progress_id = progress.add_task("Downloading", total=total_size)
 
-            tasks = await concurrency.run_task_group(
+            tasks = await _concurrency.run_task_group(
                 *(self._download_file(name, progress, progress_id) for name in files)
             )
             for task in tasks:
@@ -193,7 +193,7 @@ class _HuggingFaceDownloader(_Downloader):
             if not dest.is_relative_to(root):
                 raise UnsafeArtifactPath(filename)
 
-            await concurrency.run(dest.parent.mkdir, parents=True, exist_ok=True)
+            await _concurrency.run(dest.parent.mkdir, parents=True, exist_ok=True)
             await self.retry(lambda: self._stream_to_file(filename, dest, progress, progress_id))
 
     async def _stream_to_file(self, filename: str, dest: pathlib.Path, progress: Progress, progress_id: TaskID) -> None:
@@ -204,7 +204,7 @@ class _HuggingFaceDownloader(_Downloader):
                 # The staging directory is discarded after packaging, so there is no need to sync each file to disk.
                 with _io.AtomicFile(dest, durable=False) as f:
                     async for chunk in stream.aiter_bytes(chunk_size=60 * 2**10):
-                        await concurrency.run(f.write, chunk)
+                        await _concurrency.run(f.write, chunk)
                         written += len(chunk)
                         progress.update(progress_id, advance=len(chunk))
         except BaseException:

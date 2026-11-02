@@ -86,6 +86,8 @@ class TestCaseUpgradeV23:
                 id="removed_tomli_member",
             ),
             pytest.param("from flama.compat import tomllib\n", "standard library `tomllib`", id="compat_tomllib"),
+            pytest.param("from flama import concurrency\n", "is now private", id="concurrency_private"),
+            pytest.param("from flama.concurrency import run\n", "is now private", id="concurrency_private_symbol"),
         ],
     )
     def test_flags_manual_follow_up(self, before: str, message: str) -> None:

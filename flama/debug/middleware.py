@@ -4,7 +4,7 @@ import inspect
 import logging
 import typing as t
 
-from flama import concurrency, exceptions, http, types
+from flama import _concurrency, exceptions, http, types
 from flama.debug.data_structures import ErrorContext, NotFoundContext
 from flama.http.responses.api import APIErrorResponse
 from flama.http.responses.jsonrpc import JSONRPCErrorResponse
@@ -35,7 +35,7 @@ class BaseErrorMiddleware(Middleware):
             await send(message)
 
         try:
-            await concurrency.run(self.app, scope, receive, sender)
+            await _concurrency.run(self.app, scope, receive, sender)
         except Exception as exc:
             if scope["type"] in ("http", "websocket"):
                 await self.process_exception(scope, receive, send, exc, response_started)
@@ -66,7 +66,7 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
 
         response = handler(scope, receive, send, exc)
 
-        if response and concurrency.is_async(response) and not response_started:
+        if response and _concurrency.is_async(response) and not response_started:
             await response(scope, receive=receive, send=send)
 
         # We always continue to raise the exception.
@@ -148,9 +148,9 @@ class ExceptionMiddleware(BaseErrorMiddleware):
         if response_started:
             raise RuntimeError("Caught handled exception, but response already started.") from exc
 
-        response = await concurrency.run(handler, scope, receive, send, exc)
+        response = await _concurrency.run(handler, scope, receive, send, exc)
 
-        if response and concurrency.is_async(response):
+        if response and _concurrency.is_async(response):
             await response(scope, receive, send)
 
     def http_exception_handler(

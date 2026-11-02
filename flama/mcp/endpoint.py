@@ -2,7 +2,7 @@ import asyncio
 import logging
 import typing as t
 
-from flama import concurrency, exceptions, http, types
+from flama import _concurrency, exceptions, http, types
 from flama._core.json_encoder import encode_json
 from flama.endpoints.jsonrpc import JSONRPCEndpoint
 from flama.http import JSONRPCStatus
@@ -154,7 +154,7 @@ class MCPEndpoint(JSONRPCEndpoint):
         if entry.elicitation_param is not None:
             kwargs[entry.elicitation_param] = Elicitation(responses)
 
-        result = await concurrency.run(entry.handler, **kwargs)
+        result = await _concurrency.run(entry.handler, **kwargs)
 
         if isinstance(result, Elicit):
             return {
@@ -286,7 +286,7 @@ class MCPEndpoint(JSONRPCEndpoint):
             )
 
         try:
-            result = await concurrency.run(entry.handler)
+            result = await _concurrency.run(entry.handler)
         except exceptions.JSONRPCException:
             raise
         except Exception as e:
@@ -329,7 +329,7 @@ class MCPEndpoint(JSONRPCEndpoint):
             )
 
         try:
-            result = await concurrency.run(entry.handler, **arguments)
+            result = await _concurrency.run(entry.handler, **arguments)
         except exceptions.JSONRPCException:
             raise
         except Exception as e:

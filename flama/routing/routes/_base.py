@@ -6,7 +6,7 @@ import inspect
 import logging
 import typing as t
 
-from flama import concurrency, exceptions, types, url
+from flama import _concurrency, exceptions, types, url
 from flama.pagination import paginator
 from flama.schemas.routing import ParametersDescriptor
 from flama.types.http import Method
@@ -160,7 +160,7 @@ class BaseRoute(types.BaseRoute, abc.ABC):
         :param receive: ASGI receive event.
         :param send: ASGI send event.
         """
-        await concurrency.run(self.app, scope, receive, send)
+        await _concurrency.run(self.app, scope, receive, send)
 
     def match(self, scope: types.Scope) -> Match:
         """Check if this route matches with given scope.

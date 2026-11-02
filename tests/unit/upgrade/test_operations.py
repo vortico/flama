@@ -234,6 +234,12 @@ class TestCaseFlag:
                 "import flama.cli.commands  # flama-upgrade: is now private\n",
                 id="import_submodule",
             ),
+            pytest.param(
+                "from flama import cli\n",
+                "from flama import cli  # flama-upgrade: is now private\n",
+                id="from_parent",
+            ),
+            pytest.param("from flama import http\n", "from flama import http\n", id="from_parent_other_module"),
             pytest.param("from other import main\n", "from other import main\n", id="unrelated"),
         ],
     )

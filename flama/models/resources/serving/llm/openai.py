@@ -2,7 +2,7 @@ import logging
 import time
 import typing as t
 
-from flama import concurrency, schemas, types
+from flama import _concurrency, schemas, types
 from flama.exceptions import DependencyNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.sse import ServerSentEventResponse
@@ -69,7 +69,7 @@ class ChatCompletionsMixin:
         """Stream chat completions through a per-request ephemeral :class:`StreamBuffer`.
 
         Allocates an ephemeral buffer (``persist=False``) under the resource's :class:`ModelStreams`, drives
-        :meth:`StreamBuffer.load` concurrently with the body iteration via :func:`flama.concurrency.alongside`,
+        :meth:`StreamBuffer.load` concurrently with the body iteration via :func:`flama._concurrency.alongside`,
         and projects the buffer through :meth:`OpenAIDialect.render` (``api="chat"``). The buffer decouples
         the producer (model) from the consumer (SSE renderer); the engine's error pump synthesises a terminal
         error chunk if generation fails mid-stream.
@@ -89,7 +89,7 @@ class ChatCompletionsMixin:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
         return ServerSentEventResponse(
-            concurrency.alongside(
+            _concurrency.alongside(
                 OpenAIDialect.render(buffer, api="chat", model=name, generation_id=buffer_id),
                 lambda: buffer.load(block_stream),
             )
@@ -263,7 +263,7 @@ class ResponsesMixin:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
         return ServerSentEventResponse(
-            concurrency.alongside(
+            _concurrency.alongside(
                 OpenAIDialect.render(buffer, api="response", model=name, generation_id=buffer_id),
                 lambda: buffer.load(block_stream),
             )
@@ -394,7 +394,7 @@ class CompletionsMixin:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
         return ServerSentEventResponse(
-            concurrency.alongside(
+            _concurrency.alongside(
                 OpenAIDialect.render(buffer, api="completion", model=name, generation_id=buffer_id),
                 lambda: buffer.load(block_stream),
             )

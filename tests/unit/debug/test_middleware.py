@@ -278,7 +278,7 @@ class TestCaseExceptionMiddleware:
         with (
             exception,
             patch.object(middleware, "_get_handler", return_value=handler_mock),
-            patch("flama.debug.middleware.concurrency.run", new=AsyncMock(return_value=response_mock)) as run_mock,
+            patch("flama.debug.middleware._concurrency.run", new=AsyncMock(return_value=response_mock)) as run_mock,
         ):
             await middleware.process_exception(asgi_scope, asgi_receive, asgi_send, expected_exc, response_started)
 

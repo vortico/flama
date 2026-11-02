@@ -5,6 +5,7 @@ from flama._upgrade.operations import (
     Flag,
     MapValue,
     Member,
+    Module,
     Move,
     PromoteKeyword,
     Require,
@@ -51,6 +52,8 @@ V2_3 = Migration(
             ),
             DropKeyword("dependant"),
         ),
+        # Internal concurrency helpers are no longer part of the public API.
+        Flag(Module("flama.concurrency"), "is now private (flama._concurrency)"),
         # The resources' worker is named after what it serves.
         Move(Symbol("flama.resources.workers", "FlamaWorker"), Symbol("flama.resources.workers", "ResourcesWorker")),
         # Python 3.10 compatibility shims are gone in favour of the standard library.

@@ -2,7 +2,7 @@ import http
 import logging
 import typing as t
 
-from flama import Component, concurrency
+from flama import Component, _concurrency
 from flama.authentication import exceptions, jwt, types
 from flama.crypto import JWS
 from flama.crypto.exceptions import SignatureDecodeException
@@ -80,7 +80,7 @@ class BaseTokenComponent(Component):
 
         try:
             if self.secret_resolver is not None:
-                key = await concurrency.run(self.secret_resolver, JWS.header(encoded_token).get("kid"))
+                key = await _concurrency.run(self.secret_resolver, JWS.header(encoded_token).get("kid"))
             else:
                 key = t.cast(bytes, self.secret)
 

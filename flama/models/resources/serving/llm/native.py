@@ -2,7 +2,7 @@ import logging
 import typing as t
 import uuid
 
-from flama import concurrency, http, schemas, types
+from flama import _concurrency, http, schemas, types
 from flama.background import BackgroundTask
 from flama.exceptions import DependencyNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
@@ -233,7 +233,7 @@ class GetStreamMixin:
             )
             heartbeat_interval = getattr(self, "heartbeat_interval", _DEFAULT_HEARTBEAT_INTERVAL)
             if heartbeat_interval and heartbeat_interval > 0:
-                stream_iter = concurrency.with_heartbeat(
+                stream_iter = _concurrency.with_heartbeat(
                     stream_iter,
                     interval=heartbeat_interval,
                     heartbeat=lambda: ServerSentEvent(comment="heartbeat"),

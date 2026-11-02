@@ -2,7 +2,7 @@ import asyncio
 import logging
 import typing as t
 
-from flama import concurrency, exceptions, types
+from flama import _concurrency, exceptions, types
 
 __all__ = ["Lifespan"]
 
@@ -84,7 +84,7 @@ class Lifespan(types.ASGIAppClass):
         await app.middleware.on_startup()
 
         if app.events.startup:
-            await concurrency.run_task_group(*(f() for f in app.events.startup))
+            await _concurrency.run_task_group(*(f() for f in app.events.startup))
 
         if self.lifespan:
             # Keep a reference to the entered context manager so shutdown exits this very same
@@ -100,7 +100,7 @@ class Lifespan(types.ASGIAppClass):
             await context.__aexit__(None, None, None)
 
         if app.events.shutdown:
-            await concurrency.run_task_group(*(f() for f in app.events.shutdown))
+            await _concurrency.run_task_group(*(f() for f in app.events.shutdown))
 
         # Tear down the framework lifecycle last and in reverse order (middleware then modules), mirroring startup.
         await app.middleware.on_shutdown()
@@ -113,6 +113,6 @@ class Lifespan(types.ASGIAppClass):
         async def child_send(message: types.Message) -> None: ...
 
         if app.routes:
-            await concurrency.run_task_group(
+            await _concurrency.run_task_group(
                 *(route(types.Scope({**scope, "app": app}), child_receive, child_send) for route in app.routes)
             )

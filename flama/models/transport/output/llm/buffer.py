@@ -2,7 +2,7 @@ import collections
 import logging
 import typing as t
 
-from flama import concurrency
+from flama import _concurrency
 from flama.exceptions import DependencyNotInstalled
 from flama.models.transport.output.llm.event import Event, StartEvent, StopEvent, TextEvent, ToolEvent, TraceEvent
 
@@ -20,14 +20,14 @@ class EventBuffer(t.Generic[_T]):
     """L2 FSM engine: drives an :class:`Event` source through a
     :class:`~flama.models.wire.dialect._base.Renderer` strategy.
 
-    Owns: source consumption (via :func:`flama.concurrency.iterate`), error pump (synthesises a
+    Owns: source consumption (via :func:`flama._concurrency.iterate`), error pump (synthesises a
     :class:`StopEvent` with ``stop_reason='error'`` on framework / generic failures), lifecycle capture
     (exposed via :attr:`start` and :attr:`stop` post-consumption), skip-counted suppression of leading outputs,
     and dispatch to :class:`~flama.models.wire.dialect._base.Renderer` ``on_<kind>`` methods.
 
     Sources can be any synchronous or asynchronous iterable of events (lists, generators,
     :class:`~flama.models.streams.StreamBuffer`). The constructor normalises them via
-    :func:`flama.concurrency.iterate`, which yields through async iterables directly and drives sync iterables
+    :func:`flama._concurrency.iterate`, which yields through async iterables directly and drives sync iterables
     off the event loop via a bounded queue.
 
     Exceptions raised by the source iterator during consumption are intercepted: a synthesised
@@ -49,7 +49,7 @@ class EventBuffer(t.Generic[_T]):
         renderer: "Renderer[_T]",
         /,
     ) -> None:
-        self._source = concurrency.iterate(source)
+        self._source = _concurrency.iterate(source)
         self._renderer = renderer
         self._skip = renderer.skip
         self._pending: collections.deque[_T] = collections.deque()

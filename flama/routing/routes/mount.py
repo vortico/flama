@@ -1,7 +1,7 @@
 import logging
 import typing as t
 
-from flama import concurrency, exceptions, types, url
+from flama import _concurrency, exceptions, types, url
 from flama.routing.routes._base import BaseRoute, RouteTableParams, ScopeType
 
 __all__ = ["Mount"]
@@ -71,7 +71,7 @@ class Mount(BaseRoute):
         :param receive: ASGI receive event.
         :param send: ASGI send event
         """
-        await concurrency.run(self.app, scope, receive, send)
+        await _concurrency.run(self.app, scope, receive, send)
 
     def route_scope(self, scope: types.Scope) -> types.Scope:
         """Build route scope from given scope.

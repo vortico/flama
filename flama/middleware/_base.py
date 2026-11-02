@@ -1,6 +1,6 @@
 import typing as t
 
-from flama import concurrency, types
+from flama import _concurrency, types
 from flama.debug.types import ExceptionHandler
 
 __all__ = ["Middleware", "MiddlewareStack"]
@@ -35,7 +35,7 @@ class Middleware(_BaseMiddleware):
     """
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        await concurrency.run(self.app, scope, receive, send)
+        await _concurrency.run(self.app, scope, receive, send)
 
 
 class MiddlewareStack:
@@ -113,4 +113,4 @@ class MiddlewareStack:
         del self.stack
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        await concurrency.run(self.stack, scope, receive, send)
+        await _concurrency.run(self.stack, scope, receive, send)

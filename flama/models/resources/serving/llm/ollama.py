@@ -3,7 +3,7 @@ import logging
 import typing as t
 from datetime import UTC, datetime
 
-from flama import concurrency, schemas, types
+from flama import _concurrency, schemas, types
 from flama.exceptions import DependencyNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.ndjson import NDJSONResponse
@@ -76,7 +76,7 @@ class ChatMixin:
         Mirrors :meth:`~flama.models.resources.serving.llm.openai.ChatCompletionsMixin._chat_completions_stream`:
         allocates an ephemeral buffer (``persist=False``) under the resource's
         :class:`~flama.models.streams.ModelStreams`, drives :meth:`StreamBuffer.load` concurrently with the body
-        iteration via :func:`flama.concurrency.alongside`, and projects the buffer through
+        iteration via :func:`flama._concurrency.alongside`, and projects the buffer through
         :meth:`OllamaDialect.render` (``api="chat"``). The engine's error pump synthesises a terminal error
         frame if generation fails mid-stream.
         """
@@ -95,7 +95,7 @@ class ChatMixin:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
         return NDJSONResponse(
-            concurrency.alongside(
+            _concurrency.alongside(
                 OllamaDialect.render(buffer, api="chat", model=name),
                 lambda: buffer.load(block_stream),
             )
@@ -206,7 +206,7 @@ class GenerateMixin:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
         return NDJSONResponse(
-            concurrency.alongside(
+            _concurrency.alongside(
                 OllamaDialect.render(buffer, api="generate", model=name),
                 lambda: buffer.load(block_stream),
             )

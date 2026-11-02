@@ -156,7 +156,7 @@ class TestCaseHTTPEndpoint:
     async def test_dispatch(self, app, endpoint):
         injected_mock = MagicMock()
         app.injector.inject = AsyncMock(return_value=injected_mock)
-        with patch("flama.concurrency.run") as run_mock:
+        with patch("flama._concurrency.run") as run_mock:
             await endpoint.dispatch()
 
             assert app.injector.inject.call_args_list == [call(endpoint.get, endpoint.state)]

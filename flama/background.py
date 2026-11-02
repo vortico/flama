@@ -1,7 +1,7 @@
 import functools
 import typing as t
 
-from flama import concurrency, exceptions
+from flama import _concurrency, exceptions
 
 __all__ = ["BackgroundTask", "BackgroundTasks", "BackgroundThreadTask", "BackgroundProcessTask"]
 
@@ -14,7 +14,7 @@ class task_wrapper:
         functools.update_wrapper(self, target)
 
     async def __call__(self, *args, **kwargs):
-        await concurrency.run(self.target, *args, **kwargs)
+        await _concurrency.run(self.target, *args, **kwargs)
 
 
 Concurrency = t.Literal["thread", "process"]
@@ -34,7 +34,7 @@ class BackgroundTask:
 
     async def __call__(self):
         if self.concurrency == "process":
-            concurrency.AsyncProcess(target=self.func, args=self.args, kwargs=self.kwargs).start()
+            _concurrency.AsyncProcess(target=self.func, args=self.args, kwargs=self.kwargs).start()
         else:
             await self.func(*self.args, **self.kwargs)
 

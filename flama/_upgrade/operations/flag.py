@@ -59,7 +59,11 @@ class Flag(Operation):
                 and any(alias.name == target.name for alias in node.names)
             )
         if isinstance(node, ast.ImportFrom):
-            return node.level == 0 and node.module == target.path
+            parent, _, name = target.path.rpartition(".")
+            return node.level == 0 and (
+                node.module == target.path
+                or (bool(parent) and node.module == parent and any(alias.name == name for alias in node.names))
+            )
         return any(alias.name == target.path or alias.name.startswith(f"{target.path}.") for alias in node.names)
 
     def _flag_calls(self, source: Source, target: Call) -> list[Todo]:

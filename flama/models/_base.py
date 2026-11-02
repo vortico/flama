@@ -5,7 +5,7 @@ import time
 import typing as t
 import uuid
 
-from flama import concurrency, exceptions, types
+from flama import _concurrency, exceptions, types
 from flama.models.engine.backend import Backend
 from flama.models.engine.backend.llm import LLMBackend
 from flama.models.engine.backend.ml import MLBackend
@@ -196,7 +196,7 @@ class BaseModel(abc.ABC, t.Generic[B]):
         event loop (e.g. decoder detection on :class:`LLMModel`). Called once per model from the
         application's lifespan startup phase.
         """
-        await concurrency.run(self.load)
+        await _concurrency.run(self.load)
         logger.info("Model ready (name: %s, id: %s)", self.name, self.meta.id)
 
 
@@ -239,9 +239,9 @@ class MLModel(BaseModel[MLBackend]):
             type.
         :return: Async iterator of predictions.
         """
-        async for item in concurrency.iterate(x):
+        async for item in _concurrency.iterate(x):
             try:
-                yield await concurrency.run(self.backend.predict, [item])
+                yield await _concurrency.run(self.backend.predict, [item])
             except exceptions.DependencyNotInstalled:
                 raise
             except Exception:
@@ -339,7 +339,7 @@ class LLMModel(BaseModel[LLMBackend]):
         picked before serving. Any failure during detection is swallowed by the engine and
         downgraded to passthrough — it will never block startup.
         """
-        await concurrency.run(self.load)
+        await _concurrency.run(self.load)
 
         logger.info("Decoder detection starting (name: %s, id: %s)", self.name, self.meta.id)
         started = time.monotonic()

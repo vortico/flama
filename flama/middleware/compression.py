@@ -1,6 +1,6 @@
 import typing as t
 
-from flama import concurrency, exceptions, types
+from flama import _concurrency, exceptions, types
 from flama.codecs import BrotliCodec, CompressionCodec, CompressionNegotiator, GzipCodec
 from flama.http.data_structures import Headers, MutableHeaders
 from flama.middleware._base import Middleware
@@ -29,13 +29,13 @@ class CompressionMiddleware(Middleware):
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if scope["type"] != "http":
-            await concurrency.run(self.app, scope, receive, send)
+            await _concurrency.run(self.app, scope, receive, send)
             return
 
         try:
             codec = self._negotiator.negotiate(Headers(scope=scope).get("accept-encoding"))
         except exceptions.NoCodecAvailable:
-            await concurrency.run(self.app, scope, receive, send)
+            await _concurrency.run(self.app, scope, receive, send)
             return
 
         initial_message: types.Message | None = None
@@ -77,7 +77,7 @@ class CompressionMiddleware(Middleware):
                 await send(initial_message)
             await send(message)
 
-        await concurrency.run(self.app, scope, receive, _send)
+        await _concurrency.run(self.app, scope, receive, _send)
 
     def _should_skip(self, initial_message: types.Message, body: bytes, more_body: bool) -> bool:
         """Decide whether compression should be skipped for the first body chunk.
