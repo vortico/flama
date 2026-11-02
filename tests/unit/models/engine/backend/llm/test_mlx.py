@@ -487,7 +487,7 @@ class TestCaseMLXBackend:
         with (
             patch("flama.models.engine.backend.llm.mlx.mlx_vlm", Mock(stream_generate=mock_vlm_stream_generate)),
             patch("flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils", Mock(make_sampler=mock_make_sampler)),
-            patch("flama.models.engine.backend.llm.mlx.mx", mock_mx),
+            patch("flama.models.engine.backend.llm.mlx.mlx", mock_mx),
         ):
             deltas = [d async for d in backend.generate(inputs)]
 
@@ -530,7 +530,7 @@ class TestCaseMLXBackend:
                 "flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils",
                 Mock(make_sampler=Mock(return_value="sampler")),
             ),
-            patch("flama.models.engine.backend.llm.mlx.mx", mock_mx),
+            patch("flama.models.engine.backend.llm.mlx.mlx", mock_mx),
         ):
             deltas = [d async for d in backend.generate(EngineInput(tokens=[1, 2, 3]))]
 
@@ -560,7 +560,7 @@ class TestCaseMLXBackend:
             ),
             patch("flama.models.engine.backend.llm.mlx.mlx_lm_sample_utils", Mock(make_sampler=Mock())),
             patch(
-                "flama.models.engine.backend.llm.mlx.mx",
+                "flama.models.engine.backend.llm.mlx.mlx",
                 Mock() if mx_installed else missing("mlx", "core"),
             ),
             pytest.raises(exceptions.DependencyNotInstalled),

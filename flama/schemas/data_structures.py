@@ -125,7 +125,8 @@ class Schema:
         else:
             schema = type_
 
-        if not schemas.adapter.is_schema(schema):
+        # Without any schema library installed nothing can be a schema, so there is no library to select.
+        if not schemas._module.installed or not schemas.adapter.is_schema(schema):
             raise ValueError("Wrong schema type")
 
         return cls(schema=schema)

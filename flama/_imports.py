@@ -25,7 +25,6 @@ DependencyName = t.Literal[
     "pydantic",
     "marshmallow",
     "apispec",
-    "typesystem",
     "sqlalchemy",
     "sklearn",
     "torch",
@@ -74,7 +73,6 @@ class DependencyPackage(enum.StrEnum):
     pydantic = "pydantic"
     marshmallow = "marshmallow"
     apispec = "apispec", "apispec", "marshmallow"
-    typesystem = "typesystem"
     sqlalchemy = "sqlalchemy", "sqlalchemy[asyncio]", "database"
     sklearn = "sklearn", "scikit-learn"
     torch = "torch"

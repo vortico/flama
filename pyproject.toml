@@ -73,7 +73,6 @@ documentation = "https://flama.dev/docs/"
 
 [project.optional-dependencies]
 pydantic = ["pydantic>=2.12,<3.0"]
-typesystem = ["typesystem>=0.4.1,<1.0"]
 marshmallow = ["marshmallow>=4.0,<5.0", "apispec>=6.0,<7.0"]
 database = ["SQLAlchemy[asyncio]>=2.0,<3.0"]
 llm = [
@@ -90,7 +89,6 @@ tensorflow = ["tensorflow>=2.20,<3.0; python_version < '3.14'"]
 transformers = ["transformers>=4.50,<6.0"]
 full = [
   "pydantic>=2.12,<3.0",
-  "typesystem>=0.4.1,<1.0",
   "marshmallow>=4.0,<5.0",
   "apispec>=6.0,<7.0",
   "SQLAlchemy[asyncio]>=2.0,<3.0",

@@ -160,15 +160,13 @@ class TestCaseSchema:
         elif request.param == "list_of_bare_schema":
             return list[foo_schema.schema]
         elif request.param == "schema_partial":
-            if app.schema.schema_library.name in ("typesystem",):
-                pytest.skip("Library does not support optional partial schemas")
             return t.Annotated[types.Schema, types.SchemaMetadata(foo_schema.schema, partial=True)]
         elif request.param == "schema_nested":
             return t.Annotated[types.Schema, types.SchemaMetadata(bar_schema.schema)]
         elif request.param == "schema_nested_multiple":
             return t.Annotated[types.Schema, types.SchemaMetadata(bar_multiple_schema.schema)]
         elif request.param == "schema_nested_optional":
-            if app.schema.schema_library.name in ("typesystem", "marshmallow"):
+            if app.schema.schema_library.name == "marshmallow":
                 pytest.skip("Library does not support optional nested schemas")
             return t.Annotated[types.Schema, types.SchemaMetadata(bar_optional_schema.schema)]
         elif request.param == "schema_nested_list":

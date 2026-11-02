@@ -26,11 +26,11 @@ V2_3 = Migration(
                     "pydantic": "pydantic",
                     "marshmallow": "marshmallow",
                     "apispec": "apispec",
-                    "typesystem": "typesystem",
                     "sqlalchemy": "sqlalchemy",
                 },
                 note="`DependencyNotInstalled.Dependency` was removed; pass the dependency's import name instead "
-                '(e.g. `"sqlalchemy"`), or drop it for `tomli`, which is no longer needed',
+                '(e.g. `"sqlalchemy"`), or drop it for `tomli`, no longer needed, and `typesystem`, no longer '
+                "supported",
             ),
         ),
         # `FrameworkNotInstalled` merged into `DependencyNotInstalled`, which takes dependency names, not a message.

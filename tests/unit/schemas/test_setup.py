@@ -1,59 +1,64 @@
-from unittest.mock import PropertyMock, patch
+from unittest.mock import patch
 
 import marshmallow
 import pydantic
 import pytest
-import typesystem
 
-from flama import Flama, exceptions
+from flama import Flama, exceptions, schemas
 
 
 class TestCaseSetup:
     @pytest.fixture(autouse=True)
     def restore_default_schema_library(self):
         """Reset the process-global schema library after each test so the switch does not leak to other tests."""
-        from flama import schemas
-
         yield
-        schemas._module.setup()
+        schemas._module.request()
 
-    def test_setup_default(self):
-        Flama()
+    @pytest.mark.parametrize(
+        ["library", "expected"],
+        [
+            pytest.param(None, pydantic, id="default"),
+            pytest.param("pydantic", pydantic, id="pydantic"),
+            pytest.param("marshmallow", marshmallow, id="marshmallow"),
+        ],
+    )
+    def test_setup(self, library, expected):
+        app = Flama(schema_library=library)
 
-        from flama import schemas
+        assert schemas.lib == expected
+        assert app.schema.schema_library.name == expected.__name__
 
-        assert schemas.lib == pydantic
+    def test_requested_name_before_selection(self):
+        module = schemas.Module()
 
-    def test_setup_pydantic(self):
-        Flama(schema_library="pydantic")
+        module.request("marshmallow")
 
-        from flama import schemas
+        assert module.name == "marshmallow"
+        assert not module.ready
 
-        assert schemas.lib == pydantic
-
-    def test_setup_typesystem(self):
-        Flama(schema_library="typesystem")
-
-        from flama import schemas
-
-        assert schemas.lib == typesystem
-
-    def test_setup_marshmallow(self):
-        Flama(schema_library="marshmallow")
-
-        from flama import schemas
-
-        assert schemas.lib == marshmallow
+    @pytest.mark.parametrize("library", [pytest.param("typesystem", id="removed"), pytest.param("foo", id="unknown")])
+    def test_setup_unknown_lib(self, library):
+        with pytest.raises(
+            exceptions.ApplicationError, match=f"Unknown schema library '{library}', use one of: pydantic, marshmallow"
+        ):
+            Flama(schema_library=library)
 
     def test_setup_no_lib_installed(self):
-        from flama import schemas
+        with patch.object(schemas.Module, "installed", new_callable=lambda: property(lambda self: [])):
+            app = Flama()
 
-        with (
-            patch("flama.schemas.Module.available", PropertyMock(return_value=iter(()))),
-            pytest.raises(
+            assert app.schema.schema_library.name is None
+            with pytest.raises(
                 exceptions.DependencyNotInstalled,
-                match="No schema library is installed. Install one of your preference following instructions from: "
-                "https://flama.dev/docs/getting-started/installation#extras",
-            ),
+                match=r"Dependency 'pydantic' or 'marshmallow' must be installed "
+                r"\(install flama\[pydantic\] or flama\[marshmallow\]\)",
+            ):
+                schemas.lib  # noqa: B018
+
+    def test_setup_requested_lib_not_installed(self):
+        with (
+            patch.object(schemas.Module, "installed", new_callable=lambda: property(lambda self: ["pydantic"])),
+            pytest.raises(exceptions.DependencyNotInstalled, match="Dependency 'marshmallow' must be installed"),
         ):
-            schemas._module.setup()
+            Flama(schema_library="marshmallow")
+            schemas.lib  # noqa: B018

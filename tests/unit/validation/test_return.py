@@ -3,8 +3,6 @@ import typing as t
 import marshmallow
 import pydantic
 import pytest
-import typesystem
-import typesystem.fields
 
 from flama import endpoints, http, types
 
@@ -14,8 +12,6 @@ class TestCaseReturnValidation:
     def output_schema(self, app):
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("OutputSchema", name=(str, ...))
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(title="OutputSchema", fields={"name": typesystem.fields.String()})
         elif app.schema.schema_library.name == "marshmallow":
             schema = type("OutputSchema", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         else:

@@ -789,19 +789,19 @@ class TestCaseLLMBackend:
             ),
             pytest.param(
                 "flama.models.engine.backend.llm.mlx",
-                {"mx": True, "mlx_lm": True},
+                {"mlx": True, "mlx_lm": True},
                 True,
                 id="mlx_runnable_when_installed",
             ),
             pytest.param(
                 "flama.models.engine.backend.llm.mlx",
-                {"mx": True, "mlx_lm": False},
+                {"mlx": True, "mlx_lm": False},
                 False,
                 id="mlx_not_runnable_without_mlx_lm",
             ),
             pytest.param(
                 "flama.models.engine.backend.llm.mlx",
-                {"mx": False, "mlx_lm": True},
+                {"mlx": False, "mlx_lm": True},
                 False,
                 id="mlx_not_runnable_without_mlx",
             ),

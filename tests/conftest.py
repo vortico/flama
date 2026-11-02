@@ -76,7 +76,6 @@ def openapi_spec():
     scope="function",
     params=[
         pytest.param("pydantic", id="pydantic"),
-        pytest.param("typesystem", id="typesystem"),
         pytest.param("marshmallow", id="marshmallow"),
     ],
 )

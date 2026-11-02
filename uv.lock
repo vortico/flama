@@ -1205,7 +1205,6 @@ full = [
     { name = "marshmallow" },
     { name = "pydantic" },
     { name = "sqlalchemy", extra = ["asyncio"] },
-    { name = "typesystem" },
 ]
 llm = [
     { name = "mlx", marker = "python_full_version < '3.14' and sys_platform != 'linux' and sys_platform != 'win32'" },
@@ -1234,9 +1233,6 @@ torch = [
 ]
 transformers = [
     { name = "transformers" },
-]
-typesystem = [
-    { name = "typesystem" },
 ]
 
 [package.dev-dependencies]
@@ -1280,13 +1276,11 @@ requires-dist = [
     { name = "tensorflow", marker = "python_full_version < '3.14' and extra == 'tensorflow'", specifier = ">=2.20,<3.0" },
     { name = "torch", marker = "python_full_version < '3.14' and extra == 'torch'", specifier = ">=2.9,<3.0" },
     { name = "transformers", marker = "extra == 'transformers'", specifier = ">=4.50,<6.0" },
-    { name = "typesystem", marker = "extra == 'full'", specifier = ">=0.4.1,<1.0" },
-    { name = "typesystem", marker = "extra == 'typesystem'", specifier = ">=0.4.1,<1.0" },
     { name = "typing-extensions", marker = "python_full_version < '3.15'", specifier = ">=4.15,<5.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.38,<1.0.0" },
     { name = "vllm", marker = "python_full_version < '3.14' and sys_platform == 'linux' and extra == 'llm'", specifier = ">=0.21,<0.27" },
 ]
-provides-extras = ["pydantic", "typesystem", "marshmallow", "database", "llm", "sklearn", "torch", "tensorflow", "transformers", "full"]
+provides-extras = ["pydantic", "marshmallow", "database", "llm", "sklearn", "torch", "tensorflow", "transformers", "full"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -5857,15 +5851,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/37/78/fda3361b56efc27944f24225f6ecd13d96d6fcfe37bd0eb34e2f4c63f9fc/typer-0.27.0.tar.gz", hash = "sha256:629bd12ea5d13a17148125d9a264f949eb171fb3f120f9b04d85873cab054fa5", size = 203430, upload-time = "2026-07-15T19:21:07.007Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/40/03/26a383c9e58c213199d1aad1c3d353cfc22d4444ec6d2c0bf8ad02523843/typer-0.27.0-py3-none-any.whl", hash = "sha256:6f4b27631e47f077871b7dc30e933ec0131c1390fbe0e387ea5574b5bac9ccf1", size = 122716, upload-time = "2026-07-15T19:21:05.553Z" },
-]
-
-[[package]]
-name = "typesystem"
-version = "0.4.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/27/18/a7b20cbb52c5e65150121b3176b8cc9aa00d0b61ab8aeb195166a754a482/typesystem-0.4.1.tar.gz", hash = "sha256:cc3f03d101fadbb60356993ce600fdfbf4bbce90ce5cb444766962be33f53ce1", size = 22709, upload-time = "2021-11-18T11:53:58.433Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/a9/1939fae0d2cf8c2a4eb441f81c0edc922e177be13d480f391ae1699e674a/typesystem-0.4.1-py3-none-any.whl", hash = "sha256:26b2368d00fc981fbe7aef85ea1f44f90132e10a33b2f0ea3f3b5774774fee8d", size = 28407, upload-time = "2021-11-18T11:53:57.158Z" },
 ]
 
 [[package]]

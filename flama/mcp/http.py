@@ -24,7 +24,7 @@ class MCPResponse(http.JSONRPCResponse):
                             "PyTorch models as API endpoints with minimal boilerplate. Auto-generate complete "
                             "CRUD resources from SQLAlchemy models with domain-driven design patterns. Includes "
                             "native MCP server support, automatic OpenAPI documentation, and flexible schema "
-                            "validation across Pydantic, Typesystem, and Marshmallow."
+                            "validation with Pydantic or Marshmallow."
                         ),
                     },
                 },
