@@ -46,6 +46,14 @@ class Annotation:
         object.__setattr__(self, "_origin", t.get_origin(annotation))
         object.__setattr__(self, "_args", t.get_args(annotation))
 
+    @property
+    def origin(self) -> t.Any:
+        """The class the type stands for, which is the generic a parameterised type is built on.
+
+        :return: Origin of a parameterised type, or the type itself.
+        """
+        return self.type if self._origin is None else self._origin
+
     def element(self, *containers: builtins.type) -> t.Any:
         """The type carried, which is the type itself when it is not one of the given containers.
 
