@@ -1,7 +1,7 @@
 import typing as t
 import uuid
 
-from flama import compat
+from flama import _compat
 from flama.http.responses.sse import ServerSentEvent
 from flama.models.wire.dialect._base import Dialect, EventSource
 from flama.models.wire.dialect.llm.openai.assembler import OpenAIAssembleKwargs, OpenAIAssembler
@@ -11,7 +11,7 @@ from flama.models.wire.dialect.llm.openai.renderer import OpenAIRenderer
 __all__ = ["OpenAIDialect", "OpenAIRenderKwargs"]
 
 
-class OpenAIRenderKwargs(compat.TypedDict, total=False, closed=True):
+class OpenAIRenderKwargs(_compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :meth:`OpenAIDialect.render`.
 
     Mirrors the constructor signature of

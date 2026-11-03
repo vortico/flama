@@ -63,5 +63,7 @@ V2_3 = Migration(
         Move(Symbol("flama.compat", "Unpack"), Symbol("typing", "Unpack")),
         Move(Symbol("flama.compat", "StrEnum"), Symbol("enum", "StrEnum")),
         Flag(Symbol("flama.compat", "tomllib"), "was removed; use the standard library `tomllib` (`import tomllib`)"),
+        # The remaining compatibility shims are no longer part of the public API.
+        Flag(Module("flama.compat"), "is now private (flama._compat)"),
     ),
 )

@@ -9,7 +9,7 @@ import os
 import threading
 import typing as t
 
-from flama import compat
+from flama import _compat
 
 __all__ = [
     "FileReader",
@@ -27,7 +27,7 @@ R = t.TypeVar("R", covariant=True)
 T = t.TypeVar("T")
 P = t.ParamSpec("P")
 
-_Exhausted = compat.sentinel("_Exhausted")
+_Exhausted = _compat.sentinel("_Exhausted")
 
 
 class FileReader:

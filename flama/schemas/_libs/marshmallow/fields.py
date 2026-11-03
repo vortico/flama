@@ -7,7 +7,7 @@ import uuid
 import marshmallow
 from marshmallow.fields import *
 
-from flama import compat
+from flama import _compat
 from flama.http.data_structures import UploadFile
 
 __all__ = ["File", "MAPPING", "MAPPING_TYPES"]
@@ -38,7 +38,7 @@ class File(String):
         return value
 
 
-MAPPING: dict[compat.TypeForm[t.Any] | None, type[Field]] = {
+MAPPING: dict[_compat.TypeForm[t.Any] | None, type[Field]] = {
     None: Field,
     int: Integer,
     float: Float,

@@ -4,7 +4,7 @@ import typing as t
 import pydantic
 from pydantic_core import core_schema
 
-from flama import compat
+from flama import _compat
 from flama.http.data_structures import UploadFile
 
 __all__ = ["File", "MAPPING", "MAPPING_TYPES"]
@@ -22,7 +22,7 @@ other schema libraries this is a type to annotate with rather than a field to in
 """
 
 
-MAPPING: dict[compat.TypeForm[t.Any] | None, t.Any] = {
+MAPPING: dict[_compat.TypeForm[t.Any] | None, t.Any] = {
     UploadFile: File,
 }
 

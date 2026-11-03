@@ -1,7 +1,7 @@
 import typing as t
 import uuid
 
-from flama import compat
+from flama import _compat
 from flama.http.responses.sse import ServerSentEvent
 from flama.models.wire.dialect._base import Dialect, EventSource
 from flama.models.wire.dialect.llm.anthropic.assembler import AnthropicAssembleKwargs, AnthropicAssembler
@@ -11,7 +11,7 @@ from flama.models.wire.dialect.llm.anthropic.renderer import AnthropicRenderer
 __all__ = ["AnthropicDialect", "AnthropicRenderKwargs"]
 
 
-class AnthropicRenderKwargs(compat.TypedDict, total=False, closed=True):
+class AnthropicRenderKwargs(_compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :meth:`AnthropicDialect.render`.
 
     Mirrors the constructor signature of

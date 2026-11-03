@@ -112,7 +112,7 @@ class TestCaseBaseWorker:
             return FooWorker, {"foo": repository}
         if request.param == "child_fallback":
             with patch.object(
-                workers_base.compat, "get_annotations", side_effect=ValueError("unresolvable annotation")
+                workers_base._compat, "get_annotations", side_effect=ValueError("unresolvable annotation")
             ):
 
                 class Child(FooWorker): ...

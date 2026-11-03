@@ -1,6 +1,6 @@
 import typing as t
 
-from flama import compat
+from flama import _compat
 from flama.types.json import JSONField
 
 __all__ = [
@@ -16,19 +16,19 @@ __all__ = [
 ]
 
 
-class OpenAPISpecInfoContact(compat.TypedDict, extra_items=JSONField):
+class OpenAPISpecInfoContact(_compat.TypedDict, extra_items=JSONField):
     name: str
     url: str
     email: str
 
 
-class OpenAPISpecInfoLicense(compat.TypedDict, extra_items=JSONField):
+class OpenAPISpecInfoLicense(_compat.TypedDict, extra_items=JSONField):
     name: str
     identifier: t.NotRequired[str | None]
     url: t.NotRequired[str | None]
 
 
-class OpenAPISpecInfo(compat.TypedDict, extra_items=JSONField):
+class OpenAPISpecInfo(_compat.TypedDict, extra_items=JSONField):
     title: str
     summary: t.NotRequired[str | None]
     description: t.NotRequired[str | None]
@@ -38,25 +38,25 @@ class OpenAPISpecInfo(compat.TypedDict, extra_items=JSONField):
     version: str
 
 
-class OpenAPISpecServerVariable(compat.TypedDict, extra_items=JSONField):
+class OpenAPISpecServerVariable(_compat.TypedDict, extra_items=JSONField):
     default: str
     enum: t.NotRequired[list[str] | None]
     description: t.NotRequired[str | None]
 
 
-class OpenAPISpecServer(compat.TypedDict, extra_items=JSONField):
+class OpenAPISpecServer(_compat.TypedDict, extra_items=JSONField):
     url: str
     name: t.NotRequired[str | None]
     description: t.NotRequired[str | None]
     variables: t.NotRequired[dict[str, OpenAPISpecServerVariable] | None]
 
 
-class OpenAPISpecExternalDocs(compat.TypedDict, extra_items=JSONField):
+class OpenAPISpecExternalDocs(_compat.TypedDict, extra_items=JSONField):
     url: str
     description: t.NotRequired[str | None]
 
 
-class OpenAPISpecTag(compat.TypedDict, extra_items=JSONField):
+class OpenAPISpecTag(_compat.TypedDict, extra_items=JSONField):
     name: str
     summary: t.NotRequired[str | None]
     description: t.NotRequired[str | None]
@@ -68,7 +68,7 @@ class OpenAPISpecTag(compat.TypedDict, extra_items=JSONField):
 OpenAPISpecSecurity = dict[str, list[str]]
 
 
-class OpenAPISpec(compat.TypedDict, extra_items=JSONField):
+class OpenAPISpec(_compat.TypedDict, extra_items=JSONField):
     info: OpenAPISpecInfo
     servers: t.NotRequired[list[OpenAPISpecServer] | None]
     security: t.NotRequired[list[OpenAPISpecSecurity] | None]

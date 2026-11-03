@@ -1,7 +1,7 @@
 import abc
 import typing as t
 
-from flama import compat
+from flama import _compat
 from flama.types import JSONSchema
 
 __all__ = ["Adapter"]
@@ -17,7 +17,7 @@ class Adapter(t.Generic[_T_Schema, _T_Field], metaclass=abc.ABCMeta):
     def build_field(
         self,
         name: str,
-        type_: compat.TypeForm[t.Any],
+        type_: _compat.TypeForm[t.Any],
         nullable: bool = False,
         required: bool = True,
         default: t.Any = None,

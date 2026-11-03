@@ -3,7 +3,7 @@ import dataclasses
 import typing as t
 from types import UnionType
 
-from flama import compat
+from flama import _compat
 
 __all__ = ["Annotation"]
 
@@ -23,7 +23,7 @@ class Annotation:
     :param annotation: Annotation to read.
     """
 
-    annotation: compat.TypeForm[t.Any]
+    annotation: _compat.TypeForm[t.Any]
     optional: bool = dataclasses.field(init=False)
     type: t.Any = dataclasses.field(init=False)
     _origin: t.Any = dataclasses.field(init=False, repr=False, compare=False)

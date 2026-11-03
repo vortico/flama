@@ -1,6 +1,6 @@
 import typing as t
 
-from flama import compat, types
+from flama import _compat, types
 from flama.models.wire.dialect._base import Dialect, EventSource
 from flama.models.wire.dialect.llm.ollama.assembler import OllamaAssembleKwargs, OllamaAssembler
 from flama.models.wire.dialect.llm.ollama.parser import OllamaParser
@@ -9,7 +9,7 @@ from flama.models.wire.dialect.llm.ollama.renderer import OllamaRenderer
 __all__ = ["OllamaDialect", "OllamaRenderKwargs"]
 
 
-class OllamaRenderKwargs(compat.TypedDict, total=False, closed=True):
+class OllamaRenderKwargs(_compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :meth:`OllamaDialect.render`.
 
     Mirrors the constructor signature of

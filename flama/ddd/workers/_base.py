@@ -3,7 +3,7 @@ import asyncio
 import logging
 import typing as t
 
-from flama import compat, types
+from flama import _compat, types
 from flama.ddd.repositories import BaseRepository
 from flama.exceptions import ApplicationError
 
@@ -112,7 +112,7 @@ class WorkerType(abc.ABCMeta):
             annotations = {
                 k: mcs._resolve(v, cls)
                 # PORT: Replace compat when stop supporting 3.13
-                for k, v in compat.get_annotations(cls, format=compat.Format.FORWARDREF).items()
+                for k, v in _compat.get_annotations(cls, format=_compat.Format.FORWARDREF).items()
             }
         except Exception:
             annotations = {}
@@ -141,7 +141,7 @@ class WorkerType(abc.ABCMeta):
 
         try:
             # PORT: Replace compat when stop supporting 3.13
-            return compat.evaluate_forward_ref(
+            return _compat.evaluate_forward_ref(
                 t.ForwardRef(annotation) if isinstance(annotation, str) else annotation, owner=owner
             )
         except Exception:

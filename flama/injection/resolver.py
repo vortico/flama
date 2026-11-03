@@ -3,7 +3,7 @@ import dataclasses
 import inspect
 import typing as t
 
-from flama import compat
+from flama import _compat
 from flama.cache import LRUCache
 from flama.injection import exceptions
 from flama.injection.context import C
@@ -15,7 +15,7 @@ if t.TYPE_CHECKING:
 __all__ = ["Empty", "Return", "Parameter", "Resolver"]
 
 
-Empty = compat.sentinel("Empty")
+Empty = _compat.sentinel("Empty")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -25,7 +25,7 @@ class Parameter:
     empty = Empty
 
     name: str
-    annotation: compat.TypeForm[t.Any] | Empty = Empty
+    annotation: _compat.TypeForm[t.Any] | Empty = Empty
     # Kept out of the hash so that a mutable default, such as an empty list, does not make the whole
     # parameter unhashable when it is used as a cache key. Equality still accounts for it, so two
     # parameters differing only by default share a bucket while remaining distinct keys.

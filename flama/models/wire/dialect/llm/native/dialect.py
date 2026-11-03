@@ -1,7 +1,7 @@
 import typing as t
 import uuid
 
-from flama import compat
+from flama import _compat
 from flama.http.responses.sse import ServerSentEvent
 from flama.models.wire.dialect._base import Dialect, EventSource
 from flama.models.wire.dialect.llm.native.assembler import NativeAssembleKwargs, NativeAssembler
@@ -11,7 +11,7 @@ from flama.models.wire.dialect.llm.native.renderer import EventsRenderer
 __all__ = ["NativeDialect", "NativeRenderKwargs"]
 
 
-class NativeRenderKwargs(compat.TypedDict, total=False, closed=True):
+class NativeRenderKwargs(_compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :meth:`NativeDialect.render`.
 
     Carries the SSE identity (``message_id``) and the optional resume / retry hints. Mirrors the constructor

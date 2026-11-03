@@ -2,7 +2,7 @@ import abc
 import dataclasses
 import typing as t
 
-from flama import compat, types
+from flama import _compat, types
 from flama.models.transport.input.llm.message import Message
 from flama.models.transport.input.llm.tool import Tool
 
@@ -13,7 +13,7 @@ if t.TYPE_CHECKING:
 __all__ = ["Shape"]
 
 
-class _ShapeFields(compat.TypedDict, closed=True):
+class _ShapeFields(_compat.TypedDict, closed=True):
     """Type-narrowed bag of inputs accepted by :meth:`Shape.build` and the variants.
 
     Each variant consumes a subset of these keys via its :class:`~dataclasses.InitVar` and rejects
@@ -27,7 +27,7 @@ class _ShapeFields(compat.TypedDict, closed=True):
     tools: t.NotRequired[tuple[Tool, ...] | None]
 
 
-class _ShapeRenderKwargs(compat.TypedDict, total=False, closed=True):
+class _ShapeRenderKwargs(_compat.TypedDict, total=False, closed=True):
     """Marker / superset TypedDict for the kwargs accepted by :meth:`Shape.render`.
 
     Carries the currently-typed fields shared across :class:`Shape` variants. ``Raw`` ignores

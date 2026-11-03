@@ -1,12 +1,12 @@
 import enum
 
-from flama import compat
+from flama import _compat
 
 __all__ = ["Empty", "Unknown", "FileFormat"]
 
 
-Empty = compat.sentinel("Empty")
-Unknown = compat.sentinel("Unknown")
+Empty = _compat.sentinel("Empty")
+Unknown = _compat.sentinel("Unknown")
 
 
 class FileFormat(enum.StrEnum):

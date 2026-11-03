@@ -2,14 +2,14 @@ import string
 import typing as t
 import uuid
 
-from flama import compat, types
+from flama import _compat, types
 from flama.models.transport.output.llm.event import Event, StartEvent, StopEvent, TextEvent, ToolEvent
 from flama.models.wire.dialect._base import Assembler
 
 __all__ = ["AnthropicAssembleKwargs", "AnthropicAssembler"]
 
 
-class AnthropicAssembleKwargs(compat.TypedDict, total=False, closed=True):
+class AnthropicAssembleKwargs(_compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :class:`AnthropicAssembler.envelope`.
 
     ``model`` is required; ``generation_id`` carries a sensible default (a fresh UUID is allocated when

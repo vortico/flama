@@ -7,7 +7,7 @@ import marshmallow
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin, resolve_schema_cls
 
-from flama import compat
+from flama import _compat
 from flama.injection import Parameter
 from flama.schemas._libs.marshmallow.fields import MAPPING, MAPPING_TYPES
 from flama.schemas.adapter import Adapter
@@ -27,7 +27,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
     def build_field(
         self,
         name: str,
-        type_: compat.TypeForm[t.Any],
+        type_: _compat.TypeForm[t.Any],
         nullable: bool = False,
         required: bool = True,
         default: t.Any = None,
@@ -136,7 +136,7 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
 
         return schema
 
-    def _build_scalar_field(self, type_: compat.TypeForm[t.Any], **kwargs: t.Any) -> Field:
+    def _build_scalar_field(self, type_: _compat.TypeForm[t.Any], **kwargs: t.Any) -> Field:
         """Build the field describing a single value of the given type.
 
         :param type_: Type of the value.

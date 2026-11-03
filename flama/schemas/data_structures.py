@@ -4,7 +4,7 @@ import inspect
 import typing as t
 from types import UnionType
 
-from flama import compat, schemas, types
+from flama import _compat, schemas, types
 from flama.http.data_structures import UploadFile
 from flama.http.responses.response import Response, StreamingResponse
 from flama.injection.resolver import Parameter as InjectionParameter
@@ -12,7 +12,7 @@ from flama.injection.resolver import Parameter as InjectionParameter
 __all__ = ["Field", "Schema", "Parameter", "Parameters"]
 
 
-UNKNOWN = compat.sentinel("UNKNOWN")
+UNKNOWN = _compat.sentinel("UNKNOWN")
 
 
 class ParameterLocation(enum.StrEnum):
@@ -25,7 +25,7 @@ class ParameterLocation(enum.StrEnum):
 @dataclasses.dataclass(frozen=True)
 class Field:
     name: str
-    type: compat.TypeForm[t.Any]
+    type: _compat.TypeForm[t.Any]
     nullable: bool = dataclasses.field(init=False)
     field: t.Any = dataclasses.field(hash=False, init=False, compare=False)
     multiple: bool | None = dataclasses.field(hash=False, compare=False, default=None)
@@ -112,7 +112,7 @@ class Schema:
     schema: t.Any = dataclasses.field(hash=False, compare=False)
 
     @classmethod
-    def from_type(cls, type_: compat.TypeForm[t.Any] | None) -> "Schema":
+    def from_type(cls, type_: _compat.TypeForm[t.Any] | None) -> "Schema":
         if types.is_schema(type_):
             schema = types.get_schema_metadata(type_).schema
 
