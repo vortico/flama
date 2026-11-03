@@ -49,8 +49,11 @@ class Config:
         >>> @dataclasses.dataclass
         ... class Puppy:
         ...     name: str
-        ...     age: int
+        ...     age: int = 1
         >>> PUPPY = config("PUPPY", cast=Puppy)
+
+    A dataclass default is either a JSON string or an instance of the dataclass:
+        >>> PUPPY = config("PUPPY", default=Puppy(name="Rex"), cast=Puppy)
     """
 
     def __init__(
@@ -73,36 +76,32 @@ class Config:
         else:
             self.config_file = {}
 
-    def _get_item_from_environment(self, key: str) -> t.Any:
-        return os.environ[key]
+    def _lookup(self, key: str) -> t.Any:
+        if key in os.environ:
+            return os.environ[key]
 
-    def _get_item_from_config_file(self, key: str) -> t.Any:
         return functools.reduce(lambda x, k: x[k], key.split("."), self.config_file)
 
-    def _get_item(self, key: str, default: R | types.Unknown = types.Unknown) -> R:
-        try:
-            return self._get_item_from_environment(key)
-        except KeyError:
-            ...
+    def _cast(self, value: t.Any, cast: type[R] | t.Callable[[t.Any], R] | None) -> R:
+        if cast is None or (isinstance(cast, type) and isinstance(value, cast)):
+            return value
+
+        if isinstance(cast, type) and dataclasses.is_dataclass(cast):
+            return t.cast(R, self._build_dataclass(value, cast))
 
         try:
-            return self._get_item_from_config_file(key)
-        except KeyError:
-            ...
+            return t.cast(t.Callable[[t.Any], R], cast)(value)
+        except Exception as e:
+            raise exceptions.ConfigError("Cannot cast config type") from e
 
-        if default is not types.Unknown:
-            return t.cast(R, default)
-
-        raise KeyError(key)
-
-    def _build_dataclass(self, data: t.Any, dataclass: type[R]) -> R:
+    def _build_dataclass(self, data: str | t.Mapping[str, t.Any], dataclass: type[R]) -> R:
         if isinstance(data, str):
             try:
                 data = json.loads(data)
             except Exception as e:
                 raise exceptions.ConfigError("Cannot parse value as json for config dataclass") from e
 
-        if not isinstance(data, dict):
+        if not isinstance(data, t.Mapping):
             raise exceptions.ConfigError("Wrong value for config dataclass")
 
         try:
@@ -113,30 +112,23 @@ class Config:
 
     @t.overload
     def __call__(self, key: str) -> t.Any: ...
-
     @t.overload
     def __call__(self, key: str, *, default: R | types.Unknown) -> R: ...
-
     @t.overload
-    def __call__(self, key: str, *, cast: type[R]) -> R: ...
-
-    @t.overload
-    def __call__(self, key: str, *, default: R | types.Unknown, cast: type[R]) -> R: ...
-
-    @t.overload
-    def __call__(self, key: str, *, cast: t.Callable[[t.Any], R]) -> R: ...
-
-    @t.overload
-    def __call__(self, key: str, *, default: R | types.Unknown, cast: t.Callable[[t.Any], R]) -> R: ...
-
+    def __call__(
+        self, key: str, *, default: str | R | types.Unknown = ..., cast: type[R] | t.Callable[[t.Any], R]
+    ) -> R: ...
     def __call__(
         self,
         key: str,
         *,
-        default: R | types.Unknown = types.Unknown,
+        default: str | R | types.Unknown = types.Unknown,
         cast: type[R] | t.Callable[[t.Any], R] | None = None,
     ) -> R:
         """Get config parameter value.
+
+        A default is either a raw value, cast the same way as a value read from the environment, or a value of the
+        result type, returned as it is. For a dataclass cast, that means a JSON string or an instance of the dataclass.
 
         :param key: Config parameter name.
         :param default: Default value if config parameter is not found.
@@ -152,18 +144,16 @@ class Config:
             >>> @dataclasses.dataclass
             ... class Puppy:
             ...     name: str
-            ...     age: int
+            ...     age: int = 1
             >>> PUPPY = config("PUPPY", cast=Puppy)  # Parse json value and convert it to a dataclass
+            >>> REX = config("REX", default=Puppy(name="Rex"), cast=Puppy)  # Dataclass default if REX is not found
         """
-        value = self._get_item(key, default)
-
-        if cast is None:
-            return value
-
-        if dataclasses.is_dataclass(cast) and isinstance(cast, type):
-            return t.cast(R, self._build_dataclass(data=value, dataclass=cast))
-
         try:
-            return t.cast(t.Callable[[t.Any], R], cast)(value)
-        except Exception as e:
-            raise exceptions.ConfigError("Cannot cast config type") from e
+            value = self._lookup(key)
+        except KeyError:
+            if default is types.Unknown:
+                raise KeyError(key) from None
+
+            value = default
+
+        return self._cast(value, cast)

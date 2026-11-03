@@ -15,6 +15,12 @@ class Foo:
     bar: int
 
 
+@dataclasses.dataclass
+class Puppy:
+    name: str
+    age: int = 1
+
+
 class TestCaseConfig:
     @pytest.fixture(scope="function")
     def config_file(self, request):
@@ -172,6 +178,56 @@ class TestCaseConfig:
                 id="cast_dataclass_default",
             ),
             pytest.param(
+                {},
+                {},
+                "foo",
+                Foo(bar=1),
+                Foo,
+                Foo(bar=1),
+                None,
+                id="cast_dataclass_default_instance",
+            ),
+            pytest.param(
+                {},
+                {},
+                "foo",
+                '{"name": "Rex"}',
+                Puppy,
+                Puppy(name="Rex", age=1),
+                None,
+                id="cast_dataclass_default_fills_field_defaults",
+            ),
+            pytest.param(
+                {"foo": {"name": "Rex"}},
+                {},
+                "foo",
+                types.Empty,
+                Puppy,
+                Puppy(name="Rex", age=1),
+                None,
+                id="cast_dataclass_file_fills_field_defaults",
+            ),
+            pytest.param(
+                {},
+                {},
+                "foo",
+                {"bar": 1},
+                Foo,
+                Foo(bar=1),
+                None,
+                id="cast_dataclass_default_dict",
+            ),
+            pytest.param(
+                {},
+                {},
+                "foo",
+                Puppy(name="Rex"),
+                Foo,
+                None,
+                exceptions.ConfigError("Wrong value for config dataclass"),
+                id="cast_dataclass_default_other_dataclass",
+            ),
+            pytest.param(
                 {"foo": "{wrong_data"},
                 {},
                 "foo",
@@ -202,6 +258,10 @@ class TestCaseConfig:
                 id="cast_dataclass_no_match_with_dataclass",
             ),
             pytest.param({}, {}, "foo", types.Empty, types.Empty, None, KeyError("foo"), id="not_found"),
+            pytest.param({"foo": {"bar": "1"}}, {}, "foo.bar", types.Empty, types.Empty, "1", None, id="file_nested"),
+            pytest.param(
+                {"foo": {}}, {}, "foo.bar", types.Empty, types.Empty, None, KeyError("foo.bar"), id="not_found_nested"
+            ),
         ),
         indirect=["config_file", "environment", "exception"],
     )
@@ -216,3 +276,8 @@ class TestCaseConfig:
 
         with exception:
             assert config(key) == result
+
+    def test_call_dataclass_default_instance_returned_as_is(self):
+        default = Foo(bar=1)
+
+        assert Config()("foo", default=default, cast=Foo) is default
