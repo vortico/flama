@@ -94,6 +94,10 @@ class BaseTokenComponent(Component):
             raise HTTPException(
                 status_code=http.HTTPStatus.UNAUTHORIZED, detail={"error": e.__class__, "description": str(e)}
             )
+        except exceptions.KeysUnavailable as e:
+            raise HTTPException(
+                status_code=http.HTTPStatus.SERVICE_UNAVAILABLE, detail={"error": e.__class__, "description": str(e)}
+            )
 
         return token
 

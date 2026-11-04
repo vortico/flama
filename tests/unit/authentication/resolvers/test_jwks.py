@@ -5,6 +5,7 @@ import pytest
 
 from flama.authentication.exceptions import KeysUnavailable, Unauthorized
 from flama.authentication.resolvers.jwks import JWKSResolver
+from flama.client import Client
 
 ED25519_X = "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
 ED25519_KEY = bytes.fromhex("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")
@@ -28,7 +29,7 @@ def issuer():
             self.body: str | None = None
             self.error: Exception | None = None
 
-        def client(self) -> httpx.AsyncClient:
+        def client(self) -> Client:
             async def handler(request: httpx.Request) -> httpx.Response:
                 self.reads.append(str(request.url))
                 await asyncio.sleep(0)  # Give a concurrent caller the chance to arrive mid-read.
@@ -41,7 +42,7 @@ def issuer():
 
                 return httpx.Response(self.status, json={"keys": self.keys})
 
-            return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+            return Client(transport=httpx.MockTransport(handler))
 
     return Issuer()
 
@@ -78,7 +79,7 @@ class TestCaseJWKSResolver:
         with exception:
             resolver = JWKSResolver(URL, **kwargs)
 
-            assert isinstance(resolver.client, httpx.AsyncClient)
+            assert isinstance(resolver.client, Client)
             assert resolver._owns_client is True
 
             await resolver.aclose()
@@ -116,6 +117,9 @@ class TestCaseJWKSResolver:
             pytest.param({}, {"default": OCT_KEY}, None, OCT_KEY, None, id="no_identity_falls_back_to_default"),
             pytest.param({}, {"default": OCT_KEY}, "a", ED25519_KEY, None, id="identity_ignores_default"),
             pytest.param({}, {}, None, None, Unauthorized, id="no_identity_and_no_default"),
+            pytest.param({"status": 404}, {}, "a", None, Unauthorized, id="key_set_not_published"),
+            pytest.param({"status": 410}, {}, "a", None, Unauthorized, id="key_set_no_longer_published"),
+            pytest.param({"status": 403}, {}, "a", None, KeysUnavailable, id="issuer_refuses_the_fetch"),
             pytest.param({"status": 500}, {}, "a", None, KeysUnavailable, id="issuer_errors"),
             pytest.param({"body": "not json"}, {}, "a", None, KeysUnavailable, id="issuer_answers_with_nonsense"),
             pytest.param(
@@ -269,6 +273,52 @@ class TestCaseJWKSResolver:
 
         with exception:
             assert await resolver("a") == key
+
+    @pytest.mark.parametrize(
+        ["elapsed", "reads"],
+        (
+            pytest.param(4.0, 1, id="within_the_interval"),
+            pytest.param(6.0, 2, id="past_the_interval"),
+        ),
+    )
+    async def test_call_holds_a_key_set_not_published(self, issuer, clock, elapsed, reads) -> None:
+        issuer.status = 404
+        resolver = JWKSResolver(lambda kid: f"https://issuer.local/{kid.split('.')[0]}/keys/", client=issuer.client())
+
+        with pytest.raises(Unauthorized):
+            await resolver("nobody.1")
+
+        clock[0] = elapsed
+
+        # Asking again about a tenant the issuer disowns is answered from that answer until the interval is out.
+        with pytest.raises(Unauthorized):
+            await resolver("nobody.2")
+
+        assert len(issuer.reads) == reads
+
+    async def test_call_finds_a_key_set_published_since(self, issuer, clock) -> None:
+        issuer.status = 404
+        resolver = JWKSResolver(URL, client=issuer.client())
+
+        with pytest.raises(Unauthorized):
+            await resolver("a")
+
+        issuer.status = 200
+        clock[0] = resolver.fetch_interval + 1
+
+        assert await resolver("a") == ED25519_KEY
+
+    async def test_call_forgets_keys_of_a_key_set_no_longer_published(self, issuer, clock) -> None:
+        resolver = JWKSResolver(URL, stale_ttl=1_000.0, client=issuer.client())
+
+        assert await resolver("a") == ED25519_KEY
+
+        issuer.status = 410
+        clock[0] = resolver.ttl + 1
+
+        # The issuer answered, so what it held before is not served as stale.
+        with pytest.raises(Unauthorized):
+            await resolver("a")
 
     async def test_call_derives_the_url(self, issuer) -> None:
         resolver = JWKSResolver(lambda kid: f"https://issuer.local/{kid.split('.')[0]}/keys/", client=issuer.client())

@@ -158,6 +158,9 @@ class TestCaseKeyResolution:
         keys = {"one": uuid.UUID(int=1).bytes, "two": uuid.UUID(int=2).bytes}
 
         def resolver(kid):
+            if kid == "outage":
+                raise authentication.exceptions.KeysUnavailable()
+
             try:
                 return keys[kid]
             except KeyError:
@@ -206,6 +209,12 @@ class TestCaseKeyResolution:
                 id="key_not_known",
             ),
             pytest.param(b"NQ==.format.0000", 401, id="header_is_not_an_object"),
+            pytest.param(
+                b"eyJhbGciOiJIUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9."
+                b"0000",
+                503,
+                id="keys_unavailable",
+            ),
         ),
     )
     async def test_injection_refused(self, client, token, status_code):

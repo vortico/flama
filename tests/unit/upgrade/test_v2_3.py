@@ -66,6 +66,34 @@ class TestCaseUpgradeV23:
         assert result.text == after
         assert todos == []
 
+    @pytest.mark.parametrize(
+        ["before", "after"],
+        [
+            pytest.param(
+                'from flama.authentication import JWKSResolver\nr = JWKSResolver("u", timeout=2.0, ttl=60.0)\n',
+                'from flama.authentication import JWKSResolver\nr = JWKSResolver("u", ttl=60.0)\n',
+                id="from_package",
+            ),
+            pytest.param(
+                'from flama.authentication.resolvers.jwks import JWKSResolver\nr = JWKSResolver("u", timeout=2.0)\n',
+                'from flama.authentication.resolvers.jwks import JWKSResolver\nr = JWKSResolver("u")\n',
+                id="from_module",
+            ),
+            pytest.param(
+                'from flama import authentication\nr = authentication.JWKSResolver("u", timeout=2.0)\n',
+                'from flama import authentication\nr = authentication.JWKSResolver("u")\n',
+                id="through_package",
+            ),
+        ],
+    )
+    def test_jwks_resolver_timeout_dropped(self, before: str, after: str) -> None:
+        result, todos, _ = V2_3.apply(Source.parse(pathlib.Path("a.py"), before))
+
+        assert result.text == after
+        assert [todo.message for todo in todos] == [
+            "`JWKSResolver(...)` no longer takes `timeout`; set it on the client instead (`client=Client(timeout=...)`)"
+        ]
+
     def test_compat_fully_moved(self) -> None:
         result, _, _ = V2_3.apply(Source.parse(pathlib.Path("a.py"), "from flama.compat import Self, StrEnum\n"))
 

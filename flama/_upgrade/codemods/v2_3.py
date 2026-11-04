@@ -52,6 +52,22 @@ V2_3 = Migration(
             ),
             DropKeyword("dependant"),
         ),
+        # `JWKSResolver` fetches through a Flama client, which is where the timeout is now set.
+        *(
+            Rewrite(
+                Call(Symbol(module, "JWKSResolver")),
+                DropKeyword(
+                    "timeout",
+                    note="`JWKSResolver(...)` no longer takes `timeout`; set it on the client instead "
+                    "(`client=Client(timeout=...)`)",
+                ),
+            )
+            for module in (
+                "flama.authentication",
+                "flama.authentication.resolvers",
+                "flama.authentication.resolvers.jwks",
+            )
+        ),
         # Internal concurrency helpers are no longer part of the public API.
         Flag(Module("flama.concurrency"), "is now private (flama._concurrency)"),
         # The resources' worker is named after what it serves.
