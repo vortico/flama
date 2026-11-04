@@ -1,6 +1,16 @@
+import base64
 import sys
 
-__all__ = ["Format", "TypedDict", "TypeForm", "evaluate_forward_ref", "get_annotations", "sentinel"]
+__all__ = [
+    "Format",
+    "TypedDict",
+    "TypeForm",
+    "evaluate_forward_ref",
+    "get_annotations",
+    "sentinel",
+    "urlsafe_b64decode",
+    "urlsafe_b64encode",
+]
 
 # PORT: Remove when stop supporting 3.13
 # annotationlib.get_annotations was added in Python 3.14
@@ -49,3 +59,27 @@ if sys.version_info >= (3, 15):
     from builtins import sentinel
 else:
     from typing_extensions import sentinel
+
+# PORT: Remove when stop supporting 3.14
+# The padded parameter of base64.urlsafe_b64encode was added in Python 3.15
+# https://docs.python.org/3.15/library/base64.html#base64.urlsafe_b64encode
+if sys.version_info >= (3, 15):
+    from base64 import urlsafe_b64encode
+else:
+
+    def urlsafe_b64encode(s: bytes, *, padded: bool = True) -> bytes:
+        encoded = base64.urlsafe_b64encode(s)
+        return encoded if padded else encoded.rstrip(b"=")
+
+
+# PORT: Remove when stop supporting 3.14
+# The padded parameter of base64.urlsafe_b64decode was added in Python 3.15
+# https://docs.python.org/3.15/library/base64.html#base64.urlsafe_b64decode
+if sys.version_info >= (3, 15):
+    from base64 import urlsafe_b64decode
+else:
+
+    def urlsafe_b64decode(s: bytes | str, *, padded: bool = False) -> bytes:
+        if isinstance(s, str):
+            s = s.encode("ascii")
+        return base64.urlsafe_b64decode(s if padded else s + b"=" * (-len(s) % 4))

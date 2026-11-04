@@ -1,7 +1,7 @@
-import base64
 import json
 import typing as t
 
+from flama import _compat
 from flama._core.json_encoder import encode_json
 from flama.crypto import exceptions
 from flama.crypto.algorithms import EdDSAAlgorithm, HMACAlgorithm
@@ -65,7 +65,7 @@ class JWS:
         :raises SignatureDecodeException: If the header is not a JSON object.
         """
         try:
-            header = json.loads(base64.urlsafe_b64decode(token.split(b".", 1)[0]))
+            header = json.loads(_compat.urlsafe_b64decode(token.split(b".", 1)[0]))
         except ValueError:
             raise exceptions.SignatureDecodeException("Wrong header format")
 
@@ -85,13 +85,13 @@ class JWS:
         :param key: Key used to sign the token.
         :return: Encoded token.
         """
-        header_segment = base64.urlsafe_b64encode(encode_json(header, compact=True))
-        payload_segment = base64.urlsafe_b64encode(encode_json(payload, compact=True))
+        header_segment = _compat.urlsafe_b64encode(encode_json(header, compact=True), padded=False)
+        payload_segment = _compat.urlsafe_b64encode(encode_json(payload, compact=True), padded=False)
 
         algorithm = cls._get_algorithm(header)
 
         signing_input = b".".join([header_segment, payload_segment])
-        signature = base64.urlsafe_b64encode(algorithm.sign(signing_input, key))
+        signature = _compat.urlsafe_b64encode(algorithm.sign(signing_input, key), padded=False)
         return b".".join([header_segment, payload_segment, signature])
 
     @classmethod
@@ -113,18 +113,18 @@ class JWS:
             raise exceptions.SignatureDecodeException("Not enough segments")
 
         try:
-            header = json.loads(base64.urlsafe_b64decode(header_segment))
+            header = json.loads(_compat.urlsafe_b64decode(header_segment))
         except ValueError:
             raise exceptions.SignatureDecodeException("Wrong header format")
 
         try:
-            payload = json.loads(base64.urlsafe_b64decode(payload_segment))
+            payload = json.loads(_compat.urlsafe_b64decode(payload_segment))
         except ValueError:
             raise exceptions.SignatureDecodeException("Wrong payload format")
 
         algorithm = cls._get_algorithm(header)
 
-        if not algorithm.verify(signing_input, base64.urlsafe_b64decode(signature), key):
+        if not algorithm.verify(signing_input, _compat.urlsafe_b64decode(signature), key):
             raise exceptions.SignatureVerificationException(
                 f"Signature verification failed for token '{token.decode()}'"
             )
