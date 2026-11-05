@@ -1,5 +1,6 @@
 import http
 import logging
+import math
 import typing as t
 
 from flama import Component, _concurrency
@@ -96,7 +97,9 @@ class BaseTokenComponent(Component):
             )
         except exceptions.KeysUnavailable as e:
             raise HTTPException(
-                status_code=http.HTTPStatus.SERVICE_UNAVAILABLE, detail={"error": e.__class__, "description": str(e)}
+                status_code=http.HTTPStatus.SERVICE_UNAVAILABLE,
+                detail={"error": e.__class__, "description": str(e)},
+                headers={"Retry-After": str(max(0, math.ceil(e.retry_after)))} if e.retry_after is not None else None,
             )
 
         return token

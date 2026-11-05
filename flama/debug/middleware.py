@@ -167,9 +167,10 @@ class ExceptionMiddleware(BaseErrorMiddleware):
                 "debug/error_404.html",
                 context=dataclasses.asdict(NotFoundContext.build(request, scope["app"])),
                 status_code=404,
+                headers=exc.headers,
             )
 
-        return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc)
+        return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc, headers=exc.headers)
 
     def jsonrpc_exception_handler(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.JSONRPCException

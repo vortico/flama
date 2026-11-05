@@ -11,6 +11,10 @@ TOKEN = (
 )
 
 
+# Names the key "outage", which the resolvers below cannot check.
+OUTAGE_TOKEN = b"eyJhbGciOiJIUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.0000"
+
+
 @pytest.fixture(scope="function")
 def secret():
     return uuid.UUID(int=0)
@@ -159,7 +163,7 @@ class TestCaseKeyResolution:
 
         def resolver(kid):
             if kid == "outage":
-                raise authentication.exceptions.KeysUnavailable()
+                raise authentication.exceptions.KeysUnavailable(retry_after=2.5)
 
             try:
                 return keys[kid]
@@ -209,12 +213,7 @@ class TestCaseKeyResolution:
                 id="key_not_known",
             ),
             pytest.param(b"NQ==.format.0000", 401, id="header_is_not_an_object"),
-            pytest.param(
-                b"eyJhbGciOiJIUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9."
-                b"0000",
-                503,
-                id="keys_unavailable",
-            ),
+            pytest.param(OUTAGE_TOKEN, 503, id="keys_unavailable"),
         ),
     )
     async def test_injection_refused(self, client, token, status_code):
@@ -223,6 +222,14 @@ class TestCaseKeyResolution:
         response = await client.request("get", "/")
 
         assert response.status_code == status_code
+
+    async def test_injection_says_when_to_retry(self, client):
+        client.headers = {"access_token": f"Bearer {OUTAGE_TOKEN.decode()}"}
+
+        response = await client.request("get", "/")
+
+        assert response.status_code == 503
+        assert response.headers["retry-after"] == "3"
 
 
 class TestCaseTokenComponentConfiguration:

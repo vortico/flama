@@ -4,7 +4,9 @@ import pytest
 
 from flama import Flama
 from flama.authentication.components import AccessTokenComponent
+from flama.authentication.exceptions import KeysUnavailable
 from flama.authentication.middleware import AuthenticationMiddleware
+from flama.client import Client
 
 TOKENS = {
     "permission": b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJwZXJtaXNzaW9ucyI6IFsiZmxhbWEudGVzdC5hdXRoI"
@@ -14,6 +16,8 @@ TOKENS = {
     "empty": b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjoge30sICJpYXQiOiAxNjk4NDEzMDg3fQ==.xPwYcCE0Tq6UxVbhW"
     b"RGqT8vRliJxHAqHs12X0oHE1Vg=",
 }
+# Names the key "outage".
+OUTAGE_TOKEN = b"eyJhbGciOiJIUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.0000"
 
 
 class TestCaseAuthenticationMiddleware:
@@ -136,3 +140,25 @@ class TestCaseAuthenticationMiddleware:
 
         assert response.status_code == status_code
         assert response.json() == result
+
+    async def test_request_keeps_the_headers_of_a_refusal(self):
+        def resolver(kid):
+            raise KeysUnavailable(retry_after=2.5)
+
+        app = Flama(
+            schema=None,
+            docs=None,
+            components=[AccessTokenComponent(resolver=resolver)],
+            middleware=[AuthenticationMiddleware()],
+        )
+
+        @app.route("/auth/", tags={"permissions": ["flama.test.auth"]})
+        def auth():
+            return {"foo": "auth"}
+
+        async with Client(app=app) as client:
+            client.headers = {"access_token": f"Bearer {OUTAGE_TOKEN.decode()}"}
+            response = await client.get("/auth/")
+
+        assert response.status_code == 503
+        assert response.headers["retry-after"] == "3"
