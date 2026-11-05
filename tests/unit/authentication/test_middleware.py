@@ -54,7 +54,7 @@ class TestCaseAuthenticationMiddleware:
             return None
 
         try:
-            return {"access_token": f"Bearer {TOKENS[request.param].decode()}"}
+            return {"Authorization": f"Bearer {TOKENS[request.param].decode()}"}
         except KeyError:
             raise ValueError(f"Invalid token {request.param}")
 
@@ -141,6 +141,12 @@ class TestCaseAuthenticationMiddleware:
         assert response.status_code == status_code
         assert response.json() == result
 
+    async def test_request_challenges_a_missing_token(self, client):
+        response = await client.request("get", "/auth/")
+
+        assert response.status_code == 401
+        assert response.headers["www-authenticate"] == "Bearer"
+
     async def test_request_keeps_the_headers_of_a_refusal(self):
         def resolver(kid):
             raise KeysUnavailable(retry_after=2.5)
@@ -157,7 +163,7 @@ class TestCaseAuthenticationMiddleware:
             return {"foo": "auth"}
 
         async with Client(app=app) as client:
-            client.headers = {"access_token": f"Bearer {OUTAGE_TOKEN.decode()}"}
+            client.headers = {"Authorization": f"Bearer {OUTAGE_TOKEN.decode()}"}
             response = await client.get("/auth/")
 
         assert response.status_code == 503
