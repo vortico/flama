@@ -1,3 +1,5 @@
+import typing as t
+
 from flama.crypto.exceptions import SignatureDecodeException, SignatureVerificationException
 
 __all__ = [
@@ -20,9 +22,15 @@ class Unauthorized(AuthenticationException): ...
 class Forbidden(AuthenticationException): ...
 
 
-# Deliberately not an ``Unauthorized``: being unable to look a key up says nothing about the token presented,
-# so it must not be reported to the caller as a rejected one.
-class KeysUnavailable(AuthenticationException): ...
+class KeysUnavailable(AuthenticationException):
+    """The key a token names cannot be checked right now.
+
+    :param retry_after: Seconds until checking again is worthwhile, if known.
+    """
+
+    def __init__(self, *args: t.Any, retry_after: float | None = None) -> None:
+        super().__init__(*args)
+        self.retry_after = retry_after
 
 
 class JWTException(AuthenticationException): ...

@@ -62,7 +62,7 @@ class AuthenticationMiddleware(Middleware):
             )
         except HTTPException as e:
             logger.debug("JWT error: %s", e.detail)
-            return APIErrorResponse(status_code=e.status_code, detail=e.detail)
+            return APIErrorResponse(status_code=e.status_code, detail=e.detail, headers=e.headers)
 
         user_permissions = set(token.payload.data.get("permissions", [])) | {
             y for x in token.payload.data.get("roles", {}).values() for y in x

@@ -2,18 +2,14 @@ import abc
 import logging
 import typing as t
 
-from flama import exceptions
+from flama import _imports, exceptions
 from flama.modules import Module
 
-try:
+with _imports.required("sqlalchemy"):
     import sqlalchemy
     from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncTransaction, create_async_engine
 
-    metadata = sqlalchemy.MetaData()
-except Exception:  # pragma: no cover
-    raise exceptions.DependencyNotInstalled(
-        dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy, dependant=__name__
-    )
+metadata = sqlalchemy.MetaData()
 
 
 __all__ = ["metadata", "SQLAlchemyModule"]

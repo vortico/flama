@@ -3,7 +3,7 @@ import json
 import logging
 import typing as t
 
-from flama import concurrency, exceptions, http, types
+from flama import _concurrency, exceptions, http, types
 from flama.context import Context
 from flama.endpoints._base import BaseEndpoint
 
@@ -74,7 +74,7 @@ class JSONRPCEndpoint(BaseEndpoint, types.JSONRPCEndpointProtocol):
 
         try:
             handler = await self.resolve_handler()
-            result = await concurrency.run(await app.injector.inject(handler, self.state))
+            result = await _concurrency.run(await app.injector.inject(handler, self.state))
         except exceptions.JSONRPCException as e:
             e.request_id = request_id
             raise

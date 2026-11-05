@@ -3,7 +3,7 @@ import logging
 import re
 import typing as t
 
-from flama import concurrency, exceptions, types
+from flama import _concurrency, exceptions, types
 from flama.middleware import Middleware
 from flama.telemetry.data_structures import Error, Response, TelemetryData
 
@@ -174,11 +174,11 @@ class TelemetryMiddleware(Middleware):
 
     async def before(self, data: TelemetryData) -> None:
         if self._before:
-            await concurrency.run(self._before, data)
+            await _concurrency.run(self._before, data)
 
     async def after(self, data: TelemetryData) -> None:
         if self._after:
-            await concurrency.run(self._after, data)
+            await _concurrency.run(self._after, data)
 
     def _get_tag(self, scope: types.Scope) -> bool:
         try:

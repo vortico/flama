@@ -2,7 +2,7 @@ import inspect
 import logging
 import typing as t
 
-from flama import concurrency, endpoints, exceptions, http, types
+from flama import _concurrency, endpoints, exceptions, http, types
 from flama.context import Context
 from flama.http.responses.api import APIResponse
 from flama.routing.routes._base import BaseEndpointWrapper, BaseRoute, RouteTableParams, ScopeType
@@ -78,7 +78,7 @@ class HTTPFunctionWrapper(BaseHTTPEndpointWrapper):
 
         try:
             injected_func = await app.injector.inject(self.handler, context)
-            response = await concurrency.run(injected_func)
+            response = await _concurrency.run(injected_func)
             response = self._build_api_response(response)
 
             await response(route_scope, receive, send)

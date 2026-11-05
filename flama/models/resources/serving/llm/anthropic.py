@@ -2,8 +2,8 @@ import logging
 import time
 import typing as t
 
-from flama import concurrency, schemas, types
-from flama.exceptions import FrameworkNotInstalled, HTTPException
+from flama import _concurrency, schemas, types
+from flama.exceptions import DependencyNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.sse import ServerSentEventResponse
 from flama.models.exceptions import LLMGenerationError, LLMUnsupportedCapability, LLMUnsupportedContentPart
@@ -63,7 +63,7 @@ class MessagesMixin:
             )
         except (ValueError, LLMUnsupportedContentPart, LLMUnsupportedCapability) as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
-        except FrameworkNotInstalled:
+        except DependencyNotInstalled:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
@@ -90,7 +90,7 @@ class MessagesMixin:
 
         Allocates an ephemeral buffer (``persist=False``) under the resource's :class:`ModelStreams`,
         drives :meth:`StreamBuffer.load` concurrently with the body iteration via
-        :func:`flama.concurrency.alongside`, and projects the buffer through :meth:`AnthropicDialect.render`.
+        :func:`flama._concurrency.alongside`, and projects the buffer through :meth:`AnthropicDialect.render`.
         """
         buffer_id, buffer = await resource.streams.create(persist=False)
         try:
@@ -107,7 +107,7 @@ class MessagesMixin:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
         return ServerSentEventResponse(
-            concurrency.alongside(
+            _concurrency.alongside(
                 AnthropicDialect.render(buffer, model=name, generation_id=buffer_id),
                 lambda: buffer.load(block_stream),
             )

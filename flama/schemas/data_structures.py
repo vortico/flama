@@ -4,7 +4,7 @@ import inspect
 import typing as t
 from types import UnionType
 
-from flama import compat, schemas, types
+from flama import _compat, schemas, types
 from flama.http.data_structures import UploadFile
 from flama.http.responses.response import Response, StreamingResponse
 from flama.injection.resolver import Parameter as InjectionParameter
@@ -12,10 +12,10 @@ from flama.injection.resolver import Parameter as InjectionParameter
 __all__ = ["Field", "Schema", "Parameter", "Parameters"]
 
 
-UNKNOWN = t.TypeVar("UNKNOWN")
+UNKNOWN = _compat.sentinel("UNKNOWN")
 
 
-class ParameterLocation(compat.StrEnum):  # PORT: Replace compat when stop supporting 3.10
+class ParameterLocation(enum.StrEnum):
     query = enum.auto()
     path = enum.auto()
     body = enum.auto()
@@ -25,7 +25,7 @@ class ParameterLocation(compat.StrEnum):  # PORT: Replace compat when stop suppo
 @dataclasses.dataclass(frozen=True)
 class Field:
     name: str
-    type: type
+    type: _compat.TypeForm[t.Any]
     nullable: bool = dataclasses.field(init=False)
     field: t.Any = dataclasses.field(hash=False, init=False, compare=False)
     multiple: bool | None = dataclasses.field(hash=False, compare=False, default=None)
@@ -58,7 +58,7 @@ class Field:
     def from_parameter(cls, parameter: InjectionParameter) -> "Field":
         return cls(
             parameter.name,
-            parameter.annotation,
+            parameter.annotation if parameter.annotation is not InjectionParameter.empty else str,
             required=parameter.default is InjectionParameter.empty,
             default=parameter.default
             if parameter.default is not InjectionParameter.empty
@@ -112,7 +112,7 @@ class Schema:
     schema: t.Any = dataclasses.field(hash=False, compare=False)
 
     @classmethod
-    def from_type(cls, type_: type | None) -> "Schema":
+    def from_type(cls, type_: _compat.TypeForm[t.Any] | None) -> "Schema":
         if types.is_schema(type_):
             schema = types.get_schema_metadata(type_).schema
 
@@ -125,7 +125,8 @@ class Schema:
         else:
             schema = type_
 
-        if not schemas.adapter.is_schema(schema):
+        # Without any schema library installed nothing can be a schema, so there is no library to select.
+        if not schemas._module.installed or not schemas.adapter.is_schema(schema):
             raise ValueError("Wrong schema type")
 
         return cls(schema=schema)
@@ -195,7 +196,7 @@ class Schema:
         return schemas.adapter.schema_fields(self.unique_schema)
 
     def nested_schemas(self, schema: t.Any = UNKNOWN) -> list[t.Any]:
-        if schema == UNKNOWN:
+        if schema is UNKNOWN:
             return self.nested_schemas(self)
 
         if schemas.adapter.is_schema(schema):

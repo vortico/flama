@@ -2,7 +2,7 @@ import datetime
 import typing as t
 import uuid
 
-from flama import exceptions
+from flama import _imports
 from flama.ddd.repositories.sqlalchemy import SQLAlchemyTableRepository
 from flama.resources import data_structures
 from flama.resources.exceptions import (
@@ -15,13 +15,9 @@ from flama.resources.exceptions import (
 from flama.resources.filtering import Filters
 from flama.resources.resource import Resource, ResourceType
 
-try:
+with _imports.required("sqlalchemy"):
     import sqlalchemy
     from sqlalchemy.dialects import postgresql
-except Exception:  # pragma: no cover
-    raise exceptions.DependencyNotInstalled(
-        dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy, dependant=__name__
-    )
 
 __all__ = ["RESTResource", "RESTResourceType"]
 

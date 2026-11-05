@@ -10,7 +10,7 @@ from mimetypes import guess_type
 from secrets import token_hex
 from urllib.parse import quote
 
-from flama import concurrency, exceptions, types
+from flama import _concurrency, exceptions, types
 from flama.http.data_structures import Headers
 from flama.http.responses.response import Response
 
@@ -33,14 +33,14 @@ class _FileStat:
     @classmethod
     async def from_path(cls, path: str | os.PathLike[str]) -> "_FileStat":
         try:
-            result = await concurrency.run(os.stat, path)
+            result = await _concurrency.run(os.stat, path)
         except FileNotFoundError:
             raise exceptions.HTTPException(status_code=404, detail=f"File at path {path} does not exist.")
 
         if not stat.S_ISREG(result.st_mode):
             raise exceptions.HTTPException(status_code=404, detail=f"File at path {path} is not a file.")
 
-        last_modified = datetime.datetime.fromtimestamp(result.st_mtime, datetime.timezone.utc).strftime(
+        last_modified = datetime.datetime.fromtimestamp(result.st_mtime, datetime.UTC).strftime(
             "%a, %d %b %Y %H:%M:%S GMT"
         )
         etag_base = f"{result.st_mtime}-{result.st_size}"
@@ -223,7 +223,7 @@ class FileResponse(Response):
             await self._send_file(send, start, end)
 
     async def _send_file(self, send: types.Send, start: int = 0, end: int | None = None) -> None:
-        async with concurrency.FileReader(self.path, self.chunk_size, start, end) as reader:
+        async with _concurrency.FileReader(self.path, self.chunk_size, start, end) as reader:
             async for chunk in reader:
                 await send(types.Message({"type": "http.response.body", "body": chunk, "more_body": True}))
         await send(types.Message({"type": "http.response.body", "body": b"", "more_body": False}))
@@ -237,7 +237,7 @@ class FileResponse(Response):
             await send(
                 types.Message({"type": "http.response.body", "body": header.encode("latin-1"), "more_body": True})
             )
-            async with concurrency.FileReader(self.path, self.chunk_size, start, end) as reader:
+            async with _concurrency.FileReader(self.path, self.chunk_size, start, end) as reader:
                 async for chunk in reader:
                     await send(types.Message({"type": "http.response.body", "body": chunk, "more_body": True}))
             await send(types.Message({"type": "http.response.body", "body": b"\n", "more_body": True}))

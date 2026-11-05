@@ -1,6 +1,6 @@
 import typing as t
 
-from flama import concurrency, types
+from flama import _concurrency, types
 from flama.http.data_structures import Headers
 from flama.http.responses.plain_text import PlainTextResponse
 from flama.http.responses.redirect import RedirectResponse
@@ -33,13 +33,13 @@ class TrustedHostMiddleware(Middleware):
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if self.allow_any or scope["type"] not in ("http", "websocket"):
-            await concurrency.run(self.app, scope, receive, send)
+            await _concurrency.run(self.app, scope, receive, send)
             return
 
         host = Headers(scope=scope).get("host", "").split(":")[0]
 
         if any(pattern.match(host) for pattern in self.allowed_hosts):
-            await concurrency.run(self.app, scope, receive, send)
+            await _concurrency.run(self.app, scope, receive, send)
         elif self.www_redirect and any(pattern.match(f"www.{host}") for pattern in self.allowed_hosts):
             url = URL.from_scope(scope)
             redirect_netloc = f"www.{url.netloc.host}"

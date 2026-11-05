@@ -1,18 +1,18 @@
 import typing as t
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from flama import compat, types
+from flama import _compat, types
 from flama.models.transport.output.llm.event import Event, StartEvent, StopEvent, TextEvent, ToolEvent
 from flama.models.wire.dialect._base import Assembler
 
 __all__ = ["OllamaAssembleKwargs", "OllamaAssembler"]
 
 
-class OllamaAssembleKwargs(t.TypedDict, total=False):
+class OllamaAssembleKwargs(_compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :class:`OllamaAssembler.envelope`."""
 
-    api: compat.Required[t.Literal["chat", "generate"]]
-    model: compat.Required[str]
+    api: t.Required[t.Literal["chat", "generate"]]
+    model: t.Required[str]
 
 
 class OllamaAssembler(Assembler):
@@ -44,7 +44,7 @@ class OllamaAssembler(Assembler):
         *,
         start: StartEvent,
         stop: StopEvent,
-        **kwargs: compat.Unpack[OllamaAssembleKwargs],
+        **kwargs: t.Unpack[OllamaAssembleKwargs],
     ) -> dict[str, t.Any]:
         api = kwargs["api"]
         model = kwargs["model"]
@@ -73,7 +73,7 @@ class OllamaAssembler(Assembler):
             message["tool_calls"] = tool_calls
         return {
             "model": model,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "message": message,
             "done": True,
             "done_reason": OllamaAssembler._STOP_REASON_TO_OLLAMA.get(stop.stop_reason or "stop", "stop"),
@@ -86,7 +86,7 @@ class OllamaAssembler(Assembler):
         text_parts = [b.text for b in events if isinstance(b, TextEvent) and b.channel == "output"]
         return {
             "model": model,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "response": "".join(text_parts),
             "done": True,
             "done_reason": OllamaAssembler._STOP_REASON_TO_OLLAMA.get(stop.stop_reason or "stop", "stop"),

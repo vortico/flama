@@ -21,10 +21,7 @@ class Component(metaclass=abc.ABCMeta):
         :param parameter: The parameter to check if that component can handle it.
         :return: Unique identifier.
         """
-        try:
-            parameter_type = parameter.annotation.__name__
-        except AttributeError:
-            parameter_type = parameter.annotation.__class__.__name__
+        parameter_type = getattr(parameter.annotation, "__name__", parameter.annotation.__class__.__name__)
         component_id = f"{id(parameter.annotation)}:{parameter_type}"
 
         if self.use_parameter:

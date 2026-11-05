@@ -1,14 +1,11 @@
 import typing as t
 
-from flama import exceptions
+from flama import _imports
 from flama.models.engine.backend.ml._base import MLBackend
 
-try:
-    import torch
-except Exception:  # pragma: no cover
-    torch = None
-
 __all__ = ["PytorchBackend"]
+
+torch = _imports.Dependency("torch")
 
 
 class PytorchBackend(MLBackend):
@@ -22,9 +19,8 @@ class PytorchBackend(MLBackend):
 
         :param x: Batch of input feature vectors forwarded as a tensor.
         :return: Predictions as a plain Python list.
-        :raises FrameworkNotInstalled: If pytorch is not installed.
+        :raises DependencyNotInstalled: If pytorch is not installed.
         """
-        if torch is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("pytorch")
+        torch.require()
 
         return self.model(torch.Tensor(x)).tolist()

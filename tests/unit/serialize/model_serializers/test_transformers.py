@@ -139,7 +139,7 @@ class TestCaseTransformersModelSerializer:
             pytest.param("default", None, id="default"),
             pytest.param("extra", None, id="extra"),
             pytest.param("wrong-source", TypeError, id="wrong_source"),
-            pytest.param("not-installed", exceptions.FrameworkNotInstalled, id="not_installed"),
+            pytest.param("not-installed", exceptions.DependencyNotInstalled, id="not_installed"),
         ],
         indirect=["exception"],
     )
@@ -183,7 +183,7 @@ class TestCaseTransformersModelSerializer:
         ["scenario", "exception"],
         [
             pytest.param("ok", None, id="success"),
-            pytest.param("not-installed", exceptions.FrameworkNotInstalled, id="not_installed"),
+            pytest.param("not-installed", exceptions.DependencyNotInstalled, id="not_installed"),
         ],
         indirect=["exception"],
     )

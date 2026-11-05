@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import pytest
 
 from flama import Flama
@@ -5,11 +8,11 @@ from flama.client import Client
 from flama.ddd.repositories.http import HTTPRepository
 from flama.ddd.repositories.sqlalchemy import SQLAlchemyRepository
 from flama.exceptions import ApplicationError
-from flama.resources.workers import FlamaWorker
+from flama.resources.workers import ResourcesWorker
 from flama.sqlalchemy import SQLAlchemyModule
 
 
-class TestCaseFlamaWorker:
+class TestCaseResourcesWorker:
     @pytest.fixture(scope="function")
     async def app(self):
         app_ = Flama(schema=None, docs=None, modules={SQLAlchemyModule("sqlite+aiosqlite://")})
@@ -18,7 +21,7 @@ class TestCaseFlamaWorker:
 
     @pytest.fixture(scope="function")
     def worker(self):
-        class FooWorker(FlamaWorker): ...
+        class FooWorker(ResourcesWorker): ...
 
         return FooWorker()
 
@@ -35,9 +38,23 @@ class TestCaseFlamaWorker:
         return BarRepository
 
     def test_init(self) -> None:
-        worker = FlamaWorker()
+        worker = ResourcesWorker()
 
         assert not worker._resources_repositories.registered
+
+    def test_import_without_sqlalchemy(self) -> None:
+        code = (
+            "import sys; sys.modules['sqlalchemy'] = None\n"
+            "from flama import Flama\n"
+            "from flama.resources.workers import ResourcesWorker\n"
+            "app = Flama(schema=None, docs=None)\n"
+            "assert isinstance(app.resources.worker, ResourcesWorker)\n"
+            "print(','.join(m for m in sys.modules if m.startswith('sqlalchemy') and sys.modules[m] is not None))"
+        )
+
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+
+        assert result.stdout.strip() == ""
 
     @pytest.mark.parametrize(
         ["exception"],

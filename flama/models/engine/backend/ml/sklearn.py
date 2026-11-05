@@ -1,14 +1,11 @@
 import typing as t
 
-from flama import exceptions
+from flama import _imports
 from flama.models.engine.backend.ml._base import MLBackend
 
-try:
-    import sklearn
-except Exception:  # pragma: no cover
-    sklearn = None
-
 __all__ = ["SklearnBackend"]
+
+sklearn = _imports.Dependency("sklearn")
 
 
 class SklearnBackend(MLBackend):
@@ -22,9 +19,8 @@ class SklearnBackend(MLBackend):
 
         :param x: Batch of input feature vectors forwarded to the estimator.
         :return: Predictions as a plain Python list.
-        :raises FrameworkNotInstalled: If scikit-learn is not installed.
+        :raises DependencyNotInstalled: If scikit-learn is not installed.
         """
-        if sklearn is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("scikit-learn")
+        sklearn.require()
 
         return self.model.predict(x).tolist()

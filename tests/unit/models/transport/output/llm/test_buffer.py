@@ -4,7 +4,7 @@ import typing as t
 
 import pytest
 
-from flama.exceptions import FrameworkNotInstalled
+from flama.exceptions import DependencyNotInstalled
 from flama.models.streams import FileStreamsBackend, StreamsRegistry
 from flama.models.transport.output.llm.buffer import EventBuffer
 from flama.models.transport.output.llm.event import Event, StartEvent, StopEvent, TextEvent, ToolEvent, TraceEvent
@@ -250,7 +250,7 @@ class TestCaseEventBuffer:
     @pytest.mark.parametrize(
         ["error", "expected_log_substring"],
         [
-            pytest.param(FrameworkNotInstalled("torch"), "missing dependency", id="framework_not_installed"),
+            pytest.param(DependencyNotInstalled("torch"), "missing dependency", id="framework_not_installed"),
             pytest.param(RuntimeError("boom"), "generation failed", id="generic_exception"),
         ],
     )

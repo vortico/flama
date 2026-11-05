@@ -278,7 +278,7 @@ class TestCaseExceptionMiddleware:
         with (
             exception,
             patch.object(middleware, "_get_handler", return_value=handler_mock),
-            patch("flama.debug.middleware.concurrency.run", new=AsyncMock(return_value=response_mock)) as run_mock,
+            patch("flama.debug.middleware._concurrency.run", new=AsyncMock(return_value=response_mock)) as run_mock,
         ):
             await middleware.process_exception(asgi_scope, asgi_receive, asgi_send, expected_exc, response_started)
 
@@ -325,7 +325,7 @@ class TestCaseExceptionMiddleware:
                 b"text/html",
                 exceptions.HTTPException(404, "Foo"),
                 _FlamaTemplateResponse,
-                {"_pos": ("debug/error_404.html",), "context": {}, "status_code": 404},
+                {"_pos": ("debug/error_404.html",), "context": {}, "status_code": 404, "headers": None},
                 "flama.debug.middleware._FlamaTemplateResponse",
                 id="debug_404",
             ),
@@ -334,9 +334,18 @@ class TestCaseExceptionMiddleware:
                 None,
                 exceptions.HTTPException(400, "Foo"),
                 APIErrorResponse,
-                {"detail": "Foo", "status_code": 400},
+                {"detail": "Foo", "status_code": 400, "headers": None},
                 "flama.debug.middleware.APIErrorResponse",
                 id="other",
+            ),
+            pytest.param(
+                False,
+                None,
+                exceptions.HTTPException(405, "Foo", headers={"Allow": "GET"}),
+                APIErrorResponse,
+                {"detail": "Foo", "status_code": 405, "headers": {"Allow": "GET"}},
+                "flama.debug.middleware.APIErrorResponse",
+                id="other_with_headers",
             ),
         ),
     )

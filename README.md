@@ -64,10 +64,11 @@ pip install "flama[pydantic]"
 Everything else is an optional extra, so you install only what you need:
 
 ```commandline
-pip install "flama[typesystem]"    # or marshmallow, instead of pydantic
+pip install "flama[marshmallow]"   # instead of pydantic
 pip install "flama[database]"      # SQLAlchemy-backed resources
-pip install "flama[llm]"           # generative AI serving (vLLM on Linux, MLX on Apple Silicon; Python 3.10 to 3.13)
-pip install "flama[full]"          # everything
+pip install "flama[llm]"           # generative AI serving (vLLM on Linux, MLX on Apple Silicon; Python 3.11 to 3.13)
+pip install "flama[sklearn]"       # or torch, tensorflow, transformers: the framework your models are built with
+pip install "flama[full]"          # every framework capability (schemas and database), without model runtimes
 ```
 
 See the [installation docs](https://flama.dev/docs/getting-started/installation/) for details.
@@ -289,7 +290,7 @@ Flama is also a complete toolkit for building production APIs:
 
 - **Resources** with standard CRUD methods over SQLAlchemy tables.
 - **Dependency injection** via `Component`s, the base of the plugin ecosystem.
-- **Adaptable schemas** with Pydantic, Typesystem, or Marshmallow, all optional extras.
+- **Adaptable schemas** with Pydantic or Marshmallow, both optional extras.
 - **Auto-generated OpenAPI** schema plus Swagger UI and ReDoc.
 - **Pagination**, background tasks, lifespan events, and JWT authentication.
 - **Streaming-first HTTP** with Server-Sent Events and NDJSON responses.

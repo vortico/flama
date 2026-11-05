@@ -5,7 +5,6 @@ import typing as t
 
 from flama import exceptions, injection, routing, types, url
 from flama.context import Context
-from flama.ddd.components import WorkerComponent
 from flama.endpoints.components import JSONRPC_COMPONENTS
 from flama.events import Events
 from flama.http.components import HTTP_COMPONENTS
@@ -20,11 +19,6 @@ from flama.resources import ResourcesModule
 from flama.schemas.components import VALIDATION_COMPONENTS
 from flama.schemas.modules import SchemaModule
 from flama.types.http import Method
-
-try:
-    from flama.resources.workers import FlamaWorker
-except exceptions.DependencyNotInstalled:  # pragma: no cover
-    FlamaWorker = None
 
 if t.TYPE_CHECKING:
     from flama.middleware import Middleware
@@ -89,17 +83,10 @@ class Flama(types.App):
         # Create Dependency Injector
         self._injector = injection.Injector(Context)
 
-        # Initialise components
-        default_components = []
-
-        # Create worker
-        if (worker := FlamaWorker() if FlamaWorker else None) and WorkerComponent:
-            default_components.append(WorkerComponent(worker=worker))
-
         # Initialise modules
         default_modules = [
             MCPModule(),
-            ResourcesModule(worker=worker),
+            ResourcesModule(),
             SchemaModule(openapi, schema=schema, docs=docs),
             ModelsModule(),
         ]
@@ -107,7 +94,7 @@ class Flama(types.App):
 
         # Initialize router
         self.app = self.router = routing.Router(
-            routes=routes, components=[*default_components, *(components or [])], lifespan=lifespan, app=self
+            routes=routes, components=[*self.modules.components, *(components or [])], lifespan=lifespan, app=self
         )
 
         # Build middleware stack

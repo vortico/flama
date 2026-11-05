@@ -11,17 +11,7 @@ import urllib.parse
 
 import httpx
 
-from flama import exceptions, types
-
-try:
-    from PIL import Image
-except ImportError:  # pragma: no cover
-    Image = None
-
-try:
-    import soundfile
-except ImportError:  # pragma: no cover
-    soundfile = None
+from flama import _imports, types
 
 if t.TYPE_CHECKING:
     import numpy as np
@@ -49,6 +39,9 @@ __all__ = [
     "AssistantMessage",
     "ToolMessage",
 ]
+
+Image = _imports.Dependency("PIL", "Image")
+soundfile = _imports.Dependency("soundfile")
 
 
 ImageFormat: t.TypeAlias = t.Literal["png", "jpeg", "gif", "webp"]
@@ -264,11 +257,10 @@ class ImageContent(Content):
         """Resolve the underlying :class:`Source` and decode it into a :class:`PIL.Image.Image`.
 
         :return: A fully-loaded :class:`PIL.Image.Image` instance.
-        :raises FrameworkNotInstalled: If Pillow is not installed.
+        :raises DependencyNotInstalled: If Pillow is not installed.
         :raises ValueError: If the source bytes are not a valid image.
         """
-        if Image is None:
-            raise exceptions.FrameworkNotInstalled("Pillow")
+        Image.require()
 
         payload = await self._payload()
         try:
@@ -300,11 +292,10 @@ class AudioContent(Content):
         Multi-channel audio is averaged to mono for backend uniformity.
 
         :return: A ``(samples, sample_rate)`` pair where ``samples`` is a 1-D :class:`numpy.ndarray`.
-        :raises FrameworkNotInstalled: If soundfile is not installed.
+        :raises DependencyNotInstalled: If soundfile is not installed.
         :raises ValueError: If the source bytes are not a valid audio payload.
         """
-        if soundfile is None:
-            raise exceptions.FrameworkNotInstalled("soundfile")
+        soundfile.require()
 
         payload = await self._payload()
         try:

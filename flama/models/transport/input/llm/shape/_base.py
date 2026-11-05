@@ -2,7 +2,7 @@ import abc
 import dataclasses
 import typing as t
 
-from flama import compat, types
+from flama import _compat, types
 from flama.models.transport.input.llm.message import Message
 from flama.models.transport.input.llm.tool import Tool
 
@@ -13,7 +13,7 @@ if t.TYPE_CHECKING:
 __all__ = ["Shape"]
 
 
-class _ShapeFields(t.TypedDict):
+class _ShapeFields(_compat.TypedDict, closed=True):
     """Type-narrowed bag of inputs accepted by :meth:`Shape.build` and the variants.
 
     Each variant consumes a subset of these keys via its :class:`~dataclasses.InitVar` and rejects
@@ -21,13 +21,13 @@ class _ShapeFields(t.TypedDict):
     converting an iterable into an immutable sequence is the caller's responsibility.
     """
 
-    prompt: compat.NotRequired[str | None]
-    system: compat.NotRequired[str | None]
-    messages: compat.NotRequired[tuple[Message, ...] | None]
-    tools: compat.NotRequired[tuple[Tool, ...] | None]
+    prompt: t.NotRequired[str | None]
+    system: t.NotRequired[str | None]
+    messages: t.NotRequired[tuple[Message, ...] | None]
+    tools: t.NotRequired[tuple[Tool, ...] | None]
 
 
-class _ShapeRenderKwargs(t.TypedDict, total=False):
+class _ShapeRenderKwargs(_compat.TypedDict, total=False, closed=True):
     """Marker / superset TypedDict for the kwargs accepted by :meth:`Shape.render`.
 
     Carries the currently-typed fields shared across :class:`Shape` variants. ``Raw`` ignores
@@ -91,7 +91,7 @@ class Shape(abc.ABC):
         cls,
         transport: types.LLMTransportShape,
         /,
-        **kwargs: compat.Unpack[_ShapeFields],
+        **kwargs: t.Unpack[_ShapeFields],
     ) -> "Shape":
         """Dispatch on *transport* and instantiate the matching variant.
 
@@ -133,7 +133,7 @@ class Shape(abc.ABC):
             raise ValueError(f"{formatted} {verb} not allowed when transport is '{self.transport}'")
 
     @abc.abstractmethod
-    async def render(self, backend: "LLMBackend", /, **kwargs: compat.Unpack[_ShapeRenderKwargs]) -> "EngineInput":
+    async def render(self, backend: "LLMBackend", /, **kwargs: t.Unpack[_ShapeRenderKwargs]) -> "EngineInput":
         """Convert this transport to engine-ready :class:`EngineInput` using *backend*.
 
         Returning structured inputs (not raw token IDs) keeps the multimodal pipeline uniform:

@@ -4,6 +4,7 @@ import pytest
 
 from flama import exceptions
 from flama.models.engine.backend.ml.sklearn import SklearnBackend
+from tests._utils import missing
 
 
 class TestCaseSklearnBackend:
@@ -15,7 +16,7 @@ class TestCaseSklearnBackend:
         ["sklearn_installed", "expected", "exception"],
         [
             pytest.param(True, [0, 1, 1, 0], None, id="success"),
-            pytest.param(False, None, exceptions.FrameworkNotInstalled, id="not_installed"),
+            pytest.param(False, None, exceptions.DependencyNotInstalled, id="not_installed"),
         ],
         indirect=["exception"],
     )
@@ -24,7 +25,10 @@ class TestCaseSklearnBackend:
         backend = SklearnBackend(model)
 
         with (
-            patch("flama.models.engine.backend.ml.sklearn.sklearn", MagicMock() if sklearn_installed else None),
+            patch(
+                "flama.models.engine.backend.ml.sklearn.sklearn",
+                MagicMock() if sklearn_installed else missing("sklearn"),
+            ),
             exception,
         ):
             assert backend.predict([[0, 0], [0, 1], [1, 0], [1, 1]]) == expected

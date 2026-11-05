@@ -4,17 +4,13 @@ import decimal
 import inspect
 import typing as t
 
-from flama import exceptions
+from flama import _imports, exceptions
 from flama.resources.exceptions import ResourceFilterInvalid
 from flama.schemas.data_structures import Field, Schema
 from flama.schemas.exceptions import SchemaValidationError
 
-try:
+with _imports.required("sqlalchemy"):
     import sqlalchemy
-except Exception:  # pragma: no cover
-    raise exceptions.DependencyNotInstalled(
-        dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy, dependant=__name__
-    )
 
 __all__ = ["Operator", "OPERATORS", "Filter", "Filters"]
 

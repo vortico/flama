@@ -5,12 +5,9 @@ import typing as t
 from flama import types
 from flama.types.http import Method
 
-try:
-    from sqlalchemy import Table
-except Exception:  # pragma: no cover
-    Table = t.Any
-
 if t.TYPE_CHECKING:
+    from sqlalchemy import Table
+
     from flama.resources.resource import Resource
 
 __all__ = ["Model", "PrimaryKey", "Schema", "Metadata", "_ResourceMethodMetadata", "ResourceMethod"]
@@ -24,7 +21,7 @@ class PrimaryKey:
 
 @dataclasses.dataclass
 class Model:
-    table: Table
+    table: "Table"
     primary_key: PrimaryKey
 
 

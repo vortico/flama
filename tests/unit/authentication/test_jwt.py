@@ -9,7 +9,7 @@ from flama.authentication.jwt.jwt import JWT
 
 TOKEN = (
     b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.PWRDHe1X53ydEpCCKW8_oDMVveSlvdqg"
-    b"xLhFjLk7BNk="
+    b"xLhFjLk7BNk"
 )
 
 

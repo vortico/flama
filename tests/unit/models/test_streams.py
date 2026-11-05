@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 
-from flama.exceptions import FrameworkNotInstalled
+from flama.exceptions import DependencyNotInstalled
 from flama.models.streams import (
     CleanupTask,
     FileStreamsBackend,
@@ -725,7 +725,7 @@ class TestCaseStreamBuffer:
         terminate_cases: dict[str, tuple[Exception | None, str]] = {
             "normal_completion": (None, "stop"),
             "generic_exception_terminates": (RuntimeError("boom"), "error"),
-            "framework_not_installed_terminates": (FrameworkNotInstalled("torch"), "error"),
+            "framework_not_installed_terminates": (DependencyNotInstalled("torch"), "error"),
         }
 
         if scenario in terminate_cases:
@@ -762,7 +762,7 @@ class TestCaseStreamBuffer:
 
             async def _stream() -> t.AsyncIterator[Event]:
                 yield StartEvent(id=str(buffer.id), created=0)
-                raise FrameworkNotInstalled("torch")
+                raise DependencyNotInstalled("torch")
 
             with caplog_flama.at_level("ERROR"):
                 await buffer.load(_stream())

@@ -1,18 +1,14 @@
 import builtins
 import typing as t
 
-from flama import exceptions
+from flama import _imports
 from flama.ddd import exceptions as ddd_exceptions
 from flama.ddd.repositories import BaseRepository
 
-try:
+with _imports.required("sqlalchemy"):
     import sqlalchemy
     import sqlalchemy.exc as sqlalchemy_exceptions
     from sqlalchemy.ext.asyncio import AsyncConnection
-except Exception:  # pragma: no cover
-    raise exceptions.DependencyNotInstalled(
-        dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy, dependant=__name__
-    )
 
 
 __all__ = ["SQLAlchemyRepository", "SQLAlchemyTableManager", "SQLAlchemyTableRepository"]

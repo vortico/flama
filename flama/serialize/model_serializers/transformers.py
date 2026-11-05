@@ -1,4 +1,4 @@
-import importlib.metadata
+import functools
 import io
 import json
 import logging
@@ -9,19 +9,20 @@ import struct
 import tempfile
 import typing as t
 
-from flama import exceptions, types
+from flama import _imports, types
 from flama._core.compression import tar
 from flama.serialize.data_structures import LLMModelCapabilities
 from flama.serialize.model_serializers._base import BaseModelSerializer
 
-try:
-    import transformers
-    import transformers.utils.logging
+transformers = _imports.Dependency("transformers")
 
+
+@functools.cache
+def _quiet_transformers() -> None:
+    """Silence transformers' logging and progress bars, once it is first used."""
     transformers.utils.logging.set_verbosity_error()
     transformers.utils.logging.disable_progress_bar()
-except Exception:  # pragma: no cover
-    transformers = None
+
 
 if t.TYPE_CHECKING:
     from flama.types import JSONSchema
@@ -55,8 +56,8 @@ class ModelSerializer(BaseModelSerializer):
             pretrained model files, or a :class:`transformers.Pipeline` whose weights are saved and archived.
         :return: Tar archive bytes containing the model directory.
         """
-        if transformers is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("transformers")
+        transformers.require()
+        _quiet_transformers()
 
         if isinstance(obj, str | os.PathLike | pathlib.Path):
             return self._tar_directory(pathlib.Path(obj))
@@ -88,8 +89,8 @@ class ModelSerializer(BaseModelSerializer):
             into ``model_kwargs`` of :func:`transformers.pipeline`.
         :return: A ready-to-use :class:`transformers.Pipeline`.
         """
-        if transformers is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("transformers")
+        transformers.require()
+        _quiet_transformers()
 
         if not isinstance(source, pathlib.Path):
             raise TypeError("transformers serializer expects an extracted model directory, not raw bytes")
@@ -293,8 +294,9 @@ class ModelSerializer(BaseModelSerializer):
         Returns :data:`None` when the tokenizer can't be loaded or the template can't be rendered;
         the caller falls back to the heuristic in that case.
         """
-        if transformers is None:  # pragma: no cover
+        if not transformers.available:  # pragma: no cover
             return None
+        _quiet_transformers()
 
         try:
             tokenizer = transformers.AutoTokenizer.from_pretrained(str(path), trust_remote_code=False)
@@ -382,9 +384,3 @@ class ModelSerializer(BaseModelSerializer):
         except Exception:  # noqa
             logger.exception("Cannot collect info from model")
             return None
-
-    def version(self) -> str:
-        try:
-            return importlib.metadata.version("transformers")
-        except Exception:  # noqa
-            raise exceptions.FrameworkNotInstalled("transformers")

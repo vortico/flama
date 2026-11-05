@@ -174,8 +174,6 @@ class TestCaseModelInfo:
             schemas.adapter.validate(llm_schema, payload)
 
     def test_preserves_capabilities_extra_on_load(self, app, llm_schema):
-        if app.schema.schema_library.name == "typesystem":
-            pytest.skip("typesystem schemas drop unknown fields by default")
         payload = {
             "id": "m",
             "type": "model",

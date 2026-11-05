@@ -21,8 +21,8 @@ class Repositories:
         self.initialised = None
 
 
-class FlamaWorker(SQLAlchemyWorker):
-    """The worker used by Flama Resources."""
+class ResourcesWorker(SQLAlchemyWorker):
+    """The worker running the repositories of the application's REST resources."""
 
     def __init__(self, app: types.App | None = None):
         """Initialize the worker.

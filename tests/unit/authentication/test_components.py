@@ -4,11 +4,16 @@ import uuid
 import pytest
 
 from flama import Flama, authentication
+from flama.client import Client
 
 TOKEN = (
     b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.J3zdedMZSFNOimstjJat0V"
     b"28rM_b1UU62XCp9dg_5kg="
 )
+
+
+# Names the key "outage", which the resolvers below cannot check.
+OUTAGE_TOKEN = b"eyJhbGciOiJIUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.0000"
 
 
 @pytest.fixture(scope="function")
@@ -39,19 +44,19 @@ class TestCaseAccessTokenComponent:
         ["headers", "cookies", "status_code", "result"],
         (
             pytest.param(
-                {"access_token": f"Bearer {TOKEN.decode()}"},
+                {"Authorization": f"Bearer {TOKEN.decode()}"},
                 None,
                 200,
                 {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"data": {"foo": "bar"}, "iat": 0}},
                 id="headers",
             ),
             pytest.param(
-                {"access_token": "token"},
+                {"Authorization": "token"},
                 None,
                 400,
                 {
                     "detail": {
-                        "description": "Authentication header must be 'access_token: Bearer <token>'",
+                        "description": "Authentication header must be 'Authorization: Bearer <token>'",
                         "error": "JWTException",
                     },
                     "error": "HTTPException",
@@ -60,12 +65,12 @@ class TestCaseAccessTokenComponent:
                 id="header_wrong_format",
             ),
             pytest.param(
-                {"access_token": "Foo token"},
+                {"Authorization": "Foo token"},
                 None,
                 400,
                 {
                     "detail": {
-                        "description": "Authentication header must be 'access_token: Bearer <token>'",
+                        "description": "Authentication header must be 'Authorization: Bearer <token>'",
                         "error": "JWTException",
                     },
                     "error": "HTTPException",
@@ -115,6 +120,62 @@ class TestCaseAccessTokenComponent:
         assert response.status_code == status_code
         assert response.json() == result
 
+    @pytest.mark.parametrize(
+        ["headers", "cookies", "challenge"],
+        (
+            pytest.param(None, None, "Bearer", id="no_token"),
+            pytest.param({"Authorization": "token"}, None, 'Bearer error="invalid_request"', id="malformed_header"),
+            pytest.param(
+                None,
+                {"access_token": TOKEN.decode().rsplit(".", 1)[0] + ".0000"},
+                'Bearer error="invalid_token"',
+                id="invalid_token",
+            ),
+        ),
+    )
+    async def test_injection_challenge(self, client, headers, cookies, challenge):
+        client.headers = headers
+        client.cookies = cookies
+        response = await client.request("get", "/")
+
+        assert response.headers["www-authenticate"] == challenge
+
+    async def test_injection_legacy_header(self, client):
+        client.headers = {"access_token": f"Bearer {TOKEN.decode()}"}
+
+        with pytest.warns(DeprecationWarning, match="'access_token' header is deprecated"):
+            response = await client.request("get", "/")
+
+        assert response.status_code == 200
+
+    @pytest.mark.parametrize(
+        ["component", "headers", "status_code", "challenge"],
+        (
+            pytest.param(
+                {"header_key": "X-Token"},
+                {"access_token": f"Bearer {TOKEN.decode()}"},
+                401,
+                "Bearer",
+                id="explicit_header_has_no_fallback",
+            ),
+            pytest.param({"header_key": "X-Token"}, {"X-Token": f"Bearer {TOKEN.decode()}"}, 200, None, id="explicit"),
+            pytest.param({"header_prefix": "Token"}, None, 401, "Token", id="custom_prefix"),
+        ),
+    )
+    async def test_injection_configured(self, secret, component, headers, status_code, challenge):
+        app = Flama(schema=None, docs=None, components=[authentication.AccessTokenComponent(secret.bytes, **component)])
+
+        @app.get("/")
+        def access_token(token: authentication.AccessToken):
+            return token.to_dict()
+
+        async with Client(app=app) as client:
+            client.headers = headers
+            response = await client.get("/")
+
+        assert response.status_code == status_code
+        assert response.headers.get("www-authenticate") == challenge
+
 
 class TestCaseTokenRelay:
     @pytest.fixture(scope="function", autouse=True)
@@ -130,7 +191,7 @@ class TestCaseTokenRelay:
     @pytest.mark.parametrize(
         ["path", "key", "token_cls"],
         (
-            pytest.param("/access/", "access_token", "AccessToken", id="access"),
+            pytest.param("/access/", "Authorization", "AccessToken", id="access"),
             pytest.param("/refresh/", "refresh_token", "RefreshToken", id="refresh"),
         ),
     )
@@ -158,6 +219,9 @@ class TestCaseKeyResolution:
         keys = {"one": uuid.UUID(int=1).bytes, "two": uuid.UUID(int=2).bytes}
 
         def resolver(kid):
+            if kid == "outage":
+                raise authentication.exceptions.KeysUnavailable(retry_after=2.5)
+
             try:
                 return keys[kid]
             except KeyError:
@@ -188,7 +252,7 @@ class TestCaseKeyResolution:
         ),
     )
     async def test_injection(self, client, token, status_code, kid):
-        client.headers = {"access_token": f"Bearer {self.TOKENS[token].decode()}"}
+        client.headers = {"Authorization": f"Bearer {self.TOKENS[token].decode()}"}
 
         response = await client.request("get", "/")
 
@@ -206,14 +270,23 @@ class TestCaseKeyResolution:
                 id="key_not_known",
             ),
             pytest.param(b"NQ==.format.0000", 401, id="header_is_not_an_object"),
+            pytest.param(OUTAGE_TOKEN, 503, id="keys_unavailable"),
         ),
     )
     async def test_injection_refused(self, client, token, status_code):
-        client.headers = {"access_token": f"Bearer {token.decode()}"}
+        client.headers = {"Authorization": f"Bearer {token.decode()}"}
 
         response = await client.request("get", "/")
 
         assert response.status_code == status_code
+
+    async def test_injection_says_when_to_retry(self, client):
+        client.headers = {"Authorization": f"Bearer {OUTAGE_TOKEN.decode()}"}
+
+        response = await client.request("get", "/")
+
+        assert response.status_code == 503
+        assert response.headers["retry-after"] == "3"
 
 
 class TestCaseTokenComponentConfiguration:

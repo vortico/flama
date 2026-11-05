@@ -43,26 +43,25 @@ classifiers = [
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Software Development",
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.11,<3.16"
 dependencies = [
   "click>=8.1,<9.0",
   "uvicorn[standard]>=0.38,<1.0.0",
   "Jinja2>=3.1.2,<4.0",
   "packaging>=24.0,<27.0",
   "pyyaml>=6.0,<7.0",
-  "typing-extensions>=4.15,<5.0; python_version < '3.14'", # PORT: Replace compat when stop supporting 3.13
-  "tomli>=2.3.0,<3.0; python_version < '3.11'",            # PORT: Replace compat when stop supporting 3.10
+  "typing-extensions>=4.15,<5.0; python_version < '3.15'",
   "rich>=15.0,<16.0",
   "httpx[http2]>=0.28,<1.0",
 ]
@@ -74,29 +73,25 @@ documentation = "https://flama.dev/docs/"
 
 [project.optional-dependencies]
 pydantic = ["pydantic>=2.12,<3.0"]
-typesystem = ["typesystem>=0.4.1,<1.0"]
 marshmallow = ["marshmallow>=4.0,<5.0", "apispec>=6.0,<7.0"]
 database = ["SQLAlchemy[asyncio]>=2.0,<3.0"]
 llm = [
   "Pillow>=12.0,<13.0",
   "soundfile>=0.13,<1.0",
-  "vllm>=0.21,<0.27; sys_platform == 'linux' and python_version >= '3.10' and python_version < '3.14'",
-  "mlx>=0.32,<0.33; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
-  "mlx-lm>=0.31,<0.32; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
-  "mlx-vlm>=0.6.7,<0.7; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
+  "vllm>=0.21,<0.27; sys_platform == 'linux' and python_version < '3.14'",
+  "mlx>=0.32,<0.33; sys_platform == 'darwin' and python_version < '3.14'",
+  "mlx-lm>=0.31,<0.32; sys_platform == 'darwin' and python_version < '3.14'",
+  "mlx-vlm>=0.6.7,<0.7; sys_platform == 'darwin' and python_version < '3.14'",
 ]
+sklearn = ["scikit-learn>=1.7,<2.0"]
+torch = ["torch>=2.9,<3.0; python_version < '3.14'"]
+tensorflow = ["tensorflow>=2.20,<3.0; python_version < '3.14'"]
+transformers = ["transformers>=4.50,<6.0"]
 full = [
   "pydantic>=2.12,<3.0",
-  "typesystem>=0.4.1,<1.0",
   "marshmallow>=4.0,<5.0",
   "apispec>=6.0,<7.0",
   "SQLAlchemy[asyncio]>=2.0,<3.0",
-  "Pillow>=12.0,<13.0",
-  "soundfile>=0.13,<1.0",
-  "vllm>=0.21,<0.27; sys_platform == 'linux' and python_version >= '3.10' and python_version < '3.14'",
-  "mlx>=0.32,<0.33; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
-  "mlx-lm>=0.31,<0.32; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
-  "mlx-vlm>=0.6.7,<0.7; sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.14'",
 ]
 
 [project.scripts]
@@ -109,18 +104,13 @@ dev = [
   "pytest-xdist[psutil]>=3.8",
   "pytest-cov>=7.0",
   "pytest-asyncio>=1.2",
-  "ipython>=8.0,<9.0; python_version < '3.11'",
-  "ipython>=9.6; python_version >= '3.11'",
+  "ipython>=9.6",
   "ruff>=0.14.1",
   "ty>=0.0.30; python_version >= '3.13'",
   "pre-commit>=4.3",
   "aiosqlite>=0.21.0,<1.0.0",
   "Faker>=37.11",
-  "scikit-learn>=1.7.2",
-  "tensorflow>=2.20.0; python_version < '3.14'",
-  "torch>=2.9.0; python_version < '3.14'",
-  "transformers>=4.50",
-  "flama[full]",
+  "flama[full,llm,sklearn,tensorflow,torch,transformers]",
 ]
 
 [build-system]
@@ -132,13 +122,15 @@ module-name = "flama._core"
 manifest-path = "lib/core/Cargo.toml"
 python-source = "."
 features = ["pyo3/extension-module"]
+# Keep frame pointers so profilers (perf, py-spy --native, Python 3.15's sampling profiler) can unwind native frames.
+rustc-args = ["-C", "force-frame-pointers=yes"]
 include = [{ path = "flama/_templates/**/*", format = "wheel" }]
 
 [tool.uv]
 environments = [
-  "sys_platform == 'darwin' and python_version >= '3.10' and python_version < '3.15'",
-  "sys_platform == 'linux' and python_version >= '3.10' and python_version < '3.15'",
-  "sys_platform == 'win32' and python_version >= '3.10' and python_version < '3.15'",
+  "sys_platform == 'darwin' and python_version >= '3.11' and python_version < '3.16'",
+  "sys_platform == 'linux' and python_version >= '3.11' and python_version < '3.16'",
+  "sys_platform == 'win32' and python_version >= '3.11' and python_version < '3.16'",
 ]
 
 [tool.ruff]

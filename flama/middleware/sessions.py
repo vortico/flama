@@ -2,7 +2,7 @@ import hashlib
 import time
 import typing as t
 
-from flama import concurrency, types
+from flama import _concurrency, types
 from flama._core.cookies import build_cookie_header
 from flama.crypto import JWS
 from flama.crypto.exceptions import SignatureDecodeException, SignatureVerificationException
@@ -48,7 +48,7 @@ class SessionMiddleware(Middleware):
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if scope["type"] not in ("http", "websocket"):
-            await concurrency.run(self.app, scope, receive, send)
+            await _concurrency.run(self.app, scope, receive, send)
             return
 
         connection = HTTPConnection(scope)
@@ -96,7 +96,7 @@ class SessionMiddleware(Middleware):
                     )
             await send(message)
 
-        await concurrency.run(self.app, scope, receive, _send)
+        await _concurrency.run(self.app, scope, receive, _send)
 
     def _encode_session(self, data: dict[str, t.Any]) -> bytes:
         """Sign session data as a JWS token.

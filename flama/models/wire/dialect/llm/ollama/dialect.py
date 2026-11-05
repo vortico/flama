@@ -1,6 +1,6 @@
 import typing as t
 
-from flama import compat, types
+from flama import _compat, types
 from flama.models.wire.dialect._base import Dialect, EventSource
 from flama.models.wire.dialect.llm.ollama.assembler import OllamaAssembleKwargs, OllamaAssembler
 from flama.models.wire.dialect.llm.ollama.parser import OllamaParser
@@ -9,15 +9,15 @@ from flama.models.wire.dialect.llm.ollama.renderer import OllamaRenderer
 __all__ = ["OllamaDialect", "OllamaRenderKwargs"]
 
 
-class OllamaRenderKwargs(t.TypedDict, total=False):
+class OllamaRenderKwargs(_compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :meth:`OllamaDialect.render`.
 
     Mirrors the constructor signature of
     :class:`~flama.models.wire.dialect.llm.ollama.OllamaRenderer` exactly.
     """
 
-    api: compat.Required[t.Literal["chat", "generate"]]
-    model: compat.Required[str]
+    api: t.Required[t.Literal["chat", "generate"]]
+    model: t.Required[str]
 
 
 class OllamaDialect(Dialect[types.JSONSchema]):
@@ -39,12 +39,12 @@ class OllamaDialect(Dialect[types.JSONSchema]):
 
     @classmethod
     def render(
-        cls, source: EventSource, /, **kwargs: compat.Unpack[OllamaRenderKwargs]
+        cls, source: EventSource, /, **kwargs: t.Unpack[OllamaRenderKwargs]
     ) -> t.AsyncIterator[types.JSONSchema]:
         """Typed façade over :meth:`Dialect._render` naming the Ollama render kwargs (``api``, ``model``)."""
         return cls._render(source, kwargs)
 
     @classmethod
-    async def assemble(cls, source: EventSource, /, **kwargs: compat.Unpack[OllamaAssembleKwargs]) -> dict[str, t.Any]:
+    async def assemble(cls, source: EventSource, /, **kwargs: t.Unpack[OllamaAssembleKwargs]) -> dict[str, t.Any]:
         """Typed façade over :meth:`Dialect._assemble` naming the Ollama assemble kwargs."""
         return await cls._assemble(source, kwargs)

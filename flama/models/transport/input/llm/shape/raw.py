@@ -1,7 +1,7 @@
 import dataclasses
 import typing as t
 
-from flama import compat, types
+from flama import types
 from flama.models.engine.llm.input import EngineInput
 from flama.models.transport.input.llm.shape._base import Shape, _ShapeFields, _ShapeRenderKwargs
 
@@ -33,5 +33,5 @@ class Raw(Shape):
 
         object.__setattr__(self, "prompt", prompt)
 
-    async def render(self, backend: "LLMBackend", /, **kwargs: compat.Unpack[_ShapeRenderKwargs]) -> EngineInput:
+    async def render(self, backend: "LLMBackend", /, **kwargs: t.Unpack[_ShapeRenderKwargs]) -> EngineInput:
         return EngineInput(tokens=list(backend.encode(self.prompt, add_special_tokens=True)))

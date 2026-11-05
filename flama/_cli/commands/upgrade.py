@@ -49,7 +49,7 @@ def command(
     Example:
         flama upgrade src/
         flama upgrade --write src/ tests/
-        flama upgrade --to 2.0 --skip move-module:flama.asgi src/
+        flama upgrade --to 2.0 --skip move:module:flama.asgi src/
     """
     report = run_upgrade(
         list(paths),

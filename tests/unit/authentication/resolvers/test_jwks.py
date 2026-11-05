@@ -1,10 +1,12 @@
 import asyncio
+import gc
 
 import httpx
 import pytest
 
 from flama.authentication.exceptions import KeysUnavailable, Unauthorized
 from flama.authentication.resolvers.jwks import JWKSResolver
+from flama.client import Client
 
 ED25519_X = "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
 ED25519_KEY = bytes.fromhex("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")
@@ -14,45 +16,83 @@ OCT_KEY = bytes.fromhex("19ac2082e1721ab58a6afec05f854a52")
 OCT_JWK = {"kty": "oct", "k": OCT_K, "kid": "b"}
 
 URL = "https://issuer.local/keys/"
+TENANT = "https://issuer.local/{}/keys/"
+# The resolver's defaults.
+TTL = 600.0
+FETCH_INTERVAL = 5.0
+
+
+class Issuer:
+    """A key set that counts how often it is read, and can be made to misbehave."""
+
+    def __init__(self) -> None:
+        self.keys: list[dict] = [ED25519_JWK]
+        self.reads: list[str] = []
+        self.status = 200
+        self.body: str | None = None
+        self.error: Exception | None = None
+        self.unpublished: set[str] = set()
+        # Played back one per read before anything else: an error to raise, a status to answer, or seconds to hang.
+        self.outcomes: list[Exception | int | float] = []
+
+    def client(self) -> Client:
+        return Client(transport=httpx.MockTransport(self._handle))
+
+    async def _handle(self, request: httpx.Request) -> httpx.Response:
+        self.reads.append(str(request.url))
+        await asyncio.sleep(0)  # Give a concurrent caller the chance to arrive mid-read.
+
+        if self.outcomes:
+            match self.outcomes.pop(0):
+                case Exception() as error:
+                    raise error
+                case int() as status:
+                    return httpx.Response(status)
+                case float() as hang:
+                    while True:  # Until cancelled.
+                        await asyncio.sleep(hang)
+
+        if self.error is not None:
+            raise self.error
+
+        if str(request.url) in self.unpublished:
+            return httpx.Response(404)
+
+        if self.body is not None:
+            return httpx.Response(self.status, text=self.body)
+
+        return httpx.Response(self.status, json={"keys": self.keys})
 
 
 @pytest.fixture(scope="function")
-def issuer():
-    class Issuer:
-        """A key set that counts how often it is read, and can be made to misbehave."""
-
-        def __init__(self) -> None:
-            self.keys: list[dict] = [ED25519_JWK]
-            self.reads: list[str] = []
-            self.status = 200
-            self.body: str | None = None
-            self.error: Exception | None = None
-
-        def client(self) -> httpx.AsyncClient:
-            async def handler(request: httpx.Request) -> httpx.Response:
-                self.reads.append(str(request.url))
-                await asyncio.sleep(0)  # Give a concurrent caller the chance to arrive mid-read.
-
-                if self.error is not None:
-                    raise self.error
-
-                if self.body is not None:
-                    return httpx.Response(self.status, text=self.body)
-
-                return httpx.Response(self.status, json={"keys": self.keys})
-
-            return httpx.AsyncClient(transport=httpx.MockTransport(handler))
-
+def issuer() -> Issuer:
     return Issuer()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function", autouse=True)
 def clock(monkeypatch) -> list[float]:
     # One clock for both modules, so moving it moves expiry and the read interval together.
     now = [0.0]
     for module in ("flama.cache", "flama.authentication.resolvers.jwks"):
         monkeypatch.setattr(f"{module}.time.monotonic", lambda: now[0])
     return now
+
+
+@pytest.fixture(scope="function", autouse=True)
+def waits(monkeypatch, clock) -> list[float]:
+    # The loop's clock is the one above, so a wait moves it and yields for timeouts on it to fire.
+    seen: list[float] = []
+    sleep = asyncio.sleep
+
+    async def wait(delay: float, result: object = None) -> object:
+        seen.append(delay)
+        clock[0] += delay
+        await sleep(0)
+        return result
+
+    monkeypatch.setattr(asyncio, "sleep", wait)
+    monkeypatch.setattr("flama.authentication.resolvers.jwks.random.uniform", lambda _, b: b)
+    return seen
 
 
 class TestCaseJWKSResolver:
@@ -71,6 +111,22 @@ class TestCaseJWKSResolver:
                 ValueError("Fetches must be spaced closer together than keys are held"),
                 id="fetches_spaced_further_than_keys_held",
             ),
+            pytest.param({"unknown_fetch_limit": 1}, None, id="one_unknown_fetch_allowed"),
+            pytest.param(
+                {"retry_timeout": 5.0},
+                ValueError("A fetch must be given some time, and end before the next one is allowed"),
+                id="retries_as_long_as_the_interval",
+            ),
+            pytest.param(
+                {"retry_timeout": 0.0},
+                ValueError("A fetch must be given some time, and end before the next one is allowed"),
+                id="no_time_for_a_fetch",
+            ),
+            pytest.param(
+                {"unknown_fetch_limit": 0},
+                ValueError("At least one fetch from a key set not yet seen must be allowed"),
+                id="no_unknown_fetch_allowed",
+            ),
         ),
         indirect=["exception"],
     )
@@ -78,7 +134,7 @@ class TestCaseJWKSResolver:
         with exception:
             resolver = JWKSResolver(URL, **kwargs)
 
-            assert isinstance(resolver.client, httpx.AsyncClient)
+            assert isinstance(resolver.client, Client)
             assert resolver._owns_client is True
 
             await resolver.aclose()
@@ -116,6 +172,9 @@ class TestCaseJWKSResolver:
             pytest.param({}, {"default": OCT_KEY}, None, OCT_KEY, None, id="no_identity_falls_back_to_default"),
             pytest.param({}, {"default": OCT_KEY}, "a", ED25519_KEY, None, id="identity_ignores_default"),
             pytest.param({}, {}, None, None, Unauthorized, id="no_identity_and_no_default"),
+            pytest.param({"status": 404}, {}, "a", None, Unauthorized, id="key_set_not_published"),
+            pytest.param({"status": 410}, {}, "a", None, Unauthorized, id="key_set_no_longer_published"),
+            pytest.param({"status": 403}, {}, "a", None, KeysUnavailable, id="issuer_refuses_the_fetch"),
             pytest.param({"status": 500}, {}, "a", None, KeysUnavailable, id="issuer_errors"),
             pytest.param({"body": "not json"}, {}, "a", None, KeysUnavailable, id="issuer_answers_with_nonsense"),
             pytest.param(
@@ -154,7 +213,7 @@ class TestCaseJWKSResolver:
 
         assert await resolver("a") == ED25519_KEY
 
-        clock[0] = resolver.ttl + 1
+        clock[0] = TTL + 1
 
         assert await resolver("a") == ED25519_KEY
         assert issuer.reads == [URL, URL]
@@ -203,7 +262,7 @@ class TestCaseJWKSResolver:
         assert await resolver("b") == OCT_KEY
 
         issuer.keys = [ED25519_JWK]
-        clock[0] = resolver.fetch_interval + 1
+        clock[0] = FETCH_INTERVAL + 1
 
         # An unseen identity prompts a fetch, and what that fetch finds replaces what was held, so the
         # withdrawn key goes at once rather than waiting out its own lifetime.
@@ -219,7 +278,7 @@ class TestCaseJWKSResolver:
         assert await resolver("a") == ED25519_KEY
 
         issuer.keys = [*issuer.keys, OCT_JWK]
-        clock[0] = resolver.fetch_interval + 1
+        clock[0] = FETCH_INTERVAL + 1
 
         # Well inside the life of what is already held, so only the unseen identity prompts a read.
         assert await resolver("b") == OCT_KEY
@@ -227,13 +286,13 @@ class TestCaseJWKSResolver:
 
     async def test_call_forgets_the_oldest_key_set(self, issuer) -> None:
         resolver = JWKSResolver(lambda kid: f"https://issuer.local/{kid}/keys/", client=issuer.client())
-        resolver._sources.max_size = 2
+        resolver._sources._known.max_size = 2
 
         for kid in ("one", "two", "three"):
             with pytest.raises(Unauthorized):
                 await resolver(kid)
 
-        assert set(resolver._sources) == {"https://issuer.local/two/keys/", "https://issuer.local/three/keys/"}
+        assert set(resolver._sources._known) == {"https://issuer.local/two/keys/", "https://issuer.local/three/keys/"}
 
     async def test_call_serves_every_request_while_the_issuer_is_unreachable(self, issuer, clock) -> None:
         resolver = JWKSResolver(URL, stale_ttl=1_000.0, client=issuer.client())
@@ -241,14 +300,18 @@ class TestCaseJWKSResolver:
         assert await resolver("a") == ED25519_KEY
 
         issuer.status = 500
+        clock[0] = TTL + 1.0
 
-        # Every request is answered from what was last known, not only the one that finds the issuer down.
-        for elapsed in (1.0, 2.0, 3.0):
-            clock[0] = resolver.ttl + elapsed
+        assert await resolver("a") == ED25519_KEY
+
+        reads = len(issuer.reads)
+
+        # Later requests within the interval are answered from what was last known, without asking again.
+        for elapsed in (2.0, 3.0):
+            clock[0] = TTL + elapsed
             assert await resolver("a") == ED25519_KEY
 
-        # The rest were within the interval, so the issuer was asked once more and no more than that.
-        assert issuer.reads == [URL, URL]
+        assert len(issuer.reads) == reads
 
     @pytest.mark.parametrize(
         ["stale_ttl", "elapsed", "key", "exception"],
@@ -265,10 +328,233 @@ class TestCaseJWKSResolver:
         assert await resolver("a") == ED25519_KEY
 
         issuer.status = 500
-        clock[0] = resolver.ttl + elapsed
+        clock[0] = TTL + elapsed
 
         with exception:
             assert await resolver("a") == key
+
+    @pytest.mark.parametrize(
+        ["elapsed", "reads"],
+        (
+            pytest.param(4.0, 1, id="within_the_interval"),
+            pytest.param(6.0, 2, id="past_the_interval"),
+        ),
+    )
+    async def test_call_holds_a_key_set_not_published(self, issuer, clock, elapsed, reads) -> None:
+        issuer.status = 404
+        resolver = JWKSResolver(lambda kid: f"https://issuer.local/{kid.split('.')[0]}/keys/", client=issuer.client())
+
+        with pytest.raises(Unauthorized):
+            await resolver("nobody.1")
+
+        clock[0] = elapsed
+
+        # Asking again about a tenant the issuer disowns is answered from that answer until the interval is out.
+        with pytest.raises(Unauthorized):
+            await resolver("nobody.2")
+
+        assert len(issuer.reads) == reads
+
+    async def test_call_finds_a_key_set_published_since(self, issuer, clock) -> None:
+        issuer.status = 404
+        resolver = JWKSResolver(URL, client=issuer.client())
+
+        with pytest.raises(Unauthorized):
+            await resolver("a")
+
+        issuer.status = 200
+        clock[0] = FETCH_INTERVAL + 1
+
+        assert await resolver("a") == ED25519_KEY
+
+    async def test_call_forgets_keys_of_a_key_set_no_longer_published(self, issuer, clock) -> None:
+        resolver = JWKSResolver(URL, stale_ttl=1_000.0, client=issuer.client())
+
+        assert await resolver("a") == ED25519_KEY
+
+        issuer.status = 410
+        clock[0] = TTL + 1
+
+        # The issuer answered, so what it held before is not served as stale.
+        with pytest.raises(Unauthorized):
+            await resolver("a")
+
+    async def test_call_limits_fetches_from_key_sets_not_yet_seen(self, issuer, clock) -> None:
+        issuer.unpublished = {TENANT.format(tenant) for tenant in ("x1", "x2", "x3")}
+        resolver = JWKSResolver(
+            lambda kid: TENANT.format(kid.split(".")[0]), unknown_fetch_limit=2, client=issuer.client()
+        )
+
+        for kid in ("x1.k", "x2.k"):
+            with pytest.raises(Unauthorized):
+                await resolver(kid)
+
+        # The issuer is not asked once the limit is reached, so the identity cannot be checked rather than refused.
+        with pytest.raises(KeysUnavailable):
+            await resolver("x3.k")
+
+        assert len(issuer.reads) == 2
+
+        clock[0] = FETCH_INTERVAL + 1
+
+        with pytest.raises(Unauthorized):
+            await resolver("x3.k")
+
+        assert len(issuer.reads) == 3
+
+    async def test_call_fetches_known_key_sets_past_the_limit(self, issuer, clock) -> None:
+        issuer.unpublished = {TENANT.format(tenant) for tenant in ("x1", "x2", "x3")}
+        resolver = JWKSResolver(
+            lambda kid: TENANT.format(kid.split(".")[0]), unknown_fetch_limit=2, client=issuer.client()
+        )
+
+        assert await resolver("a") == ED25519_KEY
+
+        clock[0] = FETCH_INTERVAL + 1
+
+        for kid in ("x1.k", "x2.k"):
+            with pytest.raises(Unauthorized):
+                await resolver(kid)
+
+        with pytest.raises(KeysUnavailable):
+            await resolver("x3.k")
+
+        # A key set that has published keys keeps its own schedule, whatever the limit has left.
+        with pytest.raises(Unauthorized):
+            await resolver("a.new")
+
+        assert issuer.reads.count(TENANT.format("a")) == 2
+
+    async def test_call_keeps_known_key_sets_through_a_flood(self, issuer) -> None:
+        issuer.unpublished = {TENANT.format(f"x{n}") for n in range(10)}
+        resolver = JWKSResolver(lambda kid: TENANT.format(kid.split(".")[0]), client=issuer.client())
+        resolver._sources._unknown.max_size = 2
+
+        assert await resolver("a") == ED25519_KEY
+
+        for n in range(10):
+            with pytest.raises(Unauthorized):
+                await resolver(f"x{n}.k")
+
+        # Made-up tenants make room only among themselves, so the key set in use is still held.
+        assert await resolver("a") == ED25519_KEY
+        assert issuer.reads.count(TENANT.format("a")) == 1
+        assert set(resolver._sources._known) == {TENANT.format("a")}
+        assert len(resolver._sources._unknown) == 2
+
+    async def test_call_drops_the_locks_of_evicted_key_sets(self, issuer) -> None:
+        issuer.unpublished = {TENANT.format(f"x{n}") for n in range(10)}
+        resolver = JWKSResolver(lambda kid: TENANT.format(kid.split(".")[0]), client=issuer.client())
+        resolver._sources._unknown.max_size = 2
+
+        for n in range(10):
+            with pytest.raises(Unauthorized):
+                await resolver(f"x{n}.k")
+
+        gc.collect()
+
+        assert len(resolver._sources._locks) == 2
+
+    async def test_call_finds_every_key_set_when_starting(self, issuer) -> None:
+        tenants = ("one", "two", "three")
+        issuer.keys = [{**ED25519_JWK, "kid": f"{tenant}.k"} for tenant in tenants]
+        resolver = JWKSResolver(
+            lambda kid: TENANT.format(kid.split(".")[0]), unknown_fetch_limit=3, client=issuer.client()
+        )
+
+        assert [await resolver(f"{tenant}.k") for tenant in tenants] == [ED25519_KEY] * 3
+        assert set(resolver._sources._known) == {TENANT.format(tenant) for tenant in tenants}
+        assert not resolver._sources._unknown
+
+    @pytest.mark.parametrize(
+        "outcomes",
+        (
+            pytest.param([httpx.ConnectError("refused")], id="connection_refused"),
+            pytest.param([httpx.ReadTimeout("slow")], id="timed_out"),
+            pytest.param([503], id="server_error"),
+            pytest.param([502, httpx.ConnectError("refused")], id="twice"),
+        ),
+    )
+    async def test_call_retries_an_unreachable_issuer(self, issuer, waits, outcomes) -> None:
+        issuer.outcomes = list(outcomes)
+        resolver = JWKSResolver(URL, client=issuer.client())
+
+        assert await resolver("a") == ED25519_KEY
+        assert len(issuer.reads) == len(outcomes) + 1
+        # The wait doubles between attempts.
+        assert [wait for wait in waits if wait] == [0.1, 0.2][: len(outcomes)]
+
+    @pytest.mark.parametrize(
+        ["outcomes", "exception"],
+        (
+            pytest.param([404], Unauthorized, id="not_published"),
+            pytest.param([403], KeysUnavailable, id="refused"),
+            pytest.param([429], KeysUnavailable, id="rate_limited"),
+        ),
+        indirect=["exception"],
+    )
+    async def test_call_does_not_retry_an_answer(self, issuer, outcomes, exception) -> None:
+        issuer.outcomes = list(outcomes)
+        resolver = JWKSResolver(URL, client=issuer.client())
+
+        with exception:
+            await resolver("a")
+
+        assert len(issuer.reads) == 1
+
+    async def test_call_does_not_retry_nonsense(self, issuer) -> None:
+        issuer.body = "not json"
+        resolver = JWKSResolver(URL, client=issuer.client())
+
+        with pytest.raises(KeysUnavailable):
+            await resolver("a")
+
+        assert len(issuer.reads) == 1
+
+    async def test_call_gives_up_once_retries_run_out(self, issuer, clock) -> None:
+        issuer.status = 500
+        resolver = JWKSResolver(URL, retry_timeout=1.0, client=issuer.client())
+
+        with pytest.raises(KeysUnavailable) as exc_info:
+            await resolver("a")
+
+        assert isinstance(exc_info.value.__cause__, httpx.HTTPStatusError)
+        assert len(issuer.reads) > 1
+
+    async def test_call_gives_up_on_an_attempt_that_never_ends(self, issuer) -> None:
+        issuer.outcomes = [10.0]
+        resolver = JWKSResolver(URL, retry_timeout=1.0, client=issuer.client())
+
+        # Nothing was answered, so the key cannot be checked rather than being refused.
+        with pytest.raises(KeysUnavailable) as exc_info:
+            await resolver("a")
+
+        assert isinstance(exc_info.value.__cause__, TimeoutError)
+
+    async def test_call_says_when_to_retry_an_unreachable_issuer(self, issuer, clock) -> None:
+        issuer.status = 500
+        resolver = JWKSResolver(URL, retry_timeout=1.0, client=issuer.client())
+
+        with pytest.raises(KeysUnavailable) as exc_info:
+            await resolver("a")
+
+        assert exc_info.value.retry_after == pytest.approx(FETCH_INTERVAL - clock[0])
+
+    async def test_call_says_when_to_retry_past_the_limit(self, issuer, clock) -> None:
+        issuer.unpublished = {TENANT.format(tenant) for tenant in ("x1", "x2")}
+        resolver = JWKSResolver(
+            lambda kid: TENANT.format(kid.split(".")[0]), unknown_fetch_limit=1, client=issuer.client()
+        )
+
+        with pytest.raises(Unauthorized):
+            await resolver("x1.k")
+
+        clock[0] = 2.0
+
+        with pytest.raises(KeysUnavailable) as exc_info:
+            await resolver("x2.k")
+
+        assert exc_info.value.retry_after == FETCH_INTERVAL - 2.0
 
     async def test_call_derives_the_url(self, issuer) -> None:
         resolver = JWKSResolver(lambda kid: f"https://issuer.local/{kid.split('.')[0]}/keys/", client=issuer.client())

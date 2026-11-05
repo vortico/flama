@@ -241,8 +241,7 @@ class TestCaseHuggingFaceDownloader:
                 tmp = pathlib.Path(downloader.tmp.name)
                 assert (tmp / "config.json").read_bytes() == b"fake-content"
                 assert (tmp / "model.safetensors").read_bytes() == b"fake-content"
-                assert not (tmp / "config.json.tmp").exists()
-                assert not (tmp / "model.safetensors.tmp").exists()
+                assert sorted(p.name for p in tmp.iterdir()) == ["config.json", "model.safetensors"]
 
         assert downloader.config == {"task": "text-generation"}
         assert p_client.call_args.kwargs["http2"] is True
@@ -374,7 +373,7 @@ class TestCaseHuggingFaceDownloader:
         assert dest.exists() is expected_dest_exists
         if expected_dest_exists:
             assert dest.read_bytes() == b"data"
-        assert not dest.with_suffix(".bin.tmp").exists()
+        assert [p.name for p in tmp_path.iterdir()] == (["x.bin"] if expected_dest_exists else [])
 
     async def test___aenter__(self, make_downloader: t.Callable[..., _HuggingFaceDownloader]) -> None:
         client = AsyncMock()

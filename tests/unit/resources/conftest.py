@@ -4,7 +4,6 @@ import marshmallow
 import pydantic
 import pytest
 import sqlalchemy
-import typesystem
 
 from flama import Flama
 from flama.client import Client
@@ -29,16 +28,6 @@ async def puppy_model(app):
     if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model(
             "Puppy", custom_id=(int | None, None), name=(str, ...), age=(int, ...), owner=(str | None, None)
-        )
-    elif app.schema.schema_library.name == "typesystem":
-        schema = typesystem.Schema(
-            title="Puppy",
-            fields={
-                "custom_id": typesystem.Integer(allow_null=True),
-                "name": typesystem.String(),
-                "age": typesystem.Integer(),
-                "owner": typesystem.String(allow_null=True),
-            },
         )
     elif app.schema.schema_library.name == "marshmallow":
         schema = type(

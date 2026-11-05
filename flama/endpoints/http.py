@@ -1,6 +1,6 @@
 import typing as t
 
-from flama import concurrency, http, types
+from flama import _concurrency, http, types
 from flama.context import Context
 from flama.endpoints._base import BaseEndpoint
 from flama.types.http import ALL_METHODS, Method
@@ -58,4 +58,4 @@ class HTTPEndpoint(BaseEndpoint, types.HTTPEndpointProtocol):
     async def dispatch(self) -> t.Any:
         """Dispatch a request."""
         handler = await self.state.app.injector.inject(await self.resolve_handler(), self.state)
-        return await concurrency.run(handler)
+        return await _concurrency.run(handler)

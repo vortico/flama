@@ -3,8 +3,6 @@ import json
 import marshmallow
 import pydantic
 import pytest
-import typesystem
-import typesystem.fields
 
 from flama import exceptions
 from flama.http.responses.api import APIErrorResponse, APIResponse
@@ -15,8 +13,6 @@ class TestCaseAPIResponse:
     def schema(self, app):
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("Puppy", name=(str, ...))
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(title="Puppy", fields={"name": typesystem.fields.String()})
         elif app.schema.schema_library.name == "marshmallow":
             schema = type("Puppy", (marshmallow.Schema,), {"name": marshmallow.fields.String(required=True)})
         else:

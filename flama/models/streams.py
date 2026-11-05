@@ -12,9 +12,9 @@ import time
 import typing as t
 import uuid
 
-from flama import concurrency, types
+from flama import _concurrency, types
 from flama._core.json_encoder import encode_json
-from flama.exceptions import FrameworkNotInstalled
+from flama.exceptions import DependencyNotInstalled
 from flama.models.transport.output.llm.event import Event, StopEvent, TraceEvent
 
 __all__ = [
@@ -173,16 +173,16 @@ class FileStreamsBackend(StreamsBackend):
             )
 
             if not self._root.exists():
-                await concurrency.run(self._root.mkdir, parents=True, exist_ok=True)
+                await _concurrency.run(self._root.mkdir, parents=True, exist_ok=True)
                 self._root = self._path
 
     async def aclose(self) -> None:
         if self._root is not None:
             for fd in self._writers.values():
-                await concurrency.run(fd.close)
+                await _concurrency.run(fd.close)
 
             if self._remove:
-                await concurrency.run(shutil.rmtree, self._root)
+                await _concurrency.run(shutil.rmtree, self._root)
 
             self._writers.clear()
             self._line_offsets.clear()
@@ -191,7 +191,7 @@ class FileStreamsBackend(StreamsBackend):
 
     async def append(self, model: str, key: uuid.UUID, block: Event) -> None:
         line = encode_json(block.to_dict(), compact=True) + b"\n"
-        await concurrency.run(self._write_line, await self._writer(model, key), line)
+        await _concurrency.run(self._write_line, await self._writer(model, key), line)
         offsets = self._line_offsets[(model, key)]
         offsets.append(offsets[-1] + len(line))
 
@@ -200,7 +200,7 @@ class FileStreamsBackend(StreamsBackend):
             return []
 
         data = bytearray()
-        async with concurrency.FileReader(
+        async with _concurrency.FileReader(
             self._file_path(model, key), chunk_size=1 << 16, start=offsets[start], end=offsets[end]
         ) as reader:
             async for chunk in reader:
@@ -219,11 +219,11 @@ class FileStreamsBackend(StreamsBackend):
 
     async def discard(self, model: str, key: uuid.UUID) -> None:
         if (fd := self._writers.pop((model, key), None)) is not None:
-            await concurrency.run(fd.close)
+            await _concurrency.run(fd.close)
 
         self._line_offsets.pop((model, key), None)
 
-        await concurrency.run(self._file_path(model, key).unlink, missing_ok=True)
+        await _concurrency.run(self._file_path(model, key).unlink, missing_ok=True)
 
     def usage(self) -> "dict[tuple[str, uuid.UUID], int]":
         """Bytes written per stream, derived from the line-offset index."""
@@ -240,8 +240,8 @@ class FileStreamsBackend(StreamsBackend):
     async def _writer(self, model: str, key: uuid.UUID) -> t.IO[bytes]:
         if (model, key) not in self._writers:
             path = self._file_path(model, key)
-            await concurrency.run(path.parent.mkdir, parents=True, exist_ok=True)
-            fd = t.cast(t.IO[bytes], await concurrency.run(open, path, "ab"))
+            await _concurrency.run(path.parent.mkdir, parents=True, exist_ok=True)
+            fd = t.cast(t.IO[bytes], await _concurrency.run(open, path, "ab"))
             self._writers[(model, key)] = fd
             self._line_offsets[(model, key)] = [0]
 
@@ -583,13 +583,13 @@ class StreamBuffer:
         Used by serving layers as the producer side of the producer-consumer channel: the native flow
         mounts this on a :class:`~flama.background.BackgroundTask` so it runs after the POST body is
         flushed (while the GET tails the same buffer); single-step flows (OpenAI chat completions) drive
-        it concurrently with body iteration via :func:`flama.concurrency.alongside`. The decoder owns the
+        it concurrently with body iteration via :func:`flama._concurrency.alongside`. The decoder owns the
         success-path :class:`~flama.models.StartEvent` / :class:`~flama.models.StopEvent`
         lifecycle, so this method just forwards every block it sees. If *stream* raises, the decoder
         never emits its terminal :class:`StopEvent`, so :meth:`error` is invoked to synthesise one;
         downstream consumers render that as a dialect-appropriate error frame.
 
-        :class:`~flama.exceptions.FrameworkNotInstalled` is logged at ``error`` level (no traceback —
+        :class:`~flama.exceptions.DependencyNotInstalled` is logged at ``error`` level (no traceback —
         it's a deployment issue, not a bug); every other exception goes through
         :meth:`logging.Logger.exception`.
 
@@ -598,7 +598,7 @@ class StreamBuffer:
         try:
             async for block in stream:
                 await self.append(block)
-        except FrameworkNotInstalled as exc:
+        except DependencyNotInstalled as exc:
             logger.error("Stream backend missing dependency: %s", exc)
             await self.error()
         except Exception as exc:

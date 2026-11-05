@@ -1,3 +1,4 @@
+import collections.abc
 import typing as t
 
 import pytest
@@ -46,6 +47,20 @@ class TestCaseAnnotation:
     )
     def test_element(self, annotation, containers, expected):
         assert Annotation(annotation).element(*containers) == expected
+
+    @pytest.mark.parametrize(
+        ["annotation", "expected"],
+        [
+            pytest.param(int, int, id="plain"),
+            pytest.param(int | None, int, id="optional"),
+            pytest.param(list[int], list, id="parameterised"),
+            pytest.param(t.Sequence[int], collections.abc.Sequence, id="parameterised_alias"),
+            pytest.param(list[int] | None, list, id="optional_parameterised"),
+            pytest.param(list, list, id="bare_generic"),
+        ],
+    )
+    def test_origin(self, annotation, expected):
+        assert Annotation(annotation).origin is expected
 
     @pytest.mark.parametrize(
         ["annotation", "containers", "expected"],

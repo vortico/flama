@@ -171,15 +171,15 @@ class TestCaseEndToEndQuery:
 
     @pytest.mark.parametrize(
         ["exception"],
-        [pytest.param(exceptions.FrameworkNotInstalled, id="framework_not_installed")],
+        [pytest.param(exceptions.DependencyNotInstalled, id="framework_not_installed")],
         indirect=["exception"],
     )
     async def test_framework_not_installed_propagates(self, client: Client, llm_component, exception) -> None:
-        """``FrameworkNotInstalled`` raised by ``model.query`` is re-raised verbatim (not downgraded to an
+        """``DependencyNotInstalled`` raised by ``model.query`` is re-raised verbatim (not downgraded to an
         HTTP 400 / 500) so the missing-runtime failure surfaces to the ASGI server unchanged."""
 
         async def _mock(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-            raise exceptions.FrameworkNotInstalled("vllm or mlx-lm")
+            raise exceptions.DependencyNotInstalled("vllm", "mlx_lm")
 
         with patch.object(type(llm_component.model), "query", _mock), exception:
             await client.post("/llm/query/", json={"prompt": "hi"})

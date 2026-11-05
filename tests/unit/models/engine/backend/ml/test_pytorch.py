@@ -4,6 +4,7 @@ import pytest
 
 from flama import exceptions
 from flama.models.engine.backend.ml.pytorch import PytorchBackend
+from tests._utils import missing
 
 
 class TestCasePytorchBackend:
@@ -15,7 +16,7 @@ class TestCasePytorchBackend:
         ["torch_installed", "expected", "exception"],
         [
             pytest.param(True, [[0.0], [1.0]], None, id="success"),
-            pytest.param(False, None, exceptions.FrameworkNotInstalled, id="not_installed"),
+            pytest.param(False, None, exceptions.DependencyNotInstalled, id="not_installed"),
         ],
         indirect=["exception"],
     )
@@ -26,7 +27,7 @@ class TestCasePytorchBackend:
             model.return_value = MagicMock(tolist=MagicMock(return_value=expected))
             patched_torch = mock_torch
         else:
-            patched_torch = None
+            patched_torch = missing("torch")
 
         backend = PytorchBackend(model)
 

@@ -61,8 +61,6 @@ class TestCaseChatCompletionsInput:
             schemas.adapter.validate(llm_schema, payload)
 
     def test_rejects_invalid_tool_choice_literal(self, app, llm_schema):
-        if app.schema.schema_library.name == "typesystem":
-            pytest.skip("typesystem fields.Union does not introspect literal-only string variants")
         with pytest.raises(SchemaValidationError):
             schemas.adapter.validate(
                 llm_schema,
@@ -287,8 +285,6 @@ class TestCaseModelEntry:
         schemas.adapter.validate(llm_schema, {"id": "m", "object": "model", "created": 0, "owned_by": "flama"})
 
     def test_preserves_capabilities_extra_on_load(self, app, llm_schema):
-        if app.schema.schema_library.name == "typesystem":
-            pytest.skip("typesystem schemas drop unknown fields by default")
         payload = {
             "id": "m",
             "object": "model",

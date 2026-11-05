@@ -4,7 +4,7 @@ import inspect
 import pathlib
 import typing as t
 
-from flama import types
+from flama import _imports, types
 
 if t.TYPE_CHECKING:
     from flama.serialize.data_structures import ModelCapabilities
@@ -70,13 +70,13 @@ class BaseModelSerializer(abc.ABC):
         """
         ...
 
-    @abc.abstractmethod
     def version(self) -> str:
-        """Returns the version of the serialization protocol used by this serializer.
+        """Returns the installed version of the framework this serializer handles.
 
         :return: The version string.
+        :raises DependencyNotInstalled: If the framework is not installed.
         """
-        ...
+        return _imports.version(self.lib)
 
     @abc.abstractmethod
     def detect_capabilities(self, model: t.Any, /) -> "ModelCapabilities | None":

@@ -1,9 +1,11 @@
+import builtins
 import dataclasses
 import datetime
 import decimal
 import enum
 import json
 import pathlib
+import sys
 import uuid
 
 import pytest
@@ -175,3 +177,21 @@ class TestCaseEncodeJson:
                 assert json.loads(output) == sorted(content)
             else:
                 assert output == result
+
+    @pytest.mark.skipif(sys.version_info < (3, 15), reason="frozendict requires Python 3.15")
+    @pytest.mark.parametrize(
+        ["content", "kwargs", "result"],
+        (
+            pytest.param({}, {}, b"{}", id="empty"),
+            pytest.param({"b": 1, "a": 2}, {}, b'{"b": 1, "a": 2}', id="insertion_order"),
+            pytest.param({"b": 1, "a": 2}, {"sort_keys": True}, b'{"a": 2, "b": 1}', id="sort_keys"),
+            pytest.param({"a": {"b": None}}, {"compact": True}, b'{"a":{"b":null}}', id="nested"),
+        ),
+    )
+    def test_encode_json_frozendict(self, content, kwargs, result):
+        frozendict = getattr(builtins, "frozendict")
+
+        def freeze(value):
+            return frozendict({k: freeze(v) for k, v in value.items()}) if isinstance(value, dict) else value
+
+        assert encode_json(freeze(content), **kwargs) == result

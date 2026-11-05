@@ -120,6 +120,15 @@ class _BindingFinder(ast.NodeVisitor):
             self.found = True
 
 
+def _dotted(node: ast.expr) -> str | None:
+    """Return the dotted path an expression spells (``a.b.c``), or ``None`` when it is not a plain path."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute) and (prefix := _dotted(node.value)) is not None:
+        return f"{prefix}.{node.attr}"
+    return None
+
+
 class Source:
     """An immutable view over a single Python source file and its parsed syntax tree.
 
@@ -195,6 +204,65 @@ class Source:
                     if alias.name == name:
                         return alias.asname or alias.name
         return None
+
+    def module_aliases(self, module: str) -> set[str]:
+        """Return the dotted expressions ``module`` is reachable through, as imported by this source.
+
+        ``from flama import exceptions`` makes ``flama.exceptions`` reachable as ``exceptions``,
+        ``import flama.exceptions as e`` as ``e``, and ``import flama.exceptions`` (or ``import flama``) as
+        ``flama.exceptions``. Aliases whose root name is rebound are left out, since they may no longer refer to
+        the module.
+
+        :param module: Fully-qualified module path.
+        :return: Local dotted expressions referring to the module.
+        """
+        parent, _, last = module.rpartition(".")
+        aliases: set[str] = set()
+        for node in self.imports:
+            if isinstance(node, ast.ImportFrom):
+                if node.level == 0 and parent and node.module == parent:
+                    aliases.update(alias.asname or alias.name for alias in node.names if alias.name == last)
+                continue
+            for alias in node.names:
+                if alias.asname is not None:
+                    if alias.name == module:
+                        aliases.add(alias.asname)
+                elif module == alias.name or module.startswith(f"{alias.name}."):
+                    aliases.add(module)
+
+        return {alias for alias in aliases if not self.is_rebound(alias.split(".", 1)[0])}
+
+    def attribute_references(self, module: str, name: str) -> list[ast.Attribute]:
+        """Return every ``<module>.<name>`` reference reaching ``name`` through an alias of ``module``.
+
+        :param module: Module the symbol belongs to.
+        :param name: Symbol name.
+        :return: Matching attribute nodes.
+        """
+        aliases = self.module_aliases(module)
+        if not aliases:
+            return []
+
+        return [
+            node
+            for node in ast.walk(self.tree)
+            if isinstance(node, ast.Attribute) and node.attr == name and _dotted(node.value) in aliases
+        ]
+
+    def symbol_references(self, module: str, name: str) -> list[ast.Name | ast.Attribute]:
+        """Return every read of ``name`` from ``module``, as the name it was imported as or through the module.
+
+        :param module: Module the symbol belongs to.
+        :param name: Symbol name.
+        :return: Matching bare-name and attribute nodes.
+        """
+        binding = self.local_binding(module, name)
+        names: list[ast.Name | ast.Attribute] = [
+            node
+            for node in ast.walk(self.tree)
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id == binding
+        ]
+        return names + self.attribute_references(module, name)
 
     def delete_statement(self, node: ast.stmt) -> Edit:
         """Build an edit that removes ``node``'s full lines, including the trailing newline.

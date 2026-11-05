@@ -1,14 +1,14 @@
 import dataclasses
 import typing as t
 
-from flama import compat, types
+from flama import types
+from flama.models.engine.llm.input import EngineInput
 from flama.models.transport.input.llm.message import Message, SystemMessage, TextContent, UserMessage
 from flama.models.transport.input.llm.shape._base import Shape, _ShapeFields, _ShapeRenderKwargs
 from flama.models.transport.input.llm.tool import Tool
 
 if t.TYPE_CHECKING:
     from flama.models.engine.backend.llm import LLMBackend
-from flama.models.engine.llm.input import EngineInput
 
 __all__ = ["Chat"]
 
@@ -44,7 +44,7 @@ class Chat(Shape):
         object.__setattr__(self, "system", bag.get("system"))
         object.__setattr__(self, "tools", bag.get("tools"))
 
-    async def render(self, backend: "LLMBackend", /, **kwargs: compat.Unpack[_ShapeRenderKwargs]) -> "EngineInput":
+    async def render(self, backend: "LLMBackend", /, **kwargs: t.Unpack[_ShapeRenderKwargs]) -> "EngineInput":
         if backend.chat_template is None:
             raise ValueError("Model has no chat template, use transport='raw'")
 

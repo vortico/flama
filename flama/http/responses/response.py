@@ -4,7 +4,7 @@ import os
 import typing as t
 from datetime import datetime
 
-from flama import concurrency, exceptions, types
+from flama import _concurrency, exceptions, types
 from flama._core.cookies import build_cookie_header
 from flama.http.data_structures import MutableHeaders
 
@@ -201,7 +201,7 @@ class StreamingResponse(Response, t.Generic[Content, Payload]):
             types.Message({"type": "http.response.start", "status": self.status_code, "headers": self.raw_headers})
         )
 
-        async for chunk in concurrency.iterate(self.content):
+        async for chunk in _concurrency.iterate(self.content):
             encoded = self.encode(chunk)
             await send(types.Message({"type": "http.response.body", "body": encoded, "more_body": True}))
 

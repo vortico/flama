@@ -33,6 +33,9 @@ class TestCaseModule:
 
         assert not hasattr(m, "app")
 
+    def test_components(self, module):
+        assert module().components == []
+
     def test_build(self, module):
         m = module()
         app = Mock(spec=Flama)
@@ -76,6 +79,18 @@ class TestCaseModules:
         assert bar_module.app == app
         assert modules == {"foo": foo_module, "bar": bar_module}
         assert modules == [foo_module.__class__, bar_module.__class__]
+
+    def test_components(self, app, foo_module):
+        component = Mock()
+
+        class BarModule(Module):
+            name = "bar"
+
+            @property
+            def components(self):
+                return [component]
+
+        assert Modules(app, {foo_module, BarModule()}).components == [component]
 
     def test_init_collision(self, foo_module, app):
         class FooModule2(Module):
