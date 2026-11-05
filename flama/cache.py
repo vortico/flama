@@ -11,7 +11,7 @@ __all__ = ["LRUCache", "TTLCache"]
 
 @dataclasses.dataclass(frozen=True)
 class _Held(t.Generic[V]):
-    """A value, and the two moments that matter to it."""
+    """A value with its expiration and the end of its grace."""
 
     value: V
     expiration: float
@@ -19,9 +19,11 @@ class _Held(t.Generic[V]):
 
 
 class LRUCache(t.MutableMapping[K, V]):
-    """A cache for keeping the N last recent used items.
+    """A cache keeping the N most recently used items.
 
-    Making room drops the item that has been held longest.
+    Reading or writing an item counts as using it, and making room drops the one unused longest.
+
+    :param max_size: How many items to hold.
     """
 
     def __init__(self, *, max_size: int = 2**10) -> None:
@@ -36,9 +38,13 @@ class LRUCache(t.MutableMapping[K, V]):
             self._data.popitem(last=False)
 
         self._data.__setitem__(key, value)
+        self._data.move_to_end(key)
 
     def __getitem__(self, key: K) -> V:
-        return self._data.__getitem__(key)
+        value = self._data.__getitem__(key)
+        self._data.move_to_end(key)
+
+        return value
 
     def __delitem__(self, key: K) -> None:
         return self._data.__delitem__(key)
@@ -47,7 +53,8 @@ class LRUCache(t.MutableMapping[K, V]):
         return self._data.__eq__(other)
 
     def __iter__(self) -> t.Iterator:
-        return self._data.__iter__()
+        # Over a snapshot, since reading an item while iterating moves it.
+        return iter(list(self._data))
 
     def __len__(self) -> int:
         return self._data.__len__()
@@ -67,15 +74,13 @@ class LRUCache(t.MutableMapping[K, V]):
 
 
 class TTLCache(t.MutableMapping[K, V]):
-    """A cache for keeping items for a while, and within reach for a while longer.
+    """A cache whose items expire after ``ttl``.
 
-    An item stops being given out once its lifetime has passed. Where a grace is given it stays reachable
-    through :meth:`stale` for that much longer, so a caller left with no better source can carry on with what
-    it last knew rather than with nothing at all.
+    Expired items stay reachable through :meth:`stale` for ``stale_ttl`` longer, for callers with nothing better.
 
     :param ttl: How long an item is given out for.
-    :param stale_ttl: How long past that an item stays reachable as stale, or nothing for no grace at all.
-    :param max_size: How many items to hold before the oldest is dropped.
+    :param stale_ttl: How long past that an item stays reachable as stale, or ``None`` for no grace.
+    :param max_size: How many items to hold before the one unused longest is dropped.
     """
 
     def __init__(self, *, ttl: float = 600.0, stale_ttl: float | None = None, max_size: int = 2**10) -> None:
@@ -85,7 +90,7 @@ class TTLCache(t.MutableMapping[K, V]):
 
     @property
     def max_size(self) -> int:
-        """How many items are held before the oldest is dropped."""
+        """How many items are held before the one unused longest is dropped."""
         return self._data.max_size
 
     def __setitem__(self, key: K, value: V) -> None:
@@ -111,7 +116,7 @@ class TTLCache(t.MutableMapping[K, V]):
     def __iter__(self) -> t.Iterator[K]:
         now = time.monotonic()
 
-        # Expired items are passed over, so iterating agrees with what ``in`` and ``[]`` will say.
+        # Skip expired items, so iterating agrees with ``in`` and ``[]``.
         return iter([key for key in self._data if now < self._data[key].expiration])
 
     def __len__(self) -> int:
@@ -120,7 +125,7 @@ class TTLCache(t.MutableMapping[K, V]):
         return sum(1 for key in self._data if now < self._data[key].expiration)
 
     def __str__(self) -> str:
-        # Only the keys: a cache holding secrets should not be the thing that logs one.
+        # Only the keys, so a cache of secrets never logs one.
         return f"{self.__class__.__name__}({list(self)})"
 
     def __repr__(self) -> str:
@@ -131,11 +136,11 @@ class TTLCache(t.MutableMapping[K, V]):
         self._data.reset()
 
     def stale(self, key: K, /) -> V:
-        """Give back an expired item that is still within its grace.
+        """Get an item, even if expired, as long as it is within its grace.
 
-        :param key: The key to look for.
-        :return: The value, expired but still reachable.
-        :raises KeyError: If nothing is held for that key, or what is held is past its grace.
+        :param key: Key to look for.
+        :return: The value.
+        :raises KeyError: If nothing is held for the key, or it is past its grace.
         """
         held = self._data[key]
 
