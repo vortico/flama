@@ -405,24 +405,6 @@ class TestCaseUploadFile:
         assert upload.content_type == "application/octet-stream"
         assert upload.path is None
 
-    @pytest.mark.parametrize(
-        ["read_first"],
-        [
-            pytest.param(False, id="unread"),
-            pytest.param(True, id="already_read"),
-        ],
-    )
-    async def test_data_is_deprecated(self, upload, read_first):
-        if read_first:
-            await upload.read()
-
-        with pytest.warns(DeprecationWarning):
-            data = upload.data
-
-        # Reading through the deprecated property must not disturb the stream position.
-        assert data == b"hello world"
-        assert await upload.read() == (b"" if read_first else b"hello world")
-
     @pytest.fixture(scope="function")
     def spooled(self, tmp_path):
         path = tmp_path / "spooled.bin"

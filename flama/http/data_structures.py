@@ -3,7 +3,6 @@ import enum
 import io
 import os
 import typing as t
-import warnings
 from collections.abc import Mapping
 from urllib.parse import urlencode
 
@@ -346,29 +345,6 @@ class UploadFile:
         self.headers = headers or Headers()
         self.path = path
         self._file: t.IO[bytes] = open(path, "rb") if path is not None else io.BytesIO(data)  # noqa: SIM115
-
-    @property
-    def data(self) -> bytes:
-        """Full contents of the upload.
-
-        .. deprecated::
-            Reading the whole upload into memory defeats the spooling of large files. Use
-            :meth:`read` instead. This property will be removed in Flama 2.2.
-
-        :return: Raw file bytes.
-        """
-        warnings.warn(
-            "'UploadFile.data' is deprecated and will be removed in Flama 2.2, use 'await UploadFile.read()' instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        position = self._file.tell()
-        self._file.seek(0)
-        try:
-            return self._file.read()
-        finally:
-            self._file.seek(position)
 
     async def read(self, size: int = -1) -> bytes:
         return self._file.read(size)
