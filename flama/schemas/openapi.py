@@ -698,7 +698,11 @@ class SchemaGenerator:
 
         return [
             Parameter(
-                schema=Schema(parameter.field.json_schema),
+                schema=Schema(
+                    {**parameter.field.json_schema, "uniqueItems": True}
+                    if types.Annotation(parameter.type).origin in (set, frozenset)
+                    else parameter.field.json_schema
+                ),
                 name=parameter.name,
                 in_=parameter.location.name,
                 required=parameter.required,

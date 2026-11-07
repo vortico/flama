@@ -222,9 +222,7 @@ class MCPServer:
         except ValueError:
             return Field("output", annotation).json_schema
 
-        multiple = types.Annotation(annotation).is_multiple(list, tuple, set, frozenset)
-
-        return SchemaRegistry.bundle(schema.schema, multiple=multiple)
+        return SchemaRegistry.bundle(schema.schema, multiple=types.Annotation(annotation).is_multiple)
 
     @staticmethod
     def _prompt_arguments(func: t.Callable) -> list[dict[str, t.Any]]:

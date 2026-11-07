@@ -10,6 +10,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from flama import types
+from flama.http import JSONResponse
 from flama.injection import Parameter as InjectionParameter
 from flama.schemas.data_structures import Field, Parameter, ParameterLocation, Schema
 from tests._utils import assert_recursive_contains
@@ -110,6 +111,11 @@ class TestCaseField:
             pytest.param(types.PathParam, True, id="path_param"),
             pytest.param(int | None, True, id="nullable"),
             pytest.param(list[int], True, id="list"),
+            pytest.param(set[int], True, id="set"),
+            pytest.param(frozenset[str], True, id="frozenset"),
+            pytest.param(tuple[int, ...], True, id="tuple_of_any_length"),
+            # Each item of a fixed-length tuple has its own type, which a repeated query value cannot carry.
+            pytest.param(tuple[int, str], False, id="tuple_of_fixed_length"),
             # An enum is a string constrained to its values, so it qualifies wherever a primitive does.
             pytest.param(_Colour, True, id="enum"),
             pytest.param(_Colour | None, True, id="nullable_enum"),
@@ -450,3 +456,17 @@ class TestCaseParameter:
             )
 
         assert Parameter.build(type_, parameter) == result
+
+    @pytest.mark.parametrize(
+        ["annotation", "multiple"],
+        (
+            pytest.param(lambda s: t.Annotated[types.Schema, types.SchemaMetadata(s)], False, id="annotated"),
+            pytest.param(lambda s: t.Annotated[types.SchemaList, types.SchemaMetadata(s)], True, id="annotated_list"),
+            pytest.param(lambda s: JSONResponse[s], False, id="response"),
+            pytest.param(lambda s: JSONResponse[list[s]], True, id="response_list"),
+        ),
+    )
+    def test_multiple(self, foo_schema, annotation, multiple):
+        parameter = Parameter(name="foo", location=ParameterLocation.response, type=annotation(foo_schema.schema))
+
+        assert parameter.multiple is multiple

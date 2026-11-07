@@ -34,12 +34,12 @@ class Field:
 
     def __post_init__(self) -> None:
         annotation = types.Annotation(self.type)
-        field_type = annotation.element(list)
+        field_type = annotation.element
 
         object.__setattr__(self, "nullable", annotation.optional or self.default is None)
 
         if not Schema.is_schema(field_type) and self.multiple is None:
-            object.__setattr__(self, "multiple", annotation.is_multiple(list))
+            object.__setattr__(self, "multiple", annotation.is_multiple)
 
         object.__setattr__(
             self,
@@ -94,7 +94,7 @@ class Field:
         :param type_: Annotation to check, which a union or a subscription makes something other than a type.
         :return: True if a parameter of this type can be read from a request.
         """
-        carried = types.Annotation(type_).element(list)
+        carried = types.Annotation(type_).element
 
         # Anything still generic once the list is unwrapped names no single value, so nothing can carry it.
         if t.get_origin(carried) is not None:
@@ -299,10 +299,17 @@ class Parameter:
                     schema = None
                     field = Field(self.name, self.type, required=self.required, default=self.default)
 
+        # The payload is a response's type argument, and its schema metadata says nothing about how many there are.
+        payload = types.Annotation(
+            t.get_args(self.type)[0] if response is not None and t.get_args(self.type) else self.type
+        )
+        if t.get_origin(payload.type) is t.Annotated:
+            payload = types.Annotation(t.get_args(payload.type)[0])
+
         object.__setattr__(self, "schema", schema)
         object.__setattr__(self, "field", field)
         object.__setattr__(self, "response", response)
-        object.__setattr__(self, "multiple", annotation.is_multiple(list, tuple, set, frozenset))
+        object.__setattr__(self, "multiple", payload.is_multiple)
 
     @property
     def media_type(self) -> str | None:

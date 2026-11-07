@@ -1,4 +1,3 @@
-import builtins
 import dataclasses
 import typing as t
 from types import UnionType
@@ -13,12 +12,9 @@ class Annotation:
     """A structural view over a type annotation.
 
     Everything that reads an annotation wants the same two answers, what a value of it is and whether there is
-    one or several of them, and each answer is easy to get subtly wrong on its own. Optionality in particular
-    is not a shape a union takes but a member it holds, so it is read as ``None`` being among the types
-    admitted rather than as the union having two members with the right one last.
-
-    Which containers count as carrying several values is left to the caller, since a query parameter and a
-    response do not agree on it, and neither should have to know what the other decided.
+    one or several of them. Optionality is read as ``None`` being among the types a union admits, and several values
+    of one type are carried by a list, set or frozenset, or a tuple of any length, though not by a tuple of fixed
+    length, whose items each have their own type.
 
     :param annotation: Annotation to read.
     """
@@ -54,18 +50,21 @@ class Annotation:
         """
         return self.type if self._origin is None else self._origin
 
-    def element(self, *containers: builtins.type) -> t.Any:
-        """The type carried, which is the type itself when it is not one of the given containers.
+    @property
+    def element(self) -> t.Any:
+        """The type of each value carried, which is the type itself when it carries a single value.
 
-        :param containers: Containers to read as carrying several values.
         :return: The type carried.
         """
-        return self._args[0] if self.is_multiple(*containers) else self.type
+        return self._args[0] if self.is_multiple else self.type
 
-    def is_multiple(self, *containers: builtins.type) -> bool:
-        """Whether several values are carried rather than one.
+    @property
+    def is_multiple(self) -> bool:
+        """Whether several values of one type are carried rather than one.
 
-        :param containers: Containers to read as carrying several values.
-        :return: True if more than one value is carried.
+        :return: True for a list, set, frozenset or tuple of any length.
         """
-        return self._origin in containers and bool(self._args)
+        if self._origin is tuple:
+            return len(self._args) == 2 and self._args[1] is Ellipsis
+
+        return self._origin in (list, set, frozenset) and bool(self._args)

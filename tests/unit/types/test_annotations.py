@@ -32,21 +32,23 @@ class TestCaseAnnotation:
         assert result.type == type_
 
     @pytest.mark.parametrize(
-        ["annotation", "containers", "expected"],
+        ["annotation", "expected"],
         [
-            pytest.param(int, (list,), int, id="plain"),
-            pytest.param(int | None, (list,), int, id="optional"),
-            pytest.param(list[int], (list,), int, id="container"),
-            pytest.param(list[int] | None, (list,), int, id="optional_container"),
-            # Which containers carry several values is the caller's to say, not the annotation's.
-            pytest.param(tuple[int, ...], (list,), tuple[int, ...], id="container_not_counted"),
-            pytest.param(tuple[int, ...], (list, tuple), int, id="container_counted"),
+            pytest.param(int, int, id="plain"),
+            pytest.param(int | None, int, id="optional"),
+            pytest.param(list[int], int, id="list"),
+            pytest.param(list[int] | None, int, id="optional_list"),
+            pytest.param(set[int], int, id="set"),
+            pytest.param(frozenset[int], int, id="frozenset"),
+            pytest.param(tuple[int, ...], int, id="tuple_of_any_length"),
+            # Each item of a fixed-length tuple has its own type, so there is no single type to look into.
+            pytest.param(tuple[int, str], tuple[int, str], id="tuple_of_fixed_length"),
             # A container naming nothing carries nothing to look into.
-            pytest.param(list, (list,), list, id="bare_container"),
+            pytest.param(list, list, id="bare_container"),
         ],
     )
-    def test_element(self, annotation, containers, expected):
-        assert Annotation(annotation).element(*containers) == expected
+    def test_element(self, annotation, expected):
+        assert Annotation(annotation).element == expected
 
     @pytest.mark.parametrize(
         ["annotation", "expected"],
@@ -63,17 +65,19 @@ class TestCaseAnnotation:
         assert Annotation(annotation).origin is expected
 
     @pytest.mark.parametrize(
-        ["annotation", "containers", "expected"],
+        ["annotation", "expected"],
         [
-            pytest.param(int, (list,), False, id="plain"),
-            pytest.param(int | None, (list,), False, id="optional"),
-            pytest.param(list[int], (list,), True, id="container"),
+            pytest.param(int, False, id="plain"),
+            pytest.param(int | None, False, id="optional"),
+            pytest.param(list[int], True, id="list"),
             # Optionality says whether a value is given, never how many, so it cannot hide the container.
-            pytest.param(list[int] | None, (list,), True, id="optional_container"),
-            pytest.param(tuple[int, ...], (list,), False, id="container_not_counted"),
-            pytest.param(tuple[int, ...], (list, tuple), True, id="container_counted"),
-            pytest.param(list, (list,), False, id="bare_container"),
+            pytest.param(list[int] | None, True, id="optional_list"),
+            pytest.param(set[int], True, id="set"),
+            pytest.param(frozenset[int], True, id="frozenset"),
+            pytest.param(tuple[int, ...], True, id="tuple_of_any_length"),
+            pytest.param(tuple[int, str], False, id="tuple_of_fixed_length"),
+            pytest.param(list, False, id="bare_container"),
         ],
     )
-    def test_is_multiple(self, annotation, containers, expected):
-        assert Annotation(annotation).is_multiple(*containers) == expected
+    def test_is_multiple(self, annotation, expected):
+        assert Annotation(annotation).is_multiple == expected

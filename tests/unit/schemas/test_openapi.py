@@ -2011,7 +2011,11 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Many components.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
+                            "content": {
+                                "application/json": {
+                                    "schema": {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"}
+                                }
+                            },
                         },
                         "default": {
                             "description": "Unexpected error.",
