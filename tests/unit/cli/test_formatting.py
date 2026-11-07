@@ -1,6 +1,6 @@
 import importlib.metadata
 import typing as t
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import click
 import pytest
@@ -18,6 +18,7 @@ from flama._cli.formatting import (
     _render_error,
     _render_help,
 )
+from flama.exceptions import DependencyNotInstalled
 
 
 class TestCaseGetVersion:
@@ -152,6 +153,18 @@ class TestCaseFlamaGroup:
         result = runner.invoke(group, args)
 
         assert result.exit_code == expected_exit_code, result.output
+
+    def test_main_reports_a_missing_dependency(self, runner: CliRunner, group: click.Group) -> None:
+        @group.command()
+        def needs() -> None:
+            raise DependencyNotInstalled("transformers")
+
+        with patch("flama._cli.formatting._render_error") as render_error:
+            result = runner.invoke(group, ["needs"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, SystemExit)
+        assert render_error.call_args_list == [call(str(DependencyNotInstalled("transformers")))]
 
 
 class TestCaseRenderHelp:

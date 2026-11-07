@@ -9,6 +9,8 @@ from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme
 
+from flama import exceptions
+
 __all__ = ["CONSOLE", "FLAMA_THEME", "FlamaCommand", "FlamaContext", "FlamaGroup"]
 
 FLAMA_THEME = Theme(
@@ -128,6 +130,9 @@ class FlamaGroup(click.Group):
         except click.ClickException as e:
             _render_error(e.format_message())
             raise SystemExit(e.exit_code) if standalone_mode else e  # noqa: B904
+        except exceptions.DependencyNotInstalled as e:
+            _render_error(str(e))
+            raise SystemExit(1) if standalone_mode else e  # noqa: B904
         except SystemExit:
             raise
 

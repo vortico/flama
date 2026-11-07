@@ -1,20 +1,31 @@
 import asyncio
 import pathlib
+import re
 import typing as t
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
+import click
 import httpx
 import pytest
 from click.testing import CliRunner
 
-from flama._cli.commands.get import _Downloader, _HuggingFaceDownloader, _RetryPolicy, command
+from flama._cli.commands.get import _Downloader, _HuggingFaceDownloader, _Inspection, _RetryPolicy, command
+from flama.exceptions import DependencyNotInstalled
 from flama.serialize.exceptions import UnsafeArtifactPath
 
 
-def _make_response(*, pipeline_tag: str | None = "text-generation", files=(("config.json", 12),)) -> MagicMock:
+def _make_response(
+    *,
+    pipeline_tag: str | None = "text-generation",
+    files=(("config.json", 12),),
+    library_name: str | None = "transformers",
+    config: dict[str, t.Any] | None = None,
+) -> MagicMock:
     resp = MagicMock()
     resp.json.return_value = {
         "pipeline_tag": pipeline_tag,
+        "library_name": library_name,
+        "config": {"model_type": "qwen2"} if config is None else config,
         "siblings": [{"rfilename": name, "size": size} for name, size in files],
     }
     resp.raise_for_status = MagicMock()
@@ -140,7 +151,6 @@ class TestCaseDownloader:
         assert downloader.model_name == "my-org/my-model"
         assert downloader.output == pathlib.Path("out.flm")
         assert downloader.family == "ml"
-        assert downloader.config == {}
         assert downloader.extra == {"model_name": "my-org/my-model"}
         assert isinstance(downloader.tmp.name, str)
 
@@ -149,17 +159,23 @@ class TestCaseDownloader:
         output = tmp_path / "out.flm"
         captured: list[pathlib.Path] = []
 
-        async def fake_download(self) -> None:
+        inspection = _Inspection(lib="transformers", files={"config.json": 2}, config={"task": "image-classification"})
+
+        async def fake_download(self, files) -> None:
+            assert files == inspection.files
             captured.append(pathlib.Path(self.tmp.name))
             (captured[-1] / "config.json").write_text("{}")
-            self.config["task"] = "image-classification"
 
         with (
+            patch.object(_HuggingFaceDownloader, "_inspect", AsyncMock(return_value=inspection)),
             patch.object(_HuggingFaceDownloader, "_download", fake_download),
             patch("flama._cli.commands.get.Serializer") as serializer,
+            patch("flama._cli.commands.get._imports.Dependency") as dependency,
         ):
             downloader = _HuggingFaceDownloader("my-org/my-model", output, family, max_concurrent=2)  # type: ignore[arg-type]
             await downloader.run()
+
+        assert dependency.call_args_list == [call("transformers")]
 
         kwargs = serializer.dump.call_args.kwargs
         assert kwargs["path"] == output
@@ -170,13 +186,29 @@ class TestCaseDownloader:
         assert len(captured) == 1
         assert not captured[0].exists()
 
+    async def test_run_requires_the_framework_before_downloading(self, tmp_path: pathlib.Path) -> None:
+        download = AsyncMock()
+
+        with (
+            patch.object(_HuggingFaceDownloader, "_inspect", AsyncMock(return_value=_Inspection("transformers", {}))),
+            patch.object(_HuggingFaceDownloader, "_download", download),
+            patch(
+                "flama._cli.commands.get._imports.Dependency.require",
+                side_effect=DependencyNotInstalled("transformers"),
+            ),
+            pytest.raises(DependencyNotInstalled),
+        ):
+            await _HuggingFaceDownloader("my-org/my-model", tmp_path / "out.flm", "ml", max_concurrent=2).run()
+
+        assert download.await_count == 0
+
     def test__pack(self, tmp_path: pathlib.Path) -> None:
         output = tmp_path / "out.flm"
         downloader = _HuggingFaceDownloader("my-org/my-model", output, "llm", max_concurrent=2)
-        downloader.config["task"] = "image-classification"
+        inspection = _Inspection(lib="transformers", files={}, config={"task": "image-classification"})
 
         with patch("flama._cli.commands.get.Serializer") as serializer:
-            downloader._pack()
+            downloader._pack(inspection)
 
         assert serializer.dump.call_args_list == [
             call(
@@ -237,16 +269,74 @@ class TestCaseHuggingFaceDownloader:
         with patch("flama._cli.commands.get.Client", return_value=mock_client) as p_client:
             downloader = make_downloader()
             async with downloader:
-                await downloader._download()
+                await downloader._download(dict(files))
                 tmp = pathlib.Path(downloader.tmp.name)
                 assert (tmp / "config.json").read_bytes() == b"fake-content"
                 assert (tmp / "model.safetensors").read_bytes() == b"fake-content"
                 assert sorted(p.name for p in tmp.iterdir()) == ["config.json", "model.safetensors"]
 
-        assert downloader.config == {"task": "text-generation"}
         assert p_client.call_args.kwargs["http2"] is True
-        assert mock_client.get.await_args_list == [call("/api/models/my-org/my-model", params={"blobs": "true"})]
+        assert mock_client.get.await_count == 0
         assert mock_client.stream.call_count == 2
+
+    async def test__inspect(self, make_downloader: t.Callable[..., _HuggingFaceDownloader]) -> None:
+        files = [("config.json", 12), ("model.safetensors", 30)]
+        mock_client = _make_client(_make_response(files=files), MagicMock())
+
+        with patch("flama._cli.commands.get.Client", return_value=mock_client):
+            downloader = make_downloader()
+            async with downloader:
+                inspection = await downloader._inspect()
+
+        assert inspection == _Inspection(
+            lib="transformers",
+            files={"config.json": 12, "model.safetensors": 30},
+            config={"task": "text-generation"},
+        )
+        assert mock_client.get.await_args_list == [call("/api/models/my-org/my-model", params={"blobs": "true"})]
+        assert mock_client.stream.call_count == 0
+
+    @pytest.mark.parametrize(
+        ["library_name", "config", "message"],
+        (
+            pytest.param(
+                "sklearn",
+                {"sklearn": {"model": {"file": "example.pkl"}}},
+                "'my-org/my-model' is not a transformers model (the Hub reports it as 'sklearn')",
+                id="other_library",
+            ),
+            pytest.param(
+                None,
+                {},
+                "'my-org/my-model' is not a transformers model (the Hub reports it as 'unknown')",
+                id="no_library",
+            ),
+        ),
+    )
+    async def test__inspect_refuses_other_formats(
+        self, make_downloader: t.Callable[..., _HuggingFaceDownloader], library_name, config, message
+    ) -> None:
+        mock_client = _make_client(_make_response(library_name=library_name, config=config), MagicMock())
+
+        with patch("flama._cli.commands.get.Client", return_value=mock_client):
+            downloader = make_downloader()
+            async with downloader:
+                with pytest.raises(click.ClickException, match=re.escape(message)):
+                    await downloader._inspect()
+
+        assert mock_client.stream.call_count == 0
+
+    async def test__inspect_accepts_any_library_in_transformers_format(
+        self, make_downloader: t.Callable[..., _HuggingFaceDownloader]
+    ) -> None:
+        response = _make_response(library_name="mlx", config={"model_type": "gemma4"})
+
+        with patch("flama._cli.commands.get.Client", return_value=_make_client(response, MagicMock())):
+            downloader = make_downloader()
+            async with downloader:
+                inspection = await downloader._inspect()
+
+        assert inspection.lib == "transformers"
 
     async def test__download_file_delegates_to_retry(
         self, make_downloader: t.Callable[..., _HuggingFaceDownloader]
@@ -323,7 +413,7 @@ class TestCaseHuggingFaceDownloader:
         with patch("flama._cli.commands.get.Client", return_value=mock_client):
             downloader = make_downloader(max_concurrent=max_concurrent)
             async with downloader:
-                await downloader._download()
+                await downloader._download(dict(files))
 
         assert peak <= max_concurrent
         assert peak >= 1
