@@ -193,7 +193,7 @@ omit = [
   "*__init__.py",
   "*__main__.py",
   "tests/*",
-  "flama/compat.py",
+  "flama/_compat.py",
   "flama/_cli/*",
   "flama/types/*",
   "flama/*/types.py",
