@@ -5,7 +5,12 @@ import pytest
 from flama import exceptions, http, types
 from flama.applications import Flama
 from flama.debug.data_structures import ErrorContext
-from flama.debug.middleware import BaseErrorMiddleware, ExceptionMiddleware, ServerErrorMiddleware
+from flama.debug.middleware import (
+    BaseErrorMiddleware,
+    ExceptionMiddleware,
+    FlamaExceptionMiddleware,
+    ServerErrorMiddleware,
+)
 from flama.http.data_structures import JSONRPCStatus
 from flama.http.responses.api import APIErrorResponse
 from flama.http.responses.jsonrpc import JSONRPCErrorResponse
@@ -177,6 +182,12 @@ class TestCaseExceptionMiddleware:
         return self._build(AsyncMock())
 
     @pytest.fixture(scope="function")
+    def default_middleware(self):
+        instance = FlamaExceptionMiddleware()
+        instance._build(AsyncMock())
+        return instance
+
+    @pytest.fixture(scope="function")
     def handler(self):
         def _handler(): ...
 
@@ -191,14 +202,29 @@ class TestCaseExceptionMiddleware:
         assert middleware.app == app
         assert middleware.debug == debug
         assert middleware._status_handlers == {400: handler}
+        # Only the registered handlers: Flama's default responses are given by FlamaExceptionMiddleware.
+        assert middleware._exception_handlers == {ValueError: handler}
+
+    def test_init_default(self):
+        middleware = FlamaExceptionMiddleware(debug=True)
+
+        assert middleware.debug
+        assert middleware._status_handlers == {}
         assert middleware._exception_handlers == {
-            ValueError: handler,
             exceptions.JSONRPCException: middleware.jsonrpc_exception_handler,
             exceptions.NotFoundException: middleware.not_found_handler,
             exceptions.MethodNotAllowedException: middleware.method_not_allowed_handler,
             exceptions.HTTPException: middleware.http_exception_handler,
             exceptions.WebSocketException: middleware.websocket_exception_handler,
         }
+
+    def test_init_flama_registered_first(self, handler):
+        middleware = FlamaExceptionMiddleware(handlers={exceptions.HTTPException: handler, ValueError: handler})
+
+        # A handler registered for one of Flama's exceptions takes precedence over its default response.
+        assert middleware._exception_handlers[exceptions.HTTPException] is handler
+        assert middleware._exception_handlers[ValueError] is handler
+        assert middleware._exception_handlers[exceptions.NotFoundException] == middleware.not_found_handler
 
     @pytest.mark.parametrize(
         ["status_code", "exc_class", "exception"],
@@ -214,13 +240,7 @@ class TestCaseExceptionMiddleware:
         status_code_handlers = {}
         if status_code is not None:
             status_code_handlers[status_code] = handler
-        exc_class_handlers = {
-            exceptions.JSONRPCException: middleware.jsonrpc_exception_handler,
-            exceptions.NotFoundException: middleware.not_found_handler,
-            exceptions.MethodNotAllowedException: middleware.method_not_allowed_handler,
-            exceptions.HTTPException: middleware.http_exception_handler,
-            exceptions.WebSocketException: middleware.websocket_exception_handler,
-        }
+        exc_class_handlers = {}
         if exc_class is not None:
             exc_class_handlers[exc_class] = handler
 
@@ -351,7 +371,7 @@ class TestCaseExceptionMiddleware:
     )
     def test_http_exception_handler(
         self,
-        middleware,
+        default_middleware,
         asgi_scope,
         asgi_receive,
         asgi_send,
@@ -364,7 +384,7 @@ class TestCaseExceptionMiddleware:
     ):
         asgi_scope["type"] = "http"
         asgi_scope["app"] = MagicMock(Flama)
-        middleware.debug = debug
+        default_middleware.debug = debug
 
         if accept:
             asgi_scope["headers"].append((b"accept", accept))
@@ -376,67 +396,67 @@ class TestCaseExceptionMiddleware:
             patch(patch_target, spec=response_class) as response_mock,
             patch("flama.debug.middleware.dataclasses.asdict", return_value={}),
         ):
-            response = middleware.http_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
+            response = default_middleware.http_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
             assert isinstance(response, response_class)
             pos = response_params.pop("_pos", ())
             assert response_mock.call_args_list == [call(*pos, **response_params)]
 
-    def test_jsonrpc_exception_handler(self, middleware, asgi_scope, asgi_receive, asgi_send):
+    def test_jsonrpc_exception_handler(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
         exc = exceptions.JSONRPCException(status_code=JSONRPCStatus.METHOD_NOT_FOUND, request_id=42, detail="Not found")
-        response = middleware.jsonrpc_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
+        response = default_middleware.jsonrpc_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
         assert isinstance(response, JSONRPCErrorResponse)
 
-    async def test_websocket_exception_handler(self, middleware, asgi_scope, asgi_receive, asgi_send):
+    async def test_websocket_exception_handler(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "websocket"
         exc = exceptions.WebSocketException(1011, "Foo reason")
 
         with patch.object(http.WebSocket, "close", new_callable=AsyncMock) as websocket_close_mock:
-            await middleware.websocket_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
+            await default_middleware.websocket_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
             assert websocket_close_mock.call_args_list == [call(code=exc.code, reason=exc.reason)]
 
-    async def test_not_found_handler_http(self, middleware, asgi_scope, asgi_receive, asgi_send):
+    async def test_not_found_handler_http(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "http"
         asgi_scope["app"] = MagicMock(Flama)
         exc = exceptions.NotFoundException()
 
-        with patch("flama.debug.middleware.ExceptionMiddleware.http_exception_handler") as mock:
-            await middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
+        with patch("flama.debug.middleware.FlamaExceptionMiddleware.http_exception_handler") as mock:
+            await default_middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
         assert mock.call_args_list == [
             call(asgi_scope, asgi_receive, asgi_send, exc=exceptions.HTTPException(status_code=404))
         ]
 
-    async def test_not_found_handler_http_no_app(self, middleware, asgi_scope, asgi_receive, asgi_send):
+    async def test_not_found_handler_http_no_app(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "http"
         del asgi_scope["app"]
         exc = exceptions.NotFoundException()
 
         with patch("flama.debug.middleware.PlainTextResponse") as mock:
-            await middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
+            await default_middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
         assert mock.call_args_list == [call("Not Found", status_code=404)]
 
-    async def test_not_found_handler_websocket(self, middleware, asgi_scope, asgi_receive, asgi_send):
+    async def test_not_found_handler_websocket(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "websocket"
         exc = exceptions.NotFoundException()
 
-        with patch("flama.debug.middleware.ExceptionMiddleware.websocket_exception_handler") as mock:
-            await middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
+        with patch("flama.debug.middleware.FlamaExceptionMiddleware.websocket_exception_handler") as mock:
+            await default_middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
         assert mock.call_args_list == [
             call(asgi_scope, asgi_receive, asgi_send, exc=exceptions.WebSocketException(1000))
         ]
 
-    async def test_method_not_allowed_handler_http(self, middleware, asgi_scope, asgi_receive, asgi_send):
+    async def test_method_not_allowed_handler_http(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "http"
         asgi_scope["app"] = MagicMock(Flama)
         exc = exceptions.MethodNotAllowedException("/", "POST", {"GET"})
 
-        with patch("flama.debug.middleware.ExceptionMiddleware.http_exception_handler") as mock:
-            await middleware.method_not_allowed_handler(asgi_scope, asgi_receive, asgi_send, exc)
+        with patch("flama.debug.middleware.FlamaExceptionMiddleware.http_exception_handler") as mock:
+            await default_middleware.method_not_allowed_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
         assert mock.call_args_list == [
             call(
@@ -447,12 +467,12 @@ class TestCaseExceptionMiddleware:
             )
         ]
 
-    async def test_method_not_allowed_handler_websocket(self, middleware, asgi_scope, asgi_receive, asgi_send):
+    async def test_method_not_allowed_handler_websocket(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "websocket"
         exc = exceptions.MethodNotAllowedException("/", "POST", {"GET"})
 
-        with patch("flama.debug.middleware.ExceptionMiddleware.websocket_exception_handler") as mock:
-            await middleware.method_not_allowed_handler(asgi_scope, asgi_receive, asgi_send, exc)
+        with patch("flama.debug.middleware.FlamaExceptionMiddleware.websocket_exception_handler") as mock:
+            await default_middleware.method_not_allowed_handler(asgi_scope, asgi_receive, asgi_send, exc)
 
         assert mock.call_args_list == [
             call(asgi_scope, asgi_receive, asgi_send, exc=exceptions.WebSocketException(1000))

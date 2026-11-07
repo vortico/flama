@@ -7,6 +7,7 @@ import logging
 import typing as t
 
 from flama import _concurrency, exceptions, types, url
+from flama._core.route_table import Resolution
 from flama.pagination import paginator
 from flama.schemas.routing import ParametersDescriptor
 from flama.types.http import Method
@@ -43,6 +44,27 @@ class ResolveResult:
     matched: str | None = None
     unmatched: str | None = None
     allowed_methods: tuple[Method, ...] | None = None
+
+    @classmethod
+    def from_raw(cls, raw: t.Any, /) -> "ResolveResult | None":
+        """Build a result from what the route table resolves.
+
+        :param raw: The route table's resolution, or ``None`` when nothing matches.
+        :return: The result, or ``None`` when nothing matches.
+        """
+        if raw is None:
+            return None
+
+        if raw[0] == Resolution.MethodNotAllowed:
+            return cls(type=ResolveType.method_not_allowed, index=raw[1], allowed_methods=tuple(raw[2]))
+
+        return cls(
+            type=ResolveType.mount if raw[0] == Resolution.Mount else ResolveType.full,
+            index=raw[1],
+            params=tuple(raw[2]),
+            matched=raw[3],
+            unmatched=raw[4],
+        )
 
 
 class BaseEndpointWrapper(abc.ABC):

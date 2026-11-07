@@ -81,5 +81,14 @@ V2_3 = Migration(
         Flag(Symbol("flama.compat", "tomllib"), "was removed; use the standard library `tomllib` (`import tomllib`)"),
         # The remaining compatibility shims are no longer part of the public API.
         Flag(Module("flama.compat"), "is now private (flama._compat)"),
+        # Type checks on applications and routers are plain `isinstance` checks.
+        *(
+            Flag(Call(Symbol(module, name)), f"was removed; use `isinstance(obj, {replacement})` instead")
+            for module in ("flama.types", "flama.types.applications")
+            for name, replacement in (
+                ("is_flama_instance", "flama.types.App"),
+                ("is_router_instance", "flama.routing.Router"),
+            )
+        ),
     ),
 )

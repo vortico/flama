@@ -2,7 +2,7 @@ import logging
 import typing as t
 
 from flama import exceptions, types, url
-from flama._core.route_table import Resolution, RouteTable
+from flama._core.route_table import RouteTable
 from flama.injection import Component, Components
 from flama.lifespan import Lifespan
 from flama.routing.routes import BaseRoute, ResolveResult, ResolveType, ScopeType
@@ -14,20 +14,6 @@ from flama.types.http import Method
 __all__ = ["Router"]
 
 logger = logging.getLogger(__name__)
-
-
-def _parse_resolve_result(raw: t.Any) -> ResolveResult | None:
-    if raw is None:
-        return None
-    if raw[0] == Resolution.MethodNotAllowed:
-        return ResolveResult(type=ResolveType.method_not_allowed, index=raw[1], allowed_methods=tuple(raw[2]))
-    return ResolveResult(
-        type=ResolveType.mount if raw[0] == Resolution.Mount else ResolveType.full,
-        index=raw[1],
-        params=tuple(raw[2]),
-        matched=raw[3],
-        unmatched=raw[4],
-    )
 
 
 class Router:
@@ -74,7 +60,7 @@ class Router:
         if "router" not in scope:
             scope["router"] = self
 
-        route, route_scope = self.resolve_route(scope)
+        route, route_scope = self.resolve_route(scope, recursive=False)
         await route(route_scope, receive, send)
 
     def _register_route_entry(self, route: BaseRoute) -> None:
@@ -254,17 +240,21 @@ class Router:
         self._register_route_entry(mount)
         return mount
 
-    def resolve_route(self, scope: types.Scope) -> tuple[BaseRoute, types.Scope]:
+    def resolve_route(self, scope: types.Scope, *, recursive: bool = True) -> tuple[BaseRoute, types.Scope]:
         """Look for a route that matches given ASGI scope.
 
+        A request is handed to a mount, so that a mounted application runs its own middleware, while looking a route
+        up for its metadata follows the mounts down to the route itself.
+
         :param scope: ASGI scope.
+        :param recursive: Whether to follow mounts down to the route they lead to, rather than stopping at the mount.
         :raise MethodNotAllowedException: If route is resolved but http method is not valid.
         :raise NotFoundException: If route cannot be resolved.
         :return: Route and its scope.
         """
         scope_type = ScopeType.__members__.get(scope["type"], ScopeType(0))
         path = scope.get("path", "")
-        result = _parse_resolve_result(self._route_table.resolve(path, scope_type, scope.get("method", "")))
+        result = ResolveResult.from_raw(self._route_table.resolve(path, scope_type, scope.get("method", "")))
 
         if result is None:
             raise exceptions.NotFoundException(path=scope.get("root_path", "") + path, params=scope.get("path_params"))
@@ -280,7 +270,10 @@ class Router:
             )
 
         if result.type == ResolveType.mount:
-            is_flama = types.is_flama_instance(route.app)
+            if not recursive:
+                return route, scope
+
+            is_flama = isinstance(route.app, types.App)
             mount_scope = {"app": route.app if is_flama else scope["app"]}
             if "path" in scope:
                 mount_scope["root_path"] = (

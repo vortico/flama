@@ -26,7 +26,7 @@ class TestCaseRouter:
 
     @pytest.fixture(scope="function")
     def app_mock(self):
-        return MagicMock(spec=Flama, router=MagicMock(spec=Router, components=Components([])))
+        return MagicMock(spec=Flama, router=MagicMock(spec=Router, components=Components([])), middleware=MagicMock())
 
     @pytest.fixture(scope="function")
     def component_mock(self):
@@ -452,7 +452,7 @@ class TestCaseRouter:
 
         with (
             patch.object(app.router, "_route_table", mock_table),
-            patch("flama.routing.router._parse_resolve_result", return_value=resolve_result),
+            patch("flama.routing.router.ResolveResult.from_raw", return_value=resolve_result),
         ):
             route, route_scope = app.router.resolve_route(scope=scope)
 
@@ -472,6 +472,21 @@ class TestCaseRouter:
 
         assert route.app is plain_asgi_app
         assert route_scope["path"] == "/sub"
+
+    def test_resolve_route_mount_not_recursive(self, app, asgi_scope):
+        sub_app = Flama(schema=None, docs=None)
+        sub_app.add_route("/sub", lambda: {})
+        app.mount("/mounted", app=sub_app)
+
+        asgi_scope["path"] = "/mounted/sub"
+        asgi_scope["method"] = "GET"
+
+        # A request is handed to the mount, which runs the mounted application with its own middleware.
+        route, route_scope = app.router.resolve_route(scope=asgi_scope, recursive=False)
+
+        assert isinstance(route, Mount)
+        assert route.app is sub_app
+        assert route_scope == asgi_scope
 
     @pytest.mark.parametrize(
         ["routes", "result", "exception"],

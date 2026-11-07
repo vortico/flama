@@ -11,7 +11,7 @@ from flama.http.components import HTTP_COMPONENTS
 from flama.injection.components import Components
 from flama.mcp.components import MCP_COMPONENTS
 from flama.mcp.module import MCPModule
-from flama.middleware import MiddlewareStack
+from flama.middleware import MiddlewareStack, RootMiddlewareStack
 from flama.models.modules import ModelsModule
 from flama.modules import Modules
 from flama.pagination import paginator
@@ -78,7 +78,7 @@ class Flama(types.App):
         self._shutdown = False
 
         # Sets parent app
-        self.parent = parent
+        self._parent = parent
 
         # Create Dependency Injector
         self._injector = injection.Injector(Context)
@@ -98,7 +98,9 @@ class Flama(types.App):
         )
 
         # Build middleware stack
-        self.middleware = MiddlewareStack(app=self, middleware=middleware or [], debug=debug)
+        self.middleware = (RootMiddlewareStack if parent is None else MiddlewareStack)(
+            app=self, middleware=middleware or [], debug=debug
+        )
 
         # Setup schema library
         self.schema.schema_library = schema_library
@@ -143,6 +145,16 @@ class Flama(types.App):
         scope["app"] = self
         scope.setdefault("root_app", self)
         await self.middleware(scope, receive, send)
+
+    @property
+    def parent(self) -> "Flama | None":
+        return self._parent
+
+    @parent.setter
+    def parent(self, parent: "Flama | None") -> None:
+        self._parent = parent
+        # Only the root answers what nothing else handled, so being mounted changes the kind of stack.
+        self.middleware = (RootMiddlewareStack if parent is None else MiddlewareStack).from_stack(self.middleware)
 
     @property
     def status(self) -> types.AppStatus:
@@ -353,13 +365,14 @@ class Flama(types.App):
         """
         return self.router.resolve_url(name, **path_params)
 
-    def resolve_route(self, scope: types.Scope) -> tuple[routing.BaseRoute, types.Scope]:
+    def resolve_route(self, scope: types.Scope, *, recursive: bool = True) -> tuple[routing.BaseRoute, types.Scope]:
         """Look for a route that matches given ASGI scope.
 
         :param scope: ASGI scope.
+        :param recursive: Whether to follow mounts down to the route they lead to, rather than stopping at the mount.
         :return: Route and its scope.
         """
-        return self.router.resolve_route(scope)
+        return self.router.resolve_route(scope, recursive=recursive)
 
     get = functools.partialmethod(route, methods=["GET"])
     head = functools.partialmethod(route, methods=["HEAD"])

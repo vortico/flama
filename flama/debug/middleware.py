@@ -17,7 +17,7 @@ if t.TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ServerErrorMiddleware", "ExceptionMiddleware"]
+__all__ = ["ServerErrorMiddleware", "ExceptionMiddleware", "FlamaExceptionMiddleware"]
 
 
 class BaseErrorMiddleware(Middleware):
@@ -94,6 +94,14 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
 
 
 class ExceptionMiddleware(BaseErrorMiddleware):
+    """Handle the exceptions raised further down the stack that a handler is registered for.
+
+    Any other exception is left to the middleware above.
+
+    :param handlers: Handlers by HTTP status code or exception type.
+    :param debug: Whether to render debug responses.
+    """
+
     def __init__(
         self, handlers: t.Mapping[int | type[Exception], "ExceptionHandler"] | None = None, debug: bool = False
     ) -> None:
@@ -103,12 +111,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
             status_code: handler for status_code, handler in handlers.items() if isinstance(status_code, int)
         }
         self._exception_handlers: dict[type[Exception], ExceptionHandler] = {
-            **{e: handler for e, handler in handlers.items() if inspect.isclass(e) and issubclass(e, Exception)},
-            exceptions.JSONRPCException: self.jsonrpc_exception_handler,
-            exceptions.NotFoundException: self.not_found_handler,
-            exceptions.MethodNotAllowedException: self.method_not_allowed_handler,
-            exceptions.HTTPException: self.http_exception_handler,
-            exceptions.WebSocketException: self.websocket_exception_handler,
+            e: handler for e, handler in handlers.items() if inspect.isclass(e) and issubclass(e, Exception)
         }
 
     def add_exception_handler(
@@ -152,6 +155,30 @@ class ExceptionMiddleware(BaseErrorMiddleware):
 
         if response and _concurrency.is_async(response):
             await response(scope, receive, send)
+
+
+class FlamaExceptionMiddleware(ExceptionMiddleware):
+    """Handle the registered exceptions, and answer Flama's own exceptions with their default responses.
+
+    HTTP, routing, JSON-RPC and WebSocket exceptions get a default response unless a handler is registered for their
+    class.
+
+    :param handlers: Handlers by HTTP status code or exception type.
+    :param debug: Whether to render debug responses.
+    """
+
+    def __init__(
+        self, handlers: t.Mapping[int | type[Exception], "ExceptionHandler"] | None = None, debug: bool = False
+    ) -> None:
+        super().__init__(handlers, debug)
+        for exc_class, handler in {
+            exceptions.JSONRPCException: self.jsonrpc_exception_handler,
+            exceptions.NotFoundException: self.not_found_handler,
+            exceptions.MethodNotAllowedException: self.method_not_allowed_handler,
+            exceptions.HTTPException: self.http_exception_handler,
+            exceptions.WebSocketException: self.websocket_exception_handler,
+        }.items():
+            self._exception_handlers.setdefault(exc_class, handler)
 
     def http_exception_handler(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.HTTPException

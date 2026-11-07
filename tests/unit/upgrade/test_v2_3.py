@@ -115,6 +115,16 @@ class TestCaseUpgradeV23:
             ),
             pytest.param("from flama.compat import tomllib\n", "standard library `tomllib`", id="compat_tomllib"),
             pytest.param("from flama import compat\n", "is now private", id="compat_private"),
+            pytest.param(
+                "from flama.types import is_flama_instance\nis_flama_instance(app)\n",
+                "`isinstance(obj, flama.types.App)`",
+                id="is_flama_instance",
+            ),
+            pytest.param(
+                "from flama import types\ntypes.is_router_instance(app)\n",
+                "`isinstance(obj, flama.routing.Router)`",
+                id="is_router_instance_through_module",
+            ),
             pytest.param("from flama.compat import TypedDict\n", "is now private", id="compat_private_symbol"),
             pytest.param("from flama import concurrency\n", "is now private", id="concurrency_private"),
             pytest.param("from flama.concurrency import run\n", "is now private", id="concurrency_private_symbol"),

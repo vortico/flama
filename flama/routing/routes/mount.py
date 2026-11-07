@@ -28,9 +28,7 @@ class Mount(BaseRoute):
         super().__init__(path, app, name=name, tags=tags)
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        if scope["type"] in ("http", "websocket") or (
-            scope["type"] == "lifespan" and types.is_flama_instance(self.app)
-        ):
+        if scope["type"] in ("http", "websocket") or (scope["type"] == "lifespan" and isinstance(self.app, types.App)):
             await self.handle(types.Scope({**scope, **self.route_scope(scope)}), receive, send)
 
     def _build(self, app: types.App) -> None:
@@ -42,7 +40,7 @@ class Mount(BaseRoute):
         """
         super()._build(app)
 
-        if types.is_flama_instance(self.app):
+        if isinstance(self.app, types.App):
             self.app.parent = app
 
     @property
@@ -86,7 +84,7 @@ class Mount(BaseRoute):
         :param scope: ASGI scope.
         :return: Route scope.
         """
-        is_flama = types.is_flama_instance(self.app)
+        is_flama = isinstance(self.app, types.App)
         result = {"app": self.app if is_flama else scope["app"]}
 
         if "path" in scope:

@@ -1,5 +1,5 @@
 from flama.types.annotations import Annotation
-from flama.types.applications import App, AppStatus, is_flama_instance, is_router_instance
+from flama.types.applications import App, AppStatus
 from flama.types.asgi import (
     ASGIApp,
     ASGIAppClass,
@@ -73,8 +73,6 @@ __all__ = [
     "Annotation",
     "App",
     "AppStatus",
-    "is_flama_instance",
-    "is_router_instance",
     "Scope",
     "Message",
     "Receive",
