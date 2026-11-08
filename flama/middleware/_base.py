@@ -1,7 +1,9 @@
 import typing as t
 
 from flama import _concurrency, types
-from flama.debug.types import ExceptionHandler
+
+if t.TYPE_CHECKING:
+    from flama.errors.types import ExceptionHandlerFunction
 
 __all__ = ["Middleware", "MiddlewareStack", "RootMiddlewareStack"]
 
@@ -54,7 +56,7 @@ class MiddlewareStack:
         self.app = app
         self.middleware = list(reversed(middleware))
         self.debug = debug
-        self._exception_handlers: dict[int | type[Exception], ExceptionHandler] = {}
+        self._exception_handlers: dict[int | type[Exception], ExceptionHandlerFunction] = {}
         self._pipeline: types.ASGIApp | None = None
         self._instances: list[t.Any] = []
 
@@ -93,7 +95,7 @@ class MiddlewareStack:
 
         :return: Middleware list.
         """
-        from flama.debug.middleware import ExceptionMiddleware
+        from flama.errors.middleware import ExceptionMiddleware
 
         return [ExceptionMiddleware(handlers=self._exception_handlers, debug=self.debug), *self.middleware]
 
@@ -108,7 +110,7 @@ class MiddlewareStack:
         for instance in self._instances:
             await instance.on_shutdown()
 
-    def add_exception_handler(self, key: int | type[Exception], handler: ExceptionHandler) -> None:
+    def add_exception_handler(self, key: int | type[Exception], handler: "ExceptionHandlerFunction") -> None:
         """Adds a new handler for an exception type or a HTTP status code.
 
         :param key: Exception type or HTTP status code.
@@ -132,15 +134,33 @@ class MiddlewareStack:
 class RootMiddlewareStack(MiddlewareStack):
     """Middleware chain of the root application, which also answers what nothing else handled.
 
-    A :class:`FlamaExceptionMiddleware` gives Flama's exceptions their default responses unless a handler is
-    registered for them, and a :class:`ServerErrorMiddleware` outside the declared middleware answers anything left.
+    Flama's exceptions and repository errors get their default answers unless a handler is registered for their
+    class, and a :class:`ServerErrorMiddleware` outside the declared middleware answers anything left.
     """
 
     def _stack(self) -> list[_BaseMiddleware]:
-        from flama.debug.middleware import FlamaExceptionMiddleware, ServerErrorMiddleware
+        from flama.ddd.exception_handlers import RepositoryExceptionHandler
+        from flama.errors.exception_handlers import (
+            HTTPExceptionHandler,
+            JSONRPCExceptionHandler,
+            RoutingExceptionHandler,
+            WebSocketExceptionHandler,
+        )
+        from flama.errors.middleware import ExceptionMiddleware, ServerErrorMiddleware
+
+        defaults: dict[int | type[Exception], ExceptionHandlerFunction] = {
+            handler.exc_class: handler
+            for handler in (
+                HTTPExceptionHandler(debug=self.debug),
+                JSONRPCExceptionHandler(),
+                WebSocketExceptionHandler(),
+                RoutingExceptionHandler(debug=self.debug),
+                RepositoryExceptionHandler(),
+            )
+        }
 
         return [
-            FlamaExceptionMiddleware(handlers=self._exception_handlers, debug=self.debug),
+            ExceptionMiddleware(handlers={**defaults, **self._exception_handlers}, debug=self.debug),
             *self.middleware,
             ServerErrorMiddleware(debug=self.debug),
         ]

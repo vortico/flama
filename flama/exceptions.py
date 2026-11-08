@@ -14,6 +14,7 @@ __all__ = [
     "SerializationError",
     "ValidationError",
     "WebSocketException",
+    "RoutingException",
     "NotFoundException",
     "MethodNotAllowedException",
     "FrameworkVersionWarning",
@@ -135,7 +136,11 @@ class SerializationError(HTTPException):
         super().__init__(status_code, detail=detail)
 
 
-class NotFoundException(Exception):
+class RoutingException(Exception):
+    """Base exception for a request that cannot be routed to an endpoint."""
+
+
+class NotFoundException(RoutingException):
     def __init__(
         self, path: str | None = None, params: dict[str, t.Any] | None = None, name: str | None = None
     ) -> None:
@@ -154,7 +159,7 @@ class NotFoundException(Exception):
         return f"{self.__class__.__name__}({formatted_params})"
 
 
-class MethodNotAllowedException(Exception):
+class MethodNotAllowedException(RoutingException):
     def __init__(self, path: str, method: str, allowed: set[str]) -> None:
         self.path = path
         self.method = method

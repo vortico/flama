@@ -10,6 +10,7 @@ from flama.applications import Flama
 from flama.client import Client
 from flama.context import Context
 from flama.ddd.components import WorkerComponent
+from flama.errors import ExceptionHandler
 from flama.events import Events
 from flama.injection.injector import Injector
 from flama.mcp.module import MCPModule
@@ -270,6 +271,27 @@ class TestCaseFlama:
         with patch.object(app, "middleware", spec=MiddlewareStack):
             app.add_exception_handler(key, handler)
             assert app.middleware.add_exception_handler.call_args_list == expected_call
+
+    def test_add_exception_handler_alone(self, app):
+        class _Handler(ExceptionHandler):
+            exc_class = ValueError
+
+        handler = _Handler()
+
+        with patch.object(app, "middleware", spec=MiddlewareStack):
+            app.add_exception_handler(handler)
+
+            # A handler given alone is registered for the exception class it declares.
+            assert app.middleware.add_exception_handler.call_args_list == [call(ValueError, handler)]
+
+    @pytest.mark.parametrize(
+        "exception",
+        [TypeError("An exception handler is required for a status code or exception class")],
+        indirect=True,
+    )
+    def test_add_exception_handler_missing_handler(self, app, exception):
+        with exception:
+            app.add_exception_handler(ValueError)
 
     def test_add_middleware(self, app):
         class FooMiddleware(Middleware):

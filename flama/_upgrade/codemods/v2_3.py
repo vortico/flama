@@ -81,6 +81,13 @@ V2_3 = Migration(
         Flag(Symbol("flama.compat", "tomllib"), "was removed; use the standard library `tomllib` (`import tomllib`)"),
         # The remaining compatibility shims are no longer part of the public API.
         Flag(Module("flama.compat"), "is now private (flama._compat)"),
+        # The debugging package is now the error-handling one, where `ExceptionHandler` names the handler class, so
+        # the handler callable type is renamed before its module moves.
+        Move(Symbol("flama.debug.types", "ExceptionHandler"), Symbol("flama.errors.types", "ExceptionHandlerFunction")),
+        *(
+            Move(Module(f"flama.debug{module}"), Module(f"flama.errors{module}"))
+            for module in ("", ".data_structures", ".middleware", ".types")
+        ),
         # Type checks on applications and routers are plain `isinstance` checks.
         *(
             Flag(Call(Symbol(module, name)), f"was removed; use `isinstance(obj, {replacement})` instead")

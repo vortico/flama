@@ -58,6 +58,22 @@ class TestCaseUpgradeV23:
                 "from flama.resources.workers import ResourcesWorker\n\n\nasync def f(worker: ResourcesWorker): ...\n",
                 id="resources_worker_renamed",
             ),
+            pytest.param(
+                "from flama.debug.middleware import ExceptionMiddleware\n",
+                "from flama.errors.middleware import ExceptionMiddleware\n",
+                id="debug_module_moved",
+            ),
+            pytest.param(
+                "from flama.debug import middleware\n",
+                "from flama.errors import middleware\n",
+                id="debug_package_moved",
+            ),
+            pytest.param(
+                "from flama.debug.types import ExceptionHandler\n\n\ndef f(handler: ExceptionHandler): ...\n",
+                "from flama.errors.types import ExceptionHandlerFunction\n\n\n"
+                "def f(handler: ExceptionHandlerFunction): ...\n",
+                id="exception_handler_type_renamed",
+            ),
         ],
     )
     def test_apply(self, before: str, after: str) -> None:

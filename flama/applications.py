@@ -6,6 +6,7 @@ import typing as t
 from flama import exceptions, injection, routing, types, url
 from flama.context import Context
 from flama.endpoints.components import JSONRPC_COMPONENTS
+from flama.errors.exception_handlers import ExceptionHandler
 from flama.events import Events
 from flama.http.components import HTTP_COMPONENTS
 from flama.injection.components import Components
@@ -341,13 +342,27 @@ class Flama(types.App):
 
         return decorator
 
-    def add_exception_handler(self, exc_class_or_status_code: int | type[Exception], handler: t.Callable):
+    @t.overload
+    def add_exception_handler(self, exc_class_or_status_code: ExceptionHandler) -> None: ...
+    @t.overload
+    def add_exception_handler(self, exc_class_or_status_code: int | type[Exception], handler: t.Callable) -> None: ...
+    def add_exception_handler(
+        self, exc_class_or_status_code: int | type[Exception] | ExceptionHandler, handler: t.Callable | None = None
+    ) -> None:
         """Add a new exception handler for given status code or exception class.
 
-        :param exc_class_or_status_code: Status code or exception class.
+        An :class:`ExceptionHandler` given alone is registered for the exception class it declares.
+
+        :param exc_class_or_status_code: Status code or exception class, or an exception handler given alone.
         :param handler: Exception handler.
         """
-        self.middleware.add_exception_handler(exc_class_or_status_code, handler)
+        if handler is None:
+            if not isinstance(exc_class_or_status_code, ExceptionHandler):
+                raise TypeError("An exception handler is required for a status code or exception class")
+
+            exc_class_or_status_code, handler = exc_class_or_status_code.exc_class, exc_class_or_status_code
+
+        self.middleware.add_exception_handler(t.cast(int | type[Exception], exc_class_or_status_code), handler)
 
     def add_middleware(self, middleware: "Middleware"):
         """Add a new middleware to the stack.

@@ -3,17 +3,9 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 import pytest
 
 from flama import exceptions, http, types
-from flama.applications import Flama
-from flama.debug.data_structures import ErrorContext
-from flama.debug.middleware import (
-    BaseErrorMiddleware,
-    ExceptionMiddleware,
-    FlamaExceptionMiddleware,
-    ServerErrorMiddleware,
-)
-from flama.http.data_structures import JSONRPCStatus
-from flama.http.responses.api import APIErrorResponse
-from flama.http.responses.jsonrpc import JSONRPCErrorResponse
+from flama.errors.data_structures import ErrorContext
+from flama.errors.exception_handlers import ExceptionHandler
+from flama.errors.middleware import BaseErrorMiddleware, ExceptionMiddleware, ServerErrorMiddleware
 from flama.http.responses.templates import _FlamaTemplateResponse
 
 
@@ -145,7 +137,7 @@ class TestCaseServerErrorMiddleware:
         exc = ValueError()
         error_context_mock, context_mock = MagicMock(), MagicMock()
         with (
-            patch("flama.debug.middleware.dataclasses.asdict", return_value=context_mock) as dataclasses_dict,
+            patch("flama.errors.middleware.dataclasses.asdict", return_value=context_mock) as dataclasses_dict,
             patch.object(ErrorContext, "build", return_value=error_context_mock),
             patch.object(_FlamaTemplateResponse, "__init__", return_value=None) as response_mock,
         ):
@@ -182,12 +174,6 @@ class TestCaseExceptionMiddleware:
         return self._build(AsyncMock())
 
     @pytest.fixture(scope="function")
-    def default_middleware(self):
-        instance = FlamaExceptionMiddleware()
-        instance._build(AsyncMock())
-        return instance
-
-    @pytest.fixture(scope="function")
     def handler(self):
         def _handler(): ...
 
@@ -202,29 +188,7 @@ class TestCaseExceptionMiddleware:
         assert middleware.app == app
         assert middleware.debug == debug
         assert middleware._status_handlers == {400: handler}
-        # Only the registered handlers: Flama's default responses are given by FlamaExceptionMiddleware.
         assert middleware._exception_handlers == {ValueError: handler}
-
-    def test_init_default(self):
-        middleware = FlamaExceptionMiddleware(debug=True)
-
-        assert middleware.debug
-        assert middleware._status_handlers == {}
-        assert middleware._exception_handlers == {
-            exceptions.JSONRPCException: middleware.jsonrpc_exception_handler,
-            exceptions.NotFoundException: middleware.not_found_handler,
-            exceptions.MethodNotAllowedException: middleware.method_not_allowed_handler,
-            exceptions.HTTPException: middleware.http_exception_handler,
-            exceptions.WebSocketException: middleware.websocket_exception_handler,
-        }
-
-    def test_init_flama_registered_first(self, handler):
-        middleware = FlamaExceptionMiddleware(handlers={exceptions.HTTPException: handler, ValueError: handler})
-
-        # A handler registered for one of Flama's exceptions takes precedence over its default response.
-        assert middleware._exception_handlers[exceptions.HTTPException] is handler
-        assert middleware._exception_handlers[ValueError] is handler
-        assert middleware._exception_handlers[exceptions.NotFoundException] == middleware.not_found_handler
 
     @pytest.mark.parametrize(
         ["status_code", "exc_class", "exception"],
@@ -275,6 +239,26 @@ class TestCaseExceptionMiddleware:
                 assert result_handler == handler
 
     @pytest.mark.parametrize(
+        ["exc", "result"],
+        [
+            pytest.param(KeyError(), "class_handler", id="handled"),
+            # A class handler that does not answer the exception is skipped for the next registered class.
+            pytest.param(ValueError(), "parent", id="unhandled"),
+        ],
+    )
+    def test_get_handler_skips_unhandled(self, middleware, exc, result):
+        class _ClassHandler(ExceptionHandler):
+            exc_class = LookupError
+
+            def key_error(self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: KeyError): ...
+
+        handlers = {"class_handler": _ClassHandler(), "parent": MagicMock()}
+        middleware._exception_handlers = {LookupError: handlers["class_handler"], Exception: handlers["parent"]}
+        middleware._exception_handlers[ValueError] = handlers["class_handler"]
+
+        assert middleware._get_handler(exc) is handlers[result]
+
+    @pytest.mark.parametrize(
         ["request_type", "response_started", "exception"],
         (
             pytest.param("http", False, None, id="http"),
@@ -298,7 +282,7 @@ class TestCaseExceptionMiddleware:
         with (
             exception,
             patch.object(middleware, "_get_handler", return_value=handler_mock),
-            patch("flama.debug.middleware._concurrency.run", new=AsyncMock(return_value=response_mock)) as run_mock,
+            patch("flama.errors.middleware._concurrency.run", new=AsyncMock(return_value=response_mock)) as run_mock,
         ):
             await middleware.process_exception(asgi_scope, asgi_receive, asgi_send, expected_exc, response_started)
 
@@ -318,162 +302,3 @@ class TestCaseExceptionMiddleware:
                 assert scope == asgi_scope
                 assert receive == asgi_receive
                 assert exc == expected_exc
-
-    @pytest.mark.parametrize(
-        ["debug", "accept", "exc", "response_class", "response_params", "patch_target"],
-        (
-            pytest.param(
-                False,
-                None,
-                exceptions.HTTPException(204),
-                http.PlainTextResponse,
-                {"_pos": ("",), "status_code": 204, "headers": None},
-                "flama.debug.middleware.http.PlainTextResponse",
-                id="204",
-            ),
-            pytest.param(
-                False,
-                None,
-                exceptions.HTTPException(304),
-                http.PlainTextResponse,
-                {"_pos": ("",), "status_code": 304, "headers": None},
-                "flama.debug.middleware.http.PlainTextResponse",
-                id="304",
-            ),
-            pytest.param(
-                True,
-                b"text/html",
-                exceptions.HTTPException(404, "Foo"),
-                _FlamaTemplateResponse,
-                {"_pos": ("debug/error_404.html",), "context": {}, "status_code": 404, "headers": None},
-                "flama.debug.middleware._FlamaTemplateResponse",
-                id="debug_404",
-            ),
-            pytest.param(
-                False,
-                None,
-                exceptions.HTTPException(400, "Foo"),
-                APIErrorResponse,
-                {"detail": "Foo", "status_code": 400, "headers": None},
-                "flama.debug.middleware.APIErrorResponse",
-                id="other",
-            ),
-            pytest.param(
-                False,
-                None,
-                exceptions.HTTPException(405, "Foo", headers={"Allow": "GET"}),
-                APIErrorResponse,
-                {"detail": "Foo", "status_code": 405, "headers": {"Allow": "GET"}},
-                "flama.debug.middleware.APIErrorResponse",
-                id="other_with_headers",
-            ),
-        ),
-    )
-    def test_http_exception_handler(
-        self,
-        default_middleware,
-        asgi_scope,
-        asgi_receive,
-        asgi_send,
-        debug,
-        accept,
-        exc,
-        response_class,
-        response_params,
-        patch_target,
-    ):
-        asgi_scope["type"] = "http"
-        asgi_scope["app"] = MagicMock(Flama)
-        default_middleware.debug = debug
-
-        if accept:
-            asgi_scope["headers"].append((b"accept", accept))
-
-        if response_class == APIErrorResponse:
-            response_params["exception"] = exc
-
-        with (
-            patch(patch_target, spec=response_class) as response_mock,
-            patch("flama.debug.middleware.dataclasses.asdict", return_value={}),
-        ):
-            response = default_middleware.http_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
-
-            assert isinstance(response, response_class)
-            pos = response_params.pop("_pos", ())
-            assert response_mock.call_args_list == [call(*pos, **response_params)]
-
-    def test_jsonrpc_exception_handler(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
-        exc = exceptions.JSONRPCException(status_code=JSONRPCStatus.METHOD_NOT_FOUND, request_id=42, detail="Not found")
-        response = default_middleware.jsonrpc_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
-
-        assert isinstance(response, JSONRPCErrorResponse)
-
-    async def test_websocket_exception_handler(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["type"] = "websocket"
-        exc = exceptions.WebSocketException(1011, "Foo reason")
-
-        with patch.object(http.WebSocket, "close", new_callable=AsyncMock) as websocket_close_mock:
-            await default_middleware.websocket_exception_handler(asgi_scope, asgi_receive, asgi_send, exc)
-
-            assert websocket_close_mock.call_args_list == [call(code=exc.code, reason=exc.reason)]
-
-    async def test_not_found_handler_http(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["type"] = "http"
-        asgi_scope["app"] = MagicMock(Flama)
-        exc = exceptions.NotFoundException()
-
-        with patch("flama.debug.middleware.FlamaExceptionMiddleware.http_exception_handler") as mock:
-            await default_middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
-
-        assert mock.call_args_list == [
-            call(asgi_scope, asgi_receive, asgi_send, exc=exceptions.HTTPException(status_code=404))
-        ]
-
-    async def test_not_found_handler_http_no_app(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["type"] = "http"
-        del asgi_scope["app"]
-        exc = exceptions.NotFoundException()
-
-        with patch("flama.debug.middleware.PlainTextResponse") as mock:
-            await default_middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
-
-        assert mock.call_args_list == [call("Not Found", status_code=404)]
-
-    async def test_not_found_handler_websocket(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["type"] = "websocket"
-        exc = exceptions.NotFoundException()
-
-        with patch("flama.debug.middleware.FlamaExceptionMiddleware.websocket_exception_handler") as mock:
-            await default_middleware.not_found_handler(asgi_scope, asgi_receive, asgi_send, exc)
-
-        assert mock.call_args_list == [
-            call(asgi_scope, asgi_receive, asgi_send, exc=exceptions.WebSocketException(1000))
-        ]
-
-    async def test_method_not_allowed_handler_http(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["type"] = "http"
-        asgi_scope["app"] = MagicMock(Flama)
-        exc = exceptions.MethodNotAllowedException("/", "POST", {"GET"})
-
-        with patch("flama.debug.middleware.FlamaExceptionMiddleware.http_exception_handler") as mock:
-            await default_middleware.method_not_allowed_handler(asgi_scope, asgi_receive, asgi_send, exc)
-
-        assert mock.call_args_list == [
-            call(
-                asgi_scope,
-                asgi_receive,
-                asgi_send,
-                exc=exceptions.HTTPException(status_code=405, headers={"Allow": "GET"}),
-            )
-        ]
-
-    async def test_method_not_allowed_handler_websocket(self, default_middleware, asgi_scope, asgi_receive, asgi_send):
-        asgi_scope["type"] = "websocket"
-        exc = exceptions.MethodNotAllowedException("/", "POST", {"GET"})
-
-        with patch("flama.debug.middleware.FlamaExceptionMiddleware.websocket_exception_handler") as mock:
-            await default_middleware.method_not_allowed_handler(asgi_scope, asgi_receive, asgi_send, exc)
-
-        assert mock.call_args_list == [
-            call(asgi_scope, asgi_receive, asgi_send, exc=exceptions.WebSocketException(1000))
-        ]
