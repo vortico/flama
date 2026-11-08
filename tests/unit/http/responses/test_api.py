@@ -40,6 +40,13 @@ class TestCaseAPIResponse:
             response = APIResponse(content, schema=schema if use_schema else None)
             assert response.body.decode() == expected
 
+    def test_schema_set_after_init(self, schema):
+        response = APIResponse({"name": "Canna", "age": 3})
+
+        response.schema = schema
+
+        assert response.body == b'{"name":"Canna"}'
+
 
 class TestCaseAPIErrorResponse:
     def test_init(self):

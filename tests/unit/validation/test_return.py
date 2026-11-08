@@ -70,6 +70,26 @@ class TestCaseReturnValidation:
                 async def get(self) -> None:
                     return None
 
+            @app.route("/return-schema-itself/", methods=["GET"])
+            class ReturnSchemaItselfHTTPEndpoint(endpoints.HTTPEndpoint):
+                async def get(self) -> t.Annotated[types.Schema, output_schema]:
+                    return {"name": "Canna", "age": 3}
+
+            @app.route("/return-api-response/", methods=["GET"])
+            class ReturnAPIResponseHTTPEndpoint(endpoints.HTTPEndpoint):
+                async def get(self) -> http.APIResponse[output_schema]:
+                    return http.APIResponse({"name": "Canna", "age": 3}, status_code=201)
+
+            @app.route("/return-api-response-many/", methods=["GET"])
+            class ReturnAPIResponseManyHTTPEndpoint(endpoints.HTTPEndpoint):
+                async def get(self) -> http.APIResponse[list[output_schema]]:
+                    return http.APIResponse([{"name": "Canna", "age": 3}, {"name": "Sandy"}], status_code=201)
+
+            @app.route("/return-api-response-annotated/", methods=["GET"])
+            class ReturnAPIResponseAnnotatedHTTPEndpoint(endpoints.HTTPEndpoint):
+                async def get(self) -> t.Annotated[types.Schema, types.SchemaMetadata(output_schema)]:
+                    return http.APIResponse({"name": "Canna", "age": 3}, status_code=201)
+
         else:
 
             @app.route("/return-string/")
@@ -107,6 +127,22 @@ class TestCaseReturnValidation:
             async def return_schema_empty() -> None:
                 return None
 
+            @app.route("/return-schema-itself/", methods=["GET"])
+            async def return_schema_itself() -> t.Annotated[types.Schema, output_schema]:
+                return {"name": "Canna", "age": 3}
+
+            @app.route("/return-api-response/", methods=["GET"])
+            async def return_api_response() -> http.APIResponse[output_schema]:
+                return http.APIResponse({"name": "Canna", "age": 3}, status_code=201)
+
+            @app.route("/return-api-response-many/", methods=["GET"])
+            async def return_api_response_many() -> http.APIResponse[list[output_schema]]:
+                return http.APIResponse([{"name": "Canna", "age": 3}, {"name": "Sandy"}], status_code=201)
+
+            @app.route("/return-api-response-annotated/", methods=["GET"])
+            async def return_api_response_annotated() -> t.Annotated[types.Schema, types.SchemaMetadata(output_schema)]:
+                return http.APIResponse({"name": "Canna", "age": 3}, status_code=201)
+
     @pytest.mark.parametrize(
         ["path", "status_code", "content_type", "content", "exception"],
         (
@@ -141,6 +177,29 @@ class TestCaseReturnValidation:
                 id="schema_many",
             ),
             pytest.param("/return-schema-empty/", 200, "application/json", b'""', None, id="schema_empty"),
+            pytest.param(
+                "/return-schema-itself/", 200, "application/json", b'{"name":"Canna"}', None, id="schema_itself"
+            ),
+            # An API response built without a schema is serialised with the one the endpoint declares.
+            pytest.param(
+                "/return-api-response/", 201, "application/json", b'{"name":"Canna"}', None, id="api_response"
+            ),
+            pytest.param(
+                "/return-api-response-many/",
+                201,
+                "application/json",
+                b'[{"name":"Canna"},{"name":"Sandy"}]',
+                None,
+                id="api_response_many",
+            ),
+            pytest.param(
+                "/return-api-response-annotated/",
+                201,
+                "application/json",
+                b'{"name":"Canna"}',
+                None,
+                id="api_response_annotated",
+            ),
         ),
         indirect=["exception"],
     )
@@ -151,3 +210,4 @@ class TestCaseReturnValidation:
             assert response.status_code == status_code
             assert response.headers["content-type"] == content_type
             assert response.content == content
+            assert response.headers["content-length"] == str(len(content))

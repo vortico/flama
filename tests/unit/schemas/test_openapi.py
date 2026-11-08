@@ -13,6 +13,7 @@ import pytest
 
 from flama import Flama, types
 from flama.endpoints import HTTPEndpoint
+from flama.http.responses.api import APIResponse
 from flama.http.responses.html import HTMLResponse
 from flama.http.responses.json import JSONResponse
 from flama.http.responses.ndjson import NDJSONResponse
@@ -2421,6 +2422,16 @@ class TestCaseResponseAnnotations:
             """
             return JSONResponse({})  # pragma: no cover
 
+        @app.route("/api/", methods=["GET"])
+        async def api_body() -> APIResponse[frame_schema]:  # ty: ignore[invalid-type-form]
+            """
+            description: A documented API body.
+            responses:
+              200:
+                description: A document.
+            """
+            return APIResponse({})  # pragma: no cover
+
     @pytest.mark.parametrize(
         ["path", "media_type"],
         [
@@ -2441,6 +2452,7 @@ class TestCaseResponseAnnotations:
             # A sequential payload is described item by item, a buffered one as a whole.
             pytest.param("/ndjson/", "application/x-ndjson", "itemSchema", "schema", id="streaming_uses_item_schema"),
             pytest.param("/json/", "application/json", "schema", "itemSchema", id="buffered_uses_schema"),
+            pytest.param("/api/", "application/json", "schema", "itemSchema", id="api_uses_schema"),
         ],
     )
     def test_parametrised_response_declares_its_payload(self, app, path, media_type, key, unexpected):

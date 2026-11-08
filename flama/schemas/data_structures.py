@@ -8,6 +8,7 @@ from flama import _compat, schemas, types
 from flama.http.data_structures import UploadFile
 from flama.http.responses.response import Response, StreamingResponse
 from flama.injection.resolver import Parameter as InjectionParameter
+from flama.types.schemas import SchemaPayload
 
 __all__ = ["Field", "Schema", "Parameter", "Parameters"]
 
@@ -112,11 +113,11 @@ class Schema:
     schema: t.Any = dataclasses.field(hash=False, compare=False)
 
     @classmethod
-    def from_type(cls, type_: _compat.TypeForm[t.Any] | None) -> "Schema":
-        if types.is_schema(type_):
-            schema = types.get_schema_metadata(type_).schema
+    def from_type(cls, type_: _compat.TypeForm[t.Any] | SchemaPayload | None) -> "Schema":
+        if (metadata := types.get_schema_metadata(type_)) is not None:
+            schema = metadata.schema
 
-            if types.is_schema_partial(type_):
+            if metadata.partial:
                 schema = schemas.adapter.build_schema(
                     name=schemas.adapter.name(schema, prefix="Partial").rsplit(".", 1)[1], schema=schema, partial=True
                 )

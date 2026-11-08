@@ -15,46 +15,62 @@ logger = logging.getLogger(__name__)
 
 
 class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
-    def __init__(
-        self,
-        handler: types.Handler,
-        /,
-        *,
-        signature: inspect.Signature | None = None,
-        pagination: types.Pagination | None = None,
-    ):
-        """Wraps an HTTP function or endpoint into ASGI application.
+    def _output_schema(self, signature: inspect.Signature) -> t.Any:
+        """The schema a handler's output is serialised with, read from its return annotation.
 
-        :param handler: Function or endpoint.
         :param signature: Handler signature.
-        :param pagination: Apply a pagination technique.
+        :return: The schema, or None when the return annotation names none.
         """
-        super().__init__(handler, signature=signature, pagination=pagination)
+        output = signature.return_annotation
+        # A response's type argument is the schema of its payload.
+        if inspect.isclass(origin := t.get_origin(output)) and issubclass(origin, http.Response):
+            output = next(iter(t.get_args(output)), None)
 
         try:
-            self.schema = Schema.from_type(signature.return_annotation).unique_schema if signature else None
+            return Schema.from_type(output).unique_schema
         except Exception:
-            self.schema = None
+            return None
 
-    def _build_api_response(self, response: http.Response | None) -> http.Response:
+    def _build_api_response(self, response: http.Response | None, schema: t.Any) -> http.Response:
         """Build an API response given a handler and the current response.
 
-        It infers the output schema from the handler signature or just wraps the response in a APIResponse object.
+        Data is serialised with the handler's output schema, and so is an API response built without a schema.
 
         :param response: The current response.
+        :param schema: The handler's output schema.
         :return: An API response.
         """
         if isinstance(response, dict | list):
-            response = APIResponse(response, schema=self.schema)
+            response = APIResponse(response, schema=schema)
         elif isinstance(response, str | bytes):
             response = APIResponse(response)
         elif response is None:
             response = APIResponse("")
+        elif isinstance(response, APIResponse) and response.schema is None:
+            response.schema = schema
 
         return response
 
 
 class HTTPFunctionWrapper(BaseHTTPEndpointWrapper):
+    def __init__(
+        self,
+        handler: types.HTTPHandler,
+        /,
+        *,
+        signature: inspect.Signature | None = None,
+        pagination: types.Pagination | None = None,
+    ):
+        """Wraps an HTTP function into ASGI application.
+
+        :param handler: Function.
+        :param signature: Handler signature.
+        :param pagination: Apply a pagination technique.
+        """
+        super().__init__(handler, signature=signature, pagination=pagination)
+
+        self.schema = self._output_schema(signature) if signature else None
+
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs a request.
 
@@ -79,7 +95,7 @@ class HTTPFunctionWrapper(BaseHTTPEndpointWrapper):
         try:
             injected_func = await app.injector.inject(self.handler, context)
             response = await _concurrency.run(injected_func)
-            response = self._build_api_response(response)
+            response = self._build_api_response(response, self.schema)
 
             await response(route_scope, receive, send)
         finally:
@@ -88,6 +104,28 @@ class HTTPFunctionWrapper(BaseHTTPEndpointWrapper):
 
 class HTTPEndpointWrapper(BaseHTTPEndpointWrapper):
     handler: type[endpoints.HTTPEndpoint]
+
+    def __init__(
+        self,
+        handler: types.Handler,
+        /,
+        *,
+        signature: inspect.Signature | None = None,
+        pagination: types.Pagination | None = None,
+    ):
+        """Wraps an HTTP endpoint into ASGI application.
+
+        :param handler: Endpoint.
+        :param signature: Endpoint signature.
+        :param pagination: Apply a pagination technique.
+        """
+        super().__init__(handler, signature=signature, pagination=pagination)
+
+        # Each method has its own handler, and so its own output schema.
+        self.schemas = {
+            method: self._output_schema(inspect.signature(method_handler))
+            for method, method_handler in self.handler.allowed_handlers().items()
+        }
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs a request.
@@ -99,7 +137,7 @@ class HTTPEndpointWrapper(BaseHTTPEndpointWrapper):
         endpoint = self.handler(scope, receive, send)
 
         try:
-            response = self._build_api_response(await endpoint)
+            response = self._build_api_response(await endpoint, self.schemas.get(scope["method"]))
 
             await response(scope, receive, send)
         finally:

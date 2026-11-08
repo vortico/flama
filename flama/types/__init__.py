@@ -65,7 +65,15 @@ from flama.types.openapi import (
 )
 from flama.types.pagination import Pagination
 from flama.types.routes import BaseRoute
-from flama.types.schemas import Schema, SchemaList, SchemaMetadata, get_schema_metadata, is_schema, is_schema_partial
+from flama.types.schemas import (
+    Schema,
+    SchemaList,
+    SchemaMetadata,
+    SchemaResponse,
+    get_schema_metadata,
+    is_schema,
+    is_schema_partial,
+)
 from flama.types.serialize import ProtocolVersion, SerializationCompression, SerializationModelKind
 from flama.types.websockets import Code, Data, Encoding
 
@@ -136,6 +144,7 @@ __all__ = [
     "Schema",
     "SchemaList",
     "SchemaMetadata",
+    "SchemaResponse",
     "get_schema_metadata",
     "is_schema",
     "is_schema_partial",

@@ -43,7 +43,20 @@ class TestCaseBaseHTTPEndpointWrapper:
         ],
     )
     def test_build_api_response(self, endpoint, response, result):
-        assert endpoint._build_api_response(response) == result
+        assert endpoint._build_api_response(response, None) == result
+
+    @pytest.mark.parametrize(
+        ["own_schema", "expected"],
+        [
+            pytest.param(None, "handler", id="without_schema"),
+            pytest.param("own", "own", id="with_schema"),
+        ],
+    )
+    def test_build_api_response_schema(self, endpoint, own_schema, expected):
+        response = MagicMock(spec=APIResponse, schema=own_schema)
+
+        assert endpoint._build_api_response(response, "handler") is response
+        assert response.schema == expected
 
 
 class TestCaseHTTPFunctionWrapper:
@@ -127,6 +140,17 @@ class TestCaseHTTPEndpointWrapper:
                 return {"foo": "bar"}
 
         return HTTPEndpointWrapper(Endpoint)
+
+    def test_schemas(self):
+        class Endpoint(endpoints.HTTPEndpoint):
+            async def get(self) -> int: ...
+
+            async def post(self) -> str: ...
+
+        with patch.object(HTTPEndpointWrapper, "_output_schema", side_effect=lambda x: x.return_annotation):
+            wrapper = HTTPEndpointWrapper(Endpoint)
+
+        assert wrapper.schemas == {"GET": int, "HEAD": int, "POST": str}
 
     async def test_call(self, app, endpoint):
         scope, receive, send = (

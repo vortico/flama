@@ -126,6 +126,12 @@ Payload = t.TypeVar("Payload")
 
 
 class BufferedResponse(Response, t.Generic[Content, Payload]):
+    """Response sent in a single message.
+
+    The content is kept and rendered when the body is needed, normally when the response is sent, so
+    anything it is rendered with can change until then.
+    """
+
     def __init__(
         self,
         content: Content | None = None,
@@ -140,32 +146,30 @@ class BufferedResponse(Response, t.Generic[Content, Payload]):
         if path is not None:
             try:
                 with open(path) as f:
-                    self.body = self.render(f.read())  # ty: ignore[invalid-argument-type]
+                    content = f.read()  # ty: ignore[invalid-assignment]
             except Exception as e:
                 raise exceptions.HTTPException(status_code=http.HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(e))
-        elif content is not None:
-            self.body = self.render(content)
-        else:
+
+        if content is None:
             raise ValueError("Either 'content' or 'path' must be provided")
+
+        self.content: Content = content
         super().__init__(status_code=status_code, headers=headers, media_type=media_type, background=background)
 
-    def _init_headers(self, headers: "Mapping[str, str] | None" = None) -> None:
-        super()._init_headers(headers)
-
-        if (
-            (body := getattr(self, "body", None)) is not None
-            and not any(k for (k, _) in self.raw_headers if k == b"content-length")
-            and not (self.status_code < 200 or self.status_code in (204, 304))
-        ):
-            self.raw_headers.append((b"content-length", str(len(body)).encode("latin-1")))
-
-        self.raw_headers = sorted(self.raw_headers, key=lambda x: x[0])
+    @property
+    def body(self) -> bytes:
+        return self.render(self.content)
 
     async def _send_response(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
-        await send(
-            types.Message({"type": "http.response.start", "status": self.status_code, "headers": self.raw_headers})
-        )
-        await send(types.Message({"type": "http.response.body", "body": self.body}))
+        body = self.body
+        headers = self.raw_headers
+        if not (
+            any(k == b"content-length" for k, _ in headers) or self.status_code < 200 or self.status_code in (204, 304)
+        ):
+            headers = sorted([*headers, (b"content-length", str(len(body)).encode("latin-1"))], key=lambda x: x[0])
+
+        await send(types.Message({"type": "http.response.start", "status": self.status_code, "headers": headers}))
+        await send(types.Message({"type": "http.response.body", "body": body}))
 
     def __hash__(self) -> int:
         return hash(

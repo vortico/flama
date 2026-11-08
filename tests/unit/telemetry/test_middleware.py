@@ -300,7 +300,13 @@ class TestCaseTelemetryMiddleware:
             if data.error:
                 data.error.timestamp = now
 
-        with exception, patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
+        with (
+            exception,
+            patch(
+                "flama.telemetry.data_structures.datetime",
+                MagicMock(datetime=MagicMock(now=MagicMock(return_value=now)), UTC=datetime.UTC),
+            ),
+        ):
             r = await client.post(path, params=request_params, content=request_body)
 
             assert r.status_code == status_code
