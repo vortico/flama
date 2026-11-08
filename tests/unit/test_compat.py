@@ -1,6 +1,18 @@
+import typing as t
+
 import pytest
 
 from flama import _compat
+
+
+class TestCaseTypeAliasType:
+    def test_generic(self):
+        T = t.TypeVar("T")
+        alias = _compat.TypeAliasType("Alias", list[T], type_params=(T,))
+
+        assert alias.__value__ == list[T]
+        assert t.get_origin(alias[int]) is alias
+        assert t.get_args(alias[int]) == (int,)
 
 
 class TestCaseUrlsafeB64:

@@ -3,6 +3,7 @@ import sys
 
 __all__ = [
     "Format",
+    "TypeAliasType",
     "TypedDict",
     "TypeForm",
     "evaluate_forward_ref",
@@ -11,6 +12,14 @@ __all__ = [
     "urlsafe_b64decode",
     "urlsafe_b64encode",
 ]
+
+# PORT: Remove when stop supporting 3.11
+# typing.TypeAliasType was added in Python 3.12
+# https://docs.python.org/3/library/typing.html#typing.TypeAliasType
+if sys.version_info >= (3, 12):
+    from typing import TypeAliasType
+else:
+    from typing_extensions import TypeAliasType
 
 # PORT: Remove when stop supporting 3.13
 # annotationlib.get_annotations was added in Python 3.14

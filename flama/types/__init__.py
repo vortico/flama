@@ -66,6 +66,8 @@ from flama.types.openapi import (
 from flama.types.pagination import Pagination
 from flama.types.routes import BaseRoute
 from flama.types.schemas import (
+    Output,
+    OutputList,
     Schema,
     SchemaList,
     SchemaMetadata,
@@ -141,6 +143,8 @@ __all__ = [
     "OpenAPISpec",
     "Pagination",
     "BaseRoute",
+    "Output",
+    "OutputList",
     "Schema",
     "SchemaList",
     "SchemaMetadata",

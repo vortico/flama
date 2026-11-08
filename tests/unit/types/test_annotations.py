@@ -3,7 +3,14 @@ import typing as t
 
 import pytest
 
+from flama import _compat, http, types
 from flama.types import Annotation
+
+
+class _Schema: ...
+
+
+_Ids = _compat.TypeAliasType("_Ids", list[int])
 
 
 class TestCaseAnnotation:
@@ -23,6 +30,23 @@ class TestCaseAnnotation:
             pytest.param(dict[str, int], False, dict[str, int], id="mapping"),
             # Metadata is how the schema binding recognises a schema, so it is carried through untouched.
             pytest.param(t.Annotated[int, "m"], False, t.Annotated[int, "m"], id="annotated"),
+            pytest.param(_Ids, False, list[int], id="alias"),
+            pytest.param(_Ids | None, True, list[int], id="optional_alias"),
+            # `Schema` ignores its parameter, so it is a marker read by what it is subscripted with.
+            pytest.param(types.Schema[_Schema], False, types.Schema[_Schema], id="schema_alias"),
+            pytest.param(types.SchemaList[_Schema], False, list[types.Schema[_Schema]], id="schema_list_alias"),
+            # A schema response carries the payload the rest of its union describes.
+            pytest.param(types.Output[_Schema], False, types.Schema[_Schema], id="output_alias"),
+            pytest.param(types.OutputList[_Schema], False, list[types.Schema[_Schema]], id="output_list_alias"),
+            pytest.param(types.Output[_Schema] | None, True, types.Schema[_Schema], id="optional_output_alias"),
+            pytest.param(int | http.APIResponse[_Schema], False, int, id="union_with_schema_response"),
+            # Nothing would be left of a union of responses alone, so it is kept as it is.
+            pytest.param(
+                http.APIResponse[_Schema] | http.APIResponse[int],
+                False,
+                http.APIResponse[_Schema] | http.APIResponse[int],
+                id="union_of_schema_responses",
+            ),
         ],
     )
     def test_init(self, annotation, optional, type_):
@@ -77,6 +101,13 @@ class TestCaseAnnotation:
             pytest.param(tuple[int, ...], True, id="tuple_of_any_length"),
             pytest.param(tuple[int, str], False, id="tuple_of_fixed_length"),
             pytest.param(list, False, id="bare_container"),
+            pytest.param(_Ids, True, id="alias"),
+            pytest.param(types.Schema[_Schema], False, id="schema_alias"),
+            pytest.param(types.SchemaList[_Schema], True, id="schema_list_alias"),
+            pytest.param(types.SchemaList, True, id="unsubscripted_schema_list_alias"),
+            pytest.param(types.Output[_Schema], False, id="output_alias"),
+            pytest.param(types.OutputList[_Schema], True, id="output_list_alias"),
+            pytest.param(types.OutputList, True, id="unsubscripted_output_list_alias"),
         ],
     )
     def test_is_multiple(self, annotation, expected):

@@ -29,7 +29,7 @@ class CreateMixin:
             self,
             worker: ResourcesWorker,
             resource: t.Annotated[types.Schema, types.SchemaMetadata(rest_schemas.input.schema)],
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(rest_schemas.output.schema)]:
+        ) -> t.Annotated[types.Output, types.SchemaMetadata(rest_schemas.output.schema)]:
             if resource.get(rest_model.primary_key.name) is None:
                 resource.pop(rest_model.primary_key.name, None)
 
@@ -40,9 +40,7 @@ class CreateMixin:
                 except ddd_exceptions.IntegrityError as e:
                     raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
 
-            return APIResponse(  # ty: ignore[invalid-return-type]
-                result[0], schema=rest_schemas.output.schema, status_code=HTTPStatus.CREATED
-            )
+            return APIResponse(result[0], status_code=HTTPStatus.CREATED)
 
         create.__doc__ = f"""
             tags:
@@ -405,14 +403,12 @@ class DropMixin:
         @ResourceRoute.method("/", methods=["DELETE"], name="drop")
         async def drop(
             self, worker: ResourcesWorker
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.core.DropCollection)]:
+        ) -> t.Annotated[types.Output, types.SchemaMetadata(schemas.schemas.core.DropCollection)]:
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 result = await repository.drop()
 
-            return APIResponse(  # ty: ignore[invalid-return-type]
-                {"deleted": result}, schema=schemas.schemas.core.DropCollection, status_code=HTTPStatus.NO_CONTENT
-            )
+            return APIResponse({"deleted": result}, status_code=HTTPStatus.NO_CONTENT)
 
         drop.__doc__ = f"""
             tags:

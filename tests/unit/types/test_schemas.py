@@ -29,6 +29,18 @@ class TestCaseGetSchemaMetadata:
             ),
             pytest.param(t.Annotated[types.Schema, _Schema], types.SchemaMetadata(_Schema), id="schema_itself"),
             pytest.param(t.Annotated[types.SchemaList, _Schema], types.SchemaMetadata(_Schema), id="list_itself"),
+            pytest.param(t.Annotated[types.Output, _Schema], types.SchemaMetadata(_Schema), id="output_itself"),
+            pytest.param(
+                t.Annotated[types.OutputList, types.SchemaMetadata(_Schema)],
+                types.SchemaMetadata(_Schema),
+                id="output_list_metadata",
+            ),
+            pytest.param(types.Schema[_Schema], types.SchemaMetadata(_Schema), id="schema_alias"),
+            pytest.param(types.SchemaList[_Schema], types.SchemaMetadata(_Schema), id="schema_list_alias"),
+            pytest.param(types.Output[_Schema], types.SchemaMetadata(_Schema), id="output_alias"),
+            pytest.param(types.OutputList[_Schema], types.SchemaMetadata(_Schema), id="output_list_alias"),
+            # An alias read inside another's value names no schema until that one is subscripted.
+            pytest.param(types.Schema[t.TypeVar("T")], None, id="unsubscripted_alias"),
             # Any other annotated type keeps its metadata to itself.
             pytest.param(t.Annotated[int, _Schema], None, id="other_type"),
         ],

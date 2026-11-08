@@ -464,6 +464,11 @@ class TestCaseParameter:
             pytest.param(lambda s: t.Annotated[types.SchemaList, types.SchemaMetadata(s)], True, id="annotated_list"),
             pytest.param(lambda s: JSONResponse[s], False, id="response"),
             pytest.param(lambda s: JSONResponse[list[s]], True, id="response_list"),
+            pytest.param(lambda s: types.Schema[s], False, id="schema_alias"),
+            pytest.param(lambda s: types.SchemaList[s], True, id="schema_list_alias"),
+            pytest.param(lambda s: types.Output[s], False, id="output_alias"),
+            pytest.param(lambda s: types.OutputList[s], True, id="output_list_alias"),
+            pytest.param(lambda s: t.Annotated[types.OutputList, s], True, id="annotated_output_list"),
         ),
     )
     def test_multiple(self, foo_schema, annotation, multiple):

@@ -129,6 +129,14 @@ class TestCaseSchemaValidation:
         def serialization_error() -> t.Annotated[types.Schema, types.SchemaMetadata(product_schema)]:
             return {"rating": "foo", "created": "bar"}
 
+        @app.route("/alias-product", methods=["POST"])
+        def alias_product(product: types.Schema[product_schema]) -> types.Output[product_schema]:
+            return product
+
+        @app.route("/alias-many-products", methods=["POST"])
+        def alias_many_products(products: types.SchemaList[product_schema]) -> types.OutputList[product_schema]:
+            return products
+
     @pytest.mark.parametrize(
         ["path", "method", "json_data", "expected_output", "status_code"],
         [
@@ -222,6 +230,30 @@ class TestCaseSchemaValidation:
                 },
                 500,
                 id="serialization_error",
+            ),
+            pytest.param(
+                "/alias-product",
+                "post",
+                {"name": "foo", "rating": 0, "created": "2018-01-01T00:00:00+00:00"},
+                {"name": "foo", "rating": 0, "created": "2018-01-01T00:00:00+00:00"},
+                200,
+                id="alias_schema",
+            ),
+            pytest.param(
+                "/alias-product",
+                "post",
+                {"rating": "foo"},
+                {"error": "ValidationError", "status_code": 400},
+                400,
+                id="alias_schema_invalid",
+            ),
+            pytest.param(
+                "/alias-many-products",
+                "post",
+                [{"name": "foo", "rating": 0}, {"name": "bar", "rating": 1}],
+                [{"name": "foo", "rating": 0}, {"name": "bar", "rating": 1}],
+                200,
+                id="alias_array_schema",
             ),
         ],
     )
