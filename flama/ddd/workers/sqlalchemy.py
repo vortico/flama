@@ -96,10 +96,10 @@ class SQLAlchemyWorker(BaseWorker):
         """
         return [self.connection], {}
 
-    async def commit(self):
-        """Commit the unit of work."""
+    async def _commit(self) -> None:
+        """Commit the work done so far in the unit of work."""
         await self.connection.commit()
 
-    async def rollback(self):
-        """Rollback the unit of work."""
+    async def _rollback(self) -> None:
+        """Roll back the work done so far in the unit of work."""
         await self.connection.rollback()

@@ -29,10 +29,10 @@ class Worker(BaseWorker):
         """
         return [], {}
 
-    async def commit(self) -> None:
-        """Commit the unit of work."""
+    async def _commit(self) -> None:
+        """Commit the work done so far in the unit of work."""
         ...
 
-    async def rollback(self) -> None:
-        """Rollback the unit of work."""
+    async def _rollback(self) -> None:
+        """Roll back the work done so far in the unit of work."""
         ...

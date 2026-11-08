@@ -7,10 +7,15 @@ __all__ = [
     "NotFoundError",
     "AlreadyExistsError",
     "MultipleRecordsError",
+    "UnitOfWorkError",
 ]
 
 
 class Empty(Exception): ...
+
+
+class UnitOfWorkError(Exception):
+    """Raised when a unit of work is opened, committed or ended against its nesting policy."""
 
 
 class RepositoryException(Exception): ...
