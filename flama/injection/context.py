@@ -2,14 +2,12 @@ import typing as t
 
 from flama import _compat
 from flama.injection.exceptions import ContextError
+from flama.injection.types import FieldValue
 
-__all__ = ["C", "Context", "ContextType", "Field"]
-
-C = t.TypeVar("C", bound="Context")
-V = t.TypeVar("V")
+__all__ = ["Context", "ContextType", "Field"]
 
 
-class Field(t.Generic[V]):
+class Field(t.Generic[FieldValue]):
     """A typed context field implemented as a data descriptor.
 
     The field type is declared once and drives both static typing (through the generic parameter) and runtime
@@ -22,13 +20,13 @@ class Field(t.Generic[V]):
 
     @t.overload
     def __init__(
-        self: "Field[V]", type_: type[V], *, required: t.Literal[True] = True, hashable: bool = True
+        self: "Field[FieldValue]", type_: type[FieldValue], *, required: t.Literal[True] = True, hashable: bool = True
     ) -> None: ...
     @t.overload
     def __init__(
-        self: "Field[V | None]", type_: type[V], *, required: t.Literal[False], hashable: bool = True
+        self: "Field[FieldValue | None]", type_: type[FieldValue], *, required: t.Literal[False], hashable: bool = True
     ) -> None: ...
-    def __init__(self, type_: type[V], *, required: bool = True, hashable: bool = True) -> None:
+    def __init__(self, type_: type[FieldValue], *, required: bool = True, hashable: bool = True) -> None:
         """Declare a context field.
 
         :param type_: The non-nullable type provided by this field.
@@ -43,9 +41,9 @@ class Field(t.Generic[V]):
         self.name = name
 
     @t.overload
-    def __get__(self, instance: None, owner: type, /) -> "Field[V]": ...
+    def __get__(self, instance: None, owner: type, /) -> "Field[FieldValue]": ...
     @t.overload
-    def __get__(self, instance: "Context", owner: type | None = None, /) -> V: ...
+    def __get__(self, instance: "Context", owner: type | None = None, /) -> FieldValue: ...
     def __get__(self, instance: "Context | None", owner: type | None = None, /) -> t.Any:
         if instance is None:
             return self
@@ -56,7 +54,7 @@ class Field(t.Generic[V]):
 
         return value
 
-    def __set__(self, instance: "Context", value: V, /) -> None:
+    def __set__(self, instance: "Context", value: FieldValue, /) -> None:
         instance._data[self.name] = value
 
     def __delete__(self, instance: "Context", /) -> None:

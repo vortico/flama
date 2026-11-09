@@ -5,9 +5,9 @@ import typing as t
 from flama import _compat
 from flama.cache import LRUCache
 from flama.injection.components import Component, Components
-from flama.injection.context import C, Context
 from flama.injection.exceptions import ComponentNotFound
-from flama.injection.resolver import Parameter, Resolver
+from flama.injection.resolver import CacheKey, Parameter, Resolver
+from flama.injection.types import Injected, InjectionContext
 
 __all__ = ["InjectionCache", "FunctionCache", "Injector"]
 
@@ -15,12 +15,10 @@ if t.TYPE_CHECKING:
     from flama.injection.resolver import ResolutionTree
 
 
-T = t.TypeVar("T")
-
 ROOT_NAME = "_root"
 
 
-class InjectionCache(LRUCache[tuple[Parameter, Context], t.Any]):
+class InjectionCache(LRUCache[CacheKey, t.Any]):
     """A cache for injected component values.
 
     Held smaller than the default, since a fresh context per request means entries turn over quickly and each
@@ -41,10 +39,12 @@ class FunctionCache(LRUCache[int, tuple[t.Callable, dict[str, "ResolutionTree"]]
     ...
 
 
-class Injector(t.Generic[C]):
+class Injector(t.Generic[InjectionContext]):
     """Functions dependency injector. It uses a resolver to generate dependencies trees and evaluate them."""
 
-    def __init__(self, context_cls: type[C], /, components: t.Sequence[Component] | Components | None = None):
+    def __init__(
+        self, context_cls: type[InjectionContext], /, components: t.Sequence[Component] | Components | None = None
+    ):
         """Functions dependency injector.
 
         It uses a resolver to generate dependencies trees and evaluate them.
@@ -53,7 +53,7 @@ class Injector(t.Generic[C]):
         :param components: List of components.
         """
         self._context_cls = context_cls
-        self._resolver: Resolver[C] | None = None
+        self._resolver: Resolver[InjectionContext] | None = None
         self._function_cache: FunctionCache = FunctionCache()
         self.components = Components(components or [])
         self.cache = InjectionCache()
@@ -73,7 +73,7 @@ class Injector(t.Generic[C]):
         del self.resolver
 
     @property
-    def resolver(self) -> Resolver[C]:
+    def resolver(self) -> Resolver[InjectionContext]:
         if self._resolver is None:
             self._resolver = Resolver(self._context_cls, self.components)
 
@@ -85,16 +85,18 @@ class Injector(t.Generic[C]):
         self._function_cache.reset()
 
     @t.overload
-    def resolve(self, annotation: _compat.TypeForm[t.Any]) -> "ResolutionTree[C]": ...
+    def resolve(self, annotation: _compat.TypeForm[t.Any]) -> "ResolutionTree[InjectionContext]": ...
     @t.overload
-    def resolve(self, annotation: _compat.TypeForm[t.Any], *, name: str) -> "ResolutionTree[C]": ...
+    def resolve(self, annotation: _compat.TypeForm[t.Any], *, name: str) -> "ResolutionTree[InjectionContext]": ...
     @t.overload
-    def resolve(self, annotation: _compat.TypeForm[t.Any], *, default: t.Any) -> "ResolutionTree[C]": ...
+    def resolve(self, annotation: _compat.TypeForm[t.Any], *, default: t.Any) -> "ResolutionTree[InjectionContext]": ...
     @t.overload
-    def resolve(self, annotation: _compat.TypeForm[t.Any], *, name: str, default: t.Any) -> "ResolutionTree[C]": ...
+    def resolve(
+        self, annotation: _compat.TypeForm[t.Any], *, name: str, default: t.Any
+    ) -> "ResolutionTree[InjectionContext]": ...
     def resolve(
         self, annotation: _compat.TypeForm[t.Any], *, name: str = ROOT_NAME, default: t.Any = Parameter.empty
-    ) -> "ResolutionTree[C]":
+    ) -> "ResolutionTree[InjectionContext]":
         """Generate a dependencies tree for a given type annotation.
 
         :param annotation: Type annotation to be resolved.
@@ -103,7 +105,7 @@ class Injector(t.Generic[C]):
         """
         return self.resolver.resolve(Parameter(name, annotation, default))
 
-    def resolve_function(self, func: t.Callable) -> dict[str, "ResolutionTree[C]"]:
+    def resolve_function(self, func: t.Callable) -> dict[str, "ResolutionTree[InjectionContext]"]:
         """Generate a dependencies tree for a given function.
 
         It analyses the function signature, look for type annotations and try to resolve them.
@@ -111,11 +113,7 @@ class Injector(t.Generic[C]):
         :param func: Function to be resolved.
         :return: Mapping of parameter names and dependencies trees.
         """
-        # Bound methods (and other transient callables) are recreated on each access, so caching by ``id(func)`` is
-        # unsafe: once such an object is garbage collected its address can be reused by an unrelated callable, yielding
-        # false cache hits and injecting the wrong dependencies. Normalise bound methods to their underlying function
-        # (stable, kept alive by its class and shared across instances) and keep a strong reference to the keyed target
-        # so its id cannot be recycled while the entry lives.
+        # A bound method's id can be reused once it is collected, so its function is the key, held so its id cannot be.
         target = getattr(func, "__func__", func)
         func_id = id(target)
         try:
@@ -137,7 +135,7 @@ class Injector(t.Generic[C]):
         self._function_cache[func_id] = (target, parameters)
         return parameters
 
-    async def inject(self, func: t.Callable, context: C) -> t.Callable:
+    async def inject(self, func: t.Callable, context: InjectionContext) -> t.Callable:
         """Inject dependencies into a given function.
 
         It analyses the function signature, look for type annotations and try to resolve them. Once all dependencies
@@ -157,17 +155,23 @@ class Injector(t.Generic[C]):
         )
 
     @t.overload
-    async def value(self, annotation: _compat.TypeForm[T], context: C) -> T: ...
+    async def value(self, annotation: _compat.TypeForm[Injected], context: InjectionContext) -> Injected: ...
     @t.overload
-    async def value(self, annotation: _compat.TypeForm[T], context: C, *, name: str) -> T: ...
+    async def value(
+        self, annotation: _compat.TypeForm[Injected], context: InjectionContext, *, name: str
+    ) -> Injected: ...
     @t.overload
-    async def value(self, annotation: _compat.TypeForm[T], context: C, *, default: t.Any) -> T: ...
+    async def value(
+        self, annotation: _compat.TypeForm[Injected], context: InjectionContext, *, default: t.Any
+    ) -> Injected: ...
     @t.overload
-    async def value(self, annotation: _compat.TypeForm[T], context: C, *, name: str, default: t.Any) -> T: ...
+    async def value(
+        self, annotation: _compat.TypeForm[Injected], context: InjectionContext, *, name: str, default: t.Any
+    ) -> Injected: ...
     async def value(
         self,
         annotation: _compat.TypeForm[t.Any],
-        context: C,
+        context: InjectionContext,
         *,
         name: str = ROOT_NAME,
         default: t.Any = Parameter.empty,

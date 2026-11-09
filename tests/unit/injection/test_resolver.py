@@ -8,9 +8,10 @@ from flama.cache import LRUCache
 from flama.injection.components import Component, Components
 from flama.injection.context import Context as BaseContext
 from flama.injection.context import Field
-from flama.injection.exceptions import ComponentNotFound, InjectionError
+from flama.injection.exceptions import ComponentError, ComponentNotFound, InjectionError
 from flama.injection.injector import InjectionCache
 from flama.injection.resolver import (
+    CacheKey,
     ComponentNode,
     ComponentStep,
     ContextNode,
@@ -89,6 +90,22 @@ class NonCacheableComponent(Component):
         return NonCacheable(str(self.uuid.uuid4()))
 
 
+class Ping(float): ...
+
+
+class Pong(float): ...
+
+
+class PingComponent(Component):
+    def resolve(self, pong: Pong) -> Ping:
+        return Ping(pong)  # pragma: no cover
+
+
+class PongComponent(Component):
+    def resolve(self, ping: Ping) -> Pong:
+        return Pong(ping)  # pragma: no cover
+
+
 class Context(BaseContext):
     x = Field(int)
     data = Field(dict)
@@ -97,6 +114,21 @@ class Context(BaseContext):
 
 class ResolverContext(BaseContext):
     y = Field(CustomInt)
+
+
+class TestCaseCacheKey:
+    @pytest.mark.parametrize(
+        ["component", "parameter", "expected_parameter"],
+        [
+            pytest.param(bar_component, Parameter("bar", Bar), Parameter("bar", Bar), id="using_its_parameter"),
+            # The parameter cannot change the value of a component that never receives it.
+            pytest.param(foo_component, Parameter("foo", Foo), None, id="not_using_its_parameter"),
+        ],
+    )
+    def test_build(self, component, parameter, expected_parameter):
+        context = Context()
+
+        assert CacheKey.build(component, parameter, context) == CacheKey(component, expected_parameter, context)
 
 
 class TestCaseResolutionTree:
@@ -117,6 +149,8 @@ class TestCaseResolutionTree:
                 wrong_component,
                 CacheableComponent(uuid_mock),
                 NonCacheableComponent(uuid_mock),
+                PingComponent(),
+                PongComponent(),
             ]
         )
 
@@ -196,6 +230,15 @@ class TestCaseResolutionTree:
                 ComponentNotFound(parameter=Parameter(name="x", annotation=Unhandled), component=wrong_component),
                 id="not_found_in_component",
             ),
+            pytest.param(
+                Parameter("ping", Ping, Empty),
+                None,
+                None,
+                None,
+                None,
+                ComponentError("Components form a cycle: Ping -> Pong -> Ping"),
+                id="cycle",
+            ),
         ),
         indirect=["exception"],
     )
@@ -274,6 +317,26 @@ class TestCaseResolutionTree:
         for context, value in calls:
             assert await tree.value(context, cache=cache) == value
 
+        assert uuid_mock.uuid4.call_args_list == uuid_calls
+
+    @pytest.mark.parametrize(
+        ["annotation", "context", "values", "uuid_calls"],
+        (
+            # A component that never sees the parameter is resolved once per context, whatever it is named.
+            pytest.param(
+                Cacheable, Context(), [Cacheable(str(uuid.UUID(int=0)))] * 2, [call()], id="not_using_its_parameter"
+            ),
+            pytest.param(Bar, Context(data={"foo": 2, "other": 3}), [Bar(2), Bar(3)], [], id="using_its_parameter"),
+        ),
+    )
+    async def test_value_per_name(self, context_cls, components, uuid_mock, annotation, context, values, uuid_calls):
+        cache = InjectionCache()
+        trees = [
+            ResolutionTree.build(Parameter(name, annotation, Empty), context_cls, components)
+            for name in ("foo", "other")
+        ]
+
+        assert [await tree.value(context, cache=cache) for tree in trees] == values
         assert uuid_mock.uuid4.call_args_list == uuid_calls
 
 
