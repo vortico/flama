@@ -1,11 +1,15 @@
+import inspect
 import json
 
 import pytest
 
-from flama import schemas
+from flama import schemas, types
 from flama.mcp.data_structures import AppTemplate, Elicitation, Extensions
 from flama.mcp.server import MCPServer, Prompt, Resource, Tool
 from flama.mcp.tasks import InMemoryTaskStore
+
+
+class _Opaque: ...
 
 
 def _nested_schema():
@@ -164,27 +168,28 @@ class TestCaseMCPServer:
         assert len(entry.arguments) == 1
         assert entry.arguments[0]["name"] == "text"
 
-    def test_input_schema_with_params(self):
-        def func(a: int, b: str = "x"): ...
+    @pytest.mark.parametrize(
+        ["func", "properties", "required"],
+        (
+            pytest.param(lambda a, b="x": None, {"a", "b"}, ["a"], id="with_params"),
+            pytest.param(lambda: None, set(), None, id="no_params"),
+        ),
+    )
+    def test_add_tool_input_schema(self, server, func, properties, required):
+        server.add_tool(func, name="func")
+        schema = server._tools["func"].input_schema
 
-        schema = MCPServer._input_schema(func)
         assert schema["type"] == "object"
-        assert set(schema["properties"]) == {"a", "b"}
-        assert schema["required"] == ["a"]
+        assert set(schema["properties"]) == properties
+        assert schema.get("required") == required
 
-    def test_input_schema_no_params(self):
-        def func(): ...
-
-        schema = MCPServer._input_schema(func)
-        assert schema["type"] == "object"
-        assert schema["properties"] == {}
-
-    def test_input_schema_nested(self):
+    def test_add_tool_input_schema_nested(self, server):
         parent = _nested_schema()
 
         def func(payload: parent): ...
 
-        schema = MCPServer._input_schema(func)
+        server.add_tool(func)
+        schema = server._tools["func"].input_schema
 
         assert schema["type"] == "object"
         assert "$defs" in schema
@@ -198,6 +203,7 @@ class TestCaseMCPServer:
             pytest.param(list[int], {"type": "array", "items": {"type": "integer"}}, id="sequence"),
             pytest.param(dict[str, int], {"type": "object", "additionalProperties": {"type": "integer"}}, id="mapping"),
             pytest.param(type(None), None, id="none"),
+            pytest.param(inspect.Signature.empty, None, id="unannotated"),
             pytest.param(int | None, {"anyOf": [{"type": "integer"}, {"type": "null"}]}, id="optional_primitive"),
             # An optional sequence still returns a sequence, and must not be read as a single value.
             pytest.param(
@@ -207,52 +213,69 @@ class TestCaseMCPServer:
             ),
         ),
     )
-    def test_output_schema(self, annotation, expected):
+    def test_add_tool_output_schema(self, server, annotation, expected):
         def func(): ...
 
         func.__annotations__["return"] = annotation
+        server.add_tool(func)
 
-        assert MCPServer._output_schema(func) == expected
+        assert server._tools["func"].output_schema == expected
+        assert server._tools["func"].result is None
 
-    def test_output_schema_unannotated(self):
+    @pytest.mark.parametrize(
+        ["annotation", "type_", "nested"],
+        (
+            pytest.param(lambda s: s, "object", True, id="schema"),
+            pytest.param(lambda s: types.Schema[s], "object", True, id="schema_alias"),
+            pytest.param(lambda s: list[s], "array", True, id="sequence_of_schema"),
+            pytest.param(lambda s: types.SchemaList[s], "array", True, id="schema_list_alias"),
+        ),
+    )
+    def test_add_tool_output_schema_of_schema(self, server, annotation, type_, nested):
+        parent = _nested_schema()
+
         def func(): ...
 
-        assert MCPServer._output_schema(func) is None
+        func.__annotations__["return"] = annotation(parent)
+        server.add_tool(func)
+        entry = server._tools["func"]
 
-    def test_output_schema_nested(self):
-        parent = _nested_schema()
+        assert entry.output_schema["type"] == type_
+        assert ("$defs" in entry.output_schema) is nested
+        assert "#/components/schemas/" not in json.dumps(entry.output_schema)
+        assert entry.result is not None
 
-        def func() -> parent: ...
-
-        schema = MCPServer._output_schema(func)
-
-        assert schema["type"] == "object"
-        assert "$defs" in schema
-        assert "#/components/schemas/" not in json.dumps(schema)
-
-    def test_output_schema_sequence_of_schema(self):
-        parent = _nested_schema()
-
-        def func() -> list[parent]: ...
-
-        schema = MCPServer._output_schema(func)
-
-        assert schema["type"] == "array"
-        assert schema["items"]["type"] == "object"
-        assert "$defs" in schema
-        assert "#/components/schemas/" not in json.dumps(schema)
-
-    def test_output_schema_sequence_of_flat_schema(self):
+    def test_add_tool_output_schema_of_flat_schema(self, server):
         adapter = schemas.adapter
         flat = adapter.build_schema(name="Flat", fields={"value": adapter.build_field("value", int)})
 
         def func() -> list[flat]: ...
 
-        schema = MCPServer._output_schema(func)
+        server.add_tool(func)
+        schema = server._tools["func"].output_schema
 
         assert schema["type"] == "array"
         assert schema["items"]["type"] == "object"
         assert "$defs" not in schema
+
+    @pytest.mark.parametrize(
+        ["annotation"],
+        (
+            pytest.param(lambda s: types.Schema[s] | None, id="optional_schema"),
+            pytest.param(lambda s: dict[str, types.Schema[s]], id="mapping_of_schema"),
+            pytest.param(lambda s: s | None, id="optional_schema_class"),
+            pytest.param(lambda s: _Opaque, id="unbuildable_type"),
+        ),
+    )
+    def test_add_tool_output_schema_undescribed(self, server, annotation):
+        def func(): ...
+
+        func.__annotations__["return"] = annotation(_nested_schema())
+        server.add_tool(func)
+
+        # A schema the output schema cannot carry leaves it undescribed rather than unresolvable.
+        assert server._tools["func"].output_schema is None
+        assert server._tools["func"].result is None
 
     def test_prompt_arguments(self):
         def func(text: str, language: str = "en"): ...

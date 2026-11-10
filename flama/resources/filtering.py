@@ -130,14 +130,20 @@ class Filter:
         if operator not in self.operators:
             expected = ", ".join(f"'{granted.name}'" for granted in self.operators)
             raise exceptions.ValidationError(
-                detail={self.name: [f"Operator '{name}' is not available, expected one of: {expected}."]}
+                detail=SchemaValidationError(
+                    {self.name: [f"Operator '{name}' is not available, expected one of: {expected}."]}
+                ).errors
             )
 
         if operator.value and not separator:
-            raise exceptions.ValidationError(detail={self.name: [f"Operator '{name}' expects a value."]})
+            raise exceptions.ValidationError(
+                detail=SchemaValidationError({self.name: [f"Operator '{name}' expects a value."]}).errors
+            )
 
         if not operator.value and separator:
-            raise exceptions.ValidationError(detail={self.name: [f"Operator '{name}' expects no value."]})
+            raise exceptions.ValidationError(
+                detail=SchemaValidationError({self.name: [f"Operator '{name}' expects no value."]}).errors
+            )
 
         return operator, negated, self._value(remainder) if operator.value else None
 

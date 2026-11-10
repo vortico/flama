@@ -827,12 +827,21 @@ class TestCaseCRUDDeclaredFilters:
         [
             pytest.param(
                 {"name": "gte:x"},
-                {"name": ["Operator 'gte' is not available, expected one of: 'eq', 'contains'."]},
+                [
+                    {
+                        "detail": "Operator 'gte' is not available, expected one of: 'eq', 'contains'.",
+                        "pointer": "#/name",
+                    }
+                ],
                 id="operator_not_granted",
             ),
-            pytest.param({"age": "gte"}, {"age": ["Operator 'gte' expects a value."]}, id="value_missing"),
             pytest.param(
-                {"age": "isnull:yes"}, {"age": ["Operator 'isnull' expects no value."]}, id="value_unexpected"
+                {"age": "gte"}, [{"detail": "Operator 'gte' expects a value.", "pointer": "#/age"}], id="value_missing"
+            ),
+            pytest.param(
+                {"age": "isnull:yes"},
+                [{"detail": "Operator 'isnull' expects no value.", "pointer": "#/age"}],
+                id="value_unexpected",
             ),
             # The wording comes from the schema library, so only the refusal itself is shared by all three.
             pytest.param({"age": "gte:old"}, None, id="value_the_column_cannot_hold"),

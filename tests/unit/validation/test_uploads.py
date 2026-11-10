@@ -81,11 +81,15 @@ class TestCaseUploadValidation:
                 None,
                 {"avatar": "not-a-file"},
                 HTTPStatus.BAD_REQUEST,
-                {"avatar": ["Expected a file upload."]},
+                [{"detail": "Expected a file upload.", "pointer": "#/avatar"}],
                 id="bare_file_wrong_type",
             ),
             pytest.param(
-                None, None, HTTPStatus.BAD_REQUEST, {"avatar": ["Expected a file upload."]}, id="bare_missing"
+                None,
+                None,
+                HTTPStatus.BAD_REQUEST,
+                [{"detail": "Expected a file upload.", "pointer": "#/avatar"}],
+                id="bare_missing",
             ),
         ],
     )

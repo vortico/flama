@@ -3,6 +3,7 @@ import datetime
 import pytest
 import sqlalchemy
 
+from flama import types
 from flama.exceptions import ValidationError
 from flama.resources import data_structures
 from flama.resources.exceptions import ResourceFilterInvalid
@@ -103,7 +104,13 @@ class TestCaseFilter:
                 ("eq",),
                 ["gte:18"],
                 None,
-                ValidationError({"age": ["Operator 'gte' is not available, expected one of: 'eq'."]}),
+                ValidationError(
+                    [
+                        types.ErrorDetail(
+                            detail="Operator 'gte' is not available, expected one of: 'eq'.", pointer="#/age"
+                        )
+                    ]
+                ),
                 id="operator_not_granted",
             ),
             pytest.param(
@@ -111,7 +118,7 @@ class TestCaseFilter:
                 ("gte",),
                 ["gte"],
                 None,
-                ValidationError({"age": ["Operator 'gte' expects a value."]}),
+                ValidationError([types.ErrorDetail(detail="Operator 'gte' expects a value.", pointer="#/age")]),
                 id="value_missing",
             ),
             pytest.param(
@@ -119,7 +126,7 @@ class TestCaseFilter:
                 ("isnull",),
                 ["isnull:true"],
                 None,
-                ValidationError({"age": ["Operator 'isnull' expects no value."]}),
+                ValidationError([types.ErrorDetail(detail="Operator 'isnull' expects no value.", pointer="#/age")]),
                 id="value_unexpected",
             ),
             pytest.param("age", ("eq",), ["nope"], None, ValidationError, id="value_the_column_cannot_hold"),

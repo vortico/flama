@@ -3,6 +3,9 @@ import typing as t
 
 from flama import _imports
 
+if t.TYPE_CHECKING:
+    from flama.types import ErrorDetail
+
 __all__ = [
     "ApplicationError",
     "DependencyNotInstalled",
@@ -96,7 +99,7 @@ class HTTPException(Exception):
     def __init__(
         self,
         status_code: int,
-        detail: str | dict[str, t.Any] | None = None,
+        detail: str | dict[str, t.Any] | list[t.Any] | None = None,
         headers: dict | None = None,
     ) -> None:
         if detail is None:
@@ -123,16 +126,12 @@ class HTTPException(Exception):
 
 
 class ValidationError(HTTPException):
-    def __init__(
-        self,
-        detail: str | dict[str, list[str]] | None = None,
-        status_code: int = 400,
-    ) -> None:
+    def __init__(self, detail: "str | list[ErrorDetail] | None" = None, status_code: int = 400) -> None:
         super().__init__(status_code, detail=detail)
 
 
 class SerializationError(HTTPException):
-    def __init__(self, detail: None | str | dict[str, list[str]] = None, status_code: int = 500) -> None:
+    def __init__(self, detail: "str | list[ErrorDetail] | None" = None, status_code: int = 500) -> None:
         super().__init__(status_code, detail=detail)
 
 

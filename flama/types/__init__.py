@@ -19,6 +19,7 @@ from flama.types.endpoints import (
     JSONRPCEndpointProtocol,
     WebSocketEndpointProtocol,
 )
+from flama.types.errors import ErrorDetail
 from flama.types.http import (
     ALL_METHODS,
     PARAMETERS_TYPES,
@@ -141,6 +142,7 @@ __all__ = [
     "OpenAPISpecTag",
     "OpenAPISpecSecurity",
     "OpenAPISpec",
+    "ErrorDetail",
     "Pagination",
     "BaseRoute",
     "Output",

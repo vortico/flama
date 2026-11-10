@@ -1,10 +1,13 @@
 import asyncio
+import datetime
+import enum
 import json
 from importlib.metadata import version
 
+import pydantic
 import pytest
 
-from flama import Flama
+from flama import Flama, types
 from flama.client import Client
 from flama.exceptions import JSONRPCException
 from flama.http import JSONRPCStatus
@@ -28,6 +31,16 @@ FLAMA_META = {
         "version": version("flama"),
     },
 }
+
+
+class _Status(enum.Enum):
+    todo = "todo"
+    done = "done"
+
+
+class _Plan(pydantic.BaseModel):
+    monthly: float
+    currency: str = "USD"
 
 
 class TestCaseMCPEndpoint:
@@ -235,6 +248,63 @@ class TestCaseMCPEndpoint:
         result = resp.json()["result"]
         assert json.loads(result["content"][0]["text"]) == {"key": "value"}
         assert "structuredContent" not in result
+
+    @pytest.mark.parametrize(
+        ["arguments", "expected"],
+        (
+            pytest.param({"status": "done", "due": "2026-01-02"}, "_Status.done date 3", id="converted"),
+            pytest.param({"status": "wip", "due": "2026-01-02"}, None, id="invalid"),
+        ),
+    )
+    async def test_tools_call_arguments(self, app, arguments, expected):
+        server = app.mcp._servers["test"]
+
+        @server.tool("schedule")
+        def schedule(status: _Status, due: datetime.date, retries: int = 3) -> str:
+            return f"{status} {type(due).__name__} {retries}"
+
+        resp = await self._post(
+            app,
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "schedule", "arguments": arguments}},
+        )
+        result = resp.json()["result"]
+
+        if expected is None:
+            # Reported as a failed call the model can read, rather than as a protocol error.
+            assert result["isError"] is True
+            assert result["content"][0]["text"].startswith("Invalid arguments:\nstatus: ")
+        else:
+            assert "isError" not in result
+            assert result["content"][0]["text"] == expected
+
+    @pytest.mark.parametrize(
+        ["returned", "expected", "exception"],
+        (
+            pytest.param({"monthly": 219.0}, {"monthly": 219.0, "currency": "USD"}, None, id="serialised"),
+            pytest.param(
+                {"monthly": "lots"}, None, "returned a result not fitting its output schema", id="not_fitting"
+            ),
+        ),
+    )
+    async def test_tools_call_schema_output(self, app, returned, expected, exception):
+        server = app.mcp._servers["test"]
+
+        @server.tool("plan")
+        def plan() -> types.Schema[_Plan]:
+            return returned
+
+        resp = await self._post(
+            app, {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "plan", "arguments": {}}}
+        )
+
+        if exception is None:
+            result = resp.json()["result"]
+            assert result["structuredContent"] == expected
+            assert json.loads(result["content"][0]["text"]) == expected
+        else:
+            error = resp.json()["error"]
+            assert error["code"] == JSONRPCStatus.INTERNAL_ERROR
+            assert exception in error["message"]
 
     async def test_tools_call_not_found(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "missing"}})
@@ -601,6 +671,28 @@ class TestCaseMCPEndpoint:
         task = await self._poll_task(app, result["task"]["taskId"])
         assert task["status"] == "completed"
         assert task["result"]["structuredContent"] == 42
+
+    async def test_tools_call_as_task_invalid_arguments(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.tool("double", task=True)
+        async def double(x: int) -> int:
+            return x * 2  # pragma: no cover
+
+        resp = await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "double", "arguments": {"x": "many"}, "_meta": self._caps_meta(Extensions.TASKS)},
+            },
+        )
+
+        task = await self._poll_task(app, resp.json()["result"]["task"]["taskId"])
+        # A task validates its arguments as a direct call does, ending with the failed call it reports.
+        assert task["status"] == "completed"
+        assert task["result"]["isError"] is True
 
     async def test_tools_call_task_not_advertised(self, app):
         server = app.mcp._servers["test"]

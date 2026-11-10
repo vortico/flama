@@ -9,7 +9,7 @@ SCHEMAS: dict[str, t.Any] = {}
 
 class APIError(BaseModel):
     status_code: int = Field(title="status_code", description="HTTP status code")
-    detail: str | dict[str, t.Any] = Field(title="detail", description="Error detail")
+    detail: str | list[t.Any] | dict[str, t.Any] = Field(title="detail", description="Error detail")
     error: str | None = Field(title="type", description="Exception or error type")
 
 

@@ -178,7 +178,9 @@ class FileParamComponent(Component):
         value = (data.data or {}).get(parameter.name)
 
         if not isinstance(value, UploadFile):
-            raise exceptions.ValidationError(detail={parameter.name: ["Expected a file upload."]})
+            raise exceptions.ValidationError(
+                detail=SchemaValidationError({parameter.name: ["Expected a file upload."]}).errors
+            )
 
         return value
 
