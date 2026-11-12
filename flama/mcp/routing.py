@@ -8,6 +8,8 @@ __all__ = ["MCPRoute"]
 
 
 class MCPRoute(Route):
+    endpoint: type[MCPEndpoint]
+
     def __init__(self, path: str, server: MCPServer, *, name: str | None = None) -> None:
         endpoint = type(
             f"MCPEndpoint_{server.name}",

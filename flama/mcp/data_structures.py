@@ -3,6 +3,8 @@ import dataclasses
 import json
 import typing as t
 
+from flama.schemas.data_structures import Schema
+
 __all__ = [
     "RequestMeta",
     "RequestHeaders",
@@ -11,7 +13,10 @@ __all__ = [
     "Elicit",
     "Elicitation",
     "RequestState",
+    "Tool",
+    "Resource",
     "AppTemplate",
+    "Prompt",
 ]
 
 
@@ -166,21 +171,40 @@ class RequestState:
 
 
 @dataclasses.dataclass
-class AppTemplate:
-    """A prefetchable UI template a tool can declare ahead of time (MCP Apps, SEP-1865).
+class Tool:
+    name: str
+    description: str
+    input_schema: dict[str, t.Any]
+    handler: t.Callable[..., t.Any]
+    arguments: Schema
+    output_schema: dict[str, t.Any] | None = None
+    result: Schema | None = None
+    task: bool = False
+    ui_template: str | None = None
+    elicitation_param: str | None = None
 
-    Hosts prefetch, cache, and security-review these HTML templates before any tool runs; the rendered UI then talks
-    back to the host over the same JSON-RPC base protocol.
 
-    :param uri: URI under which the template is listed and read.
-    :param name: Human-readable template name.
-    :param description: Human-readable description.
-    :param mime_type: Content type of the rendered template.
-    :param handler: Callable returning the template body when read.
-    """
-
+@dataclasses.dataclass
+class Resource:
     uri: str
     name: str
     description: str
     mime_type: str
+    handler: t.Callable[..., t.Any]
+
+
+@dataclasses.dataclass
+class AppTemplate(Resource):
+    """A resource rendered as a prefetchable UI template a tool can declare ahead of time (MCP Apps, SEP-1865).
+
+    Hosts prefetch, cache, and security-review these HTML templates before any tool runs; the rendered UI then talks
+    back to the host over the same JSON-RPC base protocol.
+    """
+
+
+@dataclasses.dataclass
+class Prompt:
+    name: str
+    description: str
+    arguments: list[dict[str, t.Any]]
     handler: t.Callable[..., t.Any]

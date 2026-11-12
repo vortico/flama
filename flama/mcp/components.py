@@ -1,13 +1,21 @@
 from flama import exceptions, http, types
 from flama.http.data_structures import Headers
 from flama.injection import Component, Components
-from flama.mcp.data_structures import Extensions, RequestHeaders, RequestMeta, TraceContext
+from flama.mcp.data_structures import Extensions, Prompt, RequestHeaders, RequestMeta, Resource, Tool, TraceContext
+from flama.mcp.routing import MCPRoute
+from flama.mcp.server import MCPServer
+from flama.mcp.tasks import Task
 
 __all__ = [
     "MCPMetaComponent",
     "MCPRequestHeadersComponent",
     "MCPTraceContextComponent",
     "MCPExtensionsComponent",
+    "MCPServerComponent",
+    "MCPToolComponent",
+    "MCPResourceComponent",
+    "MCPPromptComponent",
+    "MCPTaskComponent",
     "MCP_COMPONENTS",
 ]
 
@@ -92,6 +100,75 @@ class MCPExtensionsComponent(Component):
         return Extensions(meta.client_extensions.keys())
 
 
+class MCPServerComponent(Component):
+    """Resolve the :class:`MCPServer` the current request was routed to."""
+
+    def resolve(self, route: types.BaseRoute) -> MCPServer:
+        if not isinstance(route, MCPRoute):
+            raise exceptions.ApplicationError("An MCP server is only available to requests routed to one")
+
+        return route.endpoint.server
+
+
+class MCPToolComponent(Component):
+    """Resolve the :class:`Tool` named in the request's ``params``."""
+
+    def resolve(self, params: types.JSONRPCParams, server: MCPServer) -> Tool:
+        if (tool := server._tools.get(name := params.get("name", ""))) is None:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Tool '{name}' not found"
+            )
+
+        return tool
+
+
+class MCPResourceComponent(Component):
+    """Resolve the resource or app template whose URI the request's ``params`` carry."""
+
+    def resolve(self, params: types.JSONRPCParams, server: MCPServer) -> Resource:
+        uri = params.get("uri", "")
+        if (resource := server._resources.get(uri) or server._app_templates.get(uri)) is None:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Resource '{uri}' not found"
+            )
+
+        return resource
+
+
+class MCPPromptComponent(Component):
+    """Resolve the :class:`Prompt` named in the request's ``params``."""
+
+    def resolve(self, params: types.JSONRPCParams, server: MCPServer) -> Prompt:
+        if (prompt := server._prompts.get(name := params.get("name", ""))) is None:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Prompt '{name}' not found"
+            )
+
+        return prompt
+
+
+class MCPTaskComponent(Component):
+    """Resolve the :class:`Task` whose id the request's ``params`` carry."""
+
+    async def resolve(self, params: types.JSONRPCParams, server: MCPServer) -> Task:
+        if (task := await server.task_store.get(task_id := params.get("taskId", ""))) is None:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Task '{task_id}' not found"
+            )
+
+        return task
+
+
 MCP_COMPONENTS = Components(
-    [MCPMetaComponent(), MCPRequestHeadersComponent(), MCPTraceContextComponent(), MCPExtensionsComponent()]
+    [
+        MCPMetaComponent(),
+        MCPRequestHeadersComponent(),
+        MCPTraceContextComponent(),
+        MCPExtensionsComponent(),
+        MCPServerComponent(),
+        MCPToolComponent(),
+        MCPResourceComponent(),
+        MCPPromptComponent(),
+        MCPTaskComponent(),
+    ]
 )

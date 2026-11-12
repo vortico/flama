@@ -1,46 +1,14 @@
-import dataclasses
 import inspect
 import typing as t
 
 from flama import types
-from flama.mcp.data_structures import AppTemplate, Elicitation, Extensions
+from flama.mcp.data_structures import AppTemplate, Elicitation, Extensions, Prompt, Resource, Tool
 from flama.mcp.tasks import InMemoryTaskStore, TaskStore
 from flama.schemas.data_structures import Field, Schema
 from flama.schemas.exceptions import SchemaGenerationError
 from flama.schemas.registry import SchemaRegistry
 
 __all__ = ["MCPServer"]
-
-
-@dataclasses.dataclass
-class Tool:
-    name: str
-    description: str
-    input_schema: dict[str, t.Any]
-    handler: t.Callable[..., t.Any]
-    arguments: Schema
-    output_schema: dict[str, t.Any] | None = None
-    result: Schema | None = None
-    task: bool = False
-    ui_template: str | None = None
-    elicitation_param: str | None = None
-
-
-@dataclasses.dataclass
-class Resource:
-    uri: str
-    name: str
-    description: str
-    mime_type: str
-    handler: t.Callable[..., t.Any]
-
-
-@dataclasses.dataclass
-class Prompt:
-    name: str
-    description: str
-    arguments: list[dict[str, t.Any]]
-    handler: t.Callable[..., t.Any]
 
 
 class MCPServer:

@@ -9,10 +9,18 @@ from flama.http.data_structures import Headers
 from flama.mcp.components import (
     MCPExtensionsComponent,
     MCPMetaComponent,
+    MCPPromptComponent,
     MCPRequestHeadersComponent,
+    MCPResourceComponent,
+    MCPServerComponent,
+    MCPTaskComponent,
+    MCPToolComponent,
     MCPTraceContextComponent,
 )
 from flama.mcp.data_structures import Extensions, RequestHeaders, RequestMeta, TraceContext
+from flama.mcp.routing import MCPRoute
+from flama.mcp.server import MCPServer
+from flama.routing import Route
 
 
 def handler_fields(envelope: types.JSONRPCEnvelope, method: types.JSONRPCMethod, params: types.JSONRPCParams):
@@ -205,6 +213,105 @@ class TestCaseMCPExtensionsComponent:
     )
     def test_resolve(self, meta, expected):
         assert MCPExtensionsComponent().resolve(RequestMeta(meta)) == expected
+
+
+@pytest.fixture(scope="function")
+def server():
+    server = MCPServer("test")
+    server.add_tool(handler_none, name="add")
+    server.add_resource(handler_none, uri="res://a")
+    server.add_app_template(handler_none, uri="ui://a")
+    server.add_prompt(handler_none, name="greet")
+    return server
+
+
+class TestCaseMCPServerComponent:
+    @pytest.mark.parametrize(
+        ["route", "exception"],
+        (
+            pytest.param("mcp", None, id="mcp_route"),
+            pytest.param(
+                "http",
+                exceptions.ApplicationError("An MCP server is only available to requests routed to one"),
+                id="other_route",
+            ),
+        ),
+        indirect=["exception"],
+    )
+    def test_resolve(self, server, route, exception):
+        route = MCPRoute("/mcp/", server) if route == "mcp" else Route("/", handler_none)
+
+        with exception:
+            assert MCPServerComponent().resolve(route) is server
+
+
+class TestCaseMCPEntryComponents:
+    @pytest.mark.parametrize(
+        ["component", "params", "expected", "exception"],
+        (
+            pytest.param(MCPToolComponent(), {"name": "add"}, ("_tools", "add"), None, id="tool"),
+            pytest.param(
+                MCPToolComponent(),
+                {"name": "missing"},
+                None,
+                exceptions.JSONRPCException(
+                    status_code=JSONRPCStatus.INVALID_PARAMS, detail="Tool 'missing' not found"
+                ),
+                id="tool_not_found",
+            ),
+            pytest.param(MCPResourceComponent(), {"uri": "res://a"}, ("_resources", "res://a"), None, id="resource"),
+            pytest.param(
+                MCPResourceComponent(), {"uri": "ui://a"}, ("_app_templates", "ui://a"), None, id="app_template"
+            ),
+            pytest.param(
+                MCPResourceComponent(),
+                {"uri": "res://missing"},
+                None,
+                exceptions.JSONRPCException(
+                    status_code=JSONRPCStatus.INVALID_PARAMS, detail="Resource 'res://missing' not found"
+                ),
+                id="resource_not_found",
+            ),
+            pytest.param(MCPPromptComponent(), {"name": "greet"}, ("_prompts", "greet"), None, id="prompt"),
+            pytest.param(
+                MCPPromptComponent(),
+                {},
+                None,
+                exceptions.JSONRPCException(status_code=JSONRPCStatus.INVALID_PARAMS, detail="Prompt '' not found"),
+                id="prompt_not_found",
+            ),
+        ),
+        indirect=["exception"],
+    )
+    def test_resolve(self, server, component, params, expected, exception):
+        with exception:
+            result = component.resolve(types.JSONRPCParams(params), server)
+
+            assert result is getattr(server, expected[0])[expected[1]]
+
+    @pytest.mark.parametrize(
+        ["known", "exception"],
+        (
+            pytest.param(True, None, id="task"),
+            pytest.param(
+                False,
+                exceptions.JSONRPCException(
+                    status_code=JSONRPCStatus.INVALID_PARAMS, detail="Task 'missing' not found"
+                ),
+                id="task_not_found",
+            ),
+        ),
+        indirect=["exception"],
+    )
+    async def test_resolve_task(self, server, known, exception):
+        task = await server.task_store.create(tool_name="add")
+
+        with exception:
+            result = await MCPTaskComponent().resolve(
+                types.JSONRPCParams({"taskId": task.id if known else "missing"}), server
+            )
+
+            assert result is task
 
 
 class TestCaseMCPInjection:

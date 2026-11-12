@@ -4,8 +4,8 @@ import json
 import pytest
 
 from flama import schemas, types
-from flama.mcp.data_structures import AppTemplate, Elicitation, Extensions
-from flama.mcp.server import MCPServer, Prompt, Resource, Tool
+from flama.mcp.data_structures import AppTemplate, Elicitation, Extensions, Prompt, Resource, Tool
+from flama.mcp.server import MCPServer
 from flama.mcp.tasks import InMemoryTaskStore
 
 
