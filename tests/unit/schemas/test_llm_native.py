@@ -235,7 +235,7 @@ class TestCaseMessage:
         ],
     )
     def test_rejects_malformed_content_parts(self, app, llm_schema, payload):
-        """Strict per-arm validation only runs on pydantic; marshmallow/typesystem keep ``content`` permissive."""
+        """Strict per-arm validation only runs on pydantic; marshmallow keeps ``content`` permissive."""
         if app.schema.schema_library.name != "pydantic":
             pytest.skip("only pydantic enforces content-part discriminated union on Message.content")
         with pytest.raises(SchemaValidationError):
@@ -243,8 +243,6 @@ class TestCaseMessage:
 
     def test_preserves_dialect_specific_extras_on_load(self, app, llm_schema):
         """Ollama's sibling ``images`` / ``thinking`` fields must survive validation in pydantic and marshmallow."""
-        if app.schema.schema_library.name == "typesystem":
-            pytest.skip("typesystem schemas drop unknown fields by default; ChatMixin reshapes upstream")
         payload = {"role": "user", "content": "hi", "images": ["base64"], "thinking": "hidden"}
         loaded = schemas.adapter.load(llm_schema, payload)
         dumped = loaded.model_dump() if app.schema.schema_library.name == "pydantic" else dict(loaded)

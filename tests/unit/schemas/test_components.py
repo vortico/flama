@@ -31,7 +31,7 @@ class TestCaseValidatePathParamsComponent:
                 types.PathParams({"id": "bad"}),
                 None,
                 None,
-                exceptions.ValidationError(detail=[{"error": "invalid"}]),
+                exceptions.ValidationError(detail=[types.ErrorDetail(detail="invalid", pointer="#/error")]),
                 id="validation_error",
             ),
         ],

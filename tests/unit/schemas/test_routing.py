@@ -4,8 +4,6 @@ from unittest.mock import Mock
 import marshmallow
 import pydantic
 import pytest
-import typesystem
-import typesystem.fields
 
 import flama.types.websockets
 from flama import Component, endpoints, exceptions, http, routing, types
@@ -31,10 +29,6 @@ class TestCaseParametersDescriptor:
 
         if schemas.lib == pydantic:
             schema = pydantic.create_model("FooSchema", x=(int, ...), y=(str, ...))
-        elif schemas.lib == typesystem:
-            schema = typesystem.Schema(
-                title="FooSchema", fields={"x": typesystem.fields.Integer(), "y": typesystem.fields.String()}
-            )
         elif schemas.lib == marshmallow:
             schema = type(
                 "FooSchema",

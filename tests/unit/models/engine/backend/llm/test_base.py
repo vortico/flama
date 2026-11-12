@@ -1,3 +1,4 @@
+import contextlib
 import dataclasses
 import typing as t
 from unittest.mock import AsyncMock, MagicMock, call, patch
@@ -614,7 +615,7 @@ class TestCaseLLMBackend:
                 "dispatch",
                 ["non_runnable", "non_runnable"],
                 None,
-                exceptions.FrameworkNotInstalled("vllm or mlx-lm"),
+                exceptions.DependencyNotInstalled("vllm", "mlx_lm"),
                 id="all_non_runnable_raises",
             ),
             pytest.param("populate", None, None, None, id="populates_registry_on_first_call"),
@@ -629,7 +630,7 @@ class TestCaseLLMBackend:
         exception,
     ) -> None:
         """Cover :meth:`LLMBackend._resolve` end-to-end: lazy registry population on first call,
-        first-runnable-wins probe order, non-runnable backends are skipped, and a :class:`FrameworkNotInstalled`
+        first-runnable-wins probe order, non-runnable backends are skipped, and a :class:`DependencyNotInstalled`
         is raised when no registered backend exposes a usable runtime.
         """
         if scenario == "populate":
@@ -700,10 +701,10 @@ class TestCaseLLMBackend:
             pytest.param(
                 None,
                 None,
-                exceptions.FrameworkNotInstalled("vllm or mlx-lm"),
+                exceptions.DependencyNotInstalled("vllm", "mlx_lm"),
                 None,
                 None,
-                exceptions.FrameworkNotInstalled("vllm or mlx-lm"),
+                exceptions.DependencyNotInstalled("vllm", "mlx_lm"),
                 id="propagates_resolve_failure",
             ),
             pytest.param(
@@ -719,9 +720,9 @@ class TestCaseLLMBackend:
                 None,
                 None,
                 None,
-                exceptions.FrameworkNotInstalled("mlx-lm or mlx-vlm"),
+                exceptions.DependencyNotInstalled("mlx_lm", "mlx_vlm"),
                 None,
-                exceptions.FrameworkNotInstalled("mlx-lm or mlx-vlm"),
+                exceptions.DependencyNotInstalled("mlx_lm", "mlx_vlm"),
                 id="passes_through_missing_framework",
             ),
             pytest.param(
@@ -751,7 +752,7 @@ class TestCaseLLMBackend:
         missing config is tolerated. A runtime that refuses the model becomes
         :class:`~flama.models.exceptions.LLMUnsupportedModel` carrying the runtime's own error as its
         cause, while failures that describe the environment rather than the model —
-        :class:`~flama.exceptions.FrameworkNotInstalled`,
+        :class:`~flama.exceptions.DependencyNotInstalled`,
         :class:`~flama.serialize.exceptions.UnknownModelCapabilities` — pass through untouched so they
         stay distinguishable.
         """
@@ -778,44 +779,43 @@ class TestCaseLLMBackend:
             assert raised.value.__cause__ is construct_side_effect
 
     @pytest.mark.parametrize(
-        ("module", "guards", "expected"),
+        ("module", "available", "expected"),
         [
             pytest.param(
-                "flama.models.engine.backend.llm.vllm",
-                {"vllm": object(), "AsyncEngineArgs": object()},
-                True,
-                id="vllm_runnable_when_deps_imported",
+                "flama.models.engine.backend.llm.vllm", {"vllm": True}, True, id="vllm_runnable_when_installed"
             ),
             pytest.param(
-                "flama.models.engine.backend.llm.vllm",
-                {"vllm": None, "AsyncEngineArgs": None},
-                False,
-                id="vllm_not_runnable_when_deps_missing",
+                "flama.models.engine.backend.llm.vllm", {"vllm": False}, False, id="vllm_not_runnable_when_missing"
             ),
             pytest.param(
                 "flama.models.engine.backend.llm.mlx",
-                {"mx": object(), "mlx_lm_load": object()},
+                {"mlx": True, "mlx_lm": True},
                 True,
-                id="mlx_runnable_when_deps_imported",
+                id="mlx_runnable_when_installed",
             ),
             pytest.param(
                 "flama.models.engine.backend.llm.mlx",
-                {"mx": None, "mlx_lm_load": None},
+                {"mlx": True, "mlx_lm": False},
                 False,
-                id="mlx_not_runnable_when_deps_missing",
+                id="mlx_not_runnable_without_mlx_lm",
+            ),
+            pytest.param(
+                "flama.models.engine.backend.llm.mlx",
+                {"mlx": False, "mlx_lm": True},
+                False,
+                id="mlx_not_runnable_without_mlx",
             ),
         ],
     )
-    def test_runnable(self, module: str, guards: dict, expected: bool) -> None:
-        """Verify :meth:`LLMBackend.runnable` reflects whether each backend's optional dependency
-        block has been imported successfully (the module-level ``vllm``/``AsyncEngineArgs`` and
-        ``mx``/``mlx_lm_load`` symbols are :data:`None` when the runtime is absent).
-        """
+    def test_runnable(self, module: str, available: dict[str, bool], expected: bool) -> None:
+        """Verify :meth:`LLMBackend.runnable` reflects whether each backend's optional runtime is installed."""
         from importlib import import_module
 
         mod = import_module(module)
         backend_cls = mod.VLLMBackend if "vllm" in module else mod.MLXBackend
-        with patch.multiple(mod, **guards):
+        with contextlib.ExitStack() as stack:
+            for name, value in available.items():
+                stack.enter_context(patch.object(getattr(mod, name), "available", value))
             assert backend_cls.runnable() is expected
 
 

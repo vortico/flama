@@ -2,16 +2,19 @@ import asyncio
 import uuid
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
+import httpx
 import pytest
 
 from flama import Component, Module, exceptions, http, routing, types
 from flama.applications import Flama
+from flama.client import Client
 from flama.context import Context
 from flama.ddd.components import WorkerComponent
+from flama.errors import ExceptionHandler
 from flama.events import Events
 from flama.injection.injector import Injector
 from flama.mcp.module import MCPModule
-from flama.middleware import Middleware, MiddlewareStack
+from flama.middleware import Middleware, MiddlewareStack, RootMiddlewareStack
 from flama.models import ModelsModule
 from flama.resources import Resource, ResourceRoute, ResourcesModule
 from flama.schemas.modules import SchemaModule
@@ -269,6 +272,27 @@ class TestCaseFlama:
             app.add_exception_handler(key, handler)
             assert app.middleware.add_exception_handler.call_args_list == expected_call
 
+    def test_add_exception_handler_alone(self, app):
+        class _Handler(ExceptionHandler):
+            exc_class = ValueError
+
+        handler = _Handler()
+
+        with patch.object(app, "middleware", spec=MiddlewareStack):
+            app.add_exception_handler(handler)
+
+            # A handler given alone is registered for the exception class it declares.
+            assert app.middleware.add_exception_handler.call_args_list == [call(ValueError, handler)]
+
+    @pytest.mark.parametrize(
+        "exception",
+        [TypeError("An exception handler is required for a status code or exception class")],
+        indirect=True,
+    )
+    def test_add_exception_handler_missing_handler(self, app, exception):
+        with exception:
+            app.add_exception_handler(ValueError)
+
     def test_add_middleware(self, app):
         class FooMiddleware(Middleware):
             def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send): ...
@@ -437,3 +461,144 @@ class TestCaseFlama:
 
         assert app._status == AppStatus.SHUT_DOWN
         assert sub_app._status == AppStatus.SHUT_DOWN
+
+
+class TestCaseMountedApplication:
+    class Missing(Exception): ...
+
+    class Header(Middleware):
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        async def __call__(self, scope, receive, send):
+            async def tagged(message):
+                if message["type"] == "http.response.start":
+                    message = {**message, "headers": [*message.get("headers", []), (self.name.encode(), b"1")]}
+                await send(message)
+
+            await self.app(scope, receive, tagged)
+
+    @staticmethod
+    def handled_by(name: str, status_code: int = 418):
+        def handler(scope, receive, send, exc):
+            return http.JSONResponse({"by": name}, status_code=status_code)
+
+        return handler
+
+    @pytest.fixture(scope="function")
+    def apps(self):
+        def missing():
+            raise self.Missing()
+
+        def failing():
+            raise ValueError("Failing")
+
+        def conflict():
+            raise exceptions.HTTPException(409)
+
+        root = Flama(schema=None, docs=None, middleware=[self.Header("x-root")])
+        root.add_route("/ping", lambda: {"at": "root"})
+        child = Flama(schema=None, docs=None, middleware=[self.Header("x-child")])
+        child.add_route("/ping", lambda: {"at": "child"})
+        child.add_route("/missing", missing)
+        child.add_route("/failing", failing)
+        child.add_route("/conflict", conflict)
+        grandchild = Flama(schema=None, docs=None)
+        grandchild.add_route("/missing", missing)
+        child.mount("/grand", grandchild)
+        root.mount("/child", child)
+
+        return root, child, grandchild
+
+    async def request(self, root: Flama, method: str, path: str):
+        async with Client(app=root, transport=httpx.ASGITransport(app=root, raise_app_exceptions=False)) as client:
+            return await client.request(method, path)
+
+    async def test_handler_of_a_mounted_app(self, apps):
+        root, child, _ = apps
+        child.add_exception_handler(self.Missing, self.handled_by("child"))
+
+        response = await self.request(root, "get", "/child/missing")
+
+        assert response.status_code == 418
+        assert response.json() == {"by": "child"}
+
+    @pytest.mark.parametrize(
+        ["path", "handler_on", "by"],
+        (
+            pytest.param("/child/missing", "root", "root", id="child_to_root"),
+            pytest.param("/child/grand/missing", "child", "child", id="grandchild_to_child"),
+            pytest.param("/child/grand/missing", "root", "root", id="grandchild_to_root"),
+        ),
+    )
+    async def test_unhandled_reaches_a_parent(self, apps, path, handler_on, by):
+        root, child, _ = apps
+        {"root": root, "child": child}[handler_on].add_exception_handler(self.Missing, self.handled_by(by))
+
+        response = await self.request(root, "get", path)
+
+        assert response.json() == {"by": by}
+
+    @pytest.mark.parametrize(
+        ["method", "path", "status_code"],
+        (
+            pytest.param("get", "/child/unknown", 404, id="not_found"),
+            pytest.param("post", "/child/ping", 405, id="method_not_allowed"),
+            pytest.param("get", "/child/conflict", 409, id="http_exception"),
+            pytest.param("get", "/child/failing", 500, id="server_error"),
+        ),
+    )
+    async def test_builtin_handling_by_the_root(self, apps, method, path, status_code):
+        root, _, _ = apps
+
+        response = await self.request(root, method, path)
+
+        assert response.status_code == status_code
+
+    async def test_registered_handler_before_default_response(self, apps):
+        root, _, _ = apps
+        root.add_exception_handler(exceptions.HTTPException, self.handled_by("root"))
+
+        response = await self.request(root, "get", "/child/conflict")
+
+        assert response.json() == {"by": "root"}
+
+    async def test_catch_all_handler_keeps_default_responses(self, apps):
+        root, _, _ = apps
+        root.add_exception_handler(Exception, self.handled_by("root"))
+
+        # The most specific handler wins, so a catch-all does not swallow Flama's default responses.
+        not_found = await self.request(root, "get", "/child/unknown")
+        failing = await self.request(root, "get", "/child/failing")
+
+        assert not_found.status_code == 404
+        assert failing.json() == {"by": "root"}
+
+    def test_stack_of_a_mounted_app(self, apps):
+        root, child, grandchild = apps
+
+        assert type(root.middleware) is RootMiddlewareStack
+        assert type(child.middleware) is MiddlewareStack
+        assert type(grandchild.middleware) is MiddlewareStack
+
+    async def test_root_handler_for_a_mounted_route(self, apps):
+        root, _, _ = apps
+        root.add_exception_handler(409, self.handled_by("root"))
+
+        response = await self.request(root, "get", "/child/conflict")
+
+        assert response.json() == {"by": "root"}
+
+    @pytest.mark.parametrize(
+        ["path", "headers"],
+        (
+            pytest.param("/ping", {"x-root"}, id="root_route"),
+            pytest.param("/child/ping", {"x-root", "x-child"}, id="mounted_route"),
+        ),
+    )
+    async def test_middleware_scope(self, apps, path, headers):
+        root, _, _ = apps
+
+        response = await self.request(root, "get", path)
+
+        assert {name for name in ("x-root", "x-child") if name in response.headers} == headers

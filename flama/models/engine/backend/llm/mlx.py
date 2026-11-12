@@ -6,7 +6,7 @@ import logging
 import pathlib
 import typing as t
 
-from flama import concurrency, exceptions
+from flama import _concurrency, _imports, exceptions
 from flama.models.engine.backend.llm._base import TransformerLLMBackend
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
@@ -14,25 +14,12 @@ from flama.serialize.data_structures import LLMModelCapabilities
 from flama.serialize.exceptions import UnknownModelCapabilities
 from flama.serialize.model_serializers import ModelSerializer
 
-try:
-    import mlx.core as mx
-    from mlx_lm import load as mlx_lm_load
-    from mlx_lm import stream_generate
-    from mlx_lm.sample_utils import make_sampler
-except Exception:  # pragma: no cover
-    mx = None
-    mlx_lm_load = None
-    stream_generate = None
-    make_sampler = None
-
-try:
-    from mlx_vlm import load as mlx_vlm_load
-    from mlx_vlm import stream_generate as mlx_vlm_stream_generate
-except Exception:  # pragma: no cover
-    mlx_vlm_load = None
-    mlx_vlm_stream_generate = None
-
 __all__ = ["MLXBackend", "MlxRuntime"]
+
+mlx = _imports.Dependency("mlx", "core")
+mlx_lm = _imports.Dependency("mlx_lm")
+mlx_lm_sample_utils = _imports.Dependency("mlx_lm", "sample_utils")
+mlx_vlm = _imports.Dependency("mlx_vlm")
 
 _Loader: t.TypeAlias = t.Callable[[pathlib.Path, LLMModelCapabilities], "MlxRuntime"]
 
@@ -112,7 +99,7 @@ class MLXBackend(TransformerLLMBackend):
     :param capabilities: Optional override read from the artifact manifest; falls back to the
         transformers serializer probe when omitted.
     :param engine_params: Reserved for forward-compatibility; currently unused.
-    :raises FrameworkNotInstalled: If ``mlx-lm`` (text-only) or ``mlx-vlm`` (multimodal) is not installed.
+    :raises DependencyNotInstalled: If ``mlx-lm`` (text-only) or ``mlx-vlm`` (multimodal) is not installed.
     :raises UnknownModelCapabilities: If capabilities cannot be resolved from either source.
     """
 
@@ -121,7 +108,7 @@ class MLXBackend(TransformerLLMBackend):
     @classmethod
     def runnable(cls) -> bool:
         """Return ``True`` when ``mlx-lm`` is importable on the host."""
-        return mx is not None and mlx_lm_load is not None
+        return mlx.available and mlx_lm.available
 
     def __init__(
         self,
@@ -148,7 +135,7 @@ class MLXBackend(TransformerLLMBackend):
     @staticmethod
     def _load_lm(model_dir: pathlib.Path, capabilities: LLMModelCapabilities) -> "MlxRuntime":
         """Load *model_dir* through mlx-lm."""
-        lm_model, tokenizer = mlx_lm_load(str(model_dir))  # ty: ignore[call-non-callable]
+        lm_model, tokenizer = mlx_lm.load(str(model_dir))
         return MlxRuntime(model=lm_model, tokenizer=tokenizer, capabilities=capabilities)
 
     @staticmethod
@@ -160,7 +147,7 @@ class MLXBackend(TransformerLLMBackend):
         fallback for a text-only one the towers are legitimately absent and a strict load would reject
         a model that serves text perfectly well.
         """
-        vlm_model, processor = mlx_vlm_load(str(model_dir), strict=capabilities.is_multimodal)  # ty: ignore[call-non-callable]
+        vlm_model, processor = mlx_vlm.load(str(model_dir), strict=capabilities.is_multimodal)
         return MlxRuntime(
             model=vlm_model, tokenizer=processor.tokenizer, processor=processor, capabilities=capabilities
         )
@@ -184,16 +171,16 @@ class MLXBackend(TransformerLLMBackend):
         :param model_dir: Path to the extracted HuggingFace model directory.
         :param capabilities: Modal capabilities resolved from the artifact manifest or the serializer probe.
         :return: Runtime bundle wrapping the loaded model, its tokenizer and (for mlx-vlm) its processor.
-        :raises FrameworkNotInstalled: If neither mlx-lm nor mlx-vlm is importable.
+        :raises DependencyNotInstalled: If neither mlx-lm nor mlx-vlm is importable.
         :raises Exception: The last runtime's own failure when every available runtime refused the model.
         """
         loaders: list[tuple[str, _Loader]] = []
-        if mlx_lm_load is not None:
+        if mlx_lm.available:
             loaders.append(("mlx-lm", cls._load_lm))
-        if mlx_vlm_load is not None:
+        if mlx_vlm.available:
             loaders.append(("mlx-vlm", cls._load_vlm))
         if not loaders:
-            raise exceptions.FrameworkNotInstalled("mlx-lm or mlx-vlm")
+            raise exceptions.DependencyNotInstalled("mlx_lm", "mlx_vlm")
         if capabilities.is_multimodal:
             loaders.reverse()
 
@@ -259,9 +246,9 @@ class MLXBackend(TransformerLLMBackend):
             multimodal payloads.
         :return: Mapping merged into the ``mlx_vlm.stream_generate`` call.
         """
-        # ``mx`` is the optional ``mlx.core`` module (``None`` only when mlx is not installed); this
-        # backend is reached exclusively when mlx is available, so ``mx`` is non-None here.
-        extras: dict[str, t.Any] = {"input_ids": mx.array([inputs.tokens])}  # ty: ignore[unresolved-attribute]
+        mlx.require()
+
+        extras: dict[str, t.Any] = {"input_ids": mlx.array([inputs.tokens])}
         if not (inputs.images or inputs.audios):
             return extras
         proc_kwargs: dict[str, t.Any] = {"text": "", "return_tensors": "mlx", "add_special_tokens": False}
@@ -277,7 +264,7 @@ class MLXBackend(TransformerLLMBackend):
         """Yield deltas from the synchronous MLX generator.
 
         Bridges :func:`mlx_lm.stream_generate` (text runtime) or :func:`mlx_vlm.stream_generate`
-        (multimodal runtime) into an async iterator via :func:`flama.concurrency.iterate` pinned
+        (multimodal runtime) into an async iterator via :func:`flama._concurrency.iterate` pinned
         to :attr:`_executor` - MLX binds its Metal/CUDA stream to whichever thread first
         allocates an array, so every step has to run on the same worker the model was loaded
         on or MLX raises ``no Stream(gpu, 1) in current thread``. Token IDs are passed straight
@@ -303,18 +290,15 @@ class MLXBackend(TransformerLLMBackend):
             multimodal payloads).
         :param params: Generation parameters merged into the MLX call.
         :return: Async iterator of :class:`EngineDelta`.
-        :raises FrameworkNotInstalled: If mlx-lm (text) or mlx-vlm (multimodal) is not installed.
+        :raises DependencyNotInstalled: If mlx-lm (text) or mlx-vlm (multimodal) is not installed.
         """
-        if make_sampler is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("mlx-lm")
-
         max_tokens = self._resolve_max_tokens(params, len(inputs.tokens))
-        sampler = make_sampler(temp=params.pop("temperature", self.DEFAULT_TEMP))
+        mlx_lm_sample_utils.require()
+        sampler = mlx_lm_sample_utils.make_sampler(temp=params.pop("temperature", self.DEFAULT_TEMP))
 
         if self.model.is_vlm:
-            if mlx_vlm_stream_generate is None or mx is None:  # noqa
-                raise exceptions.FrameworkNotInstalled("mlx-vlm")
-            source: t.Iterator[_MlxStreamResp] = mlx_vlm_stream_generate(
+            mlx_vlm.require()
+            source: t.Iterator[_MlxStreamResp] = mlx_vlm.stream_generate(
                 self.model.model,
                 self.model.processor,
                 prompt="",
@@ -323,9 +307,8 @@ class MLXBackend(TransformerLLMBackend):
                 **self._build_mlx_vlm_extras(inputs),
             )
         else:
-            if stream_generate is None:  # noqa
-                raise exceptions.FrameworkNotInstalled("mlx-lm")
-            source = stream_generate(
+            mlx_lm.require()
+            source = mlx_lm.stream_generate(
                 self.model.model,
                 self.model.tokenizer,
                 prompt=inputs.tokens,
@@ -335,7 +318,7 @@ class MLXBackend(TransformerLLMBackend):
 
         is_vlm = self.model.is_vlm
         previous_total = 0
-        async with contextlib.aclosing(concurrency.iterate(source, executor=self._executor)) as items:
+        async with contextlib.aclosing(_concurrency.iterate(source, executor=self._executor)) as items:
             async for chunk in items:
                 text = chunk.text or ""
                 finish_reason = getattr(chunk, "finish_reason", None)

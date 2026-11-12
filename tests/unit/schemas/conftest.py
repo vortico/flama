@@ -3,8 +3,6 @@ from collections import namedtuple
 import marshmallow
 import pydantic
 import pytest
-import typesystem
-import typesystem.fields
 
 from flama import schemas as flama_schemas
 
@@ -25,9 +23,6 @@ def foo_schema(app):
     if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model("Foo", name=(str, ...), __module__="pydantic.main")
         name = "pydantic.main.Foo"
-    elif app.schema.schema_library.name == "typesystem":
-        schema = typesystem.Schema(title="Foo", fields={"name": typesystem.fields.String()})
-        name = "typesystem.schemas.Foo"
     elif app.schema.schema_library.name == "marshmallow":
         schema = type("Foo", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         name = "abc.Foo"
@@ -42,12 +37,6 @@ def bar_schema(app, foo_schema):
     if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model("Bar", foo=(child_schema, ...), __module__="pydantic.main")
         name = "pydantic.main.Bar"
-    elif app.schema.schema_library.name == "typesystem":
-        schema = typesystem.Schema(
-            title="Bar",
-            fields={"foo": typesystem.Reference(to="Foo", definitions=typesystem.Definitions({"Foo": child_schema}))},
-        )
-        name = "typesystem.schemas.Bar"
     elif app.schema.schema_library.name == "marshmallow":
         schema = type("Bar", (marshmallow.Schema,), {"foo": marshmallow.fields.Nested(child_schema())})
         name = "abc.Bar"
@@ -62,16 +51,6 @@ def bar_optional_schema(app, foo_schema):
     if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model("BarOptional", foo=(child_schema | None, None), __module__="pydantic.main")
         name = "pydantic.main.BarOptional"
-    elif app.schema.schema_library.name == "typesystem":
-        schema = typesystem.Schema(
-            title="BarOptional",
-            fields={
-                "foo": typesystem.Reference(
-                    to="Foo", definitions=typesystem.Definitions({"Foo": child_schema}), allow_null=True, default=None
-                )
-            },
-        )
-        name = "typesystem.schemas.BarOptional"
     elif app.schema.schema_library.name == "marshmallow":
         schema = type(
             "BarOptional",
@@ -92,15 +71,6 @@ def bar_multiple_schema(app, foo_schema):
             "BarMultiple", first=(child_schema, ...), second=(child_schema, ...), __module__="pydantic.main"
         )
         name = "pydantic.main.BarMultiple"
-    elif app.schema.schema_library.name == "typesystem":
-        schema = typesystem.Schema(
-            title="BarMultiple",
-            fields={
-                "first": typesystem.Reference(to="Foo", definitions=typesystem.Definitions({"Foo": child_schema})),
-                "second": typesystem.Reference(to="Foo", definitions=typesystem.Definitions({"Foo": child_schema})),
-            },
-        )
-        name = "typesystem.schemas.BarMultiple"
     elif app.schema.schema_library.name == "marshmallow":
         schema = type(
             "BarMultiple",
@@ -119,16 +89,6 @@ def bar_list_schema(app, foo_schema):
     if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model("BarList", foo=(list[child_schema], ...), __module__="pydantic.main")
         name = "pydantic.main.BarList"
-    elif app.schema.schema_library.name == "typesystem":
-        schema = typesystem.Schema(
-            title="BarList",
-            fields={
-                "foo": typesystem.Array(
-                    typesystem.Reference(to="Foo", definitions=typesystem.Definitions({"Foo": child_schema}))
-                )
-            },
-        )
-        name = "typesystem.schemas.BarList"
     elif app.schema.schema_library.name == "marshmallow":
         schema = type(
             "BarList",
@@ -147,16 +107,6 @@ def bar_dict_schema(app, foo_schema):
     if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model("BarDict", foo=(dict[str, child_schema], ...), __module__="pydantic.main")
         name = "pydantic.main.BarDict"
-    elif app.schema.schema_library.name == "typesystem":
-        schema = typesystem.Schema(
-            title="BarDict",
-            fields={
-                "foo": typesystem.Object(
-                    properties=typesystem.Reference(to="Foo", definitions=typesystem.Definitions({"Foo": child_schema}))
-                )
-            },
-        )
-        name = "typesystem.schemas.BarDict"
     elif app.schema.schema_library.name == "marshmallow":
         schema = type(
             "BarDict",
@@ -175,14 +125,6 @@ def foobar_nested_schema(app, bar_schema):
     if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model("FooBarNested", foobar=(child_schema, ...), __module__="pydantic.main")
         name = "pydantic.main.FooBarNested"
-    elif app.schema.schema_library.name == "typesystem":
-        schema = typesystem.Schema(
-            title="FooBarNested",
-            fields={
-                "foobar": typesystem.Reference(to="Bar", definitions=typesystem.Definitions({"Bar": child_schema}))
-            },
-        )
-        name = "typesystem.schemas.FooBarNested"
     elif app.schema.schema_library.name == "marshmallow":
         schema = type(
             "FooBarNested",

@@ -5,14 +5,14 @@ import typing as t
 
 from flama import exceptions, injection, routing, types, url
 from flama.context import Context
-from flama.ddd.components import WorkerComponent
 from flama.endpoints.components import JSONRPC_COMPONENTS
+from flama.errors.exception_handlers import ExceptionHandler
 from flama.events import Events
 from flama.http.components import HTTP_COMPONENTS
 from flama.injection.components import Components
 from flama.mcp.components import MCP_COMPONENTS
 from flama.mcp.module import MCPModule
-from flama.middleware import MiddlewareStack
+from flama.middleware import MiddlewareStack, RootMiddlewareStack
 from flama.models.modules import ModelsModule
 from flama.modules import Modules
 from flama.pagination import paginator
@@ -20,11 +20,6 @@ from flama.resources import ResourcesModule
 from flama.schemas.components import VALIDATION_COMPONENTS
 from flama.schemas.modules import SchemaModule
 from flama.types.http import Method
-
-try:
-    from flama.resources.workers import FlamaWorker
-except exceptions.DependencyNotInstalled:  # pragma: no cover
-    FlamaWorker = None
 
 if t.TYPE_CHECKING:
     from flama.middleware import Middleware
@@ -84,22 +79,15 @@ class Flama(types.App):
         self._shutdown = False
 
         # Sets parent app
-        self.parent = parent
+        self._parent = parent
 
         # Create Dependency Injector
         self._injector = injection.Injector(Context)
 
-        # Initialise components
-        default_components = []
-
-        # Create worker
-        if (worker := FlamaWorker() if FlamaWorker else None) and WorkerComponent:
-            default_components.append(WorkerComponent(worker=worker))
-
         # Initialise modules
         default_modules = [
             MCPModule(),
-            ResourcesModule(worker=worker),
+            ResourcesModule(),
             SchemaModule(openapi, schema=schema, docs=docs),
             ModelsModule(),
         ]
@@ -107,11 +95,13 @@ class Flama(types.App):
 
         # Initialize router
         self.app = self.router = routing.Router(
-            routes=routes, components=[*default_components, *(components or [])], lifespan=lifespan, app=self
+            routes=routes, components=[*self.modules.components, *(components or [])], lifespan=lifespan, app=self
         )
 
         # Build middleware stack
-        self.middleware = MiddlewareStack(app=self, middleware=middleware or [], debug=debug)
+        self.middleware = (RootMiddlewareStack if parent is None else MiddlewareStack)(
+            app=self, middleware=middleware or [], debug=debug
+        )
 
         # Setup schema library
         self.schema.schema_library = schema_library
@@ -156,6 +146,16 @@ class Flama(types.App):
         scope["app"] = self
         scope.setdefault("root_app", self)
         await self.middleware(scope, receive, send)
+
+    @property
+    def parent(self) -> "Flama | None":
+        return self._parent
+
+    @parent.setter
+    def parent(self, parent: "Flama | None") -> None:
+        self._parent = parent
+        # Only the root answers what nothing else handled, so being mounted changes the kind of stack.
+        self.middleware = (RootMiddlewareStack if parent is None else MiddlewareStack).from_stack(self.middleware)
 
     @property
     def status(self) -> types.AppStatus:
@@ -342,13 +342,27 @@ class Flama(types.App):
 
         return decorator
 
-    def add_exception_handler(self, exc_class_or_status_code: int | type[Exception], handler: t.Callable):
+    @t.overload
+    def add_exception_handler(self, exc_class_or_status_code: ExceptionHandler) -> None: ...
+    @t.overload
+    def add_exception_handler(self, exc_class_or_status_code: int | type[Exception], handler: t.Callable) -> None: ...
+    def add_exception_handler(
+        self, exc_class_or_status_code: int | type[Exception] | ExceptionHandler, handler: t.Callable | None = None
+    ) -> None:
         """Add a new exception handler for given status code or exception class.
 
-        :param exc_class_or_status_code: Status code or exception class.
+        An :class:`ExceptionHandler` given alone is registered for the exception class it declares.
+
+        :param exc_class_or_status_code: Status code or exception class, or an exception handler given alone.
         :param handler: Exception handler.
         """
-        self.middleware.add_exception_handler(exc_class_or_status_code, handler)
+        if handler is None:
+            if not isinstance(exc_class_or_status_code, ExceptionHandler):
+                raise TypeError("An exception handler is required for a status code or exception class")
+
+            exc_class_or_status_code, handler = exc_class_or_status_code.exc_class, exc_class_or_status_code
+
+        self.middleware.add_exception_handler(t.cast(int | type[Exception], exc_class_or_status_code), handler)
 
     def add_middleware(self, middleware: "Middleware"):
         """Add a new middleware to the stack.
@@ -366,13 +380,14 @@ class Flama(types.App):
         """
         return self.router.resolve_url(name, **path_params)
 
-    def resolve_route(self, scope: types.Scope) -> tuple[routing.BaseRoute, types.Scope]:
+    def resolve_route(self, scope: types.Scope, *, recursive: bool = True) -> tuple[routing.BaseRoute, types.Scope]:
         """Look for a route that matches given ASGI scope.
 
         :param scope: ASGI scope.
+        :param recursive: Whether to follow mounts down to the route they lead to, rather than stopping at the mount.
         :return: Route and its scope.
         """
-        return self.router.resolve_route(scope)
+        return self.router.resolve_route(scope, recursive=recursive)
 
     get = functools.partialmethod(route, methods=["GET"])
     head = functools.partialmethod(route, methods=["HEAD"])

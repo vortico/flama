@@ -2,7 +2,7 @@ import abc
 import inspect
 import typing as t
 
-from flama import concurrency, exceptions, schemas, types
+from flama import _concurrency, exceptions, schemas, types
 from flama._core.json_encoder import encode_json
 from flama.http.responses.response import BufferedResponse
 from flama.schemas.data_structures import Schema
@@ -63,7 +63,7 @@ class BasePaginator(abc.ABC):
         if "kwargs" not in signature.parameters:
             raise TypeError("Paginated views must define **kwargs param")
 
-        if concurrency.is_async(func):
+        if _concurrency.is_async(func):
             decorated_func = cls._decorate_async(func, schema)
         else:
             # ``is_async`` is a ``TypeGuard``, so it only narrows the positive branch; here *func* is

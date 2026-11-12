@@ -1,4 +1,6 @@
-from flama.endpoints._base import *  # noqa
-from flama.endpoints.http import *  # noqa
-from flama.endpoints.jsonrpc import *  # noqa
-from flama.endpoints.websocket import *  # noqa
+from flama.endpoints._base import BaseEndpoint
+from flama.endpoints.http import HTTPEndpoint
+from flama.endpoints.jsonrpc import JSONRPCEndpoint
+from flama.endpoints.websocket import WebSocketEndpoint
+
+__all__ = ["BaseEndpoint", "HTTPEndpoint", "JSONRPCEndpoint", "WebSocketEndpoint"]

@@ -5,8 +5,6 @@ from unittest.mock import MagicMock, patch
 import marshmallow
 import pydantic
 import pytest
-import typesystem
-import typesystem.fields
 from pytest import param
 
 from flama import exceptions, types
@@ -27,9 +25,6 @@ def output_schema(app):
     if app.schema.schema_library.name == "pydantic":
         schema = pydantic.create_model("OutputSchema", value=(int | None, ...), __module__="pydantic.main")
         name = "pydantic.main.OutputSchema"
-    elif app.schema.schema_library.name == "typesystem":
-        schema = typesystem.Schema(title="OutputSchema", fields={"value": typesystem.fields.Integer(allow_null=True)})
-        name = "typesystem.schemas.OutputSchema"
     elif app.schema.schema_library.name == "marshmallow":
         schema = type("OutputSchema", (marshmallow.Schema,), {"value": marshmallow.fields.Integer(allow_none=True)})
         name = "abc.OutputSchema"

@@ -41,7 +41,7 @@ jobs:
       matrix:
         linux: ["slim"]
         python: ${{ fromJSON(needs.config.outputs.versions) }}
-        schemas: ["pydantic", "marshmallow", "typesystem"]
+        schemas: ["pydantic", "marshmallow"]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6

@@ -297,6 +297,55 @@ class TestCaseListQueryParamsValidation:
             assert param is None or isinstance(param, list)
             return {"param": param}
 
+        @app.route("/set-query-param/")
+        def set_query_param(param: set[int]):
+            assert isinstance(param, set)
+            return {"param": sorted(param)}
+
+        @app.route("/frozenset-query-param/")
+        def frozenset_query_param(param: frozenset[str]):
+            assert isinstance(param, frozenset)
+            return {"param": sorted(param)}
+
+        @app.route("/tuple-query-param/")
+        def tuple_query_param(param: tuple[int, ...]):
+            assert isinstance(param, tuple)
+            return {"param": list(param)}
+
+    @pytest.mark.parametrize(
+        ["path", "query", "expected"],
+        [
+            # A set keeps each value once, whatever order and repetitions it was sent with.
+            pytest.param("/set-query-param/", "?param=2&param=1&param=2", [1, 2], id="set"),
+            pytest.param("/frozenset-query-param/", "?param=b&param=a&param=b", ["a", "b"], id="frozenset"),
+            pytest.param("/tuple-query-param/", "?param=3&param=1&param=3", [3, 1, 3], id="tuple"),
+        ],
+    )
+    async def test_collection_query_param(self, client, path, query, expected):
+        response = await client.get(f"{path}{query}")
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"param": expected}
+
+    @pytest.mark.parametrize(
+        ["path", "schema"],
+        [
+            pytest.param(
+                "/set-query-param/", {"type": "array", "items": {"type": "integer"}, "uniqueItems": True}, id="set"
+            ),
+            pytest.param(
+                "/frozenset-query-param/",
+                {"type": "array", "items": {"type": "string"}, "uniqueItems": True},
+                id="frozenset",
+            ),
+            pytest.param("/tuple-query-param/", {"type": "array", "items": {"type": "integer"}}, id="tuple"),
+        ],
+    )
+    def test_collection_query_param_schema(self, app, path, schema):
+        (parameter,) = app.schema.schema["paths"][path]["get"]["parameters"]
+
+        assert {k: v for k, v in parameter["schema"].items() if k != "title"} == schema
+
     @pytest.mark.parametrize(
         ["query", "expected"],
         [

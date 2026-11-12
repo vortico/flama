@@ -1,8 +1,10 @@
 import http
 import logging
+import math
 import typing as t
+import warnings
 
-from flama import Component, concurrency
+from flama import Component, _concurrency
 from flama.authentication import exceptions, jwt, types
 from flama.crypto import JWS
 from flama.crypto.exceptions import SignatureDecodeException
@@ -26,6 +28,7 @@ class BaseTokenComponent(Component):
         header_key: str,
         header_prefix: str,
         cookie_key: str,
+        legacy_header_key: str | None = None,
     ):
         if (secret is None) == (secret_resolver is None):
             raise ValueError("Give either a secret or a resolver, not both and not neither")
@@ -35,6 +38,7 @@ class BaseTokenComponent(Component):
         self.header_key = header_key
         self.header_prefix = header_prefix
         self.cookie_key = cookie_key
+        self.legacy_header_key = legacy_header_key
 
     def _token_from_cookies(self, cookies: Cookies) -> bytes:
         try:
@@ -46,11 +50,22 @@ class BaseTokenComponent(Component):
         return token.encode()
 
     def _token_from_header(self, headers: Headers) -> bytes:
-        try:
-            header_prefix, token = headers[self.header_key].split()
-        except KeyError:
+        if self.header_key in headers:
+            value = headers[self.header_key]
+        elif self.legacy_header_key is not None and self.legacy_header_key in headers:
+            warnings.warn(
+                f"Sending the token in the '{self.legacy_header_key}' header is deprecated and will be removed in "
+                f"Flama 3.0, use '{self.header_key}' instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            value = headers[self.legacy_header_key]
+        else:
             logger.debug("'%s' not found in headers", self.header_key)
             raise exceptions.Unauthorized()
+
+        try:
+            header_prefix, token = value.split()
         except ValueError:
             logger.debug("Wrong format for authorization header value")
             raise exceptions.JWTException(
@@ -72,15 +87,19 @@ class BaseTokenComponent(Component):
             except exceptions.Unauthorized:
                 encoded_token = self._token_from_cookies(cookies)
         except exceptions.Unauthorized:
-            raise HTTPException(status_code=http.HTTPStatus.UNAUTHORIZED)
+            raise HTTPException(
+                status_code=http.HTTPStatus.UNAUTHORIZED, headers={"WWW-Authenticate": self.header_prefix}
+            )
         except exceptions.JWTException as e:
             raise HTTPException(
-                status_code=http.HTTPStatus.BAD_REQUEST, detail={"error": e.__class__, "description": str(e)}
+                status_code=http.HTTPStatus.BAD_REQUEST,
+                detail={"error": e.__class__, "description": str(e)},
+                headers={"WWW-Authenticate": f'{self.header_prefix} error="invalid_request"'},
             )
 
         try:
             if self.secret_resolver is not None:
-                key = await concurrency.run(self.secret_resolver, JWS.header(encoded_token).get("kid"))
+                key = await _concurrency.run(self.secret_resolver, JWS.header(encoded_token).get("kid"))
             else:
                 key = t.cast(bytes, self.secret)
 
@@ -92,28 +111,52 @@ class BaseTokenComponent(Component):
             exceptions.JWTValidateException,
         ) as e:
             raise HTTPException(
-                status_code=http.HTTPStatus.UNAUTHORIZED, detail={"error": e.__class__, "description": str(e)}
+                status_code=http.HTTPStatus.UNAUTHORIZED,
+                detail={"error": e.__class__, "description": str(e)},
+                headers={"WWW-Authenticate": f'{self.header_prefix} error="invalid_token"'},
+            )
+        except exceptions.KeysUnavailable as e:
+            raise HTTPException(
+                status_code=http.HTTPStatus.SERVICE_UNAVAILABLE,
+                detail={"error": e.__class__, "description": str(e)},
+                headers={"Retry-After": str(max(0, math.ceil(e.retry_after)))} if e.retry_after is not None else None,
             )
 
         return token
 
 
 class AccessTokenComponent(BaseTokenComponent):
+    """Inject the access token of a request, read from its ``Authorization`` header or its cookie.
+
+    .. deprecated::
+        With the default header, a token in the ``access_token`` header used before 2.3 is still accepted. It will
+        stop being read in Flama 3.0.
+
+    :param secret: Key to verify tokens with.
+    :param resolver: Resolver of the key each token names, instead of a single ``secret``.
+    :param header_prefix: Authentication scheme preceding the token in the header.
+    :param header_key: Header to read the token from, ``Authorization`` if not given.
+    :param cookie_key: Cookie to read the token from.
+    """
+
+    LEGACY_HEADER_KEY: t.ClassVar[str] = "access_token"
+
     def __init__(
         self,
         secret: bytes | None = None,
         *,
         resolver: types.KeyResolver | None = None,
         header_prefix: str = "Bearer",
-        header_key: str = "access_token",
+        header_key: str | None = None,
         cookie_key: str = "access_token",
     ):
         super().__init__(
             secret,
             secret_resolver=resolver,
             header_prefix=header_prefix,
-            header_key=header_key,
+            header_key=header_key if header_key is not None else "Authorization",
             cookie_key=cookie_key,
+            legacy_header_key=self.LEGACY_HEADER_KEY if header_key is None else None,
         )
 
     async def resolve(self, headers: Headers, cookies: Cookies) -> types.AccessToken:

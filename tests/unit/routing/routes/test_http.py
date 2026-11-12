@@ -1,13 +1,18 @@
 import inspect
+import typing as t
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
+import marshmallow
+import pydantic
 import pytest
 
 from flama import endpoints, exceptions, types
 from flama.applications import Flama
 from flama.http.requests.http import Request
 from flama.http.responses.api import APIResponse
+from flama.http.responses.ndjson import NDJSONResponse
 from flama.http.responses.plain_text import PlainTextResponse
+from flama.http.responses.sse import ServerSentEventResponse
 from flama.routing.routes._base import BaseRoute
 from flama.routing.routes.http import BaseHTTPEndpointWrapper, HTTPEndpointWrapper, HTTPFunctionWrapper, Route
 
@@ -31,19 +36,93 @@ class TestCaseBaseHTTPEndpointWrapper:
     def endpoint(self, handler, wrapper_cls):
         return wrapper_cls(handler)
 
+    @pytest.fixture(scope="function")
+    def output_schema(self, app):
+        if app.schema.schema_library.name == "pydantic":
+            return pydantic.create_model("OutputSchema", name=(str, ...))
+
+        return type("OutputSchema", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
+
     @pytest.mark.parametrize(
-        ["response", "result"],
+        ["annotation", "result", "exception"],
         [
-            pytest.param({"foo": "bar"}, APIResponse({"foo": "bar"}), id="dict"),
-            pytest.param(["foo"], APIResponse(["foo"]), id="list"),
-            pytest.param("foo", APIResponse("foo"), id="str"),
-            pytest.param(b"foo", APIResponse(b"foo"), id="bytes"),
-            pytest.param(PlainTextResponse("foo"), PlainTextResponse("foo"), id="response"),
-            pytest.param(None, APIResponse(""), id="none"),
+            pytest.param(inspect.Signature.empty, None, None, id="unannotated"),
+            pytest.param(t.Any, None, None, id="any"),
+            pytest.param(None, None, None, id="none"),
+            pytest.param("schema", "schema", None, id="schema"),
+            pytest.param("schema_list", "schema", None, id="schema_list"),
+            pytest.param(PlainTextResponse, None, None, id="response"),
+            pytest.param("schema_response", "schema", None, id="schema_response"),
+            # A response's type argument that names no schema leaves its payload undescribed.
+            pytest.param(NDJSONResponse[int], None, None, id="response_of_no_schema"),
+            pytest.param(APIResponse | ServerSentEventResponse, None, None, id="union_of_responses"),
+            pytest.param(
+                dict,
+                None,
+                exceptions.ApplicationError(
+                    "Route 'TestCaseBaseHTTPEndpointWrapper.handler.<locals>.foo' returns 'dict', but a route returns "
+                    "a schema, a response, or None, or has no return annotation"
+                ),
+                id="dict",
+            ),
+            pytest.param(list[str], None, exceptions.ApplicationError("returns 'list[str]'"), id="list"),
+            pytest.param(int, None, exceptions.ApplicationError("returns 'int'"), id="primitive"),
+            pytest.param("optional_schema", None, exceptions.ApplicationError("but a route returns"), id="optional"),
+            pytest.param(
+                APIResponse | None, None, exceptions.ApplicationError("but a route returns"), id="optional_response"
+            ),
+        ],
+        indirect=["exception"],
+    )
+    def test_output_schema(self, endpoint, handler, output_schema, annotation, result, exception):
+        annotation = {
+            "schema": types.Schema[output_schema],
+            "schema_list": types.SchemaList[output_schema],
+            "schema_response": APIResponse[output_schema],
+            "optional_schema": types.Schema[output_schema] | None,
+        }.get(annotation, annotation)
+
+        with exception:
+            schema = endpoint._output_schema(handler, inspect.Signature(return_annotation=annotation))
+
+            assert schema is (output_schema if result == "schema" else None)
+
+    @pytest.mark.parametrize(
+        ["response", "result", "exception"],
+        [
+            pytest.param({"foo": "bar"}, APIResponse({"foo": "bar"}), None, id="dict"),
+            pytest.param(["foo"], APIResponse(["foo"]), None, id="list"),
+            pytest.param(PlainTextResponse("foo"), PlainTextResponse("foo"), None, id="response"),
+            pytest.param(None, APIResponse(""), None, id="none"),
+            pytest.param(
+                "foo",
+                None,
+                exceptions.SerializationError(
+                    detail="Route returned a 'str', but a route returns a response, a mapping, a list, or None"
+                ),
+                id="str",
+            ),
+            pytest.param(b"foo", None, exceptions.SerializationError(detail="Route returned a 'bytes'"), id="bytes"),
+            pytest.param(1, None, exceptions.SerializationError(detail="Route returned a 'int'"), id="int"),
+        ],
+        indirect=["exception"],
+    )
+    def test_build_api_response(self, endpoint, response, result, exception):
+        with exception:
+            assert endpoint._build_api_response(response, None) == result
+
+    @pytest.mark.parametrize(
+        ["own_schema", "expected"],
+        [
+            pytest.param(None, "handler", id="without_schema"),
+            pytest.param("own", "own", id="with_schema"),
         ],
     )
-    def test_build_api_response(self, endpoint, response, result):
-        assert endpoint._build_api_response(response) == result
+    def test_build_api_response_schema(self, endpoint, own_schema, expected):
+        response = MagicMock(spec=APIResponse, schema=own_schema)
+
+        assert endpoint._build_api_response(response, "handler") is response
+        assert response.schema == expected
 
 
 class TestCaseHTTPFunctionWrapper:
@@ -127,6 +206,29 @@ class TestCaseHTTPEndpointWrapper:
                 return {"foo": "bar"}
 
         return HTTPEndpointWrapper(Endpoint)
+
+    @pytest.mark.parametrize(
+        ["base", "schemas"],
+        [
+            pytest.param(endpoints.HTTPEndpoint, {"GET": int, "HEAD": int, "POST": str}, id="http"),
+            # A JSON-RPC method's result is always sent within a JSON-RPC response.
+            pytest.param(endpoints.JSONRPCEndpoint, {}, id="jsonrpc"),
+        ],
+    )
+    def test_schemas(self, base, schemas):
+        class Endpoint(base):
+            handlers = {"items/get": "get", "items/post": "post"}
+
+            async def get(self) -> int: ...
+
+            async def post(self) -> str: ...
+
+        with patch.object(
+            HTTPEndpointWrapper, "_output_schema", side_effect=lambda handler, signature: signature.return_annotation
+        ):
+            wrapper = HTTPEndpointWrapper(Endpoint)
+
+        assert wrapper.schemas == schemas
 
     async def test_call(self, app, endpoint):
         scope, receive, send = (

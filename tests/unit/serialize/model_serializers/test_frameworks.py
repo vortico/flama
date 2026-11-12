@@ -47,11 +47,11 @@ class TestCaseModelSerializer:
             pytest.param("sklearn", "default", None, id="sklearn-default"),
             pytest.param("sklearn", "wrong-source", TypeError, id="sklearn-wrong_source"),
             pytest.param("torch", "default", None, id="torch-default"),
-            pytest.param("torch", "not-installed", exceptions.FrameworkNotInstalled, id="torch-not_installed"),
+            pytest.param("torch", "not-installed", exceptions.DependencyNotInstalled, id="torch-not_installed"),
             pytest.param("torch", "wrong-source", TypeError, id="torch-wrong_source"),
             pytest.param("tensorflow", "default", None, id="tensorflow-default"),
             pytest.param(
-                "tensorflow", "not-installed", exceptions.FrameworkNotInstalled, id="tensorflow-not_installed"
+                "tensorflow", "not-installed", exceptions.DependencyNotInstalled, id="tensorflow-not_installed"
             ),
             pytest.param("tensorflow", "wrong-source", TypeError, id="tensorflow-wrong_source"),
         ],
@@ -105,7 +105,7 @@ class TestCaseModelSerializer:
         ["scenario", "exception"],
         [
             pytest.param("ok", None, id="success"),
-            pytest.param("not-installed", exceptions.FrameworkNotInstalled, id="not_installed"),
+            pytest.param("not-installed", exceptions.DependencyNotInstalled, id="not_installed"),
         ],
         indirect=["exception"],
     )

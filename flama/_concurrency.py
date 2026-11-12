@@ -6,9 +6,10 @@ import functools
 import inspect
 import multiprocessing
 import os
-import sys
 import threading
 import typing as t
+
+from flama import _compat
 
 __all__ = [
     "FileReader",
@@ -25,6 +26,8 @@ __all__ = [
 R = t.TypeVar("R", covariant=True)
 T = t.TypeVar("T")
 P = t.ParamSpec("P")
+
+_Exhausted = _compat.sentinel("_Exhausted")
 
 
 class FileReader:
@@ -150,7 +153,7 @@ async def iterate(
             yield t.cast(T, item)
         return
 
-    queue: asyncio.Queue[T] = asyncio.Queue(maxsize=1)
+    queue: asyncio.Queue[T | _Exhausted] = asyncio.Queue(maxsize=1)
     loop = asyncio.get_running_loop()
     cancelled = threading.Event()
     # Holds the in-flight ``queue.put`` future so consumer cleanup can cancel it and unblock
@@ -175,14 +178,14 @@ async def iterate(
             _close_quietly(iterator)
             # Wake the consumer (if still around) so its ``queue.get`` returns; if the consumer
             # already cancelled and drained, this still completes against the empty queue.
-            sentinel = asyncio.run_coroutine_threadsafe(queue.put(t.cast(T, StopIteration)), loop)
+            sentinel = asyncio.run_coroutine_threadsafe(queue.put(_Exhausted), loop)
             with contextlib.suppress(BaseException):
                 sentinel.result()
 
     future = loop.run_in_executor(executor, _produce)
 
     try:
-        while (item := await queue.get()) is not StopIteration:
+        while (item := await queue.get()) is not _Exhausted:
             yield item
     finally:
         cancelled.set()
@@ -260,28 +263,14 @@ async def run_in_executor(
     return t.cast(R, await loop.run_in_executor(executor, call))
 
 
-if sys.version_info >= (3, 11):  # PORT: Remove when stop supporting 3.10 # pragma: no cover
+async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> list[asyncio.Task]:
+    """Run a group of tasks.
 
-    async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> list[asyncio.Task]:
-        """Run a group of tasks.
-
-        :param tasks: Tasks to run.
-        :result: Finished tasks.
-        """
-        async with asyncio.TaskGroup() as task_group:
-            return [task_group.create_task(task) for task in tasks]
-
-else:  # pragma: no cover
-
-    async def run_task_group(*tasks: t.Coroutine[t.Any, t.Any, t.Any]) -> list[asyncio.Task]:
-        """Run a group of tasks.
-
-        :param tasks: Tasks to run.
-        :result: Finished tasks.
-        """
-        tasks_list = [asyncio.create_task(task) for task in tasks]
-        await asyncio.wait(tasks_list)
-        return tasks_list
+    :param tasks: Tasks to run.
+    :result: Finished tasks.
+    """
+    async with asyncio.TaskGroup() as task_group:
+        return [task_group.create_task(task) for task in tasks]
 
 
 async def with_heartbeat(

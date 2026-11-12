@@ -1,6 +1,5 @@
 import typing as t
 
-from flama import compat
 from flama.models.transport.output.llm.event import Event, StartEvent, StopEvent
 from flama.models.wire.dialect._base import Assembler
 
@@ -31,6 +30,6 @@ class NativeAssembler(Assembler):
         *,
         start: StartEvent,
         stop: StopEvent,
-        **kwargs: compat.Unpack[NativeAssembleKwargs],
+        **kwargs: t.Unpack[NativeAssembleKwargs],
     ) -> dict[str, t.Any]:
         raise NotImplementedError("Native dialect is stream-only; no buffered envelope exists")

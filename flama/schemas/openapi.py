@@ -42,7 +42,6 @@ __all__ = [
     "SchemaGenerator",
 ]
 
-empty = types.Empty()
 logger = logging.getLogger(__name__)
 
 
@@ -62,7 +61,7 @@ class Contact:
 
     @classmethod
     def from_spec(cls, spec: types.OpenAPISpecInfoContact, /) -> "Contact":
-        return cls(**spec)
+        return cls(name=spec["name"], url=spec["url"], email=spec["email"])
 
 
 @dataclasses.dataclass(frozen=True)
@@ -73,7 +72,7 @@ class License:
 
     @classmethod
     def from_spec(cls, spec: types.OpenAPISpecInfoLicense, /) -> "License":
-        return cls(**spec)
+        return cls(name=spec["name"], identifier=spec.get("identifier"), url=spec.get("url"))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -83,7 +82,7 @@ class ExternalDocs:
 
     @classmethod
     def from_spec(cls, spec: types.OpenAPISpecExternalDocs, /) -> "ExternalDocs":
-        return cls(**spec)
+        return cls(url=spec["url"], description=spec.get("description"))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -154,7 +153,7 @@ class ServerVariable:
 
     @classmethod
     def from_spec(cls, spec: types.OpenAPISpecServerVariable, /) -> "ServerVariable":
-        return cls(**spec)
+        return cls(default=spec["default"], enum=spec.get("enum"), description=spec.get("description"))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -431,8 +430,8 @@ class OpenAPISpec:
     def add_callback(self, name: str, item: Callback | Reference):
         self.spec.components.callbacks[name] = item
 
-    def to_dict(self, obj: t.Any = empty) -> t.Any:
-        if obj is empty:
+    def to_dict(self, obj: t.Any = types.Empty) -> t.Any:
+        if obj is types.Empty:
             return self.to_dict(dataclasses.asdict(self.spec))
 
         if isinstance(obj, list):
@@ -699,7 +698,11 @@ class SchemaGenerator:
 
         return [
             Parameter(
-                schema=Schema(parameter.field.json_schema),
+                schema=Schema(
+                    {**parameter.field.json_schema, "uniqueItems": True}
+                    if types.Annotation(parameter.type).origin in (set, frozenset)
+                    else parameter.field.json_schema
+                ),
                 name=parameter.name,
                 in_=parameter.location.name,
                 required=parameter.required,

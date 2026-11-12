@@ -1,23 +1,38 @@
-from flama._upgrade.operations._base import ApplyResult, Operation, Todo  # noqa
-from flama._upgrade.operations.calls import (  # noqa
-    ArgumentToLiteral,
-    CallOperation,
-    KeywordToPositional,
-    UnwrapCall,
+from flama._upgrade.operations._base import MARKER, ApplyResult, Operation, Todo
+from flama._upgrade.operations.flag import Flag
+from flama._upgrade.operations.move import Move
+from flama._upgrade.operations.rewrite import Rewrite
+from flama._upgrade.operations.targets import Call, Member, Module, Symbol, Target
+from flama._upgrade.operations.transforms import (
+    CallTransform,
+    DropKeyword,
+    MapArgument,
+    MapValue,
+    MemberTransform,
+    PromoteKeyword,
+    Require,
+    Unwrap,
 )
-from flama._upgrade.operations.flags import FlagModule, RemoveSymbol  # noqa
-from flama._upgrade.operations.imports import MoveModule, MoveSymbol  # noqa
 
 __all__ = [
-    "Todo",
+    "MARKER",
     "ApplyResult",
     "Operation",
-    "MoveModule",
-    "MoveSymbol",
-    "RemoveSymbol",
-    "CallOperation",
-    "UnwrapCall",
-    "KeywordToPositional",
-    "ArgumentToLiteral",
-    "FlagModule",
+    "Todo",
+    "Target",
+    "Module",
+    "Symbol",
+    "Call",
+    "Member",
+    "Move",
+    "Flag",
+    "Rewrite",
+    "CallTransform",
+    "PromoteKeyword",
+    "DropKeyword",
+    "MapArgument",
+    "Require",
+    "Unwrap",
+    "MemberTransform",
+    "MapValue",
 ]

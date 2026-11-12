@@ -10,11 +10,10 @@ from unittest.mock import patch
 import marshmallow
 import pydantic
 import pytest
-import typesystem
-import typesystem.fields
 
 from flama import Flama, types
 from flama.endpoints import HTTPEndpoint
+from flama.http.responses.api import APIResponse
 from flama.http.responses.html import HTMLResponse
 from flama.http.responses.json import JSONResponse
 from flama.http.responses.ndjson import NDJSONResponse
@@ -441,6 +440,27 @@ class TestCaseOpenAPISpec:
         server = Server.from_spec(spec)
 
         assert {k: v for k, v in dataclasses.asdict(server).items() if v is not None} == expected
+
+    def test_from_spec_ignores_extensions(self):
+        spec = OpenAPISpec.from_spec(
+            {
+                "info": {
+                    "title": "Title",
+                    "version": "1.0.0",
+                    "contact": {"name": "Name", "url": "Url", "email": "Email", "x-team": "core"},
+                    "license": {"name": "MIT", "x-spdx": True},
+                },
+                "servers": [{"url": "https://example.com", "variables": {"v": {"default": "v1", "x-note": "note"}}}],
+                "tags": [{"name": "users", "externalDocs": {"url": "https://docs.example.com", "x-lang": "en"}}],
+            }
+        ).spec
+
+        assert spec.info.contact == Contact(name="Name", url="Url", email="Email")
+        assert spec.info.license == License(name="MIT")
+        assert spec.servers is not None and spec.servers[0].variables is not None
+        assert spec.servers[0].variables["v"].default == "v1"
+        assert spec.tags is not None and spec.tags[0].externalDocs is not None
+        assert spec.tags[0].externalDocs.url == "https://docs.example.com"
 
     def test_add_path(self, spec, path):
         path_name = "foo"
@@ -1673,9 +1693,6 @@ class TestCaseSchemaGenerator:
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("Owner", name=(str, ...), __module__="pydantic.main")
             name = "pydantic.main.Owner"
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(title="Owner", fields={"name": typesystem.fields.String()})
-            name = "typesystem.schemas.Owner"
         elif app.schema.schema_library.name == "marshmallow":
             schema = type("Owner", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
             name = "abc.Owner"
@@ -1690,17 +1707,6 @@ class TestCaseSchemaGenerator:
                 "Puppy", name=(str, ...), owner=(owner_schema.schema, ...), __module__="pydantic.main"
             )
             name = "pydantic.main.Puppy"
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(
-                title="Puppy",
-                fields={
-                    "name": typesystem.fields.String(),
-                    "owner": typesystem.Reference(
-                        to="Owner", definitions=typesystem.Definitions({"Owner": owner_schema.schema})
-                    ),
-                },
-            )
-            name = "typesystem.schemas.Puppy"
         elif app.schema.schema_library.name == "marshmallow":
             schema = type(
                 "Puppy",
@@ -1720,9 +1726,6 @@ class TestCaseSchemaGenerator:
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("BodyParam", name=(str, ...), __module__="pydantic.main")
             name = "pydantic.main.BodyParam"
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(title="BodyParam", fields={"name": typesystem.fields.String()})
-            name = "typesystem.schemas.BodyParam"
         elif app.schema.schema_library.name == "marshmallow":
             schema = type("BodyParam", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
             name = "abc.BodyParam"
@@ -2009,7 +2012,11 @@ class TestCaseSchemaGenerator:
                     "responses": {
                         "200": {
                             "description": "Many components.",
-                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Puppy"}}},
+                            "content": {
+                                "application/json": {
+                                    "schema": {"items": {"$ref": "#/components/schemas/Puppy"}, "type": "array"}
+                                }
+                            },
                         },
                         "default": {
                             "description": "Unexpected error.",
@@ -2277,8 +2284,6 @@ class TestCaseSchemaGenerator:
         """A schema nothing else references, so only the docstring can pull it into the document."""
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("DocstringRef", value=(str, ...), __module__="pydantic.main")
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(title="DocstringRef", fields={"value": typesystem.fields.String()})
         elif app.schema.schema_library.name == "marshmallow":
             schema = type("DocstringRef", (marshmallow.Schema,), {"value": marshmallow.fields.String()})
         else:
@@ -2360,9 +2365,6 @@ class TestCaseResponseAnnotations:
         if app.schema.schema_library.name == "pydantic":
             return pydantic.create_model("StreamFrame", token=(str, ...), __module__="pydantic.main")
 
-        if app.schema.schema_library.name == "typesystem":
-            return typesystem.Schema(title="StreamFrame", fields={"token": typesystem.fields.String()})
-
         if app.schema.schema_library.name == "marshmallow":
             return type("StreamFrame", (marshmallow.Schema,), {"token": marshmallow.fields.String()})
 
@@ -2420,6 +2422,16 @@ class TestCaseResponseAnnotations:
             """
             return JSONResponse({})  # pragma: no cover
 
+        @app.route("/api/", methods=["GET"])
+        async def api_body() -> APIResponse[frame_schema]:  # ty: ignore[invalid-type-form]
+            """
+            description: A documented API body.
+            responses:
+              200:
+                description: A document.
+            """
+            return APIResponse({})  # pragma: no cover
+
     @pytest.mark.parametrize(
         ["path", "media_type"],
         [
@@ -2440,6 +2452,7 @@ class TestCaseResponseAnnotations:
             # A sequential payload is described item by item, a buffered one as a whole.
             pytest.param("/ndjson/", "application/x-ndjson", "itemSchema", "schema", id="streaming_uses_item_schema"),
             pytest.param("/json/", "application/json", "schema", "itemSchema", id="buffered_uses_schema"),
+            pytest.param("/api/", "application/json", "schema", "itemSchema", id="api_uses_schema"),
         ],
     )
     def test_parametrised_response_declares_its_payload(self, app, path, media_type, key, unexpected):

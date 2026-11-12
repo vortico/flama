@@ -3,13 +3,12 @@ import typing as t
 from http import HTTPStatus
 
 from flama import exceptions, schemas, types
-from flama.ddd import exceptions as ddd_exceptions
 from flama.http.responses.api import APIResponse
 from flama.resources import data_structures
 from flama.resources.filtering import Filters
 from flama.resources.rest import RESTResource, RESTResourceType
 from flama.resources.routing import ResourceRoute
-from flama.resources.workers import FlamaWorker
+from flama.resources.workers import ResourcesWorker
 
 __all__ = ["CreateMixin", "RetrieveMixin", "UpdateMixin", "DeleteMixin", "ListMixin", "DropMixin", "CRUDResourceType"]
 
@@ -27,22 +26,17 @@ class CreateMixin:
         @ResourceRoute.method("/", methods=["POST"], name="create")
         async def create(
             self,
-            worker: FlamaWorker,
+            worker: ResourcesWorker,
             resource: t.Annotated[types.Schema, types.SchemaMetadata(rest_schemas.input.schema)],
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(rest_schemas.output.schema)]:
+        ) -> t.Annotated[types.Output, types.SchemaMetadata(rest_schemas.output.schema)]:
             if resource.get(rest_model.primary_key.name) is None:
                 resource.pop(rest_model.primary_key.name, None)
 
             async with worker:
                 repository = worker.repositories[self._meta.name]
-                try:
-                    result = await repository.create(resource)
-                except ddd_exceptions.IntegrityError as e:
-                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
+                result = await repository.create(resource)
 
-            return APIResponse(  # ty: ignore[invalid-return-type]
-                result[0], schema=rest_schemas.output.schema, status_code=HTTPStatus.CREATED
-            )
+            return APIResponse(result[0], status_code=HTTPStatus.CREATED)
 
         create.__doc__ = f"""
             tags:
@@ -76,15 +70,12 @@ class RetrieveMixin:
         @ResourceRoute.method("/{resource_id}/", methods=["GET"], name="retrieve")
         async def retrieve(
             self,
-            worker: FlamaWorker,
+            worker: ResourcesWorker,
             resource_id: rest_model.primary_key.type,  # type: ignore
         ) -> t.Annotated[types.Schema, types.SchemaMetadata(rest_schemas.output.schema)]:
-            try:
-                async with worker:
-                    repository = worker.repositories[self._meta.name]
-                    return await repository.retrieve(**{rest_model.primary_key.name: resource_id})
-            except ddd_exceptions.NotFoundError as e:
-                raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
+            async with worker:
+                repository = worker.repositories[self._meta.name]
+                return await repository.retrieve(**{rest_model.primary_key.name: resource_id})
 
         retrieve.__doc__ = f"""
             tags:
@@ -118,22 +109,15 @@ class UpdateMixin:
         @ResourceRoute.method("/{resource_id}/", methods=["PUT"], name="update")
         async def update(
             self,
-            worker: FlamaWorker,
+            worker: ResourcesWorker,
             resource_id: rest_model.primary_key.type,  # type: ignore
             resource: t.Annotated[types.Schema, types.SchemaMetadata(rest_schemas.input.schema)],
         ) -> t.Annotated[types.Schema, types.SchemaMetadata(rest_schemas.output.schema)]:
             resource[rest_model.primary_key.name] = resource_id
             async with worker:
-                try:
-                    repository = worker.repositories[self._meta.name]
-                    await repository.delete(**{rest_model.primary_key.name: resource_id})
-                except ddd_exceptions.NotFoundError as e:
-                    raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
-
-                try:
-                    result = await repository.create(resource)
-                except ddd_exceptions.IntegrityError as e:
-                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
+                repository = worker.repositories[self._meta.name]
+                await repository.delete(**{rest_model.primary_key.name: resource_id})
+                result = await repository.create(resource)
 
             return result[0]
 
@@ -172,17 +156,14 @@ class PartialUpdateMixin:
         @ResourceRoute.method("/{resource_id}/", methods=["PATCH"], name="partial-update")
         async def partial_update(
             self,
-            worker: FlamaWorker,
+            worker: ResourcesWorker,
             resource_id: rest_model.primary_key.type,  # type: ignore
             resource: t.Annotated[types.Schema, types.SchemaMetadata(rest_schemas.input.schema, partial=True)],
         ) -> t.Annotated[types.Schema, types.SchemaMetadata(rest_schemas.output.schema)]:
             resource[rest_model.primary_key.name] = resource_id
             async with worker:
                 repository = worker.repositories[self._meta.name]
-                try:
-                    result = await repository.update(resource, **{rest_model.primary_key.name: resource_id})
-                except ddd_exceptions.IntegrityError as e:
-                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
+                result = await repository.update(resource, **{rest_model.primary_key.name: resource_id})
 
                 if not result:
                     raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
@@ -216,13 +197,10 @@ class DeleteMixin:
     @classmethod
     def _add_delete(cls, name: str, verbose_name: str, rest_model: data_structures.Model, **kwargs) -> dict[str, t.Any]:
         @ResourceRoute.method("/{resource_id}/", methods=["DELETE"], name="delete")
-        async def delete(self, worker: FlamaWorker, resource_id: rest_model.primary_key.type):  # type: ignore
-            try:
-                async with worker:
-                    repository = worker.repositories[self._meta.name]
-                    await repository.delete(**{rest_model.primary_key.name: resource_id})
-            except ddd_exceptions.NotFoundError as e:
-                raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND, detail=str(e))
+        async def delete(self, worker: ResourcesWorker, resource_id: rest_model.primary_key.type):  # type: ignore
+            async with worker:
+                repository = worker.repositories[self._meta.name]
+                await repository.delete(**{rest_model.primary_key.name: resource_id})
 
             return APIResponse("", status_code=HTTPStatus.NO_CONTENT)
 
@@ -258,7 +236,7 @@ class ListMixin:
     ) -> dict[str, t.Any]:
         async def list(
             self,
-            worker: FlamaWorker,
+            worker: ResourcesWorker,
             order_by: str | None = None,
             order_direction: str = "asc",
             **kwargs,
@@ -322,16 +300,13 @@ class ReplaceMixin:
         @ResourceRoute.method("/", methods=["PUT"], name="replace")
         async def replace(
             self,
-            worker: FlamaWorker,
+            worker: ResourcesWorker,
             resources: t.Annotated[types.SchemaList, types.SchemaMetadata(rest_schemas.input.schema)],
         ) -> t.Annotated[types.SchemaList, types.SchemaMetadata(rest_schemas.output.schema)]:
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 await repository.drop()
-                try:
-                    return await repository.create(*resources)
-                except ddd_exceptions.IntegrityError as e:
-                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
+                return await repository.create(*resources)
 
         replace.__doc__ = f"""
             tags:
@@ -365,7 +340,7 @@ class PartialReplaceMixin:
         @ResourceRoute.method("/", methods=["PATCH"], name="partial-replace")
         async def partial_replace(
             self,
-            worker: FlamaWorker,
+            worker: ResourcesWorker,
             resources: t.Annotated[types.SchemaList, types.SchemaMetadata(rest_schemas.input.schema)],
         ) -> t.Annotated[types.SchemaList, types.SchemaMetadata(rest_schemas.output.schema)]:
             async with worker:
@@ -375,10 +350,7 @@ class PartialReplaceMixin:
                         [x[rest_model.primary_key.name] for x in resources]
                     )
                 )
-                try:
-                    return await repository.create(*resources)
-                except ddd_exceptions.IntegrityError as e:
-                    raise exceptions.HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e))
+                return await repository.create(*resources)
 
         partial_replace.__doc__ = f"""
             tags:
@@ -404,15 +376,13 @@ class DropMixin:
     def _add_drop(cls, name: str, verbose_name: str, **kwargs) -> dict[str, t.Any]:
         @ResourceRoute.method("/", methods=["DELETE"], name="drop")
         async def drop(
-            self, worker: FlamaWorker
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.core.DropCollection)]:
+            self, worker: ResourcesWorker
+        ) -> t.Annotated[types.Output, types.SchemaMetadata(schemas.schemas.core.DropCollection)]:
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 result = await repository.drop()
 
-            return APIResponse(  # ty: ignore[invalid-return-type]
-                {"deleted": result}, schema=schemas.schemas.core.DropCollection, status_code=HTTPStatus.NO_CONTENT
-            )
+            return APIResponse({"deleted": result}, status_code=HTTPStatus.NO_CONTENT)
 
         drop.__doc__ = f"""
             tags:

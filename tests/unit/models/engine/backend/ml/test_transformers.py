@@ -4,6 +4,7 @@ import pytest
 
 from flama import exceptions
 from flama.models.engine.backend.ml.transformers import TransformersBackend
+from tests._utils import missing
 
 
 class TestCaseTransformersBackend:
@@ -15,7 +16,7 @@ class TestCaseTransformersBackend:
         ["transformers_installed", "exception"],
         [
             pytest.param(True, None, id="success"),
-            pytest.param(False, exceptions.FrameworkNotInstalled, id="not_installed"),
+            pytest.param(False, exceptions.DependencyNotInstalled, id="not_installed"),
         ],
         indirect=["exception"],
     )
@@ -26,7 +27,7 @@ class TestCaseTransformersBackend:
         with (
             patch(
                 "flama.models.engine.backend.ml.transformers.transformers",
-                MagicMock() if transformers_installed else None,
+                MagicMock() if transformers_installed else missing("transformers"),
             ),
             exception,
         ):

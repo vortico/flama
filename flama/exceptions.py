@@ -1,7 +1,10 @@
 import http
 import typing as t
 
-from flama import compat
+from flama import _imports
+
+if t.TYPE_CHECKING:
+    from flama.types import ErrorDetail
 
 __all__ = [
     "ApplicationError",
@@ -14,9 +17,9 @@ __all__ = [
     "SerializationError",
     "ValidationError",
     "WebSocketException",
+    "RoutingException",
     "NotFoundException",
     "MethodNotAllowedException",
-    "FrameworkNotInstalled",
     "FrameworkVersionWarning",
 ]
 
@@ -25,38 +28,29 @@ class ApplicationError(Exception): ...
 
 
 class DependencyNotInstalled(ApplicationError):
-    class Dependency(compat.StrEnum):  # PORT: Replace compat when stop supporting 3.10
-        pydantic = "pydantic"
-        marshmallow = "marshmallow"
-        apispec = "apispec"
-        typesystem = "typesystem"
-        sqlalchemy = "sqlalchemy[asyncio]"
-        tomli = "tomli"  # PORT: Remove when stop supporting 3.10
+    """Cannot find an installed version of a dependency.
 
-    def __init__(
-        self, *, dependency: str | Dependency | None = None, dependant: str | None = None, msg: str = ""
-    ) -> None:
-        super().__init__()
-        self.dependency = self.Dependency(dependency) if dependency else None
-        self.dependant = dependant
+    :param dependencies: Dependencies any of which would satisfy the requirement.
+    :param msg: Detail on what needs them.
+    """
+
+    def __init__(self, *dependencies: "_imports.DependencyPackage | _imports.DependencyName", msg: str = "") -> None:
+        self.dependencies = tuple(_imports.DependencyPackage(dependency) for dependency in dependencies)
         self.msg = msg
+        super().__init__(*self.dependencies)
 
     def __str__(self) -> str:
-        if self.dependency:
-            s = f"Dependency '{self.dependency.value}' must be installed"
-            if self.dependant:
-                s += f" to use '{self.dependant}'"
-            if self.msg:
-                s += f" ({self.msg})"
-        else:
-            s = self.msg
+        if not self.dependencies:
+            return self.msg
 
-        return s
+        packages = " or ".join(f"'{dependency.package}'" for dependency in self.dependencies)
+        detail = f" ({self.msg})" if self.msg else ""
+        install = _imports.DependencyPackage.install(*self.dependencies)
+        return f"Dependency {packages} must be installed{detail} ({install})"
 
     def __repr__(self) -> str:
-        params = ("msg", "dependency", "dependant")
-        formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
-        return f"{self.__class__.__name__}({formatted_params})"
+        params = ", ".join([*(repr(str(d)) for d in self.dependencies), *([f"msg={self.msg!r}"] if self.msg else [])])
+        return f"{self.__class__.__name__}({params})"
 
 
 class SQLAlchemyError(ApplicationError): ...
@@ -105,7 +99,7 @@ class HTTPException(Exception):
     def __init__(
         self,
         status_code: int,
-        detail: str | dict[str, t.Any] | None = None,
+        detail: str | dict[str, t.Any] | list[t.Any] | None = None,
         headers: dict | None = None,
     ) -> None:
         if detail is None:
@@ -132,20 +126,20 @@ class HTTPException(Exception):
 
 
 class ValidationError(HTTPException):
-    def __init__(
-        self,
-        detail: str | dict[str, list[str]] | None = None,
-        status_code: int = 400,
-    ) -> None:
+    def __init__(self, detail: "str | list[ErrorDetail] | None" = None, status_code: int = 400) -> None:
         super().__init__(status_code, detail=detail)
 
 
 class SerializationError(HTTPException):
-    def __init__(self, detail: None | str | dict[str, list[str]] = None, status_code: int = 500) -> None:
+    def __init__(self, detail: "str | list[ErrorDetail] | None" = None, status_code: int = 500) -> None:
         super().__init__(status_code, detail=detail)
 
 
-class NotFoundException(Exception):
+class RoutingException(Exception):
+    """Base exception for a request that cannot be routed to an endpoint."""
+
+
+class NotFoundException(RoutingException):
     def __init__(
         self, path: str | None = None, params: dict[str, t.Any] | None = None, name: str | None = None
     ) -> None:
@@ -164,7 +158,7 @@ class NotFoundException(Exception):
         return f"{self.__class__.__name__}({formatted_params})"
 
 
-class MethodNotAllowedException(Exception):
+class MethodNotAllowedException(RoutingException):
     def __init__(self, path: str, method: str, allowed: set[str]) -> None:
         self.path = path
         self.method = method
@@ -209,12 +203,6 @@ class JSONRPCException(Exception):
             and self.status_code == other.status_code
             and self.detail == other.detail
         )
-
-
-class FrameworkNotInstalled(Exception):
-    """Cannot find an installed version of the framework."""
-
-    ...
 
 
 class FrameworkVersionWarning(Warning):

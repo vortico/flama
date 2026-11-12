@@ -21,7 +21,7 @@ if t.TYPE_CHECKING:
     from flama.url import URL
 
 
-__all__ = ["App", "AppStatus", "is_flama_instance", "is_router_instance"]
+__all__ = ["App", "AppStatus"]
 
 
 class AppStatus(enum.Enum):
@@ -53,6 +53,11 @@ class App(abc.ABC):
     models: "ModelsModule"
 
     @property
+    def is_root(self) -> bool:
+        """Whether this application is the root one, rather than one mounted into another."""
+        return self.parent is None
+
+    @property
     @abc.abstractmethod
     def status(self) -> AppStatus: ...
 
@@ -76,7 +81,7 @@ class App(abc.ABC):
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None: ...
 
     @abc.abstractmethod
-    def resolve_route(self, scope: Scope) -> "tuple[BaseRoute, Scope]": ...
+    def resolve_route(self, scope: Scope, *, recursive: bool = True) -> "tuple[BaseRoute, Scope]": ...
 
     @abc.abstractmethod
     def resolve_url(self, name: str, **path_params: t.Any) -> "URL": ...
@@ -128,23 +133,3 @@ class App(abc.ABC):
     def add_exception_handler(self, exc_class_or_status_code: int | type[Exception], handler: t.Callable) -> None: ...
 
     def add_middleware(self, middleware: "Middleware") -> None: ...
-
-
-def is_flama_instance(obj: t.Any) -> t.TypeGuard["App"]:
-    """Checks if an object is an instance of a Flama App.
-
-    :param obj: The object to check.
-    :return: True if the object is an instance of App, False otherwise.
-    """
-    return isinstance(obj, App)
-
-
-def is_router_instance(obj: t.Any) -> t.TypeGuard["Router"]:
-    """Checks if an object is an instance of Flama's Router.
-
-    :param obj: The object to check.
-    :return: True if the object is an instance of Router, False otherwise.
-    """
-    from flama.routing import Router
-
-    return isinstance(obj, Router)

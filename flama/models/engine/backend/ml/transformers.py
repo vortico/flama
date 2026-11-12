@@ -1,14 +1,11 @@
 import typing as t
 
-from flama import exceptions
+from flama import _imports
 from flama.models.engine.backend.ml._base import MLBackend
 
-try:
-    import transformers
-except Exception:  # pragma: no cover
-    transformers = None
-
 __all__ = ["TransformersBackend"]
+
+transformers = _imports.Dependency("transformers")
 
 
 class TransformersBackend(MLBackend):
@@ -22,9 +19,8 @@ class TransformersBackend(MLBackend):
 
         :param x: Batch of input feature vectors forwarded to the pipeline.
         :return: Pipeline output.
-        :raises FrameworkNotInstalled: If transformers is not installed.
+        :raises DependencyNotInstalled: If transformers is not installed.
         """
-        if transformers is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("transformers")
+        transformers.require()
 
         return self.model(x)

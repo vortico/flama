@@ -46,11 +46,11 @@ class TestCaseTelemetryMiddleware:
 
         @app.post("/ignored/", name="ignored")
         def ignored():
-            return "ignored"
+            return {"route": "ignored"}
 
         @app.post("/explicit-off/", name="explicit-off", tags={"telemetry": False})
         def explicit_off():
-            return "explicit_off"
+            return {"route": "explicit_off"}
 
     @pytest.mark.parametrize(
         [
@@ -236,7 +236,7 @@ class TestCaseTelemetryMiddleware:
                 None,
                 {},
                 http.HTTPStatus.OK,
-                "ignored",
+                {"route": "ignored"},
                 None,
                 AsyncMock(),
                 AsyncMock(),
@@ -249,7 +249,7 @@ class TestCaseTelemetryMiddleware:
                 None,
                 {},
                 http.HTTPStatus.OK,
-                "explicit_off",
+                {"route": "explicit_off"},
                 None,
                 AsyncMock(),
                 AsyncMock(),
@@ -300,7 +300,13 @@ class TestCaseTelemetryMiddleware:
             if data.error:
                 data.error.timestamp = now
 
-        with exception, patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
+        with (
+            exception,
+            patch(
+                "flama.telemetry.data_structures.datetime",
+                MagicMock(datetime=MagicMock(now=MagicMock(return_value=now)), UTC=datetime.UTC),
+            ),
+        ):
             r = await client.post(path, params=request_params, content=request_body)
 
             assert r.status_code == status_code

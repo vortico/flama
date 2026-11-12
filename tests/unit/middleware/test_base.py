@@ -2,9 +2,17 @@ from unittest.mock import AsyncMock, PropertyMock, call, patch
 
 import pytest
 
-from flama import Flama
-from flama.debug.middleware import ExceptionMiddleware, ServerErrorMiddleware
-from flama.middleware import Middleware, MiddlewareStack
+from flama import Flama, exceptions
+from flama.ddd import exceptions as ddd_exceptions
+from flama.ddd.exception_handlers import RepositoryExceptionHandler
+from flama.errors.exception_handlers import (
+    HTTPExceptionHandler,
+    JSONRPCExceptionHandler,
+    RoutingExceptionHandler,
+    WebSocketExceptionHandler,
+)
+from flama.errors.middleware import ExceptionMiddleware, ServerErrorMiddleware
+from flama.middleware import Middleware, MiddlewareStack, RootMiddlewareStack
 
 
 class TestCaseMiddleware:
@@ -57,33 +65,91 @@ class TestCaseMiddlewareStack:
         assert stack.debug
         assert stack._exception_handlers == {}
 
-    def test_stack(self, stack):
-        assert stack._stack is None
+    def test_stack(self, stack, app):
+        assert stack._pipeline is None
         assert stack.stack
-        assert isinstance(stack._stack, ServerErrorMiddleware)
-        assert isinstance(stack._stack.app, ExceptionMiddleware)
+        # A mounted application handles only what it registers handlers for, leaving the rest to its parents.
+        assert type(stack._pipeline) is ExceptionMiddleware
+        assert stack._pipeline.app is app.router
+
+    def test_stack_root(self, app, middleware):
+        stack = RootMiddlewareStack(app=app, middleware=[middleware], debug=True)
+
+        outermost = stack.stack
+        assert isinstance(outermost, ServerErrorMiddleware)
+        assert outermost.app is middleware
+        assert type(middleware.app) is ExceptionMiddleware
+        assert middleware.app.app is app.router
+
+    def test_stack_root_defaults(self, app):
+        stack = RootMiddlewareStack(app=app, middleware=[], debug=True)
+
+        handlers = stack.stack.app._exception_handlers
+
+        assert {k: type(v) for k, v in handlers.items()} == {
+            exceptions.HTTPException: HTTPExceptionHandler,
+            exceptions.JSONRPCException: JSONRPCExceptionHandler,
+            exceptions.WebSocketException: WebSocketExceptionHandler,
+            exceptions.RoutingException: RoutingExceptionHandler,
+            ddd_exceptions.RepositoryException: RepositoryExceptionHandler,
+        }
+        # Only the root application's debug mode decides how a missing resource is rendered.
+        assert handlers[exceptions.HTTPException].debug
+        assert handlers[exceptions.RoutingException]._http.debug
+
+    def test_stack_root_registered_first(self, app):
+        def handler(scope, receive, send, exc): ...
+
+        stack = RootMiddlewareStack(app=app, middleware=[], debug=True)
+        stack.add_exception_handler(exceptions.HTTPException, handler)
+
+        handlers = stack.stack.app._exception_handlers
+
+        # A handler registered for a family's exception replaces only that family's default answer.
+        assert handlers[exceptions.HTTPException] is handler
+        assert isinstance(handlers[exceptions.RoutingException], RoutingExceptionHandler)
+
+    @pytest.mark.parametrize(
+        ["source", "target"],
+        (
+            pytest.param(RootMiddlewareStack, MiddlewareStack, id="root_to_mounted"),
+            pytest.param(MiddlewareStack, RootMiddlewareStack, id="mounted_to_root"),
+        ),
+    )
+    def test_from_stack(self, app, middleware, source, target):
+        def handler(scope, receive, send, exc): ...
+
+        stack = source(app=app, middleware=[middleware], debug=True)
+        stack.add_exception_handler(400, handler)
+
+        result = target.from_stack(stack)
+
+        assert type(result) is target
+        assert (result.app, result.middleware, result.debug) == (stack.app, stack.middleware, stack.debug)
+        assert result._exception_handlers == {400: handler}
+        assert result._exception_handlers is not stack._exception_handlers
 
     def test_add_exception_handler(self, stack):
         def handler(scope, receive, send, exc): ...
 
-        assert stack._stack is None
+        assert stack._pipeline is None
         assert stack.stack
-        assert stack._stack is not None
+        assert stack._pipeline is not None
 
         stack.add_exception_handler(400, handler)
         stack.add_exception_handler(ValueError, handler)
 
-        assert stack._stack is None
+        assert stack._pipeline is None
         assert stack._exception_handlers == {400: handler, ValueError: handler}
 
     def test_add_middleware(self, stack, middleware):
-        assert stack._stack is None
+        assert stack._pipeline is None
         assert stack.stack
-        assert stack._stack is not None
+        assert stack._pipeline is not None
 
         stack.add_middleware(middleware)
 
-        assert stack._stack is None
+        assert stack._pipeline is None
         assert stack.middleware == [middleware]
 
     async def test_call(self, stack, asgi_scope, asgi_receive, asgi_send):

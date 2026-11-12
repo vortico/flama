@@ -4,7 +4,6 @@ from unittest.mock import patch
 import marshmallow
 import pydantic
 import pytest
-import typesystem
 
 from flama import exceptions
 from flama.schemas.validation import output_validation
@@ -27,15 +26,6 @@ class TestCaseSchemaValidateOutput:
                 rating=(int, ...),
                 created=(datetime.datetime | None, ...),
                 __validators__={"rating": rating_validator},
-            )
-        elif schemas.lib == typesystem:
-            schema = typesystem.Schema(
-                title="Product",
-                fields={
-                    "name": typesystem.fields.String(title="name"),
-                    "rating": typesystem.fields.Integer(title="rating", minimum=0),
-                    "created": typesystem.fields.DateTime(title="created", allow_null=True),
-                },
             )
         elif schemas.lib == marshmallow:
             schema = type(
@@ -60,7 +50,7 @@ class TestCaseSchemaValidateOutput:
             return {
                 "name": "foo",
                 "rating": 0,
-                "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+                "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.UTC),
             }
 
         @app.route("/many-products", methods=["GET"])
@@ -70,12 +60,12 @@ class TestCaseSchemaValidateOutput:
                 {
                     "name": "foo",
                     "rating": 0,
-                    "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+                    "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.UTC),
                 },
                 {
                     "name": "bar",
                     "rating": 1,
-                    "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+                    "created": datetime.datetime(2018, 1, 1, 0, 0, 0, tzinfo=datetime.UTC),
                 },
             ]
 

@@ -1,7 +1,6 @@
 import abc
 import asyncio
 import dataclasses
-import os
 import pathlib
 import random
 import tempfile
@@ -20,7 +19,7 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
-from flama import concurrency, types
+from flama import _concurrency, _imports, _io, types
 from flama._cli.formatting import CONSOLE, FlamaCommand
 from flama.client import Client
 from flama.serialize.exceptions import UnsafeArtifactPath
@@ -71,47 +70,79 @@ class _RetryPolicy:
                 await asyncio.sleep(delay + random.uniform(0, delay * 0.5))
 
 
+@dataclasses.dataclass(frozen=True)
+class _Inspection:
+    """What a source publishes for a model, and how it is packaged.
+
+    :param lib: Framework to package for.
+    :param files: Files to download, with their sizes.
+    :param config: Framework configuration recorded in the manifest.
+    """
+
+    lib: types.ModelLib
+    files: dict[str, int]
+    config: dict[str, t.Any] = dataclasses.field(default_factory=dict)
+
+
 class _Downloader(abc.ABC):
     """Download a model from a remote source and package it into a ``.flm`` artifact.
 
-    Subclasses encapsulate source-specific logic (auth, listing, transfer) by overriding
-    :attr:`_lib` and :meth:`_download`. The orchestration (temp dir lifecycle, async
-    runner and final ``Serializer.dump`` packaging) is shared on the base class.
+    Subclasses inspect what the source publishes and download its files. Checking the framework, staging and
+    packaging are shared, so nothing is downloaded for a model that cannot be packaged.
 
     :param model_name: Source-specific model identifier.
     :param output: Destination ``.flm`` path.
-    :param family: Artifact family to record in the manifest (``"ml"`` or ``"llm"``). Required
-        - never inferred. LLM artifacts are routed through the LLM machinery (vLLM / MLX) at
-        load time regardless of the on-disk lib.
+    :param family: Artifact family recorded in the manifest. LLM artifacts are run by vLLM or MLX at load time,
+        whatever framework they are packaged for.
     """
-
-    _lib: t.ClassVar[types.ModelLib]
 
     def __init__(self, model_name: str, output: pathlib.Path, family: types.ModelFamily) -> None:
         self.model_name = model_name
         self.output = output
         self.family: types.ModelFamily = family
-        self.config: dict[str, str] = {}
         self.extra: dict[str, str] = {"model_name": self.model_name}
         self.tmp = tempfile.TemporaryDirectory()
 
     async def run(self) -> None:
-        """Download to a temporary directory and package the result as ``.flm``."""
+        """Download to a temporary directory and package the result as ``.flm``.
+
+        :raises DependencyNotInstalled: If the framework to package for is not installed, before any file is
+            downloaded.
+        """
         async with self:
-            await self._download()
-            self._pack()
+            inspection = await self._inspect()
+            _imports.Dependency(inspection.lib).require()
+            await self._download(inspection.files)
+            self._pack(inspection)
 
         CONSOLE.print(f"Model saved to [bold]{self.output}[/bold]")
 
     @abc.abstractmethod
-    async def _download(self) -> None:
-        """Download model files into ``self.tmp.name`` and populate ``self.config`` / ``self.extra``."""
+    async def _inspect(self) -> _Inspection:
+        """Read what the source publishes for the model, refusing what cannot be packaged.
+
+        :return: How the model is packaged.
+        :raises click.ClickException: If the model cannot be packaged.
+        """
         ...
 
-    def _pack(self) -> None:
+    @abc.abstractmethod
+    async def _download(self, files: dict[str, int]) -> None:
+        """Download files into the staging directory.
+
+        :param files: Files to download, with their sizes.
+        """
+        ...
+
+    def _pack(self, inspection: _Inspection) -> None:
         with CONSOLE.status("Packaging..."):
             Serializer.dump(
-                self.tmp.name, path=self.output, family=self.family, lib=self._lib, config=self.config, extra=self.extra
+                self.tmp.name,
+                path=self.output,
+                family=self.family,
+                lib=inspection.lib,
+                config=inspection.config,
+                extra=self.extra,
             )
 
     async def __aenter__(self) -> "_Downloader":
@@ -142,7 +173,6 @@ class _HuggingFaceDownloader(_Downloader):
     """
 
     BASE_URL: t.ClassVar[str] = "https://huggingface.co"
-    _lib: t.ClassVar[types.ModelLib] = "transformers"
 
     def __init__(
         self, model_name: str, output: pathlib.Path, family: types.ModelFamily, *, max_concurrent: int
@@ -152,17 +182,25 @@ class _HuggingFaceDownloader(_Downloader):
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.retry = _RetryPolicy()
 
-    async def _download(self) -> None:
+    async def _inspect(self) -> _Inspection:
         response = await self.client.get(f"/api/models/{self.model_name}", params={"blobs": "true"})
         response.raise_for_status()
         info = response.json()
 
-        self.config["task"] = info.get("pipeline_tag")
+        # Transformers checkpoints declare a model type whatever library the Hub labels them with, e.g. MLX conversions.
+        if not (info.get("config") or {}).get("model_type"):
+            raise click.ClickException(
+                f"'{self.model_name}' is not a transformers model (the Hub reports it as "
+                f"'{info.get('library_name') or 'unknown'}'), so it cannot be packaged"
+            )
 
-        siblings = info.get("siblings", [])
-        files = [s["rfilename"] for s in siblings]
-        total_size = sum(s.get("size", 0) for s in siblings)
+        return _Inspection(
+            lib="transformers",
+            files={s["rfilename"]: s.get("size", 0) for s in info.get("siblings", [])},
+            config={"task": info.get("pipeline_tag")},
+        )
 
+    async def _download(self, files: dict[str, int]) -> None:
         with Progress(
             TextColumn("[bold]{task.description}"),
             BarColumn(),
@@ -171,9 +209,9 @@ class _HuggingFaceDownloader(_Downloader):
             TimeRemainingColumn(),
             console=CONSOLE,
         ) as progress:
-            progress_id = progress.add_task("Downloading", total=total_size)
+            progress_id = progress.add_task("Downloading", total=sum(files.values()))
 
-            tasks = await concurrency.run_task_group(
+            tasks = await _concurrency.run_task_group(
                 *(self._download_file(name, progress, progress_id) for name in files)
             )
             for task in tasks:
@@ -194,28 +232,23 @@ class _HuggingFaceDownloader(_Downloader):
             if not dest.is_relative_to(root):
                 raise UnsafeArtifactPath(filename)
 
-            await concurrency.run(dest.parent.mkdir, parents=True, exist_ok=True)
+            await _concurrency.run(dest.parent.mkdir, parents=True, exist_ok=True)
             await self.retry(lambda: self._stream_to_file(filename, dest, progress, progress_id))
 
     async def _stream_to_file(self, filename: str, dest: pathlib.Path, progress: Progress, progress_id: TaskID) -> None:
-        tmp = dest.with_suffix(dest.suffix + ".tmp")
         written = 0
         try:
             async with self.client.stream("GET", f"/{self.model_name}/resolve/main/{filename}") as stream:
                 stream.raise_for_status()
-                f = t.cast(t.BinaryIO, await concurrency.run(tmp.open, "wb"))
-                try:
+                # The staging directory is discarded after packaging, so there is no need to sync each file to disk.
+                with _io.AtomicFile(dest, durable=False) as f:
                     async for chunk in stream.aiter_bytes(chunk_size=60 * 2**10):
-                        await concurrency.run(f.write, chunk)
+                        await _concurrency.run(f.write, chunk)
                         written += len(chunk)
                         progress.update(progress_id, advance=len(chunk))
-                finally:
-                    await concurrency.run(f.close)
-            await concurrency.run(os.replace, tmp, dest)
         except BaseException:
             if written:
                 progress.update(progress_id, advance=-written)
-            await concurrency.run(tmp.unlink, missing_ok=True)
             raise
 
     async def __aenter__(self) -> "_Downloader":
@@ -262,7 +295,7 @@ def command(model_name: str, source: str, family: types.ModelFamily, output: str
 
     \b
     Example:
-        flama get --source huggingface --family ml scikit-learn/Fish-Weight
+        flama get --source huggingface --family ml philschmid/tiny-bert-sst2-distilled
         flama get --source huggingface --family llm Qwen/Qwen2.5-0.5B
     """
     output_path = pathlib.Path(output or f"{model_name.replace('/', '_')}.flm")

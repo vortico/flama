@@ -1,18 +1,17 @@
 import inspect
 import typing as t
 
-from flama import exceptions, types
+from flama import types
+from flama.ddd.components import WorkerComponent
 from flama.modules import Module
 from flama.resources.resource import Resource
 from flama.resources.routing import ResourceRoute
+from flama.resources.workers import ResourcesWorker
 from flama.types.http import Method
 
 if t.TYPE_CHECKING:
-    try:
-        from flama.ddd.repositories.sqlalchemy import SQLAlchemyTableRepository
-        from flama.resources.workers import FlamaWorker
-    except exceptions.DependencyNotInstalled:
-        ...
+    from flama.ddd.repositories.sqlalchemy import SQLAlchemyTableRepository
+    from flama.injection.components import Component
 
 
 __all__ = ["ResourcesModule"]
@@ -21,9 +20,17 @@ __all__ = ["ResourcesModule"]
 class ResourcesModule(Module):
     name = "resources"
 
-    def __init__(self, worker: "FlamaWorker | None" = None):
+    def __init__(self) -> None:
+        """Resources module.
+
+        Its worker runs the repositories of the REST resources, which need the application's SQLAlchemy module.
+        """
         super().__init__()
-        self.worker = worker
+        self.worker = ResourcesWorker()
+
+    @property
+    def components(self) -> list["Component"]:
+        return [WorkerComponent(worker=self.worker)]
 
     def add_resource(
         self,
@@ -104,13 +111,11 @@ class ResourcesModule(Module):
         :param name: The name of the repository.
         :param repository: The repository class.
         """
-        if self.worker:
-            self.worker.add_repository(name, repository)
+        self.worker.add_repository(name, repository)
 
     def remove_repository(self, name: str) -> None:
         """Deregister a repository.
 
         :param name: The name of the repository.
         """
-        if self.worker:
-            self.worker.remove_repository(name)
+        self.worker.remove_repository(name)

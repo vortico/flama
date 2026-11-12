@@ -4,8 +4,6 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 import marshmallow
 import pydantic
 import pytest
-import typesystem
-import typesystem.fields
 
 from flama import Component, Flama, endpoints, types
 from flama.context import Context
@@ -42,8 +40,6 @@ class TestCaseHTTPEndpoint:
     def puppy_schema(cls, app):
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("Puppy", name=(str, ...))
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(title="Puppy", fields={"name": typesystem.fields.String()})
         elif app.schema.schema_library.name == "marshmallow":
             schema = type("Puppy", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         else:
@@ -160,7 +156,7 @@ class TestCaseHTTPEndpoint:
     async def test_dispatch(self, app, endpoint):
         injected_mock = MagicMock()
         app.injector.inject = AsyncMock(return_value=injected_mock)
-        with patch("flama.concurrency.run") as run_mock:
+        with patch("flama._concurrency.run") as run_mock:
             await endpoint.dispatch()
 
             assert app.injector.inject.call_args_list == [call(endpoint.get, endpoint.state)]

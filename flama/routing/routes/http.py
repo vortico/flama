@@ -2,11 +2,12 @@ import inspect
 import logging
 import typing as t
 
-from flama import concurrency, endpoints, exceptions, http, types
+from flama import _concurrency, endpoints, exceptions, http, types
 from flama.context import Context
 from flama.http.responses.api import APIResponse
+from flama.injection.resolver import Return
 from flama.routing.routes._base import BaseEndpointWrapper, BaseRoute, RouteTableParams, ScopeType
-from flama.schemas.data_structures import Schema
+from flama.schemas.data_structures import Parameter
 from flama.types.http import Method
 
 __all__ = ["Route"]
@@ -15,46 +16,70 @@ logger = logging.getLogger(__name__)
 
 
 class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
-    def __init__(
-        self,
-        handler: types.Handler,
-        /,
-        *,
-        signature: inspect.Signature | None = None,
-        pagination: types.Pagination | None = None,
-    ):
-        """Wraps an HTTP function or endpoint into ASGI application.
+    def _output_schema(self, handler: t.Callable, signature: inspect.Signature) -> t.Any:
+        """The schema a handler's output is serialised with, read from its return annotation.
 
-        :param handler: Function or endpoint.
+        A handler returns a schema, a response, or nothing, or leaves its return type unannotated.
+
+        :param handler: Handler.
         :param signature: Handler signature.
-        :param pagination: Apply a pagination technique.
+        :return: The schema, or None when the return annotation names none.
+        :raises ApplicationError: If the return annotation is none of the supported forms.
         """
-        super().__init__(handler, signature=signature, pagination=pagination)
+        output = Parameter.build("response", Return.from_return_annotation(signature.return_annotation))
+        if output.schema is None:
+            raise exceptions.ApplicationError(
+                f"Route '{getattr(handler, '__qualname__', handler)}' returns "
+                f"'{inspect.formatannotation(signature.return_annotation)}', but a route returns a schema, a "
+                "response, or None, or has no return annotation"
+            )
 
-        try:
-            self.schema = Schema.from_type(signature.return_annotation).unique_schema if signature else None
-        except Exception:
-            self.schema = None
+        return output.schema.unique_schema if output.schema.schema is not None else None
 
-    def _build_api_response(self, response: http.Response | None) -> http.Response:
+    def _build_api_response(self, response: object, schema: t.Any) -> http.Response:
         """Build an API response given a handler and the current response.
 
-        It infers the output schema from the handler signature or just wraps the response in a APIResponse object.
+        Data is serialised with the handler's output schema, and so is an API response built without a schema.
 
         :param response: The current response.
+        :param schema: The handler's output schema.
         :return: An API response.
+        :raises SerializationError: If the handler returned neither a response, a mapping, a list nor None.
         """
-        if isinstance(response, dict | list):
-            response = APIResponse(response, schema=self.schema)
-        elif isinstance(response, str | bytes):
-            response = APIResponse(response)
+        if isinstance(response, APIResponse) and response.schema is None:
+            response.schema = schema
+        elif isinstance(response, dict | list):
+            response = APIResponse(response, schema=schema)
         elif response is None:
             response = APIResponse("")
+        elif not isinstance(response, http.Response):
+            raise exceptions.SerializationError(
+                detail=f"Route returned a '{type(response).__name__}', but a route returns a response, a mapping, a "
+                "list, or None"
+            )
 
         return response
 
 
 class HTTPFunctionWrapper(BaseHTTPEndpointWrapper):
+    def __init__(
+        self,
+        handler: types.HTTPHandler,
+        /,
+        *,
+        signature: inspect.Signature | None = None,
+        pagination: types.Pagination | None = None,
+    ):
+        """Wraps an HTTP function into ASGI application.
+
+        :param handler: Function.
+        :param signature: Handler signature.
+        :param pagination: Apply a pagination technique.
+        """
+        super().__init__(handler, signature=signature, pagination=pagination)
+
+        self.schema = self._output_schema(self.handler, signature) if signature else None
+
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs a request.
 
@@ -78,8 +103,8 @@ class HTTPFunctionWrapper(BaseHTTPEndpointWrapper):
 
         try:
             injected_func = await app.injector.inject(self.handler, context)
-            response = await concurrency.run(injected_func)
-            response = self._build_api_response(response)
+            response = await _concurrency.run(injected_func)
+            response = self._build_api_response(response, self.schema)
 
             await response(route_scope, receive, send)
         finally:
@@ -88,6 +113,33 @@ class HTTPFunctionWrapper(BaseHTTPEndpointWrapper):
 
 class HTTPEndpointWrapper(BaseHTTPEndpointWrapper):
     handler: type[endpoints.HTTPEndpoint]
+
+    def __init__(
+        self,
+        handler: types.Handler,
+        /,
+        *,
+        signature: inspect.Signature | None = None,
+        pagination: types.Pagination | None = None,
+    ):
+        """Wraps an HTTP endpoint into ASGI application.
+
+        :param handler: Endpoint.
+        :param signature: Endpoint signature.
+        :param pagination: Apply a pagination technique.
+        """
+        super().__init__(handler, signature=signature, pagination=pagination)
+
+        # Each method has its own handler, and so its own output schema. A JSON-RPC method's result is always sent
+        # within a JSON-RPC response, so its annotation describes no HTTP response.
+        self.schemas = (
+            {
+                method: self._output_schema(method_handler, inspect.signature(method_handler))
+                for method, method_handler in self.handler.allowed_handlers().items()
+            }
+            if issubclass(self.handler, endpoints.HTTPEndpoint)
+            else {}
+        )
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs a request.
@@ -99,7 +151,7 @@ class HTTPEndpointWrapper(BaseHTTPEndpointWrapper):
         endpoint = self.handler(scope, receive, send)
 
         try:
-            response = self._build_api_response(await endpoint)
+            response = self._build_api_response(await endpoint, self.schemas.get(scope["method"]))
 
             await response(scope, receive, send)
         finally:

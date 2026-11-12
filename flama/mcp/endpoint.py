@@ -2,7 +2,7 @@ import asyncio
 import logging
 import typing as t
 
-from flama import concurrency, exceptions, http, types
+from flama import _concurrency, exceptions, http, types
 from flama._core.json_encoder import encode_json
 from flama.endpoints.jsonrpc import JSONRPCEndpoint
 from flama.http import JSONRPCStatus
@@ -10,6 +10,7 @@ from flama.mcp.data_structures import Elicit, Elicitation, Extensions, RequestHe
 from flama.mcp.http import MCPResponse
 from flama.mcp.server import MCPServer, Tool
 from flama.mcp.tasks import Task, TaskStatus
+from flama.schemas.exceptions import SchemaValidationError
 
 __all__ = ["MCPEndpoint"]
 
@@ -149,12 +150,17 @@ class MCPEndpoint(JSONRPCEndpoint):
 
         Elicitation responses gathered so far are injected into the handler's declared parameter so it can branch; if
         the handler asks for more input (returns :class:`Elicit`), they are carried forward in ``requestState``.
+        Invalid arguments are a failed tool call rather than a protocol error, so the model can read why and retry.
         """
-        kwargs = dict(arguments)
+        try:
+            kwargs = entry.arguments.validate(arguments)
+        except SchemaValidationError as e:
+            return {"content": [{"type": "text", "text": f"Invalid arguments:\n{e}"}], "isError": True}
+
         if entry.elicitation_param is not None:
             kwargs[entry.elicitation_param] = Elicitation(responses)
 
-        result = await concurrency.run(entry.handler, **kwargs)
+        result = await _concurrency.run(entry.handler, **kwargs)
 
         if isinstance(result, Elicit):
             return {
@@ -167,7 +173,24 @@ class MCPEndpoint(JSONRPCEndpoint):
 
     @staticmethod
     def _tool_content(entry: Tool, result: t.Any) -> dict[str, t.Any]:
-        """Render a tool result as content blocks plus ``structuredContent`` when the tool declares an output schema."""
+        """Render a tool result as content blocks plus ``structuredContent`` when the tool declares an output schema.
+
+        A schema result is serialised through it first, as REST serialises it, so both contents carry the same data.
+
+        :param entry: Tool that produced the result.
+        :param result: Value the tool returned.
+        :return: The tool result.
+        :raises JSONRPCException: If the result does not fit the tool's output schema.
+        """
+        if entry.result is not None:
+            try:
+                result = entry.result.dump(result)
+            except SchemaValidationError as e:
+                raise exceptions.JSONRPCException(
+                    status_code=http.JSONRPCStatus.INTERNAL_ERROR,
+                    detail=f"Tool '{entry.name}' returned a result not fitting its output schema:\n{e}",
+                ) from e
+
         text = encode_json(result, compact=True).decode() if isinstance(result, (dict, list)) else str(result)
         response: dict[str, t.Any] = {"content": [{"type": "text", "text": text}]}
 
@@ -286,7 +309,7 @@ class MCPEndpoint(JSONRPCEndpoint):
             )
 
         try:
-            result = await concurrency.run(entry.handler)
+            result = await _concurrency.run(entry.handler)
         except exceptions.JSONRPCException:
             raise
         except Exception as e:
@@ -329,7 +352,7 @@ class MCPEndpoint(JSONRPCEndpoint):
             )
 
         try:
-            result = await concurrency.run(entry.handler, **arguments)
+            result = await _concurrency.run(entry.handler, **arguments)
         except exceptions.JSONRPCException:
             raise
         except Exception as e:

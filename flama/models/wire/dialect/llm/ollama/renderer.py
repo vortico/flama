@@ -1,5 +1,5 @@
 import typing as t
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flama import types
 from flama.models.transport.output.llm.event import StartEvent, StopEvent, TextEvent, ToolEvent, TraceEvent
@@ -45,7 +45,7 @@ class OllamaRenderer(Renderer[types.JSONSchema]):
         self._output_tokens = 0
 
     def _envelope(self, body: dict[str, t.Any], /) -> types.JSONSchema:
-        return {"model": self._model, "created_at": datetime.now(timezone.utc).isoformat(), **body}
+        return {"model": self._model, "created_at": datetime.now(UTC).isoformat(), **body}
 
     def on_start(self, block: StartEvent) -> t.Iterable[types.JSONSchema]:
         if block.input_tokens is not None:

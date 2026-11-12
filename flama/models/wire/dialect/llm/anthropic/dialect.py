@@ -1,7 +1,7 @@
 import typing as t
 import uuid
 
-from flama import compat
+from flama import _compat
 from flama.http.responses.sse import ServerSentEvent
 from flama.models.wire.dialect._base import Dialect, EventSource
 from flama.models.wire.dialect.llm.anthropic.assembler import AnthropicAssembleKwargs, AnthropicAssembler
@@ -11,7 +11,7 @@ from flama.models.wire.dialect.llm.anthropic.renderer import AnthropicRenderer
 __all__ = ["AnthropicDialect", "AnthropicRenderKwargs"]
 
 
-class AnthropicRenderKwargs(t.TypedDict, total=False):
+class AnthropicRenderKwargs(_compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :meth:`AnthropicDialect.render`.
 
     Mirrors the constructor signature of
@@ -19,7 +19,7 @@ class AnthropicRenderKwargs(t.TypedDict, total=False):
     can forward ``**kwargs`` directly.
     """
 
-    model: compat.Required[str]
+    model: t.Required[str]
     generation_id: uuid.UUID | None
 
 
@@ -41,14 +41,12 @@ class AnthropicDialect(Dialect[ServerSentEvent]):
 
     @classmethod
     def render(
-        cls, source: EventSource, /, **kwargs: compat.Unpack[AnthropicRenderKwargs]
+        cls, source: EventSource, /, **kwargs: t.Unpack[AnthropicRenderKwargs]
     ) -> t.AsyncIterator[ServerSentEvent]:
         """Typed façade over :meth:`Dialect._render` naming the Anthropic render kwargs (``model``, ...)."""
         return cls._render(source, kwargs)
 
     @classmethod
-    async def assemble(
-        cls, source: EventSource, /, **kwargs: compat.Unpack[AnthropicAssembleKwargs]
-    ) -> dict[str, t.Any]:
+    async def assemble(cls, source: EventSource, /, **kwargs: t.Unpack[AnthropicAssembleKwargs]) -> dict[str, t.Any]:
         """Typed façade over :meth:`Dialect._assemble` naming the Anthropic assemble kwargs."""
         return await cls._assemble(source, kwargs)

@@ -4,17 +4,13 @@ import decimal
 import inspect
 import typing as t
 
-from flama import exceptions
+from flama import _imports, exceptions
 from flama.resources.exceptions import ResourceFilterInvalid
 from flama.schemas.data_structures import Field, Schema
 from flama.schemas.exceptions import SchemaValidationError
 
-try:
+with _imports.required("sqlalchemy"):
     import sqlalchemy
-except Exception:  # pragma: no cover
-    raise exceptions.DependencyNotInstalled(
-        dependency=exceptions.DependencyNotInstalled.Dependency.sqlalchemy, dependant=__name__
-    )
 
 __all__ = ["Operator", "OPERATORS", "Filter", "Filters"]
 
@@ -134,14 +130,20 @@ class Filter:
         if operator not in self.operators:
             expected = ", ".join(f"'{granted.name}'" for granted in self.operators)
             raise exceptions.ValidationError(
-                detail={self.name: [f"Operator '{name}' is not available, expected one of: {expected}."]}
+                detail=SchemaValidationError(
+                    {self.name: [f"Operator '{name}' is not available, expected one of: {expected}."]}
+                ).errors
             )
 
         if operator.value and not separator:
-            raise exceptions.ValidationError(detail={self.name: [f"Operator '{name}' expects a value."]})
+            raise exceptions.ValidationError(
+                detail=SchemaValidationError({self.name: [f"Operator '{name}' expects a value."]}).errors
+            )
 
         if not operator.value and separator:
-            raise exceptions.ValidationError(detail={self.name: [f"Operator '{name}' expects no value."]})
+            raise exceptions.ValidationError(
+                detail=SchemaValidationError({self.name: [f"Operator '{name}' expects no value."]}).errors
+            )
 
         return operator, negated, self._value(remainder) if operator.value else None
 

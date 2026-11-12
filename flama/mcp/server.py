@@ -6,6 +6,7 @@ from flama import types
 from flama.mcp.data_structures import AppTemplate, Elicitation, Extensions
 from flama.mcp.tasks import InMemoryTaskStore, TaskStore
 from flama.schemas.data_structures import Field, Schema
+from flama.schemas.exceptions import SchemaGenerationError
 from flama.schemas.registry import SchemaRegistry
 
 __all__ = ["MCPServer"]
@@ -17,7 +18,9 @@ class Tool:
     description: str
     input_schema: dict[str, t.Any]
     handler: t.Callable[..., t.Any]
+    arguments: Schema
     output_schema: dict[str, t.Any] | None = None
+    result: Schema | None = None
     task: bool = False
     ui_template: str | None = None
     elicitation_param: str | None = None
@@ -87,12 +90,21 @@ class MCPServer:
         ui_template: str | None = None,
     ) -> None:
         tool_name = name or getattr(handler, "__name__", type(handler).__name__)
+        arguments = Schema.build(fields=Field.from_handler(handler, exclude={Elicitation}))
+        annotation = inspect.signature(handler).return_annotation
+        try:
+            result = Schema.from_type(annotation)
+        except ValueError:
+            result = None
+
         self._tools[tool_name] = Tool(
             name=tool_name,
             description=description or inspect.getdoc(handler) or "",
-            input_schema=self._input_schema(handler),
-            output_schema=self._output_schema(handler),
+            input_schema=SchemaRegistry.bundle(arguments.schema),
             handler=handler,
+            arguments=arguments,
+            output_schema=self._output_schema(annotation, result),
+            result=result,
             task=task,
             ui_template=ui_template,
             elicitation_param=self._elicitation_param(handler),
@@ -195,36 +207,45 @@ class MCPServer:
             None,
         )
 
-    @staticmethod
-    def _input_schema(func: t.Callable) -> dict[str, t.Any]:
-        """Build a tool ``inputSchema`` as a self-contained JSON Schema 2020-12 object (SEP-2106).
+    @classmethod
+    def _output_schema(cls, annotation: t.Any, result: Schema | None) -> dict[str, t.Any] | None:
+        """Build a tool ``outputSchema`` from its return annotation (SEP-2106).
 
-        Tool arguments are an object whose nested models are bundled under ``$defs`` and referenced with local
-        ``#/$defs/...`` pointers, so the document never relies on external ``$ref`` dereferencing. A handler parameter
-        that receives the injected :class:`Elicitation` responses is not a tool argument and is excluded.
+        A schema output is bundled with the schemas it nests, and any other output is described by its field schema,
+        unless that refers to a schema it cannot carry, which leaves it undescribed rather than unresolvable.
+
+        :param annotation: Return annotation of the tool.
+        :param result: Schema the tool's result is serialised with, if its annotation names one.
+        :return: The output schema, or None when the output is undescribed.
         """
-        return SchemaRegistry.bundle(Schema.build(fields=Field.from_handler(func, exclude={Elicitation})).schema)
-
-    @staticmethod
-    def _output_schema(func: t.Callable) -> dict[str, t.Any] | None:
-        """Build a tool ``outputSchema`` from the return annotation, or ``None`` when it is unannotated (SEP-2106).
-
-        Unlike ``inputSchema``, an output may be any JSON Schema 2020-12 value: schema return types become a
-        self-contained object schema (wrapped in an array for sequence returns), while primitives and their sequences
-        use the field schema directly.
-        """
-        annotation = inspect.signature(func).return_annotation
         if annotation in (inspect.Signature.empty, None, type(None)):
             return None
 
+        if result is not None:
+            return SchemaRegistry.bundle(result.schema, multiple=types.Annotation(annotation).is_multiple)
+
         try:
-            schema = Schema.from_type(annotation)
-        except ValueError:
-            return Field("output", annotation).json_schema
+            schema = Field("output", annotation).json_schema
+        except (KeyError, SchemaGenerationError):
+            # Raised by marshmallow and pydantic respectively for a type neither can build a field for.
+            return None
 
-        multiple = types.Annotation(annotation).is_multiple(list, tuple, set, frozenset)
+        return schema if cls._is_self_contained(schema) else None
 
-        return SchemaRegistry.bundle(schema.schema, multiple=multiple)
+    @classmethod
+    def _is_self_contained(cls, schema: t.Any) -> bool:
+        """Whether a JSON Schema refers to no definition outside it.
+
+        :param schema: JSON Schema, or any value nested in one.
+        :return: True if no ``$ref`` is found.
+        """
+        if isinstance(schema, dict):
+            return "$ref" not in schema and all(cls._is_self_contained(x) for x in schema.values())
+
+        if isinstance(schema, list):
+            return all(cls._is_self_contained(x) for x in schema)
+
+        return True
 
     @staticmethod
     def _prompt_arguments(func: t.Callable) -> list[dict[str, t.Any]]:

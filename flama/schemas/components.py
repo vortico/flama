@@ -141,12 +141,23 @@ class PrimitiveParamComponent(Component):
             params = Schema.build(name="ValidationSchema", fields=[Field.from_parameter(parameter)]).validate(params)
         except SchemaValidationError as exc:  # pragma: no cover # safety net, just should not happen
             raise exceptions.ValidationError(detail=exc.errors)
-        return params.get(parameter.name, parameter.default)
+
+        value = params.get(parameter.name, parameter.default)
+
+        # Repeated values are validated as a list, whatever collection the parameter is annotated with.
+        if isinstance(value, list) and (origin := types.Annotation(parameter.annotation).origin) in (
+            set,
+            frozenset,
+            tuple,
+        ):
+            return origin(value)
+
+        return value
 
 
 class CompositeParamComponent(Component):
     def can_handle_parameter(self, parameter: Parameter):
-        return types.is_schema(types.Annotation(parameter.annotation).element(list))
+        return types.is_schema(types.Annotation(parameter.annotation).element)
 
     def resolve(self, parameter: Parameter, request: http.Request, route: routing.BaseRoute, data: types.RequestData):
         body_param = route.parameters.body[request.method]
@@ -167,7 +178,9 @@ class FileParamComponent(Component):
         value = (data.data or {}).get(parameter.name)
 
         if not isinstance(value, UploadFile):
-            raise exceptions.ValidationError(detail={parameter.name: ["Expected a file upload."]})
+            raise exceptions.ValidationError(
+                detail=SchemaValidationError({parameter.name: ["Expected a file upload."]}).errors
+            )
 
         return value
 

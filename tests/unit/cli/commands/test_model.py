@@ -8,7 +8,7 @@ import pytest
 from click.testing import CliRunner
 
 from flama._cli.commands.model import _LLM, _ML, _Cli, command
-from flama.concurrency import iterate
+from flama._concurrency import iterate
 from flama.models._base import LLMModel, MLModel
 from flama.models.engine.llm.decoder.decoder import Decoder
 from flama.models.transport.output.llm.event import Event, TextEvent

@@ -119,7 +119,10 @@ class TestCaseAuthentication:
     async def test_from_scope(self, asgi_scope, asgi_receive, asgi_send, scope, result):
         asgi_scope.update(scope)
         now = datetime.datetime.now()
-        with patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
+        with patch(
+            "flama.telemetry.data_structures.datetime",
+            MagicMock(datetime=MagicMock(now=MagicMock(return_value=now)), UTC=datetime.UTC),
+        ):
             data = await Authentication.from_scope(scope=asgi_scope, receive=asgi_receive, send=asgi_send)
 
             assert data.to_dict() == result
@@ -149,7 +152,10 @@ class TestCaseEndpoint:
     async def test_from_scope(self, asgi_scope, asgi_receive, asgi_send, scope, result):
         asgi_scope.update(scope)
         now = datetime.datetime.now()
-        with patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
+        with patch(
+            "flama.telemetry.data_structures.datetime",
+            MagicMock(datetime=MagicMock(now=MagicMock(return_value=now)), UTC=datetime.UTC),
+        ):
             data = await Endpoint.from_scope(scope=asgi_scope, receive=asgi_receive, send=asgi_send)
 
             assert data.to_dict() == result
@@ -221,7 +227,10 @@ class TestCaseRequest:
         now = datetime.datetime.now()
         result["timestamp"] = now.isoformat()
         result["body"] = {"content": result["body"], "truncated": False}
-        with patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
+        with patch(
+            "flama.telemetry.data_structures.datetime",
+            MagicMock(datetime=MagicMock(now=MagicMock(return_value=now)), UTC=datetime.UTC),
+        ):
             data = await Request.from_scope(scope=asgi_scope, receive=asgi_receive, send=asgi_send)
 
             assert data.to_dict() == result
@@ -285,7 +294,10 @@ class TestCaseResponse:
         now = datetime.datetime.now()
         result["timestamp"] = now.isoformat()
         result["body"] = {"content": result["body"], "truncated": False}
-        with patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
+        with patch(
+            "flama.telemetry.data_structures.datetime",
+            MagicMock(datetime=MagicMock(now=MagicMock(return_value=now)), UTC=datetime.UTC),
+        ):
             data = Response(headers=headers, body=_Body(content=body), status_code=status_code)
 
             assert data.to_dict() == result
@@ -310,7 +322,10 @@ class TestCaseError:
     async def test_from_exception(self, exception, result):
         now = datetime.datetime.now()
         result["timestamp"] = now.isoformat()
-        with patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
+        with patch(
+            "flama.telemetry.data_structures.datetime",
+            MagicMock(datetime=MagicMock(now=MagicMock(return_value=now)), UTC=datetime.UTC),
+        ):
             try:
                 raise exception
             except Exception as e:
@@ -322,7 +337,10 @@ class TestCaseError:
 class TestCaseTelemetryData:
     async def test_from_scope(self, asgi_scope, asgi_receive, asgi_send):
         now = datetime.datetime.now()
-        with patch("datetime.datetime", MagicMock(now=MagicMock(return_value=now))):
+        with patch(
+            "flama.telemetry.data_structures.datetime",
+            MagicMock(datetime=MagicMock(now=MagicMock(return_value=now)), UTC=datetime.UTC),
+        ):
             data = await TelemetryData.from_scope(scope=asgi_scope, receive=asgi_receive, send=asgi_send)
 
             assert data.to_dict() == {

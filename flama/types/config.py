@@ -1,17 +1,15 @@
 import enum
 
-from flama import compat
+from flama import _compat
 
 __all__ = ["Empty", "Unknown", "FileFormat"]
 
 
-class Empty: ...
+Empty = _compat.sentinel("Empty")
+Unknown = _compat.sentinel("Unknown")
 
 
-class Unknown: ...
-
-
-class FileFormat(compat.StrEnum):  # PORT: Replace compat when stop supporting 3.10
+class FileFormat(enum.StrEnum):
     """Config file format."""
 
     ini = enum.auto()

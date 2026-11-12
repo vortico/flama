@@ -5,7 +5,7 @@ import pytest
 
 from flama import http
 from flama.applications import Flama
-from flama.debug.data_structures import App, Environment, Error, ErrorContext, NotFoundContext, Request
+from flama.errors.data_structures import App, Environment, Error, ErrorContext, NotFoundContext, Request
 from flama.routing import Mount, Route
 
 
@@ -44,7 +44,7 @@ class TestCaseError:
         code = frame.pop("code", None)
         assert code
         assert frame == {
-            "filename": "tests/unit/debug/test_data_structures.py",
+            "filename": "tests/unit/errors/test_data_structures.py",
             "function": "test_from_exception",
             "line": 36,
             "vendor": None,
@@ -89,8 +89,8 @@ class TestCaseApp:
                 {
                     "path": "/",
                     "endpoint": "foo_handler",
-                    "module": "debug.test_data_structures",
-                    "file": "tests/unit/debug/test_data_structures.py",
+                    "module": "errors.test_data_structures",
+                    "file": "tests/unit/errors/test_data_structures.py",
                     "line": 66,
                     "name": "foo",
                 },
@@ -103,8 +103,8 @@ class TestCaseApp:
                     "endpoints": [
                         {
                             "path": "/",
-                            "module": "debug.test_data_structures",
-                            "file": "tests/unit/debug/test_data_structures.py",
+                            "module": "errors.test_data_structures",
+                            "file": "tests/unit/errors/test_data_structures.py",
                             "line": 68,
                             "endpoint": "bar_handler",
                             "name": "bar",

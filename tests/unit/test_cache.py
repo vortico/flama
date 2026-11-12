@@ -14,7 +14,8 @@ class TestCaseLRUCache:
 
         assert cache["a"] == 1
         assert "a" in cache
-        assert list(cache) == ["a", "b"]
+        # Reading an item uses it, so it is now the one used most recently.
+        assert list(cache) == ["b", "a"]
         assert len(cache) == 2
         assert cache == {"a": 1, "b": 2}
         assert cache != {"a": 2}
@@ -69,6 +70,27 @@ class TestCaseLRUCache:
             cache[key] = value
 
         assert dict(cache) == held
+
+    def test_eviction_spares_what_was_read(self) -> None:
+        cache = LRUCache[str, int](max_size=2)
+        cache["a"] = 1
+        cache["b"] = 2
+
+        assert cache["a"] == 1
+
+        cache["c"] = 3
+
+        assert dict(cache) == {"a": 1, "c": 3}
+
+    def test_eviction_spares_what_was_written(self) -> None:
+        cache = LRUCache[str, int](max_size=2)
+        cache["a"] = 1
+        cache["b"] = 2
+        cache["a"] = 3
+
+        cache["c"] = 3
+
+        assert dict(cache) == {"a": 3, "c": 3}
 
     def test_reset(self, cache: LRUCache[str, int]) -> None:
         cache["a"] = 1

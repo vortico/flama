@@ -177,7 +177,10 @@ class TestCaseAppClient:
 
 class TestCaseClient:
     def test_init_models(self, app):
-        with patch("flama.client.Flama", return_value=app), patch("importlib.metadata.version", return_value="x.y.z"):
+        with (
+            patch("flama.applications.Flama", return_value=app),
+            patch("importlib.metadata.version", return_value="x.y.z"),
+        ):
             client = Client(models=[("foo", "/foo/", "model_foo.flm"), ("bar", "/bar/", "model_bar.flm")])
 
         assert client.app == app
@@ -218,7 +221,7 @@ class TestCaseClient:
 
     async def test_model_request(self, app):
         with (
-            patch("flama.client.Flama", return_value=app),
+            patch("flama.applications.Flama", return_value=app),
             patch("builtins.super"),
             patch("importlib.metadata.version", return_value="x.y.z"),
         ):
@@ -231,7 +234,7 @@ class TestCaseClient:
 
     async def test_model_request_not_found(self, app):
         with (
-            patch("flama.client.Flama", return_value=app),
+            patch("flama.applications.Flama", return_value=app),
             patch("builtins.super"),
             patch("importlib.metadata.version", return_value="x.y.z"),
         ):

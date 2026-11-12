@@ -4,6 +4,9 @@ from collections import defaultdict
 
 from flama import exceptions, types
 
+if t.TYPE_CHECKING:
+    from flama.injection.components import Component
+
 __all__ = ["Module", "Modules"]
 
 
@@ -12,6 +15,11 @@ class _BaseModule:
     name: str
 
     def __init__(self) -> None: ...
+
+    @property
+    def components(self) -> list["Component"]:
+        """Components this module provides to the application's dependency injection."""
+        return []
 
     def _build(self, app: types.App) -> "_BaseModule":
         """Instantiate the module and inject the app.
@@ -53,6 +61,11 @@ class Modules(dict[str, Module]):
             )
 
         super().__init__({name: mods[0] for name, mods in modules_map.items()})
+
+    @property
+    def components(self) -> list["Component"]:
+        """Components every module provides to the application's dependency injection."""
+        return [component for module in self.values() for component in module.components]
 
     async def on_startup(self) -> None:
         """Trigger ``on_startup`` hooks on all module instances."""

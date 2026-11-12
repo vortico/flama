@@ -1,8 +1,8 @@
-import base64
 import dataclasses
 import logging
 import typing as t
 
+from flama import _compat
 from flama.crypto import exceptions
 
 __all__ = ["JWK", "JWKSet"]
@@ -63,8 +63,7 @@ class JWK:
             raise exceptions.JWKException(f"Missing material for key type '{self.kty}'")
 
         try:
-            # Base64url in a JWK is unpadded, which the decoder does not accept.
-            return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+            return _compat.urlsafe_b64decode(value)
         except ValueError:
             raise exceptions.JWKException("Wrong key material format")
 

@@ -8,7 +8,20 @@ from flama.crypto.jws import JWS
 
 TOKEN = (
     b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.PWRDHe1X53ydEpCCKW8_oDMVveSlvdqg"
-    b"xLhFjLk7BNk="
+    b"xLhFjLk7BNk"
+)
+# The same token as signed before segments were written without padding, which must keep verifying.
+PADDED_TOKEN = TOKEN + b"="
+
+# The HS256 example of RFC 7515 (appendix A.1), whose payload and signature segments both need padding to decode.
+RFC_TOKEN = (
+    b"eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9."
+    b"eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ."
+    b"dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+)
+RFC_KEY = bytes.fromhex(
+    "0323354b2b0fa5bc837e0665777ba68f5ab328e6f054c928a90f84b2d2502ebf"
+    "d3fb5a92d20647ef968ab4c377623d223d2e2172052e4f08c0cd9af567d080a3"
 )
 
 
@@ -57,10 +70,20 @@ class TestCaseJWS:
                 (
                     {"alg": "HS256", "typ": "JWT"},
                     {"data": {"foo": "bar"}, "iat": 0},
-                    b"PWRDHe1X53ydEpCCKW8_oDMVveSlvdqgxLhFjLk7BNk=",
+                    b"PWRDHe1X53ydEpCCKW8_oDMVveSlvdqgxLhFjLk7BNk",
                 ),
                 None,
                 id="ok",
+            ),
+            pytest.param(
+                PADDED_TOKEN,
+                (
+                    {"alg": "HS256", "typ": "JWT"},
+                    {"data": {"foo": "bar"}, "iat": 0},
+                    b"PWRDHe1X53ydEpCCKW8_oDMVveSlvdqgxLhFjLk7BNk=",
+                ),
+                None,
+                id="padded",
             ),
             pytest.param(
                 b"wrong.format",
@@ -96,10 +119,31 @@ class TestCaseJWS:
         with exception:
             assert JWS.decode(token, key) == result
 
+    def test_decode_unpadded_segments(self):
+        assert JWS.decode(RFC_TOKEN, RFC_KEY)[:2] == (
+            {"typ": "JWT", "alg": "HS256"},
+            {"iss": "joe", "exp": 1300819380, "http://example.com/is_root": True},
+        )
+
+    @pytest.mark.parametrize(
+        "header",
+        (
+            pytest.param({"alg": "HS256"}, id="header_needs_no_padding"),
+            pytest.param({"alg": "HS256", "kid": "ab"}, id="header_needs_one_pad"),
+            pytest.param({"alg": "HS256", "kid": "a"}, id="header_needs_two_pads"),
+        ),
+    )
+    def test_encode_without_padding(self, key, header):
+        token = JWS.encode(header, {"iat": 0}, key=key)
+
+        assert b"=" not in token
+        assert JWS.decode(token, key)[0] == header
+
     @pytest.mark.parametrize(
         ["token", "result", "exception"],
         (
             pytest.param(TOKEN, {"alg": "HS256", "typ": "JWT"}, None, id="ok"),
+            pytest.param(RFC_TOKEN, {"typ": "JWT", "alg": "HS256"}, None, id="unpadded"),
             pytest.param(
                 b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCIsICJraWQiOiAib3JnLTEyMyJ9.unchecked.unchecked",
                 {"alg": "HS256", "typ": "JWT", "kid": "org-123"},

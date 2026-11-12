@@ -5,8 +5,6 @@ from http import HTTPStatus
 import marshmallow
 import pydantic
 import pytest
-import typesystem
-import typesystem.fields
 
 from flama import schemas, types
 from flama.http import UploadFile
@@ -26,16 +24,6 @@ class TestCaseUploadValidation:
                 thumbnail=(schemas.fields.File | None, None),
                 name=(str, ...),
                 __module__="pydantic.main",
-            )
-
-        if app.schema.schema_library.name == "typesystem":
-            return typesystem.Schema(
-                title="Upload",
-                fields={
-                    "file": schemas.fields.File(),
-                    "thumbnail": schemas.fields.File(allow_null=True, default=None),
-                    "name": typesystem.fields.String(),
-                },
             )
 
         if app.schema.schema_library.name == "marshmallow":
@@ -93,11 +81,15 @@ class TestCaseUploadValidation:
                 None,
                 {"avatar": "not-a-file"},
                 HTTPStatus.BAD_REQUEST,
-                {"avatar": ["Expected a file upload."]},
+                [{"detail": "Expected a file upload.", "pointer": "#/avatar"}],
                 id="bare_file_wrong_type",
             ),
             pytest.param(
-                None, None, HTTPStatus.BAD_REQUEST, {"avatar": ["Expected a file upload."]}, id="bare_missing"
+                None,
+                None,
+                HTTPStatus.BAD_REQUEST,
+                [{"detail": "Expected a file upload.", "pointer": "#/avatar"}],
+                id="bare_missing",
             ),
         ],
     )
@@ -195,23 +187,13 @@ class TestCaseFileField:
     def test_accepts_an_upload_file(self, app, field):
         upload = UploadFile(filename="f.txt", data=b"x")
 
-        if app.schema.schema_library.name == "typesystem":
-            assert field.validate(upload) is upload
-        else:
-            assert field._deserialize(upload, "file", {}) is upload
+        assert field._deserialize(upload, "file", {}) is upload
 
     def test_rejects_anything_else(self, app, field):
-        if app.schema.schema_library.name == "typesystem":
-            with pytest.raises(typesystem.ValidationError):
-                field.validate("not-a-file")
-        else:
-            with pytest.raises(marshmallow.ValidationError):
-                field._deserialize("not-a-file", "file", {})
+        with pytest.raises(marshmallow.ValidationError):
+            field._deserialize("not-a-file", "file", {})
 
     def test_serialises_the_upload_unchanged(self, app, field):
-        if app.schema.schema_library.name == "typesystem":
-            pytest.skip("Typesystem fields do not expose a serialisation hook")
-
         upload = UploadFile(filename="f.txt", data=b"x")
 
         assert field._serialize(upload, "file", None) is upload

@@ -1,6 +1,6 @@
 import typing as t
 
-from flama import concurrency, types
+from flama import _concurrency, types
 from flama.http.requests.http import Request
 from flama.http.responses.plain_text import PlainTextResponse
 from flama.middleware._base import Middleware
@@ -26,7 +26,7 @@ class BaseHTTPMiddleware(Middleware):
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if scope["type"] != "http":
-            await concurrency.run(self.app, scope, receive, send)
+            await _concurrency.run(self.app, scope, receive, send)
             return
 
         request = Request(scope, receive)
@@ -59,7 +59,7 @@ class BaseHTTPMiddleware(Middleware):
                 await send(message)
 
         try:
-            await concurrency.run(self.app, scope, receive, send_wrapper)
+            await _concurrency.run(self.app, scope, receive, send_wrapper)
         except Exception as exc:
             error_response = await self.error(request, exc)
             if error_response is not None and not response_started:

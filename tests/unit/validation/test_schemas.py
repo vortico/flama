@@ -5,13 +5,11 @@ import marshmallow
 import marshmallow.validate
 import pydantic
 import pytest
-import typesystem
-import typesystem.fields
 
 from flama import types
 from tests._utils import assert_recursive_contains
 
-utc = datetime.timezone.utc
+utc = datetime.UTC
 
 
 class TestCaseSchemaValidation:
@@ -23,15 +21,6 @@ class TestCaseSchemaValidation:
                 name=(str, ...),
                 rating=(int | None, None),
                 created=(datetime.datetime | None, None),
-            )
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(
-                title="Product",
-                fields={
-                    "name": typesystem.fields.String(),
-                    "rating": typesystem.fields.Integer(allow_null=True),
-                    "created": typesystem.fields.DateTime(allow_null=True),
-                },
             )
         elif app.schema.schema_library.name == "marshmallow":
             schema = type(
@@ -52,10 +41,6 @@ class TestCaseSchemaValidation:
     def reviewed_product_schema(self, app, product_schema):
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("ReviewedProduct", reviewer=(str, ...), __base__=product_schema)
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(
-                title="ReviewedProduct", fields={**product_schema.fields, **{"reviewer": typesystem.fields.String()}}
-            )
         elif app.schema.schema_library.name == "marshmallow":
             schema = type("ReviewedProduct", (product_schema,), {"reviewer": marshmallow.fields.String()})
         else:
@@ -81,13 +66,6 @@ class TestCaseSchemaValidation:
                 longitude=(float, ...),
                 __validators__={"latitude": latitude_validator, "longitude": longitude_validator},
             )
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(
-                fields={
-                    "latitude": typesystem.fields.Number(minimum=-90, maximum=90),
-                    "longitude": typesystem.fields.Number(minimum=-180, maximum=180),
-                }
-            )
         elif app.schema.schema_library.name == "marshmallow":
             schema = type(
                 "Location",
@@ -105,13 +83,6 @@ class TestCaseSchemaValidation:
     def place_schema(self, app, location_schema):
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("Place", location=(location_schema, ...), name=(str, ...))
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(
-                fields={
-                    "location": typesystem.Reference("Location", typesystem.Definitions({"Location": location_schema})),
-                    "name": typesystem.String(),
-                }
-            )
         elif app.schema.schema_library.name == "marshmallow":
             schema = type(
                 "Place",
@@ -157,6 +128,14 @@ class TestCaseSchemaValidation:
         @app.route("/serialization-error")
         def serialization_error() -> t.Annotated[types.Schema, types.SchemaMetadata(product_schema)]:
             return {"rating": "foo", "created": "bar"}
+
+        @app.route("/alias-product", methods=["POST"])
+        def alias_product(product: types.Schema[product_schema]) -> types.Output[product_schema]:
+            return product
+
+        @app.route("/alias-many-products", methods=["POST"])
+        def alias_many_products(products: types.SchemaList[product_schema]) -> types.OutputList[product_schema]:
+            return products
 
     @pytest.mark.parametrize(
         ["path", "method", "json_data", "expected_output", "status_code"],
@@ -252,11 +231,33 @@ class TestCaseSchemaValidation:
                 500,
                 id="serialization_error",
             ),
+            pytest.param(
+                "/alias-product",
+                "post",
+                {"name": "foo", "rating": 0, "created": "2018-01-01T00:00:00+00:00"},
+                {"name": "foo", "rating": 0, "created": "2018-01-01T00:00:00+00:00"},
+                200,
+                id="alias_schema",
+            ),
+            pytest.param(
+                "/alias-product",
+                "post",
+                {"rating": "foo"},
+                {"error": "ValidationError", "status_code": 400},
+                400,
+                id="alias_schema_invalid",
+            ),
+            pytest.param(
+                "/alias-many-products",
+                "post",
+                [{"name": "foo", "rating": 0}, {"name": "bar", "rating": 1}],
+                [{"name": "foo", "rating": 0}, {"name": "bar", "rating": 1}],
+                200,
+                id="alias_array_schema",
+            ),
         ],
     )
     async def test_schemas(self, client, path, method, json_data, expected_output, status_code):
-        if client.app.schema.schema_library.name == "typesystem" and path == "/partial-product":
-            pytest.skip("Typesystem does not support partial validation")
 
         response = await client.request(method, path, json=json_data)
         assert response.status_code == status_code, response.json()

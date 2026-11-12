@@ -1,4 +1,4 @@
-from flama import concurrency, types
+from flama import _concurrency, types
 from flama.http.responses.redirect import RedirectResponse
 from flama.middleware._base import Middleware
 from flama.url import URL
@@ -23,4 +23,4 @@ class HTTPSRedirectMiddleware(Middleware):
 
             await response(scope, receive, send)
         else:
-            await concurrency.run(self.app, scope, receive, send)
+            await _concurrency.run(self.app, scope, receive, send)

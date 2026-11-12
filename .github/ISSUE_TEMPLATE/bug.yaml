@@ -30,7 +30,6 @@ body:
       options:
         - Pydantic
         - Marshmallow
-        - Typesystem
     validations:
       required: false
   - type: dropdown

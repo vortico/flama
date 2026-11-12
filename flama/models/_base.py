@@ -5,7 +5,7 @@ import time
 import typing as t
 import uuid
 
-from flama import concurrency, exceptions, types
+from flama import _concurrency, exceptions, types
 from flama.models.engine.backend import Backend
 from flama.models.engine.backend.llm import LLMBackend
 from flama.models.engine.backend.ml import MLBackend
@@ -196,7 +196,7 @@ class BaseModel(abc.ABC, t.Generic[B]):
         event loop (e.g. decoder detection on :class:`LLMModel`). Called once per model from the
         application's lifespan startup phase.
         """
-        await concurrency.run(self.load)
+        await _concurrency.run(self.load)
         logger.info("Model ready (name: %s, id: %s)", self.name, self.meta.id)
 
 
@@ -214,12 +214,12 @@ class MLModel(BaseModel[MLBackend]):
         """Run a synchronous prediction against the backend.
 
         Engine errors propagate as plain Python exceptions; HTTP error mapping happens at the
-        resource boundary. :class:`~flama.exceptions.FrameworkNotInstalled` is propagated so
+        resource boundary. :class:`~flama.exceptions.DependencyNotInstalled` is propagated so
         callers see missing-dependency errors directly.
 
         :param x: Batch of input feature vectors.
         :return: Backend prediction.
-        :raises FrameworkNotInstalled: If the underlying framework is not installed.
+        :raises DependencyNotInstalled: If the underlying framework is not installed.
         """
         return self.backend.predict(x)
 
@@ -230,7 +230,7 @@ class MLModel(BaseModel[MLBackend]):
 
         Accepts either a synchronous or asynchronous iterable; each item is forwarded to
         :meth:`MLBackend.predict` (wrapped in a one-element batch) inside a thread to avoid
-        blocking the event loop. :class:`~flama.exceptions.FrameworkNotInstalled` is propagated
+        blocking the event loop. :class:`~flama.exceptions.DependencyNotInstalled` is propagated
         so callers see missing-dependency errors; any other exception terminates the stream
         cleanly, since the HTTP response has already started by the time predictions are being
         produced.
@@ -239,10 +239,10 @@ class MLModel(BaseModel[MLBackend]):
             type.
         :return: Async iterator of predictions.
         """
-        async for item in concurrency.iterate(x):
+        async for item in _concurrency.iterate(x):
             try:
-                yield await concurrency.run(self.backend.predict, [item])
-            except exceptions.FrameworkNotInstalled:
+                yield await _concurrency.run(self.backend.predict, [item])
+            except exceptions.DependencyNotInstalled:
                 raise
             except Exception:
                 return
@@ -339,7 +339,7 @@ class LLMModel(BaseModel[LLMBackend]):
         picked before serving. Any failure during detection is swallowed by the engine and
         downgraded to passthrough — it will never block startup.
         """
-        await concurrency.run(self.load)
+        await _concurrency.run(self.load)
 
         logger.info("Decoder detection starting (name: %s, id: %s)", self.name, self.meta.id)
         started = time.monotonic()

@@ -2,21 +2,21 @@ import string
 import typing as t
 import uuid
 
-from flama import compat, types
+from flama import _compat, types
 from flama.models.transport.output.llm.event import Event, StartEvent, StopEvent, TextEvent, ToolEvent
 from flama.models.wire.dialect._base import Assembler
 
 __all__ = ["AnthropicAssembleKwargs", "AnthropicAssembler"]
 
 
-class AnthropicAssembleKwargs(t.TypedDict, total=False):
+class AnthropicAssembleKwargs(_compat.TypedDict, total=False, closed=True):
     """Per-stream kwargs accepted by :class:`AnthropicAssembler.envelope`.
 
     ``model`` is required; ``generation_id`` carries a sensible default (a fresh UUID is allocated when
     omitted).
     """
 
-    model: compat.Required[str]
+    model: t.Required[str]
     generation_id: uuid.UUID | None
 
 
@@ -49,7 +49,7 @@ class AnthropicAssembler(Assembler):
         *,
         start: StartEvent,
         stop: StopEvent,
-        **kwargs: compat.Unpack[AnthropicAssembleKwargs],
+        **kwargs: t.Unpack[AnthropicAssembleKwargs],
     ) -> dict[str, t.Any]:
         model = kwargs["model"]
         generation_id = kwargs.get("generation_id")

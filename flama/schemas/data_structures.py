@@ -4,18 +4,19 @@ import inspect
 import typing as t
 from types import UnionType
 
-from flama import compat, schemas, types
+from flama import _compat, schemas, types
 from flama.http.data_structures import UploadFile
 from flama.http.responses.response import Response, StreamingResponse
 from flama.injection.resolver import Parameter as InjectionParameter
+from flama.types.schemas import SchemaPayload
 
 __all__ = ["Field", "Schema", "Parameter", "Parameters"]
 
 
-UNKNOWN = t.TypeVar("UNKNOWN")
+UNKNOWN = _compat.sentinel("UNKNOWN")
 
 
-class ParameterLocation(compat.StrEnum):  # PORT: Replace compat when stop supporting 3.10
+class ParameterLocation(enum.StrEnum):
     query = enum.auto()
     path = enum.auto()
     body = enum.auto()
@@ -25,7 +26,7 @@ class ParameterLocation(compat.StrEnum):  # PORT: Replace compat when stop suppo
 @dataclasses.dataclass(frozen=True)
 class Field:
     name: str
-    type: type
+    type: _compat.TypeForm[t.Any]
     nullable: bool = dataclasses.field(init=False)
     field: t.Any = dataclasses.field(hash=False, init=False, compare=False)
     multiple: bool | None = dataclasses.field(hash=False, compare=False, default=None)
@@ -34,12 +35,12 @@ class Field:
 
     def __post_init__(self) -> None:
         annotation = types.Annotation(self.type)
-        field_type = annotation.element(list)
+        field_type = annotation.element
 
         object.__setattr__(self, "nullable", annotation.optional or self.default is None)
 
         if not Schema.is_schema(field_type) and self.multiple is None:
-            object.__setattr__(self, "multiple", annotation.is_multiple(list))
+            object.__setattr__(self, "multiple", annotation.is_multiple)
 
         object.__setattr__(
             self,
@@ -58,7 +59,7 @@ class Field:
     def from_parameter(cls, parameter: InjectionParameter) -> "Field":
         return cls(
             parameter.name,
-            parameter.annotation,
+            parameter.annotation if parameter.annotation is not InjectionParameter.empty else str,
             required=parameter.default is InjectionParameter.empty,
             default=parameter.default
             if parameter.default is not InjectionParameter.empty
@@ -94,7 +95,7 @@ class Field:
         :param type_: Annotation to check, which a union or a subscription makes something other than a type.
         :return: True if a parameter of this type can be read from a request.
         """
-        carried = types.Annotation(type_).element(list)
+        carried = types.Annotation(type_).element
 
         # Anything still generic once the list is unwrapped names no single value, so nothing can carry it.
         if t.get_origin(carried) is not None:
@@ -112,11 +113,11 @@ class Schema:
     schema: t.Any = dataclasses.field(hash=False, compare=False)
 
     @classmethod
-    def from_type(cls, type_: type | None) -> "Schema":
-        if types.is_schema(type_):
-            schema = types.get_schema_metadata(type_).schema
+    def from_type(cls, type_: _compat.TypeForm[t.Any] | SchemaPayload | None) -> "Schema":
+        if (metadata := types.get_schema_metadata(type_)) is not None:
+            schema = metadata.schema
 
-            if types.is_schema_partial(type_):
+            if metadata.partial:
                 schema = schemas.adapter.build_schema(
                     name=schemas.adapter.name(schema, prefix="Partial").rsplit(".", 1)[1], schema=schema, partial=True
                 )
@@ -125,7 +126,8 @@ class Schema:
         else:
             schema = type_
 
-        if not schemas.adapter.is_schema(schema):
+        # Without any schema library installed nothing can be a schema, so there is no library to select.
+        if not schemas._module.installed or not schemas.adapter.is_schema(schema):
             raise ValueError("Wrong schema type")
 
         return cls(schema=schema)
@@ -195,7 +197,7 @@ class Schema:
         return schemas.adapter.schema_fields(self.unique_schema)
 
     def nested_schemas(self, schema: t.Any = UNKNOWN) -> list[t.Any]:
-        if schema == UNKNOWN:
+        if schema is UNKNOWN:
             return self.nested_schemas(self)
 
         if schemas.adapter.is_schema(schema):
@@ -264,7 +266,8 @@ class Parameter:
     default: t.Any = InjectionParameter.empty
     nullable: bool = dataclasses.field(init=False)
     multiple: bool = dataclasses.field(init=False)
-    # Exactly one of these is set: a parameter is described either by a schema or by a single field.
+    # At most one of these is set: a parameter is described by a schema or by a single field, or not at all when
+    # it is a response that no schema describes.
     schema: "Schema | None" = dataclasses.field(hash=False, init=False, compare=False)
     field: "Field | None" = dataclasses.field(hash=False, init=False, compare=False)
     response: "type[Response] | None" = dataclasses.field(hash=False, init=False, compare=False)
@@ -276,6 +279,17 @@ class Parameter:
 
         origin = t.get_origin(self.type) or self.type
         response = origin if inspect.isclass(origin) and issubclass(origin, Response) else None
+        # An output of any value, or a response of one of several kinds, carries a payload that is not described.
+        undescribed = self.location == ParameterLocation.response and (
+            self.type is t.Any
+            or (
+                t.get_origin(self.type) in (t.Union, UnionType)
+                and all(
+                    inspect.isclass(x := t.get_origin(m) or m) and issubclass(x, Response)
+                    for m in t.get_args(self.type)
+                )
+            )
+        )
 
         if response is not None:
             # A response class carries its own media type, and a type argument, when given, the schema
@@ -291,17 +305,29 @@ class Parameter:
                 schema = Schema.from_type(self.type)
                 field = None
             except ValueError:
-                if self.type in (None, InjectionParameter.empty):
+                if self.type in (None, InjectionParameter.empty) or undescribed:
                     schema = Schema(schema=None)
                     field = None
                 else:
                     schema = None
-                    field = Field(self.name, self.type, required=self.required, default=self.default)
+                    # A route returns nothing a schema does not describe, so a response is never a single field.
+                    field = (
+                        Field(self.name, self.type, required=self.required, default=self.default)
+                        if self.location != ParameterLocation.response
+                        else None
+                    )
+
+        # The payload is a response's type argument, and its schema metadata says nothing about how many there are.
+        payload = types.Annotation(
+            t.get_args(self.type)[0] if response is not None and t.get_args(self.type) else self.type
+        )
+        if t.get_origin(payload.type) is t.Annotated:
+            payload = types.Annotation(t.get_args(payload.type)[0])
 
         object.__setattr__(self, "schema", schema)
         object.__setattr__(self, "field", field)
         object.__setattr__(self, "response", response)
-        object.__setattr__(self, "multiple", annotation.is_multiple(list, tuple, set, frozenset))
+        object.__setattr__(self, "multiple", payload.is_multiple)
 
     @property
     def media_type(self) -> str | None:

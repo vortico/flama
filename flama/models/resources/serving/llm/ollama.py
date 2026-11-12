@@ -1,10 +1,10 @@
 import importlib.metadata
 import logging
 import typing as t
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from flama import concurrency, schemas, types
-from flama.exceptions import FrameworkNotInstalled, HTTPException
+from flama import _concurrency, schemas, types
+from flama.exceptions import DependencyNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.ndjson import NDJSONResponse
 from flama.models.exceptions import LLMGenerationError, LLMUnsupportedCapability, LLMUnsupportedContentPart
@@ -49,7 +49,7 @@ class ChatMixin:
             )
         except (ValueError, LLMUnsupportedContentPart, LLMUnsupportedCapability) as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
-        except FrameworkNotInstalled:
+        except DependencyNotInstalled:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
@@ -76,7 +76,7 @@ class ChatMixin:
         Mirrors :meth:`~flama.models.resources.serving.llm.openai.ChatCompletionsMixin._chat_completions_stream`:
         allocates an ephemeral buffer (``persist=False``) under the resource's
         :class:`~flama.models.streams.ModelStreams`, drives :meth:`StreamBuffer.load` concurrently with the body
-        iteration via :func:`flama.concurrency.alongside`, and projects the buffer through
+        iteration via :func:`flama._concurrency.alongside`, and projects the buffer through
         :meth:`OllamaDialect.render` (``api="chat"``). The engine's error pump synthesises a terminal error
         frame if generation fails mid-stream.
         """
@@ -95,7 +95,7 @@ class ChatMixin:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
         return NDJSONResponse(
-            concurrency.alongside(
+            _concurrency.alongside(
                 OllamaDialect.render(buffer, api="chat", model=name),
                 lambda: buffer.load(block_stream),
             )
@@ -178,7 +178,7 @@ class GenerateMixin:
             blocks = await model.query(prompt, transport="raw", **params)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
-        except FrameworkNotInstalled:
+        except DependencyNotInstalled:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
@@ -206,7 +206,7 @@ class GenerateMixin:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
         return NDJSONResponse(
-            concurrency.alongside(
+            _concurrency.alongside(
                 OllamaDialect.render(buffer, api="generate", model=name),
                 lambda: buffer.load(block_stream),
             )
@@ -291,7 +291,7 @@ class TagsMixin:
                     {
                         "name": name,
                         "model": name,
-                        "modified_at": datetime.now(timezone.utc).isoformat(),
+                        "modified_at": datetime.now(UTC).isoformat(),
                         "size": 0,
                         "digest": "",
                         "details": {"family": "flama", "format": "flama"},

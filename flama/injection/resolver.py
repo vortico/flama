@@ -3,18 +3,18 @@ import dataclasses
 import inspect
 import typing as t
 
+from flama import _compat
 from flama.cache import LRUCache
 from flama.injection import exceptions
-from flama.injection.context import C
-from flama.injection.types import BUILTIN_TYPES
+from flama.injection.types import BUILTIN_TYPES, InjectionContext
 
 if t.TYPE_CHECKING:
     from flama.injection.components import Component, Components
 
-__all__ = ["Empty", "Return", "Parameter", "Resolver"]
+__all__ = ["CacheKey", "Empty", "Return", "Parameter", "Resolver"]
 
 
-class Empty: ...
+Empty = _compat.sentinel("Empty")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -24,10 +24,8 @@ class Parameter:
     empty = Empty
 
     name: str
-    annotation: type = Empty
-    # Kept out of the hash so that a mutable default, such as an empty list, does not make the whole
-    # parameter unhashable when it is used as a cache key. Equality still accounts for it, so two
-    # parameters differing only by default share a bucket while remaining distinct keys.
+    annotation: _compat.TypeForm[t.Any] | Empty = Empty
+    # Out of the hash so a mutable default cannot make the parameter unhashable; equality still compares it.
     default: t.Any = dataclasses.field(default=Empty, hash=False)
 
     @classmethod
@@ -52,15 +50,38 @@ class Return(Parameter):
 
 
 @dataclasses.dataclass(frozen=True)
-class ResolutionNode(abc.ABC, t.Generic[C]):
+class CacheKey:
+    """The key a value resolved by a component is cached under for a context.
+
+    The parameter is left out for a component that never receives it, since its value cannot depend on it.
+    """
+
+    component: "Component"
+    parameter: Parameter | None
+    context: t.Hashable
+
+    @classmethod
+    def build(cls, component: "Component", parameter: Parameter, context: t.Hashable) -> "CacheKey":
+        """Build the key a component's value for a parameter is cached under for a context.
+
+        :param component: The component resolving the parameter.
+        :param parameter: The parameter resolved.
+        :param context: The context it is resolved for.
+        :return: Cache key.
+        """
+        return cls(component, parameter if component.use_parameter else None, context)
+
+
+@dataclasses.dataclass(frozen=True)
+class ResolutionNode(abc.ABC, t.Generic[InjectionContext]):
     """A single node in the dependencies tree."""
 
     name: str
     parameter: Parameter
-    nodes: list["ResolutionNode[C]"]
+    nodes: list["ResolutionNode[InjectionContext]"]
 
     @abc.abstractmethod
-    async def value(self, context: C, *, cache: LRUCache | None = None) -> t.Any: ...
+    async def value(self, context: InjectionContext, *, cache: LRUCache | None = None) -> t.Any: ...
 
     def components(self) -> list[tuple[str, "Component"]]:
         return []
@@ -73,20 +94,22 @@ class ResolutionNode(abc.ABC, t.Generic[C]):
 
 
 @dataclasses.dataclass(frozen=True)
-class ComponentNode(ResolutionNode[C]):
+class ComponentNode(ResolutionNode[InjectionContext]):
     """A node that represents a parameter that is resolved by component."""
 
     component: "Component"
 
-    async def value(self, context: C, *, cache: LRUCache | None = None) -> t.Any:
+    async def value(self, context: InjectionContext, *, cache: LRUCache | None = None) -> t.Any:
+        key = CacheKey.build(self.component, self.parameter, context)
+
         try:
-            value = (cache or {})[self.parameter, context]
+            value = (cache or {})[key]
         except KeyError:
             kwargs = {node.name: await node.value(context, cache=cache) for node in self.nodes}
             value = await self.component(**kwargs)
 
         if self.component.cacheable and cache is not None:
-            cache[self.parameter, context] = value
+            cache[key] = value
 
         return value
 
@@ -101,10 +124,10 @@ class ComponentNode(ResolutionNode[C]):
 
 
 @dataclasses.dataclass(frozen=True)
-class ContextNode(ResolutionNode[C]):
+class ContextNode(ResolutionNode[InjectionContext]):
     """A node that represents a parameter that is resolved by context."""
 
-    async def value(self, context: C, *, cache: LRUCache | None = None) -> t.Any:
+    async def value(self, context: InjectionContext, *, cache: LRUCache | None = None) -> t.Any:
         return context[self.parameter.name]
 
     def context(self) -> list[tuple[str, Parameter]]:
@@ -112,10 +135,10 @@ class ContextNode(ResolutionNode[C]):
 
 
 @dataclasses.dataclass(frozen=True)
-class ParameterNode(ResolutionNode[C]):
+class ParameterNode(ResolutionNode[InjectionContext]):
     """A node that represents a parameter that is resolved by another parameter."""
 
-    async def value(self, context: C, *, cache: LRUCache | None = None) -> t.Any:
+    async def value(self, context: InjectionContext, *, cache: LRUCache | None = None) -> t.Any:
         return self.parameter
 
     def parameters(self) -> list[Parameter]:
@@ -123,7 +146,7 @@ class ParameterNode(ResolutionNode[C]):
 
 
 @dataclasses.dataclass(frozen=True)
-class Step(abc.ABC, t.Generic[C]):
+class Step(abc.ABC, t.Generic[InjectionContext]):
     """A single pre-compiled step in a flat execution plan."""
 
     @staticmethod
@@ -143,7 +166,7 @@ class Step(abc.ABC, t.Generic[C]):
     def _build(node: ResolutionNode, steps: list["Step"]) -> list["Step"]: ...
 
     @abc.abstractmethod
-    async def execute(self, results: list, context: C, cache: LRUCache | None) -> t.Any: ...
+    async def execute(self, results: list, context: InjectionContext, cache: LRUCache | None) -> t.Any: ...
 
 
 @dataclasses.dataclass(frozen=True)
@@ -158,7 +181,7 @@ class ContextStep(Step):
         steps.append(ContextStep(context_key=node.parameter.name))
         return steps
 
-    async def execute(self, results: list, context: C, cache: LRUCache | None) -> t.Any:
+    async def execute(self, results: list, context: InjectionContext, cache: LRUCache | None) -> t.Any:
         return context[self.context_key]
 
 
@@ -174,7 +197,7 @@ class ParameterStep(Step):
         steps.append(ParameterStep(parameter=node.parameter))
         return steps
 
-    async def execute(self, results: list, context: C, cache: LRUCache | None) -> t.Any:
+    async def execute(self, results: list, context: InjectionContext, cache: LRUCache | None) -> t.Any:
         return self.parameter
 
 
@@ -196,26 +219,28 @@ class ComponentStep(Step):
         steps.append(ComponentStep(component=node.component, parameter=node.parameter, deps=tuple(deps)))
         return steps
 
-    async def execute(self, results: list, context: C, cache: LRUCache | None) -> t.Any:
+    async def execute(self, results: list, context: InjectionContext, cache: LRUCache | None) -> t.Any:
+        key = CacheKey.build(self.component, self.parameter, context)
+
         if self.component.cacheable and cache is not None:
             try:
-                return cache[(self.parameter, context)]
+                return cache[key]
             except KeyError:
                 pass
 
         value = await self.component(**{name: results[idx] for name, idx in self.deps})
 
         if self.component.cacheable and cache is not None:
-            cache[(self.parameter, context)] = value
+            cache[key] = value
 
         return value
 
 
 @dataclasses.dataclass(frozen=True)
-class ResolutionTree(t.Generic[C]):
+class ResolutionTree(t.Generic[InjectionContext]):
     """Dependencies tree."""
 
-    root: ResolutionNode[C]
+    root: ResolutionNode[InjectionContext]
     context: list[tuple[str, Parameter]] = dataclasses.field(init=False)
     parameters: list[Parameter] = dataclasses.field(init=False)
     components: list[tuple[str, "Component"]] = dataclasses.field(init=False)
@@ -228,20 +253,33 @@ class ResolutionTree(t.Generic[C]):
         object.__setattr__(self, "_steps", Step.build(self.root, []))
 
     @classmethod
-    def build(cls, parameter: Parameter, context_cls: type[C], components: "Components") -> "ResolutionTree[C]":
+    def build(
+        cls, parameter: Parameter, context_cls: type[InjectionContext], components: "Components"
+    ) -> "ResolutionTree[InjectionContext]":
         return cls(root=cls._build_node(parameter, context_cls, components))
 
     @classmethod
     def _build_node(
         cls,
         parameter: Parameter,
-        context_cls: type[C],
+        context_cls: type[InjectionContext],
         components: "Components",
         parent: Parameter | None = None,
-    ) -> ResolutionNode[C]:
+        path: tuple[tuple["Component", Parameter], ...] = (),
+    ) -> ResolutionNode[InjectionContext]:
+        """Build the node resolving a parameter, along with the nodes of everything it depends on.
+
+        :param parameter: Parameter to resolve.
+        :param context_cls: Context class the values are read from.
+        :param components: Components the parameter may be resolved by.
+        :param parent: Parameter whose component depends on this one.
+        :param path: Components depended on to reach this parameter, with the parameter each resolves.
+        :return: Resolution node.
+        :raises ComponentError: If a component depends on itself, directly or through other components.
+        """
         assert parameter.name not in ("self", "cls")
 
-        context_name = context_cls.lookup(parameter.annotation)
+        context_name = context_cls.lookup(parameter.annotation) if parameter.annotation is not Empty else None
 
         if context_name is not None:
             return ContextNode(parameter.name, Parameter(context_name, parameter.annotation), nodes=[])
@@ -252,21 +290,23 @@ class ResolutionTree(t.Generic[C]):
 
             return ParameterNode(parameter.name, parent, nodes=[])
 
-        # Look for a component that can handles the parameter.
         try:
             component = components.find_handler(parameter)
         except exceptions.ComponentNotFound:
-            # There is no component that can handles this parameter, and it is a builtin type, so it'll be expected as
-            # part of the building context values.
+            # A builtin type no component handles is expected among the context values.
             if parameter.annotation in BUILTIN_TYPES:
                 return ContextNode(parameter.name, parameter, nodes=[])
 
             raise
         else:
-            # There is a component that can handles the parameter
+            if component in (on_path := [x for x, _ in path]):
+                cycle = (*(p for _, p in path[on_path.index(component) :]), parameter)
+                names = " -> ".join(getattr(p.annotation, "__name__", repr(p.annotation)) for p in cycle)
+                raise exceptions.ComponentError(f"Components form a cycle: {names}")
+
             try:
                 nodes = [
-                    cls._build_node(p, context_cls, components, parent=parameter)
+                    cls._build_node(p, context_cls, components, parent=parameter, path=(*path, (component, parameter)))
                     for p in component.signature().values()
                     if p.name not in ("self", "cls")
                 ]
@@ -277,7 +317,7 @@ class ResolutionTree(t.Generic[C]):
 
                 raise  # pragma: no cover
 
-    async def value(self, context: C, *, cache: LRUCache | None = None) -> t.Any:
+    async def value(self, context: InjectionContext, *, cache: LRUCache | None = None) -> t.Any:
         results = []
         for step in self._steps:
             results.append(await step.execute(results, context, cache))
@@ -291,10 +331,10 @@ class ResolutionCache(LRUCache[t.Hashable, ResolutionTree]):
         return isinstance(value.root, ComponentNode) and not value.root.component.use_parameter
 
 
-class Resolver(t.Generic[C]):
-    """Provides a way to inspect a parameter and build it dependencies tree."""
+class Resolver(t.Generic[InjectionContext]):
+    """Provides a way to inspect a parameter and build its dependencies tree."""
 
-    def __init__(self, context_cls: type[C], components: "Components"):
+    def __init__(self, context_cls: type[InjectionContext], components: "Components"):
         """Initialize a new resolver.
 
         The context class is used to determine if a parameter is a context value or not. The components registry will
@@ -307,7 +347,7 @@ class Resolver(t.Generic[C]):
         self.components = components
         self._cache: ResolutionCache = ResolutionCache()
 
-    def resolve(self, parameter: Parameter) -> "ResolutionTree[C]":
+    def resolve(self, parameter: Parameter) -> "ResolutionTree[InjectionContext]":
         """Build a resolution tree for the given parameter.
 
         :param parameter: The parameter to be resolved.

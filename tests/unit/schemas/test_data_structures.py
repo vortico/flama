@@ -10,6 +10,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from flama import types
+from flama.http import JSONResponse, ServerSentEventResponse
 from flama.injection import Parameter as InjectionParameter
 from flama.schemas.data_structures import Field, Parameter, ParameterLocation, Schema
 from tests._utils import assert_recursive_contains
@@ -110,6 +111,11 @@ class TestCaseField:
             pytest.param(types.PathParam, True, id="path_param"),
             pytest.param(int | None, True, id="nullable"),
             pytest.param(list[int], True, id="list"),
+            pytest.param(set[int], True, id="set"),
+            pytest.param(frozenset[str], True, id="frozenset"),
+            pytest.param(tuple[int, ...], True, id="tuple_of_any_length"),
+            # Each item of a fixed-length tuple has its own type, which a repeated query value cannot carry.
+            pytest.param(tuple[int, str], False, id="tuple_of_fixed_length"),
             # An enum is a string constrained to its values, so it qualifies wherever a primitive does.
             pytest.param(_Colour, True, id="enum"),
             pytest.param(_Colour | None, True, id="nullable_enum"),
@@ -160,15 +166,13 @@ class TestCaseSchema:
         elif request.param == "list_of_bare_schema":
             return list[foo_schema.schema]
         elif request.param == "schema_partial":
-            if app.schema.schema_library.name in ("typesystem",):
-                pytest.skip("Library does not support optional partial schemas")
             return t.Annotated[types.Schema, types.SchemaMetadata(foo_schema.schema, partial=True)]
         elif request.param == "schema_nested":
             return t.Annotated[types.Schema, types.SchemaMetadata(bar_schema.schema)]
         elif request.param == "schema_nested_multiple":
             return t.Annotated[types.Schema, types.SchemaMetadata(bar_multiple_schema.schema)]
         elif request.param == "schema_nested_optional":
-            if app.schema.schema_library.name in ("typesystem", "marshmallow"):
+            if app.schema.schema_library.name == "marshmallow":
                 pytest.skip("Library does not support optional nested schemas")
             return t.Annotated[types.Schema, types.SchemaMetadata(bar_optional_schema.schema)]
         elif request.param == "schema_nested_list":
@@ -452,3 +456,54 @@ class TestCaseParameter:
             )
 
         assert Parameter.build(type_, parameter) == result
+
+    @pytest.mark.parametrize(
+        ["location", "annotation", "schema", "field"],
+        (
+            pytest.param(
+                ParameterLocation.response, lambda s: types.Schema[s], lambda s: Schema(schema=s), False, id="schema"
+            ),
+            pytest.param(
+                ParameterLocation.response, lambda s: JSONResponse, lambda s: Schema(schema=None), False, id="response"
+            ),
+            pytest.param(ParameterLocation.response, lambda s: None, lambda s: Schema(schema=None), False, id="none"),
+            pytest.param(ParameterLocation.response, lambda s: t.Any, lambda s: Schema(schema=None), False, id="any"),
+            pytest.param(
+                ParameterLocation.response,
+                lambda s: JSONResponse | ServerSentEventResponse,
+                lambda s: Schema(schema=None),
+                False,
+                id="union_of_responses",
+            ),
+            # A route returns nothing a schema does not describe, so such a response is described by neither.
+            pytest.param(ParameterLocation.response, lambda s: int, lambda s: None, False, id="primitive"),
+            pytest.param(
+                ParameterLocation.response, lambda s: JSONResponse | None, lambda s: None, False, id="optional_response"
+            ),
+            pytest.param(ParameterLocation.query, lambda s: int, lambda s: None, True, id="query_primitive"),
+        ),
+    )
+    def test_init(self, foo_schema, location, annotation, schema, field):
+        parameter = Parameter(name="foo", location=location, type=annotation(foo_schema.schema))
+
+        assert parameter.schema == schema(foo_schema.schema)
+        assert (parameter.field is not None) is field
+
+    @pytest.mark.parametrize(
+        ["annotation", "multiple"],
+        (
+            pytest.param(lambda s: t.Annotated[types.Schema, types.SchemaMetadata(s)], False, id="annotated"),
+            pytest.param(lambda s: t.Annotated[types.SchemaList, types.SchemaMetadata(s)], True, id="annotated_list"),
+            pytest.param(lambda s: JSONResponse[s], False, id="response"),
+            pytest.param(lambda s: JSONResponse[list[s]], True, id="response_list"),
+            pytest.param(lambda s: types.Schema[s], False, id="schema_alias"),
+            pytest.param(lambda s: types.SchemaList[s], True, id="schema_list_alias"),
+            pytest.param(lambda s: types.Output[s], False, id="output_alias"),
+            pytest.param(lambda s: types.OutputList[s], True, id="output_list_alias"),
+            pytest.param(lambda s: t.Annotated[types.OutputList, s], True, id="annotated_output_list"),
+        ),
+    )
+    def test_multiple(self, foo_schema, annotation, multiple):
+        parameter = Parameter(name="foo", location=ParameterLocation.response, type=annotation(foo_schema.schema))
+
+        assert parameter.multiple is multiple

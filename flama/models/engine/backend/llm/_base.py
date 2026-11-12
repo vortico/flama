@@ -64,7 +64,7 @@ class LLMBackend(Backend):
 
         :return: First registered backend class whose :meth:`runnable` reports its framework
             dependencies as importable on the host.
-        :raises FrameworkNotInstalled: When no probed runtime is importable on this system.
+        :raises DependencyNotInstalled: When no probed runtime is importable on this system.
         """
         if cls._REGISTRY is None:
             from flama.models.engine.backend.llm.mlx import MLXBackend
@@ -77,7 +77,7 @@ class LLMBackend(Backend):
         for backend_cls in cls._REGISTRY.values():
             if backend_cls.runnable():
                 return backend_cls
-        raise exceptions.FrameworkNotInstalled("vllm or mlx-lm")
+        raise exceptions.DependencyNotInstalled("vllm", "mlx_lm")
 
     @classmethod
     @abc.abstractmethod
@@ -106,7 +106,7 @@ class LLMBackend(Backend):
 
         :param artifact: Deserialised model artifact.
         :return: Backend instance bound to :attr:`ModelArtifact.model`.
-        :raises FrameworkNotInstalled: When no probed runtime is importable on this system.
+        :raises DependencyNotInstalled: When no probed runtime is importable on this system.
         :raises ~flama.models.exceptions.LLMUnsupportedModel: When a runtime was available but refused
             the artifact; the runtime's own error is chained as the cause.
         """
@@ -117,7 +117,7 @@ class LLMBackend(Backend):
                 artifact.model,
                 **{"capabilities": artifact.meta.capabilities, **(artifact.meta.framework.config or {})},
             )
-        except (exceptions.FrameworkNotInstalled, UnknownModelCapabilities):
+        except (exceptions.DependencyNotInstalled, UnknownModelCapabilities):
             # Already precise, and about the environment rather than the model. Leave them alone.
             raise
         except Exception as e:
@@ -253,7 +253,7 @@ class LLMBackend(Backend):
         :param params: Generation parameters forwarded to the engine (e.g. ``temperature``,
             ``max_tokens``).
         :return: Async iterator of :class:`EngineDelta` instances.
-        :raises FrameworkNotInstalled: If the underlying framework is not installed.
+        :raises DependencyNotInstalled: If the underlying framework is not installed.
         """
         yield EngineDelta()  # pragma: no cover
 

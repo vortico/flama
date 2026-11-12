@@ -7,7 +7,7 @@ from rich.console import Console
 
 from flama._cli.formatting import FLAMA_THEME
 from flama._upgrade.migration import Migration
-from flama._upgrade.operations import MoveModule
+from flama._upgrade.operations import Module, Move
 from flama._upgrade.runner import discover, run
 
 
@@ -45,8 +45,8 @@ class TestCaseRun:
     @pytest.fixture(scope="function")
     def migrations(self) -> tuple[Migration, ...]:
         return (
-            Migration(target="2.0", source=">=1.0,<2.0", operations=(MoveModule("a", "b"),)),
-            Migration(target="3.0", source=">=2.0,<3.0", operations=(MoveModule("b", "c"),)),
+            Migration(target="2.0", source=">=1.0,<2.0", operations=(Move(Module("a"), Module("b")),)),
+            Migration(target="3.0", source=">=2.0,<3.0", operations=(Move(Module("b"), Module("c")),)),
         )
 
     @pytest.mark.parametrize(
@@ -78,7 +78,7 @@ class TestCaseRun:
         path = tmp_path / "a.py"
         path.write_text("from flama.validation import X\n")
 
-        report = run([tmp_path], write=True, skip={"move-module:flama.validation"}, console=console)
+        report = run([tmp_path], write=True, skip={"move:module:flama.validation"}, console=console)
 
         assert path.read_text() == "from flama.validation import X\n"
         assert report.changed == []

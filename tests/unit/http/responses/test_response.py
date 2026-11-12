@@ -145,11 +145,29 @@ class TestCaseBufferedResponse:
         with pytest.raises(ValueError, match="Either 'content' or 'path' must be provided"):
             _BufferedResponse()
 
-    def test_raw_headers(self):
+    @pytest.mark.parametrize(
+        ["status_code", "headers", "expected"],
+        [
+            pytest.param(200, None, b"3", id="from_body"),
+            pytest.param(200, {"content-length": "10"}, b"10", id="given"),
+            # A response that carries no body declares no length.
+            pytest.param(204, None, None, id="no_content"),
+        ],
+    )
+    async def test_content_length(self, status_code, headers, expected, asgi_scope, asgi_receive, asgi_send):
+        response = _BufferedResponse("foo", status_code=status_code, headers=headers)
+
+        await response(asgi_scope, asgi_receive, asgi_send)
+
+        start_message = asgi_send.call_args_list[0][0][0]
+        assert [v for k, v in start_message["headers"] if k == b"content-length"] == ([expected] if expected else [])
+
+    def test_body_is_rendered_when_needed(self):
         response = _BufferedResponse("foo")
 
-        header = next((v for k, v in response.raw_headers if k == b"content-length"), None)
-        assert header == b"3"
+        response.content = "bar"
+
+        assert response.body == b"bar"
 
     @pytest.mark.parametrize(
         ["content", "status_code", "use_background"],

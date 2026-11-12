@@ -1,7 +1,7 @@
 import abc
 import typing as t
+from typing import Self
 
-from flama.compat import Self
 from flama.serialize.data_structures import ModelArtifact
 
 __all__ = ["Backend"]
@@ -37,6 +37,6 @@ class Backend(abc.ABC):
         :param artifact: Deserialised model artifact produced by :class:`~flama.serialize.serializer.Serializer`.
         :return: A backend instance bound to :attr:`ModelArtifact.model`.
         :raises ValueError: If the artifact metadata does not map to a registered backend.
-        :raises FrameworkNotInstalled: When no suitable runtime is importable on this system (LLM only).
+        :raises DependencyNotInstalled: When no suitable runtime is importable on this system (LLM only).
         """
         ...

@@ -1,23 +1,14 @@
 import codecs
-import importlib.metadata
 import json
 import pathlib
 import tempfile
 import typing as t
 
-from flama import exceptions, types
+from flama import _imports, types
 from flama.serialize.data_structures import MLModelCapabilities
 from flama.serialize.model_serializers._base import BaseModelSerializer
 
-try:
-    import tensorflow as tf
-except Exception:  # pragma: no cover
-    tf = None
-
-try:
-    import keras.models as keras_models
-except Exception:  # pragma: no cover
-    keras_models = None
+keras_models = _imports.Dependency("keras", "models")
 
 if t.TYPE_CHECKING:
     from flama.types import JSONSchema
@@ -30,16 +21,14 @@ class ModelSerializer(BaseModelSerializer):
     lib: t.ClassVar[types.ModelLib] = "tensorflow"
 
     def dump(self, obj: t.Any, /, **kwargs) -> bytes:
-        if keras_models is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("tensorflow")
+        keras_models.require()
 
         with tempfile.NamedTemporaryFile(mode="rb", suffix=".keras") as tmp_file:
             keras_models.save_model(obj, tmp_file.name)
             return codecs.encode(tmp_file.read(), "base64")
 
     def load(self, source: bytes | pathlib.Path, /, **kwargs) -> t.Any:
-        if keras_models is None:  # noqa
-            raise exceptions.FrameworkNotInstalled("tensorflow")
+        keras_models.require()
 
         if isinstance(source, pathlib.Path):
             raise TypeError("tensorflow serializer expects raw bytes, not a directory path")
@@ -57,10 +46,5 @@ class ModelSerializer(BaseModelSerializer):
         return MLModelCapabilities()
 
     def version(self) -> str:
-        for lib in ("tensorflow", "tensorflow-cpu", "tensorflow-gpu", "keras"):
-            try:
-                return importlib.metadata.version(lib)
-            except Exception:  # pragma: no cover
-                pass
-
-        raise exceptions.FrameworkNotInstalled("tensorflow")  # noqa
+        # Keras 3 serves the models on its own, without TensorFlow.
+        return _imports.version("tensorflow", "keras")

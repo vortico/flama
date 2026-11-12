@@ -42,12 +42,12 @@ class TestCaseCommand:
         ["args", "expected"],
         [
             pytest.param(
-                ["--select", "move-module:flama.validation"],
+                ["--select", "move:module:flama.validation"],
                 "from flama.schemas.components import X\n",
                 id="select_match",
             ),
             pytest.param(
-                ["--skip", "move-module:flama.validation"],
+                ["--skip", "move:module:flama.validation"],
                 "from flama.validation import X\n",
                 id="skip_match",
             ),

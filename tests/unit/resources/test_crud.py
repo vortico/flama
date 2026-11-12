@@ -7,15 +7,13 @@ import marshmallow
 import pydantic
 import pytest
 import sqlalchemy
-import typesystem
-import typesystem.fields
 from sqlalchemy.dialects import postgresql
 
 from flama import types
 from flama.resources.crud import CRUDResource
 from flama.resources.exceptions import ResourceFilterInvalid
 from flama.resources.routing import ResourceRoute
-from flama.resources.workers import FlamaWorker
+from flama.resources.workers import ResourcesWorker
 from tests.unit.resources.conftest import Model
 
 DATABASE_URL = "sqlite+aiosqlite://"
@@ -43,14 +41,6 @@ class TestCaseCRUDResource:
     async def custom_id_datetime_model(self, app):
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("CustomIDDatetime", custom_id=(datetime.datetime, ...), name=(str, ...))
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(
-                title="CustomIDDatetime",
-                fields={
-                    "custom_id": typesystem.fields.DateTime(),
-                    "name": typesystem.fields.String(),
-                },
-            )
         elif app.schema.schema_library.name == "marshmallow":
             schema = type(
                 "CustomIDDatetime",
@@ -76,14 +66,6 @@ class TestCaseCRUDResource:
     def custom_id_uuid_model(self, app):
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("CustomIDUUID", custom_id=(uuid.UUID, ...), name=(str, ...))
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(
-                title="CustomIDUUID",
-                fields={
-                    "custom_id": typesystem.fields.UUID(),
-                    "name": typesystem.fields.String(),
-                },
-            )
         elif app.schema.schema_library.name == "marshmallow":
             schema = type(
                 "CustomIDUUID",
@@ -122,7 +104,7 @@ class TestCaseCRUDResource:
             @app.resources.method("/", methods=["GET"], name="list", pagination="page_number")
             async def list(
                 self,
-                worker: FlamaWorker,
+                worker: ResourcesWorker,
                 order_by: str | None = None,
                 order_direction: str = "asc",
                 name: str | None = None,
@@ -265,35 +247,29 @@ class TestCaseCRUDResource:
         assert response.json() == expected_result
 
     @pytest.mark.parametrize(
-        ["method", "send_body", "skip_typesystem"],
+        ["method", "send_body"],
         [
-            pytest.param("get", False, False, id="retrieve"),
-            pytest.param("put", True, False, id="update"),
-            pytest.param("patch", True, True, id="partial_update"),
-            pytest.param("delete", True, False, id="delete"),
+            pytest.param("get", False, id="retrieve"),
+            pytest.param("put", True, id="update"),
+            pytest.param("patch", True, id="partial_update"),
+            pytest.param("delete", True, id="delete"),
         ],
     )
-    async def test_not_found(self, client, puppy, method, send_body, skip_typesystem):
-        if skip_typesystem and client.app.schema.schema_library.name == "typesystem":
-            pytest.skip("Typesystem does not support partial validation")
-
+    async def test_not_found(self, client, puppy, method, send_body):
         # Operate on a record that does not exist
         response = await client.request(method, "/puppy/42/", json=puppy if send_body else None)
         assert response.status_code == 404, response.json()
 
     @pytest.mark.parametrize(
-        ["method", "send_body", "skip_typesystem"],
+        ["method", "send_body"],
         [
-            pytest.param("get", False, False, id="retrieve"),
-            pytest.param("put", True, False, id="update"),
-            pytest.param("patch", True, True, id="partial_update"),
-            pytest.param("delete", False, False, id="delete"),
+            pytest.param("get", False, id="retrieve"),
+            pytest.param("put", True, id="update"),
+            pytest.param("patch", True, id="partial_update"),
+            pytest.param("delete", False, id="delete"),
         ],
     )
-    async def test_wrong_id_type(self, client, puppy, method, send_body, skip_typesystem):
-        if skip_typesystem and client.app.schema.schema_library.name == "typesystem":
-            pytest.skip("Typesystem does not support partial validation")
-
+    async def test_wrong_id_type(self, client, puppy, method, send_body):
         # Operate on a record whose id does not match the primary-key type
         response = await client.request(method, "/puppy/foo/", json=puppy if send_body else None)
         assert response.status_code == 400, response.json()
@@ -339,9 +315,6 @@ class TestCaseCRUDResource:
         assert response.status_code == 400, response.json()
 
     async def test_partial_update(self, client, puppy, another_puppy):
-        if client.app.schema.schema_library.name == "typesystem":
-            pytest.skip("Typesystem does not support partial validation")
-
         expected_puppy_id = 1
         created_puppy = puppy.copy()
         created_puppy["custom_id"] = expected_puppy_id
@@ -366,9 +339,6 @@ class TestCaseCRUDResource:
         assert response.json() == expected_puppy
 
     async def test_partial_update_wrong_data(self, client, puppy):
-        if client.app.schema.schema_library.name == "typesystem":
-            pytest.skip("Typesystem does not support partial validation")
-
         expected_puppy_id = 1
         created_puppy = puppy.copy()
         created_puppy["custom_id"] = expected_puppy_id
@@ -645,11 +615,6 @@ class TestCaseCRUDUniqueConstraint:
     async def unique_name_model(self, app):
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("UniqueName", custom_id=(int | None, None), name=(str, ...))
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(
-                title="UniqueName",
-                fields={"custom_id": typesystem.Integer(allow_null=True), "name": typesystem.String()},
-            )
         elif app.schema.schema_library.name == "marshmallow":
             schema = type(
                 "UniqueName",
@@ -690,9 +655,6 @@ class TestCaseCRUDUniqueConstraint:
         assert response.status_code == 400, response.json()
 
     async def test_partial_update_integrity_error(self, client):
-        if client.app.schema.schema_library.name == "typesystem":
-            pytest.skip("Typesystem does not support partial validation")
-
         assert (await client.request("post", "/unique_name/", json={"name": "a"})).status_code == 201
         assert (await client.request("post", "/unique_name/", json={"name": "b"})).status_code == 201
 
@@ -708,11 +670,6 @@ class TestCaseCRUDFilters:
     async def gadget_model(self, app):
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model("Gadget", custom_id=(int | None, None), name=(str, ...))
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(
-                title="Gadget",
-                fields={"custom_id": typesystem.Integer(allow_null=True), "name": typesystem.String()},
-            )
         elif app.schema.schema_library.name == "marshmallow":
             schema = type(
                 "Gadget",
@@ -781,15 +738,6 @@ class TestCaseCRUDDeclaredFilters:
         if app.schema.schema_library.name == "pydantic":
             schema = pydantic.create_model(
                 "Widget", custom_id=(int | None, None), name=(str, ...), age=(int | None, None)
-            )
-        elif app.schema.schema_library.name == "typesystem":
-            schema = typesystem.Schema(
-                title="Widget",
-                fields={
-                    "custom_id": typesystem.Integer(allow_null=True),
-                    "name": typesystem.String(),
-                    "age": typesystem.Integer(allow_null=True),
-                },
             )
         elif app.schema.schema_library.name == "marshmallow":
             schema = type(
@@ -879,12 +827,21 @@ class TestCaseCRUDDeclaredFilters:
         [
             pytest.param(
                 {"name": "gte:x"},
-                {"name": ["Operator 'gte' is not available, expected one of: 'eq', 'contains'."]},
+                [
+                    {
+                        "detail": "Operator 'gte' is not available, expected one of: 'eq', 'contains'.",
+                        "pointer": "#/name",
+                    }
+                ],
                 id="operator_not_granted",
             ),
-            pytest.param({"age": "gte"}, {"age": ["Operator 'gte' expects a value."]}, id="value_missing"),
             pytest.param(
-                {"age": "isnull:yes"}, {"age": ["Operator 'isnull' expects no value."]}, id="value_unexpected"
+                {"age": "gte"}, [{"detail": "Operator 'gte' expects a value.", "pointer": "#/age"}], id="value_missing"
+            ),
+            pytest.param(
+                {"age": "isnull:yes"},
+                [{"detail": "Operator 'isnull' expects no value.", "pointer": "#/age"}],
+                id="value_unexpected",
             ),
             # The wording comes from the schema library, so only the refusal itself is shared by all three.
             pytest.param({"age": "gte:old"}, None, id="value_the_column_cannot_hold"),

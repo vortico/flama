@@ -61,11 +61,11 @@ class SchemaModule(Module):
 
     @schema_library.setter
     def schema_library(self, library: str | None) -> None:
-        """Globally set the schema library.
+        """Globally request the schema library, selected on first use.
 
-        :param library: Schema library to be used.
+        :param library: Schema library to be used, or ``None`` for the first one installed.
         """
-        schemas._module.setup(library)
+        schemas._module.request(library)
 
     def add_routes(self) -> None:
         """Add schema and docs routes."""

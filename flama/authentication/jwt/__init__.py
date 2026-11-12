@@ -1,1 +1,3 @@
-from flama.authentication.jwt.jwt import JWT  # noqa
+from flama.authentication.jwt.jwt import JWT
+
+__all__ = ["JWT"]

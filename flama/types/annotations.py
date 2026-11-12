@@ -1,7 +1,10 @@
-import builtins
 import dataclasses
+import inspect
 import typing as t
 from types import UnionType
+
+from flama import _compat
+from flama.types.schemas import Output, OutputList, SchemaResponse
 
 __all__ = ["Annotation"]
 
@@ -11,32 +14,31 @@ class Annotation:
     """A structural view over a type annotation.
 
     Everything that reads an annotation wants the same two answers, what a value of it is and whether there is
-    one or several of them, and each answer is easy to get subtly wrong on its own. Optionality in particular
-    is not a shape a union takes but a member it holds, so it is read as ``None`` being among the types
-    admitted rather than as the union having two members with the right one last.
-
-    Which containers count as carrying several values is left to the caller, since a query parameter and a
-    response do not agree on it, and neither should have to know what the other decided.
+    one or several of them. Optionality is read as ``None`` being among the types a union admits, and several values
+    of one type are carried by a list, set or frozenset, or a tuple of any length, though not by a tuple of fixed
+    length, whose items each have their own type. An alias is read as its value, and an output as its payload,
+    since its response carries that same payload.
 
     :param annotation: Annotation to read.
     """
 
-    annotation: t.Any
+    annotation: _compat.TypeForm[t.Any]
     optional: bool = dataclasses.field(init=False)
     type: t.Any = dataclasses.field(init=False)
     _origin: t.Any = dataclasses.field(init=False, repr=False, compare=False)
     _args: tuple[t.Any, ...] = dataclasses.field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        args = t.get_args(self.annotation)
-        optional = t.get_origin(self.annotation) in (t.Union, UnionType) and type(None) in args
+        resolved = self._resolve(self.annotation)
+        args = t.get_args(resolved)
+        optional = t.get_origin(resolved) in (t.Union, UnionType) and type(None) in args
         # A union is a set of types, so what it admits besides nothing is whatever is left once nothing is
         # taken out of it, collapsing to a plain type when a single member remains.
-        annotation = (
+        annotation = self._resolve(
             # Subscription, rather than `|`, because the members are only known as a tuple at runtime.
             (rest[0] if len(rest := tuple(x for x in args if x is not type(None))) == 1 else t.Union[rest])  # noqa: UP007
             if optional
-            else self.annotation
+            else resolved
         )
 
         object.__setattr__(self, "optional", optional)
@@ -44,18 +46,66 @@ class Annotation:
         object.__setattr__(self, "_origin", t.get_origin(annotation))
         object.__setattr__(self, "_args", t.get_args(annotation))
 
-    def element(self, *containers: builtins.type) -> t.Any:
-        """The type carried, which is the type itself when it is not one of the given containers.
+    @property
+    def origin(self) -> t.Any:
+        """The class the type stands for, which is the generic a parameterised type is built on.
 
-        :param containers: Containers to read as carrying several values.
+        :return: Origin of a parameterised type, or the type itself.
+        """
+        return self.type if self._origin is None else self._origin
+
+    @property
+    def element(self) -> t.Any:
+        """The type of each value carried, which is the type itself when it carries a single value.
+
         :return: The type carried.
         """
-        return self._args[0] if self.is_multiple(*containers) else self.type
+        return self._args[0] if self.is_multiple else self.type
 
-    def is_multiple(self, *containers: builtins.type) -> bool:
-        """Whether several values are carried rather than one.
+    @property
+    def is_multiple(self) -> bool:
+        """Whether several values of one type are carried rather than one.
 
-        :param containers: Containers to read as carrying several values.
-        :return: True if more than one value is carried.
+        :return: True for a list, set, frozenset or tuple of any length.
         """
-        return self._origin in containers and bool(self._args)
+        if self._origin is tuple:
+            return len(self._args) == 2 and self._args[1] is Ellipsis
+
+        return self._origin in (list, set, frozenset) and bool(self._args)
+
+    @classmethod
+    def _resolve(cls, annotation: t.Any) -> t.Any:
+        """Read an annotation as the type it stands for, expanding aliases and reading outputs as their payload.
+
+        An alias whose value ignores its parameters, as ``Schema`` does, is a marker read by what it is subscripted
+        with, so it is kept as written.
+
+        :param annotation: Annotation to resolve.
+        :return: The type the annotation stands for.
+        """
+        origin, args = t.get_origin(annotation), t.get_args(annotation)
+
+        alias = annotation if isinstance(annotation, _compat.TypeAliasType) else origin
+        if isinstance(alias, _compat.TypeAliasType):
+            value = alias.__value__
+            parameters = getattr(value, "__parameters__", ())
+            if alias.__type_params__ and not parameters:
+                return annotation
+
+            value = value[args] if args and parameters else value
+            if alias in (Output, OutputList):
+                # An output is its payload or a response carrying it, so it is read as its payload.
+                (value,) = (x for x in t.get_args(value) if not cls._is_schema_response(x))
+
+            return cls._resolve(value)
+
+        return annotation
+
+    @staticmethod
+    def _is_schema_response(annotation: t.Any) -> bool:
+        """Whether an annotation is a response carrying a schema's payload.
+
+        :param annotation: Annotation to check.
+        :return: True for a schema response, subscripted or not.
+        """
+        return inspect.isclass(origin := t.get_origin(annotation) or annotation) and issubclass(origin, SchemaResponse)

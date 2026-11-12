@@ -1,1 +1,3 @@
-from flama.pagination.paginator import *  # noqa
+from flama.pagination.paginator import paginator
+
+__all__ = ["paginator"]

@@ -1,7 +1,7 @@
 import dataclasses
 import typing as t
 
-from flama import concurrency
+from flama import _concurrency
 from flama.http.responses.response import Payload, Response, StreamingResponse
 
 if t.TYPE_CHECKING:
@@ -68,7 +68,7 @@ class ServerSentEventResponse(StreamingResponse[ServerSentEvent | str, Payload],
         headers: "Mapping[str, str] | None" = None,
         background: "BackgroundTask | None" = None,
     ) -> None:
-        self.content = concurrency.iterate(content)
+        self.content = _concurrency.iterate(content)
         Response.__init__(self, status_code=status_code, headers=headers, background=background)
 
     def encode(self, chunk: "ServerSentEvent | str") -> bytes:

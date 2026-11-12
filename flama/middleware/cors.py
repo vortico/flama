@@ -1,7 +1,7 @@
 import re
 import typing as t
 
-from flama import concurrency, types
+from flama import _concurrency, types
 from flama.http import Response
 from flama.http.data_structures import Headers, MutableHeaders
 from flama.http.responses.plain_text import PlainTextResponse
@@ -79,14 +79,14 @@ class CORSMiddleware(Middleware):
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if scope["type"] != "http":
-            await concurrency.run(self.app, scope, receive, send)
+            await _concurrency.run(self.app, scope, receive, send)
             return
 
         headers = Headers(scope=scope)
         origin = headers.get("origin")
 
         if origin is None:
-            await concurrency.run(self.app, scope, receive, send)
+            await _concurrency.run(self.app, scope, receive, send)
             return
 
         if scope["method"] == "OPTIONS" and "access-control-request-method" in headers:
@@ -111,7 +111,7 @@ class CORSMiddleware(Middleware):
 
             await send(message)
 
-        await concurrency.run(self.app, scope, receive, _send)
+        await _concurrency.run(self.app, scope, receive, _send)
 
     def _is_allowed_origin(self, origin: str) -> bool:
         if self.allow_all_origins or (
