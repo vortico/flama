@@ -39,14 +39,26 @@ class TestCaseAnnotation:
             pytest.param(types.Output[_Schema], False, types.Schema[_Schema], id="output_alias"),
             pytest.param(types.OutputList[_Schema], False, list[types.Schema[_Schema]], id="output_list_alias"),
             pytest.param(types.Output[_Schema] | None, True, types.Schema[_Schema], id="optional_output_alias"),
-            pytest.param(int | http.APIResponse[_Schema], False, int, id="union_with_schema_response"),
-            # Nothing would be left of a union of responses alone, so it is kept as it is.
+            # Only an output is read as its payload, so a schema response in any other union is one of its members.
+            pytest.param(
+                int | http.APIResponse[_Schema],
+                False,
+                int | http.APIResponse[_Schema],
+                id="union_with_schema_response",
+            ),
             pytest.param(
                 http.APIResponse[_Schema] | http.APIResponse[int],
                 False,
                 http.APIResponse[_Schema] | http.APIResponse[int],
                 id="union_of_schema_responses",
             ),
+            pytest.param(
+                http.APIResponse | http.ServerSentEventResponse,
+                False,
+                http.APIResponse | http.ServerSentEventResponse,
+                id="union_of_responses",
+            ),
+            pytest.param(http.APIResponse | None, True, http.APIResponse, id="optional_response"),
         ],
     )
     def test_init(self, annotation, optional, type_):

@@ -4,7 +4,7 @@ import typing as t
 from types import UnionType
 
 from flama import _compat
-from flama.types.schemas import SchemaResponse
+from flama.types.schemas import Output, OutputList, SchemaResponse
 
 __all__ = ["Annotation"]
 
@@ -16,8 +16,8 @@ class Annotation:
     Everything that reads an annotation wants the same two answers, what a value of it is and whether there is
     one or several of them. Optionality is read as ``None`` being among the types a union admits, and several values
     of one type are carried by a list, set or frozenset, or a tuple of any length, though not by a tuple of fixed
-    length, whose items each have their own type. An alias is read as its value, and a schema response in a union
-    as nothing, since it carries the payload the other members describe.
+    length, whose items each have their own type. An alias is read as its value, and an output as its payload,
+    since its response carries that same payload.
 
     :param annotation: Annotation to read.
     """
@@ -75,7 +75,7 @@ class Annotation:
 
     @classmethod
     def _resolve(cls, annotation: t.Any) -> t.Any:
-        """Read an annotation as the type it stands for, expanding aliases and leaving schema responses out of unions.
+        """Read an annotation as the type it stands for, expanding aliases and reading outputs as their payload.
 
         An alias whose value ignores its parameters, as ``Schema`` does, is a marker read by what it is subscripted
         with, so it is kept as written.
@@ -92,12 +92,12 @@ class Annotation:
             if alias.__type_params__ and not parameters:
                 return annotation
 
-            return cls._resolve(value[args] if args and parameters else value)
+            value = value[args] if args and parameters else value
+            if alias in (Output, OutputList):
+                # An output is its payload or a response carrying it, so it is read as its payload.
+                (value,) = (x for x in t.get_args(value) if not cls._is_schema_response(x))
 
-        if origin in (t.Union, UnionType) and 0 < len(
-            members := tuple(x for x in args if not cls._is_schema_response(x))
-        ) < len(args):
-            return cls._resolve(members[0] if len(members) == 1 else t.Union[members])  # noqa: UP007
+            return cls._resolve(value)
 
         return annotation
 
