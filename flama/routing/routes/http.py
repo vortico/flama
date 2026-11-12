@@ -5,8 +5,9 @@ import typing as t
 from flama import _concurrency, endpoints, exceptions, http, types
 from flama.context import Context
 from flama.http.responses.api import APIResponse
+from flama.injection.resolver import Return
 from flama.routing.routes._base import BaseEndpointWrapper, BaseRoute, RouteTableParams, ScopeType
-from flama.schemas.data_structures import Schema
+from flama.schemas.data_structures import Parameter
 from flama.types.http import Method
 
 __all__ = ["Route"]
@@ -15,23 +16,27 @@ logger = logging.getLogger(__name__)
 
 
 class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
-    def _output_schema(self, signature: inspect.Signature) -> t.Any:
+    def _output_schema(self, handler: t.Callable, signature: inspect.Signature) -> t.Any:
         """The schema a handler's output is serialised with, read from its return annotation.
 
+        A handler returns a schema, a response, or nothing, or leaves its return type unannotated.
+
+        :param handler: Handler.
         :param signature: Handler signature.
         :return: The schema, or None when the return annotation names none.
+        :raises ApplicationError: If the return annotation is none of the supported forms.
         """
-        output = signature.return_annotation
-        # A response's type argument is the schema of its payload.
-        if inspect.isclass(origin := t.get_origin(output)) and issubclass(origin, http.Response):
-            output = next(iter(t.get_args(output)), None)
+        output = Parameter.build("response", Return.from_return_annotation(signature.return_annotation))
+        if output.schema is None:
+            raise exceptions.ApplicationError(
+                f"Route '{getattr(handler, '__qualname__', handler)}' returns "
+                f"'{inspect.formatannotation(signature.return_annotation)}', but a route returns a schema, a "
+                "response, or None, or has no return annotation"
+            )
 
-        try:
-            return Schema.from_type(output).unique_schema
-        except Exception:
-            return None
+        return output.schema.unique_schema if output.schema.schema is not None else None
 
-    def _build_api_response(self, response: http.Response | None, schema: t.Any) -> http.Response:
+    def _build_api_response(self, response: object, schema: t.Any) -> http.Response:
         """Build an API response given a handler and the current response.
 
         Data is serialised with the handler's output schema, and so is an API response built without a schema.
@@ -39,15 +44,19 @@ class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
         :param response: The current response.
         :param schema: The handler's output schema.
         :return: An API response.
+        :raises SerializationError: If the handler returned neither a response, a mapping, a list nor None.
         """
-        if isinstance(response, dict | list):
+        if isinstance(response, APIResponse) and response.schema is None:
+            response.schema = schema
+        elif isinstance(response, dict | list):
             response = APIResponse(response, schema=schema)
-        elif isinstance(response, str | bytes):
-            response = APIResponse(response)
         elif response is None:
             response = APIResponse("")
-        elif isinstance(response, APIResponse) and response.schema is None:
-            response.schema = schema
+        elif not isinstance(response, http.Response):
+            raise exceptions.SerializationError(
+                detail=f"Route returned a '{type(response).__name__}', but a route returns a response, a mapping, a "
+                "list, or None"
+            )
 
         return response
 
@@ -69,7 +78,7 @@ class HTTPFunctionWrapper(BaseHTTPEndpointWrapper):
         """
         super().__init__(handler, signature=signature, pagination=pagination)
 
-        self.schema = self._output_schema(signature) if signature else None
+        self.schema = self._output_schema(self.handler, signature) if signature else None
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs a request.
@@ -121,11 +130,16 @@ class HTTPEndpointWrapper(BaseHTTPEndpointWrapper):
         """
         super().__init__(handler, signature=signature, pagination=pagination)
 
-        # Each method has its own handler, and so its own output schema.
-        self.schemas = {
-            method: self._output_schema(inspect.signature(method_handler))
-            for method, method_handler in self.handler.allowed_handlers().items()
-        }
+        # Each method has its own handler, and so its own output schema. A JSON-RPC method's result is always sent
+        # within a JSON-RPC response, so its annotation describes no HTTP response.
+        self.schemas = (
+            {
+                method: self._output_schema(method_handler, inspect.signature(method_handler))
+                for method, method_handler in self.handler.allowed_handlers().items()
+            }
+            if issubclass(self.handler, endpoints.HTTPEndpoint)
+            else {}
+        )
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         """Performs a request.

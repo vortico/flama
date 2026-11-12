@@ -29,12 +29,12 @@ class TestCaseReturnValidation:
 
             @app.route("/return-string/")
             class StrEndpoint(endpoints.HTTPEndpoint):
-                def get(self, data: types.RequestData) -> str:
+                def get(self, data: types.RequestData):
                     return "example content"
 
             @app.route("/return-dict/")
             class DictEndpoint(endpoints.HTTPEndpoint):
-                def get(self, data: types.RequestData) -> dict:
+                def get(self, data: types.RequestData):
                     return {"example": "content"}
 
             @app.route("/return-html-response/")
@@ -49,7 +49,7 @@ class TestCaseReturnValidation:
 
             @app.route("/return-unserializable-json/")
             class UnserializableEndpoint(endpoints.HTTPEndpoint):
-                def get(self) -> dict:
+                def get(self):
                     class Dummy:
                         pass
 
@@ -93,11 +93,11 @@ class TestCaseReturnValidation:
         else:
 
             @app.route("/return-string/")
-            def return_string(data: types.RequestData) -> str:
+            def return_string(data: types.RequestData):
                 return "example content"
 
             @app.route("/return-dict/")
-            def return_data(data: types.RequestData) -> dict:
+            def return_data(data: types.RequestData):
                 return {"example": "content"}
 
             @app.route("/return-html-response/")
@@ -109,7 +109,7 @@ class TestCaseReturnValidation:
                 return http.JSONResponse({"example": "content"})
 
             @app.route("/return-unserializable-json/")
-            def return_unserializable_json() -> dict:
+            def return_unserializable_json():
                 class Dummy:
                     pass
 
@@ -146,7 +146,16 @@ class TestCaseReturnValidation:
     @pytest.mark.parametrize(
         ["path", "status_code", "content_type", "content", "exception"],
         (
-            pytest.param("/return-string/", 200, "application/json", b'"example content"', None, id="string"),
+            # Only a mapping or a list is sent as JSON, so a string is refused rather than sent as a JSON string.
+            pytest.param(
+                "/return-string/",
+                500,
+                "application/json",
+                b'{"status_code":500,"detail":"Route returned a \'str\', but a route returns a response, a mapping, a '
+                b'list, or None","error":"SerializationError"}',
+                None,
+                id="string",
+            ),
             pytest.param("/return-dict/", 200, "application/json", b'{"example":"content"}', None, id="dict"),
             pytest.param(
                 "/return-html-response/",

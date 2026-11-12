@@ -266,7 +266,8 @@ class Parameter:
     default: t.Any = InjectionParameter.empty
     nullable: bool = dataclasses.field(init=False)
     multiple: bool = dataclasses.field(init=False)
-    # Exactly one of these is set: a parameter is described either by a schema or by a single field.
+    # At most one of these is set: a parameter is described by a schema or by a single field, or not at all when
+    # it is a response that no schema describes.
     schema: "Schema | None" = dataclasses.field(hash=False, init=False, compare=False)
     field: "Field | None" = dataclasses.field(hash=False, init=False, compare=False)
     response: "type[Response] | None" = dataclasses.field(hash=False, init=False, compare=False)
@@ -278,6 +279,17 @@ class Parameter:
 
         origin = t.get_origin(self.type) or self.type
         response = origin if inspect.isclass(origin) and issubclass(origin, Response) else None
+        # An output of any value, or a response of one of several kinds, carries a payload that is not described.
+        undescribed = self.location == ParameterLocation.response and (
+            self.type is t.Any
+            or (
+                t.get_origin(self.type) in (t.Union, UnionType)
+                and all(
+                    inspect.isclass(x := t.get_origin(m) or m) and issubclass(x, Response)
+                    for m in t.get_args(self.type)
+                )
+            )
+        )
 
         if response is not None:
             # A response class carries its own media type, and a type argument, when given, the schema
@@ -293,12 +305,17 @@ class Parameter:
                 schema = Schema.from_type(self.type)
                 field = None
             except ValueError:
-                if self.type in (None, InjectionParameter.empty):
+                if self.type in (None, InjectionParameter.empty) or undescribed:
                     schema = Schema(schema=None)
                     field = None
                 else:
                     schema = None
-                    field = Field(self.name, self.type, required=self.required, default=self.default)
+                    # A route returns nothing a schema does not describe, so a response is never a single field.
+                    field = (
+                        Field(self.name, self.type, required=self.required, default=self.default)
+                        if self.location != ParameterLocation.response
+                        else None
+                    )
 
         # The payload is a response's type argument, and its schema metadata says nothing about how many there are.
         payload = types.Annotation(

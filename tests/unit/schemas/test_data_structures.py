@@ -10,7 +10,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from flama import types
-from flama.http import JSONResponse
+from flama.http import JSONResponse, ServerSentEventResponse
 from flama.injection import Parameter as InjectionParameter
 from flama.schemas.data_structures import Field, Parameter, ParameterLocation, Schema
 from tests._utils import assert_recursive_contains
@@ -456,6 +456,38 @@ class TestCaseParameter:
             )
 
         assert Parameter.build(type_, parameter) == result
+
+    @pytest.mark.parametrize(
+        ["location", "annotation", "schema", "field"],
+        (
+            pytest.param(
+                ParameterLocation.response, lambda s: types.Schema[s], lambda s: Schema(schema=s), False, id="schema"
+            ),
+            pytest.param(
+                ParameterLocation.response, lambda s: JSONResponse, lambda s: Schema(schema=None), False, id="response"
+            ),
+            pytest.param(ParameterLocation.response, lambda s: None, lambda s: Schema(schema=None), False, id="none"),
+            pytest.param(ParameterLocation.response, lambda s: t.Any, lambda s: Schema(schema=None), False, id="any"),
+            pytest.param(
+                ParameterLocation.response,
+                lambda s: JSONResponse | ServerSentEventResponse,
+                lambda s: Schema(schema=None),
+                False,
+                id="union_of_responses",
+            ),
+            # A route returns nothing a schema does not describe, so such a response is described by neither.
+            pytest.param(ParameterLocation.response, lambda s: int, lambda s: None, False, id="primitive"),
+            pytest.param(
+                ParameterLocation.response, lambda s: JSONResponse | None, lambda s: None, False, id="optional_response"
+            ),
+            pytest.param(ParameterLocation.query, lambda s: int, lambda s: None, True, id="query_primitive"),
+        ),
+    )
+    def test_init(self, foo_schema, location, annotation, schema, field):
+        parameter = Parameter(name="foo", location=location, type=annotation(foo_schema.schema))
+
+        assert parameter.schema == schema(foo_schema.schema)
+        assert (parameter.field is not None) is field
 
     @pytest.mark.parametrize(
         ["annotation", "multiple"],
