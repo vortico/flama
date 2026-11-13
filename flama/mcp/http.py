@@ -8,6 +8,7 @@ class MCPResponse(http.JSONRPCResponse):
     def __init__(self, result: t.Any = None, *, id: str | int | None = None, **kwargs):
         super().__init__(
             {
+                "resultType": "complete",
                 **result,
                 "_meta": {
                     "dev.flama": {
