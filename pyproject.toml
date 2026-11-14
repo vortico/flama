@@ -104,6 +104,7 @@ flama = 'flama._cli.__main__:cli'
 
 [dependency-groups]
 dev = [
+  "mcp>=2.3.0,<3.0",
   "maturin>=1.8,<2.0",
   "pytest>=8.4",
   "pytest-xdist[psutil]>=3.8",

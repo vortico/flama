@@ -5,6 +5,7 @@ set -e
 
 run_test() {
   echo "🧪 Testing project..."
+  uv run pytest -q -n 0 --no-cov tests/sdk_integration
   uv run pytest -n auto "$@"
   echo "✅ Test complete."
 }

@@ -9,6 +9,7 @@ from flama.client import Client
 from flama.exceptions import JSONRPCException
 from flama.http import JSONRPCStatus
 from flama.mcp.data_structures import Elicit, Elicitation, Extensions, RequestHeaders, RequestMeta
+from flama.mcp.http import MCPResponse
 from flama.mcp.server import MCPServer
 
 FLAMA_META = {
@@ -117,8 +118,15 @@ class TestCaseMCPEndpoint:
     async def test_ping(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "ping"})
         assert resp.status_code == 200
-        assert resp.json()["result"] == {"_meta": FLAMA_META}
+        assert resp.json()["result"] == {"resultType": "complete", "_meta": FLAMA_META}
         assert resp.headers[RequestHeaders.PROTOCOL_VERSION_HEADER] == MCPServer.PROTOCOL_VERSION
+
+    def test_mcp_response_marks_error_tool_content_complete(self):
+        response = MCPResponse({"content": [{"type": "text", "text": "failed"}], "isError": True}, id=1)
+
+        result = json.loads(response.body)["result"]
+        assert result["resultType"] == "complete"
+        assert result["isError"] is True
 
     @pytest.mark.parametrize(
         ["instructions", "expected_instructions"],
@@ -145,7 +153,9 @@ class TestCaseMCPEndpoint:
 
     async def test_server_discover_empty_server(self, empty_app):
         resp = await self._post(empty_app, {"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {}})
-        assert resp.json()["result"]["capabilities"] == {}
+        result = resp.json()["result"]
+        assert result["resultType"] == "complete"
+        assert result["capabilities"] == {}
 
     async def test_initialize_removed(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
@@ -160,12 +170,15 @@ class TestCaseMCPEndpoint:
         for t in tools:
             assert "inputSchema" in t
             assert "description" in t
+        assert result["resultType"] == "complete"
         assert result["ttlMs"] == 0
         assert result["cacheScope"] == "public"
 
     async def test_tools_list_output_schema(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}})
-        tools = {t["name"]: t for t in resp.json()["result"]["tools"]}
+        result = resp.json()["result"]
+        tools = {t["name"]: t for t in result["tools"]}
+        assert result["resultType"] == "complete"
         assert tools["add"]["outputSchema"] == {"type": "integer"}
         assert tools["greet"]["outputSchema"] == {"type": "string"}
 
@@ -177,7 +190,9 @@ class TestCaseMCPEndpoint:
             return x
 
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}})
-        tools = {t["name"]: t for t in resp.json()["result"]["tools"]}
+        result = resp.json()["result"]
+        tools = {t["name"]: t for t in result["tools"]}
+        assert result["resultType"] == "complete"
         assert "outputSchema" not in tools["untyped"]
 
     @pytest.mark.parametrize(
@@ -192,7 +207,9 @@ class TestCaseMCPEndpoint:
             app,
             {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": tool_name, "arguments": arguments}},
         )
-        assert resp.json()["result"]["content"][0]["text"] == expected_text
+        result = resp.json()["result"]
+        assert result["resultType"] == "complete"
+        assert result["content"][0]["text"] == expected_text
 
     async def test_tools_call_structured_content(self, app):
         resp = await self._post(
@@ -205,6 +222,7 @@ class TestCaseMCPEndpoint:
             },
         )
         result = resp.json()["result"]
+        assert result["resultType"] == "complete"
         assert result["content"][0]["text"] == "10"
         assert result["structuredContent"] == 10
 
@@ -219,6 +237,7 @@ class TestCaseMCPEndpoint:
             app, {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "nums", "arguments": {}}}
         )
         result = resp.json()["result"]
+        assert result["resultType"] == "complete"
         assert json.loads(result["content"][0]["text"]) == [1, 2, 3]
         assert result["structuredContent"] == [1, 2, 3]
 
@@ -233,6 +252,7 @@ class TestCaseMCPEndpoint:
             app, {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "info", "arguments": {}}}
         )
         result = resp.json()["result"]
+        assert result["resultType"] == "complete"
         assert json.loads(result["content"][0]["text"]) == {"key": "value"}
         assert "structuredContent" not in result
 
@@ -255,6 +275,7 @@ class TestCaseMCPEndpoint:
     async def test_resources_list(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "resources/list", "params": {}})
         result = resp.json()["result"]
+        assert result["resultType"] == "complete"
         resources = result["resources"]
         assert len(resources) == 1
         assert resources[0]["uri"] == "config://app"
@@ -267,6 +288,7 @@ class TestCaseMCPEndpoint:
             app, {"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": "config://app"}}
         )
         result = resp.json()["result"]
+        assert result["resultType"] == "complete"
         contents = result["contents"]
         assert len(contents) == 1
         assert json.loads(contents[0]["text"]) == {"debug": True}
@@ -283,7 +305,9 @@ class TestCaseMCPEndpoint:
         resp = await self._post(
             app, {"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": "async://res"}}
         )
-        assert resp.json()["result"]["contents"][0]["text"] == "async value"
+        result = resp.json()["result"]
+        assert result["resultType"] == "complete"
+        assert result["contents"][0]["text"] == "async value"
 
     async def test_resources_read_not_found(self, app):
         resp = await self._post(
@@ -306,6 +330,7 @@ class TestCaseMCPEndpoint:
     async def test_resources_templates_list(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "resources/templates/list", "params": {}})
         result = resp.json()["result"]
+        assert result["resultType"] == "complete"
         assert result["resourceTemplates"] == []
         assert result["ttlMs"] == 0
         assert result["cacheScope"] == "public"
@@ -313,6 +338,7 @@ class TestCaseMCPEndpoint:
     async def test_prompts_list(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "prompts/list", "params": {}})
         result = resp.json()["result"]
+        assert result["resultType"] == "complete"
         prompts = result["prompts"]
         assert len(prompts) == 1
         assert prompts[0]["name"] == "summarise"
@@ -342,7 +368,9 @@ class TestCaseMCPEndpoint:
             app,
             {"jsonrpc": "2.0", "id": 1, "method": "prompts/get", "params": {"name": "test_prompt", "arguments": {}}},
         )
-        assert len(resp.json()["result"]["messages"]) == expected_messages_count
+        result = resp.json()["result"]
+        assert result["resultType"] == "complete"
+        assert len(result["messages"]) == expected_messages_count
 
     async def test_prompts_get_async(self, app):
         server = app.mcp._servers["test"]
@@ -360,7 +388,9 @@ class TestCaseMCPEndpoint:
                 "params": {"name": "async_prompt", "arguments": {"text": "hi"}},
             },
         )
-        assert "Async: hi" in resp.json()["result"]["messages"][0]["content"]["text"]
+        result = resp.json()["result"]
+        assert result["resultType"] == "complete"
+        assert "Async: hi" in result["messages"][0]["content"]["text"]
 
     async def test_prompts_get_not_found(self, app):
         resp = await self._post(
@@ -540,7 +570,9 @@ class TestCaseMCPEndpoint:
             resp = await self._post(
                 app, {"jsonrpc": "2.0", "id": 1, "method": "tasks/get", "params": {"taskId": task_id}}
             )
-            task = resp.json()["result"]["task"]
+            result = resp.json()["result"]
+            assert result["resultType"] == "complete"
+            task = result["task"]
             if task["status"] != "working":
                 return task
             await asyncio.sleep(0.01)
@@ -614,7 +646,7 @@ class TestCaseMCPEndpoint:
             {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "double", "arguments": {"x": 21}}},
         )
         result = resp.json()["result"]
-        assert "resultType" not in result
+        assert result["resultType"] == "complete"
         assert result["structuredContent"] == 42
 
     async def test_tools_call_elicitation(self, app):
@@ -648,7 +680,9 @@ class TestCaseMCPEndpoint:
                 },
             },
         )
-        assert second.json()["result"]["content"][0]["text"] == "confirmed=True"
+        result = second.json()["result"]
+        assert result["resultType"] == "complete"
+        assert result["content"][0]["text"] == "confirmed=True"
 
     async def test_tools_call_task_elicitation(self, app):
         server = app.mcp._servers["test"]
@@ -674,7 +708,7 @@ class TestCaseMCPEndpoint:
         assert awaiting["status"] == "input_required"
         assert "confirm" in awaiting["inputRequests"]
 
-        await self._post(
+        update = await self._post(
             app,
             {
                 "jsonrpc": "2.0",
@@ -683,6 +717,7 @@ class TestCaseMCPEndpoint:
                 "params": {"taskId": task_id, "inputResponses": {"confirm": True}},
             },
         )
+        assert update.json()["result"]["resultType"] == "complete"
 
         completed = await self._poll_task(app, task_id)
         assert completed["status"] == "completed"
@@ -710,7 +745,9 @@ class TestCaseMCPEndpoint:
         cancelled = await self._post(
             app, {"jsonrpc": "2.0", "id": 2, "method": "tasks/cancel", "params": {"taskId": task_id}}
         )
-        assert cancelled.json()["result"]["task"]["status"] == "cancelled"
+        result = cancelled.json()["result"]
+        assert result["resultType"] == "complete"
+        assert result["task"]["status"] == "cancelled"
 
     @pytest.mark.parametrize(
         ["exc", "expected_error"],
@@ -768,7 +805,9 @@ class TestCaseMCPEndpoint:
         cancelled = await self._post(
             app, {"jsonrpc": "2.0", "id": 2, "method": "tasks/cancel", "params": {"taskId": task_id}}
         )
-        assert cancelled.json()["result"]["task"]["status"] == "cancelled"
+        result = cancelled.json()["result"]
+        assert result["resultType"] == "complete"
+        assert result["task"]["status"] == "cancelled"
 
     async def test_tasks_get_not_found(self, app):
         resp = await self._post(
@@ -855,7 +894,9 @@ class TestCaseMCPEndpoint:
             return "<html></html>"
 
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "resources/templates/list", "params": {}})
-        templates = resp.json()["result"]["resourceTemplates"]
+        result = resp.json()["result"]
+        assert result["resultType"] == "complete"
+        templates = result["resourceTemplates"]
         assert templates == [{"uri": "ui://w", "name": "widget", "description": "A widget", "mimeType": "text/html"}]
 
     async def test_resources_read_app_template(self, app):
@@ -868,6 +909,8 @@ class TestCaseMCPEndpoint:
         resp = await self._post(
             app, {"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": "ui://w"}}
         )
-        contents = resp.json()["result"]["contents"]
+        result = resp.json()["result"]
+        assert result["resultType"] == "complete"
+        contents = result["contents"]
         assert contents[0]["text"] == "<html>hi</html>"
         assert contents[0]["mimeType"] == "text/html"
