@@ -1,15 +1,1 @@
-#!/bin/bash
-set -e
-
-# ─── Test ────────────────────────────────────────────────────────────────────
-
-run_test() {
-  echo "🧪 Testing project..."
-  uv run pytest -q -n 0 --no-cov tests/sdk_integration
-  uv run pytest -n auto "$@"
-  echo "✅ Test complete."
-}
-
-if [[ "${#BASH_SOURCE[@]}" -eq 1 ]]; then
-  run_test "$@"
-fi
+@scripts/test
