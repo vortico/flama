@@ -3,7 +3,7 @@ import dataclasses
 import typing as t
 
 from flama._upgrade.operations._base import MARKER, ApplyResult, Operation, Todo
-from flama._upgrade.operations.targets import Call, Member, Module, Symbol, Target
+from flama._upgrade.operations.targets import Call, Member, Method, Module, Symbol, Target
 from flama._upgrade.source import Edit, Source
 
 __all__ = ["Flag"]
@@ -31,7 +31,7 @@ class Flag(Operation):
         match self.target:
             case Module() | Symbol():
                 return self._flag_imports(source, self.target)
-            case Call():
+            case Call() | Method():
                 return ApplyResult(source, False, tuple(self._flag_calls(source, self.target)))
             case Member():
                 return ApplyResult(source, False, tuple(self._flag_members(source, self.target)))
@@ -66,14 +66,10 @@ class Flag(Operation):
             )
         return any(alias.name == target.path or alias.name.startswith(f"{target.path}.") for alias in node.names)
 
-    def _flag_calls(self, source: Source, target: Call) -> list[Todo]:
-        callees = {id(node) for node in source.symbol_references(target.symbol.module, target.symbol.name)}
+    def _flag_calls(self, source: Source, target: Call | Method) -> list[Todo]:
         return [
             Todo(node.lineno, f"`{ast.get_source_segment(source.text, node.func)}(...)` {self.note}")
-            for node in ast.walk(source.tree)
-            if isinstance(node, ast.Call)
-            and id(node.func) in callees
-            and (not target.with_arguments or node.args or node.keywords)
+            for node in target.calls(source)
         ]
 
     def _flag_members(self, source: Source, target: Member) -> list[Todo]:

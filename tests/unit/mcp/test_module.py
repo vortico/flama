@@ -152,15 +152,15 @@ class TestCaseMCPModule:
         app.mcp.add_server("/mcp/", "test", task_store=store)
         assert app.mcp._servers["test"].task_store is store
 
-    def test_add_tool_task_and_ui_template(self, app):
+    def test_add_tool_task_and_ui_resource(self, app):
         app.mcp.add_server("/mcp/", "test")
 
         def my_tool(): ...
 
-        app.mcp.add_tool(my_tool, name="my_tool", task=True, ui_template="ui://w")
+        app.mcp.add_tool(my_tool, name="my_tool", task=True, ui_resource="ui://w")
         entry = app.mcp._servers["test"]._tools["my_tool"]
         assert entry.task is True
-        assert entry.ui_template == "ui://w"
+        assert entry.ui_resource == "ui://w"
 
     def test_tool_decorator_task(self, app):
         app.mcp.add_server("/mcp/", "test")
@@ -171,31 +171,31 @@ class TestCaseMCPModule:
 
         assert app.mcp._servers["test"]._tools["slow"].task is True
 
-    def test_add_app_template(self, app):
+    def test_add_ui_resource(self, app):
         app.mcp.add_server("/mcp/", "test")
 
         def widget():
             return "<html></html>"
 
-        app.mcp.add_app_template(widget, uri="ui://w", name="widget")
-        assert "ui://w" in app.mcp._servers["test"]._app_templates
+        app.mcp.add_ui_resource(widget, uri="ui://w", name="widget")
+        assert "ui://w" in app.mcp._servers["test"]._resources
 
-    def test_app_template_decorator(self, app):
+    def test_ui_resource_decorator(self, app):
         app.mcp.add_server("/mcp/", "test")
 
-        @app.mcp.app_template("ui://w", name="widget")
+        @app.mcp.ui_resource("ui://w", name="widget")
         def widget():
             return "<html></html>"
 
-        assert "ui://w" in app.mcp._servers["test"]._app_templates
+        assert "ui://w" in app.mcp._servers["test"]._resources
 
-    def test_app_template_decorator_with_mcp(self, app):
+    def test_ui_resource_decorator_with_mcp(self, app):
         app.mcp.add_server("/a/", "server_a")
         app.mcp.add_server("/b/", "server_b")
 
-        @app.mcp.app_template("ui://w", name="widget", mcp="server_b")
+        @app.mcp.ui_resource("ui://w", name="widget", mcp="server_b")
         def widget():
             return "<html></html>"
 
-        assert "ui://w" not in app.mcp._servers["server_a"]._app_templates
-        assert "ui://w" in app.mcp._servers["server_b"]._app_templates
+        assert "ui://w" not in app.mcp._servers["server_a"]._resources
+        assert "ui://w" in app.mcp._servers["server_b"]._resources

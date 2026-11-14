@@ -2,7 +2,7 @@ from flama._upgrade.operations._base import MARKER, ApplyResult, Operation, Todo
 from flama._upgrade.operations.flag import Flag
 from flama._upgrade.operations.move import Move
 from flama._upgrade.operations.rewrite import Rewrite
-from flama._upgrade.operations.targets import Call, Member, Module, Symbol, Target
+from flama._upgrade.operations.targets import Call, Member, Method, Module, Symbol, Target
 from flama._upgrade.operations.transforms import (
     CallTransform,
     DropKeyword,
@@ -10,6 +10,8 @@ from flama._upgrade.operations.transforms import (
     MapValue,
     MemberTransform,
     PromoteKeyword,
+    RenameKeyword,
+    RenameMethod,
     Require,
     Unwrap,
 )
@@ -23,6 +25,7 @@ __all__ = [
     "Module",
     "Symbol",
     "Call",
+    "Method",
     "Member",
     "Move",
     "Flag",
@@ -30,6 +33,8 @@ __all__ = [
     "CallTransform",
     "PromoteKeyword",
     "DropKeyword",
+    "RenameKeyword",
+    "RenameMethod",
     "MapArgument",
     "Require",
     "Unwrap",

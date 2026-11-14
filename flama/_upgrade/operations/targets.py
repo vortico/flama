@@ -1,7 +1,10 @@
+import ast
 import dataclasses
 import typing as t
 
-__all__ = ["Target", "Module", "Symbol", "Call", "Member"]
+from flama._upgrade.source import Source
+
+__all__ = ["Target", "Module", "Symbol", "Call", "Method", "Member"]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -55,6 +58,44 @@ class Call:
     def dotted(self) -> str:
         return self.symbol.dotted
 
+    def calls(self, source: Source) -> list[ast.Call]:
+        """The calls this target matches in ``source``."""
+        callees = {id(node) for node in source.symbol_references(self.symbol.module, self.symbol.name)}
+        return [
+            node
+            for node in ast.walk(source.tree)
+            if isinstance(node, ast.Call)
+            and id(node.func) in callees
+            and (not self.with_arguments or node.args or node.keywords)
+        ]
+
+
+@dataclasses.dataclass(frozen=True)
+class Method:
+    """The calls to a method, whatever object it is called on (``obj.name(...)``).
+
+    The object's type cannot be known from the source alone, so calls are matched by the method's name, which suits
+    names distinctive enough not to belong to unrelated APIs.
+
+    :param name: Method name.
+    """
+
+    kind: t.ClassVar[str] = "method"
+
+    name: str
+
+    @property
+    def dotted(self) -> str:
+        return self.name
+
+    def calls(self, source: Source) -> list[ast.Call]:
+        """The calls this target matches in ``source``."""
+        return [
+            node
+            for node in ast.walk(source.tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == self.name
+        ]
+
 
 @dataclasses.dataclass(frozen=True)
 class Member:
@@ -74,4 +115,4 @@ class Member:
         return f"{self.symbol.dotted}.{self.name}"
 
 
-Target: t.TypeAlias = Module | Symbol | Call | Member
+Target: t.TypeAlias = Module | Symbol | Call | Method | Member

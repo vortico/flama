@@ -11,7 +11,6 @@ from flama.mcp.components import (
     MCPTraceContextComponent,
 )
 from flama.mcp.data_structures import (
-    AppTemplate,
     Elicit,
     Elicitation,
     Extensions,
@@ -22,6 +21,7 @@ from flama.mcp.data_structures import (
     Resource,
     Tool,
     TraceContext,
+    UIResource,
 )
 from flama.mcp.endpoint import MCPEndpoint
 from flama.mcp.http import MCPResponse
@@ -50,7 +50,7 @@ __all__ = [
     "RequestState",
     "Tool",
     "Resource",
-    "AppTemplate",
+    "UIResource",
     "Prompt",
     "MCPEndpoint",
     "MCPResponse",

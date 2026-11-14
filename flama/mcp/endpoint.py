@@ -117,8 +117,8 @@ class MCPEndpoint(JSONRPCEndpoint):
             }
             if entry.output_schema is not None:
                 tool["outputSchema"] = entry.output_schema
-            if entry.ui_template is not None:
-                tool["uiTemplate"] = entry.ui_template
+            if entry.ui_resource is not None:
+                tool["_meta"] = {"ui": {"resourceUri": entry.ui_resource}}
             tools.append(tool)
 
         return {"tools": tools, **self._cache_metadata()}
@@ -293,14 +293,8 @@ class MCPEndpoint(JSONRPCEndpoint):
         }
 
     def resources_templates_list(self) -> dict[str, t.Any]:
-        """List the prefetchable MCP Apps UI templates this server declares (SEP-1865)."""
-        return {
-            "resourceTemplates": [
-                {"uri": tpl.uri, "name": tpl.name, "description": tpl.description, "mimeType": tpl.mime_type}
-                for tpl in self.server._app_templates.values()
-            ],
-            **self._cache_metadata(),
-        }
+        """List the parameterised resources this server declares, of which there are none."""
+        return {"resourceTemplates": [], **self._cache_metadata()}
 
     def prompts_list(self) -> dict[str, t.Any]:
         return {

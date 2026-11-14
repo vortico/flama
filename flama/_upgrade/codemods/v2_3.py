@@ -5,9 +5,12 @@ from flama._upgrade.operations import (
     Flag,
     MapValue,
     Member,
+    Method,
     Module,
     Move,
     PromoteKeyword,
+    RenameKeyword,
+    RenameMethod,
     Require,
     Rewrite,
     Symbol,
@@ -88,6 +91,24 @@ V2_3 = Migration(
             Move(Module(f"flama.debug{module}"), Module(f"flama.errors{module}"))
             for module in ("", ".data_structures", ".middleware", ".types")
         ),
+        # MCP Apps follows its published specification, which names a tool's interface a UI resource.
+        *(
+            Move(Symbol(module, "AppTemplate"), Symbol(module, "UIResource"))
+            for module in ("flama.mcp", "flama.mcp.data_structures")
+        ),
+        *(
+            Rewrite(
+                Method(old),
+                RenameMethod(new),
+                DropKeyword(
+                    "mime_type",
+                    note=f"`{new}(...)` no longer takes `mime_type`; UI resources are always served as "
+                    "`text/html;profile=mcp-app`",
+                ),
+            )
+            for old, new in (("app_template", "ui_resource"), ("add_app_template", "add_ui_resource"))
+        ),
+        *(Rewrite(Method(name), RenameKeyword("ui_template", "ui_resource")) for name in ("tool", "add_tool")),
         # Type checks on applications and routers are plain `isinstance` checks.
         *(
             Flag(Call(Symbol(module, name)), f"was removed; use `isinstance(obj, {replacement})` instead")

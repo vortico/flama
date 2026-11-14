@@ -123,11 +123,10 @@ class MCPToolComponent(Component):
 
 
 class MCPResourceComponent(Component):
-    """Resolve the resource or app template whose URI the request's ``params`` carry."""
+    """Resolve the :class:`Resource` whose URI the request's ``params`` carry."""
 
     def resolve(self, params: types.JSONRPCParams, server: MCPServer) -> Resource:
-        uri = params.get("uri", "")
-        if (resource := server._resources.get(uri) or server._app_templates.get(uri)) is None:
+        if (resource := server._resources.get(uri := params.get("uri", ""))) is None:
             raise exceptions.JSONRPCException(
                 status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Resource '{uri}' not found"
             )

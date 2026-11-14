@@ -64,10 +64,10 @@ class MCPModule(Module):
         name: str | None = None,
         description: str | None = None,
         task: bool = False,
-        ui_template: str | None = None,
+        ui_resource: str | None = None,
         mcp: str | None = None,
     ) -> None:
-        self._resolve(mcp).add_tool(handler, name=name, description=description, task=task, ui_template=ui_template)
+        self._resolve(mcp).add_tool(handler, name=name, description=description, task=task, ui_resource=ui_resource)
 
     def add_resource(
         self,
@@ -91,17 +91,16 @@ class MCPModule(Module):
     ) -> None:
         self._resolve(mcp).add_prompt(handler, name=name, description=description)
 
-    def add_app_template(
+    def add_ui_resource(
         self,
         handler: t.Callable[..., t.Any],
         *,
         uri: str,
         name: str | None = None,
         description: str | None = None,
-        mime_type: str = "text/html",
         mcp: str | None = None,
     ) -> None:
-        self._resolve(mcp).add_app_template(handler, uri=uri, name=name, description=description, mime_type=mime_type)
+        self._resolve(mcp).add_ui_resource(handler, uri=uri, name=name, description=description)
 
     def tool(
         self,
@@ -109,11 +108,11 @@ class MCPModule(Module):
         *,
         description: str | None = None,
         task: bool = False,
-        ui_template: str | None = None,
+        ui_resource: str | None = None,
         mcp: str | None = None,
     ) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
-            self.add_tool(func, name=name, description=description, task=task, ui_template=ui_template, mcp=mcp)
+            self.add_tool(func, name=name, description=description, task=task, ui_resource=ui_resource, mcp=mcp)
             return func
 
         return decorator
@@ -140,17 +139,11 @@ class MCPModule(Module):
 
         return decorator
 
-    def app_template(
-        self,
-        uri: str,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        mime_type: str = "text/html",
-        mcp: str | None = None,
+    def ui_resource(
+        self, uri: str, *, name: str | None = None, description: str | None = None, mcp: str | None = None
     ) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
-            self.add_app_template(func, uri=uri, name=name, description=description, mime_type=mime_type, mcp=mcp)
+            self.add_ui_resource(func, uri=uri, name=name, description=description, mcp=mcp)
             return func
 
         return decorator

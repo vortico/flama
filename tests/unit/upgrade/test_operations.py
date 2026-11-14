@@ -9,9 +9,12 @@ from flama._upgrade.operations import (
     MapArgument,
     MapValue,
     Member,
+    Method,
     Module,
     Move,
     PromoteKeyword,
+    RenameKeyword,
+    RenameMethod,
     Require,
     Rewrite,
     Symbol,
@@ -31,6 +34,7 @@ class TestCaseTargets:
             pytest.param(Module("flama.asgi"), "module", "flama.asgi", id="module"),
             pytest.param(Symbol("flama.http", "Method"), "symbol", "flama.http.Method", id="symbol"),
             pytest.param(Call(Symbol("flama.http", "APIResponse")), "call", "flama.http.APIResponse", id="call"),
+            pytest.param(Method("app_template"), "method", "app_template", id="method"),
             pytest.param(
                 Member(Symbol("flama.exceptions", "Error"), "Kind"),
                 "member",
@@ -208,6 +212,7 @@ class TestCaseFlag:
                 Symbol("flama.http", "HTMLFileResponse"), "flag:symbol:flama.http.HTMLFileResponse", id="symbol"
             ),
             pytest.param(Call(Symbol("flama.exceptions", "Error")), "flag:call:flama.exceptions.Error", id="call"),
+            pytest.param(Method("app_template"), "flag:method:app_template", id="method"),
             pytest.param(
                 Member(Symbol("flama.exceptions", "Error"), "Kind"),
                 "flag:member:flama.exceptions.Error.Kind",
@@ -310,6 +315,12 @@ class TestCaseFlag:
                 [(2, "`Error.Kind` takes names")],
                 id="member",
             ),
+            pytest.param(
+                Method("app_template"),
+                "server.app_template('ui://w')\napp_template('ui://w')\n",
+                [(1, "`server.app_template(...)` takes names")],
+                id="method",
+            ),
         ],
     )
     def test_reports_without_rewriting(self, target, text: str, expected: list[tuple[int, str]]) -> None:
@@ -330,6 +341,11 @@ class TestCaseRewrite:
                 id="call",
             ),
             pytest.param(
+                Rewrite(Method("app_template"), RenameMethod("ui_resource")),
+                "rewrite:method:app_template",
+                id="method",
+            ),
+            pytest.param(
                 Rewrite(Member(Symbol("flama.exceptions", "Error"), "Kind"), MapValue({"a": "a"})),
                 "rewrite:member:flama.exceptions.Error.Kind",
                 id="member",
@@ -345,6 +361,7 @@ class TestCaseRewrite:
             pytest.param(Call(Symbol("m", "f")), (), id="no_transforms"),
             pytest.param(Call(Symbol("m", "f")), (MapValue({}),), id="member_transform_on_call"),
             pytest.param(Member(Symbol("m", "f"), "x"), (PromoteKeyword("a"),), id="call_transform_on_member"),
+            pytest.param(Method("f"), (MapValue({}),), id="member_transform_on_method"),
         ],
     )
     def test_transforms_must_fit_the_target(self, target, transforms) -> None:
@@ -456,6 +473,46 @@ class TestCaseDropKeyword:
         result = operation.apply(parse("from flama.exceptions import Error\nError(dependency=d, dependant=y)\n"))
 
         assert result.source.text == "from flama.exceptions import Error\nError(d)\n"
+
+
+class TestCaseRenameMethodAndKeyword:
+    @pytest.mark.parametrize(
+        ["operation", "before", "after"],
+        [
+            pytest.param(
+                Rewrite(Method("app_template"), RenameMethod("ui_resource")),
+                "@app.mcp.app_template('ui://w', name='w')\ndef w(): ...\n",
+                "@app.mcp.ui_resource('ui://w', name='w')\ndef w(): ...\n",
+                id="method_renamed",
+            ),
+            pytest.param(
+                Rewrite(Method("app_template"), RenameMethod("ui_resource")),
+                "app_template('ui://w')\nserver.app_templates('ui://w')\n",
+                "app_template('ui://w')\nserver.app_templates('ui://w')\n",
+                id="other_calls_untouched",
+            ),
+            pytest.param(
+                Rewrite(Method("tool"), RenameKeyword("ui_template", "ui_resource")),
+                "@server.tool('t', task=True, ui_template='ui://w')\ndef t(): ...\n",
+                "@server.tool('t', task=True, ui_resource='ui://w')\ndef t(): ...\n",
+                id="keyword_renamed",
+            ),
+            pytest.param(
+                Rewrite(Method("tool"), RenameKeyword("ui_template", "ui_resource")),
+                "@server.tool('t', task=True)\ndef t(): ...\n",
+                "@server.tool('t', task=True)\ndef t(): ...\n",
+                id="keyword_absent_noop",
+            ),
+            pytest.param(
+                Rewrite(Call(Symbol("flama.mcp", "make")), RenameMethod("build")),
+                "from flama.mcp import make\nmake(1)\n",
+                "from flama.mcp import make\nbuild(1)\n",
+                id="function_renamed",
+            ),
+        ],
+    )
+    def test_apply(self, operation: Rewrite, before: str, after: str) -> None:
+        assert operation.apply(parse(before)).source.text == after
 
 
 class TestCaseMapArgument:

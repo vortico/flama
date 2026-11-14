@@ -15,7 +15,7 @@ __all__ = [
     "RequestState",
     "Tool",
     "Resource",
-    "AppTemplate",
+    "UIResource",
     "Prompt",
 ]
 
@@ -59,7 +59,7 @@ class Extensions(frozenset[str]):
     """
 
     TASKS: t.ClassVar[str] = f"{RequestMeta.MCP_NAMESPACE}/tasks"
-    APPS: t.ClassVar[str] = f"{RequestMeta.MCP_NAMESPACE}/apps"
+    APPS: t.ClassVar[str] = f"{RequestMeta.MCP_NAMESPACE}/ui"
 
 
 @dataclasses.dataclass
@@ -180,7 +180,7 @@ class Tool:
     output_schema: dict[str, t.Any] | None = None
     result: Schema | None = None
     task: bool = False
-    ui_template: str | None = None
+    ui_resource: str | None = None
     elicitation_param: str | None = None
 
 
@@ -194,12 +194,21 @@ class Resource:
 
 
 @dataclasses.dataclass
-class AppTemplate(Resource):
-    """A resource rendered as a prefetchable UI template a tool can declare ahead of time (MCP Apps, SEP-1865).
+class UIResource(Resource):
+    """A resource hosts render as the interactive UI of the tools linked to it (MCP Apps, SEP-1865).
 
-    Hosts prefetch, cache, and security-review these HTML templates before any tool runs; the rendered UI then talks
-    back to the host over the same JSON-RPC base protocol.
+    Its URI uses the ``ui://`` scheme and its content is an HTML document, which hosts may prefetch and render in a
+    sandboxed frame that talks back to them over the same JSON-RPC base protocol.
+
+    :raises ValueError: If the URI does not use the ``ui://`` scheme.
     """
+
+    SCHEME: t.ClassVar[str] = "ui://"
+    MIME_TYPE: t.ClassVar[str] = "text/html;profile=mcp-app"
+
+    def __post_init__(self) -> None:
+        if not self.uri.startswith(self.SCHEME):
+            raise ValueError(f"UI resource URI '{self.uri}' must use the '{self.SCHEME}' scheme")
 
 
 @dataclasses.dataclass

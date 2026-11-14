@@ -2,7 +2,7 @@ import ast
 import typing as t
 
 from flama._upgrade.operations._base import ApplyResult, Operation, Todo
-from flama._upgrade.operations.targets import Call, Member
+from flama._upgrade.operations.targets import Call, Member, Method
 from flama._upgrade.operations.transforms import CallParts, CallTransform, MemberTransform
 from flama._upgrade.source import Edit, Source
 
@@ -24,7 +24,7 @@ def _drop_nested(nodes: t.Sequence[ast.Call]) -> list[ast.Call]:
 
 
 class Rewrite(Operation):
-    """Rewrite the calls to a symbol, or the accesses to one of its members, through a chain of transforms.
+    """Rewrite the calls to a symbol or a method, or the accesses to a symbol's member, through a chain of transforms.
 
     For calls, each matched call is split into its callee and arguments, passed through every
     :class:`~flama._upgrade.operations.transforms.CallTransform` in order, and rendered back once. For members,
@@ -35,15 +35,15 @@ class Rewrite(Operation):
     :param transforms: Transforms to apply, of the kind the target takes.
     """
 
-    target: Call | Member
+    target: Call | Method | Member
     transforms: tuple[CallTransform, ...] | tuple[MemberTransform, ...]
 
     @t.overload
-    def __init__(self, target: Call, /, *transforms: CallTransform) -> None: ...
+    def __init__(self, target: Call | Method, /, *transforms: CallTransform) -> None: ...
     @t.overload
     def __init__(self, target: Member, /, *transforms: MemberTransform) -> None: ...
-    def __init__(self, target: Call | Member, /, *transforms: CallTransform | MemberTransform) -> None:
-        expected = CallTransform if isinstance(target, Call) else MemberTransform
+    def __init__(self, target: Call | Method | Member, /, *transforms: CallTransform | MemberTransform) -> None:
+        expected = MemberTransform if isinstance(target, Member) else CallTransform
         if not transforms or not all(isinstance(transform, expected) for transform in transforms):
             raise TypeError(f"A {target.kind} rewrite needs one or more {expected.__name__}")
         self.target = target
@@ -63,22 +63,15 @@ class Rewrite(Operation):
         return f"rewrite:{self.target.kind}:{self.target.dotted}"
 
     def apply(self, source: Source) -> ApplyResult:
-        if isinstance(self.target, Call):
-            return self._rewrite_calls(source, self.target, t.cast(tuple[CallTransform, ...], self.transforms))
+        if isinstance(self.target, Member):
+            return self._rewrite_members(source, self.target, t.cast(tuple[MemberTransform, ...], self.transforms))
 
-        return self._rewrite_members(source, self.target, t.cast(tuple[MemberTransform, ...], self.transforms))
+        return self._rewrite_calls(source, self.target, t.cast(tuple[CallTransform, ...], self.transforms))
 
-    def _rewrite_calls(self, source: Source, target: Call, transforms: tuple[CallTransform, ...]) -> ApplyResult:
-        callees = {id(node) for node in source.symbol_references(target.symbol.module, target.symbol.name)}
-        calls = _drop_nested(
-            [
-                node
-                for node in ast.walk(source.tree)
-                if isinstance(node, ast.Call)
-                and id(node.func) in callees
-                and (not target.with_arguments or node.args or node.keywords)
-            ]
-        )
+    def _rewrite_calls(
+        self, source: Source, target: Call | Method, transforms: tuple[CallTransform, ...]
+    ) -> ApplyResult:
+        calls = _drop_nested(target.calls(source))
 
         edits: list[Edit] = []
         todos: list[Todo] = []
@@ -96,8 +89,9 @@ class Rewrite(Operation):
             return ApplyResult(source, False, tuple(todos))
 
         rewritten = source.with_edits(edits)
-        for transform in transforms:
-            rewritten = transform.finalize(rewritten, target.symbol)
+        if isinstance(target, Call):
+            for transform in transforms:
+                rewritten = transform.finalize(rewritten, target.symbol)
         return ApplyResult(rewritten, True, tuple(todos))
 
     def _rewrite_members(self, source: Source, target: Member, transforms: tuple[MemberTransform, ...]) -> ApplyResult:

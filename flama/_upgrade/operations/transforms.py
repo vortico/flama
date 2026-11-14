@@ -15,6 +15,8 @@ __all__ = [
     "CallTransform",
     "PromoteKeyword",
     "DropKeyword",
+    "RenameKeyword",
+    "RenameMethod",
     "MapArgument",
     "Require",
     "Unwrap",
@@ -117,6 +119,42 @@ class DropKeyword(CallTransform):
 
         keywords = tuple(keyword for keyword in call.keywords if keyword.arg != self.keyword)
         return dataclasses.replace(call, keywords=keywords), Todo(line, self.note) if self.note else None
+
+
+@dataclasses.dataclass(frozen=True)
+class RenameKeyword(CallTransform):
+    """Pass a keyword argument under the name the callee now takes (``f(old=x)`` -> ``f(new=x)``).
+
+    :param old: Keyword argument in the source version.
+    :param new: Keyword argument in the target version.
+    """
+
+    old: str
+    new: str
+
+    def __call__(self, call: CallParts, line: int) -> tuple[CallParts, Todo | None]:
+        if not any(keyword.arg == self.old for keyword in call.keywords):
+            return call, None
+
+        keywords = tuple(
+            dataclasses.replace(keyword, arg=self.new) if keyword.arg == self.old else keyword
+            for keyword in call.keywords
+        )
+        return dataclasses.replace(call, keywords=keywords), None
+
+
+@dataclasses.dataclass(frozen=True)
+class RenameMethod(CallTransform):
+    """Call a method by the name it now has (``obj.old(...)`` -> ``obj.new(...)``).
+
+    :param name: Method name in the target version.
+    """
+
+    name: str
+
+    def __call__(self, call: CallParts, line: int) -> tuple[CallParts, Todo | None]:
+        owner, dot, _ = call.func.rpartition(".")
+        return dataclasses.replace(call, func=f"{owner}{dot}{self.name}"), None
 
 
 @dataclasses.dataclass(frozen=True)

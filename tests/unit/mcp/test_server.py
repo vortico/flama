@@ -4,7 +4,7 @@ import json
 import pytest
 
 from flama import schemas, types
-from flama.mcp.data_structures import AppTemplate, Elicitation, Extensions, Prompt, Resource, Tool
+from flama.mcp.data_structures import Elicitation, Extensions, Prompt, Resource, Tool, UIResource
 from flama.mcp.server import MCPServer
 from flama.mcp.tasks import InMemoryTaskStore
 
@@ -292,25 +292,25 @@ class TestCaseMCPServer:
         store = InMemoryTaskStore()
         assert MCPServer(task_store=store).task_store is store
 
-    def test_add_tool_task_and_ui_template(self, server):
+    def test_add_tool_task_and_ui_resource(self, server):
         def func(): ...
 
-        server.add_tool(func, name="t", task=True, ui_template="ui://w")
+        server.add_tool(func, name="t", task=True, ui_resource="ui://w")
 
         entry = server._tools["t"]
         assert entry.task is True
-        assert entry.ui_template == "ui://w"
+        assert entry.ui_resource == "ui://w"
 
-    def test_tool_decorator_task_and_ui_template(self, server):
-        @server.tool("t", task=True, ui_template="ui://w")
+    def test_tool_decorator_task_and_ui_resource(self, server):
+        @server.tool("t", task=True, ui_resource="ui://w")
         def func(): ...
 
         entry = server._tools["t"]
         assert entry.task is True
-        assert entry.ui_template == "ui://w"
+        assert entry.ui_resource == "ui://w"
 
     @pytest.mark.parametrize(
-        ["has_task_tool", "has_template", "expected"],
+        ["has_task_tool", "has_ui_resource", "expected"],
         (
             pytest.param(False, False, set(), id="none"),
             pytest.param(True, False, {Extensions.TASKS}, id="tasks"),
@@ -318,38 +318,50 @@ class TestCaseMCPServer:
             pytest.param(True, True, {Extensions.TASKS, Extensions.APPS}, id="both"),
         ),
     )
-    def test_supported_extensions(self, server, has_task_tool, has_template, expected):
+    def test_supported_extensions(self, server, has_task_tool, has_ui_resource, expected):
+        server.add_resource(lambda: "text", uri="res://a")
         if has_task_tool:
             server.add_tool(lambda: None, name="t", task=True)
-        if has_template:
-            server.add_app_template(lambda: "<html></html>", uri="ui://w")
+        if has_ui_resource:
+            server.add_ui_resource(lambda: "<html></html>", uri="ui://w")
 
         assert server.supported_extensions == expected
 
     @pytest.mark.parametrize(
-        ["name", "expected_name"],
-        (pytest.param("widget", "widget", id="explicit"), pytest.param(None, "func", id="default")),
+        ["uri", "name", "expected_name", "exception"],
+        (
+            pytest.param("ui://w", "widget", "widget", None, id="explicit_name"),
+            pytest.param("ui://w", None, "func", None, id="default_name"),
+            pytest.param(
+                "res://w",
+                None,
+                None,
+                ValueError("UI resource URI 'res://w' must use the 'ui://' scheme"),
+                id="not_a_ui_uri",
+            ),
+        ),
+        indirect=["exception"],
     )
-    def test_add_app_template(self, server, name, expected_name):
+    def test_add_ui_resource(self, server, uri, name, expected_name, exception):
         def func():
             """Docstring."""
             return "<html></html>"
 
-        server.add_app_template(func, uri="ui://w", name=name)
+        with exception:
+            server.add_ui_resource(func, uri=uri, name=name)
 
-        assert "ui://w" in server._app_templates
-        template = server._app_templates["ui://w"]
-        assert isinstance(template, AppTemplate)
-        assert template.name == expected_name
-        assert template.mime_type == "text/html"
+            resource = server._resources[uri]
+            assert isinstance(resource, UIResource)
+            assert resource.name == expected_name
+            assert resource.mime_type == "text/html;profile=mcp-app"
 
-    def test_app_template_decorator(self, server):
-        @server.app_template("ui://w", name="widget", description="W")
+    def test_ui_resource_decorator(self, server):
+        @server.ui_resource("ui://w", name="widget", description="W")
         def func():
             return "<html></html>"
 
-        assert "ui://w" in server._app_templates
-        assert server._app_templates["ui://w"].name == "widget"
+        assert isinstance(server._resources["ui://w"], UIResource)
+        assert server._resources["ui://w"].name == "widget"
 
     def test_elicitation_param_excluded_from_schema(self, server):
         def func(a: int, elicitation: Elicitation): ...

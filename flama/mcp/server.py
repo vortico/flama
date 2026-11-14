@@ -2,7 +2,7 @@ import inspect
 import typing as t
 
 from flama import types
-from flama.mcp.data_structures import AppTemplate, Elicitation, Extensions, Prompt, Resource, Tool
+from flama.mcp.data_structures import Elicitation, Extensions, Prompt, Resource, Tool, UIResource
 from flama.mcp.tasks import InMemoryTaskStore, TaskStore
 from flama.schemas.data_structures import Field, Schema
 from flama.schemas.exceptions import SchemaGenerationError
@@ -36,7 +36,6 @@ class MCPServer:
         self._tools: dict[str, Tool] = {}
         self._resources: dict[str, Resource] = {}
         self._prompts: dict[str, Prompt] = {}
-        self._app_templates: dict[str, AppTemplate] = {}
 
     @property
     def supported_extensions(self) -> set[str]:
@@ -44,7 +43,7 @@ class MCPServer:
         extensions: set[str] = set()
         if any(tool.task for tool in self._tools.values()):
             extensions.add(Extensions.TASKS)
-        if self._app_templates:
+        if any(isinstance(resource, UIResource) for resource in self._resources.values()):
             extensions.add(Extensions.APPS)
         return extensions
 
@@ -55,7 +54,7 @@ class MCPServer:
         name: str | None = None,
         description: str | None = None,
         task: bool = False,
-        ui_template: str | None = None,
+        ui_resource: str | None = None,
     ) -> None:
         tool_name = name or getattr(handler, "__name__", type(handler).__name__)
         arguments = Schema.build(fields=Field.from_handler(handler, exclude={Elicitation}))
@@ -74,24 +73,18 @@ class MCPServer:
             output_schema=self._output_schema(annotation, result),
             result=result,
             task=task,
-            ui_template=ui_template,
+            ui_resource=ui_resource,
             elicitation_param=self._elicitation_param(handler),
         )
 
-    def add_app_template(
-        self,
-        handler: t.Callable[..., t.Any],
-        *,
-        uri: str,
-        name: str | None = None,
-        description: str | None = None,
-        mime_type: str = "text/html",
+    def add_ui_resource(
+        self, handler: t.Callable[..., t.Any], *, uri: str, name: str | None = None, description: str | None = None
     ) -> None:
-        self._app_templates[uri] = AppTemplate(
+        self._resources[uri] = UIResource(
             uri=uri,
             name=name or getattr(handler, "__name__", type(handler).__name__),
             description=description or inspect.getdoc(handler) or "",
-            mime_type=mime_type,
+            mime_type=UIResource.MIME_TYPE,
             handler=handler,
         )
 
@@ -130,10 +123,10 @@ class MCPServer:
         *,
         description: str | None = None,
         task: bool = False,
-        ui_template: str | None = None,
+        ui_resource: str | None = None,
     ) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
-            self.add_tool(func, name=name, description=description, task=task, ui_template=ui_template)
+            self.add_tool(func, name=name, description=description, task=task, ui_resource=ui_resource)
             return func
 
         return decorator
@@ -154,11 +147,9 @@ class MCPServer:
 
         return decorator
 
-    def app_template(
-        self, uri: str, *, name: str | None = None, description: str | None = None, mime_type: str = "text/html"
-    ) -> t.Callable:
+    def ui_resource(self, uri: str, *, name: str | None = None, description: str | None = None) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
-            self.add_app_template(func, uri=uri, name=name, description=description, mime_type=mime_type)
+            self.add_ui_resource(func, uri=uri, name=name, description=description)
             return func
 
         return decorator

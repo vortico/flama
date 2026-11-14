@@ -74,6 +74,20 @@ class TestCaseUpgradeV23:
                 "def f(handler: ExceptionHandlerFunction): ...\n",
                 id="exception_handler_type_renamed",
             ),
+            pytest.param(
+                "from flama.mcp import AppTemplate\n\n\ndef f(resource: AppTemplate): ...\n",
+                "from flama.mcp import UIResource\n\n\ndef f(resource: UIResource): ...\n",
+                id="app_template_renamed",
+            ),
+            pytest.param(
+                "@app.mcp.app_template('ui://w', name='w')\ndef w(): ...\n\n\n"
+                "@app.mcp.tool('t', ui_template='ui://w')\ndef t(): ...\n\n\n"
+                "server.add_app_template(w, uri='ui://w')\nserver.add_tool(t, ui_template='ui://w')\n",
+                "@app.mcp.ui_resource('ui://w', name='w')\ndef w(): ...\n\n\n"
+                "@app.mcp.tool('t', ui_resource='ui://w')\ndef t(): ...\n\n\n"
+                "server.add_ui_resource(w, uri='ui://w')\nserver.add_tool(t, ui_resource='ui://w')\n",
+                id="ui_resource_renamed",
+            ),
         ],
     )
     def test_apply(self, before: str, after: str) -> None:
@@ -144,6 +158,11 @@ class TestCaseUpgradeV23:
             pytest.param("from flama.compat import TypedDict\n", "is now private", id="compat_private_symbol"),
             pytest.param("from flama import concurrency\n", "is now private", id="concurrency_private"),
             pytest.param("from flama.concurrency import run\n", "is now private", id="concurrency_private_symbol"),
+            pytest.param(
+                "@app.mcp.app_template('ui://w', mime_type='text/html')\ndef w(): ...\n",
+                "`ui_resource(...)` no longer takes `mime_type`",
+                id="ui_resource_mime_type_dropped",
+            ),
         ],
     )
     def test_flags_manual_follow_up(self, before: str, message: str) -> None:

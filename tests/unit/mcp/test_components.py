@@ -220,7 +220,7 @@ def server():
     server = MCPServer("test")
     server.add_tool(handler_none, name="add")
     server.add_resource(handler_none, uri="res://a")
-    server.add_app_template(handler_none, uri="ui://a")
+    server.add_ui_resource(handler_none, uri="ui://a")
     server.add_prompt(handler_none, name="greet")
     return server
 
@@ -260,9 +260,7 @@ class TestCaseMCPEntryComponents:
                 id="tool_not_found",
             ),
             pytest.param(MCPResourceComponent(), {"uri": "res://a"}, ("_resources", "res://a"), None, id="resource"),
-            pytest.param(
-                MCPResourceComponent(), {"uri": "ui://a"}, ("_app_templates", "ui://a"), None, id="app_template"
-            ),
+            pytest.param(MCPResourceComponent(), {"uri": "ui://a"}, ("_resources", "ui://a"), None, id="ui_resource"),
             pytest.param(
                 MCPResourceComponent(),
                 {"uri": "res://missing"},

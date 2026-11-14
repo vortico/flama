@@ -623,30 +623,31 @@ class TestCaseMCPEndpoint:
         async def slow() -> int:
             return 1
 
-        @server.app_template("ui://w", name="widget")
-        def widget():
-            return "<html></html>"
+        @server.ui_resource("ui://weather-server/dashboard-template", name="weather_dashboard")
+        def dashboard():
+            return "<!DOCTYPE html><html>...</html>"
 
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {}})
 
         extensions = resp.json()["result"]["capabilities"]["extensions"]
-        assert extensions == {Extensions.APPS: {}, Extensions.TASKS: {}}
+        assert extensions == {"io.modelcontextprotocol/ui": {}, "io.modelcontextprotocol/tasks": {}}
 
-    async def test_tools_list_ui_template(self, app):
+    async def test_tools_list_ui_resource(self, app):
         server = app.mcp._servers["test"]
 
-        @server.app_template("ui://w", name="widget")
-        def widget():
-            return "<html></html>"
+        @server.ui_resource("ui://weather-server/dashboard-template", name="weather_dashboard")
+        def dashboard():
+            return "<!DOCTYPE html><html>...</html>"
 
-        @server.tool("with_ui", ui_template="ui://w")
-        def with_ui() -> str:
-            return "x"
+        @server.tool("get_weather", ui_resource="ui://weather-server/dashboard-template")
+        def get_weather(location: str) -> str:
+            return "sunny"
 
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}})
+
         tools = {t["name"]: t for t in resp.json()["result"]["tools"]}
-        assert tools["with_ui"]["uiTemplate"] == "ui://w"
-        assert "uiTemplate" not in tools["add"]
+        assert tools["get_weather"]["_meta"] == {"ui": {"resourceUri": "ui://weather-server/dashboard-template"}}
+        assert "_meta" not in tools["add"]
 
     async def test_tools_call_as_task(self, app):
         server = app.mcp._servers["test"]
@@ -939,27 +940,42 @@ class TestCaseMCPEndpoint:
         )
         assert update.json()["error"]["code"] == JSONRPCStatus.INVALID_PARAMS
 
-    async def test_resources_templates_list_with_apps(self, app):
+    async def test_ui_resource(self, app):
         server = app.mcp._servers["test"]
 
-        @server.app_template("ui://w", name="widget", description="A widget")
-        def widget():
-            return "<html></html>"
-
-        resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "resources/templates/list", "params": {}})
-        templates = resp.json()["result"]["resourceTemplates"]
-        assert templates == [{"uri": "ui://w", "name": "widget", "description": "A widget", "mimeType": "text/html"}]
-
-    async def test_resources_read_app_template(self, app):
-        server = app.mcp._servers["test"]
-
-        @server.app_template("ui://w", name="widget")
-        def widget():
-            return "<html>hi</html>"
-
-        resp = await self._post(
-            app, {"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": "ui://w"}}
+        @server.ui_resource(
+            "ui://weather-server/dashboard-template",
+            name="weather_dashboard",
+            description="Interactive weather dashboard view",
         )
-        contents = resp.json()["result"]["contents"]
-        assert contents[0]["text"] == "<html>hi</html>"
-        assert contents[0]["mimeType"] == "text/html"
+        def dashboard():
+            return "<!DOCTYPE html><html>...</html>"
+
+        listed = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "resources/list", "params": {}})
+        read = await self._post(
+            app,
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "resources/read",
+                "params": {"uri": "ui://weather-server/dashboard-template"},
+            },
+        )
+        templates = await self._post(
+            app, {"jsonrpc": "2.0", "id": 3, "method": "resources/templates/list", "params": {}}
+        )
+
+        assert {
+            "uri": "ui://weather-server/dashboard-template",
+            "name": "weather_dashboard",
+            "description": "Interactive weather dashboard view",
+            "mimeType": "text/html;profile=mcp-app",
+        } in listed.json()["result"]["resources"]
+        assert read.json()["result"]["contents"] == [
+            {
+                "uri": "ui://weather-server/dashboard-template",
+                "mimeType": "text/html;profile=mcp-app",
+                "text": "<!DOCTYPE html><html>...</html>",
+            }
+        ]
+        assert templates.json()["result"]["resourceTemplates"] == []

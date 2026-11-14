@@ -1,13 +1,13 @@
 import pytest
 
 from flama.mcp.data_structures import (
-    AppTemplate,
     Elicit,
     Elicitation,
     Extensions,
     RequestMeta,
     RequestState,
     TraceContext,
+    UIResource,
 )
 
 
@@ -91,15 +91,27 @@ class TestCaseElicitation:
         assert elicitation.get("missing") is None
 
 
-class TestCaseAppTemplate:
-    def test_fields(self):
-        def handler():
-            return "<html></html>"
+class TestCaseUIResource:
+    @pytest.mark.parametrize(
+        ["uri", "exception"],
+        (
+            pytest.param("ui://weather-server/dashboard-template", None, id="ui_scheme"),
+            pytest.param(
+                "https://example.com/dashboard",
+                ValueError("UI resource URI 'https://example.com/dashboard' must use the 'ui://' scheme"),
+                id="other_scheme",
+            ),
+        ),
+        indirect=["exception"],
+    )
+    def test_init(self, uri, exception):
+        with exception:
+            resource = UIResource(
+                uri=uri, name="w", description="d", mime_type=UIResource.MIME_TYPE, handler=lambda: "<html></html>"
+            )
 
-        template = AppTemplate(uri="ui://w", name="w", description="d", mime_type="text/html", handler=handler)
-
-        assert template.uri == "ui://w"
-        assert template.handler() == "<html></html>"
+            assert resource.uri == uri
+            assert resource.mime_type == "text/html;profile=mcp-app"
 
 
 class TestCaseTraceContext:
