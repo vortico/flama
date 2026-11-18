@@ -108,7 +108,9 @@ class Injector(t.Generic[InjectionContext]):
     def resolve_function(self, func: t.Callable) -> dict[str, "ResolutionTree[InjectionContext]"]:
         """Generate a dependencies tree for a given function.
 
-        It analyses the function signature, look for type annotations and try to resolve them.
+        It analyses the function signature, look for type annotations and try to resolve them. A parameter with a
+        default is left out, so it receives its default, when its component is found but cannot be built since what it
+        needs is not provided.
 
         :param func: Function to be resolved.
         :return: Mapping of parameter names and dependencies trees.
@@ -130,6 +132,9 @@ class Injector(t.Generic[InjectionContext]):
             try:
                 parameters[parameter.name] = self.resolver.resolve(Parameter.from_parameter(parameter))
             except ComponentNotFound as e:
+                if e.component is not None and parameter.default is not inspect.Parameter.empty:
+                    continue
+
                 raise ComponentNotFound(e.parameter, component=e.component, function=func) from None
 
         self._function_cache[func_id] = (target, parameters)
@@ -178,12 +183,20 @@ class Injector(t.Generic[InjectionContext]):
     ) -> t.Any:
         """Generate a value for given dependency and context.
 
+        The default is given instead when no value can be provided, as a parameter with that default would receive it.
+
         :param annotation: Type annotation to be resolved.
         :param context: Context instance used to gather injection values.
         :param name: Name of the parameter to be resolved.
-        :return: Dependencies tree.
+        :param default: Value given when the component is found but cannot be built, or has no value for the context.
+        :return: The value.
         """
-        return await self.resolve(annotation, name=name, default=default).value(
-            context,
-            cache=self.cache,
-        )
+        try:
+            resolution = self.resolve(annotation, name=name, default=default)
+        except ComponentNotFound as e:
+            if e.component is not None and default is not Parameter.empty:
+                return default
+
+            raise
+
+        return await resolution.value(context, cache=self.cache)

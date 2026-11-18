@@ -8,7 +8,7 @@ from flama.cache import LRUCache
 from flama.injection.components import Component, Components
 from flama.injection.context import Context as BaseContext
 from flama.injection.context import Field
-from flama.injection.exceptions import ComponentError, ComponentNotFound, InjectionError
+from flama.injection.exceptions import ComponentError, ComponentNotFound, InjectionError, ValueNotFound
 from flama.injection.injector import InjectionCache
 from flama.injection.resolver import (
     CacheKey,
@@ -62,6 +62,53 @@ class BarComponent(Component):
 
 
 bar_component = BarComponent()
+
+
+class OptionalBarComponent(Component):
+    def can_handle_parameter(self, parameter: Parameter) -> bool:
+        return parameter.annotation == Bar | None
+
+    def resolve(self) -> Bar:
+        return Bar(0)  # pragma: no cover
+
+
+optional_bar_component = OptionalBarComponent()
+
+
+class Absent(float): ...
+
+
+class Dependent(float): ...
+
+
+class Defaulting(float): ...
+
+
+class Refusing(float): ...
+
+
+class AbsentComponent(Component):
+    def resolve(self) -> Absent:
+        raise ValueNotFound(ValueError("Absent value"))
+
+
+class DependentComponent(Component):
+    def resolve(self, absent: Absent) -> Dependent:
+        return Dependent(absent)  # pragma: no cover
+
+
+class DefaultingComponent(Component):
+    def resolve(self, wrong: Wrong = Wrong(1)) -> Defaulting:
+        return Defaulting(wrong)  # pragma: no cover
+
+
+class RefusingComponent(Component):
+    def resolve(self, unhandled: Unhandled = Unhandled(1)) -> Refusing:
+        return Refusing(unhandled)  # pragma: no cover
+
+
+defaulting_component = DefaultingComponent()
+refusing_component = RefusingComponent()
 
 
 class WrongComponent(Component):
@@ -146,7 +193,12 @@ class TestCaseResolutionTree:
             [
                 foo_component,
                 bar_component,
+                optional_bar_component,
                 wrong_component,
+                AbsentComponent(),
+                DependentComponent(),
+                defaulting_component,
+                refusing_component,
                 CacheableComponent(uuid_mock),
                 NonCacheableComponent(uuid_mock),
                 PingComponent(),
@@ -213,6 +265,78 @@ class TestCaseResolutionTree:
                 id="component_using_its_parameter",
             ),
             pytest.param(
+                Parameter("foo", Foo | None, Empty),
+                ResolutionTree(
+                    root=ComponentNode(
+                        name="foo",
+                        parameter=Parameter(name="foo", annotation=Foo),
+                        nodes=[ContextNode(name="x", parameter=Parameter(name="x", annotation=int), nodes=[])],
+                        component=foo_component,
+                    )
+                ),
+                [("x", Parameter(name="x", annotation=int, default=Empty))],
+                [],
+                [("foo", foo_component)],
+                None,
+                id="optional_provided",
+            ),
+            # A component handling the optional parameter as annotated is preferred to the one for its type.
+            pytest.param(
+                Parameter("bar", Bar | None, Empty),
+                ResolutionTree(
+                    root=ComponentNode(
+                        name="bar",
+                        parameter=Parameter(name="bar", annotation=Bar | None),
+                        nodes=[],
+                        component=optional_bar_component,
+                    )
+                ),
+                [],
+                [],
+                [("bar", optional_bar_component)],
+                None,
+                id="optional_handled_as_annotated",
+            ),
+            # A default never covers a type no component handles, which is likely a mistake.
+            pytest.param(
+                Parameter("wrong", Unhandled | None, None),
+                None,
+                None,
+                None,
+                None,
+                ComponentNotFound(parameter=Parameter(name="wrong", annotation=Unhandled | None, default=None)),
+                id="own_type_not_handled_with_default",
+            ),
+            # A dependency whose component cannot be built is left to its default.
+            pytest.param(
+                Parameter("defaulting", Defaulting, Empty),
+                ResolutionTree(
+                    root=ComponentNode(
+                        name="defaulting",
+                        parameter=Parameter(name="defaulting", annotation=Defaulting),
+                        nodes=[],
+                        component=defaulting_component,
+                    )
+                ),
+                [],
+                [],
+                [("defaulting", defaulting_component)],
+                None,
+                id="dependency_left_to_its_default",
+            ),
+            pytest.param(
+                Parameter("refusing", Refusing, Empty),
+                None,
+                None,
+                None,
+                None,
+                ComponentNotFound(
+                    parameter=Parameter(name="unhandled", annotation=Unhandled, default=Unhandled(1)),
+                    component=refusing_component,
+                ),
+                id="dependency_type_not_handled_with_default",
+            ),
+            pytest.param(
                 Parameter("wrong", Unhandled, Empty),
                 None,
                 None,
@@ -222,6 +346,15 @@ class TestCaseResolutionTree:
                 id="not_found",
             ),
             pytest.param(
+                Parameter("wrong", Unhandled | Foo | None, Empty),
+                None,
+                None,
+                None,
+                None,
+                ComponentNotFound(parameter=Parameter(name="wrong", annotation=Unhandled | Foo | None)),
+                id="union_is_not_optional",
+            ),
+            pytest.param(
                 Parameter("wrong", Wrong, Empty),
                 None,
                 None,
@@ -229,6 +362,16 @@ class TestCaseResolutionTree:
                 None,
                 ComponentNotFound(parameter=Parameter(name="x", annotation=Unhandled), component=wrong_component),
                 id="not_found_in_component",
+            ),
+            # A component provides the type, so what it depends on is still required.
+            pytest.param(
+                Parameter("wrong", Wrong | None, Empty),
+                None,
+                None,
+                None,
+                None,
+                ComponentNotFound(parameter=Parameter(name="x", annotation=Unhandled), component=wrong_component),
+                id="dependency_not_built_without_default",
             ),
             pytest.param(
                 Parameter("ping", Ping, Empty),
@@ -318,6 +461,26 @@ class TestCaseResolutionTree:
             assert await tree.value(context, cache=cache) == value
 
         assert uuid_mock.uuid4.call_args_list == uuid_calls
+
+    @pytest.mark.parametrize(
+        ["parameter", "result", "exception"],
+        (
+            pytest.param(Parameter("absent", Absent, Empty), None, ValueError("Absent value"), id="required"),
+            pytest.param(Parameter("absent", Absent | None, None), None, None, id="default_none"),
+            pytest.param(Parameter("absent", Absent, Absent(2)), Absent(2), None, id="default_value"),
+            # A component missing what it depends on has no value either, until a parameter falls back on its default.
+            pytest.param(Parameter("dependent", Dependent | None, None), None, None, id="dependent_default"),
+            pytest.param(
+                Parameter("dependent", Dependent, Empty), None, ValueError("Absent value"), id="dependent_required"
+            ),
+        ),
+        indirect=["exception"],
+    )
+    async def test_value_not_found(self, context_cls, components, parameter, result, exception):
+        tree = ResolutionTree.build(parameter, context_cls, components)
+
+        with exception:
+            assert await tree.value(Context(), cache=InjectionCache()) == result
 
     @pytest.mark.parametrize(
         ["annotation", "context", "values", "uuid_calls"],
@@ -438,44 +601,6 @@ class TestCaseReturn:
     def test_from_return_annotation_empty(self):
         ret = Return.from_return_annotation(inspect.Signature.empty)
         assert ret.annotation is Empty
-
-
-class TestCaseNodeValue:
-    """Tests for the recursive ResolutionNode.value() methods (public API)."""
-
-    @pytest.fixture(scope="function")
-    def context(self):
-        return Context(x=42, data={"bar": 7})
-
-    async def test_context_node_value(self, context):
-        node = ContextNode(name="x", parameter=Parameter("x", int), nodes=[])
-        assert await node.value(context) == 42
-
-    async def test_parameter_node_value(self, context):
-        param = Parameter("bar", Bar)
-        node = ParameterNode(name="parameter", parameter=param, nodes=[])
-        assert await node.value(context) is param
-
-    async def test_component_node_value(self, context):
-        node = ComponentNode(
-            name="foo",
-            parameter=Parameter("foo", Foo),
-            nodes=[ContextNode(name="x", parameter=Parameter("x", int), nodes=[])],
-            component=foo_component,
-        )
-        assert await node.value(context) == Foo(42)
-
-    async def test_component_node_value_with_cache(self, context):
-        cache = InjectionCache()
-        node = ComponentNode(
-            name="foo",
-            parameter=Parameter("foo", Foo),
-            nodes=[ContextNode(name="x", parameter=Parameter("x", int), nodes=[])],
-            component=foo_component,
-        )
-        first = await node.value(context, cache=cache)
-        second = await node.value(context, cache=cache)
-        assert first == second == Foo(42)
 
 
 class TestCaseStep:

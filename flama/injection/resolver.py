@@ -2,6 +2,7 @@ import abc
 import dataclasses
 import inspect
 import typing as t
+from types import NoneType, UnionType
 
 from flama import _compat
 from flama.cache import LRUCache
@@ -73,6 +74,13 @@ class CacheKey:
 
 
 @dataclasses.dataclass(frozen=True)
+class _Missing:
+    """A value a component could not give, with the error raised if no parameter falls back on its default."""
+
+    error: Exception
+
+
+@dataclasses.dataclass(frozen=True)
 class ResolutionNode(abc.ABC, t.Generic[InjectionContext]):
     """A single node in the dependencies tree."""
 
@@ -80,8 +88,49 @@ class ResolutionNode(abc.ABC, t.Generic[InjectionContext]):
     parameter: Parameter
     nodes: list["ResolutionNode[InjectionContext]"]
 
-    @abc.abstractmethod
-    async def value(self, context: InjectionContext, *, cache: LRUCache | None = None) -> t.Any: ...
+    @staticmethod
+    def build(
+        parameter: Parameter,
+        context_cls: type[InjectionContext],
+        components: "Components",
+        parent: Parameter | None = None,
+        path: tuple[tuple["Component", Parameter], ...] = (),
+    ) -> "ResolutionNode[InjectionContext]":
+        """Build the node resolving a parameter, along with the nodes of everything it depends on.
+
+        A parameter is resolved from the context, from the parameter a component resolves, or by a component. One
+        annotated as optional, ``X | None``, is resolved by a component handling it as annotated, otherwise by the one
+        providing ``X``.
+
+        :param parameter: Parameter to resolve.
+        :param context_cls: Context class the values are read from.
+        :param components: Components the parameter may be resolved by.
+        :param parent: Parameter whose component depends on this one.
+        :param path: Components depended on to reach this parameter, with the parameter each resolves.
+        :return: Resolution node.
+        """
+        assert parameter.name not in ("self", "cls")
+
+        if parameter.annotation is not Empty and context_cls.lookup(parameter.annotation) is not None:
+            return ContextNode._build(parameter, context_cls, components, parent, path)
+
+        if parameter.annotation is Parameter:
+            return ParameterNode._build(parameter, context_cls, components, parent, path)
+
+        args = t.get_args(parameter.annotation)
+        if t.get_origin(parameter.annotation) in (t.Union, UnionType) and len(args) == 2 and NoneType in args:
+            inner = Parameter(parameter.name, next(x for x in args if x is not NoneType), parameter.default)
+            for candidate in (parameter, inner):
+                try:
+                    component = components.find_handler(candidate)
+                except exceptions.ComponentNotFound:
+                    continue
+
+                return ComponentNode._build(candidate, context_cls, components, parent, path, component=component)
+
+            raise exceptions.ComponentNotFound(parameter)
+
+        return ComponentNode._build(parameter, context_cls, components, parent, path)
 
     def components(self) -> list[tuple[str, "Component"]]:
         return []
@@ -92,26 +141,23 @@ class ResolutionNode(abc.ABC, t.Generic[InjectionContext]):
     def context(self) -> list[tuple[str, Parameter]]:
         return []
 
+    @classmethod
+    @abc.abstractmethod
+    def _build(
+        cls,
+        parameter: Parameter,
+        context_cls: type[InjectionContext],
+        components: "Components",
+        parent: Parameter | None = None,
+        path: tuple[tuple["Component", Parameter], ...] = (),
+    ) -> "ResolutionNode[InjectionContext]": ...
+
 
 @dataclasses.dataclass(frozen=True)
 class ComponentNode(ResolutionNode[InjectionContext]):
     """A node that represents a parameter that is resolved by component."""
 
     component: "Component"
-
-    async def value(self, context: InjectionContext, *, cache: LRUCache | None = None) -> t.Any:
-        key = CacheKey.build(self.component, self.parameter, context)
-
-        try:
-            value = (cache or {})[key]
-        except KeyError:
-            kwargs = {node.name: await node.value(context, cache=cache) for node in self.nodes}
-            value = await self.component(**kwargs)
-
-        if self.component.cacheable and cache is not None:
-            cache[key] = value
-
-        return value
 
     def components(self) -> list[tuple[str, "Component"]]:
         return [(self.name, self.component), *[x for node in self.nodes for x in node.components()]]
@@ -122,27 +168,106 @@ class ComponentNode(ResolutionNode[InjectionContext]):
     def parameters(self) -> list[Parameter]:
         return [x for node in self.nodes for x in node.parameters()]
 
+    @classmethod
+    def _build(
+        cls,
+        parameter: Parameter,
+        context_cls: type[InjectionContext],
+        components: "Components",
+        parent: Parameter | None = None,
+        path: tuple[tuple["Component", Parameter], ...] = (),
+        *,
+        component: "Component | None" = None,
+    ) -> ResolutionNode[InjectionContext]:
+        """Build the node of the component resolving a parameter, along with the nodes of what it depends on.
+
+        A dependency with a default is left to it when its component is found but cannot be built, since what it needs
+        is not provided, while one whose own type no component handles is always refused.
+
+        :param component: Component already found to handle the parameter, looked up otherwise.
+        :raises ComponentNotFound: If no component handles the parameter or one it depends on.
+        :raises ComponentError: If a component depends on itself, directly or through other components.
+        """
+        if component is None:
+            try:
+                component = components.find_handler(parameter)
+            except exceptions.ComponentNotFound:
+                # A builtin type no component handles is expected among the context values.
+                if parameter.annotation in BUILTIN_TYPES:
+                    return ContextNode(parameter.name, parameter, nodes=[])
+
+                raise
+
+        if component in (on_path := [x for x, _ in path]):
+            cycle = (*(p for _, p in path[on_path.index(component) :]), parameter)
+            names = " -> ".join(getattr(p.annotation, "__name__", repr(p.annotation)) for p in cycle)
+            raise exceptions.ComponentError(f"Components form a cycle: {names}")
+
+        nodes: list[ResolutionNode[InjectionContext]] = []
+        for dependency in (p for p in component.signature().values() if p.name not in ("self", "cls")):
+            try:
+                nodes.append(
+                    ResolutionNode.build(
+                        dependency, context_cls, components, parent=parameter, path=(*path, (component, parameter))
+                    )
+                )
+            except exceptions.ComponentNotFound as e:
+                if e.component is None:
+                    raise exceptions.ComponentNotFound(e.parameter, component=component) from None
+
+                if dependency.default is Empty:
+                    raise
+
+        return cls(parameter.name, parameter, nodes, component)
+
 
 @dataclasses.dataclass(frozen=True)
 class ContextNode(ResolutionNode[InjectionContext]):
     """A node that represents a parameter that is resolved by context."""
 
-    async def value(self, context: InjectionContext, *, cache: LRUCache | None = None) -> t.Any:
-        return context[self.parameter.name]
-
     def context(self) -> list[tuple[str, Parameter]]:
         return [(self.name, self.parameter)]
+
+    @classmethod
+    def _build(
+        cls,
+        parameter: Parameter,
+        context_cls: type[InjectionContext],
+        components: "Components",
+        parent: Parameter | None = None,
+        path: tuple[tuple["Component", Parameter], ...] = (),
+    ) -> ResolutionNode[InjectionContext]:
+        """Build the node reading a parameter from the context field its type names."""
+        context_name = context_cls.lookup(parameter.annotation)
+        assert context_name is not None
+
+        return cls(parameter.name, Parameter(context_name, parameter.annotation), nodes=[])
 
 
 @dataclasses.dataclass(frozen=True)
 class ParameterNode(ResolutionNode[InjectionContext]):
     """A node that represents a parameter that is resolved by another parameter."""
 
-    async def value(self, context: InjectionContext, *, cache: LRUCache | None = None) -> t.Any:
-        return self.parameter
-
     def parameters(self) -> list[Parameter]:
         return [self.parameter]
+
+    @classmethod
+    def _build(
+        cls,
+        parameter: Parameter,
+        context_cls: type[InjectionContext],
+        components: "Components",
+        parent: Parameter | None = None,
+        path: tuple[tuple["Component", Parameter], ...] = (),
+    ) -> ResolutionNode[InjectionContext]:
+        """Build the node giving a component the parameter it resolves.
+
+        :raises InjectionError: If the parameter belongs to the root function, which resolves no other parameter.
+        """
+        if parent is None:
+            raise exceptions.InjectionError("A root function cannot define an argument with Parameter type")
+
+        return cls(parameter.name, parent, nodes=[])
 
 
 @dataclasses.dataclass(frozen=True)
@@ -220,6 +345,22 @@ class ComponentStep(Step):
         return steps
 
     async def execute(self, results: list, context: InjectionContext, cache: LRUCache | None) -> t.Any:
+        value = await self._value(results, context, cache)
+
+        # A value not found is the parameter's default, if it has one, and otherwise reaches what depends on it.
+        if isinstance(value, _Missing) and self.parameter.default is not Empty:
+            return self.parameter.default
+
+        return value
+
+    async def _value(self, results: list, context: InjectionContext, cache: LRUCache | None) -> t.Any:
+        """The component's value for the context, or a missing value when it, or what it depends on, has none.
+
+        :param results: Values of the steps already executed.
+        :param context: Injection context.
+        :param cache: Cache of the values resolved for the context, if any.
+        :return: The value, cached when the component allows it.
+        """
         key = CacheKey.build(self.component, self.parameter, context)
 
         if self.component.cacheable and cache is not None:
@@ -228,7 +369,14 @@ class ComponentStep(Step):
             except KeyError:
                 pass
 
-        value = await self.component(**{name: results[idx] for name, idx in self.deps})
+        kwargs = {name: results[idx] for name, idx in self.deps}
+        if (missing := next((x for x in kwargs.values() if isinstance(x, _Missing)), None)) is not None:
+            value = missing
+        else:
+            try:
+                value = await self.component(**kwargs)
+            except exceptions.ValueNotFound as e:
+                value = _Missing(e.error)
 
         if self.component.cacheable and cache is not None:
             cache[key] = value
@@ -256,71 +404,16 @@ class ResolutionTree(t.Generic[InjectionContext]):
     def build(
         cls, parameter: Parameter, context_cls: type[InjectionContext], components: "Components"
     ) -> "ResolutionTree[InjectionContext]":
-        return cls(root=cls._build_node(parameter, context_cls, components))
-
-    @classmethod
-    def _build_node(
-        cls,
-        parameter: Parameter,
-        context_cls: type[InjectionContext],
-        components: "Components",
-        parent: Parameter | None = None,
-        path: tuple[tuple["Component", Parameter], ...] = (),
-    ) -> ResolutionNode[InjectionContext]:
-        """Build the node resolving a parameter, along with the nodes of everything it depends on.
-
-        :param parameter: Parameter to resolve.
-        :param context_cls: Context class the values are read from.
-        :param components: Components the parameter may be resolved by.
-        :param parent: Parameter whose component depends on this one.
-        :param path: Components depended on to reach this parameter, with the parameter each resolves.
-        :return: Resolution node.
-        :raises ComponentError: If a component depends on itself, directly or through other components.
-        """
-        assert parameter.name not in ("self", "cls")
-
-        context_name = context_cls.lookup(parameter.annotation) if parameter.annotation is not Empty else None
-
-        if context_name is not None:
-            return ContextNode(parameter.name, Parameter(context_name, parameter.annotation), nodes=[])
-
-        if parameter.annotation is Parameter:
-            if parent is None:
-                raise exceptions.InjectionError("A root function cannot define an argument with Parameter type")
-
-            return ParameterNode(parameter.name, parent, nodes=[])
-
-        try:
-            component = components.find_handler(parameter)
-        except exceptions.ComponentNotFound:
-            # A builtin type no component handles is expected among the context values.
-            if parameter.annotation in BUILTIN_TYPES:
-                return ContextNode(parameter.name, parameter, nodes=[])
-
-            raise
-        else:
-            if component in (on_path := [x for x, _ in path]):
-                cycle = (*(p for _, p in path[on_path.index(component) :]), parameter)
-                names = " -> ".join(getattr(p.annotation, "__name__", repr(p.annotation)) for p in cycle)
-                raise exceptions.ComponentError(f"Components form a cycle: {names}")
-
-            try:
-                nodes = [
-                    cls._build_node(p, context_cls, components, parent=parameter, path=(*path, (component, parameter)))
-                    for p in component.signature().values()
-                    if p.name not in ("self", "cls")
-                ]
-                return ComponentNode(parameter.name, parameter, nodes, component)
-            except exceptions.ComponentNotFound as e:
-                if e.component is None:
-                    raise exceptions.ComponentNotFound(e.parameter, component=component) from None
-
-                raise  # pragma: no cover
+        return cls(root=ResolutionNode.build(parameter, context_cls, components))
 
     async def value(self, context: InjectionContext, *, cache: LRUCache | None = None) -> t.Any:
         results = []
         for step in self._steps:
             results.append(await step.execute(results, context, cache))
+
+        if isinstance(results[-1], _Missing):
+            raise results[-1].error
+
         return results[-1]
 
 

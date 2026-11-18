@@ -4,7 +4,7 @@ if t.TYPE_CHECKING:
     from flama.injection.components import Component
     from flama.injection.resolver import Parameter
 
-__all__ = ["ComponentError", "ComponentNotFound", "ContextError"]
+__all__ = ["ComponentError", "ComponentNotFound", "ContextError", "ValueNotFound"]
 
 
 class InjectionError(Exception): ...
@@ -35,3 +35,16 @@ class ComponentNotFound(ComponentError):
             msg += f" for function '{getattr(self.function, '__name__', '')}'"
 
         return msg
+
+
+class ValueNotFound(InjectionError):
+    """A component has no value for the context it resolves, as a request carrying no token has no access token.
+
+    A parameter with a default receives its default instead, and a parameter without one is refused with ``error``.
+
+    :param error: Error raised when the parameter the value was resolved for has no default.
+    """
+
+    def __init__(self, error: Exception) -> None:
+        super().__init__(str(error))
+        self.error = error

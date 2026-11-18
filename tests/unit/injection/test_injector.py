@@ -198,6 +198,17 @@ class TestCaseInjector:
                 ComponentNotFound(Parameter("x"), component=NestedComponent()),
                 id="unknown_parameter_in_component",
             ),
+            pytest.param(
+                Foo | None, XContext(), Components([LiteralFooComponent()]), Foo("foo"), None, id="optional_provided"
+            ),
+            pytest.param(
+                Foo | None,
+                XContext(),
+                Components(),
+                None,
+                ComponentNotFound(Parameter("_root")),
+                id="optional_not_handled",
+            ),
         ),
         indirect=["exception"],
     )
@@ -276,3 +287,23 @@ class TestCaseInjector:
             assert injected_func.func == function
             assert "foo" in injected_func.keywords
             assert injected_func() == result
+
+    @pytest.mark.parametrize(
+        ["components", "result", "exception"],
+        (
+            pytest.param(Components([LiteralFooComponent()]), Foo("foo"), None, id="resolved"),
+            # The component is found but what it needs is not, so the parameter falls back on its default.
+            pytest.param(Components([NestedComponent()]), Foo("default"), None, id="left_to_its_default"),
+            pytest.param(Components(), None, ComponentNotFound(Parameter("foo")), id="own_type_not_handled"),
+        ),
+        indirect=["exception"],
+    )
+    async def test_default(self, components, result, exception):
+        def handler(foo: Foo = Foo("default")):
+            return foo
+
+        injector = Injector(XContext, components)
+
+        with exception:
+            assert (await injector.inject(handler, XContext()))() == result
+            assert await injector.value(Foo, XContext(), default=Foo("default")) == result
