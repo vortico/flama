@@ -205,6 +205,36 @@ class TestCaseAccessTokenComponent:
         assert response.headers.get("www-authenticate") == challenge
 
 
+class TestCaseOptionalAccessToken:
+    @pytest.mark.parametrize(
+        ["headers", "status_code", "result"],
+        (
+            pytest.param(
+                {"Authorization": f"Bearer {TOKEN.decode()}"},
+                200,
+                {"token": {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"foo": "bar", "iat": 0}}},
+                id="token",
+            ),
+            pytest.param(None, 200, {"token": None}, id="no_token"),
+            # A token that is there but cannot be read is refused rather than taken for no token at all.
+            pytest.param({"Authorization": "token"}, 400, None, id="malformed_header"),
+            pytest.param({"Authorization": f"Bearer {OUTAGE_TOKEN.decode()}"}, 401, None, id="invalid_token"),
+        ),
+    )
+    async def test_injection(self, app, headers, status_code, result):
+        @app.get("/")
+        def access_token(token: authentication.AccessToken | None = None):
+            return {"token": token.to_dict() if token is not None else None}
+
+        async with Client(app=app) as client:
+            client.headers = headers
+            response = await client.get("/")
+
+        assert response.status_code == status_code
+        if result is not None:
+            assert response.json() == result
+
+
 class TestCaseTokenRelay:
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app):
@@ -490,3 +520,45 @@ class TestCasePrincipalComponent:
             response = await client.get("/")
 
         assert response.json() == {"scopes": expected}
+
+    @pytest.mark.parametrize(
+        ["token_component", "subject", "status_code", "expected"],
+        (
+            pytest.param(True, "user", 200, {"subject": "user"}, id="token"),
+            pytest.param(True, None, 200, {"subject": None}, id="no_token"),
+            # Without a component for access tokens, nothing can be known of the caller.
+            pytest.param(False, "user", 200, {"subject": None}, id="no_token_component"),
+        ),
+    )
+    async def test_injection_optional(self, secret, token_component, subject, status_code, expected):
+        app = Flama(
+            schema=None,
+            docs=None,
+            components=[authentication.AccessTokenComponent(secret.bytes)] if token_component else [],
+        )
+
+        @app.get("/")
+        def principal(principal: authentication.Principal | None = None):
+            return {"subject": principal.subject if principal is not None else None}
+
+        async with Client(app=app) as client:
+            if subject is not None:
+                token = JWT({"alg": "HS256", "typ": "JWT"}, {"sub": subject}).encode(secret.bytes).decode()
+                client.headers = {"Authorization": f"Bearer {token}"}
+            response = await client.get("/")
+
+        assert response.status_code == status_code
+        assert response.json() == expected
+
+    async def test_injection_required_without_token(self, secret):
+        app = Flama(schema=None, docs=None, components=[authentication.AccessTokenComponent(secret.bytes)])
+
+        @app.get("/")
+        def principal(principal: authentication.Principal):
+            return {"subject": principal.subject}  # pragma: no cover
+
+        async with Client(app=app) as client:
+            response = await client.get("/")
+
+        assert response.status_code == 401
+        assert response.headers["www-authenticate"] == "Bearer"

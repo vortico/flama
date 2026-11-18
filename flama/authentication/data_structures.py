@@ -21,6 +21,15 @@ class Principal:
     scopes: frozenset[str] = frozenset()
     roles: frozenset[str] = frozenset()
 
+    def holds(self, permissions: t.Iterable[str] = (), roles: t.Iterable[str] = ()) -> bool:
+        """Whether the principal is granted every permission given, as a scope, and holds every role given.
+
+        :param permissions: Permissions required.
+        :param roles: Roles required.
+        :return: True when nothing required is missing.
+        """
+        return self.scopes >= set(permissions) and self.roles >= set(roles)
+
 
 @dataclasses.dataclass(frozen=True)
 class ProtectedResource:

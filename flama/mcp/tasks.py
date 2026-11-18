@@ -24,7 +24,8 @@ class Task:
 
     The protocol is stateless, so the handle carries everything needed to drive and resume the call: the originating
     tool ``tool_name``/``arguments`` (to replay the handler), the current ``status``, and, while waiting on the client,
-    the pending elicitation ``input_requests`` plus the opaque ``request_state`` the client echoes back.
+    the pending elicitation ``input_requests`` plus the opaque ``request_state`` the client echoes back. A task created
+    for an authenticated principal records its subject as ``owner``, so nobody else can drive it.
     """
 
     id: str
@@ -36,6 +37,7 @@ class Task:
     ttl_ms: int = 0
     input_requests: dict[str, t.Any] | None = None
     request_state: str | None = None
+    owner: str | None = None
     runner: "asyncio.Task[t.Any] | None" = dataclasses.field(default=None, repr=False, compare=False)
 
     def to_dict(self) -> dict[str, t.Any]:

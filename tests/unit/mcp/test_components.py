@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from flama import Flama, exceptions, types
+from flama.authentication import Principal
 from flama.context import Context
 from flama.http import JSONRPCStatus
 from flama.http.data_structures import Headers
@@ -288,11 +289,42 @@ class TestCaseMCPEntryComponents:
             assert result is getattr(server, expected[0])[expected[1]]
 
     @pytest.mark.parametrize(
-        ["known", "exception"],
+        ["task_id", "owner", "tool", "principal", "exception"],
         (
-            pytest.param(True, None, id="task"),
+            pytest.param(None, None, "add", None, None, id="task_without_owner"),
+            pytest.param(None, "alice", "add", Principal("alice"), None, id="owner"),
             pytest.param(
-                False,
+                None,
+                "alice",
+                "add",
+                Principal("bob"),
+                exceptions.JSONRPCException(status_code=JSONRPCStatus.INVALID_PARAMS, detail="not found"),
+                id="another_principal",
+            ),
+            pytest.param(
+                None,
+                "alice",
+                "add",
+                None,
+                exceptions.JSONRPCException(status_code=JSONRPCStatus.INVALID_PARAMS, detail="not found"),
+                id="anonymous_caller",
+            ),
+            pytest.param(None, None, "secret", Principal(scopes=frozenset({"tools:secret"})), None, id="tool_granted"),
+            pytest.param(
+                None,
+                None,
+                "secret",
+                Principal(),
+                exceptions.JSONRPCException(
+                    status_code=JSONRPCStatus.INVALID_PARAMS, detail="Insufficient permissions"
+                ),
+                id="tool_not_granted",
+            ),
+            pytest.param(
+                "missing",
+                None,
+                "add",
+                None,
                 exceptions.JSONRPCException(
                     status_code=JSONRPCStatus.INVALID_PARAMS, detail="Task 'missing' not found"
                 ),
@@ -301,12 +333,14 @@ class TestCaseMCPEntryComponents:
         ),
         indirect=["exception"],
     )
-    async def test_resolve_task(self, server, known, exception):
-        task = await server.task_store.create(tool_name="add")
+    async def test_resolve_task(self, server, task_id, owner, tool, principal, exception):
+        server.add_tool(handler_none, name="secret", permissions=["tools:secret"])
+        task = await server.task_store.create(tool_name=tool)
+        task.owner = owner
 
         with exception:
             result = await MCPTaskComponent().resolve(
-                types.JSONRPCParams({"taskId": task.id if known else "missing"}), server
+                types.JSONRPCParams({"taskId": task_id or task.id}), server, principal
             )
 
             assert result is task

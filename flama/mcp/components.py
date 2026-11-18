@@ -1,4 +1,5 @@
 from flama import exceptions, http, types
+from flama.authentication.data_structures import Principal
 from flama.http.data_structures import Headers
 from flama.injection import Component, Components
 from flama.mcp.data_structures import Extensions, Prompt, RequestHeaders, RequestMeta, Resource, Tool, TraceContext
@@ -147,12 +148,23 @@ class MCPPromptComponent(Component):
 
 
 class MCPTaskComponent(Component):
-    """Resolve the :class:`Task` whose id the request's ``params`` carry."""
+    """Resolve the :class:`Task` whose id the request's ``params`` carry, for a caller allowed to use it.
 
-    async def resolve(self, params: types.JSONRPCParams, server: MCPServer) -> Task:
-        if (task := await server.task_store.get(task_id := params.get("taskId", ""))) is None:
+    A task is used by the principal it was created for, or by anyone when it was created for none, while the caller
+    still holds what its tool requires. A task owned by another principal is answered as if it did not exist.
+    """
+
+    async def resolve(self, params: types.JSONRPCParams, server: MCPServer, principal: Principal | None = None) -> Task:
+        task = await server.task_store.get(task_id := params.get("taskId", ""))
+        if task is None or (task.owner is not None and (principal is None or principal.subject != task.owner)):
             raise exceptions.JSONRPCException(
                 status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Task '{task_id}' not found"
+            )
+
+        tool = server._tools.get(task.tool_name or "")
+        if tool is not None and not (principal or Principal()).holds(tool.permissions, tool.roles):
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Insufficient permissions for task '{task_id}'"
             )
 
         return task

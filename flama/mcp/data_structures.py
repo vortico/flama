@@ -182,6 +182,8 @@ class Tool:
     task: bool = False
     ui_resource: str | None = None
     elicitation_param: str | None = None
+    permissions: list[str] = dataclasses.field(default_factory=list)
+    roles: list[str] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
@@ -191,6 +193,8 @@ class Resource:
     description: str
     mime_type: str
     handler: t.Callable[..., t.Any]
+    permissions: list[str] = dataclasses.field(default_factory=list)
+    roles: list[str] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
@@ -217,3 +221,5 @@ class Prompt:
     description: str
     arguments: list[dict[str, t.Any]]
     handler: t.Callable[..., t.Any]
+    permissions: list[str] = dataclasses.field(default_factory=list)
+    roles: list[str] = dataclasses.field(default_factory=list)

@@ -4,6 +4,7 @@ import typing as t
 
 from flama import _concurrency, exceptions, http, types
 from flama._core.json_encoder import encode_json
+from flama.authentication.data_structures import Principal
 from flama.endpoints.jsonrpc import JSONRPCEndpoint
 from flama.http import JSONRPCStatus
 from flama.mcp.data_structures import (
@@ -107,9 +108,10 @@ class MCPEndpoint(JSONRPCEndpoint):
     def ping(self) -> dict[str, t.Any]:
         return {}
 
-    def tools_list(self) -> dict[str, t.Any]:
+    def tools_list(self, principal: Principal | None = None) -> dict[str, t.Any]:
+        caller = principal or Principal()
         tools = []
-        for entry in self.server._tools.values():
+        for entry in (x for x in self.server._tools.values() if caller.holds(x.permissions, x.roles)):
             tool: dict[str, t.Any] = {
                 "name": entry.name,
                 "description": entry.description,
@@ -123,7 +125,9 @@ class MCPEndpoint(JSONRPCEndpoint):
 
         return {"tools": tools, **self._cache_metadata()}
 
-    async def tools_call(self, tool: Tool, params: types.JSONRPCParams, extensions: Extensions) -> dict[str, t.Any]:
+    async def tools_call(
+        self, tool: Tool, params: types.JSONRPCParams, extensions: Extensions, principal: Principal | None = None
+    ) -> dict[str, t.Any]:
         arguments = params.get("arguments") or {}
         responses = self._combined_responses(params)
 
@@ -131,6 +135,7 @@ class MCPEndpoint(JSONRPCEndpoint):
             task = await self.server.task_store.create(
                 ttl_ms=self.server.cache_ttl_ms, tool_name=tool.name, arguments=arguments
             )
+            task.owner = principal.subject if principal is not None else None
             task.runner = asyncio.ensure_future(self._run_tool_task(task, tool, arguments, responses))
             await self.server.task_store.save(task)
             return {"resultType": "task", "task": task.to_dict(), **self._cache_metadata()}
@@ -268,11 +273,13 @@ class MCPEndpoint(JSONRPCEndpoint):
 
         return {"task": task.to_dict()}
 
-    def resources_list(self) -> dict[str, t.Any]:
+    def resources_list(self, principal: Principal | None = None) -> dict[str, t.Any]:
+        caller = principal or Principal()
         return {
             "resources": [
                 {"uri": e.uri, "name": e.name, "description": e.description, "mimeType": e.mime_type}
                 for e in self.server._resources.values()
+                if caller.holds(e.permissions, e.roles)
             ],
             **self._cache_metadata(),
         }
@@ -296,11 +303,13 @@ class MCPEndpoint(JSONRPCEndpoint):
         """List the parameterised resources this server declares, of which there are none."""
         return {"resourceTemplates": [], **self._cache_metadata()}
 
-    def prompts_list(self) -> dict[str, t.Any]:
+    def prompts_list(self, principal: Principal | None = None) -> dict[str, t.Any]:
+        caller = principal or Principal()
         return {
             "prompts": [
                 {"name": e.name, "description": e.description, "arguments": e.arguments}
                 for e in self.server._prompts.values()
+                if caller.holds(e.permissions, e.roles)
             ],
             **self._cache_metadata(),
         }

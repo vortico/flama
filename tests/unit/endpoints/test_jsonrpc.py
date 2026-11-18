@@ -21,13 +21,16 @@ class TestCaseJSONRPCEndpoint:
     @pytest.fixture(scope="function")
     def endpoint_cls(self):
         class MyRPC(endpoints.JSONRPCEndpoint):
-            handlers = {"add": "do_add", "fail": "do_fail"}
+            handlers = {"add": "do_add", "fail": "do_fail", "refuse": "do_refuse"}
 
             def do_add(self, params: JSONRPCParams):
                 return params["a"] + params["b"]
 
             def do_fail(self):
                 raise RuntimeError("boom")
+
+            def do_refuse(self):
+                raise exceptions.HTTPException(status_code=401)
 
         return MyRPC
 
@@ -119,6 +122,13 @@ class TestCaseJSONRPCEndpoint:
                 None,
                 exceptions.JSONRPCException(status_code=JSONRPCStatus.INTERNAL_ERROR, detail="boom"),
                 id="handler_raises",
+            ),
+            # An HTTP error is answered as such rather than as a failure of the method.
+            pytest.param(
+                {"jsonrpc": "2.0", "method": "refuse", "id": 1},
+                None,
+                exceptions.HTTPException(status_code=401),
+                id="handler_raises_http_error",
             ),
         ],
         indirect=["exception"],

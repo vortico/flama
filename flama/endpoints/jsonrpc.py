@@ -78,6 +78,9 @@ class JSONRPCEndpoint(BaseEndpoint, types.JSONRPCEndpointProtocol):
         except exceptions.JSONRPCException as e:
             e.request_id = request_id
             raise
+        except exceptions.HTTPException:
+            # An HTTP error concerns the request itself, as an invalid token does, not the method it calls.
+            raise
         except Exception as e:
             logger.exception("Unhandled error in JSON-RPC method '%s'", envelope.get("method"))
             raise exceptions.JSONRPCException(

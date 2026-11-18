@@ -11,6 +11,7 @@ from flama.crypto import JWS
 from flama.crypto.exceptions import SignatureDecodeException
 from flama.exceptions import HTTPException
 from flama.http.data_structures import Headers
+from flama.injection.exceptions import ValueNotFound
 from flama.types.http import Cookies
 
 T = t.TypeVar("T", bound=jwt.JWT)
@@ -90,8 +91,10 @@ class BaseTokenComponent(Component):
             except exceptions.Unauthorized:
                 encoded_token = self._token_from_cookies(cookies)
         except exceptions.Unauthorized:
-            raise HTTPException(
-                status_code=http.HTTPStatus.UNAUTHORIZED, headers={"WWW-Authenticate": self.header_prefix}
+            raise ValueNotFound(
+                HTTPException(
+                    status_code=http.HTTPStatus.UNAUTHORIZED, headers={"WWW-Authenticate": self.header_prefix}
+                )
             )
         except exceptions.JWTException as e:
             raise HTTPException(
@@ -130,6 +133,9 @@ class BaseTokenComponent(Component):
 
 class AccessTokenComponent(BaseTokenComponent):
     """Inject the access token of a request, read from its ``Authorization`` header or its cookie.
+
+    A parameter with a default, as ``token: AccessToken | None = None``, receives it when the request carries no token,
+    while a malformed or invalid token is refused all the same.
 
     .. deprecated::
         With the default header, a token in the ``access_token`` header used before 2.3 is still accepted. It will
@@ -195,9 +201,11 @@ class RefreshTokenComponent(BaseTokenComponent):
 class PrincipalComponent(Component):
     """Inject the :class:`Principal` a request acts for, read from its access token.
 
-    A claim holds a space-separated string, as ``scope`` does (RFC 8693), or a list of names, as ``roles`` does
-    (RFC 9068); either shape is read from either claim, so providers listing their scopes, as ``scp`` does, are read
-    alike. Register one with other claims to replace the default.
+    A request carrying no token is refused, unless the parameter has a default, as in
+    ``principal: Principal | None = None``, which it receives instead. A claim holds a space-separated string, as
+    ``scope`` does (RFC 8693), or a list of names, as ``roles`` does (RFC 9068); either shape is read from either claim,
+    so providers listing their scopes, as ``scp`` does, are read alike. Register one with other claims to replace the
+    default.
 
     :param scope_claim: Claim the scopes are read from.
     :param roles_claim: Claim the roles are read from.

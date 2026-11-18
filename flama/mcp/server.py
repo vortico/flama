@@ -55,6 +55,8 @@ class MCPServer:
         description: str | None = None,
         task: bool = False,
         ui_resource: str | None = None,
+        permissions: t.Sequence[str] = (),
+        roles: t.Sequence[str] = (),
     ) -> None:
         tool_name = name or getattr(handler, "__name__", type(handler).__name__)
         arguments = Schema.build(fields=Field.from_handler(handler, exclude={Elicitation}))
@@ -75,10 +77,19 @@ class MCPServer:
             task=task,
             ui_resource=ui_resource,
             elicitation_param=self._elicitation_param(handler),
+            permissions=list(permissions),
+            roles=list(roles),
         )
 
     def add_ui_resource(
-        self, handler: t.Callable[..., t.Any], *, uri: str, name: str | None = None, description: str | None = None
+        self,
+        handler: t.Callable[..., t.Any],
+        *,
+        uri: str,
+        name: str | None = None,
+        description: str | None = None,
+        permissions: t.Sequence[str] = (),
+        roles: t.Sequence[str] = (),
     ) -> None:
         self._resources[uri] = UIResource(
             uri=uri,
@@ -86,6 +97,8 @@ class MCPServer:
             description=description or inspect.getdoc(handler) or "",
             mime_type=UIResource.MIME_TYPE,
             handler=handler,
+            permissions=list(permissions),
+            roles=list(roles),
         )
 
     def add_resource(
@@ -96,18 +109,27 @@ class MCPServer:
         name: str | None = None,
         description: str | None = None,
         mime_type: str = "text/plain",
+        permissions: t.Sequence[str] = (),
+        roles: t.Sequence[str] = (),
     ) -> None:
-        resource_name = name or getattr(handler, "__name__", type(handler).__name__)
         self._resources[uri] = Resource(
             uri=uri,
-            name=resource_name,
+            name=name or getattr(handler, "__name__", type(handler).__name__),
             description=description or inspect.getdoc(handler) or "",
             mime_type=mime_type,
             handler=handler,
+            permissions=list(permissions),
+            roles=list(roles),
         )
 
     def add_prompt(
-        self, handler: t.Callable[..., t.Any], *, name: str | None = None, description: str | None = None
+        self,
+        handler: t.Callable[..., t.Any],
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        permissions: t.Sequence[str] = (),
+        roles: t.Sequence[str] = (),
     ) -> None:
         prompt_name = name or getattr(handler, "__name__", type(handler).__name__)
         self._prompts[prompt_name] = Prompt(
@@ -115,6 +137,8 @@ class MCPServer:
             description=description or inspect.getdoc(handler) or "",
             arguments=self._prompt_arguments(handler),
             handler=handler,
+            permissions=list(permissions),
+            roles=list(roles),
         )
 
     def tool(
@@ -124,32 +148,74 @@ class MCPServer:
         description: str | None = None,
         task: bool = False,
         ui_resource: str | None = None,
+        permissions: t.Sequence[str] = (),
+        roles: t.Sequence[str] = (),
     ) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
-            self.add_tool(func, name=name, description=description, task=task, ui_resource=ui_resource)
+            self.add_tool(
+                func,
+                name=name,
+                description=description,
+                task=task,
+                ui_resource=ui_resource,
+                permissions=permissions,
+                roles=roles,
+            )
             return func
 
         return decorator
 
     def resource(
-        self, uri: str, *, name: str | None = None, description: str | None = None, mime_type: str = "text/plain"
+        self,
+        uri: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        mime_type: str = "text/plain",
+        permissions: t.Sequence[str] = (),
+        roles: t.Sequence[str] = (),
     ) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
-            self.add_resource(func, uri=uri, name=name, description=description, mime_type=mime_type)
+            self.add_resource(
+                func,
+                uri=uri,
+                name=name,
+                description=description,
+                mime_type=mime_type,
+                permissions=permissions,
+                roles=roles,
+            )
             return func
 
         return decorator
 
-    def prompt(self, name: str | None = None, *, description: str | None = None) -> t.Callable:
+    def prompt(
+        self,
+        name: str | None = None,
+        *,
+        description: str | None = None,
+        permissions: t.Sequence[str] = (),
+        roles: t.Sequence[str] = (),
+    ) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
-            self.add_prompt(func, name=name, description=description)
+            self.add_prompt(func, name=name, description=description, permissions=permissions, roles=roles)
             return func
 
         return decorator
 
-    def ui_resource(self, uri: str, *, name: str | None = None, description: str | None = None) -> t.Callable:
+    def ui_resource(
+        self,
+        uri: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        permissions: t.Sequence[str] = (),
+        roles: t.Sequence[str] = (),
+    ) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
-            self.add_ui_resource(func, uri=uri, name=name, description=description)
+            self.add_ui_resource(
+                func, uri=uri, name=name, description=description, permissions=permissions, roles=roles
+            )
             return func
 
         return decorator
