@@ -2,7 +2,6 @@ import http
 import logging
 import math
 import typing as t
-import warnings
 
 from flama import Component, Components, _concurrency
 from flama.authentication import exceptions, jwt, types
@@ -30,7 +29,6 @@ class BaseTokenComponent(Component):
         header_key: str,
         header_prefix: str,
         cookie_key: str,
-        legacy_header_key: str | None = None,
         audience: str | None = None,
     ):
         if (secret is None) == (secret_resolver is None):
@@ -41,7 +39,6 @@ class BaseTokenComponent(Component):
         self.header_key = header_key
         self.header_prefix = header_prefix
         self.cookie_key = cookie_key
-        self.legacy_header_key = legacy_header_key
         self.audience = audience
 
     def _token_from_cookies(self, cookies: Cookies) -> bytes:
@@ -54,17 +51,9 @@ class BaseTokenComponent(Component):
         return token.encode()
 
     def _token_from_header(self, headers: Headers) -> bytes:
-        if self.header_key in headers:
+        try:
             value = headers[self.header_key]
-        elif self.legacy_header_key is not None and self.legacy_header_key in headers:
-            warnings.warn(
-                f"Sending the token in the '{self.legacy_header_key}' header is deprecated and will be removed in "
-                f"Flama 3.0, use '{self.header_key}' instead",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            value = headers[self.legacy_header_key]
-        else:
+        except KeyError:
             logger.debug("'%s' not found in headers", self.header_key)
             raise exceptions.Unauthorized()
 
@@ -137,20 +126,14 @@ class AccessTokenComponent(BaseTokenComponent):
     A parameter with a default, as ``token: AccessToken | None = None``, receives it when the request carries no token,
     while a malformed or invalid token is refused all the same.
 
-    .. deprecated::
-        With the default header, a token in the ``access_token`` header used before 2.3 is still accepted. It will
-        stop being read in Flama 3.0.
-
     :param secret: Key to verify tokens with.
     :param resolver: Resolver of the key each token names, instead of a single ``secret``.
     :param header_prefix: Authentication scheme preceding the token in the header.
-    :param header_key: Header to read the token from, ``Authorization`` if not given.
+    :param header_key: Header to read the token from.
     :param cookie_key: Cookie to read the token from.
     :param audience: Audience a token must be issued for, so tokens issued for other services are refused. Any
         audience is accepted if not given.
     """
-
-    LEGACY_HEADER_KEY: t.ClassVar[str] = "access_token"
 
     def __init__(
         self,
@@ -158,7 +141,7 @@ class AccessTokenComponent(BaseTokenComponent):
         *,
         resolver: types.KeyResolver | None = None,
         header_prefix: str = "Bearer",
-        header_key: str | None = None,
+        header_key: str = "Authorization",
         cookie_key: str = "access_token",
         audience: str | None = None,
     ):
@@ -166,9 +149,8 @@ class AccessTokenComponent(BaseTokenComponent):
             secret,
             secret_resolver=resolver,
             header_prefix=header_prefix,
-            header_key=header_key if header_key is not None else "Authorization",
+            header_key=header_key,
             cookie_key=cookie_key,
-            legacy_header_key=self.LEGACY_HEADER_KEY if header_key is None else None,
             audience=audience,
         )
 

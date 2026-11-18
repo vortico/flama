@@ -147,24 +147,11 @@ class TestCaseAccessTokenComponent:
 
         assert response.headers["www-authenticate"] == challenge
 
-    async def test_injection_legacy_header(self, client):
-        client.headers = {"access_token": f"Bearer {TOKEN.decode()}"}
-
-        with pytest.warns(DeprecationWarning, match="'access_token' header is deprecated"):
-            response = await client.request("get", "/")
-
-        assert response.status_code == 200
-
     @pytest.mark.parametrize(
         ["component", "headers", "status_code", "challenge"],
         (
-            pytest.param(
-                {"header_key": "X-Token"},
-                {"access_token": f"Bearer {TOKEN.decode()}"},
-                401,
-                "Bearer",
-                id="explicit_header_has_no_fallback",
-            ),
+            # The header tokens were sent in before 2.3 is not read.
+            pytest.param({}, {"access_token": f"Bearer {TOKEN.decode()}"}, 401, "Bearer", id="previous_header"),
             pytest.param({"header_key": "X-Token"}, {"X-Token": f"Bearer {TOKEN.decode()}"}, 200, None, id="explicit"),
             pytest.param({"header_prefix": "Token"}, None, 401, "Token", id="custom_prefix"),
             pytest.param(
