@@ -120,6 +120,11 @@ class TestCaseBaseRoute:
     def test_endpoint_handlers(self, route):
         assert route.endpoint_handlers() == {}
 
+    def test_resolve_tags(self, route_cls, asgi_scope):
+        route = route_cls("/", lambda: None, name="foo", tags={"permissions": ["foo"]})
+
+        assert route.resolve_tags(asgi_scope) == {"permissions": ["foo"]}
+
     async def test_handle(self, route_cls, asgi_scope, asgi_receive, asgi_send):
         app = AsyncMock()
         route = route_cls("/", app)

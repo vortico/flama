@@ -166,6 +166,14 @@ class BaseRoute(types.BaseRoute, abc.ABC):
         """
         self.parameters._build(app)
 
+    def resolve_tags(self, scope: types.Scope) -> dict[str, t.Any]:
+        """The tags that apply to a request routed here, the route's own unless it refines them per request.
+
+        :param scope: ASGI scope of the request.
+        :return: Tags.
+        """
+        return self.tags
+
     def endpoint_handlers(self) -> dict[str, t.Callable]:
         """Return a mapping of all possible endpoints of this route.
 

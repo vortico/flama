@@ -80,7 +80,7 @@ class TestCaseAuthentication:
                 {
                     "access": {
                         "header": {"alg": "HS256", "typ": "JWT"},
-                        "payload": {"data": {"foo": "bar"}, "iat": 0},
+                        "payload": {"foo": "bar", "iat": 0},
                     },
                     "refresh": None,
                 },
@@ -92,7 +92,7 @@ class TestCaseAuthentication:
                     "access": None,
                     "refresh": {
                         "header": {"alg": "HS256", "typ": "JWT"},
-                        "payload": {"data": {"foo": "bar"}, "iat": 0},
+                        "payload": {"foo": "bar", "iat": 0},
                     },
                 },
                 id="refresh",
@@ -105,11 +105,11 @@ class TestCaseAuthentication:
                 {
                     "access": {
                         "header": {"alg": "HS256", "typ": "JWT"},
-                        "payload": {"data": {"foo": "bar"}, "iat": 0},
+                        "payload": {"foo": "bar", "iat": 0},
                     },
                     "refresh": {
                         "header": {"alg": "HS256", "typ": "JWT"},
-                        "payload": {"data": {"foo": "bar"}, "iat": 0},
+                        "payload": {"foo": "bar", "iat": 0},
                     },
                 },
                 id="access_and_refresh",

@@ -74,14 +74,14 @@ class Payload:
 
     Additional information about the claims can be found in the RFC 7519: https://tools.ietf.org/html/rfc7519
 
-    The user data is stored in the `data` field, and it is encoded as a dictionary. This field is not part of the JWT
-    standard and it is not validated when the token is decoded.
+    Claims other than the registered ones are kept in the `data` field and encoded beside them, as RFC 7519 public or
+    private claims. They are not validated when the token is decoded.
     """
 
     data: dict[str, t.Any]
     iss: str | None = None
     sub: str | None = None
-    aud: str | None = None
+    aud: str | list[str] | None = None
     exp: int | None = None
     nbf: int | None = None
     iat: int | None = None
@@ -92,7 +92,7 @@ class Payload:
         data: dict[str, t.Any] | None = None,
         iss: str | None = None,
         sub: str | None = None,
-        aud: str | None = None,
+        aud: str | list[str] | None = None,
         exp: int | None = None,
         nbf: int | None = None,
         iat: int | None = None,
@@ -106,19 +106,19 @@ class Payload:
 
         Additional information about the claims can be found in the RFC 7519: https://tools.ietf.org/html/rfc7519
 
-        The user data is stored in the `data` field, and it is encoded as a dictionary. This field is not part of the
-        JWT standard and it is not validated when the token is decoded. The user data can be passed as a dictionary or
-        as keyword arguments.
+        Claims other than the registered ones are kept in the `data` field and can be passed as a dictionary or as
+        keyword arguments. A token encoded before they were placed beside the registered claims nests them under
+        `data`, which is read the same way.
 
-        :param data: User data.
+        :param data: Claims other than the registered ones.
         :param iss: Issuer.
         :param sub: Subject.
-        :param aud: Audience.
+        :param aud: Audience, one or several.
         :param exp: Expiration time.
         :param nbf: Not before.
         :param iat: Issued at.
         :param jti: JWT ID.
-        :param kwargs: User data.
+        :param kwargs: Claims other than the registered ones.
         """
         object.__setattr__(self, "iss", iss)
         object.__setattr__(self, "sub", sub)
@@ -130,15 +130,14 @@ class Payload:
         object.__setattr__(self, "data", {**(data or {}), **kwargs})
 
     def to_dict(self) -> dict[str, t.Any]:
-        """Return the payload as a dictionary.
+        """Return the payload as a dictionary, with every claim at the top level.
 
-        The fields are sorted alphabetically and the None values are removed.
+        The claims are sorted alphabetically and the None values are removed.
 
         :return: Payload as a dictionary.
         """
-        return dataclasses.asdict(
-            self, dict_factory=lambda x: {k: v for k, v in sorted(x, key=lambda y: y[0]) if v is not None}
-        )
+        claims = {k: v for k, v in dataclasses.asdict(self).items() if k != "data"}
+        return {k: v for k, v in sorted({**self.data, **claims}.items()) if v is not None}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -183,7 +182,7 @@ class JWT:
             raise exceptions.JWTDecodeException(str(e)) from e
 
     @classmethod
-    def decode(cls, token: bytes, key: bytes) -> t.Self:
+    def decode(cls, token: bytes, key: bytes, **claims: t.Any) -> t.Self:
         """Decode a JWT token.
 
         The token format must be: <header>.<payload>.<signature>
@@ -193,6 +192,7 @@ class JWT:
 
         :param token: Token to decode.
         :param key: Key used to sign the token.
+        :param claims: Claims values the token is validated against, such as the expected audience as ``aud``.
         :return: An instance of JWT with the decoded token.
         :raises JWTDecodeException: If the token format is not correct.
         :raises JWTValidateException: If the token is not valid.
@@ -201,7 +201,7 @@ class JWT:
             header, payload, _ = JWS.decode(token, key)
             decoded_token = cls(header, payload)
             object.__setattr__(decoded_token, "raw", token)
-            decoded_token.validate()
+            decoded_token.validate(**claims)
         except SignatureDecodeException as e:
             logger.debug("Error decoding token")
             raise exceptions.JWTDecodeException(str(e)) from e

@@ -4,6 +4,7 @@ import threading
 import typing as t
 
 from flama import exceptions, injection, routing, types, url
+from flama.authentication.components import AUTHENTICATION_COMPONENTS
 from flama.context import Context
 from flama.endpoints.components import JSONRPC_COMPONENTS
 from flama.errors.exception_handlers import ExceptionHandler
@@ -315,7 +316,12 @@ class Flama(types.App):
         :return: Injector instance.
         """
         components = injection.Components(
-            self.components + HTTP_COMPONENTS + VALIDATION_COMPONENTS + JSONRPC_COMPONENTS + MCP_COMPONENTS
+            self.components
+            + HTTP_COMPONENTS
+            + VALIDATION_COMPONENTS
+            + JSONRPC_COMPONENTS
+            + MCP_COMPONENTS
+            + AUTHENTICATION_COMPONENTS
         )
         if self._injector.components != components:
             self._injector.components = components

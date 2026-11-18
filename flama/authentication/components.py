@@ -4,8 +4,9 @@ import math
 import typing as t
 import warnings
 
-from flama import Component, _concurrency
+from flama import Component, Components, _concurrency
 from flama.authentication import exceptions, jwt, types
+from flama.authentication.data_structures import Principal
 from flama.crypto import JWS
 from flama.crypto.exceptions import SignatureDecodeException
 from flama.exceptions import HTTPException
@@ -14,7 +15,7 @@ from flama.types.http import Cookies
 
 T = t.TypeVar("T", bound=jwt.JWT)
 
-__all__ = ["AccessTokenComponent", "RefreshTokenComponent"]
+__all__ = ["AccessTokenComponent", "RefreshTokenComponent", "PrincipalComponent", "AUTHENTICATION_COMPONENTS"]
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class BaseTokenComponent(Component):
         header_prefix: str,
         cookie_key: str,
         legacy_header_key: str | None = None,
+        audience: str | None = None,
     ):
         if (secret is None) == (secret_resolver is None):
             raise ValueError("Give either a secret or a resolver, not both and not neither")
@@ -39,6 +41,7 @@ class BaseTokenComponent(Component):
         self.header_prefix = header_prefix
         self.cookie_key = cookie_key
         self.legacy_header_key = legacy_header_key
+        self.audience = audience
 
     def _token_from_cookies(self, cookies: Cookies) -> bytes:
         try:
@@ -103,7 +106,7 @@ class BaseTokenComponent(Component):
             else:
                 key = t.cast(bytes, self.secret)
 
-            token = token_cls.decode(encoded_token, key)
+            token = token_cls.decode(encoded_token, key, aud=self.audience)
         except (
             exceptions.Unauthorized,
             SignatureDecodeException,
@@ -137,6 +140,8 @@ class AccessTokenComponent(BaseTokenComponent):
     :param header_prefix: Authentication scheme preceding the token in the header.
     :param header_key: Header to read the token from, ``Authorization`` if not given.
     :param cookie_key: Cookie to read the token from.
+    :param audience: Audience a token must be issued for, so tokens issued for other services are refused. Any
+        audience is accepted if not given.
     """
 
     LEGACY_HEADER_KEY: t.ClassVar[str] = "access_token"
@@ -149,6 +154,7 @@ class AccessTokenComponent(BaseTokenComponent):
         header_prefix: str = "Bearer",
         header_key: str | None = None,
         cookie_key: str = "access_token",
+        audience: str | None = None,
     ):
         super().__init__(
             secret,
@@ -157,6 +163,7 @@ class AccessTokenComponent(BaseTokenComponent):
             header_key=header_key if header_key is not None else "Authorization",
             cookie_key=cookie_key,
             legacy_header_key=self.LEGACY_HEADER_KEY if header_key is None else None,
+            audience=audience,
         )
 
     async def resolve(self, headers: Headers, cookies: Cookies) -> types.AccessToken:
@@ -183,3 +190,45 @@ class RefreshTokenComponent(BaseTokenComponent):
 
     async def resolve(self, headers: Headers, cookies: Cookies) -> types.RefreshToken:
         return await self._resolve_token(types.RefreshToken, headers, cookies)
+
+
+class PrincipalComponent(Component):
+    """Inject the :class:`Principal` a request acts for, read from its access token.
+
+    A claim holds a space-separated string, as ``scope`` does (RFC 8693), or a list of names, as ``roles`` does
+    (RFC 9068); either shape is read from either claim, so providers listing their scopes, as ``scp`` does, are read
+    alike. Register one with other claims to replace the default.
+
+    :param scope_claim: Claim the scopes are read from.
+    :param roles_claim: Claim the roles are read from.
+    """
+
+    def __init__(self, *, scope_claim: str = "scope", roles_claim: str = "roles") -> None:
+        self.scope_claim = scope_claim
+        self.roles_claim = roles_claim
+
+    def resolve(self, token: types.AccessToken) -> Principal:
+        claims = token.payload.data
+        return Principal(
+            subject=token.payload.sub,
+            scopes=self._values(claims.get(self.scope_claim)),
+            roles=self._values(claims.get(self.roles_claim)),
+        )
+
+    @staticmethod
+    def _values(claim: t.Any) -> frozenset[str]:
+        """The names a claim holds, from a space-separated string or a list.
+
+        :param claim: Value of the claim.
+        :return: The names, none for a missing or unreadable claim.
+        """
+        if isinstance(claim, str):
+            return frozenset(claim.split())
+
+        if isinstance(claim, list | tuple):
+            return frozenset(str(x) for x in claim)
+
+        return frozenset()
+
+
+AUTHENTICATION_COMPONENTS = Components([PrincipalComponent()])

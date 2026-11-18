@@ -7,7 +7,9 @@ import pytest
 from flama.authentication import exceptions
 from flama.authentication.jwt.jwt import JWT
 
-TOKEN = (
+TOKEN = b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmb28iOiJiYXIiLCJpYXQiOjB9.10HBDsQQp69koWGldMfRS8KD8EYf3j4UXh_iT1xGOFQ"
+# Encoded before custom claims were placed beside the registered ones, nesting them under `data`.
+NESTED_TOKEN = (
     b"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.PWRDHe1X53ydEpCCKW8_oDMVveSlvdqg"
     b"xLhFjLk7BNk"
 )
@@ -82,6 +84,26 @@ class TestCaseJWT:
             token.validate()
 
     @pytest.mark.parametrize(
+        ["aud", "expected", "exception"],
+        (
+            pytest.param("https://a", "https://a", None, id="single"),
+            pytest.param(["https://b", "https://a"], "https://a", None, id="among_several"),
+            pytest.param("https://b", None, None, id="none_expected"),
+            pytest.param(None, None, None, id="none_expected_nor_given"),
+            pytest.param(
+                "https://b", "https://a", exceptions.JWTValidateException("Invalid claims (aud)"), id="another"
+            ),
+            pytest.param(None, "https://a", exceptions.JWTValidateException("Invalid claims (aud)"), id="missing"),
+        ),
+        indirect=["exception"],
+    )
+    def test_validate_audience(self, aud, expected, exception):
+        token = JWT({"alg": "HS256", "typ": "JWT"}, {"aud": aud, "iat": 0})
+
+        with exception:
+            token.validate(aud=expected)
+
+    @pytest.mark.parametrize(
         ["token", "result", "validate_side_effect", "exception"],
         (
             pytest.param(
@@ -90,6 +112,13 @@ class TestCaseJWT:
                 None,
                 None,
                 id="ok",
+            ),
+            pytest.param(
+                NESTED_TOKEN,
+                JWT({"alg": "HS256", "typ": "JWT"}, {"data": {"foo": "bar"}, "iat": 0}),
+                None,
+                None,
+                id="nested_claims",
             ),
             pytest.param(
                 b"wrong.format",
@@ -151,7 +180,7 @@ class TestCaseJWT:
 
         assert jwt.to_dict() == {
             "header": {"alg": "HS256", "typ": "JWT"},
-            "payload": {"data": {"foo": "bar"}, "iat": 0},
+            "payload": {"foo": "bar", "iat": 0},
         }
 
     def test_raw(self, key):

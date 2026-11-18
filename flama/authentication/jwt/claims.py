@@ -62,7 +62,11 @@ class SubValidator(ClaimValidator):
 
 
 class AudValidator(ClaimValidator):
-    """Audience claim validator."""
+    """Audience claim validator.
+
+    When an audience is expected, the token must name it among its audiences, so a token issued for another service is
+    not accepted. Without an expected audience, any token is.
+    """
 
     claim = "aud"
 
@@ -71,7 +75,12 @@ class AudValidator(ClaimValidator):
 
         :raises JWTClaimValidateException: if the claim is not valid.
         """
-        ...
+        if self.value is None:
+            return
+
+        audiences = [self.payload.aud] if isinstance(self.payload.aud, str) else (self.payload.aud or [])
+        if self.value not in audiences:
+            raise exceptions.JWTClaimValidateException("aud")
 
 
 class ExpValidator(ClaimValidator):

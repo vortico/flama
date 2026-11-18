@@ -4,6 +4,7 @@ import uuid
 import pytest
 
 from flama import Flama, authentication
+from flama.authentication.jwt import JWT
 from flama.client import Client
 
 TOKEN = (
@@ -11,6 +12,12 @@ TOKEN = (
     b"28rM_b1UU62XCp9dg_5kg="
 )
 
+
+AUDIENCE_TOKEN = (
+    JWT({"alg": "HS256", "typ": "JWT"}, {"aud": "https://api.example.com", "iat": 0})
+    .encode(uuid.UUID(int=0).bytes)
+    .decode()
+)
 
 # Names the key "outage", which the resolvers below cannot check.
 OUTAGE_TOKEN = b"eyJhbGciOiJIUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.0000"
@@ -47,7 +54,7 @@ class TestCaseAccessTokenComponent:
                 {"Authorization": f"Bearer {TOKEN.decode()}"},
                 None,
                 200,
-                {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"data": {"foo": "bar"}, "iat": 0}},
+                {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"foo": "bar", "iat": 0}},
                 id="headers",
             ),
             pytest.param(
@@ -82,7 +89,7 @@ class TestCaseAccessTokenComponent:
                 None,
                 {"access_token": TOKEN.decode()},
                 200,
-                {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"data": {"foo": "bar"}, "iat": 0}},
+                {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"foo": "bar", "iat": 0}},
                 id="cookies",
             ),
             pytest.param(
@@ -160,6 +167,27 @@ class TestCaseAccessTokenComponent:
             ),
             pytest.param({"header_key": "X-Token"}, {"X-Token": f"Bearer {TOKEN.decode()}"}, 200, None, id="explicit"),
             pytest.param({"header_prefix": "Token"}, None, 401, "Token", id="custom_prefix"),
+            pytest.param(
+                {"audience": "https://api.example.com"},
+                {"Authorization": f"Bearer {AUDIENCE_TOKEN}"},
+                200,
+                None,
+                id="audience",
+            ),
+            pytest.param(
+                {"audience": "https://other.example.com"},
+                {"Authorization": f"Bearer {AUDIENCE_TOKEN}"},
+                401,
+                'Bearer error="invalid_token"',
+                id="another_audience",
+            ),
+            pytest.param(
+                {"audience": "https://api.example.com"},
+                {"Authorization": f"Bearer {TOKEN.decode()}"},
+                401,
+                'Bearer error="invalid_token"',
+                id="no_audience",
+            ),
         ),
     )
     async def test_injection_configured(self, secret, component, headers, status_code, challenge):
@@ -334,7 +362,7 @@ class TestCaseRefreshTokenComponent:
                 {"refresh_token": f"Bearer {TOKEN.decode()}"},
                 None,
                 200,
-                {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"data": {"foo": "bar"}, "iat": 0}},
+                {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"foo": "bar", "iat": 0}},
                 id="headers",
             ),
             pytest.param(
@@ -369,7 +397,7 @@ class TestCaseRefreshTokenComponent:
                 None,
                 {"refresh_token": TOKEN.decode()},
                 200,
-                {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"data": {"foo": "bar"}, "iat": 0}},
+                {"header": {"alg": "HS256", "typ": "JWT"}, "payload": {"foo": "bar", "iat": 0}},
                 id="cookies",
             ),
             pytest.param(
@@ -406,3 +434,59 @@ class TestCaseRefreshTokenComponent:
 
         assert response.status_code == status_code
         assert response.json() == result
+
+
+class TestCasePrincipalComponent:
+    @pytest.mark.parametrize(
+        ["component", "claims", "expected"],
+        (
+            pytest.param(
+                {},
+                {"sub": "user", "scope": "tools:read tools:call", "roles": ["admin"]},
+                authentication.Principal("user", frozenset({"tools:read", "tools:call"}), frozenset({"admin"})),
+                id="standard_claims",
+            ),
+            pytest.param({}, {}, authentication.Principal(), id="no_claims"),
+            pytest.param(
+                {},
+                {"scope": 1, "roles": {"admin": ["tools:read"]}},
+                authentication.Principal(),
+                id="unreadable_claims",
+            ),
+            pytest.param(
+                {"scope_claim": "scp", "roles_claim": "groups"},
+                {"scp": ["tools:read"], "groups": "staff ops", "scope": "ignored"},
+                authentication.Principal(None, frozenset({"tools:read"}), frozenset({"staff", "ops"})),
+                id="configured_claims",
+            ),
+        ),
+    )
+    def test_resolve(self, component, claims, expected):
+        token = authentication.AccessToken({"alg": "HS256"}, claims)
+
+        assert authentication.PrincipalComponent(**component).resolve(token) == expected
+
+    @pytest.mark.parametrize(
+        ["components", "expected"],
+        (
+            pytest.param([], ["tools:read"], id="default"),
+            pytest.param([authentication.PrincipalComponent(scope_claim="scp")], ["tools:call"], id="replaced"),
+        ),
+    )
+    async def test_injection(self, secret, components, expected):
+        app = Flama(
+            schema=None,
+            docs=None,
+            components=[authentication.AccessTokenComponent(secret.bytes), *components],
+        )
+
+        @app.get("/")
+        def principal(principal: authentication.Principal):
+            return {"scopes": sorted(principal.scopes)}
+
+        token = JWT({"alg": "HS256", "typ": "JWT"}, {"scope": "tools:read", "scp": ["tools:call"]})
+        async with Client(app=app) as client:
+            client.headers = {"Authorization": f"Bearer {token.encode(secret.bytes).decode()}"}
+            response = await client.get("/")
+
+        assert response.json() == {"scopes": expected}

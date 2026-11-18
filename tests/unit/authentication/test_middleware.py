@@ -5,16 +5,24 @@ import pytest
 from flama import Flama
 from flama.authentication.components import AccessTokenComponent
 from flama.authentication.exceptions import KeysUnavailable
+from flama.authentication.jwt import JWT
 from flama.authentication.middleware import AuthenticationMiddleware
 from flama.client import Client
 
-TOKENS = {
-    "permission": b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJwZXJtaXNzaW9ucyI6IFsiZmxhbWEudGVzdC5hdXRoI"
-    b"l19LCAiaWF0IjogMTY5ODQxMjkzMX0=.NLhM8r2g1I_oHG0zAAsRqDAuwPVvzI95Lnz2K7uupmo=",
-    "role": b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJyb2xlcyI6IHsiZm9vIjogWyJmbGFtYS50ZXN0LmF1dGgiXX1"
-    b"9LCAiaWF0IjogMTY5ODQxMjI5OH0=.WK2PwipkiLATHsKwIsiljS_31h0-T6U0hZzoI62Skiw=",
-    "empty": b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjoge30sICJpYXQiOiAxNjk4NDEzMDg3fQ==.xPwYcCE0Tq6UxVbhW"
-    b"RGqT8vRliJxHAqHs12X0oHE1Vg=",
+RESOURCE = "https://api.example.com/resource/"
+METADATA = "https://api.example.com/.well-known/oauth-protected-resource/resource/"
+CLAIMS = {
+    "scope": {"scope": "flama.test.auth other"},
+    "scope_list": {"scope": ["flama.test.auth"]},
+    "role": {"roles": ["admin"]},
+    "scope_and_role": {"scope": "flama.test.auth", "roles": ["admin"]},
+    # Claims of tokens issued before scopes and roles followed the standards, which grant nothing now.
+    "legacy_permissions": {"permissions": ["flama.test.auth"]},
+    "legacy_roles": {"roles": {"admin": ["flama.test.auth"]}},
+    "empty": {},
+    "audience": {"scope": "flama.test.auth", "aud": RESOURCE},
+    "audience_only": {"aud": [RESOURCE, "https://other.example.com"]},
+    "other_audience": {"scope": "flama.test.auth", "aud": "https://other.example.com"},
 }
 # Names the key "outage".
 OUTAGE_TOKEN = b"eyJhbGciOiJIUzI1NiIsImtpZCI6Im91dGFnZSIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6ImJhciJ9LCJpYXQiOjB9.0000"
@@ -40,112 +48,199 @@ class TestCaseAuthenticationMiddleware:
         def no_auth():
             return {"foo": "no-auth"}
 
-        @app.route("/auth/", tags={"permissions": ["flama.test.auth"]})
-        def auth():
-            return {"foo": "auth"}
+        @app.route("/scoped/", tags={"permissions": ["flama.test.auth"]})
+        def scoped():
+            return {"foo": "scoped"}
+
+        @app.route("/roled/", tags={"roles": ["admin"]})
+        def roled():
+            return {"foo": "roled"}
+
+        @app.route("/both/", tags={"permissions": ["flama.test.auth"], "roles": ["admin"]})
+        def both():
+            return {"foo": "both"}
+
+        @app.route("/resource/", tags={"permissions": ["flama.test.auth"], "resource": RESOURCE})
+        def resource():
+            return {"foo": "resource"}
+
+        @app.route("/resource-only/", tags={"resource": RESOURCE})
+        def resource_only():
+            return {"foo": "resource-only"}
 
         @app.route("/ignored/", tags={"permissions": ["flama.test.auth"]})
         def ignored():
             return {"foo": "ignored"}
 
-    @pytest.fixture(scope="function")
-    def headers(self, request):
-        if request.param is None:
-            return None
-
-        try:
-            return {"Authorization": f"Bearer {TOKENS[request.param].decode()}"}
-        except KeyError:
-            raise ValueError(f"Invalid token {request.param}")
-
-    @pytest.fixture(scope="function")
-    def cookies(self, request):
-        if request.param is None:
-            return None
-
-        try:
-            return {"access_token": TOKENS[request.param].decode()}
-        except KeyError:
-            raise ValueError(f"Invalid token {request.param}")
-
     @pytest.mark.parametrize(
-        ["path", "method", "headers", "cookies", "status_code", "result"],
+        ["path", "method", "claims", "cookie", "status_code", "result", "challenge"],
         (
-            pytest.param("/auth/", "get", "permission", None, 200, {"foo": "auth"}, id="auth_header_token_permission"),
-            pytest.param("/auth/", "get", "role", None, 200, {"foo": "auth"}, id="auth_header_token_role"),
+            pytest.param("/scoped/", "get", "scope", False, 200, {"foo": "scoped"}, None, id="scope"),
+            pytest.param("/scoped/", "get", "scope_list", False, 200, {"foo": "scoped"}, None, id="scope_as_list"),
+            pytest.param("/scoped/", "get", "scope", True, 200, {"foo": "scoped"}, None, id="scope_in_cookie"),
             pytest.param(
-                "/auth/",
+                "/scoped/",
                 "get",
                 "empty",
-                None,
+                False,
                 403,
                 {"detail": "Insufficient permissions", "error": None, "status_code": 403},
-                id="auth_header_token_empty",
+                'Bearer error="insufficient_scope", scope="flama.test.auth"',
+                id="scope_missing",
             ),
-            pytest.param("/auth/", "get", None, "permission", 200, {"foo": "auth"}, id="auth_cookie_token_permission"),
-            pytest.param("/auth/", "get", None, "role", 200, {"foo": "auth"}, id="auth_cookie_token_role"),
             pytest.param(
-                "/auth/",
+                "/scoped/",
                 "get",
-                None,
-                "empty",
+                "legacy_permissions",
+                False,
                 403,
                 {"detail": "Insufficient permissions", "error": None, "status_code": 403},
-                id="auth_cookie_token_empty",
+                'Bearer error="insufficient_scope", scope="flama.test.auth"',
+                id="legacy_permissions_grant_nothing",
             ),
             pytest.param(
-                "/auth/",
+                "/scoped/",
+                "get",
+                "legacy_roles",
+                False,
+                403,
+                {"detail": "Insufficient permissions", "error": None, "status_code": 403},
+                'Bearer error="insufficient_scope", scope="flama.test.auth"',
+                id="legacy_roles_grant_nothing",
+            ),
+            pytest.param(
+                "/scoped/",
                 "get",
                 None,
-                None,
+                False,
                 401,
                 {"detail": "Unauthorized", "error": None, "status_code": 401},
-                id="auth_no_token",
+                'Bearer scope="flama.test.auth"',
+                id="scope_without_token",
+            ),
+            pytest.param("/roled/", "get", "role", False, 200, {"foo": "roled"}, None, id="role"),
+            pytest.param(
+                "/roled/",
+                "get",
+                "scope",
+                False,
+                403,
+                {"detail": "Insufficient roles", "error": None, "status_code": 403},
+                None,
+                id="role_missing",
             ),
             pytest.param(
-                "/no-auth/", "get", "permission", None, 200, {"foo": "no-auth"}, id="no_auth_header_token_permission"
+                "/roled/",
+                "get",
+                None,
+                False,
+                401,
+                {"detail": "Unauthorized", "error": None, "status_code": 401},
+                "Bearer",
+                id="role_without_token",
             ),
-            pytest.param("/no-auth/", "get", "role", None, 200, {"foo": "no-auth"}, id="no_auth_header_token_role"),
+            pytest.param("/both/", "get", "scope_and_role", False, 200, {"foo": "both"}, None, id="scope_and_role"),
             pytest.param(
-                "/no-auth/", "get", None, "permission", 200, {"foo": "no-auth"}, id="no_auth_cookie_token_permission"
+                "/both/",
+                "get",
+                "role",
+                False,
+                403,
+                {"detail": "Insufficient permissions", "error": None, "status_code": 403},
+                'Bearer error="insufficient_scope", scope="flama.test.auth"',
+                id="scope_and_role_without_scope",
             ),
-            pytest.param("/no-auth/", "get", None, "role", 200, {"foo": "no-auth"}, id="no_auth_cookie_token_role"),
-            pytest.param("/no-auth/", "get", None, None, 200, {"foo": "no-auth"}, id="no_auth_no_token"),
-            pytest.param("/ignored/", "get", None, None, 200, {"foo": "ignored"}, id="no_auth_no_token"),
+            pytest.param("/resource/", "get", "audience", False, 200, {"foo": "resource"}, None, id="resource"),
+            pytest.param(
+                "/resource/",
+                "get",
+                "other_audience",
+                False,
+                401,
+                {
+                    "detail": {"description": "Invalid claims (aud)", "error": "JWTValidateException"},
+                    "error": None,
+                    "status_code": 401,
+                },
+                f'Bearer error="invalid_token", scope="flama.test.auth", resource_metadata="{METADATA}"',
+                id="resource_other_audience",
+            ),
+            pytest.param(
+                "/resource/",
+                "get",
+                None,
+                False,
+                401,
+                {"detail": "Unauthorized", "error": None, "status_code": 401},
+                f'Bearer scope="flama.test.auth", resource_metadata="{METADATA}"',
+                id="resource_without_token",
+            ),
+            pytest.param(
+                "/resource-only/",
+                "get",
+                "audience_only",
+                False,
+                200,
+                {"foo": "resource-only"},
+                None,
+                id="resource_requiring_only_a_token",
+            ),
+            pytest.param(
+                "/resource-only/",
+                "get",
+                None,
+                False,
+                401,
+                {"detail": "Unauthorized", "error": None, "status_code": 401},
+                f'Bearer resource_metadata="{METADATA}"',
+                id="resource_requiring_only_a_token_without_token",
+            ),
+            pytest.param("/no-auth/", "get", "scope", False, 200, {"foo": "no-auth"}, None, id="no_auth_with_token"),
+            pytest.param("/no-auth/", "get", None, False, 200, {"foo": "no-auth"}, None, id="no_auth_without_token"),
+            pytest.param("/ignored/", "get", None, False, 200, {"foo": "ignored"}, None, id="ignored"),
             pytest.param(
                 "/not-found/",
                 "get",
                 None,
-                None,
+                False,
                 404,
                 {"detail": "Not Found", "error": "HTTPException", "status_code": 404},
+                None,
                 id="not_found",
             ),
             pytest.param(
-                "/auth/",
+                "/scoped/",
                 "post",
                 None,
-                None,
+                False,
                 405,
                 {"detail": "Method Not Allowed", "error": "HTTPException", "status_code": 405},
+                None,
                 id="method_not_allowed",
             ),
         ),
-        indirect=["headers", "cookies"],
     )
-    async def test_request(self, client, path, method, headers, cookies, status_code, result):
-        client.headers = headers
-        client.cookies = cookies
+    async def test_request(self, client, secret, path, method, claims, cookie, status_code, result, challenge):
+        if claims is not None:
+            token = JWT({"alg": "HS256", "typ": "JWT"}, CLAIMS[claims]).encode(secret.bytes).decode()
+            if cookie:
+                client.cookies = {"access_token": token}
+            else:
+                client.headers = {"Authorization": f"Bearer {token}"}
+
         response = await client.request(method, path)
 
         assert response.status_code == status_code
         assert response.json() == result
+        assert response.headers.get("www-authenticate") == challenge
 
-    async def test_request_challenges_a_missing_token(self, client):
-        response = await client.request("get", "/auth/")
+    async def test_request_challenges_an_invalid_token(self, client):
+        client.headers = {"Authorization": f"Bearer {OUTAGE_TOKEN.decode()}"}
+
+        response = await client.request("get", "/scoped/")
 
         assert response.status_code == 401
-        assert response.headers["www-authenticate"] == "Bearer"
+        assert response.headers["www-authenticate"] == 'Bearer error="invalid_token", scope="flama.test.auth"'
 
     async def test_request_keeps_the_headers_of_a_refusal(self):
         def resolver(kid):
