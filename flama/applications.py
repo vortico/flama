@@ -84,6 +84,7 @@ class Flama(types.App):
 
         # Create Dependency Injector
         self._injector = injection.Injector(Context)
+        self._injector_sources: list[injection.Components] = []
 
         # Initialise modules
         default_modules = [
@@ -313,18 +314,29 @@ class Flama(types.App):
     def injector(self) -> injection.Injector:
         """Components dependency injector.
 
+        Its components are rebuilt only when those of the application, or of one it is mounted in, change, which a
+        router does by replacing its components rather than altering them.
+
         :return: Injector instance.
         """
-        components = injection.Components(
-            self.components
-            + HTTP_COMPONENTS
-            + VALIDATION_COMPONENTS
-            + JSONRPC_COMPONENTS
-            + MCP_COMPONENTS
-            + AUTHENTICATION_COMPONENTS
-        )
-        if self._injector.components != components:
-            self._injector.components = components
+        sources, app = [], self
+        while app is not None:
+            sources.append(app.router.components)
+            app = app.parent
+
+        if len(sources) != len(self._injector_sources) or any(
+            x is not y for x, y in zip(sources, self._injector_sources)
+        ):
+            self._injector.components = injection.Components(
+                self.components
+                + HTTP_COMPONENTS
+                + VALIDATION_COMPONENTS
+                + JSONRPC_COMPONENTS
+                + MCP_COMPONENTS
+                + AUTHENTICATION_COMPONENTS
+            )
+            self._injector_sources = sources
+
         return self._injector
 
     def add_event_handler(self, event: str, func: t.Callable) -> None:

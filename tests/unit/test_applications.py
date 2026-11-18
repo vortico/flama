@@ -244,6 +244,29 @@ class TestCaseFlama:
     def test_injector(self, app):
         assert isinstance(app.injector, Injector)
 
+    def test_injector_components(self):
+        class FooComponent(Component):
+            def resolve(self) -> int:
+                return 1  # pragma: no cover
+
+        parent = Flama(schema=None, docs=None)
+        app = Flama(schema=None, docs=None)
+        parent.mount("/app/", app=app)
+        injector = app.injector
+        components = injector.components
+
+        # Nothing changed, so the same components are kept.
+        assert app.injector is injector
+        assert app.injector.components is components
+
+        own, inherited = FooComponent(), FooComponent()
+        app.add_component(own)
+        parent.add_component(inherited)
+
+        assert app.parent is parent
+        assert own in app.injector.components
+        assert inherited in app.injector.components
+
     def test_add_event_handler(self, app):
         handlers_before = app.events.startup.copy()
 

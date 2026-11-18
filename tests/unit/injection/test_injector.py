@@ -101,6 +101,23 @@ class TestCaseInjector:
         injector.resolver
         assert injector._resolver is not None
 
+    @pytest.mark.parametrize(
+        ["equal", "kept"],
+        (
+            pytest.param(True, True, id="equal_components"),
+            pytest.param(False, False, id="different_components"),
+        ),
+    )
+    def test_components_setter(self, equal, kept):
+        component = LiteralFooComponent()
+        injector = Injector(XContext, Components([component]))
+        resolver = injector.resolver
+
+        injector.components = Components([component] if equal else [LiteralBarComponent()])
+
+        # Equal components resolve the same, so what was resolved with them is kept.
+        assert (injector._resolver is resolver) is kept
+
     def test_resolve(self):
         resolver_mock = MagicMock(spec=Resolver)
         resolution_mock = MagicMock(spec=ResolutionTree)

@@ -55,6 +55,7 @@ class Injector(t.Generic[InjectionContext]):
         self._context_cls = context_cls
         self._resolver: Resolver[InjectionContext] | None = None
         self._function_cache: FunctionCache = FunctionCache()
+        self._components = Components()
         self.components = Components(components or [])
         self.cache = InjectionCache()
 
@@ -64,6 +65,10 @@ class Injector(t.Generic[InjectionContext]):
 
     @components.setter
     def components(self, components: Components):
+        # The resolver and resolved functions are only discarded when the components really change.
+        if components == self._components:
+            return
+
         self._components = components
         del self.resolver
 
