@@ -1,11 +1,14 @@
+import typing as t
+
 from flama import exceptions, http, types
 from flama.authentication.data_structures import Principal
 from flama.http.data_structures import Headers
 from flama.injection import Component, Components
+from flama.injection.exceptions import ValueNotFound
 from flama.mcp.data_structures import Extensions, Prompt, RequestHeaders, RequestMeta, Resource, Tool, TraceContext
 from flama.mcp.routing import MCPRoute
 from flama.mcp.server import MCPServer
-from flama.mcp.tasks import Task
+from flama.mcp.tasks import IdempotencyKey, Task
 
 __all__ = [
     "MCPMetaComponent",
@@ -17,6 +20,7 @@ __all__ = [
     "MCPResourceComponent",
     "MCPPromptComponent",
     "MCPTaskComponent",
+    "MCPIdempotencyKeyComponent",
     "MCP_COMPONENTS",
 ]
 
@@ -170,6 +174,48 @@ class MCPTaskComponent(Component):
         return task
 
 
+class MCPIdempotencyKeyComponent(Component):
+    """Resolve the :class:`IdempotencyKey` a tool call carries in its ``_meta``, under the entry its server reads.
+
+    Keys only apply to calls running as tasks, so any other call, like one carrying no key, has none. A key that is
+    not a string of 1 to 255 characters is refused, and so is a key from a caller with no subject, since keys are
+    scoped to the caller and anonymous callers cannot be told apart.
+    """
+
+    MAX_LENGTH: t.ClassVar[int] = 255
+
+    def resolve(
+        self,
+        meta: RequestMeta,
+        server: MCPServer,
+        tool: Tool,
+        extensions: Extensions,
+        principal: Principal | None = None,
+    ) -> IdempotencyKey:
+        if (
+            not (tool.task and Extensions.TASKS in extensions)
+            or (value := meta.get(server.idempotency_key_meta)) is None
+        ):
+            raise ValueNotFound(
+                exceptions.JSONRPCException(
+                    status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Missing '{server.idempotency_key_meta}'"
+                )
+            )
+
+        if not isinstance(value, str) or not 0 < len(value) <= self.MAX_LENGTH:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS,
+                detail=f"'{server.idempotency_key_meta}' must be a string of 1 to {self.MAX_LENGTH} characters",
+            )
+
+        if principal is None or principal.subject is None:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail="Idempotency keys require an authenticated caller"
+            )
+
+        return IdempotencyKey(subject=principal.subject, tool=tool.name, value=value)
+
+
 MCP_COMPONENTS = Components(
     [
         MCPMetaComponent(),
@@ -181,5 +227,6 @@ MCP_COMPONENTS = Components(
         MCPResourceComponent(),
         MCPPromptComponent(),
         MCPTaskComponent(),
+        MCPIdempotencyKeyComponent(),
     ]
 )

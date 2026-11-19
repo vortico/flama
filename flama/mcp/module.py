@@ -34,6 +34,8 @@ class MCPModule(Module):
         cache_ttl_ms: int = 0,
         cache_scope: str = "public",
         task_store: TaskStore | None = None,
+        task_ttl_ms: int | None = None,
+        idempotency_key_meta: str = "dev.flama/idempotencyKey",
         tags: dict[str, t.Any] | None = None,
         authorization: ProtectedResource | None = None,
     ) -> MCPRoute:
@@ -51,6 +53,8 @@ class MCPModule(Module):
         :param cache_ttl_ms: Time list and read results may be cached for.
         :param cache_scope: Who may cache list and read results.
         :param task_store: Store of the server's tasks.
+        :param task_ttl_ms: Time tasks may be kept for after they are created, indefinitely if None.
+        :param idempotency_key_meta: Entry of a tool call's ``_meta`` its idempotency key is read from.
         :param tags: Route tags, such as the permissions and roles required to use the server at all.
         :param authorization: The protected resource the server is, with the authorization servers it trusts.
         :return: The server's route.
@@ -67,6 +71,8 @@ class MCPModule(Module):
                 cache_ttl_ms=cache_ttl_ms,
                 cache_scope=cache_scope,
                 task_store=task_store,
+                task_ttl_ms=task_ttl_ms,
+                idempotency_key_meta=idempotency_key_meta,
             )
 
         self._servers[name] = server

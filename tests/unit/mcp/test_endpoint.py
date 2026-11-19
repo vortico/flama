@@ -2,17 +2,21 @@ import asyncio
 import datetime
 import enum
 import json
+import uuid
 from importlib.metadata import version
 
 import pydantic
 import pytest
 
 from flama import Flama, types
+from flama.authentication import AccessTokenComponent, AuthenticationMiddleware
+from flama.authentication.jwt import JWT
 from flama.client import Client
 from flama.exceptions import JSONRPCException
 from flama.http import JSONRPCStatus
 from flama.mcp.data_structures import Elicit, Elicitation, Extensions, RequestHeaders, RequestMeta
 from flama.mcp.server import MCPServer
+from flama.mcp.tasks import InMemoryTaskStore
 
 FLAMA_META = {
     "dev.flama": {
@@ -979,3 +983,109 @@ class TestCaseMCPEndpoint:
             }
         ]
         assert templates.json()["result"]["resourceTemplates"] == []
+
+
+class TestCaseMCPEndpointIdempotency:
+    SECRET = uuid.UUID(int=0).bytes
+
+    @pytest.fixture(scope="function")
+    def runs(self):
+        return []
+
+    @pytest.fixture(scope="function")
+    def server(self, runs):
+        s = MCPServer(
+            "test", task_ttl_ms=60000, idempotency_key_meta="example.com/key", task_store=InMemoryTaskStore(max_tasks=2)
+        )
+
+        @s.tool("hang", task=True)
+        async def hang(x: int) -> int:
+            runs.append(x)
+            await asyncio.sleep(10)
+            return x  # pragma: no cover
+
+        @s.tool("double", task=True)
+        async def double(x: int) -> int:
+            return x * 2
+
+        return s
+
+    @pytest.fixture(scope="function")
+    def app(self, server):
+        app = Flama(schema=None, docs=None, components=[AccessTokenComponent(self.SECRET)])
+        app.add_middleware(AuthenticationMiddleware())
+        app.mcp.add_server("/mcp/", "test", server=server)
+        return app
+
+    async def _call(self, app, name, arguments, *, key=None, subject="alice"):
+        """Call a tool as a task, under an idempotency key if any, as the caller with the given subject if any."""
+        meta = {f"{RequestMeta.MCP_NAMESPACE}/clientCapabilities": {"extensions": {Extensions.TASKS: {}}}}
+        if key is not None:
+            meta["example.com/key"] = key
+        headers = {
+            RequestHeaders.METHOD_HEADER: "tools/call",
+            RequestHeaders.NAME_HEADER: name,
+            RequestHeaders.PROTOCOL_VERSION_HEADER: MCPServer.PROTOCOL_VERSION,
+        }
+        if subject is not None:
+            token = JWT({"alg": "HS256", "typ": "JWT"}, {"sub": subject}).encode(self.SECRET).decode()
+            headers["Authorization"] = f"Bearer {token}"
+        body = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": name, "arguments": arguments, "_meta": meta},
+        }
+
+        async with Client(app=app) as client:
+            return (await client.post("/mcp/", json=body, headers=headers)).json()
+
+    async def test_task_ttl(self, app):
+        response = await self._call(app, "double", {"x": 1})
+
+        assert response["result"]["task"]["ttlMs"] == 60000
+
+    async def test_retry(self, app, runs):
+        first = await self._call(app, "hang", {"x": 1}, key="k1")
+        second = await self._call(app, "hang", {"x": 1}, key="k1")
+
+        assert second["result"]["task"]["taskId"] == first["result"]["task"]["taskId"]
+        assert runs == [1]
+
+    @pytest.mark.parametrize(
+        "retry",
+        (
+            pytest.param({"key": "k2"}, id="other_key"),
+            pytest.param({"key": "k1", "subject": "bob"}, id="other_caller"),
+            pytest.param({}, id="no_key"),
+        ),
+    )
+    async def test_retry_unrelated(self, app, runs, retry):
+        first = await self._call(app, "hang", {"x": 1}, key="k1")
+        second = await self._call(app, "hang", {"x": 1}, **retry)
+
+        assert second["result"]["task"]["taskId"] != first["result"]["task"]["taskId"]
+        assert runs == [1, 1]
+
+    async def test_retry_other_arguments(self, app, runs):
+        await self._call(app, "hang", {"x": 1}, key="k1")
+        response = await self._call(app, "hang", {"x": 2}, key="k1")
+
+        assert response["error"]["code"] == JSONRPCStatus.INVALID_PARAMS
+        assert response["error"]["message"] == "The idempotency key was already used with other arguments"
+        assert runs == [1]
+
+    async def test_anonymous_caller(self, app, runs):
+        response = await self._call(app, "hang", {"x": 1}, key="k1", subject=None)
+
+        assert response["error"]["code"] == JSONRPCStatus.INVALID_PARAMS
+        assert response["error"]["message"] == "Idempotency keys require an authenticated caller"
+        assert runs == []
+
+    async def test_store_full(self, app):
+        await self._call(app, "hang", {"x": 1})
+        await self._call(app, "hang", {"x": 2})
+        response = await self._call(app, "hang", {"x": 3})
+
+        assert response["error"]["code"] == JSONRPCStatus.INTERNAL_ERROR
+        assert response["error"]["message"] == "The store already holds 2 unfinished tasks"

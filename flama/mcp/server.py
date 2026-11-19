@@ -26,6 +26,8 @@ class MCPServer:
         cache_ttl_ms: int = 0,
         cache_scope: str = "public",
         task_store: TaskStore | None = None,
+        task_ttl_ms: int | None = None,
+        idempotency_key_meta: str = "dev.flama/idempotencyKey",
     ) -> None:
         self.name = name
         self.version = version
@@ -33,6 +35,8 @@ class MCPServer:
         self.cache_ttl_ms = cache_ttl_ms
         self.cache_scope = cache_scope
         self.task_store: TaskStore = task_store or InMemoryTaskStore()
+        self.task_ttl_ms = task_ttl_ms
+        self.idempotency_key_meta = idempotency_key_meta
         self._tools: dict[str, Tool] = {}
         self._resources: dict[str, Resource] = {}
         self._prompts: dict[str, Prompt] = {}

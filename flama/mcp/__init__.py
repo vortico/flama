@@ -1,6 +1,7 @@
 from flama.mcp.components import (
     MCP_COMPONENTS,
     MCPExtensionsComponent,
+    MCPIdempotencyKeyComponent,
     MCPMetaComponent,
     MCPPromptComponent,
     MCPRequestHeadersComponent,
@@ -28,7 +29,7 @@ from flama.mcp.http import MCPResponse
 from flama.mcp.module import MCPModule
 from flama.mcp.routing import MCPRoute
 from flama.mcp.server import MCPServer
-from flama.mcp.tasks import InMemoryTaskStore, Task, TaskStatus, TaskStore
+from flama.mcp.tasks import IdempotencyKey, InMemoryTaskStore, Task, TaskCapacityExceeded, TaskStatus, TaskStore
 
 __all__ = [
     "MCPMetaComponent",
@@ -40,6 +41,7 @@ __all__ = [
     "MCPResourceComponent",
     "MCPPromptComponent",
     "MCPTaskComponent",
+    "MCPIdempotencyKeyComponent",
     "MCP_COMPONENTS",
     "RequestMeta",
     "RequestHeaders",
@@ -59,6 +61,8 @@ __all__ = [
     "MCPServer",
     "TaskStatus",
     "Task",
+    "IdempotencyKey",
+    "TaskCapacityExceeded",
     "TaskStore",
     "InMemoryTaskStore",
 ]

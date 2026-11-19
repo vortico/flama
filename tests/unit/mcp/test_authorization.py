@@ -245,7 +245,7 @@ class TestCaseEntryAuthorization:
     )
     async def test_task_resume(self, app, claims, resumed):
         server = app.mcp._servers["test"]
-        task = await server.task_store.create(tool_name="admin")
+        task, _ = await server.task_store.create(tool_name="admin")
         task.status = TaskStatus.INPUT_REQUIRED
         await server.task_store.save(task)
 

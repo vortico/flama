@@ -19,7 +19,7 @@ from flama.mcp.data_structures import (
 )
 from flama.mcp.http import MCPResponse
 from flama.mcp.server import MCPServer
-from flama.mcp.tasks import Task, TaskStatus
+from flama.mcp.tasks import IdempotencyKey, Task, TaskCapacityExceeded, TaskStatus
 from flama.schemas.exceptions import SchemaValidationError
 
 __all__ = ["MCPEndpoint"]
@@ -126,15 +126,36 @@ class MCPEndpoint(JSONRPCEndpoint):
         return {"tools": tools, **self._cache_metadata()}
 
     async def tools_call(
-        self, tool: Tool, params: types.JSONRPCParams, extensions: Extensions, principal: Principal | None = None
+        self,
+        tool: Tool,
+        params: types.JSONRPCParams,
+        extensions: Extensions,
+        principal: Principal | None = None,
+        idempotency_key: IdempotencyKey | None = None,
     ) -> dict[str, t.Any]:
         arguments = params.get("arguments") or {}
         responses = self._combined_responses(params)
 
         if tool.task and Extensions.TASKS in extensions:
-            task = await self.server.task_store.create(
-                ttl_ms=self.server.cache_ttl_ms, tool_name=tool.name, arguments=arguments
-            )
+            try:
+                task, created = await self.server.task_store.create(
+                    ttl_ms=self.server.task_ttl_ms,
+                    tool_name=tool.name,
+                    arguments=arguments,
+                    idempotency_key=idempotency_key,
+                )
+            except TaskCapacityExceeded as e:
+                raise exceptions.JSONRPCException(status_code=http.JSONRPCStatus.INTERNAL_ERROR, detail=str(e)) from e
+
+            if not created:
+                if task.arguments != arguments:
+                    raise exceptions.JSONRPCException(
+                        status_code=http.JSONRPCStatus.INVALID_PARAMS,
+                        detail="The idempotency key was already used with other arguments",
+                    )
+
+                return {"resultType": "task", "task": task.to_dict(), **self._cache_metadata()}
+
             task.owner = principal.subject if principal is not None else None
             task.runner = asyncio.ensure_future(self._run_tool_task(task, tool, arguments, responses))
             await self.server.task_store.save(task)

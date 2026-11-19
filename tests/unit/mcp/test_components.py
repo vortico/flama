@@ -7,8 +7,10 @@ from flama.authentication import Principal
 from flama.context import Context
 from flama.http import JSONRPCStatus
 from flama.http.data_structures import Headers
+from flama.injection.exceptions import ValueNotFound
 from flama.mcp.components import (
     MCPExtensionsComponent,
+    MCPIdempotencyKeyComponent,
     MCPMetaComponent,
     MCPPromptComponent,
     MCPRequestHeadersComponent,
@@ -21,6 +23,7 @@ from flama.mcp.components import (
 from flama.mcp.data_structures import Extensions, RequestHeaders, RequestMeta, TraceContext
 from flama.mcp.routing import MCPRoute
 from flama.mcp.server import MCPServer
+from flama.mcp.tasks import IdempotencyKey
 from flama.routing import Route
 
 
@@ -335,7 +338,7 @@ class TestCaseMCPEntryComponents:
     )
     async def test_resolve_task(self, server, task_id, owner, tool, principal, exception):
         server.add_tool(handler_none, name="secret", permissions=["tools:secret"])
-        task = await server.task_store.create(tool_name=tool)
+        task, _ = await server.task_store.create(tool_name=tool)
         task.owner = owner
 
         with exception:
@@ -344,6 +347,109 @@ class TestCaseMCPEntryComponents:
             )
 
             assert result is task
+
+    @pytest.mark.parametrize(
+        ["tool", "extensions", "meta", "principal", "expected", "exception"],
+        (
+            pytest.param(
+                "slow",
+                (Extensions.TASKS,),
+                {"dev.flama/idempotencyKey": "k1"},
+                Principal("alice"),
+                IdempotencyKey(subject="alice", tool="slow", value="k1"),
+                None,
+                id="key",
+            ),
+            pytest.param(
+                "slow",
+                (Extensions.TASKS,),
+                {"dev.flama/idempotencyKey": "k" * 255},
+                Principal("alice"),
+                IdempotencyKey(subject="alice", tool="slow", value="k" * 255),
+                None,
+                id="longest_key",
+            ),
+            pytest.param(
+                "slow",
+                (Extensions.TASKS,),
+                {},
+                Principal("alice"),
+                None,
+                ValueNotFound(
+                    exceptions.JSONRPCException(
+                        status_code=JSONRPCStatus.INVALID_PARAMS, detail="Missing 'dev.flama/idempotencyKey'"
+                    )
+                ),
+                id="no_key",
+            ),
+            pytest.param(
+                "slow",
+                (),
+                {"dev.flama/idempotencyKey": "k1"},
+                None,
+                None,
+                ValueNotFound(
+                    exceptions.JSONRPCException(
+                        status_code=JSONRPCStatus.INVALID_PARAMS, detail="Missing 'dev.flama/idempotencyKey'"
+                    )
+                ),
+                id="tasks_not_advertised",
+            ),
+            pytest.param(
+                "add",
+                (Extensions.TASKS,),
+                {"dev.flama/idempotencyKey": "k1"},
+                None,
+                None,
+                ValueNotFound(
+                    exceptions.JSONRPCException(
+                        status_code=JSONRPCStatus.INVALID_PARAMS, detail="Missing 'dev.flama/idempotencyKey'"
+                    )
+                ),
+                id="tool_without_task",
+            ),
+            *(
+                pytest.param(
+                    "slow",
+                    (Extensions.TASKS,),
+                    {"dev.flama/idempotencyKey": key},
+                    Principal("alice"),
+                    None,
+                    exceptions.JSONRPCException(
+                        status_code=JSONRPCStatus.INVALID_PARAMS,
+                        detail="'dev.flama/idempotencyKey' must be a string of 1 to 255 characters",
+                    ),
+                    id=id_,
+                )
+                for key, id_ in (("", "empty_key"), ("k" * 256, "too_long_key"), (1, "not_a_string_key"))
+            ),
+            *(
+                pytest.param(
+                    "slow",
+                    (Extensions.TASKS,),
+                    {"dev.flama/idempotencyKey": "k1"},
+                    principal,
+                    None,
+                    exceptions.JSONRPCException(
+                        status_code=JSONRPCStatus.INVALID_PARAMS,
+                        detail="Idempotency keys require an authenticated caller",
+                    ),
+                    id=id_,
+                )
+                for principal, id_ in ((None, "anonymous_caller"), (Principal(), "caller_without_subject"))
+            ),
+        ),
+        indirect=["exception"],
+    )
+    def test_resolve_idempotency_key(self, server, tool, extensions, meta, principal, expected, exception):
+        server.add_tool(handler_none, name="slow", task=True)
+
+        with exception:
+            result = MCPIdempotencyKeyComponent().resolve(
+                RequestMeta(meta), server, server._tools[tool], Extensions(extensions), principal
+            )
+
+            assert result == expected
 
 
 class TestCaseMCPInjection:

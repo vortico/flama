@@ -152,6 +152,12 @@ class TestCaseMCPModule:
         app.mcp.add_server("/mcp/", "test", task_store=store)
         assert app.mcp._servers["test"].task_store is store
 
+    def test_add_server_tasks(self, app):
+        app.mcp.add_server("/mcp/", "test", task_ttl_ms=60000, idempotency_key_meta="example.com/key")
+
+        assert app.mcp._servers["test"].task_ttl_ms == 60000
+        assert app.mcp._servers["test"].idempotency_key_meta == "example.com/key"
+
     def test_add_tool_task_and_ui_resource(self, app):
         app.mcp.add_server("/mcp/", "test")
 

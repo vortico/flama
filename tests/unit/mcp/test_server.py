@@ -25,12 +25,22 @@ class TestCaseMCPServer:
         return MCPServer("test", version="0.1.0", instructions="Test server")
 
     def test_init(self):
-        server = MCPServer("s", version="2.0.0", instructions="hello", cache_ttl_ms=1000, cache_scope="private")
+        server = MCPServer(
+            "s",
+            version="2.0.0",
+            instructions="hello",
+            cache_ttl_ms=1000,
+            cache_scope="private",
+            task_ttl_ms=60000,
+            idempotency_key_meta="example.com/key",
+        )
         assert server.name == "s"
         assert server.version == "2.0.0"
         assert server.instructions == "hello"
         assert server.cache_ttl_ms == 1000
         assert server.cache_scope == "private"
+        assert server.task_ttl_ms == 60000
+        assert server.idempotency_key_meta == "example.com/key"
         assert server._tools == {}
         assert server._resources == {}
         assert server._prompts == {}
@@ -42,6 +52,8 @@ class TestCaseMCPServer:
         assert server.instructions is None
         assert server.cache_ttl_ms == 0
         assert server.cache_scope == "public"
+        assert server.task_ttl_ms is None
+        assert server.idempotency_key_meta == "dev.flama/idempotencyKey"
 
     @pytest.mark.parametrize(
         ["name", "description", "expected_name", "expected_description"],
