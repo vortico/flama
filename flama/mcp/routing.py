@@ -43,9 +43,13 @@ class MCPRoute(Route):
         """
         headers = Headers(scope=scope)
         server = self.endpoint.server
-        entries = {"tools/call": server._tools, "resources/read": server._resources, "prompts/get": server._prompts}
+        entries = {
+            "tools/call": server._tools.get,
+            "resources/read": server.find_resource,
+            "prompts/get": server._prompts.get,
+        }
         method, name = headers.get(RequestHeaders.METHOD_HEADER), headers.get(RequestHeaders.NAME_HEADER)
-        if method not in entries or (entry := entries[method].get(name or "")) is None:
+        if method not in entries or (entry := entries[method](name or "")) is None:
             return self.tags
 
         return {

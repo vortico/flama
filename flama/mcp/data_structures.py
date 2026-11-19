@@ -4,6 +4,7 @@ import json
 import typing as t
 
 from flama.schemas.data_structures import Schema
+from flama.url import URITemplate
 
 __all__ = [
     "RequestMeta",
@@ -14,10 +15,16 @@ __all__ = [
     "Elicitation",
     "RequestState",
     "Tool",
+    "Completer",
     "Resource",
+    "ResourceTemplate",
     "UIResource",
     "Prompt",
 ]
+
+Completer = (
+    t.Callable[[str, dict[str, str]], t.Iterable[str]] | t.Callable[[str, dict[str, str]], t.Awaitable[t.Iterable[str]]]
+)
 
 
 class RequestMeta(dict[str, t.Any]):
@@ -198,6 +205,19 @@ class Resource:
 
 
 @dataclasses.dataclass
+class ResourceTemplate(Resource):
+    """A family of resources sharing a URI template (RFC 6570), read by a handler receiving the template's variables.
+
+    Its ``uri`` is the template, whose variables a matching URI defines, validated by ``arguments`` before reaching the
+    handler. A variable may have a :data:`Completer` in ``completions`` suggesting its values.
+    """
+
+    template: URITemplate = dataclasses.field(kw_only=True)
+    arguments: Schema = dataclasses.field(kw_only=True)
+    completions: dict[str, Completer] = dataclasses.field(default_factory=dict, kw_only=True)
+
+
+@dataclasses.dataclass
 class UIResource(Resource):
     """A resource hosts render as the interactive UI of the tools linked to it (MCP Apps, SEP-1865).
 
@@ -223,3 +243,4 @@ class Prompt:
     handler: t.Callable[..., t.Any]
     permissions: list[str] = dataclasses.field(default_factory=list)
     roles: list[str] = dataclasses.field(default_factory=list)
+    completions: dict[str, Completer] = dataclasses.field(default_factory=dict)

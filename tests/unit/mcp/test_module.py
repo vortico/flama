@@ -87,6 +87,31 @@ class TestCaseMCPModule:
         app.mcp.add_prompt(my_prompt, name="my_prompt")
         assert "my_prompt" in app.mcp._servers["test"]._prompts
 
+    def test_completions(self, app):
+        app.mcp.add_server("/mcp/", "test")
+
+        def complete(value, arguments):
+            return []
+
+        def user(id: int): ...
+
+        def greet(name: str): ...
+
+        app.mcp.add_resource(user, uri="users://{id}", completions={"id": complete})
+        app.mcp.add_prompt(greet, name="greet", completions={"name": complete})
+
+        @app.mcp.resource("posts://{slug}", completions={"slug": complete})
+        def post(slug: str): ...
+
+        @app.mcp.prompt("farewell", completions={"name": complete})
+        def farewell(name: str): ...
+
+        server = app.mcp._servers["test"]
+        assert server._resource_templates["users://{id}"].completions == {"id": complete}
+        assert server._resource_templates["posts://{slug}"].completions == {"slug": complete}
+        assert server._prompts["greet"].completions == {"name": complete}
+        assert server._prompts["farewell"].completions == {"name": complete}
+
     def test_tool_decorator(self, app):
         app.mcp.add_server("/mcp/", "test")
 

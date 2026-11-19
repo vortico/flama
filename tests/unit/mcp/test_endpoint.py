@@ -378,11 +378,183 @@ class TestCaseMCPEndpoint:
         assert resp.json()["error"]["code"] == JSONRPCStatus.INTERNAL_ERROR
 
     async def test_resources_templates_list(self, app):
+        server = app.mcp._servers["test"]
+
+        @server.resource("users://{id}/profile", description="User profile", mime_type="application/json")
+        def profile(id: int):
+            return id  # pragma: no cover
+
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "resources/templates/list", "params": {}})
         result = resp.json()["result"]
-        assert result["resourceTemplates"] == []
+        assert result["resourceTemplates"] == [
+            {
+                "uriTemplate": "users://{id}/profile",
+                "name": "profile",
+                "description": "User profile",
+                "mimeType": "application/json",
+            }
+        ]
         assert result["ttlMs"] == 0
         assert result["cacheScope"] == "public"
+
+    @pytest.mark.parametrize(
+        ["uri", "text", "error"],
+        (
+            pytest.param("users://42/profile", "42 None", None, id="variable"),
+            pytest.param(
+                "users://42/profile?fields=name&fields=email", "42 ['name', 'email']", None, id="exploded_query"
+            ),
+            pytest.param(
+                "users://abc/profile",
+                None,
+                (JSONRPCStatus.INVALID_PARAMS, "Invalid arguments for resource 'users://abc/profile':\nid:"),
+                id="invalid_variable",
+            ),
+            pytest.param(
+                "users://0/profile",
+                None,
+                (JSONRPCStatus.INTERNAL_ERROR, "Resource 'users://0/profile' raised: unknown user"),
+                id="handler_error",
+            ),
+        ),
+    )
+    async def test_resources_read_template(self, app, uri, text, error):
+        server = app.mcp._servers["test"]
+
+        @server.resource("users://{id}/profile{?fields*}")
+        async def profile(id: int, fields: list[str] | None = None):
+            if id == 0:
+                raise ValueError("unknown user")
+            return f"{id} {fields}"
+
+        resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {"uri": uri}})
+
+        if error is None:
+            assert resp.json()["result"]["contents"] == [{"uri": uri, "mimeType": "text/plain", "text": text}]
+        else:
+            assert resp.json()["error"]["code"] == error[0]
+            assert resp.json()["error"]["message"].startswith(error[1])
+
+    @pytest.mark.parametrize(
+        ["completions", "capabilities"],
+        (
+            pytest.param(None, {"resources": {}}, id="templates"),
+            pytest.param({"id": lambda value, arguments: []}, {"resources": {}, "completions": {}}, id="completions"),
+        ),
+    )
+    async def test_server_discover_resource_templates(self, empty_app, completions, capabilities):
+        empty_app.mcp._servers["empty"].add_resource(lambda id: id, uri="users://{id}", completions=completions)
+
+        resp = await self._post(empty_app, {"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {}})
+
+        assert resp.json()["result"]["capabilities"] == capabilities
+
+    @pytest.mark.parametrize(
+        ["params", "result", "error"],
+        (
+            pytest.param(
+                {"ref": {"type": "ref/resource", "uri": "users://{country}/{city}"}, "argument": {"name": "city"}},
+                {"values": ["Madrid", "Paris"], "total": 2, "hasMore": False},
+                None,
+                id="resource_template",
+            ),
+            pytest.param(
+                {
+                    "ref": {"type": "ref/resource", "uri": "users://{country}/{city}"},
+                    "argument": {"name": "city", "value": "ma"},
+                    "context": {"arguments": {"country": "es"}},
+                },
+                {"values": ["Madrid"], "total": 1, "hasMore": False},
+                None,
+                id="resource_template_context",
+            ),
+            pytest.param(
+                {"ref": {"type": "ref/prompt", "name": "review"}, "argument": {"name": "language", "value": "py"}},
+                {"values": ["python"], "total": 1, "hasMore": False},
+                None,
+                id="prompt",
+            ),
+            pytest.param(
+                {"ref": {"type": "ref/prompt", "name": "review"}, "argument": {"name": "number"}},
+                {"values": [str(x) for x in range(100)], "total": 150, "hasMore": True},
+                None,
+                id="truncated",
+            ),
+            pytest.param(
+                {"ref": {"type": "ref/resource", "uri": "users://{country}/{city}"}, "argument": {"name": "country"}},
+                {"values": [], "total": 0, "hasMore": False},
+                None,
+                id="no_completions",
+            ),
+            pytest.param(
+                {"ref": {"type": "ref/resource", "uri": "users://{id}"}, "argument": {"name": "id"}},
+                None,
+                (JSONRPCStatus.INVALID_PARAMS, "Resource template 'users://{id}' not found"),
+                id="resource_template_not_found",
+            ),
+            pytest.param(
+                {"ref": {"type": "ref/prompt", "name": "missing"}, "argument": {"name": "language"}},
+                None,
+                (JSONRPCStatus.INVALID_PARAMS, "Prompt 'missing' not found"),
+                id="prompt_not_found",
+            ),
+            pytest.param(
+                {"ref": {"type": "ref/tool", "name": "add"}, "argument": {"name": "a"}},
+                None,
+                (JSONRPCStatus.INVALID_PARAMS, "Unknown reference type 'ref/tool'"),
+                id="unknown_reference",
+            ),
+            pytest.param(
+                {"ref": {"type": "ref/prompt", "name": "review"}, "argument": {"name": "code"}},
+                None,
+                (JSONRPCStatus.INTERNAL_ERROR, "Completion for Prompt 'review' raised: no completions"),
+                id="completion_error",
+            ),
+            pytest.param(
+                {"ref": {"type": "ref/prompt", "name": "review"}, "argument": {"name": "style"}},
+                None,
+                (JSONRPCStatus.INVALID_PARAMS, "No style"),
+                id="completion_mcp_error",
+            ),
+        ),
+    )
+    async def test_completion_complete(self, app, params, result, error):
+        server = app.mcp._servers["test"]
+
+        async def complete_city(value, arguments):
+            cities = {"es": ["Madrid"], "fr": ["Paris"]}
+            known = cities.get(arguments.get("country", ""), [x for v in cities.values() for x in v])
+            return [x for x in known if x.lower().startswith(value.lower())]
+
+        def complete_code(value, arguments):
+            raise RuntimeError("no completions")
+
+        def complete_style(value, arguments):
+            raise JSONRPCException(status_code=JSONRPCStatus.INVALID_PARAMS, detail="No style")
+
+        @server.resource("users://{country}/{city}", completions={"city": complete_city})
+        def user(country: str, city: str):
+            return city  # pragma: no cover
+
+        @server.prompt(
+            "review",
+            completions={
+                "language": lambda value, arguments: [x for x in ("python", "rust") if x.startswith(value)],
+                "number": lambda value, arguments: (str(x) for x in range(150)),
+                "code": complete_code,
+                "style": complete_style,
+            },
+        )
+        def review(language: str, number: str, code: str, style: str):
+            return code  # pragma: no cover
+
+        resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "completion/complete", "params": params})
+
+        if error is None:
+            assert resp.json()["result"]["completion"] == result
+        else:
+            assert resp.json()["error"]["code"] == error[0]
+            assert resp.json()["error"]["message"] == error[1]
 
     async def test_prompts_list(self, app):
         resp = await self._post(app, {"jsonrpc": "2.0", "id": 1, "method": "prompts/list", "params": {}})

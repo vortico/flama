@@ -121,6 +121,10 @@ class TestCaseEntryAuthorization:
         def secret_resource():
             return "secret"
 
+        @app.mcp.resource("res://secrets/{id}", roles=["admin"], completions={"id": lambda value, arguments: ["1"]})
+        def secret_resources(id: int):
+            return f"secret {id}"
+
         @app.mcp.prompt("public_prompt")
         def public_prompt():
             return "public"
@@ -152,6 +156,17 @@ class TestCaseEntryAuthorization:
             pytest.param("resources/read", {"uri": "res://secret"}, {"roles": ["admin"]}, 200, None, id="resource"),
             pytest.param(
                 "resources/read", {"uri": "res://secret"}, {"roles": ["guest"]}, 403, None, id="resource_role_missing"
+            ),
+            pytest.param(
+                "resources/read", {"uri": "res://secrets/1"}, {"roles": ["admin"]}, 200, None, id="resource_template"
+            ),
+            pytest.param(
+                "resources/read",
+                {"uri": "res://secrets/1"},
+                {"roles": ["guest"]},
+                403,
+                None,
+                id="resource_template_role_missing",
             ),
             pytest.param(
                 "prompts/get", {"name": "secret_prompt"}, {"scope": "prompts:secret"}, 200, None, id="prompt_granted"
@@ -255,3 +270,25 @@ class TestCaseEntryAuthorization:
             assert response.json()["result"]["task"]["status"] == "working"
         else:
             assert response.json()["error"]["message"] == f"Insufficient permissions for task '{task.id}'"
+
+    @pytest.mark.parametrize(
+        ["claims", "templates", "completion"],
+        (
+            pytest.param(None, [], None, id="anonymous"),
+            pytest.param({"roles": ["admin"]}, ["res://secrets/{id}"], ["1"], id="granted"),
+        ),
+    )
+    async def test_resource_templates(self, app, claims, templates, completion):
+        listed = await call(app, "resources/templates/list", claims=claims)
+        completed = await call(
+            app,
+            "completion/complete",
+            {"ref": {"type": "ref/resource", "uri": "res://secrets/{id}"}, "argument": {"name": "id", "value": ""}},
+            claims=claims,
+        )
+
+        assert [x["uriTemplate"] for x in listed.json()["result"]["resourceTemplates"]] == templates
+        if completion is None:
+            assert completed.json()["error"]["message"] == "Resource template 'res://secrets/{id}' not found"
+        else:
+            assert completed.json()["result"]["completion"]["values"] == completion

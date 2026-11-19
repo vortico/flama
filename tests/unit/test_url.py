@@ -13,6 +13,7 @@ from flama.url import (
     Netloc,
     Path,
     StringSerializer,
+    URITemplate,
     UUIDSerializer,
     _BuildResult,
     _Fragment,
@@ -322,6 +323,343 @@ class TestCasePath:
         with exception:
             a /= b
             assert a == c
+
+
+class TestCaseURITemplate:
+    VALUES = {
+        "count": ["one", "two", "three"],
+        "dom": ["example", "com"],
+        "dub": "me/too",
+        "hello": "Hello World!",
+        "half": "50%",
+        "var": "value",
+        "who": "fred",
+        "base": "http://example.com/home/",
+        "path": "/foo/bar",
+        "list": ["red", "green", "blue"],
+        "keys": {"semi": ";", "dot": ".", "comma": ","},
+        "semi": ";",
+        "v": "6",
+        "x": "1024",
+        "y": "768",
+        "empty": "",
+        "empty_keys": {},
+        "undef": None,
+    }
+    KINDS = {"count": list, "dom": list, "list": list, "keys": dict, "empty_keys": dict}
+
+    @pytest.mark.parametrize(
+        ["template", "expected"],
+        (
+            # Examples of RFC 6570, section 3.2.
+            pytest.param("{var}", "value", id="simple"),
+            pytest.param("{hello}", "Hello%20World%21", id="simple_encoded"),
+            pytest.param("{half}", "50%25", id="simple_percent"),
+            pytest.param("{var:3}", "val", id="simple_prefix"),
+            pytest.param("{var:30}", "value", id="simple_long_prefix"),
+            pytest.param("{semi}", "%3B", id="simple_reserved"),
+            pytest.param("{semi:2}", "%3B", id="simple_reserved_prefix"),
+            pytest.param("{x,y}", "1024,768", id="simple_several"),
+            pytest.param("{x,hello,y}", "1024,Hello%20World%21,768", id="simple_several_encoded"),
+            pytest.param("?{x,empty}", "?1024,", id="simple_empty"),
+            pytest.param("?{x,undef}", "?1024", id="simple_undefined"),
+            pytest.param("?{undef,y}", "?768", id="simple_undefined_first"),
+            pytest.param("{count}", "one,two,three", id="simple_list"),
+            pytest.param("{count*}", "one,two,three", id="simple_list_explode"),
+            pytest.param("{list}", "red,green,blue", id="simple_list_2"),
+            pytest.param("{keys}", "semi,%3B,dot,.,comma,%2C", id="simple_dict"),
+            pytest.param("{keys*}", "semi=%3B,dot=.,comma=%2C", id="simple_dict_explode"),
+            pytest.param("{+var}", "value", id="reserved"),
+            pytest.param("{+hello}", "Hello%20World!", id="reserved_encoded"),
+            pytest.param("{+half}", "50%25", id="reserved_percent"),
+            pytest.param("{base}index", "http%3A%2F%2Fexample.com%2Fhome%2Findex", id="simple_url"),
+            pytest.param("{+base}index", "http://example.com/home/index", id="reserved_url"),
+            pytest.param("O{+empty}X", "OX", id="reserved_empty"),
+            pytest.param("O{+undef}X", "OX", id="reserved_undefined"),
+            pytest.param("{+path}/here", "/foo/bar/here", id="reserved_path"),
+            pytest.param("here?ref={+path}", "here?ref=/foo/bar", id="reserved_query"),
+            pytest.param("up{+path}{var}/here", "up/foo/barvalue/here", id="reserved_adjacent"),
+            pytest.param("{+x,hello,y}", "1024,Hello%20World!,768", id="reserved_several"),
+            pytest.param("{+path,x}/here", "/foo/bar,1024/here", id="reserved_several_path"),
+            pytest.param("{+path:6}/here", "/foo/b/here", id="reserved_prefix"),
+            pytest.param("{+list}", "red,green,blue", id="reserved_list"),
+            pytest.param("{+list*}", "red,green,blue", id="reserved_list_explode"),
+            pytest.param("{+keys}", "semi,;,dot,.,comma,,", id="reserved_dict"),
+            pytest.param("{+keys*}", "semi=;,dot=.,comma=,", id="reserved_dict_explode"),
+            pytest.param("{#var}", "#value", id="fragment"),
+            pytest.param("{#hello}", "#Hello%20World!", id="fragment_encoded"),
+            pytest.param("{#half}", "#50%25", id="fragment_percent"),
+            pytest.param("foo{#empty}", "foo#", id="fragment_empty"),
+            pytest.param("foo{#undef}", "foo", id="fragment_undefined"),
+            pytest.param("{#x,hello,y}", "#1024,Hello%20World!,768", id="fragment_several"),
+            pytest.param("{#path,x}/here", "#/foo/bar,1024/here", id="fragment_several_path"),
+            pytest.param("{#path:6}/here", "#/foo/b/here", id="fragment_prefix"),
+            pytest.param("{#list}", "#red,green,blue", id="fragment_list"),
+            pytest.param("{#list*}", "#red,green,blue", id="fragment_list_explode"),
+            pytest.param("{#keys}", "#semi,;,dot,.,comma,,", id="fragment_dict"),
+            pytest.param("{#keys*}", "#semi=;,dot=.,comma=,", id="fragment_dict_explode"),
+            pytest.param("{.who}", ".fred", id="label"),
+            pytest.param("{.who,who}", ".fred.fred", id="label_repeated"),
+            pytest.param("{.half,who}", ".50%25.fred", id="label_several"),
+            pytest.param("www{.dom*}", "www.example.com", id="label_list_explode"),
+            pytest.param("X{.var}", "X.value", id="label_literal"),
+            pytest.param("X{.empty}", "X.", id="label_empty"),
+            pytest.param("X{.undef}", "X", id="label_undefined"),
+            pytest.param("X{.var:3}", "X.val", id="label_prefix"),
+            pytest.param("X{.list}", "X.red,green,blue", id="label_list"),
+            pytest.param("X{.list*}", "X.red.green.blue", id="label_list_explode_2"),
+            pytest.param("X{.keys}", "X.semi,%3B,dot,.,comma,%2C", id="label_dict"),
+            pytest.param("X{.keys*}", "X.semi=%3B.dot=..comma=%2C", id="label_dict_explode"),
+            pytest.param("X{.empty_keys}", "X", id="label_empty_dict"),
+            pytest.param("X{.empty_keys*}", "X", id="label_empty_dict_explode"),
+            pytest.param("{/who}", "/fred", id="path"),
+            pytest.param("{/who,who}", "/fred/fred", id="path_repeated"),
+            pytest.param("{/half,who}", "/50%25/fred", id="path_several"),
+            pytest.param("{/who,dub}", "/fred/me%2Ftoo", id="path_encoded"),
+            pytest.param("{/var}", "/value", id="path_2"),
+            pytest.param("{/var,empty}", "/value/", id="path_empty"),
+            pytest.param("{/var,undef}", "/value", id="path_undefined"),
+            pytest.param("{/var,x}/here", "/value/1024/here", id="path_literal"),
+            pytest.param("{/var:1,var}", "/v/value", id="path_prefix"),
+            pytest.param("{/list}", "/red,green,blue", id="path_list"),
+            pytest.param("{/list*}", "/red/green/blue", id="path_list_explode"),
+            pytest.param("{/keys}", "/semi,%3B,dot,.,comma,%2C", id="path_dict"),
+            pytest.param("{/keys*}", "/semi=%3B/dot=./comma=%2C", id="path_dict_explode"),
+            pytest.param("{;who}", ";who=fred", id="parameters"),
+            pytest.param("{;half}", ";half=50%25", id="parameters_percent"),
+            pytest.param("{;empty}", ";empty", id="parameters_empty"),
+            pytest.param("{;v,empty,who}", ";v=6;empty;who=fred", id="parameters_several_empty"),
+            pytest.param("{;v,bar,who}", ";v=6;who=fred", id="parameters_several_unknown"),
+            pytest.param("{;x,y}", ";x=1024;y=768", id="parameters_several"),
+            pytest.param("{;x,y,empty}", ";x=1024;y=768;empty", id="parameters_several_trailing_empty"),
+            pytest.param("{;x,y,undef}", ";x=1024;y=768", id="parameters_several_undefined"),
+            pytest.param("{;hello:5}", ";hello=Hello", id="parameters_prefix"),
+            pytest.param("{;list}", ";list=red,green,blue", id="parameters_list"),
+            pytest.param("{;list*}", ";list=red;list=green;list=blue", id="parameters_list_explode"),
+            pytest.param("{;keys}", ";keys=semi,%3B,dot,.,comma,%2C", id="parameters_dict"),
+            pytest.param("{;keys*}", ";semi=%3B;dot=.;comma=%2C", id="parameters_dict_explode"),
+            pytest.param("{?who}", "?who=fred", id="query"),
+            pytest.param("{?half}", "?half=50%25", id="query_percent"),
+            pytest.param("{?x,y}", "?x=1024&y=768", id="query_several"),
+            pytest.param("{?x,y,empty}", "?x=1024&y=768&empty=", id="query_empty"),
+            pytest.param("{?x,y,undef}", "?x=1024&y=768", id="query_undefined"),
+            pytest.param("{?var:3}", "?var=val", id="query_prefix"),
+            pytest.param("{?list}", "?list=red,green,blue", id="query_list"),
+            pytest.param("{?list*}", "?list=red&list=green&list=blue", id="query_list_explode"),
+            pytest.param("{?keys}", "?keys=semi,%3B,dot,.,comma,%2C", id="query_dict"),
+            pytest.param("{?keys*}", "?semi=%3B&dot=.&comma=%2C", id="query_dict_explode"),
+            pytest.param("{&who}", "&who=fred", id="continuation"),
+            pytest.param("{&half}", "&half=50%25", id="continuation_percent"),
+            pytest.param("?fixed=yes{&x}", "?fixed=yes&x=1024", id="continuation_literal"),
+            pytest.param("{&x,y,empty}", "&x=1024&y=768&empty=", id="continuation_empty"),
+            pytest.param("{&x,y,undef}", "&x=1024&y=768", id="continuation_undefined"),
+            pytest.param("{&var:3}", "&var=val", id="continuation_prefix"),
+            pytest.param("{&list}", "&list=red,green,blue", id="continuation_list"),
+            pytest.param("{&list*}", "&list=red&list=green&list=blue", id="continuation_list_explode"),
+            pytest.param("{&keys}", "&keys=semi,%3B,dot,.,comma,%2C", id="continuation_dict"),
+            pytest.param("{&keys*}", "&semi=%3B&dot=.&comma=%2C", id="continuation_dict_explode"),
+        ),
+    )
+    def test_expand(self, template, expected):
+        uri_template = URITemplate(template)
+
+        assert uri_template.expand(**self.VALUES) == expected
+
+    @pytest.mark.parametrize(
+        ["template", "values", "expected"],
+        (
+            pytest.param("{x}", {"x": 1}, "1", id="not_a_string"),
+            pytest.param("{+x:3}", {"x": "%20ab"}, "%20ab", id="reserved_prefix_triplet"),
+            pytest.param("{+x}", {"x": "a%20b"}, "a%20b", id="reserved_triplet"),
+            pytest.param("{x}", {"x": [None, "a"]}, "a", id="list_undefined_member"),
+            pytest.param("{x}", {"x": [None]}, "", id="list_undefined_members"),
+            pytest.param("{x}", {"x": {"a": None, "b": "1"}}, "b,1", id="dict_undefined_member"),
+            pytest.param("{?x*}", {"x": ["a", ""]}, "?x=a&x=", id="query_list_explode_empty"),
+            pytest.param("{;x*}", {"x": {"a": ""}}, ";a", id="parameters_dict_explode_empty"),
+            pytest.param("{?x*}", {"x": {"a": ""}}, "?a=", id="query_dict_explode_empty"),
+            pytest.param("{x*}", {"x": {"a": ""}}, "a=", id="simple_dict_explode_empty"),
+            pytest.param("a b/{x}", {"x": "1"}, "a%20b/1", id="literal_encoded"),
+        ),
+    )
+    def test_expand_values(self, template, values, expected):
+        assert URITemplate(template).expand(**values) == expected
+
+    @pytest.mark.parametrize(
+        ["template", "kinds", "uri", "expected"],
+        (
+            pytest.param("{var}", None, "value", {"var": "value"}, id="simple"),
+            pytest.param("{hello}", None, "Hello%20World%21", {"hello": "Hello World!"}, id="simple_encoded"),
+            pytest.param("{x,y}", None, "1024,768", {"x": "1024", "y": "768"}, id="simple_several"),
+            pytest.param("{x,y}", None, "1024", {"x": "1024"}, id="simple_missing"),
+            pytest.param("{x}", None, "", {}, id="simple_undefined"),
+            pytest.param("{count}", {"count": list}, "one,two,three", {"count": ["one", "two", "three"]}, id="list"),
+            pytest.param("{count*}", None, "one,two,three", {"count": ["one", "two", "three"]}, id="list_explode"),
+            pytest.param("{/count*}", None, "/one/two/three", {"count": ["one", "two", "three"]}, id="path_list"),
+            pytest.param(
+                "{/x,count*}", None, "/1/one/two", {"x": "1", "count": ["one", "two"]}, id="path_list_after_string"
+            ),
+            pytest.param(
+                "{/x,count}", {"count": list}, "/1/one,two", {"x": "1", "count": ["one", "two"]}, id="path_list_joined"
+            ),
+            pytest.param(
+                "{keys}",
+                {"keys": dict},
+                "semi,%3B,dot,.,comma,%2C",
+                {"keys": {"semi": ";", "dot": ".", "comma": ","}},
+                id="dict",
+            ),
+            pytest.param(
+                "{keys*}",
+                {"keys": dict},
+                "semi=%3B,dot=.,comma=%2C",
+                {"keys": {"semi": ";", "dot": ".", "comma": ","}},
+                id="dict_explode",
+            ),
+            pytest.param("{+path}/here", None, "/foo/bar/here", {"path": "/foo/bar"}, id="reserved_path"),
+            pytest.param(
+                "{+path,x}/here", None, "/foo/bar,1024/here", {"path": "/foo/bar", "x": "1024"}, id="reserved"
+            ),
+            pytest.param(
+                "{#x,hello,y}",
+                None,
+                "#1024,Hello%20World!,768",
+                {"x": "1024", "hello": "Hello World!", "y": "768"},
+                id="fragment",
+            ),
+            pytest.param("{.who,who}", None, ".fred.fred", {"who": "fred"}, id="label_repeated"),
+            pytest.param("{/who,dub}", None, "/fred/me%2Ftoo", {"who": "fred", "dub": "me/too"}, id="path"),
+            pytest.param("{/var,empty}", None, "/value/", {"var": "value", "empty": ""}, id="path_empty"),
+            pytest.param("{/var:1,var}", None, "/v/value", {"var": "value"}, id="path_prefix"),
+            pytest.param(
+                "{;v,empty,who}", None, ";v=6;empty;who=fred", {"v": "6", "empty": "", "who": "fred"}, id="parameters"
+            ),
+            pytest.param(
+                "{;count*}", None, ";count=one;count=two", {"count": ["one", "two"]}, id="parameters_list_explode"
+            ),
+            pytest.param(
+                "{?x,y,empty}", None, "?x=1024&y=768&empty=", {"x": "1024", "y": "768", "empty": ""}, id="query"
+            ),
+            pytest.param("{?x,y}", None, "?y=768", {"y": "768"}, id="query_missing"),
+            pytest.param("{?x,y}", None, "?y=768&x=1024", {"x": "1024", "y": "768"}, id="query_unordered"),
+            pytest.param("{?list}", {"list": list}, "?list=red,green", {"list": ["red", "green"]}, id="query_list"),
+            pytest.param(
+                "{?keys*}",
+                {"keys": dict},
+                "?semi=%3B&dot=.",
+                {"keys": {"semi": ";", "dot": "."}},
+                id="query_dict_explode",
+            ),
+            pytest.param(
+                "{?x,keys*}", {"keys": dict}, "?x=1&a=b", {"x": "1", "keys": {"a": "b"}}, id="query_dict_explode_rest"
+            ),
+            pytest.param("{?x,keys*}", {"keys": dict}, "?x=1", {"x": "1"}, id="query_dict_explode_undefined"),
+            pytest.param("{?x,list*}", None, "?x=1", {"x": "1"}, id="query_list_explode_undefined"),
+            pytest.param("{&x}", None, "&x=1", {"x": "1"}, id="continuation"),
+            pytest.param("{var:3}", None, "val", {"var": "val"}, id="prefix_only"),
+            pytest.param("{x:3}/{x}", None, "abc/abcd", {"x": "abcd"}, id="prefix_then_full"),
+            pytest.param("{x:2}/{x:3}", None, "ab/abd", {"x": "abd"}, id="prefixes"),
+            pytest.param("users://{id}/profile{?fields*}", None, "users://42/profile", {"id": "42"}, id="resource"),
+            pytest.param(
+                "users://{id}/profile{?fields*}",
+                None,
+                "users://42/profile?fields=name&fields=email",
+                {"id": "42", "fields": ["name", "email"]},
+                id="resource_query",
+            ),
+            pytest.param("a b/{x}", None, "a%20b/1", {"x": "1"}, id="literal_encoded"),
+            pytest.param("users://{id}", None, "other://42", None, id="other_literal"),
+            pytest.param("{x}", None, "a/b", None, id="unallowed_character"),
+            pytest.param("{?x}", None, "?y=1", None, id="unexpected_member"),
+            pytest.param("{?keys}", {"keys": dict}, "?keys=a", None, id="query_dict_odd"),
+            pytest.param("{keys}", {"keys": dict}, "a,b,c", None, id="dict_odd"),
+            pytest.param("{keys*}", {"keys": dict}, "a=b,c", None, id="dict_explode_unpaired"),
+            pytest.param("{/x,keys}", {"keys": dict}, "/1/a,b,c", None, id="path_dict_odd"),
+            pytest.param("{x}/{x}", None, "a/b", None, id="disagreeing"),
+            pytest.param("{x:3}/{x}", None, "abx/abcd", None, id="disagreeing_prefix"),
+            pytest.param("{x:2}/{x:3}", None, "ac/abd", None, id="disagreeing_prefixes"),
+        ),
+    )
+    def test_match(self, template, kinds, uri, expected):
+        assert URITemplate(template, kinds=kinds).match(uri) == expected
+
+    @pytest.mark.parametrize(
+        ["template", "kinds", "exception"],
+        (
+            pytest.param("{x", None, ValueError("Unbalanced braces in URI template '{x'"), id="unclosed"),
+            pytest.param("x}", None, ValueError("Unbalanced braces in URI template 'x}'"), id="unopened"),
+            pytest.param("{=x}", None, ValueError("Operator '=' is reserved by RFC 6570"), id="reserved_operator"),
+            pytest.param("{}", None, ValueError("Invalid variable '' in expression '{}'"), id="empty_expression"),
+            pytest.param("{x-y}", None, ValueError("Invalid variable 'x-y' in expression '{x-y}'"), id="invalid_name"),
+            pytest.param(
+                "{x:0}", None, ValueError("Invalid variable 'x:0' in expression '{x:0}'"), id="invalid_prefix"
+            ),
+            pytest.param(
+                "{x}", {"y": list}, ValueError("Unknown variables ['y'] in URI template '{x}'"), id="unknown_kind"
+            ),
+            pytest.param("{x}", {"x": int}, ValueError("Variable 'x' must be a str, list or dict"), id="invalid_kind"),
+            pytest.param(
+                "{x:3}",
+                {"x": list},
+                ValueError("Prefix modifiers do not apply to lists or dicts, in '{x:3}'"),
+                id="composite_prefix",
+            ),
+            pytest.param(
+                "{x,y}",
+                {"x": list},
+                ValueError("A list or dict must be the only one and the last variable of an expression"),
+                id="composite_not_last",
+            ),
+            pytest.param(
+                "{/list*,path:4}",
+                None,
+                ValueError("A list or dict must be the only one and the last variable of an expression"),
+                id="exploded_not_last",
+            ),
+            pytest.param(
+                "{x,y}",
+                {"x": list, "y": dict},
+                ValueError("A list or dict must be the only one and the last variable of an expression"),
+                id="composites",
+            ),
+            pytest.param(
+                "{?x*,y*}",
+                {"x": dict, "y": dict},
+                ValueError("An expression holds at most one exploded dict, in '{?x*,y*}'"),
+                id="exploded_dicts",
+            ),
+        ),
+        indirect=["exception"],
+    )
+    def test_init_invalid(self, template, kinds, exception):
+        with exception:
+            URITemplate(template, kinds=kinds)
+
+    def test_variables(self):
+        template = URITemplate("users://{id}/{x:2}{/x}{?fields*}{&keys}", kinds={"keys": dict})
+
+        assert template.variables == ["id", "x", "fields", "keys"]
+        assert template.kinds == {"id": str, "x": str, "fields": list, "keys": dict}
+
+    @pytest.mark.parametrize(
+        ["template", "other", "result"],
+        (
+            pytest.param(URITemplate("users://{id}"), URITemplate("users://{id}"), True, id="template"),
+            pytest.param(URITemplate("users://{id}"), "users://{id}", True, id="str"),
+            pytest.param(URITemplate("users://{id}"), URITemplate("users://{name}"), False, id="other_template"),
+            pytest.param(URITemplate("users://{id}"), 42, False, id="other"),
+        ),
+    )
+    def test_eq(self, template, other, result):
+        assert (template == other) is result
+
+    def test_hash(self):
+        assert hash(URITemplate("users://{id}")) == hash(URITemplate("users://{id}"))
+
+    def test_str(self):
+        assert str(URITemplate("users://{id}")) == "users://{id}"
+
+    def test_repr(self):
+        assert repr(URITemplate("users://{id}")) == "URITemplate('users://{id}')"
 
 
 class TestCaseNetloc:

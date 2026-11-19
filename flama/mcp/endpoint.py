@@ -15,6 +15,7 @@ from flama.mcp.data_structures import (
     RequestHeaders,
     RequestState,
     Resource,
+    ResourceTemplate,
     Tool,
 )
 from flama.mcp.http import MCPResponse
@@ -37,6 +38,7 @@ class MCPEndpoint(JSONRPCEndpoint):
     """
 
     server: t.ClassVar[MCPServer]
+    COMPLETION_VALUES: t.ClassVar[int] = 100
     handlers: t.ClassVar[dict[str, str]] = {
         "server/discover": "server_discover",
         "ping": "ping",
@@ -47,6 +49,7 @@ class MCPEndpoint(JSONRPCEndpoint):
         "resources/templates/list": "resources_templates_list",
         "prompts/list": "prompts_list",
         "prompts/get": "prompts_get",
+        "completion/complete": "completion_complete",
         "tasks/get": "tasks_get",
         "tasks/update": "tasks_update",
         "tasks/cancel": "tasks_cancel",
@@ -85,10 +88,12 @@ class MCPEndpoint(JSONRPCEndpoint):
         capabilities: dict[str, dict[str, t.Any]] = {}
         if self.server._tools:
             capabilities["tools"] = {}
-        if self.server._resources:
+        if self.server._resources or self.server._resource_templates:
             capabilities["resources"] = {}
         if self.server._prompts:
             capabilities["prompts"] = {}
+        if self.server.completions:
+            capabilities["completions"] = {}
         if self.server.supported_extensions:
             capabilities["extensions"] = {extension: {} for extension in sorted(self.server.supported_extensions)}
 
@@ -305,24 +310,42 @@ class MCPEndpoint(JSONRPCEndpoint):
             **self._cache_metadata(),
         }
 
-    async def resources_read(self, resource: Resource) -> dict[str, t.Any]:
+    async def resources_read(self, resource: Resource, params: types.JSONRPCParams) -> dict[str, t.Any]:
+        uri = params.get("uri", "")
+        arguments: dict[str, t.Any] = {}
+        if isinstance(resource, ResourceTemplate):
+            try:
+                arguments = resource.arguments.validate(resource.template.match(uri) or {})
+            except SchemaValidationError as e:
+                raise exceptions.JSONRPCException(
+                    status_code=http.JSONRPCStatus.INVALID_PARAMS,
+                    detail=f"Invalid arguments for resource '{uri}':\n{e}",
+                ) from e
+
         try:
-            result = await _concurrency.run(resource.handler)
+            result = await _concurrency.run(resource.handler, **arguments)
         except exceptions.JSONRPCException:
             raise
         except Exception as e:
             raise exceptions.JSONRPCException(
-                status_code=http.JSONRPCStatus.INTERNAL_ERROR, detail=f"Resource '{resource.uri}' raised: {e}"
+                status_code=http.JSONRPCStatus.INTERNAL_ERROR, detail=f"Resource '{uri}' raised: {e}"
             ) from e
 
         return {
-            "contents": [{"uri": resource.uri, "mimeType": resource.mime_type, "text": str(result)}],
+            "contents": [{"uri": uri, "mimeType": resource.mime_type, "text": str(result)}],
             **self._cache_metadata(),
         }
 
-    def resources_templates_list(self) -> dict[str, t.Any]:
-        """List the parameterised resources this server declares, of which there are none."""
-        return {"resourceTemplates": [], **self._cache_metadata()}
+    def resources_templates_list(self, principal: Principal | None = None) -> dict[str, t.Any]:
+        caller = principal or Principal()
+        return {
+            "resourceTemplates": [
+                {"uriTemplate": e.uri, "name": e.name, "description": e.description, "mimeType": e.mime_type}
+                for e in self.server._resource_templates.values()
+                if caller.holds(e.permissions, e.roles)
+            ],
+            **self._cache_metadata(),
+        }
 
     def prompts_list(self, principal: Principal | None = None) -> dict[str, t.Any]:
         caller = principal or Principal()
@@ -353,6 +376,59 @@ class MCPEndpoint(JSONRPCEndpoint):
             messages = [{"role": "user", "content": {"type": "text", "text": str(result)}}]
 
         return {"description": prompt.description, "messages": messages}
+
+    async def completion_complete(
+        self, params: types.JSONRPCParams, principal: Principal | None = None
+    ) -> dict[str, t.Any]:
+        """Suggest values for an argument of a prompt or a resource template, from the function its author declared.
+
+        An argument without one has no suggestions, and an entry the caller may not use is not found, as lists hide it.
+        """
+        ref = params.get("ref") or {}
+        entry: Prompt | ResourceTemplate | None
+        if ref.get("type") == "ref/prompt":
+            entry, label = self.server._prompts.get(ref.get("name", "")), f"Prompt '{ref.get('name', '')}'"
+        elif ref.get("type") == "ref/resource":
+            entry, label = (
+                self.server._resource_templates.get(ref.get("uri", "")),
+                f"Resource template '{ref.get('uri', '')}'",
+            )
+        else:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"Unknown reference type '{ref.get('type')}'"
+            )
+
+        if entry is None or not (principal or Principal()).holds(entry.permissions, entry.roles):
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INVALID_PARAMS, detail=f"{label} not found"
+            )
+
+        argument = params.get("argument") or {}
+        if (completer := entry.completions.get(argument.get("name", ""))) is None:
+            return {"completion": {"values": [], "total": 0, "hasMore": False}}
+
+        try:
+            values = list(
+                await _concurrency.run(
+                    completer,
+                    str(argument.get("value", "")),
+                    dict((params.get("context") or {}).get("arguments") or {}),
+                )
+            )
+        except exceptions.JSONRPCException:
+            raise
+        except Exception as e:
+            raise exceptions.JSONRPCException(
+                status_code=http.JSONRPCStatus.INTERNAL_ERROR, detail=f"Completion for {label} raised: {e}"
+            ) from e
+
+        return {
+            "completion": {
+                "values": values[: self.COMPLETION_VALUES],
+                "total": len(values),
+                "hasMore": len(values) > self.COMPLETION_VALUES,
+            }
+        }
 
     def _cache_metadata(self) -> dict[str, t.Any]:
         """HTTP-style caching hints for list and read results (SEP-2549)."""

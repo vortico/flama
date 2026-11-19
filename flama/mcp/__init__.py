@@ -12,6 +12,7 @@ from flama.mcp.components import (
     MCPTraceContextComponent,
 )
 from flama.mcp.data_structures import (
+    Completer,
     Elicit,
     Elicitation,
     Extensions,
@@ -20,6 +21,7 @@ from flama.mcp.data_structures import (
     RequestMeta,
     RequestState,
     Resource,
+    ResourceTemplate,
     Tool,
     TraceContext,
     UIResource,
@@ -51,7 +53,9 @@ __all__ = [
     "Elicitation",
     "RequestState",
     "Tool",
+    "Completer",
     "Resource",
+    "ResourceTemplate",
     "UIResource",
     "Prompt",
     "MCPEndpoint",

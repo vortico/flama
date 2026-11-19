@@ -4,7 +4,7 @@ import json
 import pytest
 
 from flama import schemas, types
-from flama.mcp.data_structures import Elicitation, Extensions, Prompt, Resource, Tool, UIResource
+from flama.mcp.data_structures import Elicitation, Extensions, Prompt, Resource, ResourceTemplate, Tool, UIResource
 from flama.mcp.server import MCPServer
 from flama.mcp.tasks import InMemoryTaskStore
 
@@ -390,3 +390,102 @@ class TestCaseMCPServer:
         server.add_tool(func, name="t")
 
         assert server._tools["t"].elicitation_param is None
+
+    def test_add_resource_template(self, server):
+        def profile(id: int, fields: list[str] | None = None, filters: dict[str, str] | None = None):
+            """Profile of a user."""
+
+        def complete_id(value, arguments):
+            return []
+
+        server.add_resource(profile, uri="users://{id}/profile{?fields*}{&filters*}", completions={"id": complete_id})
+
+        resource = server._resource_templates["users://{id}/profile{?fields*}{&filters*}"]
+        assert "users://{id}/profile{?fields*}{&filters*}" not in server._resources
+        assert isinstance(resource, ResourceTemplate)
+        assert resource.name == "profile"
+        assert resource.description == "Profile of a user."
+        assert resource.template.kinds == {"id": str, "fields": list, "filters": dict}
+        assert resource.arguments.validate({"id": "42"})["id"] == 42
+        assert resource.completions == {"id": complete_id}
+
+    def test_resource_template_decorator(self, server):
+        def complete_id(value, arguments):
+            return []
+
+        @server.resource("users://{id}", name="user", completions={"id": complete_id})
+        def user(id: int): ...
+
+        assert server._resource_templates["users://{id}"].name == "user"
+        assert server._resource_templates["users://{id}"].completions == {"id": complete_id}
+
+    @pytest.mark.parametrize(
+        ["uri", "completions", "exception"],
+        (
+            pytest.param(
+                "users://{id}",
+                None,
+                ValueError("Variables of resource template 'users://{id}' ['id'] must be its handler's parameters"),
+                id="other_parameters",
+            ),
+            pytest.param(
+                "users://{name}",
+                {"other": lambda value, arguments: []},
+                ValueError("Resource template 'users://{name}' has no arguments ['other'] to complete"),
+                id="unknown_completion",
+            ),
+            pytest.param(
+                "users://all",
+                {"name": lambda value, arguments: []},
+                ValueError("Resource 'users://all' has no arguments ['name'] to complete"),
+                id="fixed_completion",
+            ),
+            pytest.param("users://{", None, ValueError("Unbalanced braces in URI template 'users://{'"), id="invalid"),
+        ),
+        indirect=["exception"],
+    )
+    def test_add_resource_invalid(self, server, uri, completions, exception):
+        def handler(name: str): ...
+
+        with exception:
+            server.add_resource(handler, uri=uri, completions=completions)
+
+    def test_add_ui_resource_template(self, server):
+        with pytest.raises(ValueError, match="UI resource URI 'ui://w/{id}' cannot be a template"):
+            server.add_ui_resource(lambda id: "", uri="ui://w/{id}")
+
+    def test_add_prompt_completions(self, server):
+        def complete_language(value, arguments):
+            return []
+
+        @server.prompt("review", completions={"language": complete_language})
+        def review(language: str, code: str): ...
+
+        assert server._prompts["review"].completions == {"language": complete_language}
+
+        with pytest.raises(ValueError, match=r"Prompt 'other' has no arguments \['other'\] to complete"):
+            server.add_prompt(review, name="other", completions={"other": complete_language})
+
+    def test_find_resource(self, server):
+        server.add_resource(lambda: "all", uri="users://all")
+        server.add_resource(lambda id: id, uri="users://{id}")
+        server.add_resource(lambda name: name, uri="users://{name}/profile")
+
+        assert server.find_resource("users://all") is server._resources["users://all"]
+        assert server.find_resource("users://42") is server._resource_templates["users://{id}"]
+        assert server.find_resource("users://42/profile") is server._resource_templates["users://{name}/profile"]
+        assert server.find_resource("other://42") is None
+
+    @pytest.mark.parametrize(
+        ["prompt", "template", "expected"],
+        (
+            pytest.param(False, False, False, id="none"),
+            pytest.param(True, False, True, id="prompt"),
+            pytest.param(False, True, True, id="resource_template"),
+        ),
+    )
+    def test_completions(self, server, prompt, template, expected):
+        server.add_prompt(lambda text: text, name="p", completions={"text": lambda v, a: []} if prompt else None)
+        server.add_resource(lambda id: id, uri="u://{id}", completions={"id": lambda v, a: []} if template else None)
+
+        assert server.completions is expected

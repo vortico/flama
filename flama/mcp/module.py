@@ -2,6 +2,7 @@ import typing as t
 
 from flama import http
 from flama.authentication.data_structures import ProtectedResource
+from flama.mcp.data_structures import Completer
 from flama.mcp.routing import MCPRoute
 from flama.mcp.server import MCPServer
 from flama.mcp.tasks import TaskStore
@@ -140,6 +141,7 @@ class MCPModule(Module):
         mime_type: str = "text/plain",
         permissions: t.Sequence[str] = (),
         roles: t.Sequence[str] = (),
+        completions: t.Mapping[str, Completer] | None = None,
         mcp: str | None = None,
     ) -> None:
         self._resolve(mcp).add_resource(
@@ -150,6 +152,7 @@ class MCPModule(Module):
             mime_type=mime_type,
             permissions=permissions,
             roles=roles,
+            completions=completions,
         )
 
     def add_prompt(
@@ -160,9 +163,17 @@ class MCPModule(Module):
         description: str | None = None,
         permissions: t.Sequence[str] = (),
         roles: t.Sequence[str] = (),
+        completions: t.Mapping[str, Completer] | None = None,
         mcp: str | None = None,
     ) -> None:
-        self._resolve(mcp).add_prompt(handler, name=name, description=description, permissions=permissions, roles=roles)
+        self._resolve(mcp).add_prompt(
+            handler,
+            name=name,
+            description=description,
+            permissions=permissions,
+            roles=roles,
+            completions=completions,
+        )
 
     def add_ui_resource(
         self,
@@ -214,6 +225,7 @@ class MCPModule(Module):
         mime_type: str = "text/plain",
         permissions: t.Sequence[str] = (),
         roles: t.Sequence[str] = (),
+        completions: t.Mapping[str, Completer] | None = None,
         mcp: str | None = None,
     ) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
@@ -225,6 +237,7 @@ class MCPModule(Module):
                 mime_type=mime_type,
                 permissions=permissions,
                 roles=roles,
+                completions=completions,
                 mcp=mcp,
             )
             return func
@@ -238,10 +251,19 @@ class MCPModule(Module):
         description: str | None = None,
         permissions: t.Sequence[str] = (),
         roles: t.Sequence[str] = (),
+        completions: t.Mapping[str, Completer] | None = None,
         mcp: str | None = None,
     ) -> t.Callable:
         def decorator(func: t.Callable) -> t.Callable:
-            self.add_prompt(func, name=name, description=description, permissions=permissions, roles=roles, mcp=mcp)
+            self.add_prompt(
+                func,
+                name=name,
+                description=description,
+                permissions=permissions,
+                roles=roles,
+                completions=completions,
+                mcp=mcp,
+            )
             return func
 
         return decorator
