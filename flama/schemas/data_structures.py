@@ -203,7 +203,7 @@ class Schema:
         if schemas.adapter.is_schema(schema):
             return [schemas.adapter.unique_schema(schema)]
 
-        if t.get_origin(schema) in (t.Union, UnionType):
+        if t.get_origin(schema) in (t.Union, UnionType, list, tuple, set, frozenset, dict):
             return [x for field in t.get_args(schema) for x in self.nested_schemas(field)]
 
         if isinstance(schema, list | tuple | set):

@@ -353,6 +353,20 @@ class TestCaseSchema:
         assert result == [schemas["Foo"].schema, schemas["Bar"].schema]
 
     @pytest.mark.parametrize(
+        ["annotation"],
+        (
+            pytest.param(lambda x: list[x], id="list"),
+            pytest.param(lambda x: list[x] | None, id="optional_list"),
+            pytest.param(lambda x: dict[str, x], id="dict"),
+            pytest.param(lambda x: tuple[x, ...], id="tuple"),
+        ),
+    )
+    def test_nested_schemas_generic(self, schemas, annotation):
+        result = Schema(schemas["Foo"].schema).nested_schemas(annotation(schemas["Bar"].schema))
+
+        assert result == [schemas["Bar"].schema]
+
+    @pytest.mark.parametrize(
         ["values", "expected_result"],
         (
             pytest.param(Mock(partial=False), True, id="single"),
