@@ -25,7 +25,10 @@ def _declared_extras() -> list[str]:
 
 def _extras_requirements() -> dict[str, set[str]]:
     """Distributions each extra installs, on any platform the extras target."""
-    environments = [{"python_full_version": "3.13.0", "sys_platform": platform} for platform in ("linux", "darwin")]
+    environments = [
+        {"python_full_version": "3.13.0", "sys_platform": platform, "platform_machine": machine}
+        for platform, machine in (("linux", "x86_64"), ("darwin", "arm64"))
+    ]
     requirements: dict[str, set[str]] = {extra: set() for extra in _declared_extras()}
     for raw in importlib.metadata.requires("flama") or []:
         requirement = Requirement(raw)
