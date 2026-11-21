@@ -4,7 +4,8 @@ import decimal
 import inspect
 import typing as t
 
-from flama import _imports, exceptions
+from flama import _imports
+from flama.http.exceptions import ValidationError
 from flama.resources.exceptions import ResourceFilterInvalid
 from flama.schemas.data_structures import Field, Schema
 from flama.schemas.exceptions import SchemaValidationError
@@ -54,7 +55,7 @@ OPERATORS: dict[str, Operator] = {
         Operator("lt", lambda c, v: c < v, types=_ORDERED),
         Operator("lte", lambda c, v: c <= v, types=_ORDERED),
         Operator("in", lambda c, v: c.in_(v), aggregate=True),
-        Operator("isnull", lambda c, v: c.is_(None), value=False),
+        Operator("isnull", lambda c, _: c.is_(None), value=False),
         # Escaped, so that a value holding a wildcard finds the rows holding that character rather than
         # standing for any run of them. A caller who means a pattern writes `like` instead.
         Operator("contains", lambda c, v: c.contains(v, autoescape=True), types=_TEXT),
@@ -129,20 +130,20 @@ class Filter:
 
         if operator not in self.operators:
             expected = ", ".join(f"'{granted.name}'" for granted in self.operators)
-            raise exceptions.ValidationError(
-                detail=SchemaValidationError(
+            raise ValidationError(
+                errors=SchemaValidationError(
                     {self.name: [f"Operator '{name}' is not available, expected one of: {expected}."]}
                 ).errors
             )
 
         if operator.value and not separator:
-            raise exceptions.ValidationError(
-                detail=SchemaValidationError({self.name: [f"Operator '{name}' expects a value."]}).errors
+            raise ValidationError(
+                errors=SchemaValidationError({self.name: [f"Operator '{name}' expects a value."]}).errors
             )
 
         if not operator.value and separator:
-            raise exceptions.ValidationError(
-                detail=SchemaValidationError({self.name: [f"Operator '{name}' expects no value."]}).errors
+            raise ValidationError(
+                errors=SchemaValidationError({self.name: [f"Operator '{name}' expects no value."]}).errors
             )
 
         return operator, negated, self._value(remainder) if operator.value else None
@@ -151,7 +152,7 @@ class Filter:
         try:
             return self.schema.validate({self.name: raw})[self.name]
         except SchemaValidationError as e:
-            raise exceptions.ValidationError(detail=e.errors)
+            raise ValidationError(errors=e.errors)
 
     def _clause(self, operator: Operator, negated: bool, value: t.Any) -> t.Any:
         clause = operator.clause(self.column, value)

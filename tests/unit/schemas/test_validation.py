@@ -5,7 +5,7 @@ import marshmallow
 import pydantic
 import pytest
 
-from flama import exceptions
+from flama.http import ValidationError
 from flama.schemas.validation import output_validation
 
 
@@ -74,7 +74,7 @@ class TestCaseSchemaValidateOutput:
         def output_validation_error() -> product_schema:
             return {"name": "foo", "rating": -1}
 
-        class CustomValidationError(exceptions.ValidationError): ...
+        class CustomValidationError(ValidationError): ...
 
         @app.route("/custom-error")
         @output_validation(error_cls=CustomValidationError, error_status_code=502)
@@ -132,23 +132,14 @@ class TestCaseSchemaValidateOutput:
             assert response.json() == expected_response
 
     async def test_validation_uncontrolled_error(self, client):
-        with patch(
-            "flama.schemas.data_structures.schemas.adapter.dump",
-            side_effect=[
-                Exception,
-                {
-                    "detail": "Error serializing response before validation: Exception",
-                    "error": "ValidationError",
-                    "status_code": 500,
-                },
-            ],
-        ):
+        with patch("flama.schemas.data_structures.schemas.adapter.dump", side_effect=Exception("boom")):
             response = await client.get("/product")
             assert response.status_code == 500
             assert response.json() == {
-                "detail": "Error serializing response before validation: Exception",
-                "error": "ValidationError",
-                "status_code": 500,
+                "type": "about:blank",
+                "title": "Internal Server Error",
+                "status": 500,
+                "detail": "Error serializing response before validation: boom",
             }
 
     def test_function_without_return_schema(self):

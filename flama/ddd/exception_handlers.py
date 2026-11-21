@@ -17,14 +17,14 @@ class RepositoryExceptionHandler(ExceptionHandler):
     def not_found(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.NotFoundError
     ) -> http.Response:
-        return APIErrorResponse(detail=str(exc), status_code=404, exception=exc)
+        return APIErrorResponse(str(exc), 404)
 
     def already_exists(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.AlreadyExistsError
     ) -> http.Response:
-        return APIErrorResponse(detail=str(exc), status_code=409, exception=exc)
+        return APIErrorResponse(str(exc), 409)
 
     def integrity(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.IntegrityError
     ) -> http.Response:
-        return APIErrorResponse(detail=str(exc), status_code=400, exception=exc)
+        return APIErrorResponse(str(exc), 400)

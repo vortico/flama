@@ -1897,6 +1897,7 @@ class TestCaseSchemaGenerator:
             schemas["Puppy"].name,
             schemas["BodyParam"].name,
             "flama.core.APIError",
+            "flama.core.ErrorDetail",
         }
 
     @pytest.mark.parametrize(
@@ -1912,7 +1913,9 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
+                                "application/problem+json": {
+                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
+                                }
                             },
                         },
                     },
@@ -1949,7 +1952,9 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
+                                "application/problem+json": {
+                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
+                                }
                             },
                         },
                     },
@@ -1974,7 +1979,9 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
+                                "application/problem+json": {
+                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
+                                }
                             },
                         },
                     },
@@ -1997,7 +2004,9 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
+                                "application/problem+json": {
+                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
+                                }
                             },
                         },
                     },
@@ -2021,7 +2030,9 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
+                                "application/problem+json": {
+                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
+                                }
                             },
                         },
                     },
@@ -2041,7 +2052,9 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
+                                "application/problem+json": {
+                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
+                                }
                             },
                         },
                     },
@@ -2061,7 +2074,9 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
+                                "application/problem+json": {
+                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
+                                }
                             },
                         },
                     },
@@ -2081,7 +2096,9 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
+                                "application/problem+json": {
+                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
+                                }
                             },
                         },
                     },
@@ -2097,7 +2114,9 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
+                                "application/problem+json": {
+                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
+                                }
                             },
                         }
                     },
@@ -2115,7 +2134,9 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
+                                "application/problem+json": {
+                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
+                                }
                             },
                         },
                     },
@@ -2141,7 +2162,9 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
+                                "application/problem+json": {
+                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
+                                }
                             },
                         },
                     },
@@ -2176,7 +2199,9 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/json": {"schema": {"$ref": "#/components/schemas/flama.core.APIError"}}
+                                "application/problem+json": {
+                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
+                                }
                             },
                         },
                     },

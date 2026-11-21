@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from flama import exceptions
+from flama.http import HTTPException
 from flama.http.responses.file import FileResponse, _FileStat, _RangeRequest
 
 
@@ -27,7 +27,7 @@ class TestCaseFileStat:
             path = str(tmp_path)
 
         if exception_status is not None:
-            with pytest.raises(exceptions.HTTPException) as exc_info:
+            with pytest.raises(HTTPException) as exc_info:
                 await _FileStat.from_path(path)
             assert exc_info.value.status_code == exception_status
         else:
@@ -68,7 +68,7 @@ class TestCaseRangeRequest:
         ],
     )
     def test_parse_error(self, http_range, file_size, expected_status):
-        with pytest.raises(exceptions.HTTPException) as exc_info:
+        with pytest.raises(HTTPException) as exc_info:
             _RangeRequest._parse(http_range, file_size)
 
         assert exc_info.value.status_code == expected_status
@@ -154,7 +154,7 @@ class TestCaseFileResponse:
         response = FileResponse(path=path, background=background)
 
         if exception_status is not None:
-            with pytest.raises(exceptions.HTTPException) as exc_info:
+            with pytest.raises(HTTPException) as exc_info:
                 await response(asgi_scope, asgi_receive, asgi_send)
             assert exc_info.value.status_code == exception_status
         else:
@@ -237,7 +237,7 @@ class TestCaseFileResponse:
         response = FileResponse(path=str(tmp_file))
 
         if exception_status is not None:
-            with pytest.raises(exceptions.HTTPException) as exc_info:
+            with pytest.raises(HTTPException) as exc_info:
                 await response(asgi_scope, asgi_receive, asgi_send)
             assert exc_info.value.status_code == exception_status
         else:

@@ -134,11 +134,13 @@ class MiddlewareStack:
 class RootMiddlewareStack(MiddlewareStack):
     """Middleware chain of the root application, which also answers what nothing else handled.
 
-    Flama's exceptions and repository errors get their default answers unless a handler is registered for their
-    class, and a :class:`ServerErrorMiddleware` outside the declared middleware answers anything left.
+    Flama's exceptions, repository and authentication errors get their default answers unless a handler is
+    registered for their class, and a :class:`ServerErrorMiddleware` outside the declared middleware answers anything
+    left.
     """
 
     def _stack(self) -> list[_BaseMiddleware]:
+        from flama.authentication.exception_handlers import AuthenticationExceptionHandler
         from flama.ddd.exception_handlers import RepositoryExceptionHandler
         from flama.errors.exception_handlers import (
             HTTPExceptionHandler,
@@ -156,6 +158,7 @@ class RootMiddlewareStack(MiddlewareStack):
                 WebSocketExceptionHandler(),
                 RoutingExceptionHandler(debug=self.debug),
                 RepositoryExceptionHandler(),
+                AuthenticationExceptionHandler(),
             )
         }
 

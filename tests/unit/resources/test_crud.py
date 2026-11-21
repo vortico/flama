@@ -853,7 +853,7 @@ class TestCaseCRUDDeclaredFilters:
         assert response.status_code == 400, response.json()
 
         if detail is not None:
-            assert response.json()["detail"] == detail
+            assert response.json()["errors"] == detail
 
     def test_declaring_an_impossible_filter_fails_where_it_is_declared(self, app, widget_model):
         with pytest.raises(

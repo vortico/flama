@@ -3,6 +3,7 @@ import typing as t
 from flama import exceptions
 from flama._core.multipart import PayloadTooLarge
 from flama.codecs.http.codec import HTTPCodec
+from flama.http.exceptions import HTTPException
 
 if t.TYPE_CHECKING:
     from flama.http import Request
@@ -48,7 +49,7 @@ class MultiPartCodec(HTTPCodec):
                 max_body_size=self.max_body_size,
             )
         except PayloadTooLarge as exc:
-            raise exceptions.HTTPException(413, detail=str(exc))
+            raise HTTPException(413, detail=str(exc))
         except ValueError as exc:
             raise exceptions.DecodeError(f"Malformed multipart body. {exc}")
 

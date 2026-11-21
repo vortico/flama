@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from flama import Flama, endpoints, exceptions
+from flama.http import HTTPException
 from flama.http.data_structures import JSONRPCStatus
 from flama.types import JSONRPCParams
 
@@ -30,7 +31,7 @@ class TestCaseJSONRPCEndpoint:
                 raise RuntimeError("boom")
 
             def do_refuse(self):
-                raise exceptions.HTTPException(status_code=401)
+                raise HTTPException(status_code=401)
 
         return MyRPC
 
@@ -127,7 +128,7 @@ class TestCaseJSONRPCEndpoint:
             pytest.param(
                 {"jsonrpc": "2.0", "method": "refuse", "id": 1},
                 None,
-                exceptions.HTTPException(status_code=401),
+                HTTPException(status_code=401),
                 id="handler_raises_http_error",
             ),
         ],

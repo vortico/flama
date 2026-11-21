@@ -71,13 +71,13 @@ class RequestDataComponent(Component):
         try:
             codec = self.negotiator.negotiate(content_type)
         except exceptions.NoCodecAvailable:
-            raise exceptions.HTTPException(415)
+            raise http.HTTPException(415)
 
         try:
             data = await codec.decode(request)
             return types.RequestData(data)
         except exceptions.DecodeError as exc:
-            raise exceptions.HTTPException(400, detail=str(exc))
+            raise http.HTTPException(400, detail=str(exc))
 
 
 class ValidatePathParamsComponent(Component):
@@ -90,7 +90,7 @@ class ValidatePathParamsComponent(Component):
             validated = Schema.build(name="ValidationSchema", fields=fields).validate(path_params)
             return ValidatedPathParams({k: v for k, v in path_params.items() if k in validated})
         except SchemaValidationError as exc:
-            raise exceptions.ValidationError(detail=exc.errors)
+            raise http.ValidationError(errors=exc.errors)
 
 
 class ValidateQueryParamsComponent(Component):
@@ -112,7 +112,7 @@ class ValidateQueryParamsComponent(Component):
             validated = Schema.build(name="ValidationSchema", fields=fields).validate(values)
             return ValidatedQueryParams({k: v for k, v in values.items() if k in validated})
         except SchemaValidationError as exc:
-            raise exceptions.ValidationError(detail=exc.errors)
+            raise http.ValidationError(errors=exc.errors)
 
 
 class ValidateRequestDataComponent(Component):
@@ -127,7 +127,7 @@ class ValidateRequestDataComponent(Component):
         try:
             return ValidatedRequestData(body_param.schema.validate(data.data))
         except SchemaValidationError as exc:  # pragma: no cover # safety net, just should not happen
-            raise exceptions.ValidationError(detail=exc.errors)
+            raise http.ValidationError(errors=exc.errors)
 
 
 class PrimitiveParamComponent(Component):
@@ -140,7 +140,7 @@ class PrimitiveParamComponent(Component):
         try:
             params = Schema.build(name="ValidationSchema", fields=[Field.from_parameter(parameter)]).validate(params)
         except SchemaValidationError as exc:  # pragma: no cover # safety net, just should not happen
-            raise exceptions.ValidationError(detail=exc.errors)
+            raise http.ValidationError(errors=exc.errors)
 
         value = params.get(parameter.name, parameter.default)
 
@@ -170,7 +170,7 @@ class CompositeParamComponent(Component):
         try:
             return body_param.schema.validate(data.data, partial=types.is_schema_partial(parameter.annotation))
         except SchemaValidationError as exc:  # pragma: no cover # safety net, just should not happen
-            raise exceptions.ValidationError(detail=exc.errors)
+            raise http.ValidationError(errors=exc.errors)
 
 
 class FileParamComponent(Component):
@@ -178,8 +178,8 @@ class FileParamComponent(Component):
         value = (data.data or {}).get(parameter.name)
 
         if not isinstance(value, UploadFile):
-            raise exceptions.ValidationError(
-                detail=SchemaValidationError({parameter.name: ["Expected a file upload."]}).errors
+            raise http.ValidationError(
+                errors=SchemaValidationError({parameter.name: ["Expected a file upload."]}).errors
             )
 
         return value

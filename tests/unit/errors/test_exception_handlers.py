@@ -11,6 +11,7 @@ from flama.errors.exception_handlers import (
     RoutingExceptionHandler,
     WebSocketExceptionHandler,
 )
+from flama.http import HTTPException
 from flama.http.data_structures import JSONRPCStatus
 from flama.http.responses.api import APIErrorResponse
 from flama.http.responses.jsonrpc import JSONRPCErrorResponse
@@ -116,7 +117,7 @@ class TestCaseHTTPExceptionHandler:
             pytest.param(
                 False,
                 None,
-                exceptions.HTTPException(204),
+                HTTPException(204),
                 http.PlainTextResponse,
                 {"_pos": ("",), "status_code": 204, "headers": None},
                 "flama.errors.exception_handlers.http.PlainTextResponse",
@@ -125,7 +126,7 @@ class TestCaseHTTPExceptionHandler:
             pytest.param(
                 False,
                 None,
-                exceptions.HTTPException(304),
+                HTTPException(304),
                 http.PlainTextResponse,
                 {"_pos": ("",), "status_code": 304, "headers": None},
                 "flama.errors.exception_handlers.http.PlainTextResponse",
@@ -134,7 +135,7 @@ class TestCaseHTTPExceptionHandler:
             pytest.param(
                 True,
                 b"text/html",
-                exceptions.HTTPException(404, "Foo"),
+                HTTPException(404, "Foo"),
                 _FlamaTemplateResponse,
                 {"_pos": ("debug/error_404.html",), "context": {}, "status_code": 404, "headers": None},
                 "flama.errors.exception_handlers._FlamaTemplateResponse",
@@ -143,20 +144,45 @@ class TestCaseHTTPExceptionHandler:
             pytest.param(
                 False,
                 None,
-                exceptions.HTTPException(400, "Foo"),
+                HTTPException(400, "Foo"),
                 APIErrorResponse,
-                {"detail": "Foo", "status_code": 400, "headers": None},
+                {
+                    "_pos": ("Foo", 400),
+                    "type": "about:blank",
+                    "title": "Bad Request",
+                    "instance": None,
+                    "errors": [],
+                    "extensions": {},
+                    "headers": None,
+                },
                 "flama.errors.exception_handlers.APIErrorResponse",
                 id="other",
             ),
             pytest.param(
                 False,
                 None,
-                exceptions.HTTPException(405, "Foo", headers={"Allow": "GET"}),
+                HTTPException(
+                    405,
+                    "Foo",
+                    headers={"Allow": "GET"},
+                    type="https://example.com/problems/method",
+                    title="Method",
+                    instance="/jobs/1/failures/2",
+                    errors=[types.ErrorDetail(detail="Not allowed", pointer="#")],
+                    extensions={"allowed": ["GET"]},
+                ),
                 APIErrorResponse,
-                {"detail": "Foo", "status_code": 405, "headers": {"Allow": "GET"}},
+                {
+                    "_pos": ("Foo", 405),
+                    "type": "https://example.com/problems/method",
+                    "title": "Method",
+                    "instance": "/jobs/1/failures/2",
+                    "errors": [types.ErrorDetail(detail="Not allowed", pointer="#")],
+                    "extensions": {"allowed": ["GET"]},
+                    "headers": {"Allow": "GET"},
+                },
                 "flama.errors.exception_handlers.APIErrorResponse",
-                id="other_with_headers",
+                id="other_with_everything",
             ),
         ),
     )
@@ -169,9 +195,6 @@ class TestCaseHTTPExceptionHandler:
 
         if accept:
             asgi_scope["headers"].append((b"accept", accept))
-
-        if response_class == APIErrorResponse:
-            response_params["exception"] = exc
 
         with (
             patch(patch_target, spec=response_class) as response_mock,
@@ -222,19 +245,17 @@ class TestCaseRoutingExceptionHandler:
         with patch.object(handler._http, "http_exception") as mock:
             await handler.not_found(asgi_scope, asgi_receive, asgi_send, exc)
 
-        assert mock.call_args_list == [
-            call(asgi_scope, asgi_receive, asgi_send, exc=exceptions.HTTPException(status_code=404))
-        ]
+        assert mock.call_args_list == [call(asgi_scope, asgi_receive, asgi_send, exc=HTTPException(status_code=404))]
 
     async def test_not_found_http_no_app(self, handler, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "http"
         del asgi_scope["app"]
         exc = exceptions.NotFoundException()
 
-        with patch("flama.errors.exception_handlers.PlainTextResponse") as mock:
+        with patch("flama.errors.exception_handlers.APIErrorResponse") as mock:
             await handler.not_found(asgi_scope, asgi_receive, asgi_send, exc)
 
-        assert mock.call_args_list == [call("Not Found", status_code=404)]
+        assert mock.call_args_list == [call(status_code=404)]
 
     async def test_not_found_websocket(self, handler, asgi_scope, asgi_receive, asgi_send):
         asgi_scope["type"] = "websocket"
@@ -260,7 +281,7 @@ class TestCaseRoutingExceptionHandler:
                 asgi_scope,
                 asgi_receive,
                 asgi_send,
-                exc=exceptions.HTTPException(status_code=405, headers={"Allow": "GET"}),
+                exc=HTTPException(status_code=405, headers={"Allow": "GET"}),
             )
         ]
 

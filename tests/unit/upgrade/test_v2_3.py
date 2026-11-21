@@ -88,6 +88,23 @@ class TestCaseUpgradeV23:
                 "server.add_ui_resource(w, uri='ui://w')\nserver.add_tool(t, ui_resource='ui://w')\n",
                 id="ui_resource_renamed",
             ),
+            pytest.param(
+                "from flama.exceptions import HTTPException, SerializationError, ValidationError\n",
+                "from flama.http import SerializationError\n"
+                "from flama.http import ValidationError\n"
+                "from flama.http import HTTPException\n",
+                id="http_exceptions_moved",
+            ),
+            pytest.param(
+                "from flama.exceptions import DependencyNotInstalled, HTTPException\n",
+                "from flama.exceptions import DependencyNotInstalled\nfrom flama.http import HTTPException\n",
+                id="http_exception_moved_from_other_names",
+            ),
+            pytest.param(
+                'from flama.http import APIErrorResponse\nAPIErrorResponse("Foo", 400, exception=exc)\n',
+                'from flama.http import APIErrorResponse\nAPIErrorResponse("Foo", 400)\n',
+                id="api_error_response_exception_dropped",
+            ),
         ],
     )
     def test_apply(self, before: str, after: str) -> None:
@@ -162,6 +179,11 @@ class TestCaseUpgradeV23:
                 "@app.mcp.app_template('ui://w', mime_type='text/html')\ndef w(): ...\n",
                 "`ui_resource(...)` no longer takes `mime_type`",
                 id="ui_resource_mime_type_dropped",
+            ),
+            pytest.param(
+                "from flama import exceptions\nraise exceptions.HTTPException(404)\n",
+                "HTTPException",
+                id="http_exception_through_module",
             ),
         ],
     )

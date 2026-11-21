@@ -5,6 +5,7 @@ from flama.authentication.components import (
     RefreshTokenComponent,
 )
 from flama.authentication.data_structures import Principal
+from flama.authentication.exception_handlers import AuthenticationExceptionHandler
 from flama.authentication.jwt import JWT
 from flama.authentication.middleware import AuthenticationMiddleware
 from flama.authentication.resolvers import JWKSResolver
@@ -18,6 +19,7 @@ __all__ = [
     "Principal",
     "JWT",
     "AuthenticationMiddleware",
+    "AuthenticationExceptionHandler",
     "JWKSResolver",
     "AccessToken",
     "RefreshToken",

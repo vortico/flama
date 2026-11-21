@@ -7,9 +7,9 @@ from flama import types
 from flama._core.cookies import parse_cookie_header
 from flama.authentication.types import AccessToken, RefreshToken
 from flama.context import Context
-from flama.exceptions import HTTPException
 from flama.http import Request as HTTPRequest
 from flama.http.data_structures import Headers, QueryParams
+from flama.http.exceptions import HTTPException
 
 logger = logging.getLogger(__name__)
 

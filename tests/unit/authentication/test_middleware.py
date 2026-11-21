@@ -1,4 +1,5 @@
 import uuid
+from http import HTTPStatus
 
 import pytest
 
@@ -84,7 +85,7 @@ class TestCaseAuthenticationMiddleware:
                 "empty",
                 False,
                 403,
-                {"detail": "Insufficient permissions", "error": None, "status_code": 403},
+                "Insufficient permissions",
                 'Bearer error="insufficient_scope", scope="flama.test.auth"',
                 id="scope_missing",
             ),
@@ -94,7 +95,7 @@ class TestCaseAuthenticationMiddleware:
                 "legacy_permissions",
                 False,
                 403,
-                {"detail": "Insufficient permissions", "error": None, "status_code": 403},
+                "Insufficient permissions",
                 'Bearer error="insufficient_scope", scope="flama.test.auth"',
                 id="legacy_permissions_grant_nothing",
             ),
@@ -104,7 +105,7 @@ class TestCaseAuthenticationMiddleware:
                 "legacy_roles",
                 False,
                 403,
-                {"detail": "Insufficient permissions", "error": None, "status_code": 403},
+                "Insufficient permissions",
                 'Bearer error="insufficient_scope", scope="flama.test.auth"',
                 id="legacy_roles_grant_nothing",
             ),
@@ -114,7 +115,7 @@ class TestCaseAuthenticationMiddleware:
                 None,
                 False,
                 401,
-                {"detail": "Unauthorized", "error": None, "status_code": 401},
+                "Unauthorized",
                 'Bearer scope="flama.test.auth"',
                 id="scope_without_token",
             ),
@@ -125,7 +126,7 @@ class TestCaseAuthenticationMiddleware:
                 "scope",
                 False,
                 403,
-                {"detail": "Insufficient roles", "error": None, "status_code": 403},
+                "Insufficient roles",
                 None,
                 id="role_missing",
             ),
@@ -135,7 +136,7 @@ class TestCaseAuthenticationMiddleware:
                 None,
                 False,
                 401,
-                {"detail": "Unauthorized", "error": None, "status_code": 401},
+                "Unauthorized",
                 "Bearer",
                 id="role_without_token",
             ),
@@ -146,7 +147,7 @@ class TestCaseAuthenticationMiddleware:
                 "role",
                 False,
                 403,
-                {"detail": "Insufficient permissions", "error": None, "status_code": 403},
+                "Insufficient permissions",
                 'Bearer error="insufficient_scope", scope="flama.test.auth"',
                 id="scope_and_role_without_scope",
             ),
@@ -157,11 +158,7 @@ class TestCaseAuthenticationMiddleware:
                 "other_audience",
                 False,
                 401,
-                {
-                    "detail": {"description": "Invalid claims (aud)", "error": "JWTValidateException"},
-                    "error": None,
-                    "status_code": 401,
-                },
+                f"Token not issued for '{RESOURCE}'",
                 f'Bearer error="invalid_token", scope="flama.test.auth", resource_metadata="{METADATA}"',
                 id="resource_other_audience",
             ),
@@ -171,7 +168,7 @@ class TestCaseAuthenticationMiddleware:
                 None,
                 False,
                 401,
-                {"detail": "Unauthorized", "error": None, "status_code": 401},
+                "Unauthorized",
                 f'Bearer scope="flama.test.auth", resource_metadata="{METADATA}"',
                 id="resource_without_token",
             ),
@@ -191,7 +188,7 @@ class TestCaseAuthenticationMiddleware:
                 None,
                 False,
                 401,
-                {"detail": "Unauthorized", "error": None, "status_code": 401},
+                "Unauthorized",
                 f'Bearer resource_metadata="{METADATA}"',
                 id="resource_requiring_only_a_token_without_token",
             ),
@@ -204,7 +201,7 @@ class TestCaseAuthenticationMiddleware:
                 None,
                 False,
                 404,
-                {"detail": "Not Found", "error": "HTTPException", "status_code": 404},
+                "Not Found",
                 None,
                 id="not_found",
             ),
@@ -214,7 +211,7 @@ class TestCaseAuthenticationMiddleware:
                 None,
                 False,
                 405,
-                {"detail": "Method Not Allowed", "error": "HTTPException", "status_code": 405},
+                "Method Not Allowed",
                 None,
                 id="method_not_allowed",
             ),
@@ -231,7 +228,16 @@ class TestCaseAuthenticationMiddleware:
         response = await client.request(method, path)
 
         assert response.status_code == status_code
-        assert response.json() == result
+        if status_code < 400:
+            assert response.json() == result
+        else:
+            assert response.headers["content-type"] == "application/problem+json"
+            assert response.json() == {
+                "type": "about:blank",
+                "title": HTTPStatus(status_code).phrase,
+                "status": status_code,
+                "detail": result,
+            }
         assert response.headers.get("www-authenticate") == challenge
 
     async def test_request_challenges_an_invalid_token(self, client):

@@ -53,7 +53,7 @@ class BaseHTTPEndpointWrapper(BaseEndpointWrapper):
         elif response is None:
             response = APIResponse("")
         elif not isinstance(response, http.Response):
-            raise exceptions.SerializationError(
+            raise http.SerializationError(
                 detail=f"Route returned a '{type(response).__name__}', but a route returns a response, a mapping, a "
                 "list, or None"
             )

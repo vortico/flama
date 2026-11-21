@@ -6,6 +6,7 @@ import jinja2
 import pytest
 
 from flama import exceptions
+from flama.http import HTTPException
 from flama.http.responses.html import HTMLResponse
 from flama.http.responses.templates import (
     HTMLTemplateResponse,
@@ -19,7 +20,7 @@ class TestCaseHTMLFileResponse:
         ["side_effect", "expected_body", "exception"],
         [
             pytest.param(None, b"<html></html>", None, id="success"),
-            pytest.param(ValueError("Foo error"), None, exceptions.HTTPException, id="error"),
+            pytest.param(ValueError("Foo error"), None, HTTPException, id="error"),
         ],
         indirect=["exception"],
     )
@@ -144,7 +145,7 @@ class TestCaseHTMLTemplateResponse:
         [
             pytest.param({"foo": "bar"}, None, None, id="context"),
             pytest.param(None, None, None, id="no_context"),
-            pytest.param(None, jinja2.TemplateNotFound("missing.html"), exceptions.HTTPException, id="render_error"),
+            pytest.param(None, jinja2.TemplateNotFound("missing.html"), HTTPException, id="render_error"),
         ],
         indirect=["exception"],
     )

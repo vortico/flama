@@ -1,21 +1,14 @@
-import http
 import typing as t
 
 from flama import _imports
-
-if t.TYPE_CHECKING:
-    from flama.types import ErrorDetail
 
 __all__ = [
     "ApplicationError",
     "DependencyNotInstalled",
     "SQLAlchemyError",
     "DecodeError",
-    "HTTPException",
     "JSONRPCException",
     "NoCodecAvailable",
-    "SerializationError",
-    "ValidationError",
     "WebSocketException",
     "RoutingException",
     "NotFoundException",
@@ -93,46 +86,6 @@ class WebSocketDisconnect(WebSocketException):
 
     def __init__(self, code: int = 1000, reason: str | None = None) -> None:
         super().__init__(code, reason)
-
-
-class HTTPException(Exception):
-    def __init__(
-        self,
-        status_code: int,
-        detail: str | dict[str, t.Any] | list[t.Any] | None = None,
-        headers: dict | None = None,
-    ) -> None:
-        if detail is None:
-            detail = http.HTTPStatus(status_code).phrase
-        self.status_code = status_code
-        self.detail = detail  # type: ignore[assignment]
-        self.headers = headers
-
-    def __str__(self) -> str:
-        return str(self.detail)
-
-    def __repr__(self) -> str:
-        params = ("status_code", "detail", "headers")
-        formatted_params = ", ".join([f"{x}={getattr(self, x)}" for x in params if getattr(self, x)])
-        return f"{self.__class__.__name__}({formatted_params})"
-
-    def __eq__(self, other):
-        return (
-            isinstance(other, HTTPException)
-            and self.status_code == other.status_code
-            and self.detail == other.detail
-            and self.headers == other.headers
-        )
-
-
-class ValidationError(HTTPException):
-    def __init__(self, detail: "str | list[ErrorDetail] | None" = None, status_code: int = 400) -> None:
-        super().__init__(status_code, detail=detail)
-
-
-class SerializationError(HTTPException):
-    def __init__(self, detail: "str | list[ErrorDetail] | None" = None, status_code: int = 500) -> None:
-        super().__init__(status_code, detail=detail)
 
 
 class RoutingException(Exception):

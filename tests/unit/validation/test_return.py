@@ -150,9 +150,9 @@ class TestCaseReturnValidation:
             pytest.param(
                 "/return-string/",
                 500,
-                "application/json",
-                b'{"status_code":500,"detail":"Route returned a \'str\', but a route returns a response, a mapping, a '
-                b'list, or None","error":"SerializationError"}',
+                "application/problem+json",
+                b'{"type":"about:blank","title":"Internal Server Error","status":500,'
+                b'"detail":"Route returned a \'str\', but a route returns a response, a mapping, a list, or None"}',
                 None,
                 id="string",
             ),

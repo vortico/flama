@@ -10,6 +10,7 @@ from flama.http.data_structures import (
     UploadFile,
     WebSocketStatus,
 )
+from flama.http.exceptions import HTTPException, SerializationError, ValidationError
 from flama.http.requests import HTTPConnection, Request, WebSocket, WebSocketClose
 from flama.http.responses import (
     APIErrorResponse,
@@ -44,6 +45,9 @@ __all__ = [
     "WebSocketStatus",
     "JSONRPC_VERSION",
     "JSONRPCStatus",
+    "HTTPException",
+    "ValidationError",
+    "SerializationError",
     "HTTPConnection",
     "Request",
     "WebSocket",

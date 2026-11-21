@@ -5,7 +5,8 @@ import typing as t
 import flama.schemas
 from flama import types
 from flama._core.json_encoder import encode_json
-from flama.exceptions import DependencyNotInstalled, HTTPException
+from flama.exceptions import DependencyNotInstalled
+from flama.http.exceptions import HTTPException
 from flama.http.responses.sse import ServerSentEventResponse
 from flama.models.components import ModelComponentBuilder
 from flama.models.resources._base import InspectMixin

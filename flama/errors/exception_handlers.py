@@ -7,7 +7,6 @@ from flama import _concurrency, exceptions, http, types
 from flama.errors.data_structures import NotFoundContext
 from flama.http.responses.api import APIErrorResponse
 from flama.http.responses.jsonrpc import JSONRPCErrorResponse
-from flama.http.responses.plain_text import PlainTextResponse
 from flama.http.responses.templates import _FlamaTemplateResponse
 
 __all__ = [
@@ -85,18 +84,18 @@ class ExceptionHandler:
 
 
 class HTTPExceptionHandler(ExceptionHandler):
-    """Answer an HTTP exception with an error response carrying its status.
+    """Answer an HTTP exception with a problem detail (RFC 9457) carrying everything the exception does.
 
     :param debug: Whether to render the debug page for a missing resource requested from a browser.
     """
 
-    exc_class = exceptions.HTTPException
+    exc_class = http.HTTPException
 
     def __init__(self, debug: bool = False) -> None:
         self.debug = debug
 
     def http_exception(
-        self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.HTTPException
+        self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: http.HTTPException
     ) -> http.Response:
         if exc.status_code in {204, 304}:
             return http.PlainTextResponse("", status_code=exc.status_code, headers=exc.headers)
@@ -112,7 +111,16 @@ class HTTPExceptionHandler(ExceptionHandler):
                 headers=exc.headers,
             )
 
-        return APIErrorResponse(detail=exc.detail, status_code=exc.status_code, exception=exc, headers=exc.headers)
+        return APIErrorResponse(
+            exc.detail,
+            exc.status_code,
+            type=exc.type,
+            title=exc.title,
+            instance=exc.instance,
+            errors=exc.errors,
+            extensions=exc.extensions,
+            headers=exc.headers,
+        )
 
 
 class JSONRPCExceptionHandler(ExceptionHandler):
@@ -160,9 +168,9 @@ class RoutingExceptionHandler(ExceptionHandler):
             return None
 
         if "app" in scope:
-            return self._http.http_exception(scope, receive, send, exc=exceptions.HTTPException(status_code=404))
+            return self._http.http_exception(scope, receive, send, exc=http.HTTPException(status_code=404))
 
-        return PlainTextResponse("Not Found", status_code=404)
+        return APIErrorResponse(status_code=404)
 
     async def method_not_allowed(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: exceptions.MethodNotAllowedException
@@ -175,5 +183,5 @@ class RoutingExceptionHandler(ExceptionHandler):
             scope,
             receive,
             send,
-            exc=exceptions.HTTPException(status_code=405, headers={"Allow": ", ".join(exc.allowed)}),
+            exc=http.HTTPException(status_code=405, headers={"Allow": ", ".join(exc.allowed)}),
         )

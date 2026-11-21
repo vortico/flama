@@ -10,8 +10,9 @@ from mimetypes import guess_type
 from secrets import token_hex
 from urllib.parse import quote
 
-from flama import _concurrency, exceptions, types
+from flama import _concurrency, types
 from flama.http.data_structures import Headers
+from flama.http.exceptions import HTTPException
 from flama.http.responses.response import Response
 
 if t.TYPE_CHECKING:
@@ -35,10 +36,10 @@ class _FileStat:
         try:
             result = await _concurrency.run(os.stat, path)
         except FileNotFoundError:
-            raise exceptions.HTTPException(status_code=404, detail=f"File at path {path} does not exist.")
+            raise HTTPException(status_code=404, detail=f"File at path {path} does not exist.")
 
         if not stat.S_ISREG(result.st_mode):
-            raise exceptions.HTTPException(status_code=404, detail=f"File at path {path} is not a file.")
+            raise HTTPException(status_code=404, detail=f"File at path {path} is not a file.")
 
         last_modified = datetime.datetime.fromtimestamp(result.st_mtime, datetime.UTC).strftime(
             "%a, %d %b %Y %H:%M:%S GMT"
@@ -87,15 +88,13 @@ class _RangeRequest:
     def _parse(cls, http_range: str, file_size: int) -> list[tuple[int, int]]:
         header_match = cls._HEADER_PATTERN.match(http_range)
         if not header_match:
-            raise exceptions.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Malformed range header.")
+            raise HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Malformed range header.")
 
         ranges: list[tuple[int, int]] = []
         for raw_spec in header_match.group("specs").split(","):
             spec_match = cls._SPEC_PATTERN.match(raw_spec)
             if not spec_match:
-                raise exceptions.HTTPException(
-                    status_code=http.HTTPStatus.BAD_REQUEST, detail="Malformed range header."
-                )
+                raise HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Malformed range header.")
 
             start_str, end_str = spec_match.group("start"), spec_match.group("end")
 
@@ -106,18 +105,16 @@ class _RangeRequest:
             elif end_str is not None:
                 start, end = max(file_size - int(end_str), 0), file_size
             else:
-                raise exceptions.HTTPException(
-                    status_code=http.HTTPStatus.BAD_REQUEST, detail="Malformed range header."
-                )
+                raise HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="Malformed range header.")
 
             if not (0 <= start < file_size):
-                raise exceptions.HTTPException(
+                raise HTTPException(
                     status_code=http.HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE,
                     detail="Range not satisfiable.",
                     headers={"Content-Range": f"*/{file_size}"},
                 )
             if start >= end:
-                raise exceptions.HTTPException(status_code=400, detail="Range header: start must be less than end.")
+                raise HTTPException(status_code=400, detail="Range header: start must be less than end.")
 
             ranges.append((start, end))
 

@@ -71,7 +71,12 @@ class TestCaseHTTPEndpoint:
                 "patch",
                 {},
                 405,
-                {"detail": "Method Not Allowed", "error": "HTTPException", "status_code": 405},
+                {
+                    "type": "about:blank",
+                    "title": "Method Not Allowed",
+                    "status": 405,
+                    "detail": "Method Not Allowed",
+                },
                 id="method_not_allowed",
             ),
         ),

@@ -4,10 +4,10 @@ import inspect
 import logging
 import typing as t
 
-from flama import _concurrency, exceptions, http, types
+from flama import _concurrency, http, types
 from flama.errors.data_structures import ErrorContext
 from flama.errors.exception_handlers import ExceptionHandler
-from flama.http.responses.plain_text import PlainTextResponse
+from flama.http.responses.api import APIErrorResponse
 from flama.http.responses.templates import _FlamaTemplateResponse
 from flama.middleware import Middleware
 
@@ -82,12 +82,12 @@ class ServerErrorMiddleware(BaseErrorMiddleware):
             return _FlamaTemplateResponse(
                 "debug/error_500.html", context=dataclasses.asdict(ErrorContext.build(request, exc)), status_code=500
             )
-        return PlainTextResponse("Internal Server Error", status_code=500)
+        return self.error_handler(scope, receive, send, exc)
 
     def error_handler(
         self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception
     ) -> http.Response:
-        return PlainTextResponse("Internal Server Error", status_code=500)
+        return APIErrorResponse(status_code=500)
 
     def noop_handler(self, scope: types.Scope, receive: types.Receive, send: types.Send, exc: Exception) -> None: ...
 
@@ -130,7 +130,7 @@ class ExceptionMiddleware(BaseErrorMiddleware):
             self._exception_handlers[exc_class] = handler
 
     def _get_handler(self, exc: Exception) -> "ExceptionHandlerFunction":
-        if isinstance(exc, exceptions.HTTPException) and exc.status_code in self._status_handlers:
+        if isinstance(exc, http.HTTPException) and exc.status_code in self._status_handlers:
             return self._status_handlers[exc.status_code]
 
         for cls in type(exc).__mro__:

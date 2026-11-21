@@ -2,8 +2,9 @@ import abc
 import inspect
 import typing as t
 
-from flama import _concurrency, exceptions, schemas, types
+from flama import _concurrency, schemas, types
 from flama._core.json_encoder import encode_json
+from flama.http.exceptions import SerializationError
 from flama.http.responses.response import BufferedResponse
 from flama.schemas.data_structures import Schema
 
@@ -24,7 +25,7 @@ class PaginatedResponse(BufferedResponse[t.Sequence[types.JSONSchema], t.Any], t
         try:
             content = Schema.from_type(self.schema).dump(content)
         except schemas.SchemaValidationError as e:
-            raise exceptions.SerializationError(status_code=500, detail=e.errors)
+            raise SerializationError(errors=e.errors)
 
         return encode_json(content)
 

@@ -1,7 +1,10 @@
+import dataclasses
+import http as stdlib_http
 import os
 import typing as t
 
-from flama import exceptions, schemas, types
+from flama import schemas, types
+from flama.http.exceptions import HTTPException, SerializationError
 from flama.http.responses.json import JSONResponse
 from flama.types.schemas import SchemaPayload
 
@@ -46,34 +49,60 @@ class APIResponse(JSONResponse[SchemaPayload], types.SchemaResponse[SchemaPayloa
             try:
                 content = Schema.from_type(self.schema).dump(content)
             except schemas.SchemaValidationError as e:
-                raise exceptions.SerializationError(status_code=500, detail=e.errors)
+                raise SerializationError(errors=e.errors)
 
         return super().render(content)
 
 
 class APIErrorResponse(APIResponse):
+    """Error response carrying a problem detail (RFC 9457), served as ``application/problem+json``.
+
+    :param detail: Human-readable explanation of this occurrence, the status phrase by default.
+    :param status_code: HTTP status code.
+    :param type: URI reference identifying the problem type, ``about:blank`` when the status says everything.
+    :param title: Short summary of the problem type, the status phrase by default.
+    :param instance: URI reference identifying this occurrence, such as the path requested.
+    :param errors: Errors located by a JSON Pointer into the value they were raised for.
+    :param extensions: Extension members of the problem.
+    :param headers: Headers of the response.
+    :raises ValueError: If an extension member is named after a member of the problem.
+    """
+
+    media_type = "application/problem+json"
+
     def __init__(
         self,
-        detail: t.Any,
+        detail: str | None = None,
         status_code: int = 400,
-        exception: Exception | None = None,
-        headers: dict[str, str] | None = None,
-        *args,
-        **kwargs,
-    ):
+        *,
+        type: str = "about:blank",
+        title: str | None = None,
+        instance: str | None = None,
+        errors: "t.Sequence[types.ErrorDetail]" = (),
+        extensions: "Mapping[str, t.Any] | None" = None,
+        headers: "Mapping[str, str] | None" = None,
+        background: "BackgroundTask | None" = None,
+    ) -> None:
+        if reserved := HTTPException.MEMBERS & set(extensions or {}):
+            raise ValueError(f"Extension members cannot be named after members of the problem: {sorted(reserved)}")
+
+        phrase = stdlib_http.HTTPStatus(status_code).phrase
         super().__init__(
             {
-                "detail": detail,
-                "error": (str(exception.__class__.__name__) if exception is not None else None),
-                "status_code": status_code,
-                "headers": headers,
+                "type": type,
+                "title": title if title is not None else phrase,
+                "status": status_code,
+                "detail": detail if detail is not None else phrase,
+                **({"instance": instance} if instance is not None else {}),
+                **({"errors": [dataclasses.asdict(x) for x in errors]} if errors else {}),
+                **(extensions or {}),
             },
-            *args,
             schema=schemas.schemas.core.APIError,
             status_code=status_code,
             headers=headers,
-            **kwargs,
+            background=background,
         )
 
-        self.detail = detail
-        self.exception = exception
+    def render(self, content: t.Any) -> bytes:
+        # The problem is built here, and its schema would drop the extension members it does not declare.
+        return JSONResponse.render(self, content)

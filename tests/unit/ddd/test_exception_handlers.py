@@ -24,19 +24,34 @@ class TestCaseRepositoryExceptionHandler:
             pytest.param(
                 "not-found",
                 404,
-                {"detail": "Resource 'puppy' (1) not found", "error": "NotFoundError", "status_code": 404},
+                {
+                    "type": "about:blank",
+                    "title": "Not Found",
+                    "status": 404,
+                    "detail": "Resource 'puppy' (1) not found",
+                },
                 id="not_found",
             ),
             pytest.param(
                 "already-exists",
                 409,
-                {"detail": "Resource 'puppy' (1) already exists", "error": "AlreadyExistsError", "status_code": 409},
+                {
+                    "type": "about:blank",
+                    "title": "Conflict",
+                    "status": 409,
+                    "detail": "Resource 'puppy' (1) already exists",
+                },
                 id="already_exists",
             ),
             pytest.param(
                 "integrity",
                 400,
-                {"detail": "Resource 'puppy' integrity failed", "error": "IntegrityError", "status_code": 400},
+                {
+                    "type": "about:blank",
+                    "title": "Bad Request",
+                    "status": 400,
+                    "detail": "Resource 'puppy' integrity failed",
+                },
                 id="integrity",
             ),
         ],

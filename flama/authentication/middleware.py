@@ -1,14 +1,18 @@
-import http as stdlib_http
 import logging
 import re
 import typing as t
 
 from flama import authentication, exceptions, http, types
 from flama.authentication.data_structures import ProtectedResource
-from flama.authentication.exceptions import JWTValidateException
+from flama.authentication.exception_handlers import AuthenticationExceptionHandler
+from flama.authentication.exceptions import (
+    AuthenticationError,
+    InsufficientRoles,
+    InsufficientScope,
+    InvalidToken,
+    JWTValidateException,
+)
 from flama.context import Context
-from flama.exceptions import HTTPException
-from flama.http.responses.api import APIErrorResponse
 from flama.middleware import Middleware
 
 if t.TYPE_CHECKING:
@@ -30,6 +34,9 @@ class AuthenticationMiddleware(Middleware):
     resource tag the protected resource it belongs to only accepts tokens issued for that resource, and its challenges
     point clients at the resource's metadata (RFC 9728).
 
+    The middleware runs before exception handlers do, so it answers the authentication errors itself, as
+    :class:`AuthenticationExceptionHandler` does.
+
     :param tag: Route tag that holds the scopes required.
     :param roles_tag: Route tag that holds the roles required.
     :param resource_tag: Route tag that holds the canonical URI of the protected resource the route belongs to.
@@ -48,17 +55,20 @@ class AuthenticationMiddleware(Middleware):
         self._roles_tag = roles_tag
         self._resource_tag = resource_tag
         self._ignored = [re.compile(x) for x in ignored]
+        self._handler = AuthenticationExceptionHandler()
 
     async def __call__(self, scope: types.Scope, receive: types.Receive, send: types.Send) -> None:
         if scope["type"] not in ("http", "websocket") or any(pattern.match(scope["path"]) for pattern in self._ignored):
             await self.app(scope, receive, send)
             return
 
-        response = await self._get_response(scope, receive)
+        response = await self._get_response(scope, receive, send)
 
         await response(scope, receive, send)
 
-    async def _get_response(self, scope: types.Scope, receive: types.Receive) -> "Response | types.ASGIApp":
+    async def _get_response(
+        self, scope: types.Scope, receive: types.Receive, send: types.Send
+    ) -> "Response | types.ASGIApp":
         app: types.App = scope["app"]
 
         try:
@@ -72,53 +82,46 @@ class AuthenticationMiddleware(Middleware):
         if not (scopes or roles or resource):
             return self.app
 
-        context = Context(request=http.Request(scope, receive=receive))
         try:
-            token = await app.injector.value(authentication.AccessToken, context)
-            if resource is not None:
-                token.validate(aud=resource.resource)
-            principal = await app.injector.value(authentication.Principal, context)
-        except HTTPException as e:
-            logger.debug("JWT error: %s", e.detail)
-            headers = dict(e.headers or {})
-            if "WWW-Authenticate" in headers:
-                headers["WWW-Authenticate"] = self._challenge(headers["WWW-Authenticate"], scopes, resource)
-            return APIErrorResponse(status_code=e.status_code, detail=e.detail, headers=headers)
-        except JWTValidateException as e:
-            logger.debug("Token not issued for '%s'", t.cast(ProtectedResource, resource).resource)
-            return APIErrorResponse(
-                status_code=stdlib_http.HTTPStatus.UNAUTHORIZED,
-                detail={"error": e.__class__, "description": str(e)},
-                headers={"WWW-Authenticate": self._challenge('Bearer error="invalid_token"', scopes, resource)},
-            )
-
-        if not (principal.scopes >= scopes):
-            logger.debug("User does not have the required scopes: %s", scopes)
-            return APIErrorResponse(
-                status_code=stdlib_http.HTTPStatus.FORBIDDEN,
-                detail="Insufficient permissions",
-                headers={"WWW-Authenticate": self._challenge('Bearer error="insufficient_scope"', scopes, resource)},
-            )
-
-        if not (principal.roles >= roles):
-            logger.debug("User does not have the required roles: %s", roles)
-            return APIErrorResponse(status_code=stdlib_http.HTTPStatus.FORBIDDEN, detail="Insufficient roles")
+            await self._authorize(app, scope, receive, scopes, roles, resource)
+        except AuthenticationError as e:
+            logger.debug("Request not authorized: %s", e)
+            e.scopes |= scopes
+            e.resource_metadata = e.resource_metadata or (resource.metadata_url if resource is not None else None)
+            return t.cast("Response", await self._handler(scope, receive, send, e))
 
         return self.app
 
     @staticmethod
-    def _challenge(challenge: str, scopes: set[str], resource: ProtectedResource | None) -> str:
-        """A ``WWW-Authenticate`` challenge, completed with the scopes required and the resource's metadata.
+    async def _authorize(
+        app: types.App,
+        scope: types.Scope,
+        receive: types.Receive,
+        scopes: set[str],
+        roles: set[str],
+        resource: ProtectedResource | None,
+    ) -> None:
+        """Check that a request carries a valid token for its resource, granting the scopes and roles it requires.
 
-        :param challenge: Challenge as the token's resolution or the authorization check gives it.
+        :param app: Application.
+        :param scope: ASGI scope of the request.
+        :param receive: ASGI receive function of the request.
         :param scopes: Scopes the route requires.
+        :param roles: Roles the route requires.
         :param resource: Protected resource the route belongs to, if any.
-        :return: The completed challenge.
+        :raises AuthenticationError: If the request is not authorized.
         """
-        scheme, _, given = challenge.partition(" ")
-        params = [
-            *([given] if given else []),
-            *([f'scope="{" ".join(sorted(scopes))}"'] if scopes else []),
-            *([f'resource_metadata="{resource.metadata_url}"'] if resource is not None else []),
-        ]
-        return f"{scheme} {', '.join(params)}" if params else scheme
+        context = Context(request=http.Request(scope, receive=receive))
+        token = await app.injector.value(authentication.AccessToken, context)
+        if resource is not None:
+            try:
+                token.validate(aud=resource.resource)
+            except JWTValidateException as e:
+                raise InvalidToken(f"Token not issued for '{resource.resource}'") from e
+
+        principal = await app.injector.value(authentication.Principal, context)
+        if not (principal.scopes >= scopes):
+            raise InsufficientScope("Insufficient permissions")
+
+        if not (principal.roles >= roles):
+            raise InsufficientRoles("Insufficient roles")

@@ -1,6 +1,4 @@
-import http
 import logging
-import math
 import typing as t
 
 from flama import Component, Components, _concurrency
@@ -8,7 +6,6 @@ from flama.authentication import exceptions, jwt, types
 from flama.authentication.data_structures import Principal
 from flama.crypto import JWS
 from flama.crypto.exceptions import SignatureDecodeException
-from flama.exceptions import HTTPException
 from flama.http.data_structures import Headers
 from flama.injection.exceptions import ValueNotFound
 from flama.types.http import Cookies
@@ -80,17 +77,9 @@ class BaseTokenComponent(Component):
             except exceptions.Unauthorized:
                 encoded_token = self._token_from_cookies(cookies)
         except exceptions.Unauthorized:
-            raise ValueNotFound(
-                HTTPException(
-                    status_code=http.HTTPStatus.UNAUTHORIZED, headers={"WWW-Authenticate": self.header_prefix}
-                )
-            )
+            raise ValueNotFound(exceptions.MissingToken(scheme=self.header_prefix))
         except exceptions.JWTException as e:
-            raise HTTPException(
-                status_code=http.HTTPStatus.BAD_REQUEST,
-                detail={"error": e.__class__, "description": str(e)},
-                headers={"WWW-Authenticate": f'{self.header_prefix} error="invalid_request"'},
-            )
+            raise exceptions.MalformedToken(str(e), scheme=self.header_prefix) from e
 
         try:
             if self.secret_resolver is not None:
@@ -105,17 +94,7 @@ class BaseTokenComponent(Component):
             exceptions.JWTDecodeException,
             exceptions.JWTValidateException,
         ) as e:
-            raise HTTPException(
-                status_code=http.HTTPStatus.UNAUTHORIZED,
-                detail={"error": e.__class__, "description": str(e)},
-                headers={"WWW-Authenticate": f'{self.header_prefix} error="invalid_token"'},
-            )
-        except exceptions.KeysUnavailable as e:
-            raise HTTPException(
-                status_code=http.HTTPStatus.SERVICE_UNAVAILABLE,
-                detail={"error": e.__class__, "description": str(e)},
-                headers={"Retry-After": str(max(0, math.ceil(e.retry_after)))} if e.retry_after is not None else None,
-            )
+            raise exceptions.InvalidToken(str(e), scheme=self.header_prefix) from e
 
         return token
 

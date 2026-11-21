@@ -2,7 +2,8 @@ import inspect
 import typing as t
 from http import HTTPStatus
 
-from flama import exceptions, schemas, types
+from flama import schemas, types
+from flama.http.exceptions import HTTPException
 from flama.http.responses.api import APIResponse
 from flama.resources import data_structures
 from flama.resources.filtering import Filters
@@ -166,7 +167,7 @@ class PartialUpdateMixin:
                 result = await repository.update(resource, **{rest_model.primary_key.name: resource_id})
 
                 if not result:
-                    raise exceptions.HTTPException(status_code=HTTPStatus.NOT_FOUND)
+                    raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
 
             return result[0]
 

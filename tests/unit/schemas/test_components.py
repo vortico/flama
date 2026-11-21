@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from flama import exceptions, types
+from flama.http import ValidationError
 from flama.injection.resolver import Parameter
 from flama.schemas.components import (
     CompositeParamComponent,
@@ -31,7 +32,7 @@ class TestCaseValidatePathParamsComponent:
                 types.PathParams({"id": "bad"}),
                 None,
                 None,
-                exceptions.ValidationError(detail=[types.ErrorDetail(detail="invalid", pointer="#/error")]),
+                ValidationError(errors=[types.ErrorDetail(detail="invalid", pointer="#/error")]),
                 id="validation_error",
             ),
         ],

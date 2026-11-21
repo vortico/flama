@@ -62,12 +62,10 @@ class TestCaseAccessTokenComponent:
                 None,
                 400,
                 {
-                    "detail": {
-                        "description": "Authentication header must be 'Authorization: Bearer <token>'",
-                        "error": "JWTException",
-                    },
-                    "error": "HTTPException",
-                    "status_code": 400,
+                    "type": "about:blank",
+                    "title": "Bad Request",
+                    "status": 400,
+                    "detail": "Authentication header must be 'Authorization: Bearer <token>'",
                 },
                 id="header_wrong_format",
             ),
@@ -76,12 +74,10 @@ class TestCaseAccessTokenComponent:
                 None,
                 400,
                 {
-                    "detail": {
-                        "description": "Authentication header must be 'Authorization: Bearer <token>'",
-                        "error": "JWTException",
-                    },
-                    "error": "HTTPException",
-                    "status_code": 400,
+                    "type": "about:blank",
+                    "title": "Bad Request",
+                    "status": 400,
+                    "detail": "Authentication header must be 'Authorization: Bearer <token>'",
                 },
                 id="header_wrong_prefix",
             ),
@@ -96,7 +92,12 @@ class TestCaseAccessTokenComponent:
                 None,
                 None,
                 401,
-                {"detail": "Unauthorized", "error": "HTTPException", "status_code": 401},
+                {
+                    "type": "about:blank",
+                    "title": "Unauthorized",
+                    "status": 401,
+                    "detail": "Unauthorized",
+                },
                 id="unauthorized",
             ),
             pytest.param(
@@ -107,13 +108,11 @@ class TestCaseAccessTokenComponent:
                 },
                 401,
                 {
-                    "detail": {
-                        "description": "Signature verification failed for token 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVC"
-                        "J9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.0000'",
-                        "error": "JWTValidateException",
-                    },
-                    "error": "HTTPException",
-                    "status_code": 401,
+                    "type": "about:blank",
+                    "title": "Unauthorized",
+                    "status": 401,
+                    "detail": "Signature verification failed for token 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVC"
+                    "J9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.0000'",
                 },
                 id="invalid_token",
             ),
@@ -387,12 +386,10 @@ class TestCaseRefreshTokenComponent:
                 None,
                 400,
                 {
-                    "detail": {
-                        "description": "Authentication header must be 'refresh_token: Bearer <token>'",
-                        "error": "JWTException",
-                    },
-                    "error": "HTTPException",
-                    "status_code": 400,
+                    "type": "about:blank",
+                    "title": "Bad Request",
+                    "status": 400,
+                    "detail": "Authentication header must be 'refresh_token: Bearer <token>'",
                 },
                 id="header_wrong_format",
             ),
@@ -401,12 +398,10 @@ class TestCaseRefreshTokenComponent:
                 None,
                 400,
                 {
-                    "detail": {
-                        "description": "Authentication header must be 'refresh_token: Bearer <token>'",
-                        "error": "JWTException",
-                    },
-                    "error": "HTTPException",
-                    "status_code": 400,
+                    "type": "about:blank",
+                    "title": "Bad Request",
+                    "status": 400,
+                    "detail": "Authentication header must be 'refresh_token: Bearer <token>'",
                 },
                 id="header_wrong_prefix",
             ),
@@ -421,7 +416,12 @@ class TestCaseRefreshTokenComponent:
                 None,
                 None,
                 401,
-                {"detail": "Unauthorized", "error": "HTTPException", "status_code": 401},
+                {
+                    "type": "about:blank",
+                    "title": "Unauthorized",
+                    "status": 401,
+                    "detail": "Unauthorized",
+                },
                 id="unauthorized",
             ),
             pytest.param(
@@ -432,13 +432,11 @@ class TestCaseRefreshTokenComponent:
                 },
                 401,
                 {
-                    "detail": {
-                        "description": "Signature verification failed for token 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVC"
-                        "J9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.0000'",
-                        "error": "JWTValidateException",
-                    },
-                    "error": "HTTPException",
-                    "status_code": 401,
+                    "type": "about:blank",
+                    "title": "Unauthorized",
+                    "status": 401,
+                    "detail": "Signature verification failed for token 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVC"
+                    "J9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.0000'",
                 },
                 id="invalid_token",
             ),

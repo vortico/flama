@@ -8,6 +8,7 @@ import pytest
 
 from flama import endpoints, exceptions, types
 from flama.applications import Flama
+from flama.http import SerializationError
 from flama.http.requests.http import Request
 from flama.http.responses.api import APIResponse
 from flama.http.responses.ndjson import NDJSONResponse
@@ -97,13 +98,13 @@ class TestCaseBaseHTTPEndpointWrapper:
             pytest.param(
                 "foo",
                 None,
-                exceptions.SerializationError(
+                SerializationError(
                     detail="Route returned a 'str', but a route returns a response, a mapping, a list, or None"
                 ),
                 id="str",
             ),
-            pytest.param(b"foo", None, exceptions.SerializationError(detail="Route returned a 'bytes'"), id="bytes"),
-            pytest.param(1, None, exceptions.SerializationError(detail="Route returned a 'int'"), id="int"),
+            pytest.param(b"foo", None, SerializationError(detail="Route returned a 'bytes'"), id="bytes"),
+            pytest.param(1, None, SerializationError(detail="Route returned a 'int'"), id="int"),
         ],
         indirect=["exception"],
     )

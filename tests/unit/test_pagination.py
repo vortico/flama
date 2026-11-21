@@ -7,7 +7,8 @@ import pydantic
 import pytest
 from pytest import param
 
-from flama import exceptions, types
+from flama import types
+from flama.http import SerializationError
 from flama.pagination import paginator
 from flama.pagination.paginators._base import PaginatedResponse
 from flama.schemas.exceptions import SchemaValidationError
@@ -52,6 +53,7 @@ class TestCasePageNumberPagination:
             f"{name_prefix}.PageNumberPaginatedOutputSchema",
             "flama.pagination.PageNumberMeta",
             "flama.core.APIError",
+            "flama.core.ErrorDetail",
         }
 
     def test_invalid_view(self, output_schema):
@@ -191,6 +193,7 @@ class TestCaseLimitOffsetPagination:
             f"{name_prefix}.LimitOffsetPaginatedOutputSchema",
             "flama.pagination.LimitOffsetMeta",
             "flama.core.APIError",
+            "flama.core.ErrorDetail",
         }
 
     def test_invalid_view(self, output_schema):
@@ -324,6 +327,6 @@ class TestCasePaginatedResponse:
 
         with (
             patch("flama.pagination.paginators._base.Schema.from_type", return_value=mock_schema_instance),
-            pytest.raises(exceptions.SerializationError),
+            pytest.raises(SerializationError),
         ):
             response._encode_content({"field": "bad"})

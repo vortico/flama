@@ -18,6 +18,8 @@ from flama._upgrade.operations import (
 
 __all__ = ["V2_3"]
 
+NAMES = ("HTTPException", "ValidationError", "SerializationError")
+
 V2_3 = Migration(
     target="2.3",
     source=">=2.2,<2.3",
@@ -109,6 +111,12 @@ V2_3 = Migration(
             for old, new in (("app_template", "ui_resource"), ("add_app_template", "add_ui_resource"))
         ),
         *(Rewrite(Method(name), RenameKeyword("ui_template", "ui_resource")) for name in ("tool", "add_tool")),
+        # HTTP errors live with the rest of HTTP, answered as problem details (RFC 9457).
+        *(Move(Symbol("flama.exceptions", name), Symbol("flama.http", name)) for name in NAMES),
+        *(
+            Rewrite(Call(Symbol(module, "APIErrorResponse")), DropKeyword("exception"))
+            for module in ("flama.http", "flama.http.responses", "flama.http.responses.api")
+        ),
         # Type checks on applications and routers are plain `isinstance` checks.
         *(
             Flag(Call(Symbol(module, name)), f"was removed; use `isinstance(obj, {replacement})` instead")

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from flama import Flama, authentication
-from flama.exceptions import HTTPException
+from flama.http import HTTPException
 from flama.telemetry.data_structures import (
     Authentication,
     Endpoint,

@@ -4,6 +4,7 @@ import logging
 import typing as t
 
 from flama import _concurrency, exceptions, http, types
+from flama.authentication.exceptions import AuthenticationError
 from flama.context import Context
 from flama.endpoints._base import BaseEndpoint
 
@@ -78,7 +79,7 @@ class JSONRPCEndpoint(BaseEndpoint, types.JSONRPCEndpointProtocol):
         except exceptions.JSONRPCException as e:
             e.request_id = request_id
             raise
-        except exceptions.HTTPException:
+        except (http.HTTPException, AuthenticationError):
             # An HTTP error concerns the request itself, as an invalid token does, not the method it calls.
             raise
         except Exception as e:

@@ -100,7 +100,7 @@ class TestCaseUploadValidation:
         if status_code == HTTPStatus.OK:
             assert response.json() == expected
         else:
-            assert response.json()["detail"] == expected
+            assert response.json()["errors"] == expected
 
     @pytest.mark.parametrize(
         ["files", "data", "status_code", "expected"],

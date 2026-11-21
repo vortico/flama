@@ -4,9 +4,10 @@ import os
 import typing as t
 from datetime import datetime
 
-from flama import _concurrency, exceptions, types
+from flama import _concurrency, types
 from flama._core.cookies import build_cookie_header
 from flama.http.data_structures import MutableHeaders
+from flama.http.exceptions import HTTPException
 
 if t.TYPE_CHECKING:
     from collections.abc import Mapping
@@ -148,7 +149,7 @@ class BufferedResponse(Response, t.Generic[Content, Payload]):
                 with open(path) as f:
                     content = f.read()  # ty: ignore[invalid-assignment]
             except Exception as e:
-                raise exceptions.HTTPException(status_code=http.HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(e))
+                raise HTTPException(status_code=http.HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(e))
 
         if content is None:
             raise ValueError("Either 'content' or 'path' must be provided")

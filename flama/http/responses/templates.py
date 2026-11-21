@@ -10,6 +10,7 @@ import jinja2
 
 from flama import exceptions, types
 from flama._core.json_encoder import encode_json
+from flama.http.exceptions import HTTPException
 from flama.http.responses.html import HTMLResponse
 
 __all__ = ["HTMLTemplatesEnvironment", "HTMLTemplateResponse"]
@@ -71,7 +72,7 @@ class HTMLTemplateResponse(HTMLResponse):
         try:
             content: str = self.templates.get_template(template).render(**(context or {}))
         except Exception as e:
-            raise exceptions.HTTPException(status_code=http.HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(e))
+            raise HTTPException(status_code=http.HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(e))
 
         super().__init__(content, *args, **kwargs)
 

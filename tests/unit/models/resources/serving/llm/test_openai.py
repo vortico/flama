@@ -4,7 +4,8 @@ from unittest.mock import patch
 import pytest
 
 from flama.client import Client
-from flama.exceptions import DependencyNotInstalled, HTTPException
+from flama.exceptions import DependencyNotInstalled
+from flama.http import HTTPException
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
 from flama.models.exceptions import LLMUnsupportedContentPart

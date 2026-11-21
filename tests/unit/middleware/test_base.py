@@ -3,6 +3,8 @@ from unittest.mock import AsyncMock, PropertyMock, call, patch
 import pytest
 
 from flama import Flama, exceptions
+from flama.authentication import exceptions as authentication_exceptions
+from flama.authentication.exception_handlers import AuthenticationExceptionHandler
 from flama.ddd import exceptions as ddd_exceptions
 from flama.ddd.exception_handlers import RepositoryExceptionHandler
 from flama.errors.exception_handlers import (
@@ -12,6 +14,7 @@ from flama.errors.exception_handlers import (
     WebSocketExceptionHandler,
 )
 from flama.errors.middleware import ExceptionMiddleware, ServerErrorMiddleware
+from flama.http import HTTPException
 from flama.middleware import Middleware, MiddlewareStack, RootMiddlewareStack
 
 
@@ -87,26 +90,27 @@ class TestCaseMiddlewareStack:
         handlers = stack.stack.app._exception_handlers
 
         assert {k: type(v) for k, v in handlers.items()} == {
-            exceptions.HTTPException: HTTPExceptionHandler,
+            HTTPException: HTTPExceptionHandler,
             exceptions.JSONRPCException: JSONRPCExceptionHandler,
             exceptions.WebSocketException: WebSocketExceptionHandler,
             exceptions.RoutingException: RoutingExceptionHandler,
             ddd_exceptions.RepositoryException: RepositoryExceptionHandler,
+            authentication_exceptions.AuthenticationException: AuthenticationExceptionHandler,
         }
         # Only the root application's debug mode decides how a missing resource is rendered.
-        assert handlers[exceptions.HTTPException].debug
+        assert handlers[HTTPException].debug
         assert handlers[exceptions.RoutingException]._http.debug
 
     def test_stack_root_registered_first(self, app):
         def handler(scope, receive, send, exc): ...
 
         stack = RootMiddlewareStack(app=app, middleware=[], debug=True)
-        stack.add_exception_handler(exceptions.HTTPException, handler)
+        stack.add_exception_handler(HTTPException, handler)
 
         handlers = stack.stack.app._exception_handlers
 
         # A handler registered for a family's exception replaces only that family's default answer.
-        assert handlers[exceptions.HTTPException] is handler
+        assert handlers[HTTPException] is handler
         assert isinstance(handlers[exceptions.RoutingException], RoutingExceptionHandler)
 
     @pytest.mark.parametrize(

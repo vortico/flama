@@ -12,6 +12,7 @@ from flama.context import Context
 from flama.ddd.components import WorkerComponent
 from flama.errors import ExceptionHandler
 from flama.events import Events
+from flama.http import HTTPException
 from flama.injection.injector import Injector
 from flama.mcp.module import MCPModule
 from flama.middleware import Middleware, MiddlewareStack, RootMiddlewareStack
@@ -517,7 +518,7 @@ class TestCaseMountedApplication:
             raise ValueError("Failing")
 
         def conflict():
-            raise exceptions.HTTPException(409)
+            raise HTTPException(409)
 
         root = Flama(schema=None, docs=None, middleware=[self.Header("x-root")])
         root.add_route("/ping", lambda: {"at": "root"})
@@ -580,7 +581,7 @@ class TestCaseMountedApplication:
 
     async def test_registered_handler_before_default_response(self, apps):
         root, _, _ = apps
-        root.add_exception_handler(exceptions.HTTPException, self.handled_by("root"))
+        root.add_exception_handler(HTTPException, self.handled_by("root"))
 
         response = await self.request(root, "get", "/child/conflict")
 

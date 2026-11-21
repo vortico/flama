@@ -796,7 +796,7 @@ class SchemaGenerator:
             "description": "Unexpected error.",
             **responses.get("default", {}),
             "content": {
-                "application/json": {
+                "application/problem+json": {
                     "schema": self.schemas.get_openapi_ref(schemas.schemas.core.APIError, multiple=False)
                 }
             },

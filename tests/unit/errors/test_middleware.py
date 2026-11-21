@@ -2,10 +2,11 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
-from flama import exceptions, http, types
+from flama import http, types
 from flama.errors.data_structures import ErrorContext
 from flama.errors.exception_handlers import ExceptionHandler
 from flama.errors.middleware import BaseErrorMiddleware, ExceptionMiddleware, ServerErrorMiddleware
+from flama.http import HTTPException
 from flama.http.responses.templates import _FlamaTemplateResponse
 
 
@@ -149,17 +150,17 @@ class TestCaseServerErrorMiddleware:
 
     def test_debug_response_text(self, middleware, asgi_scope, asgi_receive, asgi_send):
         exc = ValueError()
-        with patch.object(http.PlainTextResponse, "__init__", return_value=None) as response_mock:
+        with patch.object(http.APIErrorResponse, "__init__", return_value=None) as response_mock:
             response = middleware.debug_handler(asgi_scope, asgi_receive, asgi_send, exc)
-            assert isinstance(response, http.PlainTextResponse)
-            assert response_mock.call_args_list == [call("Internal Server Error", status_code=500)]
+            assert isinstance(response, http.APIErrorResponse)
+            assert response_mock.call_args_list == [call(status_code=500)]
 
     def test_error_response(self, middleware, asgi_scope, asgi_receive, asgi_send):
         exc = ValueError()
-        with patch.object(http.PlainTextResponse, "__init__", return_value=None) as response_mock:
+        with patch.object(http.APIErrorResponse, "__init__", return_value=None) as response_mock:
             response = middleware.error_handler(asgi_scope, asgi_receive, asgi_send, exc)
-            assert isinstance(response, http.PlainTextResponse)
-            assert response_mock.call_args_list == [call("Internal Server Error", status_code=500)]
+            assert isinstance(response, http.APIErrorResponse)
+            assert response_mock.call_args_list == [call(status_code=500)]
 
 
 class TestCaseExceptionMiddleware:
@@ -217,13 +218,11 @@ class TestCaseExceptionMiddleware:
     @pytest.mark.parametrize(
         ["status_code", "exc_class", "key", "exception"],
         (
-            pytest.param(400, None, exceptions.HTTPException(400), None, id="status_code"),
+            pytest.param(400, None, HTTPException(400), None, id="status_code"),
             pytest.param(None, ValueError, ValueError("Foo"), None, id="exc_class"),
             pytest.param(400, ValueError, ValueError("Foo"), None, id="status_code_and_exc_class"),
             pytest.param(None, Exception, ValueError("Foo"), None, id="child_exc_class"),
-            pytest.param(
-                400, None, exceptions.HTTPException(401), exceptions.HTTPException(401), id="handler_not_found"
-            ),
+            pytest.param(400, None, HTTPException(401), HTTPException(401), id="handler_not_found"),
         ),
         indirect=["exception"],
     )

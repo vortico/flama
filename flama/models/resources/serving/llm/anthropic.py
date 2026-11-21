@@ -3,7 +3,8 @@ import time
 import typing as t
 
 from flama import _concurrency, schemas, types
-from flama.exceptions import DependencyNotInstalled, HTTPException
+from flama.exceptions import DependencyNotInstalled
+from flama.http.exceptions import HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.sse import ServerSentEventResponse
 from flama.models.exceptions import LLMGenerationError, LLMUnsupportedCapability, LLMUnsupportedContentPart

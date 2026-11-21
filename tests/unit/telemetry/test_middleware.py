@@ -262,7 +262,12 @@ class TestCaseTelemetryMiddleware:
                 None,
                 {},
                 http.HTTPStatus.NOT_FOUND,
-                {"status_code": 404, "detail": "Not Found", "error": "HTTPException"},
+                {
+                    "type": "about:blank",
+                    "title": "Not Found",
+                    "status": 404,
+                    "detail": "Not Found",
+                },
                 None,
                 None,
                 None,
