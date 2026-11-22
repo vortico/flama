@@ -2,7 +2,6 @@ import pathlib
 import typing as t
 from unittest.mock import MagicMock, Mock, call, patch
 
-import numpy as np
 import pytest
 
 from flama import exceptions
@@ -11,6 +10,8 @@ from flama.models.engine.backend.llm.vllm import VLLMBackend
 from flama.models.engine.llm.input import EngineInput
 from flama.serialize.data_structures import LLMModelCapabilities
 from tests._utils import missing
+
+np = pytest.importorskip("numpy")
 
 
 class _FakeRequestOutputKind:

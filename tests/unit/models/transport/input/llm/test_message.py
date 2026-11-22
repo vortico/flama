@@ -6,10 +6,7 @@ import typing as t
 from unittest.mock import call, patch
 
 import httpx
-import numpy as np
 import pytest
-import soundfile
-from PIL import Image
 
 from flama import exceptions
 from flama.models.transport.input.llm.message import (
@@ -30,6 +27,10 @@ from flama.models.transport.input.llm.message import (
     UserMessage,
 )
 from flama.models.transport.input.llm.shape._base import Shape  # noqa
+
+np = pytest.importorskip("numpy")
+soundfile = pytest.importorskip("soundfile")
+Image = pytest.importorskip("PIL.Image")
 
 
 def _png_bytes(*, color: str = "red", size: tuple[int, int] = (1, 1)) -> bytes:

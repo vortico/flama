@@ -3,7 +3,6 @@ import dataclasses
 import typing as t
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
-import numpy as np
 import pytest
 
 from flama import exceptions
@@ -28,6 +27,8 @@ from flama.models.transport.input.llm.message import (
 from flama.models.transport.input.llm.tool import Tool
 from flama.serialize.data_structures import LLMModelCapabilities
 from flama.serialize.exceptions import UnknownModelCapabilities
+
+np = pytest.importorskip("numpy")
 
 
 class _FakeLLMBackend(TransformerLLMBackend):

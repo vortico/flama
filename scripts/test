@@ -1,11 +1,18 @@
 #!/bin/bash
 set -e
 
+source "./scripts/_env"
+
 # ─── Test ────────────────────────────────────────────────────────────────────
 
 run_test() {
   echo "🧪 Testing project..."
-  uv run pytest -n auto "$@"
+  # A free-threaded environment holds what it can install, which syncing every extra would undo.
+  if is_free_threaded; then
+    uv run --no-sync pytest -n auto "$@"
+  else
+    uv run pytest -n auto "$@"
+  fi
   echo "✅ Test complete."
 }
 

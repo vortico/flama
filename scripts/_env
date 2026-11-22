@@ -34,3 +34,23 @@ pnpm_auth() {
   rm -f "${rc}"
   return ${ret}
 }
+
+# ─── Interpreter ─────────────────────────────────────────────────────────────
+
+# Whether the project runs on a free-threaded build (PEP 703). Most ML extras publish no free-threaded wheels, and no
+# dependency marker can tell such builds apart yet (PEP 780), so the scripts leave them out there. The interpreter is
+# the one uv would use: the one requested, else the project environment's, else whichever uv finds.
+# TODO: Once uv supports PEP 780's `sys_abi_features` marker, mark the extras lacking free-threaded wheels with it in
+# `pyproject.toml`, and remove this helper along with the branches using it in `install`, `test` and `typecheck`.
+is_free_threaded() {
+  local environment="${UV_PROJECT_ENVIRONMENT:-.venv}" python
+  if [[ -n "${UV_PYTHON:-}" ]]; then
+    python=(uv run --no-project --python "${UV_PYTHON}" python)
+  elif [[ -x "${environment}/bin/python" ]]; then
+    python=("${environment}/bin/python")
+  else
+    python=("$(uv python find)")
+  fi
+
+  [[ "$("${python[@]}" -c 'import sysconfig; print(sysconfig.get_config_var("Py_GIL_DISABLED") or 0)')" == "1" ]]
+}

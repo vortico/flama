@@ -1,6 +1,10 @@
+import time
+from unittest.mock import patch
+
 import pytest
 
 from flama.cache import LRUCache, TTLCache
+from tests._utils import run_in_threads
 
 
 class TestCaseLRUCache:
@@ -237,3 +241,102 @@ class TestCaseTTLCache:
         assert len(cache) == 0
         with pytest.raises(KeyError):
             cache.stale("a")
+
+
+class TestCaseCachesConcurrency:
+    def test_lru_cache(self):
+        cache = LRUCache[int, int](max_size=8)
+
+        def use(index: int) -> None:
+            for i in range(2000):
+                key = (index * 7 + i) % 32
+                cache[key] = i
+                cache.get(key)
+                if i % 50 == 0:
+                    list(cache)
+                    cache.pop(key, None)
+                    cache.setdefault(key, i)
+                    if len(cache):
+                        try:
+                            cache.popitem()
+                        except KeyError:
+                            pass
+                if i % 500 == 0:
+                    cache.reset()
+
+        run_in_threads(use)
+
+        assert len(cache) <= cache.max_size
+
+    def test_ttl_cache(self):
+        cache = TTLCache[int, int](ttl=60.0, max_size=8)
+
+        def use(index: int) -> None:
+            for i in range(2000):
+                key = (index * 7 + i) % 32
+                cache[key] = i
+                list(cache)
+                len(cache)
+                cache.pop(key, None)
+
+        run_in_threads(use)
+
+        assert len(cache) <= cache.max_size
+
+    def test_snapshot(self):
+        cache = LRUCache[str, int](max_size=3)
+        cache["a"], cache["b"] = 1, 2
+
+        assert cache.snapshot() == [("a", 1), ("b", 2)]
+        cache["a"]
+        assert cache.snapshot() == [("b", 2), ("a", 1)]
+
+    @pytest.mark.parametrize(
+        ["key", "default", "expected", "exception"],
+        (
+            pytest.param("a", (), 1, None, id="held"),
+            pytest.param("z", (None,), None, None, id="missing_with_default"),
+            pytest.param("z", (), None, KeyError, id="missing"),
+        ),
+        indirect=["exception"],
+    )
+    def test_lru_pop(self, key, default, expected, exception):
+        cache = LRUCache[str, int](max_size=3)
+        cache["a"] = 1
+
+        with exception:
+            assert cache.pop(key, *default) == expected
+            assert key not in cache
+
+    def test_lru_popitem(self):
+        cache = LRUCache[str, int](max_size=3)
+        cache["a"], cache["b"] = 1, 2
+
+        assert cache.popitem() == ("a", 1)
+        assert cache.snapshot() == [("b", 2)]
+
+    def test_lru_setdefault(self):
+        cache = LRUCache[str, int](max_size=2)
+        cache["a"], cache["b"] = 1, 2
+
+        assert cache.setdefault("a", 9) == 1
+        assert cache.setdefault("c", 3) == 3
+        assert cache.snapshot() == [("a", 1), ("c", 3)]
+
+    @pytest.mark.parametrize(
+        ["key", "age", "default", "expected", "exception"],
+        (
+            pytest.param("a", 0.0, (), 1, None, id="held"),
+            pytest.param("a", 120.0, (None,), None, None, id="expired_with_default"),
+            pytest.param("a", 120.0, (), None, KeyError, id="expired"),
+            pytest.param("z", 0.0, (None,), None, None, id="missing_with_default"),
+        ),
+        indirect=["exception"],
+    )
+    def test_ttl_pop(self, key, age, default, expected, exception):
+        cache = TTLCache[str, int](ttl=60.0)
+        cache["a"] = 1
+
+        with patch("flama.cache.time.monotonic", return_value=time.monotonic() + age), exception:
+            assert cache.pop(key, *default) == expected
+        assert ("a" in cache._data) is (key != "a")

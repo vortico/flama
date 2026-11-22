@@ -1,10 +1,16 @@
+FROM debian:trixie-slim
+
+COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /usr/local/bin/uv
+
 ARG PYTHON_VERSION
-
-FROM python:${PYTHON_VERSION}-slim
-
 ARG SCHEMAS_LIB
 
-RUN python -m pip install --no-cache-dir --upgrade pip flama[${SCHEMAS_LIB},database]
+ENV UV_PYTHON_INSTALL_DIR=/opt/python \
+  VIRTUAL_ENV=/opt/venv \
+  PATH=/opt/venv/bin:$PATH
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* && \
+  uv venv --no-cache --managed-python --python "${PYTHON_VERSION}" "${VIRTUAL_ENV}" && \
+  uv pip install --no-cache "flama[${SCHEMAS_LIB},database]"
 
 # Set user and group
 ENV APP_DIR=/flama

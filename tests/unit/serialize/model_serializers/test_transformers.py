@@ -12,6 +12,7 @@ import pytest
 from flama import exceptions
 from flama.serialize.data_structures import LLMModelCapabilities
 from flama.serialize.model_serializers.transformers import ModelSerializer as TransformersModelSerializer
+from tests._utils import installed
 from tests.unit.serialize.model_serializers.conftest import (
     SPECS,
     dump_assert,
@@ -416,6 +417,7 @@ class TestCaseTransformersModelSerializer:
             pytest.param("missing_template", None, id="template_missing_returns_none"),
         ],
     )
+    @pytest.mark.skipif(not installed("transformers"), reason="Transformers is not installed")
     def test_probe_with_tokenizer(
         self,
         scenario: dict[str, t.Any] | str | None,

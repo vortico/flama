@@ -2,6 +2,7 @@ name: Python versions
 
 # Single source of truth for the Python versions Flama supports across every workflow.
 # To add or drop a version, edit the `versions` array below — nothing else in CI hard-codes it.
+# Free-threaded builds (PEP 703) are versions of their own, as `3.14t`, so they get tests, wheels and images too.
 # Consumers read the `versions` (JSON array) and `default` outputs; any consumer-specific
 # formatting (e.g. maturin's -i interpreter flags) is derived by the consumer that needs it.
 # `default` drives the release, the benchmarks and the `latest` Docker tags. It is set explicitly rather than
@@ -28,7 +29,7 @@ jobs:
       - id: set
         shell: bash
         run: |
-          versions='["3.11", "3.12", "3.13", "3.14", "3.15"]'
+          versions='["3.11", "3.12", "3.13", "3.14", "3.15", "3.14t", "3.15t"]'
           default="3.14"
           jq -e --arg d "$default" 'index($d) != null' <<<"$versions" > /dev/null \
             || { echo "::error::default Python $default is not in versions $versions"; exit 1; }

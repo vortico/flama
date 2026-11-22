@@ -2,7 +2,6 @@ import base64
 import io
 
 import pytest
-from PIL import Image
 
 from flama.models.exceptions import LLMUnsupportedCapability
 from flama.models.transport.input.llm.message import (
@@ -19,6 +18,8 @@ from flama.models.transport.input.llm.shape import Conversation
 from flama.models.transport.input.llm.shape._base import Shape  # noqa
 from flama.models.transport.input.llm.tool import Tool
 from tests.unit.models.transport.input.llm.shape.conftest import FakeBackend, FakeMultimodalBackend
+
+Image = pytest.importorskip("PIL.Image")
 
 
 def _png_data_uri() -> str:

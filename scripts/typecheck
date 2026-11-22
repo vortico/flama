@@ -1,9 +1,16 @@
 #!/bin/bash
 set -e
 
+source "./scripts/_env"
+
 # ─── Typecheck ────────────────────────────────────────────────────────────────
 
 run_typecheck() {
+  if is_free_threaded; then
+    echo "⏭️  Skipping typecheck: it resolves imports from every extra, and most publish no free-threaded wheels."
+    return
+  fi
+
   echo "🔍 Typechecking project..."
   uv run --all-extras --group dev ty check "$@"
   echo "✅ Typecheck complete."

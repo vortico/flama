@@ -1,3 +1,4 @@
+import threading
 import typing as t
 
 from flama import _concurrency, types
@@ -59,6 +60,7 @@ class MiddlewareStack:
         self._exception_handlers: dict[int | type[Exception], ExceptionHandlerFunction] = {}
         self._pipeline: types.ASGIApp | None = None
         self._instances: list[t.Any] = []
+        self._lock = threading.Lock()
 
     @classmethod
     def from_stack(cls, stack: "MiddlewareStack", /) -> t.Self:
@@ -73,22 +75,29 @@ class MiddlewareStack:
 
     @property
     def stack(self) -> "types.ASGIApp":
-        if self._pipeline is None:
-            self._instances.clear()
-            app: types.ASGIApp = self.app.router
-            for m in self._stack():
-                m._build(app)
-                self._instances.append(m)
-                app = t.cast(types.ASGIApp, m)
+        if (pipeline := self._pipeline) is not None:
+            return pipeline
 
-            self._pipeline = app
+        # Built once, even when the first requests arrive in parallel, since building wires the shared middleware.
+        with self._lock:
+            if (pipeline := self._pipeline) is None:
+                instances: list[t.Any] = []
+                pipeline = self.app.router
+                for m in self._stack():
+                    m._build(pipeline)
+                    instances.append(m)
+                    pipeline = t.cast(types.ASGIApp, m)
 
-        return self._pipeline
+                self._instances = instances
+                self._pipeline = pipeline
+
+        return pipeline
 
     @stack.deleter
     def stack(self):
-        self._pipeline = None
-        self._instances.clear()
+        with self._lock:
+            self._pipeline = None
+            self._instances = []
 
     def _stack(self) -> list[_BaseMiddleware]:
         """The middleware wrapping the router, innermost first.

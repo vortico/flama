@@ -25,19 +25,24 @@ run_install() {
   done
 
   echo "📦 Installing Python dependencies..."
-  uv sync --all-extras --dev "${args[@]}"
+  if is_free_threaded; then
+    uv sync --no-default-groups --group test --extra full "${args[@]}"
+  else
+    uv sync --all-extras --dev "${args[@]}"
+  fi
 
   case "$templates" in
   build) build_templates ;;
   fetch) ./scripts/fetch_templates ;;
   esac
 
+  # The environment was just synced, so the extension is only rebuilt in place.
   if $release; then
     echo "🦀 Building Rust extension (release)..."
-    uv run maturin develop --release
+    uv run --no-sync maturin develop --skip-install --release
   else
     echo "🦀 Building Rust extension (dev)..."
-    uv run maturin develop
+    uv run --no-sync maturin develop --skip-install
   fi
 
   echo "✅ Install complete."

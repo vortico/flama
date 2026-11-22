@@ -1,8 +1,11 @@
+import threading
+
 import pytest
 
 from flama._core.route_table import RouteTable
 from flama._core.url import PathMatcher
 from flama.routing.routes._base import ScopeType
+from tests._utils import run_in_threads
 
 
 def _table(*entries):
@@ -233,3 +236,25 @@ class TestCaseRouteTable:
                 assert tuple(result[2]) == expected[2]
                 assert result[3] == expected[3]
                 assert result[4] == expected[4]
+
+
+class TestCaseRouteTableConcurrency:
+    def test_add_while_resolving(self):
+        table = _table(("/foo/", ScopeType.http, False, ["GET"]))
+        added = threading.Event()
+
+        def use(index: int) -> None:
+            if index == 0:
+                try:
+                    for i in range(20000):
+                        table.add_entry(PathMatcher(True, True, [(False, f"bar{i}", "")]), ScopeType.http, False, None)
+                finally:
+                    added.set()
+            else:
+                while not added.is_set():
+                    # A path matching nothing walks every entry, so resolving overlaps the routes being added.
+                    assert table.resolve("/missing/", ScopeType.http, "GET") is None
+
+        run_in_threads(use, threads=4)
+
+        assert table.resolve("/bar19999/", ScopeType.http, "GET")[0] == 0

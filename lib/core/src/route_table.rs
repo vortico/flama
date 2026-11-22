@@ -4,6 +4,8 @@
 //! resolves an incoming ``(path, scope_type, method)`` tuple in a single pass, returning a
 //! typed [`Resolution`] alongside the matched route's metadata.
 
+use std::sync::{Arc, PoisonError, RwLock};
+
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
@@ -47,9 +49,14 @@ enum ResolveOutcome<'a> {
     NotFound,
 }
 
-#[pyclass]
+/// Ordered routes of a router, resolved concurrently by every request.
+///
+/// Resolving works on a snapshot of the entries, taken under a lock held only to clone a pointer, and adding a route
+/// copies them when snapshots are still in use, so neither ever waits on the other for long, which matters without
+/// the GIL.
+#[pyclass(frozen)]
 struct RouteTable {
-    entries: Vec<RouteEntry>,
+    entries: RwLock<Arc<Vec<RouteEntry>>>,
 }
 
 impl RouteTable {
@@ -57,8 +64,9 @@ impl RouteTable {
     fn resolve_inner<'a>(&self, path: &'a str, scope_type: u8, method: &str) -> ResolveOutcome<'a> {
         let mut partial_index: Option<usize> = None;
         let mut allowed_methods: Vec<String> = Vec::new();
+        let entries = Arc::clone(&self.entries.read().unwrap_or_else(PoisonError::into_inner));
 
-        for (index, entry) in self.entries.iter().enumerate() {
+        for (index, entry) in entries.iter().enumerate() {
             if entry.scope_type_mask & scope_type == 0 {
                 continue;
             }
@@ -105,19 +113,22 @@ impl RouteTable {
 #[pymethods]
 impl RouteTable {
     #[new]
-    const fn new() -> Self {
-        Self { entries: Vec::new() }
+    fn new() -> Self {
+        Self {
+            entries: RwLock::new(Arc::new(Vec::new())),
+        }
     }
 
     #[pyo3(signature = (matcher, scope_type_mask, accept_partial_path, methods=None))]
     fn add_entry(
-        &mut self,
+        &self,
         matcher: &PathMatcher,
         scope_type_mask: u8,
         accept_partial_path: bool,
         methods: Option<Vec<String>>,
     ) {
-        self.entries.push(RouteEntry {
+        let mut entries = self.entries.write().unwrap_or_else(PoisonError::into_inner);
+        Arc::make_mut(&mut entries).push(RouteEntry {
             matcher: matcher.clone(),
             scope_type_mask,
             accept_partial_path,
@@ -179,7 +190,7 @@ mod tests {
     }
 
     fn table_with_entries(entries: Vec<(PathMatcher, u8, bool, Option<Vec<String>>)>) -> RouteTable {
-        let mut t = RouteTable::new();
+        let t = RouteTable::new();
         for (m, mask, partial, methods) in entries {
             t.add_entry(&m, mask, partial, methods);
         }

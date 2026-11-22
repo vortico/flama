@@ -1,3 +1,4 @@
+import time
 from unittest.mock import AsyncMock, PropertyMock, call, patch
 
 import pytest
@@ -16,6 +17,7 @@ from flama.errors.exception_handlers import (
 from flama.errors.middleware import ExceptionMiddleware, ServerErrorMiddleware
 from flama.http import HTTPException
 from flama.middleware import Middleware, MiddlewareStack, RootMiddlewareStack
+from tests._utils import run_in_threads
 
 
 class TestCaseMiddleware:
@@ -224,3 +226,25 @@ class TestCaseMiddlewareStackIntegration:
 
         assert response.status_code == status_code
         assert response.json() == body
+
+
+class TestCaseMiddlewareStackConcurrency:
+    def test_stack_built_once(self):
+        class FooMiddleware(Middleware): ...
+
+        middleware = [FooMiddleware(), FooMiddleware()]
+        stack = MiddlewareStack(app=AsyncMock(), middleware=middleware, debug=False)
+
+        build_stack = MiddlewareStack._stack
+
+        def slow_build(self):
+            # Long enough for every thread to find the stack unbuilt if building were not guarded.
+            time.sleep(0.05)
+            return build_stack(self)
+
+        with patch.object(MiddlewareStack, "_stack", autospec=True, side_effect=slow_build) as build:
+            pipelines = run_in_threads(lambda _: stack.stack, threads=16)
+
+        assert build.call_count == 1
+        assert len({id(x) for x in pipelines}) == 1
+        assert len(stack._instances) == len(middleware) + 1

@@ -315,9 +315,10 @@ jobs:
           ref: master
 
       # Build maturin's -i flags from the supported versions: binary names on Linux/macOS
-      # (python3.X), bare versions on Windows (resolved via the py launcher). `lines` feeds the
-      # multiline python-version input of setup-python on host rows. A missing version fails the
-      # release loudly rather than silently shipping fewer wheels.
+      # (python3.X, or python3.Xt for free-threaded builds), bare versions on Windows (resolved
+      # via the py launcher). `lines` feeds the multiline python-version input of setup-python on
+      # host rows. A missing version fails the release loudly rather than silently shipping fewer
+      # wheels.
       - name: Resolve interpreters
         id: interp
         shell: bash

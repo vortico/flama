@@ -1,6 +1,5 @@
 import functools
 import logging
-import threading
 import typing as t
 
 from flama import exceptions, injection, routing, types, url
@@ -166,9 +165,7 @@ class Flama(types.App):
     @status.setter
     def status(self, s: types.AppStatus) -> None:
         logger.debug("Transitioning %s from %s to %s", self, self._status, s)
-
-        with threading.Lock():
-            self._status = s
+        self._status = s
 
     @property
     def components(self) -> injection.Components:
