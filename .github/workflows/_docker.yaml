@@ -1,0 +1,202 @@
+name: Docker
+
+# Builds and pushes every Docker image of a Flama release: the base images, per supported Python version and schema
+# library, and the model serving images, per model library and Python version it installs on.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Flama release installed in the images, e.g. "2.3.0".
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  DEFAULT_LINUX: "slim"
+  DEFAULT_SCHEMAS: "pydantic"
+
+jobs:
+  config:
+    name: Config
+    uses: ./.github/workflows/_python-versions.yaml
+
+  pypi:
+    name: Wait for PyPI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      minor: ${{ steps.version.outputs.minor }}
+    steps:
+      # Images install the exact release, which PyPI's index may not list yet right after it's published.
+      - name: Wait for the release on PyPI
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          for _ in $(seq 60); do
+            curl -fsS https://pypi.org/simple/flama/ | grep -q "flama-${VERSION}[.-]" && exit 0
+            sleep 10
+          done
+          echo "Flama ${VERSION} isn't on PyPI" >&2
+          exit 1
+
+      - name: Minor version
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: echo "minor=${VERSION%.*}" >> "$GITHUB_OUTPUT"
+
+  docker_base:
+    name: Docker Push (${{ matrix.linux }}, ${{ matrix.python }}, ${{ matrix.schemas }})
+    needs: [config, pypi]
+    # No environment `url:` here on purpose: the `dockerhub` environment holds secrets, so GitHub
+    # refuses to publish a URL for it and warns on every matrix job. The link added nothing.
+    environment: dockerhub
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      # Don't let one image's transient failure (e.g. a Docker Hub registry timeout) cancel the
+      # other matrix builds — each tag is independent and re-runnable on its own.
+      fail-fast: false
+      matrix:
+        linux: ["slim"]
+        python: ${{ fromJSON(needs.config.outputs.versions) }}
+        schemas: ["pydantic", "marshmallow"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/flama
+          flavor: |
+            latest=false
+          labels: |
+            org.opencontainers.image.version=${{ inputs.version }}
+          tags: |
+            type=raw,enable=true,value=${{ matrix.linux }}-${{ needs.pypi.outputs.minor }}-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=true,value=${{ matrix.linux }}-latest-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.python == needs.config.outputs.default && 'true' || 'false' }},value=${{ matrix.linux }}-${{ needs.pypi.outputs.minor }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.python == needs.config.outputs.default && 'true' || 'false' }},value=${{ matrix.linux }}-latest-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=${{ needs.pypi.outputs.minor }}-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=latest-python${{ matrix.python }}-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false' }},value=${{ matrix.linux }}-${{ needs.pypi.outputs.minor }}-python${{ matrix.python }}
+            type=raw,enable=${{ matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false' }},value=${{ matrix.linux }}-latest-python${{ matrix.python }}
+            type=raw,enable=${{ matrix.python == needs.config.outputs.default && (matrix.linux == env.DEFAULT_LINUX && 'true' || 'false') || 'false' }},value=latest-${{ matrix.schemas }}
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false' }},value=latest-python${{ matrix.python }}
+            type=raw,enable=${{ matrix.python == needs.config.outputs.default && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false' }},value=${{ matrix.linux }}-latest
+            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && (matrix.python == needs.config.outputs.default && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false') || 'false' }},value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          build-args: |
+            PYTHON_VERSION=${{ matrix.python }}
+            FLAMA_VERSION=${{ inputs.version }}
+            EXTRAS=${{ matrix.schemas }},database
+          context: Dockerfiles/${{ matrix.linux }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+          # Every image of a Python version shares the CPython layer, cached by its Pydantic base image only, so the
+          # serving images reuse it without their library layers, gigabytes each, overflowing the cache.
+          cache-from: type=gha,scope=python${{ matrix.python }}
+          cache-to: ${{ matrix.schemas == env.DEFAULT_SCHEMAS && format('type=gha,mode=max,scope=python{0}', matrix.python) || '' }}
+
+  docker_serving:
+    name: Docker Push (${{ matrix.flavour }}, ${{ matrix.python }})
+    needs: [config, pypi]
+    # No environment `url:` here on purpose, as for the base images.
+    environment: dockerhub
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        flavour: ["sklearn", "torch", "tensorflow", "transformers", "llm"]
+        python: ${{ fromJSON(needs.config.outputs.versions) }}
+        # Python versions each library installs on, following the markers of its extra in pyproject.toml; the ML
+        # libraries publish no free-threaded wheels.
+        exclude:
+          - { flavour: tensorflow, python: "3.14" }
+          - { flavour: tensorflow, python: "3.15" }
+          - { flavour: llm, python: "3.15" }
+          - { python: "3.14t" }
+          - { python: "3.15t" }
+        # The flavour's unversioned tags go to its `primary` Python, the default one unless the library lacks it.
+        include:
+          - { flavour: sklearn, extras: "pydantic,sklearn" }
+          - { flavour: torch, extras: "pydantic,torch" }
+          - { flavour: tensorflow, extras: "pydantic,tensorflow", primary: "3.13" }
+          - { flavour: transformers, extras: "pydantic,transformers,torch" }
+          - { flavour: llm, extras: "pydantic,llm" }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+
+      # Model libraries, CUDA ones included, are larger than the runner's free disk space.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          docker image prune --all --force
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/flama
+          flavor: |
+            latest=false
+          labels: |
+            org.opencontainers.image.version=${{ inputs.version }}
+          tags: |
+            type=raw,enable=true,value=${{ matrix.flavour }}-${{ needs.pypi.outputs.minor }}-python${{ matrix.python }}
+            type=raw,enable=true,value=${{ matrix.flavour }}-latest-python${{ matrix.python }}
+            type=raw,enable=${{ matrix.python == (matrix.primary || needs.config.outputs.default) && 'true' || 'false' }},value=${{ matrix.flavour }}-${{ needs.pypi.outputs.minor }}
+            type=raw,enable=${{ matrix.python == (matrix.primary || needs.config.outputs.default) && 'true' || 'false' }},value=${{ matrix.flavour }}-latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          build-args: |
+            PYTHON_VERSION=${{ matrix.python }}
+            FLAMA_VERSION=${{ inputs.version }}
+            EXTRAS=${{ matrix.extras }}
+          context: Dockerfiles/slim
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=python${{ matrix.python }}

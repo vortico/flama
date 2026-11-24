@@ -17,10 +17,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  DEFAULT_LINUX: "slim"
-  DEFAULT_SCHEMAS: "pydantic"
-
 jobs:
   commitlint:
     name: Commit Lint
@@ -169,9 +165,6 @@ jobs:
     outputs:
       published: ${{ steps.semantic.outputs.new_release_published }}
       version: ${{ steps.semantic.outputs.new_release_version }}
-      major_version: ${{ steps.semantic.outputs.new_release_major_version }}
-      minor_version: ${{ steps.semantic.outputs.new_release_minor_version }}
-      patch_version: ${{ steps.semantic.outputs.new_release_patch_version }}
     steps:
       # A GitHub App token (not GITHUB_TOKEN, which can't bypass branch protection) so
       # semantic-release can push the version-bump commit and tag to the protected master.
@@ -428,72 +421,11 @@ jobs:
       - name: Publish to PyPI
         run: ./scripts/publish
 
-  docker_push:
-    name: Docker Push (${{ matrix.linux }}, ${{ matrix.python }}, ${{ matrix.schemas }})
-    needs: [release, publish, config]
+  docker:
+    name: Docker
+    needs: [release, publish]
     if: needs.release.outputs.published == 'true'
-    # No environment `url:` here on purpose: the `dockerhub` environment holds secrets, so GitHub
-    # refuses to publish a URL for it and warns on every matrix job. The link added nothing.
-    environment: dockerhub
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    strategy:
-      # Don't let one image's transient failure (e.g. a Docker Hub registry timeout) cancel the
-      # other matrix builds — each tag is independent and re-runnable on its own.
-      fail-fast: false
-      matrix:
-        linux: ["slim"]
-        python: ${{ fromJSON(needs.config.outputs.versions) }}
-        schemas: ["pydantic", "marshmallow"]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-        with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/flama
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,enable=true,value=${{ matrix.linux }}-${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-python${{ matrix.python }}-${{ matrix.schemas }}
-            type=raw,enable=true,value=${{ matrix.linux }}-latest-python${{ matrix.python }}-${{ matrix.schemas }}
-            type=raw,enable=${{ matrix.python == needs.config.outputs.default && 'true' || 'false' }},value=${{ matrix.linux }}-${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-${{ matrix.schemas }}
-            type=raw,enable=${{ matrix.python == needs.config.outputs.default && 'true' || 'false' }},value=${{ matrix.linux }}-latest-${{ matrix.schemas }}
-            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-python${{ matrix.python }}-${{ matrix.schemas }}
-            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && 'true' || 'false' }},value=latest-python${{ matrix.python }}-${{ matrix.schemas }}
-            type=raw,enable=${{ matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false' }},value=${{ matrix.linux }}-${{ needs.release.outputs.major_version }}.${{ needs.release.outputs.minor_version }}-python${{ matrix.python }}
-            type=raw,enable=${{ matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false' }},value=${{ matrix.linux }}-latest-python${{ matrix.python }}
-            type=raw,enable=${{ matrix.python == needs.config.outputs.default && (matrix.linux == env.DEFAULT_LINUX && 'true' || 'false') || 'false' }},value=latest-${{ matrix.schemas }}
-            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false' }},value=latest-python${{ matrix.python }}
-            type=raw,enable=${{ matrix.python == needs.config.outputs.default && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false' }},value=${{ matrix.linux }}-latest
-            type=raw,enable=${{ matrix.linux == env.DEFAULT_LINUX && (matrix.python == needs.config.outputs.default && (matrix.schemas == env.DEFAULT_SCHEMAS && 'true' || 'false') || 'false') || 'false' }},value=latest
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          build-args: |
-            PYTHON_VERSION=${{ matrix.python }}
-            SCHEMAS_LIB=${{ matrix.schemas }}
-          context: Dockerfiles/${{ matrix.linux }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          # Run-over-run layer cache, scoped per tag combination so the 15 matrix builds don't clobber
-          # each other's cache. Helps most with the emulated arm64 layers.
-          cache-from: type=gha,scope=${{ matrix.linux }}-${{ matrix.python }}-${{ matrix.schemas }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.linux }}-${{ matrix.python }}-${{ matrix.schemas }}
+    uses: ./.github/workflows/_docker.yaml
+    with:
+      version: ${{ needs.release.outputs.version }}
+    secrets: inherit

@@ -16,9 +16,6 @@ check: ## Checks the dependencies of the project and install those missing
 clean: ## Removes artifact folders and files which are cached
 	@./scripts/clean
 
-docker_push: ## Push docker images to registry
-	@./scripts/docker_push .
-
 fetch-templates: ## Fetches prebuilt templates from the latest published wheel
 	@./scripts/fetch_templates
 
@@ -58,7 +55,7 @@ update: ## Updates Python dependencies to their latest allowed versions
 update-templates: ## Updates the templates' npm dependencies (core-team; needs Artifact Registry access)
 	@./scripts/update_templates $(ARGS)
 
-.PHONY: help benchmark build build-from-source build-templates check clean docker_push fetch-templates format install install-from-source lint lint-fix performance publish test typecheck version update update-templates
+.PHONY: help benchmark build build-from-source build-templates check clean fetch-templates format install install-from-source lint lint-fix performance publish test typecheck version update update-templates
 .DEFAULT_GOAL := help
 
 help:

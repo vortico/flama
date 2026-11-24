@@ -111,11 +111,12 @@ Until each of these is ready, the corresponding step fails loudly — which is t
 
 ### Checklist
 
-- **`.github/workflows/_python-versions.yaml`**: add (or remove) `3.X` in the `versions` array. This is the
-  only CI edit needed — all workflow matrices are derived from it. The `default` version (release,
-  benchmarks and `latest` images) is set explicitly; move it deliberately, since benchmark results are compared
-  release over release.
-- **`scripts/docker_push`**: keep `PYTHON_VERSIONS` and `DEFAULT_PYTHON` in line with the workflow above.
+- **`.github/workflows/_python-versions.yaml`**: add (or remove) `3.X` in the `versions` array. All workflow
+  matrices are derived from it. The `default` version (release, benchmarks and `latest` images) is set
+  explicitly; move it deliberately, since benchmark results are compared release over release.
+- **`.github/workflows/_docker.yaml`**: the serving images' matrix excludes, version by version, the Pythons each
+  ML library lacks and every free-threaded build. Exclude `3.X` for the libraries without `3.X` wheels and
+  `3.Xt` for all of them, and set a flavour's `primary` when it lacks the `default` version.
 - **`pyproject.toml`**
   - Raise the `requires-python` upper bound.
   - Add the `Programming Language :: Python :: 3.X` classifier.
