@@ -20,6 +20,23 @@ __all__ = ["OpenAIServing"]
 
 logger = logging.getLogger(__name__)
 
+_ChatCompletionsResponse: t.TypeAlias = (
+    APIResponse[t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.ChatCompletionsOutput)]]
+    | ServerSentEventResponse[
+        t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.ChatCompletionsChunk)]
+    ]
+)
+_ResponsesResponse: t.TypeAlias = (
+    APIResponse[t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.ResponsesOutput)]]
+    | ServerSentEventResponse[types.Schema]
+)
+_CompletionsResponse: t.TypeAlias = (
+    APIResponse[t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.CompletionsOutput)]]
+    | ServerSentEventResponse[
+        t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.CompletionsOutput)]
+    ]
+)
+
 
 class ChatCompletionsMixin:
     @staticmethod
@@ -111,7 +128,7 @@ class ChatCompletionsMixin:
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.ChatCompletionsInput)],
-        ) -> APIResponse | ServerSentEventResponse:
+        ) -> _ChatCompletionsResponse:
             payload = dict(data)
             requested_model = payload.pop("model", name)
             raw_messages = payload.pop("messages", None)
@@ -166,7 +183,7 @@ class ChatCompletionsMixin:
                 - {verbose_name}
             summary:
                 OpenAI Chat Completions
-            description:
+            description: >-
                 OpenAI-compatible chat completions endpoint. Accepts the standard ``messages`` /
                 ``tools`` request body; returns either a JSON envelope (``stream:false``) or an SSE
                 stream of ``chat.completion.chunk`` frames terminated by ``data: [DONE]``
@@ -285,7 +302,7 @@ class ResponsesMixin:
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.ResponsesInput)],
-        ) -> APIResponse | ServerSentEventResponse:
+        ) -> _ResponsesResponse:
             payload = dict(data)
             requested_model = payload.pop("model", name)
             input_ = payload.pop("input", None)
@@ -343,7 +360,7 @@ class ResponsesMixin:
                 - {verbose_name}
             summary:
                 OpenAI Responses
-            description:
+            description: >-
                 OpenAI-compatible Responses endpoint. This implementation is stateless: it accepts
                 ``input`` / ``instructions`` / ``tools`` and returns either a buffered response object
                 (``stream:false``) or named SSE events (``stream:true``). Stateful features such as
@@ -352,6 +369,16 @@ class ResponsesMixin:
                 200:
                     description:
                         Responses API response (or named SSE event stream when ``stream:true``).
+                    content:
+                        text/event-stream:
+                            itemSchema:
+                                type: object
+                                required:
+                                    - type
+                                properties:
+                                    type:
+                                        type: string
+                                additionalProperties: true
         """
         route = ResourceRoute.method(path, methods=["POST"], name=method_name)(handler)
 
@@ -416,7 +443,7 @@ class CompletionsMixin:
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.CompletionsInput)],
-        ) -> APIResponse | ServerSentEventResponse:
+        ) -> _CompletionsResponse:
             payload = dict(data)
             requested_model = payload.pop("model", name)
             prompt_field = payload.pop("prompt", None)
@@ -447,7 +474,7 @@ class CompletionsMixin:
                 - {verbose_name}
             summary:
                 OpenAI Completions (legacy)
-            description:
+            description: >-
                 OpenAI-compatible legacy completions endpoint (``raw`` transport). Accepts a flat ``prompt``
                 string; returns either a JSON envelope (``stream:false``) or an SSE stream of
                 ``text_completion`` frames terminated by ``data: [DONE]``.

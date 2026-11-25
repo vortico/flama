@@ -276,8 +276,17 @@ class Parameter:
 
         origin = t.get_origin(self.type) or self.type
         response = origin if inspect.isclass(origin) and issubclass(origin, Response) else None
+        response_args = t.get_args(self.type) if t.get_origin(self.type) in (t.Union, UnionType) else ()
+        response_union = bool(response_args) and all(
+            inspect.isclass(response_origin := t.get_origin(arg) or arg) and issubclass(response_origin, Response)
+            for arg in response_args
+        )
 
-        if response is not None:
+        if response_union:
+            schema = Schema(schema=None)
+            field = None
+            response = None
+        elif response is not None:
             # A response class carries its own media type, and a type argument, when given, the schema
             # of its payload.
             args = t.get_args(self.type)
