@@ -2,12 +2,13 @@ import typing as t
 
 from flama import exceptions, schemas, types
 from flama.http.responses.json import JSONResponse
+from flama.http.responses.response import Payload
 from flama.schemas.data_structures import Schema
 
 __all__ = ["APIResponse", "APIErrorResponse"]
 
 
-class APIResponse(JSONResponse):
+class APIResponse(JSONResponse[Payload]):
     media_type = "application/json"
 
     def __init__(self, *args, schema: t.Any = None, **kwargs):

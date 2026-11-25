@@ -332,6 +332,59 @@ class TestCaseModelsModule:
         assert isinstance(resource_route, ResourceRoute)
         assert [(route.path, route.methods) for route in resource_route.routes] == expected_routes
 
+    def test_llm_serving_post_routes_are_in_openapi(self, app, llm_component, caplog: pytest.LogCaptureFixture) -> None:
+        component_ = llm_component
+        caplog.set_level(logging.ERROR, logger="flama.schemas.openapi")
+
+        class OpenAPILLMResource(LLMResource, metaclass=LLMResourceType):
+            name = "puppy"
+            verbose_name = "Puppy"
+            serving = ("native", "openai", "ollama")
+            component = component_
+
+        app.models.add_model_resource("/llm/", OpenAPILLMResource)
+
+        expected_response_media_types = {
+            "/llm/query/": {"application/json"},
+            "/llm/openai/v1/chat/completions": {"application/json", "text/event-stream"},
+            "/llm/openai/v1/completions": {"application/json", "text/event-stream"},
+            "/llm/openai/v1/responses": {"application/json", "text/event-stream"},
+            "/llm/ollama/api/chat": {"application/json", "application/x-ndjson"},
+            "/llm/ollama/api/generate": {"application/json", "application/x-ndjson"},
+            "/llm/ollama/v1/chat/completions": {"application/json", "text/event-stream"},
+            "/llm/ollama/v1/completions": {"application/json", "text/event-stream"},
+            "/llm/ollama/v1/responses": {"application/json", "text/event-stream"},
+        }
+        paths = app.schema.schema["paths"]
+
+        assert set(expected_response_media_types) <= paths.keys()
+        components = app.schema.schema["components"]["schemas"]
+        for path, expected_media_types in expected_response_media_types.items():
+            operation = paths[path]["post"]
+            assert operation["tags"] == ["Puppy"]
+            assert operation["summary"]
+            request_content = operation["requestBody"]["content"]
+            assert "application/json" in request_content
+            assert request_content["application/json"].get("schema")
+
+            response_content = operation["responses"]["200"]["content"]
+            assert set(response_content) == expected_media_types
+            for media_type in expected_media_types:
+                media_schema = response_content[media_type].get("schema") or response_content[media_type].get(
+                    "itemSchema"
+                )
+                assert media_schema
+                if "$ref" in media_schema:
+                    component_name = media_schema["$ref"].rsplit("/", 1)[-1]
+                    assert component_name in components
+
+        response_stream_schema = paths["/llm/openai/v1/responses"]["post"]["responses"]["200"]["content"][
+            "text/event-stream"
+        ]["itemSchema"]
+        assert response_stream_schema["properties"]["type"] == {"type": "string"}
+        assert response_stream_schema["additionalProperties"] is True
+        assert not any("Cannot generate schema for endpoint" in record.getMessage() for record in caplog.records)
+
     def test_add_model_rejects_unknown_serving(self, app, llm_component, llm_tags) -> None:
         with patch("flama.models.modules.ModelComponentBuilder.build", return_value=llm_component):
             with pytest.raises(ResourceServingLayerUnknown, match=r"unknown serving layer\(s\)"):

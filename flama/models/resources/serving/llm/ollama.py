@@ -27,6 +27,15 @@ __all__ = ["OllamaServing"]
 
 logger = logging.getLogger(__name__)
 
+_ChatResponse: t.TypeAlias = (
+    APIResponse[t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.ChatOutput)]]
+    | NDJSONResponse[t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.ChatOutput)]]
+)
+_GenerateResponse: t.TypeAlias = (
+    APIResponse[t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.GenerateOutput)]]
+    | NDJSONResponse[t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.GenerateOutput)]]
+)
+
 
 class ChatMixin:
     @staticmethod
@@ -117,7 +126,7 @@ class ChatMixin:
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.ChatInput)],
-        ) -> APIResponse | NDJSONResponse:
+        ) -> _ChatResponse:
             payload = dict(data)
             requested_model = payload.pop("model", name)
             raw_messages = payload.pop("messages", None) or []
@@ -228,7 +237,7 @@ class GenerateMixin:
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.GenerateInput)],
-        ) -> APIResponse | NDJSONResponse:
+        ) -> _GenerateResponse:
             payload = dict(data)
             requested_model = payload.pop("model", name)
             prompt = payload.pop("prompt", None)

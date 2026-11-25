@@ -4,10 +4,13 @@ import itertools
 import logging
 import typing as t
 from collections import defaultdict
+from types import UnionType
 
 import yaml
 
 from flama import routing, schemas, types, url
+from flama.http.responses.response import Response as HTTPResponse
+from flama.http.responses.response import StreamingResponse as HTTPStreamingResponse
 from flama.schemas import data_structures as ds
 from flama.schemas.registry import SchemaInfo, SchemaRegistry
 
@@ -759,6 +762,30 @@ class SchemaGenerator:
             **{x: metadata.get("requestBody", {}).get(x) for x in ("description", "required")},
         )
 
+    def _get_response_variants(self, annotation: t.Any) -> list[tuple[type[HTTPResponse], ds.Schema | None, bool]]:
+        origin = t.get_origin(annotation)
+        variants = t.get_args(annotation) if origin in (t.Union, UnionType) else (annotation,)
+        response_variants: list[tuple[type[HTTPResponse], ds.Schema | None, bool]] = []
+
+        for variant in variants:
+            response_type = t.get_origin(variant) or variant
+            if not inspect.isclass(response_type) or not issubclass(response_type, HTTPResponse):
+                continue
+
+            args = t.get_args(variant)
+            response_schema = None
+            multiple = False
+            if args:
+                multiple = types.Annotation(args[0]).is_multiple(list, tuple, set, frozenset)
+                try:
+                    response_schema = ds.Schema.from_type(args[0])
+                except ValueError:
+                    pass
+
+            response_variants.append((response_type, response_schema, multiple))
+
+        return response_variants
+
     def _build_endpoint_responses(self, endpoint: EndpointInfo, metadata: dict[str, t.Any]) -> Responses:
         responses = metadata.get("responses", {})
         try:
@@ -769,25 +796,51 @@ class SchemaGenerator:
             responses[main_response_code] = {}
 
         response_parameter = endpoint.response_parameter
-        media_type = response_parameter.media_type
-        response_schema = response_parameter.schema.schema if response_parameter.schema is not None else None
+        response_variants = self._get_response_variants(response_parameter.type)
 
-        if media_type is not None and response_schema is not None:
-            if response_schema not in self.schemas:
-                self.schemas.register(schema=response_schema)
+        if response_parameter.response is None and response_variants:
+            response_content = dict(responses[main_response_code].get("content", {}))
+            for response_type, response_schema, multiple in response_variants:
+                media_type = response_type.media_type
+                if media_type is None or media_type in response_content:
+                    continue
 
-            # A sequential media type is described frame by frame, so the reference belongs under
-            # `itemSchema`, which applies to each item independently rather than to the whole payload.
-            key = "itemSchema" if response_parameter.streaming else "schema"
-            responses[main_response_code]["content"] = {
-                **responses[main_response_code].get("content", {}),
-                media_type: {key: self.schemas.get_openapi_ref(response_schema, multiple=response_parameter.multiple)},
-            }
-        elif media_type is not None and response_parameter.response is not None:
-            responses[main_response_code]["content"] = {
-                media_type: {},
-                **responses[main_response_code].get("content", {}),
-            }
+                schema = response_schema.schema if response_schema is not None else None
+                if schema is None:
+                    response_content[media_type] = {}
+                    continue
+
+                if schema not in self.schemas:
+                    self.schemas.register(schema=schema)
+
+                # A sequential media type is described frame by frame, so the reference belongs under
+                # `itemSchema`, which applies to each item independently rather than to the whole payload.
+                key = "itemSchema" if issubclass(response_type, HTTPStreamingResponse) else "schema"
+                response_content[media_type] = {key: self.schemas.get_openapi_ref(schema, multiple=multiple)}
+
+            responses[main_response_code]["content"] = response_content
+        else:
+            media_type = response_parameter.media_type
+            response_schema = response_parameter.schema.schema if response_parameter.schema is not None else None
+
+            if media_type is not None and response_schema is not None:
+                if response_schema not in self.schemas:
+                    self.schemas.register(schema=response_schema)
+
+                # A sequential media type is described frame by frame, so the reference belongs under
+                # `itemSchema`, which applies to each item independently rather than to the whole payload.
+                key = "itemSchema" if response_parameter.streaming else "schema"
+                responses[main_response_code]["content"] = {
+                    **responses[main_response_code].get("content", {}),
+                    media_type: {
+                        key: self.schemas.get_openapi_ref(response_schema, multiple=response_parameter.multiple)
+                    },
+                }
+            elif media_type is not None and response_parameter.response is not None:
+                responses[main_response_code]["content"] = {
+                    media_type: {},
+                    **responses[main_response_code].get("content", {}),
+                }
 
         responses["default"] = {
             "description": "Unexpected error.",

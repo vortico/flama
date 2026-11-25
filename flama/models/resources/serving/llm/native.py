@@ -123,7 +123,7 @@ class QueryMixin:
                 - {verbose_name}
             summary:
                 Query the model
-            description:
+            description: >-
                 Send a prompt to the LLM and get a buffered response: an envelope with
                 ``id``, ``created``, ``stop_reason``, and the merged channel-tagged blocks
                 (one block per contiguous channel run).
