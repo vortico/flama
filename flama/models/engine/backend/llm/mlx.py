@@ -1,3 +1,4 @@
+import asyncio
 import concurrent.futures
 import contextlib
 import dataclasses
@@ -7,6 +8,7 @@ import pathlib
 import typing as t
 
 from flama import concurrency, exceptions
+from flama.models.cache import CACHE_PARAM_NAMES, current_cache_identity
 from flama.models.engine.backend.llm._base import TransformerLLMBackend
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
@@ -26,6 +28,12 @@ except Exception:  # pragma: no cover
     make_sampler = None
 
 try:
+    from mlx_lm.models.cache import make_prompt_cache, trim_prompt_cache
+except Exception:  # pragma: no cover
+    make_prompt_cache = None
+    trim_prompt_cache = None
+
+try:
     from mlx_vlm import load as mlx_vlm_load
     from mlx_vlm import stream_generate as mlx_vlm_stream_generate
 except Exception:  # pragma: no cover
@@ -37,6 +45,14 @@ __all__ = ["MLXBackend", "MlxRuntime"]
 _Loader: t.TypeAlias = t.Callable[[pathlib.Path, LLMModelCapabilities], "MlxRuntime"]
 
 logger = logging.getLogger(__name__)
+
+
+class _NullAsyncLock:
+    async def __aenter__(self) -> None:
+        return None
+
+    async def __aexit__(self, exc_type: t.Any, exc: t.Any, traceback: t.Any) -> None:
+        return None
 
 
 class _MlxStreamResp(t.Protocol):
@@ -144,6 +160,8 @@ class MLXBackend(TransformerLLMBackend):
         runtime = self._executor.submit(self._load_runtime, model_dir, resolved).result()
 
         super().__init__(runtime)
+        self._prompt_caches: dict[str, tuple[list[int], t.Any]] = {}
+        self._prompt_cache_lock = asyncio.Lock()
 
     @staticmethod
     def _load_lm(model_dir: pathlib.Path, capabilities: LLMModelCapabilities) -> "MlxRuntime":
@@ -273,6 +291,109 @@ class MLXBackend(TransformerLLMBackend):
         extras.update({k: v for k, v in processed.items() if k not in {"input_ids", "attention_mask"}})
         return extras
 
+    @staticmethod
+    def _cache_size(prompt_cache: t.Any) -> int:
+        sizes: list[int] = []
+        for item in prompt_cache:
+            size = item.size() if callable(getattr(item, "size", None)) else getattr(item, "offset", None)
+            if isinstance(size, int):
+                sizes.append(size)
+        return max(sizes, default=0)
+
+    @staticmethod
+    def _trim_cache(prompt_cache: t.Any, count: int) -> int:
+        if count <= 0:
+            return 0
+        if trim_prompt_cache is not None:
+            result = trim_prompt_cache(prompt_cache, count)
+            return result if isinstance(result, int) else count
+        trimmed = 0
+        for item in prompt_cache:
+            trim = getattr(item, "trim", None)
+            if callable(trim):
+                trimmed = max(trimmed, int(trim(count)))
+        return trimmed
+
+    def _prepare_prompt_cache(self, cache_key: str, tokens: list[int]) -> tuple[list[int], t.Any, int]:
+        cached = self._prompt_caches.get(cache_key)
+        if cached is None:
+            if make_prompt_cache is None:
+                return tokens, None, 0
+            prompt_cache = make_prompt_cache(self.model.model)
+            return tokens, prompt_cache, self._cache_size(prompt_cache)
+
+        cached_tokens, prompt_cache = cached
+        common = 0
+        for left, right in zip(cached_tokens, tokens):
+            if left != right:
+                break
+            common += 1
+
+        if common < len(cached_tokens):
+            self._trim_cache(prompt_cache, len(cached_tokens) - common)
+
+        if common == len(tokens) and common > 0:
+            self._trim_cache(prompt_cache, 1)
+            return tokens[-1:], prompt_cache, self._cache_size(prompt_cache)
+        return tokens[common:], prompt_cache, self._cache_size(prompt_cache)
+
+    def _cache_key(self) -> str | None:
+        identity = current_cache_identity()
+        if identity is None:
+            return "__shared__"
+        return identity if isinstance(identity, str) else None
+
+    def _build_source(
+        self,
+        inputs: EngineInput,
+        *,
+        prompt: list[int],
+        prompt_cache: t.Any,
+        max_tokens: int,
+        sampler: t.Any,
+    ) -> t.Iterator[_MlxStreamResp]:
+        if self.model.is_vlm:
+            if mlx_vlm_stream_generate is None or mx is None:  # noqa
+                raise exceptions.FrameworkNotInstalled("mlx-vlm")
+            return mlx_vlm_stream_generate(
+                self.model.model,
+                self.model.processor,
+                prompt="",
+                max_tokens=max_tokens,
+                sampler=sampler,
+                **self._build_mlx_vlm_extras(inputs),
+            )
+
+        if stream_generate is None:  # noqa
+            raise exceptions.FrameworkNotInstalled("mlx-lm")
+        kwargs: dict[str, t.Any] = {"prompt": prompt, "max_tokens": max_tokens, "sampler": sampler}
+        if prompt_cache is not None:
+            kwargs["prompt_cache"] = prompt_cache
+        return stream_generate(self.model.model, self.model.tokenizer, **kwargs)
+
+    async def _iterate_source(
+        self, source: t.Iterator[_MlxStreamResp], *, is_vlm: bool
+    ) -> t.AsyncGenerator[EngineDelta, None]:
+        previous_total = 0
+        async with contextlib.aclosing(concurrency.iterate(source, executor=self._executor)) as items:
+            async for chunk in items:
+                text = chunk.text or ""
+                finish_reason = getattr(chunk, "finish_reason", None)
+                if not text and finish_reason is None:
+                    continue
+                if is_vlm:
+                    total = getattr(chunk, "generation_tokens", None)
+                    if isinstance(total, int) and total >= previous_total:
+                        token_count: int | None = total - previous_total
+                        previous_total = total
+                    elif text:
+                        token_count = len(self.model.tokenizer.encode(text, add_special_tokens=False))
+                    else:
+                        token_count = None
+                else:
+                    token_count = 1 if text else None
+                yield EngineDelta(text=text, token_count=token_count, finish_reason=finish_reason)
+
     async def generate(self, inputs: EngineInput, /, **params: t.Any) -> t.AsyncIterator[EngineDelta]:
         """Yield deltas from the synchronous MLX generator.
 
@@ -308,48 +429,41 @@ class MLXBackend(TransformerLLMBackend):
         if make_sampler is None:  # noqa
             raise exceptions.FrameworkNotInstalled("mlx-lm")
 
+        for key in CACHE_PARAM_NAMES:
+            params.pop(key, None)
         max_tokens = self._resolve_max_tokens(params, len(inputs.tokens))
         sampler = make_sampler(temp=params.pop("temperature", self.DEFAULT_TEMP))
 
-        if self.model.is_vlm:
-            if mlx_vlm_stream_generate is None or mx is None:  # noqa
-                raise exceptions.FrameworkNotInstalled("mlx-vlm")
-            source: t.Iterator[_MlxStreamResp] = mlx_vlm_stream_generate(
-                self.model.model,
-                self.model.processor,
-                prompt="",
-                max_tokens=max_tokens,
-                sampler=sampler,
-                **self._build_mlx_vlm_extras(inputs),
-            )
-        else:
-            if stream_generate is None:  # noqa
-                raise exceptions.FrameworkNotInstalled("mlx-lm")
-            source = stream_generate(
-                self.model.model,
-                self.model.tokenizer,
-                prompt=inputs.tokens,
-                max_tokens=max_tokens,
-                sampler=sampler,
-            )
+        cache_key = self._cache_key()
+        use_cache = cache_key is not None and not self.model.is_vlm and make_prompt_cache is not None
+        lock: t.Any = self._prompt_cache_lock if use_cache else _NullAsyncLock()
+        async with lock:
+            prompt_tokens = list(inputs.tokens)
+            prompt_cache = None
+            base_cache_size = 0
+            generation_prompt = prompt_tokens
+            if use_cache:
+                generation_prompt, prompt_cache, base_cache_size = self._prepare_prompt_cache(cache_key, prompt_tokens)
 
-        is_vlm = self.model.is_vlm
-        previous_total = 0
-        async with contextlib.aclosing(concurrency.iterate(source, executor=self._executor)) as items:
-            async for chunk in items:
-                text = chunk.text or ""
-                finish_reason = getattr(chunk, "finish_reason", None)
-                if not text and finish_reason is None:
-                    continue
-                if is_vlm:
-                    total = getattr(chunk, "generation_tokens", None)
-                    if isinstance(total, int) and total >= previous_total:
-                        token_count: int | None = total - previous_total
-                        previous_total = total
-                    elif text:
-                        token_count = len(self.model.tokenizer.encode(text, add_special_tokens=False))
-                    else:
-                        token_count = None
-                else:
-                    token_count = 1 if text else None
-                yield EngineDelta(text=text, token_count=token_count, finish_reason=finish_reason)
+            source = self._build_source(
+                inputs,
+                prompt=generation_prompt,
+                prompt_cache=prompt_cache,
+                max_tokens=max_tokens,
+                sampler=sampler,
+            )
+            completed = False
+            try:
+                async with contextlib.aclosing(self._iterate_source(source, is_vlm=self.model.is_vlm)) as deltas:
+                    async for delta in deltas:
+                        yield delta
+                completed = True
+            finally:
+                if use_cache and prompt_cache is not None:
+                    generated = max(
+                        self._cache_size(prompt_cache) - base_cache_size - len(generation_prompt),
+                        0,
+                    )
+                    self._trim_cache(prompt_cache, generated)
+                    if completed:
+                        self._prompt_caches[cache_key] = (prompt_tokens, prompt_cache)

@@ -3,10 +3,11 @@ import logging
 import typing as t
 from datetime import datetime, timezone
 
-from flama import concurrency, schemas, types
+from flama import concurrency, http, schemas, types
 from flama.exceptions import FrameworkNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.ndjson import NDJSONResponse
+from flama.models.cache import request_cache_context
 from flama.models.exceptions import LLMGenerationError, LLMUnsupportedCapability, LLMUnsupportedContentPart
 from flama.models.resources.serving.llm._base import LLMServing
 from flama.models.resources.serving.llm.openai import (
@@ -116,6 +117,7 @@ class ChatMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
+            request: http.Request,
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.ChatInput)],
         ) -> APIResponse | NDJSONResponse:
             payload = dict(data)
@@ -143,11 +145,14 @@ class ChatMixin:
                 bool(getattr(self, "reasoning", True)) if raw_think is None else bool(raw_think)
             )
 
-            if stream:
-                return await ChatMixin._chat_stream(
-                    self, model, name, messages, tools, params, enable_thinking=enable_thinking
+            async with request_cache_context(model, request):
+                if stream:
+                    return await ChatMixin._chat_stream(
+                        self, model, name, messages, tools, params, enable_thinking=enable_thinking
+                    )
+                return await ChatMixin._chat_buffered(
+                    model, name, messages, tools, params, enable_thinking=enable_thinking
                 )
-            return await ChatMixin._chat_buffered(model, name, messages, tools, params, enable_thinking=enable_thinking)
 
         handler.__name__ = method_name
         handler.__doc__ = f"""
@@ -227,6 +232,7 @@ class GenerateMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
+            request: http.Request,
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.GenerateInput)],
         ) -> APIResponse | NDJSONResponse:
             payload = dict(data)
@@ -246,9 +252,10 @@ class GenerateMixin:
             if not isinstance(prompt, str) or not prompt:
                 raise HTTPException(status_code=400, detail="'prompt' must be a non-empty string.")
 
-            if stream:
-                return await GenerateMixin._generate_stream(self, model, name, prompt, params)
-            return await GenerateMixin._generate_buffered(model, name, prompt, params)
+            async with request_cache_context(model, request):
+                if stream:
+                    return await GenerateMixin._generate_stream(self, model, name, prompt, params)
+                return await GenerateMixin._generate_buffered(model, name, prompt, params)
 
         handler.__name__ = method_name
         handler.__doc__ = f"""

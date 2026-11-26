@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 import pytest
 
 from flama import exceptions
+from flama.models.cache import cache_context
 from flama.models.engine.backend.llm.mlx import MLXBackend, MlxRuntime
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
@@ -68,6 +69,18 @@ class _TrackingIterator:
 
     def close(self) -> None:
         self.close_called.set()
+
+
+class _FakePromptCache:
+    def __init__(self) -> None:
+        self.offset = 0
+
+    def size(self) -> int:
+        return self.offset
+
+    def trim(self, count: int) -> int:
+        self.offset = max(self.offset - count, 0)
+        return count
 
 
 class TestCaseMLXBackend:
@@ -658,6 +671,46 @@ class TestCaseMLXBackend:
         _, call_kwargs = mock_stream_generate.call_args
         assert call_kwargs["max_tokens"] == 64
         assert call_kwargs["prompt"] == [1, 2]
+
+    async def test_prompt_cache_isolated_by_identity_and_reuses_only_matching_prefix(self, text_runtime_args):
+        backend = self._make_backend(**text_runtime_args)
+        caches: list[_FakePromptCache] = []
+        prompts: list[list[int]] = []
+
+        def _make_cache(_model: t.Any) -> list[_FakePromptCache]:
+            cache = _FakePromptCache()
+            caches.append(cache)
+            return [cache]
+
+        def _stream(_model: t.Any, _tokenizer: t.Any, *, prompt, prompt_cache, **_kwargs):
+            prompts.append(list(prompt))
+            assert prompt_cache is not None
+            prompt_cache[0].offset += len(prompt) + 1
+            return iter([_FakeMlxResp("ok")])
+
+        with (
+            patch("flama.models.engine.backend.llm.mlx.make_prompt_cache", _make_cache),
+            patch("flama.models.engine.backend.llm.mlx.trim_prompt_cache", None),
+            patch("flama.models.engine.backend.llm.mlx.stream_generate", _stream),
+            patch("flama.models.engine.backend.llm.mlx.make_sampler", Mock(return_value="sampler")),
+            cache_context("caller-a"),
+        ):
+            [d async for d in backend.generate(EngineInput(tokens=[1, 2]))]
+            [d async for d in backend.generate(EngineInput(tokens=[1, 2, 3]))]
+
+        with (
+            patch("flama.models.engine.backend.llm.mlx.make_prompt_cache", _make_cache),
+            patch("flama.models.engine.backend.llm.mlx.trim_prompt_cache", None),
+            patch("flama.models.engine.backend.llm.mlx.stream_generate", _stream),
+            patch("flama.models.engine.backend.llm.mlx.make_sampler", Mock(return_value="sampler")),
+            cache_context("caller-b"),
+        ):
+            [d async for d in backend.generate(EngineInput(tokens=[1, 2]))]
+
+        assert prompts == [[1, 2], [3], [1, 2]]
+        assert len(caches) == 2
+        assert caches[0].offset == 3
+        assert caches[1].offset == 2
 
     def test_max_context_probes_text_runtime(self, text_runtime_args):
         text_runtime_args["model"] = Mock()

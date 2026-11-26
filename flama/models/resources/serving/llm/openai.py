@@ -2,10 +2,11 @@ import logging
 import time
 import typing as t
 
-from flama import concurrency, schemas, types
+from flama import concurrency, http, schemas, types
 from flama.exceptions import FrameworkNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.sse import ServerSentEventResponse
+from flama.models.cache import request_cache_context
 from flama.models.exceptions import LLMGenerationError, LLMUnsupportedCapability, LLMUnsupportedContentPart
 from flama.models.resources.serving.llm._base import LLMServing
 from flama.models.transport.input.llm.message import Message
@@ -110,6 +111,7 @@ class ChatCompletionsMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
+            request: http.Request,
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.ChatCompletionsInput)],
         ) -> APIResponse | ServerSentEventResponse:
             payload = dict(data)
@@ -139,9 +141,19 @@ class ChatCompletionsMixin:
             enable_thinking = bool(model.backend.capabilities.reasoning) and bool(getattr(self, "reasoning", True))
             reasoning_effort = raw_effort if enable_thinking else None
 
-            if stream:
-                return await ChatCompletionsMixin._chat_completions_stream(
-                    self,
+            async with request_cache_context(model, request):
+                if stream:
+                    return await ChatCompletionsMixin._chat_completions_stream(
+                        self,
+                        model,
+                        name,
+                        messages,
+                        tools,
+                        params,
+                        enable_thinking=enable_thinking,
+                        reasoning_effort=reasoning_effort,
+                    )
+                return await ChatCompletionsMixin._chat_completions_buffered(
                     model,
                     name,
                     messages,
@@ -150,15 +162,6 @@ class ChatCompletionsMixin:
                     enable_thinking=enable_thinking,
                     reasoning_effort=reasoning_effort,
                 )
-            return await ChatCompletionsMixin._chat_completions_buffered(
-                model,
-                name,
-                messages,
-                tools,
-                params,
-                enable_thinking=enable_thinking,
-                reasoning_effort=reasoning_effort,
-            )
 
         handler.__name__ = method_name
         handler.__doc__ = f"""
@@ -284,6 +287,7 @@ class ResponsesMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
+            request: http.Request,
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.ResponsesInput)],
         ) -> APIResponse | ServerSentEventResponse:
             payload = dict(data)
@@ -316,9 +320,19 @@ class ResponsesMixin:
             enable_thinking = bool(model.backend.capabilities.reasoning) and bool(getattr(self, "reasoning", True))
             reasoning_effort = raw_effort if enable_thinking else None
 
-            if stream:
-                return await ResponsesMixin._responses_stream(
-                    self,
+            async with request_cache_context(model, request):
+                if stream:
+                    return await ResponsesMixin._responses_stream(
+                        self,
+                        model,
+                        name,
+                        messages,
+                        tools,
+                        params,
+                        enable_thinking=enable_thinking,
+                        reasoning_effort=reasoning_effort,
+                    )
+                return await ResponsesMixin._responses_buffered(
                     model,
                     name,
                     messages,
@@ -327,15 +341,6 @@ class ResponsesMixin:
                     enable_thinking=enable_thinking,
                     reasoning_effort=reasoning_effort,
                 )
-            return await ResponsesMixin._responses_buffered(
-                model,
-                name,
-                messages,
-                tools,
-                params,
-                enable_thinking=enable_thinking,
-                reasoning_effort=reasoning_effort,
-            )
 
         handler.__name__ = method_name
         handler.__doc__ = f"""
@@ -415,6 +420,7 @@ class CompletionsMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
+            request: http.Request,
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.CompletionsInput)],
         ) -> APIResponse | ServerSentEventResponse:
             payload = dict(data)
@@ -437,9 +443,10 @@ class CompletionsMixin:
             if not isinstance(prompt, str):
                 raise HTTPException(status_code=400, detail="'prompt' must be a non-empty string.")
 
-            if stream:
-                return await CompletionsMixin._completions_stream(self, model, name, prompt, params)
-            return await CompletionsMixin._completions_buffered(model, name, prompt, params)
+            async with request_cache_context(model, request):
+                if stream:
+                    return await CompletionsMixin._completions_stream(self, model, name, prompt, params)
+                return await CompletionsMixin._completions_buffered(model, name, prompt, params)
 
         handler.__name__ = method_name
         handler.__doc__ = f"""

@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from flama import exceptions
+from flama.models.cache import cache_context
 from flama.models.engine.backend.llm._base import TransformerLLMBackend
 from flama.models.engine.backend.llm.vllm import VLLMBackend
 from flama.models.engine.llm.input import EngineInput
@@ -311,6 +312,29 @@ class TestCaseVLLMBackend:
 
         sampling_kwargs = fake_vllm.SamplingParams.call_args.kwargs
         assert sampling_kwargs["max_tokens"] == self.MAX_MODEL_LEN - 3
+
+    async def test_generate_uses_server_cache_identity_and_discards_client_salts(self, engine):
+        engine.generate.return_value = self._aiter(self._cuda_output("ok"))
+        backend = self._make_backend(engine=engine)
+        fake_vllm = MagicMock()
+
+        with (
+            patch("flama.models.engine.backend.llm.vllm.vllm", fake_vllm),
+            patch("flama.models.engine.backend.llm.vllm.RequestOutputKind", _FakeRequestOutputKind),
+            cache_context("server-derived-identity"),
+        ):
+            [
+                d
+                async for d in backend.generate(
+                    EngineInput(tokens=[1, 2]),
+                    cache_salt="attacker-controlled",
+                    prompt_cache_key="attacker-controlled",
+                )
+            ]
+
+        sampling_kwargs = fake_vllm.SamplingParams.call_args.kwargs
+        assert sampling_kwargs["cache_salt"] == "server-derived-identity"
+        assert "prompt_cache_key" not in sampling_kwargs
 
     @pytest.mark.parametrize("invalid", [0, -1])
     async def test_generate_raises_on_non_positive_max_tokens(self, engine, invalid: int) -> None:

@@ -3,6 +3,7 @@ import os
 import typing as t
 
 from flama.models._base import LLMModel
+from flama.models.cache import CacheIsolation
 from flama.models.components import ModelComponent, ModelComponentBuilder
 from flama.models.engine.llm.decoder.decoder import Decoder
 from flama.models.resources.llm import LLMResource, LLMResourceType
@@ -85,6 +86,8 @@ class ModelsModule(Module):
         decoder: "Decoder | None" = None,
         params: dict[str, t.Any] | None = None,
         serving: "tuple[types.LLMServing, ...] | None" = None,
+        cache_isolation: CacheIsolation = "user",
+        cache_secret: bytes | str | None = None,
         **kwargs,
     ) -> "ResourceRoute":
         """Register a packaged model under *path*, auto-routing to the appropriate resource type.
@@ -124,7 +127,16 @@ class ModelsModule(Module):
             if "reasoning" in params:
                 reasoning = bool(params.pop("reasoning"))
 
-        component = ModelComponentBuilder.build(model, name=name, decoder=decoder, params=params or None)
+        build_kwargs: dict[str, t.Any] = {
+            "name": name,
+            "decoder": decoder,
+            "params": params or None,
+        }
+        if cache_isolation != "user":
+            build_kwargs["cache_isolation"] = cache_isolation
+        if cache_secret is not None:
+            build_kwargs["cache_secret"] = cache_secret
+        component = ModelComponentBuilder.build(model, **build_kwargs)
         family = component.model.meta.framework.family
         logger.info("Adding model %r from %s (family=%s)", name, model, family)
 

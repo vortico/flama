@@ -6,11 +6,20 @@ import typing as t
 import uuid
 
 from flama import concurrency, exceptions, types
+from flama.models.cache import (
+    CACHE_PARAM_NAMES,
+    CacheIsolation,
+    cache_context,
+    current_cache_identity,
+    validate_cache_isolation,
+)
+from flama.models.cache import cache_secret as make_cache_secret
 from flama.models.engine.backend import Backend
 from flama.models.engine.backend.llm import LLMBackend
 from flama.models.engine.backend.ml import MLBackend
 from flama.models.engine.llm.codec import LLMCodec
 from flama.models.engine.llm.decoder.decoder import Decoder
+from flama.models.engine.llm.delta import EngineDelta
 from flama.models.exceptions import LLMEmptyGeneration
 from flama.models.transport.input.llm.message import Message
 from flama.models.transport.input.llm.shape import Shape
@@ -279,6 +288,8 @@ class LLMModel(BaseModel[LLMBackend]):
         path: pathlib.Path | None = None,
         autoload: bool = False,
         decoder: Decoder | None = None,
+        cache_isolation: CacheIsolation = "user",
+        cache_secret: bytes | str | None = None,
     ) -> None:
         """Initialise the wrapper around a configured backend with empty default generation params.
 
@@ -295,6 +306,8 @@ class LLMModel(BaseModel[LLMBackend]):
         super().__init__(backend, meta, artifacts, name=name, path=path, autoload=autoload)
         self.params: dict[str, t.Any] = {}
         self._codec = LLMCodec(decoder)
+        self.cache_isolation: CacheIsolation = validate_cache_isolation(cache_isolation)
+        self.cache_secret: bytes = make_cache_secret(cache_secret)
 
     @classmethod
     def validate_config(cls, config: dict[str, t.Any], /) -> dict[str, t.Any]:
@@ -329,7 +342,16 @@ class LLMModel(BaseModel[LLMBackend]):
         :param params: Key-value pairs to update.
         :raises ValueError: If any reserved key carries an unsupported value.
         """
-        self.params.update(type(self).validate_config(dict(params)))
+        configured = type(self).validate_config(dict(params))
+        for key in CACHE_PARAM_NAMES:
+            configured.pop(key, None)
+        self.params.update(configured)
+
+    def _generation_params(self, params: dict[str, t.Any]) -> dict[str, t.Any]:
+        merged = {**self.params, **params}
+        for key in CACHE_PARAM_NAMES:
+            merged.pop(key, None)
+        return merged
 
     async def startup(self) -> None:
         """Materialise the model and run decoder detection.
@@ -422,7 +444,7 @@ class LLMModel(BaseModel[LLMBackend]):
 
         blocks: list[Event] = []
         async for item in self._codec.decode(
-            self.backend.generate(inputs, **{**self.params, **params}),
+            self.backend.generate(inputs, **self._generation_params(params)),
             message_id=message_id or uuid.uuid4(),
             input_tokens=len(inputs.tokens),
             prompt=inputs.text,
@@ -476,17 +498,26 @@ class LLMModel(BaseModel[LLMBackend]):
         :raises ValueError: For invalid transport / field combinations, or non-positive
             ``max_tokens``.
         """
-        t = Shape.build(
+        shape = Shape.build(
             transport or self.backend.default_transport,
             prompt=prompt,
             system=system,
             messages=tuple(messages) if messages else None,
             tools=tuple(tools) if tools else None,
         )
-        inputs = await t.render(self.backend, chat_template_kwargs=chat_template_kwargs)
+        inputs = await shape.render(self.backend, chat_template_kwargs=chat_template_kwargs)
+
+        cache_identity_value = current_cache_identity()
+        cache_identity = cache_identity_value if isinstance(cache_identity_value, str) else None
+
+        async def generate() -> t.AsyncIterator[EngineDelta]:
+            # Capture the serving request identity before the response body is consumed later.
+            with cache_context(cache_identity):
+                async for item in self.backend.generate(inputs, **self._generation_params(params)):
+                    yield item
 
         return self._codec.decode(
-            self.backend.generate(inputs, **{**self.params, **params}),
+            generate(),
             message_id=message_id,
             input_tokens=len(inputs.tokens),
             prompt=inputs.text,
