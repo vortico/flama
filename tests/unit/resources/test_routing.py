@@ -62,7 +62,7 @@ class TestCaseResourceRoute:
     def test_nested_mount(self, app, puppy_resource) -> None:
         app.add_route(route=Route("/", lambda: {"Hello": "world"}))
 
-        sub_app = Flama(schema=None, docs=None, schema_library=app.schema.schema_library.name)
+        sub_app = Flama(schema=None, docs=None)
         sub_app.resources.add_resource("/puppy/", puppy_resource)
         app.mount("/", sub_app)
 

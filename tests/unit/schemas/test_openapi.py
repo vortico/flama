@@ -20,6 +20,7 @@ from flama.http.responses.ndjson import NDJSONResponse
 from flama.http.responses.sse import ServerSentEventResponse
 from flama.schemas import data_structures as ds
 from flama.schemas import openapi
+from flama.schemas.libs._libraries import libraries
 from flama.schemas.openapi import (
     Callback,
     Contact,
@@ -1690,24 +1691,24 @@ class TestCaseOpenAPISchemaRegistry:
 class TestCaseSchemaGenerator:
     @pytest.fixture(scope="function")
     def owner_schema(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("Owner", name=(str, ...), __module__="pydantic.main")
             name = "pydantic.main.Owner"
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type("Owner", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
             name = "abc.Owner"
         else:
-            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+            raise ValueError(f"Wrong schema lib: {libraries.default.name}")
         return namedtuple("OwnerSchema", ("schema", "name"))(schema, name)
 
     @pytest.fixture(scope="function")
     def puppy_schema(self, app, owner_schema):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model(
                 "Puppy", name=(str, ...), owner=(owner_schema.schema, ...), __module__="pydantic.main"
             )
             name = "pydantic.main.Puppy"
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type(
                 "Puppy",
                 (marshmallow.Schema,),
@@ -1718,19 +1719,19 @@ class TestCaseSchemaGenerator:
             )
             name = "abc.Puppy"
         else:
-            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+            raise ValueError(f"Wrong schema lib: {libraries.default.name}")
         return namedtuple("PuppySchema", ("schema", "name"))(schema, name)
 
     @pytest.fixture(scope="function")
     def body_param_schema(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("BodyParam", name=(str, ...), __module__="pydantic.main")
             name = "pydantic.main.BodyParam"
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type("BodyParam", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
             name = "abc.BodyParam"
         else:
-            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+            raise ValueError(f"Wrong schema lib: {libraries.default.name}")
         return namedtuple("BodyParamSchema", ("schema", "name"))(schema, name)
 
     @pytest.fixture(scope="function")
@@ -1871,13 +1872,13 @@ class TestCaseSchemaGenerator:
             """
             return {}
 
-        sub_app = Flama(schema=None, docs=None, schema_library=app.schema.schema_library.name)
+        sub_app = Flama(schema=None, docs=None)
         sub_app.add_route("/custom-component/", endpoint=get, methods=["GET"])
         app.mount("/mount", sub_app)
 
-        nested_app = Flama(schema=None, docs=None, schema_library=app.schema.schema_library.name)
+        nested_app = Flama(schema=None, docs=None)
         nested_app.add_route("/nested-component/", endpoint=get, methods=["GET"])
-        mounted_app = Flama(schema=None, docs=None, schema_library=app.schema.schema_library.name)
+        mounted_app = Flama(schema=None, docs=None)
         mounted_app.mount("/mount", nested_app)
         app.mount("/nested", mounted_app)
 
@@ -1896,8 +1897,8 @@ class TestCaseSchemaGenerator:
             schemas["Owner"].name,
             schemas["Puppy"].name,
             schemas["BodyParam"].name,
-            "flama.core.APIError",
-            "flama.core.ErrorDetail",
+            f"flama.{libraries.default.name}.core.APIError",
+            f"flama.{libraries.default.name}.core.ErrorDetail",
         }
 
     @pytest.mark.parametrize(
@@ -1913,9 +1914,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/problem+json": {
-                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
-                                }
+                                "application/problem+json": {"schema": {"$ref": "#/components/schemas/APIError"}}
                             },
                         },
                     },
@@ -1952,9 +1951,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/problem+json": {
-                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
-                                }
+                                "application/problem+json": {"schema": {"$ref": "#/components/schemas/APIError"}}
                             },
                         },
                     },
@@ -1979,9 +1976,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/problem+json": {
-                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
-                                }
+                                "application/problem+json": {"schema": {"$ref": "#/components/schemas/APIError"}}
                             },
                         },
                     },
@@ -2004,9 +1999,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/problem+json": {
-                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
-                                }
+                                "application/problem+json": {"schema": {"$ref": "#/components/schemas/APIError"}}
                             },
                         },
                     },
@@ -2030,9 +2023,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/problem+json": {
-                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
-                                }
+                                "application/problem+json": {"schema": {"$ref": "#/components/schemas/APIError"}}
                             },
                         },
                     },
@@ -2052,9 +2043,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/problem+json": {
-                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
-                                }
+                                "application/problem+json": {"schema": {"$ref": "#/components/schemas/APIError"}}
                             },
                         },
                     },
@@ -2074,9 +2063,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/problem+json": {
-                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
-                                }
+                                "application/problem+json": {"schema": {"$ref": "#/components/schemas/APIError"}}
                             },
                         },
                     },
@@ -2096,9 +2083,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/problem+json": {
-                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
-                                }
+                                "application/problem+json": {"schema": {"$ref": "#/components/schemas/APIError"}}
                             },
                         },
                     },
@@ -2114,9 +2099,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/problem+json": {
-                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
-                                }
+                                "application/problem+json": {"schema": {"$ref": "#/components/schemas/APIError"}}
                             },
                         }
                     },
@@ -2134,9 +2117,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/problem+json": {
-                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
-                                }
+                                "application/problem+json": {"schema": {"$ref": "#/components/schemas/APIError"}}
                             },
                         },
                     },
@@ -2162,9 +2143,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/problem+json": {
-                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
-                                }
+                                "application/problem+json": {"schema": {"$ref": "#/components/schemas/APIError"}}
                             },
                         },
                     },
@@ -2199,9 +2178,7 @@ class TestCaseSchemaGenerator:
                         "default": {
                             "description": "Unexpected error.",
                             "content": {
-                                "application/problem+json": {
-                                    "schema": {"$ref": "#/components/schemas/flama.core.APIError"}
-                                }
+                                "application/problem+json": {"schema": {"$ref": "#/components/schemas/APIError"}}
                             },
                         },
                     },
@@ -2217,7 +2194,9 @@ class TestCaseSchemaGenerator:
         ],
     )
     def test_schema(self, app, schemas, path, verb, expected_schema):
-        schema = _replace_refs(expected_schema, {k: v.name for k, v in schemas.items()})
+        refs = {k: v.name for k, v in schemas.items()}
+        refs["APIError"] = f"flama.{libraries.default.name}.core.APIError"
+        schema = _replace_refs(expected_schema, refs)
 
         assert_recursive_contains(schema, app.schema.schema["paths"][path][verb])
 
@@ -2256,7 +2235,7 @@ class TestCaseSchemaGenerator:
 
     def test_get_api_schema_recursive_schema_terminates(self, app):
         """A self-referencing (recursive) schema must not loop forever while collecting used schemas."""
-        if app.schema.schema_library.name != "pydantic":
+        if libraries.default.name != "pydantic":
             pytest.skip("Recursive-model regression is exercised through the pydantic library")
 
         @app.route("/nodes/", methods=["GET"])
@@ -2274,11 +2253,11 @@ class TestCaseSchemaGenerator:
 
         assert not worker.is_alive(), "OpenAPI generation for a recursive schema did not terminate"
 
-        schemas = result["schema"]["components"]["schemas"]
-        node_key = next(k for k in schemas if k.split(".")[-1] == "_RecursiveNode")
+        components = result["schema"]["components"]["schemas"]
+        node_key = next(k for k in components if k.split(".")[-1] == "_RecursiveNode")
         assert "_RecursiveNode" in node_key
         # The recursive model references itself within the generated component schema.
-        assert "_RecursiveNode" in str(schemas[node_key])
+        assert "_RecursiveNode" in str(components[node_key])
 
     def test_schema_references_resolve(self, app):
         """A reference to a component that the document never declares makes the whole document unusable."""
@@ -2291,7 +2270,7 @@ class TestCaseSchemaGenerator:
 
     def test_enum_is_described_where_it_is_used(self, app):
         """An enum is not published as a component, so a reference to one would never resolve."""
-        if app.schema.schema_library.name != "pydantic":
+        if libraries.default.name != "pydantic":
             pytest.skip("Only pydantic emits an enum as a definition of its own")
 
         @app.route("/enum/", methods=["GET"])
@@ -2307,12 +2286,12 @@ class TestCaseSchemaGenerator:
     @pytest.fixture(scope="function")
     def docstring_schema(self, app):
         """A schema nothing else references, so only the docstring can pull it into the document."""
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("DocstringRef", value=(str, ...), __module__="pydantic.main")
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type("DocstringRef", (marshmallow.Schema,), {"value": marshmallow.fields.String()})
         else:
-            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+            raise ValueError(f"Wrong schema lib: {libraries.default.name}")
 
         app.schema.register_schema("DocstringRef", schema)
         return schema
@@ -2387,13 +2366,13 @@ class TestCaseResponseAnnotations:
 
     @pytest.fixture(scope="function")
     def frame_schema(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             return pydantic.create_model("StreamFrame", token=(str, ...), __module__="pydantic.main")
 
-        if app.schema.schema_library.name == "marshmallow":
+        if libraries.default.name == "marshmallow":
             return type("StreamFrame", (marshmallow.Schema,), {"token": marshmallow.fields.String()})
 
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+        raise ValueError(f"Wrong schema lib: {libraries.default.name}")
 
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app, frame_schema):

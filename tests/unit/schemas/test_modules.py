@@ -2,7 +2,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from flama import Flama, exceptions, pagination, schemas
+from flama import Flama, exceptions
 from flama.schemas.modules import SchemaModule
 from tests._utils import requires_templates
 
@@ -33,7 +33,7 @@ class TestCaseSchemaModule:
         assert generator_mock.call_args_list == [
             call(
                 spec={"info": {"title": "Foo", "version": "1.0.0", "description": "Bar"}},
-                schemas={**schemas.schemas.SCHEMAS, **pagination.paginator.schemas},
+                schemas={},
             )
         ]
 

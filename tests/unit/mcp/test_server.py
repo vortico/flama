@@ -3,18 +3,19 @@ import json
 
 import pytest
 
-from flama import schemas, types
+from flama import types
 from flama.mcp.data_structures import Elicitation, Extensions, Prompt, Resource, ResourceTemplate, Tool, UIResource
 from flama.mcp.server import MCPServer
 from flama.mcp.tasks import InMemoryTaskStore
+from flama.schemas.libs._libraries import libraries
 
 
 class _Opaque: ...
 
 
 def _nested_schema():
-    """Build a ``Parent`` schema with a nested ``Child`` via the active adapter (adapter-agnostic)."""
-    adapter = schemas.adapter
+    """Build a ``Parent`` schema with a nested ``Child`` via the default library's adapter (adapter-agnostic)."""
+    adapter = libraries.default.adapter
     child = adapter.build_schema(name="Child", fields={"value": adapter.build_field("value", int)})
     return adapter.build_schema(name="Parent", fields={"child": adapter.build_field("child", child)})
 
@@ -258,7 +259,7 @@ class TestCaseMCPServer:
         assert entry.result is not None
 
     def test_add_tool_output_schema_of_flat_schema(self, server):
-        adapter = schemas.adapter
+        adapter = libraries.default.adapter
         flat = adapter.build_schema(name="Flat", fields={"value": adapter.build_field("value", int)})
 
         def func() -> list[flat]: ...

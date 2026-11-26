@@ -2,7 +2,7 @@ import logging
 import time
 import typing as t
 
-from flama import _concurrency, schemas, types
+from flama import _concurrency, types
 from flama.exceptions import DependencyNotInstalled
 from flama.http.exceptions import HTTPException
 from flama.http.responses.api import APIResponse
@@ -13,6 +13,7 @@ from flama.models.transport.input.llm.message import Message
 from flama.models.transport.input.llm.tool import Tool
 from flama.models.wire.dialect.llm.openai import OpenAIDialect
 from flama.resources.routing import ResourceRoute
+from flama.schemas.libs._libraries import libraries
 
 if t.TYPE_CHECKING:
     from flama.models import LLMModel
@@ -53,7 +54,7 @@ class ChatCompletionsMixin:
             payload = await OpenAIDialect.assemble(blocks, api="chat", model=name)
         except LLMGenerationError as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
-        return APIResponse(payload, schema=schemas.schemas.llm_openai.ChatCompletionsOutput)
+        return APIResponse(payload, schema=libraries.default.schemas.llm_openai.ChatCompletionsOutput)
 
     @staticmethod
     async def _chat_completions_stream(
@@ -111,7 +112,10 @@ class ChatCompletionsMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.ChatCompletionsInput)],
+            data: t.Annotated[
+                types.Schema,
+                types.SchemaMetadata(libraries.default.schemas.llm_openai.ChatCompletionsInput),
+            ],
         ) -> APIResponse | ServerSentEventResponse:
             payload = dict(data)
             requested_model = payload.pop("model", name)
@@ -235,7 +239,7 @@ class ResponsesMixin:
             payload = await OpenAIDialect.assemble(blocks, api="response", model=name)
         except LLMGenerationError as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
-        return APIResponse(payload, schema=schemas.schemas.llm_openai.ResponsesOutput)
+        return APIResponse(payload, schema=libraries.default.schemas.llm_openai.ResponsesOutput)
 
     @staticmethod
     async def _responses_stream(
@@ -285,7 +289,7 @@ class ResponsesMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.ResponsesInput)],
+            data: t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_openai.ResponsesInput)],
         ) -> APIResponse | ServerSentEventResponse:
             payload = dict(data)
             requested_model = payload.pop("model", name)
@@ -375,7 +379,7 @@ class CompletionsMixin:
             payload = await OpenAIDialect.assemble(blocks, api="completion", model=name)
         except LLMGenerationError as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
-        return APIResponse(payload, schema=schemas.schemas.llm_openai.CompletionsOutput)
+        return APIResponse(payload, schema=libraries.default.schemas.llm_openai.CompletionsOutput)
 
     @staticmethod
     async def _completions_stream(
@@ -416,7 +420,10 @@ class CompletionsMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.CompletionsInput)],
+            data: t.Annotated[
+                types.Schema,
+                types.SchemaMetadata(libraries.default.schemas.llm_openai.CompletionsInput),
+            ],
         ) -> APIResponse | ServerSentEventResponse:
             payload = dict(data)
             requested_model = payload.pop("model", name)
@@ -478,7 +485,7 @@ class ModelsMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_openai.ModelsOutput)]:
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_openai.ModelsOutput)]:
             cap = model.backend.capabilities
             return {
                 "object": "list",

@@ -6,6 +6,7 @@ import typing as t
 from flama import schemas, types
 from flama.http.exceptions import HTTPException, SerializationError
 from flama.http.responses.json import JSONResponse
+from flama.schemas.libs._libraries import libraries
 from flama.types.schemas import SchemaPayload
 
 if t.TYPE_CHECKING:
@@ -97,7 +98,7 @@ class APIErrorResponse(APIResponse):
                 **({"errors": [dataclasses.asdict(x) for x in errors]} if errors else {}),
                 **(extensions or {}),
             },
-            schema=schemas.schemas.core.APIError,
+            schema=libraries.default.schemas.core.APIError,
             status_code=status_code,
             headers=headers,
             background=background,

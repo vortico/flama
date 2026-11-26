@@ -98,35 +98,29 @@ class BasePaginator(abc.ABC):
     @abc.abstractmethod
     def wraps(
         cls, func: t.Callable[P, SchemaType], signature: inspect.Signature
-    ) -> tuple[t.Callable[P, PaginatedResponse[SchemaType]], dict[str, t.Any]]: ...
+    ) -> t.Callable[P, PaginatedResponse[SchemaType]]: ...
     @t.overload
     @classmethod
     @abc.abstractmethod
     def wraps(
         cls, func: t.Callable[P, t.Coroutine[t.Any, t.Any, SchemaType]], signature: inspect.Signature
-    ) -> tuple[t.Callable[P, t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]], dict[str, t.Any]]: ...
+    ) -> t.Callable[P, t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]]: ...
     @t.overload
     @classmethod
     @abc.abstractmethod
     def wraps(
         cls, func: t.Callable[P, SchemaType | t.Coroutine[t.Any, t.Any, SchemaType]], signature: inspect.Signature
-    ) -> tuple[
-        t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]],
-        dict[str, t.Any],
-    ]: ...
+    ) -> t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]]: ...
     @classmethod
     @abc.abstractmethod
     def wraps(
         cls, func: t.Callable[P, SchemaType | t.Coroutine[t.Any, t.Any, SchemaType]], signature: inspect.Signature
-    ) -> tuple[
-        t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]],
-        dict[str, t.Any],
-    ]:
+    ) -> t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]]:
         """
         Decorator for adding pagination behavior to a view.
 
         :param func: Function to decorate.
         :param signature: Function signature.
-        :return: Decorated view and new schemas.
+        :return: Decorated view.
         """
         ...

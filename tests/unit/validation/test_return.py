@@ -5,17 +5,18 @@ import pydantic
 import pytest
 
 from flama import endpoints, http, types
+from flama.schemas.libs._libraries import libraries
 
 
 class TestCaseReturnValidation:
     @pytest.fixture(scope="function")
     def output_schema(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("OutputSchema", name=(str, ...))
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type("OutputSchema", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         else:
-            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+            raise ValueError(f"Wrong schema lib: {libraries.default.name}")
 
         return schema
 

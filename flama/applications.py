@@ -56,7 +56,6 @@ class Flama(types.App):
         },
         schema: str | None = "/schema/",
         docs: str | None = "/docs/",
-        schema_library: str | None = None,
         parent: "Flama | None" = None,
     ) -> None:
         """Flama application.
@@ -71,7 +70,6 @@ class Flama(types.App):
         :param openapi: OpenAPI spec.
         :param schema: OpenAPI schema endpoint path.
         :param docs: Docs endpoint path.
-        :param schema_library: Schema library to use.
         :param parent: Parent app.
         """
         self._debug = debug
@@ -103,9 +101,6 @@ class Flama(types.App):
         self.middleware = (RootMiddlewareStack if parent is None else MiddlewareStack)(
             app=self, middleware=middleware or [], debug=debug
         )
-
-        # Setup schema library
-        self.schema.schema_library = schema_library
 
         # Add schema routes
         self.schema.add_routes()

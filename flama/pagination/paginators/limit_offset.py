@@ -2,9 +2,10 @@ import functools
 import inspect
 import typing as t
 
-from flama import schemas, types
+from flama import types
 from flama.pagination.paginators._base import BasePaginator, PaginatedResponse
 from flama.schemas.data_structures import Field, Schema
+from flama.schemas.libs._libraries import libraries
 
 __all__ = ["LimitOffsetPaginator", "LimitOffsetResponse"]
 
@@ -94,19 +95,16 @@ class LimitOffsetPaginator(BasePaginator):
     @classmethod
     def wraps(
         cls, func: t.Callable[P, SchemaType], signature: inspect.Signature
-    ) -> tuple[t.Callable[P, PaginatedResponse[SchemaType]], dict[str, t.Any]]: ...
+    ) -> t.Callable[P, PaginatedResponse[SchemaType]]: ...
     @t.overload
     @classmethod
     def wraps(
         cls, func: t.Callable[P, t.Coroutine[t.Any, t.Any, SchemaType]], signature: inspect.Signature
-    ) -> tuple[t.Callable[P, t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]], dict[str, t.Any]]: ...
+    ) -> t.Callable[P, t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]]: ...
     @classmethod
     def wraps(
         cls, func: t.Callable[P, SchemaType | t.Coroutine[t.Any, t.Any, SchemaType]], signature: inspect.Signature
-    ) -> tuple[
-        t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]],
-        dict[str, t.Any],
-    ]:
+    ) -> t.Callable[P, PaginatedResponse[SchemaType] | t.Coroutine[t.Any, t.Any, PaginatedResponse[SchemaType]]]:
         """
         Decorator for adding pagination behavior to a view. That decorator produces a view based on limit-offset and
         it adds three query parameters to control the pagination: limit, offset and count. Offset has a default value of
@@ -119,7 +117,7 @@ class LimitOffsetPaginator(BasePaginator):
 
         :param func: Function to decorate.
         :param signature: Function signature.
-        :return: Decorated view and new schemas.
+        :return: Decorated view.
         """
         schema = Schema.from_type(signature.return_annotation)
 
@@ -133,11 +131,10 @@ class LimitOffsetPaginator(BasePaginator):
         paginated_schema = Schema.build(
             name,
             module,
-            schema=schemas.schemas.pagination.LimitOffset,
-            fields=[Field("data", schema.unique_schema, multiple=True)],
+            schema=(schema.library or libraries.default).schemas.pagination.LimitOffset,
+            fields=[Field("data", schema.unique_schema, multiple=True, library=schema.library)],
         )
 
         decorator = cls._decorate(func, signature, paginated_schema.unique_schema)
-        new_schemas = {schema.name: schema.unique_schema, paginated_schema.name: paginated_schema.unique_schema}
 
-        return decorator, new_schemas
+        return decorator

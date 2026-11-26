@@ -1,7 +1,7 @@
 import pytest
 
-from flama import schemas
 from flama.schemas.exceptions import SchemaValidationError
+from flama.schemas.libs._libraries import libraries
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.ChatCompletionsInput"], indirect=True)
@@ -58,11 +58,11 @@ class TestCaseChatCompletionsInput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
     def test_rejects_invalid_tool_choice_literal(self, app, llm_schema):
         with pytest.raises(SchemaValidationError):
-            schemas.adapter.validate(
+            libraries.default.adapter.validate(
                 llm_schema,
                 {"model": "m", "messages": [{"role": "user", "content": "hi"}], "tool_choice": "force"},
             )
@@ -87,7 +87,7 @@ class TestCaseChatChoice:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.ChatDelta"], indirect=True)
@@ -118,7 +118,7 @@ class TestCaseChatDelta:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.ChatChunkChoice"], indirect=True)
@@ -133,7 +133,7 @@ class TestCaseChatChunkChoice:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.ChatCompletionsOutput"], indirect=True)
@@ -169,7 +169,7 @@ class TestCaseChatCompletionsOutput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.ChatCompletionsChunk"], indirect=True)
@@ -193,7 +193,7 @@ class TestCaseChatCompletionsChunk:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.ChatUsage"], indirect=True)
@@ -216,7 +216,7 @@ class TestCaseChatUsage:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.CompletionsInput"], indirect=True)
@@ -233,7 +233,7 @@ class TestCaseCompletionsInput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.TextChoice"], indirect=True)
@@ -249,7 +249,7 @@ class TestCaseTextChoice:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.CompletionsOutput"], indirect=True)
@@ -274,7 +274,7 @@ class TestCaseCompletionsOutput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.ModelEntry"], indirect=True)
@@ -282,7 +282,9 @@ class TestCaseModelEntry:
     """``ModelEntry`` keeps Flama's ``capabilities`` extension flowing through validation."""
 
     def test_validation(self, llm_schema):
-        schemas.adapter.validate(llm_schema, {"id": "m", "object": "model", "created": 0, "owned_by": "flama"})
+        libraries.default.adapter.validate(
+            llm_schema, {"id": "m", "object": "model", "created": 0, "owned_by": "flama"}
+        )
 
     def test_preserves_capabilities_extra_on_load(self, app, llm_schema):
         payload = {
@@ -292,15 +294,15 @@ class TestCaseModelEntry:
             "owned_by": "flama",
             "capabilities": {"text": True, "tools": True},
         }
-        loaded = schemas.adapter.load(llm_schema, payload)
-        dumped = loaded.model_dump() if app.schema.schema_library.name == "pydantic" else dict(loaded)
+        loaded = libraries.default.adapter.load(llm_schema, payload)
+        dumped = loaded.model_dump() if libraries.default.name == "pydantic" else dict(loaded)
         assert dumped["capabilities"] == {"text": True, "tools": True}
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.ModelsOutput"], indirect=True)
 class TestCaseModelsOutput:
     def test_validation(self, llm_schema):
-        schemas.adapter.validate(
+        libraries.default.adapter.validate(
             llm_schema,
             {"object": "list", "data": [{"id": "m", "object": "model", "created": 0, "owned_by": "flama"}]},
         )
@@ -318,7 +320,7 @@ class TestCaseToolChoiceObject:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.ResponsesInput"], indirect=True)
@@ -353,7 +355,7 @@ class TestCaseResponsesInput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.ResponsesUsage"], indirect=True)
@@ -368,7 +370,7 @@ class TestCaseResponsesUsage:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_openai.ResponsesOutput"], indirect=True)
@@ -399,4 +401,4 @@ class TestCaseResponsesOutput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)

@@ -6,15 +6,16 @@ import pydantic
 import pytest
 
 from flama.http import ValidationError
+from flama.schemas.data_structures import Schema
+from flama.schemas.libs._libraries import libraries
 from flama.schemas.validation import output_validation
 
 
 class TestCaseSchemaValidateOutput:
     @pytest.fixture(scope="function")
     def product_schema(self, app):
-        from flama import schemas
 
-        if schemas.lib == pydantic:
+        if libraries.default.name == "pydantic":
 
             def rating_validator(cls, x):
                 assert x >= 0
@@ -27,7 +28,7 @@ class TestCaseSchemaValidateOutput:
                 created=(datetime.datetime | None, ...),
                 __validators__={"rating": rating_validator},
             )
-        elif schemas.lib == marshmallow:
+        elif libraries.default.name == "marshmallow":
             schema = type(
                 "Product",
                 (marshmallow.Schema,),
@@ -132,7 +133,7 @@ class TestCaseSchemaValidateOutput:
             assert response.json() == expected_response
 
     async def test_validation_uncontrolled_error(self, client):
-        with patch("flama.schemas.data_structures.schemas.adapter.dump", side_effect=Exception("boom")):
+        with patch.object(Schema, "dump", side_effect=Exception("boom")):
             response = await client.get("/product")
             assert response.status_code == 500
             assert response.json() == {

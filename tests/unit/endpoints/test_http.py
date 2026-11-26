@@ -7,6 +7,7 @@ import pytest
 
 from flama import Component, Flama, endpoints, types
 from flama.context import Context
+from flama.schemas.libs._libraries import libraries
 
 
 class Puppy:
@@ -38,9 +39,9 @@ class TestCaseHTTPEndpoint:
     @pytest.fixture(scope="class")
     @classmethod
     def puppy_schema(cls, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("Puppy", name=(str, ...))
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type("Puppy", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         else:
             raise ValueError("Wrong schema lib")

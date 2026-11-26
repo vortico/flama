@@ -4,6 +4,8 @@ import json
 import pytest
 
 from flama import exceptions
+from flama.schemas.data_structures import Schema
+from flama.schemas.libs._libraries import libraries
 from flama.schemas.registry import SchemaInfo, SchemaRegistry
 
 
@@ -22,6 +24,31 @@ class TestCaseSchemaRegistry:
 
     def test_empty_init(self, app):
         assert SchemaRegistry() == {}
+
+    def test_getitem(self, registry, schemas):
+        bar, foo = schemas["Bar"].schema, schemas["Foo"].schema
+
+        result = registry[bar]
+
+        assert result.name == Schema(bar).name
+        assert foo in registry
+        assert registry[foo].name == Schema(foo).name
+
+    @pytest.mark.parametrize(
+        ["name"],
+        [
+            pytest.param(None, id="builtin_name"),
+            pytest.param("Error", id="explicit_name"),
+        ],
+    )
+    def test_register_builtin(self, registry, schema_library, name):
+        library = libraries[schema_library]
+        api_error = library.schemas.core.APIError
+
+        registry.register(api_error, name=name)
+
+        assert registry[api_error].name == (name or f"flama.{schema_library}.core.APIError")
+        assert registry[library.schemas.core.ErrorDetail].name == (f"flama.{schema_library}.core.ErrorDetail")
 
     def test_init_with_schemas(self, foo_schema):
         registry = SchemaRegistry(schemas={"Foo": foo_schema.schema})

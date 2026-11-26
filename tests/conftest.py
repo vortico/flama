@@ -23,7 +23,7 @@ from faker import Faker
 import flama
 from flama import Flama, types
 from flama.client import Client
-from flama.pagination import paginator
+from flama.schemas.libs._libraries import Libraries, SchemaLibrary, libraries
 from flama.sqlalchemy import SQLAlchemyModule, metadata
 from tests._utils import ExceptionContext, NotInstalled, model_factory
 
@@ -62,11 +62,6 @@ def clear_metadata():
     metadata.clear()
 
 
-@pytest.fixture(autouse=True)
-def clear_pagination():
-    paginator.schemas = {}
-
-
 @pytest.fixture(scope="function")
 def openapi_spec():
     return {"info": {"title": "Foo", "version": "1.0.0", "description": "Bar"}}
@@ -79,14 +74,24 @@ def openapi_spec():
         pytest.param("marshmallow", id="marshmallow"),
     ],
 )
-def app(request, openapi_spec):
-    return Flama(
+def app(request, openapi_spec) -> t.Generator[Flama, None, None]:
+    """Application whose default schema library, which Flama builds its own fields and built-in schemas with, is the
+    one the fixture is parametrised with."""
+    order = Libraries.ORDER
+    Libraries.ORDER = (request.param, *(x for x in order if x != request.param))  # ty: ignore[invalid-assignment]
+    yield Flama(
         openapi=openapi_spec,
         schema="/schema/",
         docs="/docs/",
         modules={SQLAlchemyModule("sqlite+aiosqlite://")},
-        schema_library=request.param,
     )
+    Libraries.ORDER = order  # ty: ignore[invalid-assignment]
+
+
+@pytest.fixture(scope="function")
+def schema_library(app) -> SchemaLibrary:
+    """Default schema library the ``app`` fixture is parametrised with."""
+    return libraries.default.name
 
 
 @pytest.fixture(scope="function")

@@ -17,9 +17,6 @@ class Paginator:
         "page_number": paginators.PageNumberPaginator,
     }
 
-    def __init__(self):
-        self.schemas: dict[str, t.Any] = {}
-
     @t.overload
     def apply(
         self, pagination: types.Pagination, func: t.Callable[P, R], *, signature: inspect.Signature | None = None
@@ -53,13 +50,7 @@ class Paginator:
         :param func: Function to be paginated.
         :param signature: Function signature.
         """
-        paginated_handler, schemas = self.PAGINATORS[pagination].wraps(
-            func, signature if signature is not None else inspect.signature(func)
-        )
-
-        self.schemas.update(schemas)
-
-        return paginated_handler
+        return self.PAGINATORS[pagination].wraps(func, signature if signature is not None else inspect.signature(func))
 
     def paginated(
         self, pagination: types.Pagination

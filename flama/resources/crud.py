@@ -2,7 +2,7 @@ import inspect
 import typing as t
 from http import HTTPStatus
 
-from flama import schemas, types
+from flama import types
 from flama.http.exceptions import HTTPException
 from flama.http.responses.api import APIResponse
 from flama.resources import data_structures
@@ -10,6 +10,7 @@ from flama.resources.filtering import Filters
 from flama.resources.rest import RESTResource, RESTResourceType
 from flama.resources.routing import ResourceRoute
 from flama.resources.workers import ResourcesWorker
+from flama.schemas.libs._libraries import libraries
 
 __all__ = ["CreateMixin", "RetrieveMixin", "UpdateMixin", "DeleteMixin", "ListMixin", "DropMixin", "CRUDResourceType"]
 
@@ -378,7 +379,7 @@ class DropMixin:
         @ResourceRoute.method("/", methods=["DELETE"], name="drop")
         async def drop(
             self, worker: ResourcesWorker
-        ) -> t.Annotated[types.Output, types.SchemaMetadata(schemas.schemas.core.DropCollection)]:
+        ) -> t.Annotated[types.Output, types.SchemaMetadata(libraries.default.schemas.core.DropCollection)]:
             async with worker:
                 repository = worker.repositories[self._meta.name]
                 result = await repository.drop()

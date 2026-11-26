@@ -74,7 +74,7 @@ ITEMS_DB: dict[int, dict] = {1: {**SMALL_DATA, "id": 1}, 2: {**MEDIUM_DATA}}
 
 
 def _build_app() -> Flama:
-    app = Flama(schema=None, docs=None, schema_library="pydantic")
+    app = Flama(schema=None, docs=None)
 
     @app.route("/small/{item_id:int}/")
     def get_small(item_id: int) -> t.Annotated[types.Schema, types.SchemaMetadata(SmallModel)]:

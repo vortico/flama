@@ -8,6 +8,7 @@ import pytest
 import flama.types.websockets
 from flama import Component, endpoints, exceptions, http, routing, types
 from flama.schemas.data_structures import Parameter, ParameterLocation
+from flama.schemas.libs._libraries import libraries
 from flama.schemas.routing import ParametersDescriptor
 
 
@@ -25,11 +26,10 @@ class TestCaseParametersDescriptor:
 
     @pytest.fixture(scope="function")
     def foo_schema(self, app):
-        from flama import schemas
 
-        if schemas.lib == pydantic:
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("FooSchema", x=(int, ...), y=(str, ...))
-        elif schemas.lib == marshmallow:
+        elif libraries.default.name == "marshmallow":
             schema = type(
                 "FooSchema",
                 (marshmallow.Schema,),

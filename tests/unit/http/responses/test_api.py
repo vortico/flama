@@ -4,20 +4,21 @@ import marshmallow
 import pydantic
 import pytest
 
-from flama import schemas, types
+from flama import types
 from flama.http import SerializationError
 from flama.http.responses.api import APIErrorResponse, APIResponse
+from flama.schemas.libs._libraries import libraries
 
 
 class TestCaseAPIResponse:
     @pytest.fixture(scope="function")
     def schema(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("Puppy", name=(str, ...))
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type("Puppy", (marshmallow.Schema,), {"name": marshmallow.fields.String(required=True)})
         else:
-            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+            raise ValueError(f"Wrong schema lib: {libraries.default.name}")
 
         return schema
 
@@ -97,5 +98,5 @@ class TestCaseAPIErrorResponse:
     def test_render_extensions(self):
         response = APIErrorResponse(status_code=400, extensions={"balance": 30})
 
-        assert response.schema is schemas.schemas.core.APIError
+        assert response.schema is libraries.default.schemas.core.APIError
         assert json.loads(response.body.decode())["balance"] == 30

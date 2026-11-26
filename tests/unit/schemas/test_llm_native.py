@@ -1,7 +1,7 @@
 import pytest
 
-from flama import schemas
 from flama.schemas.exceptions import SchemaValidationError
+from flama.schemas.libs._libraries import libraries
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_native.TextPart"], indirect=True)
@@ -17,10 +17,10 @@ class TestCaseTextPart:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
     def test_defaults_type_discriminator(self, llm_schema):
-        result = schemas.adapter.validate(llm_schema, {"text": "hello"})
+        result = libraries.default.adapter.validate(llm_schema, {"text": "hello"})
         assert result["type"] == "text"
 
 
@@ -36,7 +36,7 @@ class TestCaseImageURLPart:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_native.ImageURIPart"], indirect=True)
@@ -55,7 +55,7 @@ class TestCaseImageURIPart:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_native.AudioURIPart"], indirect=True)
@@ -74,7 +74,7 @@ class TestCaseAudioURIPart:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_native.AudioURLPart"], indirect=True)
@@ -89,7 +89,7 @@ class TestCaseAudioURLPart:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_native.Tool"], indirect=True)
@@ -119,10 +119,10 @@ class TestCaseTool:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
     def test_defaults_type_to_function(self, llm_schema):
-        result = schemas.adapter.validate(llm_schema, {"function": {"name": "search"}})
+        result = libraries.default.adapter.validate(llm_schema, {"function": {"name": "search"}})
         assert result["type"] == "function"
 
 
@@ -158,7 +158,7 @@ class TestCaseToolCall:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_native.Message"], indirect=True)
@@ -221,7 +221,7 @@ class TestCaseMessage:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
     @pytest.mark.parametrize(
         "payload",
@@ -236,16 +236,16 @@ class TestCaseMessage:
     )
     def test_rejects_malformed_content_parts(self, app, llm_schema, payload):
         """Strict per-arm validation only runs on pydantic; marshmallow keeps ``content`` permissive."""
-        if app.schema.schema_library.name != "pydantic":
+        if libraries.default.name != "pydantic":
             pytest.skip("only pydantic enforces content-part discriminated union on Message.content")
         with pytest.raises(SchemaValidationError):
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
     def test_preserves_dialect_specific_extras_on_load(self, app, llm_schema):
         """Ollama's sibling ``images`` / ``thinking`` fields must survive validation in pydantic and marshmallow."""
         payload = {"role": "user", "content": "hi", "images": ["base64"], "thinking": "hidden"}
-        loaded = schemas.adapter.load(llm_schema, payload)
-        dumped = loaded.model_dump() if app.schema.schema_library.name == "pydantic" else dict(loaded)
+        loaded = libraries.default.adapter.load(llm_schema, payload)
+        dumped = loaded.model_dump() if libraries.default.name == "pydantic" else dict(loaded)
         assert dumped["images"] == ["base64"]
         assert dumped["thinking"] == "hidden"
 
@@ -263,7 +263,7 @@ class TestCaseNativeUsage:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_native.QueryInput"], indirect=True)
@@ -291,7 +291,7 @@ class TestCaseQueryInput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_native.QueryOutput"], indirect=True)
@@ -366,7 +366,7 @@ class TestCaseQueryOutput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_native.StreamInput"], indirect=True)
@@ -383,4 +383,4 @@ class TestCaseStreamInput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)

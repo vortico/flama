@@ -2,7 +2,6 @@ import contextlib
 import os
 import typing as t
 
-import flama.schemas
 from flama import types
 from flama._core.json_encoder import encode_json
 from flama.exceptions import DependencyNotInstalled
@@ -14,6 +13,7 @@ from flama.resources import data_structures
 from flama.resources.exceptions import ResourceAttributeNotFound, ResourceModelNotFound
 from flama.resources.resource import Resource, ResourceType
 from flama.resources.routing import ResourceRoute
+from flama.schemas.libs._libraries import libraries
 
 if t.TYPE_CHECKING:
     from flama.models import MLModel
@@ -34,8 +34,8 @@ class PredictMixin:
         async def predict(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.ml.PredictInput)],
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.ml.PredictOutput)]:
+            data: t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.ml.PredictInput)],
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.ml.PredictOutput)]:
             try:
                 return {"output": model.predict(data["input"])}
             except DependencyNotInstalled:
@@ -66,7 +66,7 @@ class StreamMixin:
         async def stream(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(flama.schemas.schemas.ml.StreamInput)],
+            data: t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.ml.StreamInput)],
         ) -> ServerSentEventResponse:
             async def _encode():
                 async for item in model.stream([data["input"]]):

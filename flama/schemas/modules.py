@@ -1,6 +1,6 @@
 import typing as t
 
-from flama import exceptions, http, pagination, schemas, types
+from flama import exceptions, http, types
 from flama.http.responses.openapi import OpenAPIResponse
 from flama.http.responses.templates import _FlamaTemplateResponse
 from flama.modules import Module
@@ -40,7 +40,6 @@ class SchemaModule(Module):
 
         :return: API Schema Generator.
         """
-        self.schemas.update({**schemas.schemas.SCHEMAS, **pagination.paginator.schemas})
         return SchemaGenerator(spec=self.openapi, schemas=self.schemas)
 
     @property
@@ -50,22 +49,6 @@ class SchemaModule(Module):
         :return: API schema.
         """
         return self.schema_generator.get_api_schema(self.app.routes)
-
-    @property
-    def schema_library(self) -> schemas.Module:
-        """Global schema library.
-
-        :return: Schema library module.
-        """
-        return schemas._module
-
-    @schema_library.setter
-    def schema_library(self, library: str | None) -> None:
-        """Globally request the schema library, selected on first use.
-
-        :param library: Schema library to be used, or ``None`` for the first one installed.
-        """
-        schemas._module.request(library)
 
     def add_routes(self) -> None:
         """Add schema and docs routes."""

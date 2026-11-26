@@ -27,11 +27,14 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         return super().__contains__(id(Schema(item).unique_schema))
 
     def __getitem__(self, item: t.Any) -> SchemaInfo:
-        """Lookup method that allows using Schema classes or instances.
+        """Lookup method that allows using Schema classes or instances, registering a schema when first asked for.
 
         :param item: Schema to look for.
         :return: Registered schema.
         """
+        if item not in self:
+            self.register(item)
+
         return super().__getitem__(id(Schema(item).unique_schema))
 
     @property
@@ -43,10 +46,10 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         return {k: v.name for k, v in self.items()}
 
     def register(self, schema: Schema, name: str | None = None) -> int:
-        """Register a new Schema to this registry.
+        """Register a new Schema to this registry, along with the schemas nested in it.
 
         :param schema: Schema object or class.
-        :param name: Schema name.
+        :param name: Schema name, the one the schema is published under by default if not given.
         :return: Schema ID.
         """
         if schema in self:
@@ -63,8 +66,8 @@ class SchemaRegistry(dict[int, SchemaInfo]):
         schema_id = id(schema_instance)
         self[schema_id] = SchemaInfo(name=schema_name, schema=schema_instance)
 
-        for child_schema in (Schema(x) for x in s.nested_schemas() if x not in self):
-            self.register(schema=child_schema.schema, name=child_schema.name)
+        for child_schema in (x for x in s.nested_schemas() if x not in self):
+            self.register(child_schema)
 
         return schema_id
 

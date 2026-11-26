@@ -1,7 +1,7 @@
 import pytest
 
-from flama import schemas
 from flama.schemas.exceptions import SchemaValidationError
+from flama.schemas.libs._libraries import libraries
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_anthropic.ToolChoiceObject"], indirect=True)
@@ -21,7 +21,7 @@ class TestCaseToolChoiceObject:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_anthropic.MessagesInput"], indirect=True)
@@ -86,7 +86,7 @@ class TestCaseMessagesInput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_anthropic.MessagesUsage"], indirect=True)
@@ -102,7 +102,7 @@ class TestCaseMessagesUsage:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_anthropic.MessagesOutput"], indirect=True)
@@ -141,13 +141,15 @@ class TestCaseMessagesOutput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
     def test_rejects_invalid_type_discriminator(self, app, llm_schema):
-        if app.schema.schema_library.name != "pydantic":
+        if libraries.default.name != "pydantic":
             pytest.skip("only pydantic enforces the literal ``type`` discriminator on MessagesOutput")
         with pytest.raises(SchemaValidationError):
-            schemas.adapter.validate(llm_schema, {"id": "msg_1", "type": "completion", "model": "m", "content": []})
+            libraries.default.adapter.validate(
+                llm_schema, {"id": "msg_1", "type": "completion", "model": "m", "content": []}
+            )
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_anthropic.ModelInfo"], indirect=True)
@@ -171,7 +173,7 @@ class TestCaseModelInfo:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
     def test_preserves_capabilities_extra_on_load(self, app, llm_schema):
         payload = {
@@ -181,8 +183,8 @@ class TestCaseModelInfo:
             "created_at": "2024-01-01T00:00:00Z",
             "capabilities": {"text": True, "tools": True},
         }
-        loaded = schemas.adapter.load(llm_schema, payload)
-        dumped = loaded.model_dump() if app.schema.schema_library.name == "pydantic" else dict(loaded)
+        loaded = libraries.default.adapter.load(llm_schema, payload)
+        dumped = loaded.model_dump() if libraries.default.name == "pydantic" else dict(loaded)
         assert dumped["capabilities"] == {"text": True, "tools": True}
 
 
@@ -205,4 +207,4 @@ class TestCaseModelsOutput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)

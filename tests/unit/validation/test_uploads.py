@@ -6,38 +6,40 @@ import marshmallow
 import pydantic
 import pytest
 
-from flama import schemas, types
+from flama import types
 from flama.http import UploadFile
 from flama.schemas import data_structures as ds
 from flama.schemas.components import RequestDataComponent
+from flama.schemas.libs._libraries import libraries
+from flama.schemas.libs.marshmallow import File as MarshmallowFile
+from flama.schemas.libs.pydantic import File as PydanticFile
 
 
 class TestCaseUploadValidation:
     @pytest.fixture(scope="function")
     def upload_schema(self, app):
         """A body schema mixing a required file, an optional file, and a plain text field."""
-        # `schemas.fields` is rebound to the active library on setup, so it must be resolved lazily.
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             return pydantic.create_model(
                 "Upload",
-                file=(schemas.fields.File, ...),
-                thumbnail=(schemas.fields.File | None, None),
+                file=(PydanticFile, ...),
+                thumbnail=(PydanticFile | None, None),
                 name=(str, ...),
                 __module__="pydantic.main",
             )
 
-        if app.schema.schema_library.name == "marshmallow":
+        if libraries.default.name == "marshmallow":
             return type(
                 "Upload",
                 (marshmallow.Schema,),
                 {
-                    "file": schemas.fields.File(required=True),
-                    "thumbnail": schemas.fields.File(required=False, allow_none=True, load_default=None),
+                    "file": MarshmallowFile(required=True),
+                    "thumbnail": MarshmallowFile(required=False, allow_none=True, load_default=None),
                     "name": marshmallow.fields.String(required=True),
                 },
             )
 
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+        raise ValueError(f"Wrong schema lib: {libraries.default.name}")
 
     @pytest.fixture(scope="function", autouse=True)
     def add_endpoints(self, app, upload_schema):
@@ -179,10 +181,10 @@ class TestCaseFileField:
 
     @pytest.fixture(scope="function")
     def field(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             pytest.skip("Pydantic drives file handling from the `UploadFile` annotation, not from a field")
 
-        return schemas.fields.File()
+        return MarshmallowFile()
 
     def test_accepts_an_upload_file(self, app, field):
         upload = UploadFile(filename="f.txt", data=b"x")
@@ -289,10 +291,10 @@ class TestCaseUploadSchemaGeneration:
     )
     def test_media_type_detects_files_through_containers(self, app, annotation, expected):
         """A file may sit behind an optional, a list, or a union, and still forces a multipart body."""
-        if app.schema.schema_library.name != "pydantic":
+        if libraries.default.name != "pydantic":
             pytest.skip("Annotation introspection is library independent, so one library is enough to cover it")
 
-        file = schemas.fields.File
+        file = PydanticFile
         annotation = {
             "file": file,
             "optional": file | None,

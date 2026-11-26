@@ -14,6 +14,7 @@ from flama.resources.crud import CRUDResource
 from flama.resources.exceptions import ResourceFilterInvalid
 from flama.resources.routing import ResourceRoute
 from flama.resources.workers import ResourcesWorker
+from flama.schemas.libs._libraries import libraries
 from tests.unit.resources.conftest import Model
 
 DATABASE_URL = "sqlite+aiosqlite://"
@@ -39,9 +40,9 @@ def another_puppy():
 class TestCaseCRUDResource:
     @pytest.fixture(scope="function")
     async def custom_id_datetime_model(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("CustomIDDatetime", custom_id=(datetime.datetime, ...), name=(str, ...))
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type(
                 "CustomIDDatetime",
                 (marshmallow.Schema,),
@@ -64,9 +65,9 @@ class TestCaseCRUDResource:
 
     @pytest.fixture(scope="function")
     def custom_id_uuid_model(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("CustomIDUUID", custom_id=(uuid.UUID, ...), name=(str, ...))
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type(
                 "CustomIDUUID",
                 (marshmallow.Schema,),
@@ -613,9 +614,9 @@ class TestCaseCRUDUniqueConstraint:
 
     @pytest.fixture(scope="function")
     async def unique_name_model(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("UniqueName", custom_id=(int | None, None), name=(str, ...))
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type(
                 "UniqueName",
                 (marshmallow.Schema,),
@@ -668,9 +669,9 @@ class TestCaseCRUDFilters:
 
     @pytest.fixture(scope="function")
     async def gadget_model(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("Gadget", custom_id=(int | None, None), name=(str, ...))
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type(
                 "Gadget",
                 (marshmallow.Schema,),
@@ -735,11 +736,11 @@ class TestCaseCRUDDeclaredFilters:
 
     @pytest.fixture(scope="function")
     async def widget_model(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model(
                 "Widget", custom_id=(int | None, None), name=(str, ...), age=(int | None, None)
             )
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type(
                 "Widget",
                 (marshmallow.Schema,),

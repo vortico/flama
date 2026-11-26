@@ -1,7 +1,7 @@
 import pytest
 
-from flama import schemas
 from flama.schemas.exceptions import SchemaValidationError
+from flama.schemas.libs._libraries import libraries
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_ollama.ChatInput"], indirect=True)
@@ -40,7 +40,7 @@ class TestCaseChatInput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_ollama.ChatOutput"], indirect=True)
@@ -83,7 +83,7 @@ class TestCaseChatOutput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_ollama.ChatChunk"], indirect=True)
@@ -106,7 +106,7 @@ class TestCaseChatChunk:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_ollama.GenerateInput"], indirect=True)
@@ -126,7 +126,7 @@ class TestCaseGenerateInput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_ollama.GenerateOutput"], indirect=True)
@@ -157,7 +157,7 @@ class TestCaseGenerateOutput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_ollama.GenerateChunk"], indirect=True)
@@ -175,7 +175,7 @@ class TestCaseGenerateChunk:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_ollama.ShowInput"], indirect=True)
@@ -192,7 +192,7 @@ class TestCaseShowInput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_ollama.ShowOutput"], indirect=True)
@@ -227,7 +227,7 @@ class TestCaseShowOutput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_ollama.TagEntry"], indirect=True)
@@ -261,7 +261,7 @@ class TestCaseTagEntry:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_ollama.TagsOutput"], indirect=True)
@@ -289,7 +289,7 @@ class TestCaseTagsOutput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)
 
 
 @pytest.mark.parametrize("llm_schema", ["flama.llm_ollama.VersionOutput"], indirect=True)
@@ -304,4 +304,4 @@ class TestCaseVersionOutput:
     )
     def test_validation(self, llm_schema, payload, exception):
         with exception:
-            schemas.adapter.validate(llm_schema, payload)
+            libraries.default.adapter.validate(llm_schema, payload)

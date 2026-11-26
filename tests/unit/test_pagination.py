@@ -12,25 +12,20 @@ from flama.http import SerializationError
 from flama.pagination import paginator
 from flama.pagination.paginators._base import PaginatedResponse
 from flama.schemas.exceptions import SchemaValidationError
+from flama.schemas.libs._libraries import libraries
 from tests._utils import assert_recursive_contains
 
 
 @pytest.fixture(scope="function")
-def app(app):
-    paginator.schemas = {}
-    return app
-
-
-@pytest.fixture(scope="function")
 def output_schema(app):
-    if app.schema.schema_library.name == "pydantic":
+    if libraries.default.name == "pydantic":
         schema = pydantic.create_model("OutputSchema", value=(int | None, ...), __module__="pydantic.main")
         name = "pydantic.main.OutputSchema"
-    elif app.schema.schema_library.name == "marshmallow":
+    elif libraries.default.name == "marshmallow":
         schema = type("OutputSchema", (marshmallow.Schema,), {"value": marshmallow.fields.Integer(allow_none=True)})
         name = "abc.OutputSchema"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+        raise ValueError(f"Wrong schema lib: {libraries.default.name}")
 
     return namedtuple("OutputSchema", ("schema", "name"))(schema=schema, name=name)
 
@@ -51,9 +46,9 @@ class TestCasePageNumberPagination:
         assert set(schemas.keys()) == {
             f"{name_prefix}.OutputSchema",
             f"{name_prefix}.PageNumberPaginatedOutputSchema",
-            "flama.pagination.PageNumberMeta",
-            "flama.core.APIError",
-            "flama.core.ErrorDetail",
+            f"flama.{libraries.default.name}.pagination.PageNumberMeta",
+            f"flama.{libraries.default.name}.core.APIError",
+            f"flama.{libraries.default.name}.core.ErrorDetail",
         }
 
     def test_invalid_view(self, output_schema):
@@ -191,9 +186,9 @@ class TestCaseLimitOffsetPagination:
         assert set(schemas.keys()) == {
             f"{name_prefix}.OutputSchema",
             f"{name_prefix}.LimitOffsetPaginatedOutputSchema",
-            "flama.pagination.LimitOffsetMeta",
-            "flama.core.APIError",
-            "flama.core.ErrorDetail",
+            f"flama.{libraries.default.name}.pagination.LimitOffsetMeta",
+            f"flama.{libraries.default.name}.core.APIError",
+            f"flama.{libraries.default.name}.core.ErrorDetail",
         }
 
     def test_invalid_view(self, output_schema):

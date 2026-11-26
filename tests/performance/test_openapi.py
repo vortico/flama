@@ -22,7 +22,7 @@ class TestCaseOpenAPIGeneration:
     @pytest.fixture(scope="class")
     @classmethod
     def client(cls, loop):
-        app = Flama(schema="/schema/", docs=None, schema_library="pydantic")
+        app = Flama(schema="/schema/", docs=None)
         for i in range(N_MODELS):
             model = pydantic.create_model(
                 f"Model{i}", id=(int, ...), name=(str, ...), price=(float, 0.0), **_EXTRA_FIELDS

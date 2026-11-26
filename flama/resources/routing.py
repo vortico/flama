@@ -55,7 +55,6 @@ class ResourceRoute(Mount):
                 ],
                 docs=None,
                 schema=None,
-                schema_library=parent.schema.schema_library.name,
             ),
             name=self.resource._meta.name,
         )

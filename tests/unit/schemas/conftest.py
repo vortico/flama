@@ -4,54 +4,55 @@ import marshmallow
 import pydantic
 import pytest
 
-from flama import schemas as flama_schemas
+from flama.schemas.libs._libraries import libraries
 
 
 @pytest.fixture(scope="function")
 def llm_schema(app, request):
-    """Resolve a registered LLM schema by its fully-qualified name from the active schema library.
+    """Resolve a built-in LLM schema, named as ``flama.<module>.<schema>``, from the default schema library.
 
     Bound via ``indirect`` so each ``TestCase<Schema>`` selects its subject once with
-    ``@pytest.mark.parametrize("llm_schema", [...], indirect=True)``. Depends on ``app`` so the schema library is set
-    up before the lookup.
+    ``@pytest.mark.parametrize("llm_schema", [...], indirect=True)``. Depends on ``app`` so the default schema library
+    is pinned before the lookup.
     """
-    return flama_schemas.schemas.SCHEMAS[request.param]
+    _, module, name = request.param.split(".")
+    return getattr(getattr(libraries.default.schemas, module), name)
 
 
 @pytest.fixture(scope="function")
 def foo_schema(app):
-    if app.schema.schema_library.name == "pydantic":
+    if libraries.default.name == "pydantic":
         schema = pydantic.create_model("Foo", name=(str, ...), __module__="pydantic.main")
         name = "pydantic.main.Foo"
-    elif app.schema.schema_library.name == "marshmallow":
+    elif libraries.default.name == "marshmallow":
         schema = type("Foo", (marshmallow.Schema,), {"name": marshmallow.fields.String()})
         name = "abc.Foo"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+        raise ValueError(f"Wrong schema lib: {libraries.default.name}")
     return namedtuple("FooSchema", ("schema", "name"))(schema=schema, name=name)
 
 
 @pytest.fixture(scope="function")
 def bar_schema(app, foo_schema):
     child_schema = foo_schema.schema
-    if app.schema.schema_library.name == "pydantic":
+    if libraries.default.name == "pydantic":
         schema = pydantic.create_model("Bar", foo=(child_schema, ...), __module__="pydantic.main")
         name = "pydantic.main.Bar"
-    elif app.schema.schema_library.name == "marshmallow":
+    elif libraries.default.name == "marshmallow":
         schema = type("Bar", (marshmallow.Schema,), {"foo": marshmallow.fields.Nested(child_schema())})
         name = "abc.Bar"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+        raise ValueError(f"Wrong schema lib: {libraries.default.name}")
     return namedtuple("BarSchema", ("schema", "name"))(schema=schema, name=name)
 
 
 @pytest.fixture(scope="function")
 def bar_optional_schema(app, foo_schema):
     child_schema = foo_schema.schema
-    if app.schema.schema_library.name == "pydantic":
+    if libraries.default.name == "pydantic":
         schema = pydantic.create_model("BarOptional", foo=(child_schema | None, None), __module__="pydantic.main")
         name = "pydantic.main.BarOptional"
-    elif app.schema.schema_library.name == "marshmallow":
+    elif libraries.default.name == "marshmallow":
         schema = type(
             "BarOptional",
             (marshmallow.Schema,),
@@ -59,19 +60,19 @@ def bar_optional_schema(app, foo_schema):
         )
         name = "abc.BarOptional"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+        raise ValueError(f"Wrong schema lib: {libraries.default.name}")
     return namedtuple("BarOptionalSchema", ("schema", "name"))(schema=schema, name=name)
 
 
 @pytest.fixture(scope="function")
 def bar_multiple_schema(app, foo_schema):
     child_schema = foo_schema.schema
-    if app.schema.schema_library.name == "pydantic":
+    if libraries.default.name == "pydantic":
         schema = pydantic.create_model(
             "BarMultiple", first=(child_schema, ...), second=(child_schema, ...), __module__="pydantic.main"
         )
         name = "pydantic.main.BarMultiple"
-    elif app.schema.schema_library.name == "marshmallow":
+    elif libraries.default.name == "marshmallow":
         schema = type(
             "BarMultiple",
             (marshmallow.Schema,),
@@ -79,17 +80,17 @@ def bar_multiple_schema(app, foo_schema):
         )
         name = "abc.BarMultiple"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+        raise ValueError(f"Wrong schema lib: {libraries.default.name}")
     return namedtuple("BarMultipleSchema", ("schema", "name"))(schema=schema, name=name)
 
 
 @pytest.fixture(scope="function")
 def bar_list_schema(app, foo_schema):
     child_schema = foo_schema.schema
-    if app.schema.schema_library.name == "pydantic":
+    if libraries.default.name == "pydantic":
         schema = pydantic.create_model("BarList", foo=(list[child_schema], ...), __module__="pydantic.main")
         name = "pydantic.main.BarList"
-    elif app.schema.schema_library.name == "marshmallow":
+    elif libraries.default.name == "marshmallow":
         schema = type(
             "BarList",
             (marshmallow.Schema,),
@@ -97,17 +98,17 @@ def bar_list_schema(app, foo_schema):
         )
         name = "abc.BarList"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+        raise ValueError(f"Wrong schema lib: {libraries.default.name}")
     return namedtuple("BarListSchema", ("schema", "name"))(schema=schema, name=name)
 
 
 @pytest.fixture(scope="function")
 def bar_dict_schema(app, foo_schema):
     child_schema = foo_schema.schema
-    if app.schema.schema_library.name == "pydantic":
+    if libraries.default.name == "pydantic":
         schema = pydantic.create_model("BarDict", foo=(dict[str, child_schema], ...), __module__="pydantic.main")
         name = "pydantic.main.BarDict"
-    elif app.schema.schema_library.name == "marshmallow":
+    elif libraries.default.name == "marshmallow":
         schema = type(
             "BarDict",
             (marshmallow.Schema,),
@@ -115,17 +116,17 @@ def bar_dict_schema(app, foo_schema):
         )
         name = "abc.BarDict"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+        raise ValueError(f"Wrong schema lib: {libraries.default.name}")
     return namedtuple("BarDictSchema", ("schema", "name"))(schema=schema, name=name)
 
 
 @pytest.fixture(scope="function")
 def foobar_nested_schema(app, bar_schema):
     child_schema = bar_schema.schema
-    if app.schema.schema_library.name == "pydantic":
+    if libraries.default.name == "pydantic":
         schema = pydantic.create_model("FooBarNested", foobar=(child_schema, ...), __module__="pydantic.main")
         name = "pydantic.main.FooBarNested"
-    elif app.schema.schema_library.name == "marshmallow":
+    elif libraries.default.name == "marshmallow":
         schema = type(
             "FooBarNested",
             (marshmallow.Schema,),
@@ -133,7 +134,7 @@ def foobar_nested_schema(app, bar_schema):
         )
         name = "abc.FooBarNested"
     else:
-        raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+        raise ValueError(f"Wrong schema lib: {libraries.default.name}")
     return namedtuple("FooBarNestedSchema", ("schema", "name"))(schema=schema, name=name)
 
 

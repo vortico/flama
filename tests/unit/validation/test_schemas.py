@@ -7,6 +7,7 @@ import pydantic
 import pytest
 
 from flama import types
+from flama.schemas.libs._libraries import libraries
 from tests._utils import assert_recursive_contains
 
 utc = datetime.UTC
@@ -15,14 +16,14 @@ utc = datetime.UTC
 class TestCaseSchemaValidation:
     @pytest.fixture(scope="function")
     def product_schema(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model(
                 "Product",
                 name=(str, ...),
                 rating=(int | None, None),
                 created=(datetime.datetime | None, None),
             )
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type(
                 "Product",
                 (marshmallow.Schema,),
@@ -33,24 +34,24 @@ class TestCaseSchemaValidation:
                 },
             )
         else:
-            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+            raise ValueError(f"Wrong schema lib: {libraries.default.name}")
 
         return schema
 
     @pytest.fixture(scope="function")
     def reviewed_product_schema(self, app, product_schema):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("ReviewedProduct", reviewer=(str, ...), __base__=product_schema)
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type("ReviewedProduct", (product_schema,), {"reviewer": marshmallow.fields.String()})
         else:
-            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+            raise ValueError(f"Wrong schema lib: {libraries.default.name}")
 
         return schema
 
     @pytest.fixture(scope="function")
     def location_schema(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
 
             def latitude_validator(cls, x):
                 assert -90 <= x <= 90
@@ -66,7 +67,7 @@ class TestCaseSchemaValidation:
                 longitude=(float, ...),
                 __validators__={"latitude": latitude_validator, "longitude": longitude_validator},
             )
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type(
                 "Location",
                 (marshmallow.Schema,),
@@ -76,21 +77,21 @@ class TestCaseSchemaValidation:
                 },
             )
         else:
-            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+            raise ValueError(f"Wrong schema lib: {libraries.default.name}")
         return schema
 
     @pytest.fixture(scope="function")
     def place_schema(self, app, location_schema):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             schema = pydantic.create_model("Place", location=(location_schema, ...), name=(str, ...))
-        elif app.schema.schema_library.name == "marshmallow":
+        elif libraries.default.name == "marshmallow":
             schema = type(
                 "Place",
                 (marshmallow.Schema,),
                 {"location": marshmallow.fields.Nested(location_schema), "name": marshmallow.fields.String()},
             )
         else:
-            raise ValueError(f"Wrong schema lib: {app.schema.schema_library.name}")
+            raise ValueError(f"Wrong schema lib: {libraries.default.name}")
         return schema
 
     @pytest.fixture(scope="function", autouse=True)
@@ -259,3 +260,89 @@ class TestCaseSchemaValidation:
         response = await client.request(method, path, json=json_data)
         assert response.status_code == status_code, response.json()
         assert_recursive_contains(expected_output, response.json())
+
+
+class PydanticItem(pydantic.BaseModel):
+    count: int
+
+
+class MarshmallowItem(marshmallow.Schema):
+    count = marshmallow.fields.Integer(required=True)
+
+
+class TestCaseSchemaLibraries:
+    """Schemas of both libraries served side by side, each handled by its own library."""
+
+    @pytest.fixture(scope="function", autouse=True)
+    def add_endpoints(self, app):
+        @app.route("/pydantic/", methods=["POST"])
+        def pydantic_item(item: types.Schema[PydanticItem]) -> types.Schema[PydanticItem]:
+            return item
+
+        @app.route("/marshmallow/", methods=["POST"])
+        def marshmallow_item(item: types.Schema[MarshmallowItem]) -> types.Schema[MarshmallowItem]:
+            return item
+
+        @app.route("/paginated/", methods=["GET"], pagination="page_number")
+        def paginated(**kwargs) -> types.SchemaList[MarshmallowItem]:
+            return [{"count": i} for i in range(3)]
+
+        @app.route("/paginated-pydantic/", methods=["GET"], pagination="page_number")
+        def paginated_pydantic(**kwargs) -> types.SchemaList[PydanticItem]:
+            return [{"count": i} for i in range(3)]
+
+    @pytest.mark.parametrize(
+        ["path", "body", "status_code", "result"],
+        [
+            pytest.param("/pydantic/", {"count": 1}, 200, {"count": 1}, id="pydantic"),
+            pytest.param(
+                "/pydantic/",
+                {"count": "x"},
+                400,
+                {
+                    "errors": [
+                        {
+                            "detail": "Input should be a valid integer, unable to parse string as an integer",
+                            "pointer": "#/count",
+                        }
+                    ]
+                },
+                id="pydantic_invalid",
+            ),
+            pytest.param("/marshmallow/", {"count": 1}, 200, {"count": 1}, id="marshmallow"),
+            pytest.param(
+                "/marshmallow/",
+                {"count": "x"},
+                400,
+                {"errors": [{"detail": "Not a valid integer.", "pointer": "#/count"}]},
+                id="marshmallow_invalid",
+            ),
+        ],
+    )
+    async def test_validation(self, client, path, body, status_code, result):
+        response = await client.post(path, json=body)
+
+        assert response.status_code == status_code, response.json()
+        assert_recursive_contains(result, response.json())
+
+    async def test_pagination(self, client):
+        response = await client.get("/paginated/", params={"page_size": 2})
+
+        assert response.status_code == 200, response.json()
+        assert response.json()["data"] == [{"count": 0}, {"count": 1}]
+
+    def test_schema(self, app):
+        components = set(app.schema.schema["components"]["schemas"])
+
+        assert {
+            "PydanticItem",
+            "MarshmallowItem",
+            "PageNumberPaginatedPydanticItem",
+            "PageNumberPaginatedMarshmallowItem",
+        } <= {x.rsplit(".", 1)[1] for x in components}
+        # Each library's pagination metadata is published apart, as both are in use.
+        assert {
+            "flama.pydantic.pagination.PageNumberMeta",
+            "flama.marshmallow.pagination.PageNumberMeta",
+        } <= components
+        assert libraries.of(MarshmallowItem, "schema") is libraries["marshmallow"]

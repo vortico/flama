@@ -8,6 +8,7 @@ import sqlalchemy
 from flama import Flama
 from flama.client import Client
 from flama.resources.crud import CRUDResource
+from flama.schemas.libs._libraries import libraries
 from flama.sqlalchemy import SQLAlchemyModule
 
 Model = namedtuple("Model", ("model", "schema", "name"))
@@ -19,17 +20,16 @@ def app(app):
         schema=None,
         docs=None,
         modules={SQLAlchemyModule("sqlite+aiosqlite://")},
-        schema_library=app.schema.schema_library.name,
     )
 
 
 @pytest.fixture(scope="function")
 async def puppy_model(app):
-    if app.schema.schema_library.name == "pydantic":
+    if libraries.default.name == "pydantic":
         schema = pydantic.create_model(
             "Puppy", custom_id=(int | None, None), name=(str, ...), age=(int, ...), owner=(str | None, None)
         )
-    elif app.schema.schema_library.name == "marshmallow":
+    elif libraries.default.name == "marshmallow":
         schema = type(
             "Puppy",
             (marshmallow.Schema,),

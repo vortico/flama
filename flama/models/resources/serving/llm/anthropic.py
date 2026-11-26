@@ -2,7 +2,7 @@ import logging
 import time
 import typing as t
 
-from flama import _concurrency, schemas, types
+from flama import _concurrency, types
 from flama.exceptions import DependencyNotInstalled
 from flama.http.exceptions import HTTPException
 from flama.http.responses.api import APIResponse
@@ -13,6 +13,7 @@ from flama.models.transport.input.llm.message import Message
 from flama.models.transport.input.llm.tool import Tool
 from flama.models.wire.dialect.llm.anthropic import AnthropicDialect
 from flama.resources.routing import ResourceRoute
+from flama.schemas.libs._libraries import libraries
 
 if t.TYPE_CHECKING:
     from flama.models import LLMModel
@@ -73,7 +74,7 @@ class MessagesMixin:
             payload = await AnthropicDialect.assemble(blocks, model=name)
         except LLMGenerationError as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
-        return APIResponse(payload, schema=schemas.schemas.llm_anthropic.MessagesOutput)
+        return APIResponse(payload, schema=libraries.default.schemas.llm_anthropic.MessagesOutput)
 
     @staticmethod
     async def _messages_stream(
@@ -129,7 +130,10 @@ class MessagesMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_anthropic.MessagesInput)],
+            data: t.Annotated[
+                types.Schema,
+                types.SchemaMetadata(libraries.default.schemas.llm_anthropic.MessagesInput),
+            ],
         ) -> APIResponse | ServerSentEventResponse:
             payload = dict(data)
             requested_model = payload.pop("model", name)
@@ -226,7 +230,7 @@ class ModelsMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_anthropic.ModelsOutput)]:
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_anthropic.ModelsOutput)]:
             cap = model.backend.capabilities
             entry: dict[str, t.Any] = {
                 "id": name,

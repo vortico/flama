@@ -117,6 +117,28 @@ V2_3 = Migration(
             Rewrite(Call(Symbol(module, "APIErrorResponse")), DropKeyword("exception"))
             for module in ("flama.http", "flama.http.responses", "flama.http.responses.api")
         ),
+        # Schemas are handled by the library they are written with, so no schema library is selected any more.
+        *(
+            Rewrite(Call(Symbol(module, "Flama")), DropKeyword("schema_library"))
+            for module in ("flama", "flama.applications")
+        ),
+        *(
+            Flag(target, note)
+            for name, note in (
+                ("adapter", "was removed; each schema is handled by the adapter of its own library"),
+                (
+                    "schemas",
+                    "was removed; Flama's built-in schemas are internal",
+                ),
+                (
+                    "fields",
+                    "was removed; import fields from the module of the schema's library, `flama.schemas.libs.pydantic` "
+                    "or `flama.schemas.libs.marshmallow`",
+                ),
+                ("lib", "was removed; import the schema library itself"),
+            )
+            for target in (Member(Symbol("flama", "schemas"), name), Symbol("flama.schemas", name))
+        ),
         # Type checks on applications and routers are plain `isinstance` checks.
         *(
             Flag(Call(Symbol(module, name)), f"was removed; use `isinstance(obj, {replacement})` instead")

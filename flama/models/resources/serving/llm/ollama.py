@@ -3,7 +3,7 @@ import logging
 import typing as t
 from datetime import UTC, datetime
 
-from flama import _concurrency, schemas, types
+from flama import _concurrency, types
 from flama.exceptions import DependencyNotInstalled
 from flama.http.exceptions import HTTPException
 from flama.http.responses.api import APIResponse
@@ -20,6 +20,7 @@ from flama.models.transport.input.llm.message import Message
 from flama.models.transport.input.llm.tool import Tool
 from flama.models.wire.dialect.llm.ollama import OllamaDialect
 from flama.resources.routing import ResourceRoute
+from flama.schemas.libs._libraries import libraries
 
 if t.TYPE_CHECKING:
     from flama.models import LLMModel
@@ -59,7 +60,7 @@ class ChatMixin:
             payload = await OllamaDialect.assemble(blocks, api="chat", model=name)
         except LLMGenerationError as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
-        return APIResponse(payload, schema=schemas.schemas.llm_ollama.ChatOutput)
+        return APIResponse(payload, schema=libraries.default.schemas.llm_ollama.ChatOutput)
 
     @staticmethod
     async def _chat_stream(
@@ -117,7 +118,7 @@ class ChatMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.ChatInput)],
+            data: t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_ollama.ChatInput)],
         ) -> APIResponse | NDJSONResponse:
             payload = dict(data)
             requested_model = payload.pop("model", name)
@@ -188,7 +189,7 @@ class GenerateMixin:
             payload = await OllamaDialect.assemble(blocks, api="generate", model=name)
         except LLMGenerationError as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
-        return APIResponse(payload, schema=schemas.schemas.llm_ollama.GenerateOutput)
+        return APIResponse(payload, schema=libraries.default.schemas.llm_ollama.GenerateOutput)
 
     @staticmethod
     async def _generate_stream(
@@ -228,7 +229,7 @@ class GenerateMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.GenerateInput)],
+            data: t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_ollama.GenerateInput)],
         ) -> APIResponse | NDJSONResponse:
             payload = dict(data)
             requested_model = payload.pop("model", name)
@@ -286,7 +287,7 @@ class TagsMixin:
 
         async def handler(
             self,
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.TagsOutput)]:
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_ollama.TagsOutput)]:
             return {
                 "models": [
                     {
@@ -336,8 +337,8 @@ class ShowMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.ShowInput)],
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.ShowOutput)]:
+            data: t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_ollama.ShowInput)],
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_ollama.ShowOutput)]:
             payload = dict(data)
             requested_model = payload.get("model") or payload.get("name")
             if requested_model and requested_model != name:
@@ -411,7 +412,7 @@ class VersionMixin:
 
         async def handler(
             self,
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_ollama.VersionOutput)]:
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_ollama.VersionOutput)]:
             try:
                 value = importlib.metadata.version("flama")
             except importlib.metadata.PackageNotFoundError:

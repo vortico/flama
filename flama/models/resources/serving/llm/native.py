@@ -2,7 +2,7 @@ import logging
 import typing as t
 import uuid
 
-from flama import _concurrency, http, schemas, types
+from flama import _concurrency, http, types
 from flama.background import BackgroundTask
 from flama.exceptions import DependencyNotInstalled
 from flama.http.exceptions import HTTPException
@@ -16,6 +16,7 @@ from flama.models.transport.output.llm.buffer import EventBuffer
 from flama.models.wire.dialect._base import CoalescingRenderer
 from flama.models.wire.dialect.llm.native import NativeDialect
 from flama.resources.routing import ResourceRoute
+from flama.schemas.libs._libraries import libraries
 
 if t.TYPE_CHECKING:
     from flama.models import LLMModel
@@ -44,8 +45,8 @@ class ConfigureMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_native.ConfigureInput)],
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_native.ConfigureOutput)]:
+            data: t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_native.ConfigureInput)],
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_native.ConfigureOutput)]:
             model.configure(data["params"])
             return {"params": model.params}
 
@@ -83,8 +84,8 @@ class QueryMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_native.QueryInput)],
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_native.QueryOutput)]:
+            data: t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_native.QueryInput)],
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_native.QueryOutput)]:
             payload = dict(data)
             raw_messages = payload.get("messages")
             raw_tools = payload.get("tools")
@@ -154,8 +155,8 @@ class CreateStreamMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
-            data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_native.StreamInput)],
-        ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_native.StreamOutput)]:
+            data: t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_native.StreamInput)],
+        ) -> t.Annotated[types.Schema, types.SchemaMetadata(libraries.default.schemas.llm_native.StreamOutput)]:
             payload = dict(data)
             raw_messages = payload.get("messages")
             raw_tools = payload.get("tools")
@@ -178,7 +179,7 @@ class CreateStreamMixin:
                 raise HTTPException(status_code=400, detail=str(e)) from e
             return APIResponse(
                 {"id": str(buffer_id)},
-                schema=schemas.schemas.llm_native.StreamOutput,
+                schema=libraries.default.schemas.llm_native.StreamOutput,
                 background=BackgroundTask("thread", buffer.load, stream),
             )  # ty: ignore
 

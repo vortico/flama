@@ -5,7 +5,7 @@ import functools
 import typing as t
 import uuid
 from copy import deepcopy
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, PropertyMock, call, patch
 
 import pytest
 
@@ -13,6 +13,7 @@ from flama import types
 from flama.http import JSONResponse, ServerSentEventResponse
 from flama.injection import Parameter as InjectionParameter
 from flama.schemas.data_structures import Field, Parameter, ParameterLocation, Schema
+from flama.schemas.libs._libraries import Libraries, libraries
 from tests._utils import assert_recursive_contains
 
 Unknown = t.NewType("Unknown", None)
@@ -89,11 +90,30 @@ class TestCaseField:
             "foo", int, required=False, default=0
         )
 
-    def test_is_field(self):
-        mock = Mock()
-        with patch("flama.schemas.data_structures.schemas") as schemas_mock:
-            Field.is_field(mock)
-            assert schemas_mock.adapter.is_field.call_args_list == [call(mock)]
+    @pytest.mark.parametrize(
+        ["library", "result"],
+        (
+            pytest.param("pydantic", True, id="pydantic"),
+            pytest.param("marshmallow", True, id="marshmallow"),
+            pytest.param(None, False, id="not_a_field"),
+        ),
+    )
+    def test_is_field(self, library, result):
+        assert Field.is_field(Field("foo", int, library=libraries[library]).field if library else Mock()) is result
+
+    @pytest.mark.parametrize(
+        ["library"],
+        (
+            pytest.param(None, id="default"),
+            pytest.param("pydantic", id="pydantic"),
+            pytest.param("marshmallow", id="marshmallow"),
+        ),
+    )
+    def test_library(self, schema_library, library):
+        field = Field("foo", int, library=libraries[library] if library else None)
+
+        assert field.library is libraries[library or schema_library]
+        assert field.library.adapter.is_field(field.field)
 
     @pytest.mark.parametrize(
         ["type_", "result"],
@@ -137,9 +157,10 @@ class TestCaseField:
 
     def test_json_schema(self):
         field = Field("foo", int)
-        with patch("flama.schemas.data_structures.schemas") as schemas_mock:
+        with patch.object(Field, "adapter", new_callable=PropertyMock) as adapter:
             field.json_schema
-            assert schemas_mock.adapter.to_json_schema.call_args_list == [call(field.field)]
+
+        assert adapter.return_value.to_json_schema.call_args_list == [call(field.field)]
 
 
 class TestCaseSchema:
@@ -172,7 +193,7 @@ class TestCaseSchema:
         elif request.param == "schema_nested_multiple":
             return t.Annotated[types.Schema, types.SchemaMetadata(bar_multiple_schema.schema)]
         elif request.param == "schema_nested_optional":
-            if app.schema.schema_library.name == "marshmallow":
+            if libraries.default.name == "marshmallow":
                 pytest.skip("Library does not support optional nested schemas")
             return t.Annotated[types.Schema, types.SchemaMetadata(bar_optional_schema.schema)]
         elif request.param == "schema_nested_list":
@@ -203,31 +224,94 @@ class TestCaseSchema:
         with exception:
             Schema.from_type(schema_type)
 
-    def test_build(self, foo_schema):
-        n = Mock()
-        m = Mock()
-        s = Mock()
-        with patch("flama.schemas.data_structures.schemas") as schemas_mock:
-            schemas_mock.adapter.build_schema.return_value = foo_schema.schema
+    @pytest.mark.parametrize(
+        ["schema", "library"],
+        (
+            pytest.param("foo", "default", id="default"),
+            pytest.param("pydantic", "pydantic", id="pydantic"),
+            pytest.param("marshmallow", "marshmallow", id="marshmallow"),
+            pytest.param(None, None, id="none"),
+        ),
+    )
+    def test_init(self, schema_library, foo_schema, schema, library):
+        """A schema belongs to the library it is written with, here the default one or a built-in of each library."""
+        if schema == "foo":
+            schema = foo_schema.schema
+        elif schema is not None:
+            schema = libraries[schema].schemas.core.ErrorDetail
 
-            schema = Schema.build(n, m, s)
+        result = Schema(schema)
 
-            assert schemas_mock.adapter.build_schema.call_args_list == [call(name=n, module=m, schema=s, fields={})]
-            assert schema.schema == foo_schema.schema
+        assert result.library is (libraries[schema_library if library == "default" else library] if library else None)
 
-    def test_is_schema(self):
-        mock = Mock()
-        with patch("flama.schemas.data_structures.schemas") as schemas_mock:
-            Schema.is_schema(mock)
+    @pytest.mark.parametrize(
+        ["library", "base", "expected"],
+        (
+            pytest.param(None, None, "default", id="default"),
+            pytest.param("other", None, "other", id="given"),
+            pytest.param(None, "other", "other", id="extended"),
+        ),
+    )
+    def test_build(self, schema_library, library, base, expected):
+        other = next(x for x in Libraries.ORDER if x != schema_library)
+        names = {None: None, "default": schema_library, "other": other}
+        chosen = libraries[names[library]] if library else None
+        extended = libraries[names[base]] if base else None
 
-            assert schemas_mock.adapter.is_schema.call_args_list == [call(mock)]
+        schema = Schema.build(
+            "Built",
+            "tests",
+            schema=extended.schemas.pagination.PageNumberMeta if extended else None,
+            fields=[Field("extra", int, library=chosen or extended)],
+            library=chosen,
+        )
+
+        assert schema.library is libraries[names[expected]]
+        assert "extra" in schema.fields
+        assert ("page" in schema.fields) is (base is not None)
+
+    @pytest.mark.parametrize(
+        ["schema", "result"],
+        (
+            pytest.param("foo", True, id="schema"),
+            pytest.param(Mock(), False, id="not_a_schema"),
+        ),
+    )
+    def test_is_schema(self, foo_schema, schema, result):
+        assert Schema.is_schema(foo_schema.schema if schema == "foo" else schema) is result
+
+    @pytest.mark.parametrize(
+        ["schema", "result"],
+        [
+            pytest.param(
+                lambda: libraries["pydantic"].schemas.core.APIError,
+                "flama.pydantic.core.APIError",
+                id="pydantic_builtin",
+            ),
+            pytest.param(
+                lambda: libraries["marshmallow"].schemas.pagination.PageNumberMeta,
+                "flama.marshmallow.pagination.PageNumberMeta",
+                id="marshmallow_builtin",
+            ),
+            pytest.param(
+                lambda: libraries["marshmallow"].schemas.core.APIError(),
+                "flama.marshmallow.core.APIError",
+                id="marshmallow_builtin_instance",
+            ),
+            pytest.param(None, None, id="not_builtin"),
+        ],
+    )
+    def test_name_builtin(self, foo_schema, schema, result):
+        schema = schema() if schema else foo_schema.schema
+
+        assert Schema(schema).name == (result or Schema(schema).adapter.name(schema))
 
     def test_name(self):
         mock = Mock()
-        with patch("flama.schemas.data_structures.schemas") as schemas_mock:
+        with patch.object(Schema, "adapter", new_callable=PropertyMock) as adapter:
             Schema(mock).name
 
-            assert schemas_mock.adapter.name.call_args_list == [call(mock)]
+        assert adapter.return_value.name.call_args_list == [call(mock)]
 
     @pytest.mark.parametrize(
         ["schema_type", "json_schema", "key_to_replace"],
@@ -307,22 +391,31 @@ class TestCaseSchema:
 
         assert_recursive_contains(expected_result, result)
 
+    def test_json_schema_keeps_unknown_references(self, schemas):
+        """A reference to a schema it does not know of is left as the library wrote it."""
+        schema = Schema(schemas["Bar"].schema)
+
+        with patch.object(Schema, "nested_schemas", return_value=[]):
+            result = schema.json_schema({})
+
+        assert result == schema.adapter.to_json_schema(schema.schema)
+
     def test_unique_schema(self):
         mock = Mock()
-        with patch("flama.schemas.data_structures.schemas") as schemas_mock:
+        with patch.object(Schema, "adapter", new_callable=PropertyMock) as adapter:
             Schema(mock).unique_schema
 
-            assert schemas_mock.adapter.unique_schema.call_args_list == [call(mock)]
+        assert adapter.return_value.unique_schema.call_args_list == [call(mock)]
 
     def test_fields(self):
         mock = Mock()
-        with patch("flama.schemas.data_structures.schemas") as schemas_mock:
-            schemas_mock.adapter.unique_schema.return_value = mock
+        with patch.object(Schema, "adapter", new_callable=PropertyMock) as adapter:
+            adapter.return_value.unique_schema.return_value = mock
 
             Schema(mock).fields
 
-            assert schemas_mock.adapter.unique_schema.call_args_list == [call(mock)]
-            assert schemas_mock.adapter.schema_fields.call_args_list == [call(mock)]
+        assert adapter.return_value.unique_schema.call_args_list == [call(mock)]
+        assert adapter.return_value.schema_fields.call_args_list == [call(mock)]
 
     @pytest.mark.parametrize(
         ["schema", "nested_schemas"],
@@ -343,6 +436,7 @@ class TestCaseSchema:
         (
             pytest.param(list, id="list"),
             pytest.param(tuple, id="tuple"),
+            pytest.param(lambda x: dict(enumerate(x)), id="dict"),
         ),
     )
     def test_nested_schemas_recursion(self, schemas, container):
@@ -375,13 +469,13 @@ class TestCaseSchema:
     )
     def test_validate(self, values, expected_result):
         schema_mock = Mock()
-        with patch("flama.schemas.data_structures.schemas") as schemas_mock:
-            schemas_mock.adapter.validate.return_value = True
+        with patch.object(Schema, "adapter", new_callable=PropertyMock) as adapter:
+            adapter.return_value.validate.return_value = True
 
             result = Schema(schema_mock).validate(values)
 
             assert result == expected_result
-            assert schemas_mock.adapter.validate.call_args_list == [
+            assert adapter.return_value.validate.call_args_list == [
                 call(schema_mock, x, partial=False) for x in (values if isinstance(values, list) else [values])
             ]
 
@@ -394,13 +488,13 @@ class TestCaseSchema:
     )
     def test_load(self, values, expected_result):
         schema_mock = Mock()
-        with patch("flama.schemas.data_structures.schemas") as schemas_mock:
-            schemas_mock.adapter.load.return_value = True
+        with patch.object(Schema, "adapter", new_callable=PropertyMock) as adapter:
+            adapter.return_value.load.return_value = True
 
             result = Schema(schema_mock).load(values)
 
             assert result == expected_result
-            assert schemas_mock.adapter.load.call_args_list == [
+            assert adapter.return_value.load.call_args_list == [
                 call(schema_mock, x) for x in (values if isinstance(values, list) else [values])
             ]
 
@@ -413,13 +507,13 @@ class TestCaseSchema:
     )
     def test_dump(self, values, expected_result):
         schema_mock = Mock()
-        with patch("flama.schemas.data_structures.schemas") as schemas_mock:
-            schemas_mock.adapter.dump.return_value = True
+        with patch.object(Schema, "adapter", new_callable=PropertyMock) as adapter:
+            adapter.return_value.dump.return_value = True
 
             result = Schema(schema_mock).dump(values)
 
             assert result == expected_result
-            assert schemas_mock.adapter.dump.call_args_list == [
+            assert adapter.return_value.dump.call_args_list == [
                 call(schema_mock, x) for x in (values if isinstance(values, list) else [values])
             ]
 

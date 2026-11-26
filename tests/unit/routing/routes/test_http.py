@@ -16,6 +16,7 @@ from flama.http.responses.plain_text import PlainTextResponse
 from flama.http.responses.sse import ServerSentEventResponse
 from flama.routing.routes._base import BaseRoute
 from flama.routing.routes.http import BaseHTTPEndpointWrapper, HTTPEndpointWrapper, HTTPFunctionWrapper, Route
+from flama.schemas.libs._libraries import libraries
 
 
 class TestCaseBaseHTTPEndpointWrapper:
@@ -39,7 +40,7 @@ class TestCaseBaseHTTPEndpointWrapper:
 
     @pytest.fixture(scope="function")
     def output_schema(self, app):
-        if app.schema.schema_library.name == "pydantic":
+        if libraries.default.name == "pydantic":
             return pydantic.create_model("OutputSchema", name=(str, ...))
 
         return type("OutputSchema", (marshmallow.Schema,), {"name": marshmallow.fields.String()})

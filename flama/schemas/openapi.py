@@ -7,8 +7,9 @@ from collections import defaultdict
 
 import yaml
 
-from flama import routing, schemas, types, url
+from flama import routing, types, url
 from flama.schemas import data_structures as ds
+from flama.schemas.libs._libraries import libraries
 from flama.schemas.registry import SchemaInfo, SchemaRegistry
 
 __all__ = [
@@ -599,7 +600,7 @@ class OpenAPISchemaRegistry(SchemaRegistry):
     def get_openapi_ref(self, element: "ds.Schema", multiple: bool | None = None) -> "Schema | Reference":
         """Builds the reference for a single schema or the array schema containing the reference.
 
-        :param element: Schema to use as reference.
+        :param element: Schema to use as reference, registered when first referenced.
         :param multiple: True for building a schema containing an array of references instead of a single reference.
         :return: Reference or array schema.
         """
@@ -744,9 +745,6 @@ class SchemaGenerator:
                     }
                 )
             else:
-                if endpoint.body_parameter.schema.schema not in self.schemas:
-                    self.schemas.register(schema=endpoint.body_parameter.schema.schema)
-
                 body_schema = self.schemas.get_openapi_ref(
                     endpoint.body_parameter.schema.schema, multiple=endpoint.body_parameter.multiple
                 )
@@ -776,9 +774,6 @@ class SchemaGenerator:
         response_schema = response_parameter.schema.schema if response_parameter.schema is not None else None
 
         if media_type is not None and response_schema is not None:
-            if response_schema not in self.schemas:
-                self.schemas.register(schema=response_schema)
-
             # A sequential media type is described frame by frame, so the reference belongs under
             # `itemSchema`, which applies to each item independently rather than to the whole payload.
             key = "itemSchema" if response_parameter.streaming else "schema"
@@ -797,7 +792,7 @@ class SchemaGenerator:
             **responses.get("default", {}),
             "content": {
                 "application/problem+json": {
-                    "schema": self.schemas.get_openapi_ref(schemas.schemas.core.APIError, multiple=False)
+                    "schema": self.schemas.get_openapi_ref(libraries.default.schemas.core.APIError, multiple=False)
                 }
             },
         }

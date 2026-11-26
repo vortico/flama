@@ -5,8 +5,8 @@ import typing as t
 from flama import _compat
 
 if t.TYPE_CHECKING:
-    from flama.schemas._libs.marshmallow import Schema as MarshmallowSchema
-    from flama.schemas._libs.pydantic import Schema as PydanticSchema
+    from marshmallow import Schema as MarshmallowSchema
+    from pydantic import BaseModel as PydanticSchema
 
 __all__ = [
     "Output",

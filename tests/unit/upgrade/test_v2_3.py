@@ -105,6 +105,11 @@ class TestCaseUpgradeV23:
                 'from flama.http import APIErrorResponse\nAPIErrorResponse("Foo", 400)\n',
                 id="api_error_response_exception_dropped",
             ),
+            pytest.param(
+                'from flama import Flama\napp = Flama(schema_library="pydantic", docs=None)\n',
+                "from flama import Flama\napp = Flama(docs=None)\n",
+                id="schema_library_dropped",
+            ),
         ],
     )
     def test_apply(self, before: str, after: str) -> None:
@@ -185,6 +190,26 @@ class TestCaseUpgradeV23:
                 "HTTPException",
                 id="http_exception_through_module",
             ),
+            pytest.param(
+                "from flama import schemas\nschemas.adapter.dump(X, {})\n",
+                "`schemas.adapter` was removed",
+                id="schemas_adapter",
+            ),
+            pytest.param(
+                "from flama import schemas\nerror = schemas.schemas.core.APIError\n",
+                "Flama's built-in schemas are internal",
+                id="schemas_builtin",
+            ),
+            pytest.param(
+                "import pydantic\nfrom flama import schemas\n\n\nclass Upload(pydantic.BaseModel):\n"
+                "    file: schemas.fields.File\n",
+                "`flama.schemas.libs.pydantic` or `flama.schemas.libs.marshmallow`",
+                id="schemas_fields",
+            ),
+            pytest.param(
+                "from flama.schemas import fields\n", "`flama.schemas.fields` was removed", id="schemas_fields_import"
+            ),
+            pytest.param("from flama.schemas import lib\n", "import the schema library itself", id="schemas_lib"),
         ],
     )
     def test_flags_manual_follow_up(self, before: str, message: str) -> None:
