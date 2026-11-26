@@ -394,6 +394,30 @@ class TestCaseLLMModel:
         m.configure({"temperature": 0.9, "reasoning_effort": "medium"})
         assert m.params == {"temperature": 0.9, "max_tokens": 100, "reasoning_effort": "medium"}
 
+    async def test_cache_parameters_are_not_forwarded_from_configuration_or_requests(self) -> None:
+        class _CapturingBackend(_FakeLLMBackend):
+            def __init__(self) -> None:
+                super().__init__(tokens=["ok"])
+                self.seen_params: dict[str, t.Any] | None = None
+
+            async def generate(self, inputs: EngineInput, /, **params: t.Any) -> t.AsyncIterator[EngineDelta]:
+                self.seen_params = params
+                yield EngineDelta(text="ok", token_count=1)
+
+        backend = _CapturingBackend()
+        model = LLMModel(backend, MagicMock(), None, decoder=Decoder("passthrough", "passthrough", "passthrough"))
+        model.configure({"temperature": 0.5, "cache_salt": "client-configured"})
+        await model.startup()
+
+        await model.query(
+            "hello",
+            cache_salt="client-request",
+            prompt_cache_key="client-request",
+        )
+
+        assert model.params == {"temperature": 0.5}
+        assert backend.seen_params == {"temperature": 0.5}
+
     @pytest.mark.parametrize(
         ["prompt", "call_kwargs", "tokens", "error", "result", "exception"],
         [

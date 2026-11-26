@@ -8,6 +8,7 @@ from flama.exceptions import FrameworkNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.sse import ServerSentEvent, ServerSentEventResponse
 from flama.http.responses.templates import _FlamaTemplateResponse
+from flama.models.cache import request_cache_context
 from flama.models.exceptions import LLMUnsupportedCapability, LLMUnsupportedContentPart
 from flama.models.resources._base import InspectMixin
 from flama.models.resources.serving.llm._base import LLMServing
@@ -82,6 +83,7 @@ class QueryMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
+            request: http.Request,
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_native.QueryInput)],
         ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_native.QueryOutput)]:
             payload = dict(data)
@@ -90,15 +92,16 @@ class QueryMixin:
             try:
                 messages = NativeServing.parse(raw_messages, kind="messages") if raw_messages else None
                 tools = NativeServing.parse(raw_tools, kind="tools") if raw_tools else None
-                blocks = await model.query(
-                    payload.get("prompt"),
-                    system=payload.get("system"),
-                    messages=messages,
-                    tools=tools,
-                    transport=payload.get("transport"),
-                    chat_template_kwargs=payload.get("chat_template_kwargs"),
-                    **(payload.get("params") or {}),
-                )
+                async with request_cache_context(model, request):
+                    blocks = await model.query(
+                        payload.get("prompt"),
+                        system=payload.get("system"),
+                        messages=messages,
+                        tools=tools,
+                        transport=payload.get("transport"),
+                        chat_template_kwargs=payload.get("chat_template_kwargs"),
+                        **(payload.get("params") or {}),
+                    )
             except (ValueError, LLMUnsupportedContentPart, LLMUnsupportedCapability) as e:
                 raise HTTPException(status_code=400, detail=str(e)) from e
             except FrameworkNotInstalled:
@@ -153,6 +156,7 @@ class CreateStreamMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
+            request: http.Request,
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_native.StreamInput)],
         ) -> t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_native.StreamOutput)]:
             payload = dict(data)
@@ -162,16 +166,17 @@ class CreateStreamMixin:
             try:
                 messages = NativeServing.parse(raw_messages, kind="messages") if raw_messages else None
                 tools = NativeServing.parse(raw_tools, kind="tools") if raw_tools else None
-                stream = await model.stream(
-                    payload.get("prompt"),
-                    system=payload.get("system"),
-                    messages=messages,
-                    tools=tools,
-                    transport=payload.get("transport"),
-                    chat_template_kwargs=payload.get("chat_template_kwargs"),
-                    message_id=buffer_id,
-                    **(payload.get("params") or {}),
-                )
+                async with request_cache_context(model, request):
+                    stream = await model.stream(
+                        payload.get("prompt"),
+                        system=payload.get("system"),
+                        messages=messages,
+                        tools=tools,
+                        transport=payload.get("transport"),
+                        chat_template_kwargs=payload.get("chat_template_kwargs"),
+                        message_id=buffer_id,
+                        **(payload.get("params") or {}),
+                    )
             except (ValueError, LLMUnsupportedContentPart, LLMUnsupportedCapability) as e:
                 await self.streams.remove(buffer_id)
                 raise HTTPException(status_code=400, detail=str(e)) from e

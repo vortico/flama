@@ -5,6 +5,7 @@ import uuid
 import weakref
 
 from flama import exceptions
+from flama.models.cache import CACHE_PARAM_NAMES, current_cache_identity
 from flama.models.engine.backend.llm._base import TransformerLLMBackend
 from flama.models.engine.llm.delta import EngineDelta
 from flama.models.engine.llm.input import EngineInput
@@ -153,6 +154,12 @@ class VLLMBackend(TransformerLLMBackend):
         """
         if vllm is None or RequestOutputKind is None:  # noqa
             raise exceptions.FrameworkNotInstalled("vllm")
+
+        for key in CACHE_PARAM_NAMES:
+            params.pop(key, None)
+        cache_identity = current_cache_identity()
+        if isinstance(cache_identity, str):
+            params["cache_salt"] = cache_identity
 
         max_tokens = self._resolve_max_tokens(params, len(inputs.tokens))
 

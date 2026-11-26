@@ -2,10 +2,11 @@ import logging
 import time
 import typing as t
 
-from flama import concurrency, schemas, types
+from flama import concurrency, http, schemas, types
 from flama.exceptions import FrameworkNotInstalled, HTTPException
 from flama.http.responses.api import APIResponse
 from flama.http.responses.sse import ServerSentEventResponse
+from flama.models.cache import request_cache_context
 from flama.models.exceptions import LLMGenerationError, LLMUnsupportedCapability, LLMUnsupportedContentPart
 from flama.models.resources.serving.llm._base import LLMServing
 from flama.models.transport.input.llm.message import Message
@@ -128,6 +129,7 @@ class MessagesMixin:
         async def handler(
             self,
             model: model_model_type,  # ty: ignore[invalid-type-form]
+            request: http.Request,
             data: t.Annotated[types.Schema, types.SchemaMetadata(schemas.schemas.llm_anthropic.MessagesInput)],
         ) -> APIResponse | ServerSentEventResponse:
             payload = dict(data)
@@ -165,9 +167,19 @@ class MessagesMixin:
             if not enable_thinking:
                 reasoning_effort = None
 
-            if stream:
-                return await MessagesMixin._messages_stream(
-                    self,
+            async with request_cache_context(model, request):
+                if stream:
+                    return await MessagesMixin._messages_stream(
+                        self,
+                        model,
+                        name,
+                        messages,
+                        tools,
+                        params,
+                        enable_thinking=enable_thinking,
+                        reasoning_effort=reasoning_effort,
+                    )
+                return await MessagesMixin._messages_buffered(
                     model,
                     name,
                     messages,
@@ -176,15 +188,6 @@ class MessagesMixin:
                     enable_thinking=enable_thinking,
                     reasoning_effort=reasoning_effort,
                 )
-            return await MessagesMixin._messages_buffered(
-                model,
-                name,
-                messages,
-                tools,
-                params,
-                enable_thinking=enable_thinking,
-                reasoning_effort=reasoning_effort,
-            )
 
         handler.__name__ = method_name
         handler.__doc__ = f"""

@@ -4,6 +4,7 @@ import typing as t
 
 from flama.injection import Component
 from flama.models._base import BaseModel, LLMModel, MLModel
+from flama.models.cache import CacheIsolation
 from flama.models.engine.llm.decoder.decoder import Decoder
 from flama.serialize.serializer import Serializer
 
@@ -95,6 +96,8 @@ class ModelComponentBuilder:
         decoder: Decoder | None = None,
         params: dict[str, t.Any] | None = None,
         autoload: bool = False,
+        cache_isolation: CacheIsolation = "user",
+        cache_secret: bytes | str | None = None,
     ) -> ModelComponent[LLMModel] | ModelComponent[MLModel]:
         """Build a lazy :class:`ModelComponent` from a packaged model artifact.
 
@@ -121,7 +124,15 @@ class ModelComponentBuilder:
 
         if meta.framework.family == "llm":
             llm_class = t.cast("type[LLMModel]", type(LLMModel.__name__, (LLMModel,), {}))
-            model = llm_class(meta=meta, name=name, path=path, autoload=autoload, decoder=decoder)
+            model = llm_class(
+                meta=meta,
+                name=name,
+                path=path,
+                autoload=autoload,
+                decoder=decoder,
+                cache_isolation=cache_isolation,
+                cache_secret=cache_secret,
+            )
             if params:
                 model.configure(params)
             return _component_for(llm_class)(model)
