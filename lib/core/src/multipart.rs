@@ -6,9 +6,12 @@
 //! result without Rust knowledge.
 
 use std::path::PathBuf;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use bytes::Bytes;
 use futures_util::stream::try_unfold;
+use futures_util::Stream;
 use multer::Field;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -77,6 +80,39 @@ fn body_stream(receive: Py<PyAny>) -> impl futures_util::Stream<Item = Result<By
         let next_state = if more { Some(receive) } else { None };
         Ok(Some((bytes, next_state)))
     })
+}
+
+/// Report the end of a body stream on a poll of its own, never on the one that brings its last bytes.
+///
+/// While looking for the first boundary, `multer` polls the stream again when the boundary is not buffered yet, and
+/// fails as incomplete when that poll ends the stream, without looking at the bytes the same poll added. A body
+/// delivered between those two polls, which free-threaded builds do often, would be rejected although complete, so
+/// every chunk is followed by a pending poll, leaving the end of the stream to a poll that brings nothing.
+struct SeparateEnd<S> {
+    inner: Pin<Box<S>>,
+    yielded: bool,
+}
+
+impl<S: Stream> Stream for SeparateEnd<S> {
+    type Item = S::Item;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if std::mem::take(&mut self.yielded) {
+            cx.waker().wake_by_ref();
+            return Poll::Pending;
+        }
+
+        let item = std::task::ready!(self.inner.as_mut().poll_next(cx));
+        self.yielded = item.is_some();
+        Poll::Ready(item)
+    }
+}
+
+fn separate_end<S: Stream>(stream: S) -> SeparateEnd<S> {
+    SeparateEnd {
+        inner: Box::pin(stream),
+        yielded: false,
+    }
 }
 
 /// Payload of an uploaded file, kept in memory while small and spooled to disk once it grows past
@@ -313,7 +349,7 @@ async fn drain_fields(
     limits: Limits,
     items: &mut Vec<(String, FieldValue)>,
 ) -> PyResult<()> {
-    let stream = body_stream(receive);
+    let stream = separate_end(body_stream(receive));
     let mut multipart = multer::Multipart::new(stream, boundary);
 
     let mut file_count: usize = 0;
@@ -530,6 +566,33 @@ mod tests {
 
         let stream = futures_util::stream::iter(vec![Ok::<_, std::io::Error>(Bytes::from(body))]);
         multer::Multipart::new(stream, BOUNDARY)
+    }
+
+    /// A body stream pending on its first poll, then bringing the whole body and ending on the next ones, as a body
+    /// delivered between two polls of the parser does.
+    fn late_stream() -> impl futures_util::Stream<Item = Result<Bytes, std::io::Error>> + Send {
+        let mut polls = 0;
+        let mut body = Some(Bytes::from(format!(
+            "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"field\"\r\n\r\nvalue\r\n--{BOUNDARY}--\r\n"
+        )));
+        futures_util::stream::poll_fn(move |cx| {
+            polls += 1;
+            if polls == 1 {
+                cx.waker().wake_by_ref();
+                return Poll::Pending;
+            }
+            Poll::Ready(body.take().map(Ok))
+        })
+    }
+
+    #[tokio::test]
+    async fn body_arriving_between_polls_is_parsed_in_full() {
+        let mut multipart = multer::Multipart::new(separate_end(late_stream()), BOUNDARY);
+
+        let field = multipart.next_field().await.unwrap().unwrap();
+        assert_eq!(field.name(), Some("field"));
+        assert_eq!(field.text().await.unwrap(), "value");
+        assert!(multipart.next_field().await.unwrap().is_none());
     }
 
     #[tokio::test]
