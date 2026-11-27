@@ -8,7 +8,7 @@ from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin, resolve_schema_cls
 
 from flama.injection import Parameter
-from flama.schemas._libs.marshmallow.fields import MAPPING, MAPPING_TYPES
+from flama.schemas._libs.marshmallow.fields import MAPPING, MAPPING_TYPES, Literal
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 from flama.types import JSONSchema
@@ -142,6 +142,9 @@ class MarshmallowAdapter(Adapter[Schema, Field]):
         :param kwargs: Arguments forwarded to the field.
         :return: Field for a single value.
         """
+        if t.get_origin(type_) is t.Literal:
+            return Literal(t.get_args(type_), **kwargs)
+
         if inspect.isclass(type_) and issubclass(type_, enum.Enum):
             # Addressed by value, which is the form a member takes on the wire.
             return marshmallow.fields.Enum(type_, by_value=True, **kwargs)

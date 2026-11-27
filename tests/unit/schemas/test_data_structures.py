@@ -114,6 +114,10 @@ class TestCaseField:
             pytest.param(_Colour, True, id="enum"),
             pytest.param(_Colour | None, True, id="nullable_enum"),
             pytest.param(list[_Colour], True, id="list_of_enum"),
+            pytest.param(t.Literal["red", "blue"], True, id="literal"),
+            pytest.param(t.Literal["red", "blue"] | None, True, id="nullable_literal"),
+            pytest.param(list[t.Literal["red", "blue"]], True, id="list_of_literal"),
+            pytest.param(list[t.Literal["red", "blue"]] | None, True, id="nullable_list_of_literal"),
             pytest.param(list[int] | None, True, id="nullable_list"),
             pytest.param(list[_Colour] | None, True, id="nullable_list_of_enum"),
             # The same type however it is spelled, so where `None` sits in the union cannot matter.

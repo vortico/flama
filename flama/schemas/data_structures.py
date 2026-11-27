@@ -89,12 +89,16 @@ class Field:
 
         An optional or repeated parameter is described by the type it wraps, so both are unwrapped down to the
         type actually travelling on the wire. An enum qualifies wherever a primitive does, being a string
-        constrained to the set of its values.
+        constrained to the set of its values, and a literal qualifies for the same reason.
 
         :param type_: Annotation to check, which a union or a subscription makes something other than a type.
         :return: True if a parameter of this type can be read from a request.
         """
         carried = types.Annotation(type_).element(list)
+
+        # A literal names the exact values it admits, so it is carried like the primitive it constrains.
+        if t.get_origin(carried) is t.Literal:
+            return True
 
         # Anything still generic once the list is unwrapped names no single value, so nothing can carry it.
         if t.get_origin(carried) is not None:

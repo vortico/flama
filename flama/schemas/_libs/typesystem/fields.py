@@ -10,7 +10,7 @@ from typesystem.schemas import Reference
 
 from flama.http.data_structures import UploadFile
 
-__all__ = ["Enum", "File", "MAPPING", "MAPPING_TYPES"]
+__all__ = ["Enum", "File", "Literal", "MAPPING", "MAPPING_TYPES"]
 
 
 class File(String):
@@ -33,6 +33,17 @@ class File(String):
             raise self.validation_error("type")
 
         return value
+
+
+class Literal(Choice):
+    """A value constrained to a fixed set of literals.
+
+    Extends :class:`typesystem.Choice` so that it renders as the set of values the literal accepts, and a
+    validated value is returned as the plain value carried by the annotation.
+    """
+
+    def __init__(self, values: tuple[t.Any, ...], **kwargs: t.Any) -> None:
+        super().__init__(choices=[(value, value) for value in values], **kwargs)
 
 
 class Enum(Choice):
