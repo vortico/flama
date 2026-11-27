@@ -22,9 +22,10 @@ __all__ = [
 class ClaimValidator(abc.ABC):
     claim: t.ClassVar[str]
 
-    def __init__(self, payload: "Payload", claims: dict[str, t.Any]) -> None:
+    def __init__(self, payload: "Payload", claims: dict[str, t.Any], *, leeway: int = 0) -> None:
         self.value = claims.get(self.claim)
         self.payload = payload
+        self.leeway = leeway
 
     @abc.abstractmethod
     def validate(self):
@@ -91,7 +92,7 @@ class ExpValidator(ClaimValidator):
 
         :raises JWTClaimValidateException: if the claim is not valid.
         """
-        if self.payload.exp is not None and self.payload.exp < int(time.time()):
+        if self.payload.exp is not None and self.payload.exp < int(time.time()) - self.leeway:
             raise exceptions.JWTClaimValidateException("exp")
 
 
@@ -112,7 +113,7 @@ class NbfValidator(ClaimValidator):
 
         :raises JWTClaimValidateException: if the claim is not valid.
         """
-        if self.payload.nbf is not None and self.payload.nbf > int(time.time()):
+        if self.payload.nbf is not None and self.payload.nbf > int(time.time()) + self.leeway:
             raise exceptions.JWTClaimValidateException("nbf")
 
 
@@ -133,7 +134,7 @@ class IatValidator(ClaimValidator):
 
         :raises JWTClaimValidateException: if the claim is not valid.
         """
-        if self.payload.iat is not None and self.payload.iat > int(time.time()):
+        if self.payload.iat is not None and self.payload.iat > int(time.time()) + self.leeway:
             raise exceptions.JWTClaimValidateException("iat")
 
 
