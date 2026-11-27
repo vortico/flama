@@ -7,7 +7,7 @@ import warnings
 import typesystem
 
 from flama.injection import Parameter
-from flama.schemas._libs.typesystem.fields import MAPPING, MAPPING_TYPES, Enum
+from flama.schemas._libs.typesystem.fields import MAPPING, MAPPING_TYPES, Enum, Literal
 from flama.schemas.adapter import Adapter
 from flama.schemas.exceptions import SchemaGenerationError, SchemaValidationError
 from flama.types import JSONSchema
@@ -120,6 +120,9 @@ class TypesystemAdapter(Adapter[Schema, Field]):
         :param kwargs: Arguments forwarded to the field.
         :return: Field for a single value.
         """
+        if t.get_origin(type_) is t.Literal:
+            return Literal(t.get_args(type_), **kwargs)
+
         if inspect.isclass(type_) and issubclass(type_, enum.Enum):
             return Enum(type_, **kwargs)
 

@@ -1,6 +1,7 @@
 import datetime
 import decimal
 import enum
+import typing as t
 
 import pytest
 
@@ -398,3 +399,64 @@ class TestCaseEnumParamsValidation:
 
         if expected is not None:
             assert response.json() == expected
+
+
+class TestCaseLiteralParamsValidation:
+    """A literal names the exact values it accepts, like an enum names its members."""
+
+    @pytest.fixture(scope="function", autouse=True)
+    def add_endpoints(self, app):
+        @app.route("/literal-query-param/")
+        def literal_query_param(param: t.Literal["red", "blue"]):
+            assert param in ("red", "blue")
+            return {"param": param}
+
+        @app.route("/optional-literal-query-param/")
+        def optional_literal_query_param(param: t.Literal["red", "blue"] | None = None):
+            assert param is None or param in ("red", "blue")
+            return {"param": param}
+
+        @app.route("/literal-path-param/{param}/")
+        def literal_path_param(param: t.Literal["red", "blue"]):
+            assert param in ("red", "blue")
+            return {"param": param}
+
+        @app.route("/literal-list-query-param/")
+        def literal_list_query_param(param: list[t.Literal["red", "blue"]]):
+            assert all(value in ("red", "blue") for value in param)
+            return {"param": param}
+
+    @pytest.mark.parametrize(
+        ["path", "query", "status_code", "expected"],
+        [
+            pytest.param("/literal-query-param/", "?param=red", 200, {"param": "red"}, id="query"),
+            pytest.param("/literal-query-param/", "?param=green", 400, None, id="query_outside_the_set"),
+            pytest.param("/literal-query-param/", "", 400, None, id="query_missing"),
+            pytest.param("/optional-literal-query-param/", "?param=blue", 200, {"param": "blue"}, id="optional_given"),
+            pytest.param("/optional-literal-query-param/", "", 200, {"param": None}, id="optional_absent"),
+            pytest.param("/literal-path-param/red/", "", 200, {"param": "red"}, id="path"),
+            pytest.param("/literal-path-param/green/", "", 400, None, id="path_outside_the_set"),
+            pytest.param(
+                "/literal-list-query-param/", "?param=red&param=blue", 200, {"param": ["red", "blue"]}, id="list"
+            ),
+            pytest.param("/literal-list-query-param/", "?param=green", 400, None, id="list_outside_the_set"),
+        ],
+    )
+    async def test_literal_param(self, client, path, query, status_code, expected):
+        response = await client.get(f"{path}{query}")
+
+        assert response.status_code == status_code, response.text
+
+        if expected is not None:
+            assert response.json() == expected
+
+    async def test_openapi_enum(self, client):
+        parameters = client.app.schema.schema["paths"]["/literal-query-param/"]["get"]["parameters"]
+
+        assert parameters[0]["schema"]["enum"] == ["red", "blue"]
+
+        path_parameters = client.app.schema.schema["paths"]["/literal-path-param/{param}/"]["get"]["parameters"]
+        assert path_parameters[0]["schema"]["enum"] == ["red", "blue"]
+
+        list_parameters = client.app.schema.schema["paths"]["/literal-list-query-param/"]["get"]["parameters"]
+        assert list_parameters[0]["schema"]["items"]["enum"] == ["red", "blue"]

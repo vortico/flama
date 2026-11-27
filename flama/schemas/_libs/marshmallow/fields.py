@@ -9,7 +9,26 @@ from marshmallow.fields import *
 
 from flama.http.data_structures import UploadFile
 
-__all__ = ["File", "MAPPING", "MAPPING_TYPES"]
+__all__ = ["File", "Literal", "MAPPING", "MAPPING_TYPES"]
+
+
+class Literal(marshmallow.fields.Raw):
+    """A value constrained to a fixed set of literals.
+
+    The set is advertised as a JSON Schema ``enum`` so a query or path parameter documents the values it
+    accepts, and validation rejects anything outside it with the same message marshmallow uses for an enum.
+    """
+
+    def __init__(self, values: tuple[t.Any, ...], **kwargs: t.Any) -> None:
+        self.values = values
+        kwargs["metadata"] = {"enum": list(values), **kwargs.get("metadata", {})}
+        super().__init__(**kwargs)
+
+    def _deserialize(self, value: t.Any, attr: t.Any, data: t.Any, **kwargs: t.Any) -> t.Any:
+        if value not in self.values:
+            raise marshmallow.ValidationError(f"Must be one of: {', '.join(map(str, self.values))}.")
+
+        return value
 
 
 class File(String):
