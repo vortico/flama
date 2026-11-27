@@ -26,6 +26,7 @@ class BaseTokenComponent(Component):
         header_key: str,
         header_prefix: str,
         cookie_key: str,
+        leeway: int = jwt.DEFAULT_LEEWAY,
     ):
         if (secret is None) == (secret_resolver is None):
             raise ValueError("Give either a secret or a resolver, not both and not neither")
@@ -35,6 +36,7 @@ class BaseTokenComponent(Component):
         self.header_key = header_key
         self.header_prefix = header_prefix
         self.cookie_key = cookie_key
+        self.leeway = leeway
 
     def _token_from_cookies(self, cookies: Cookies) -> bytes:
         try:
@@ -84,7 +86,7 @@ class BaseTokenComponent(Component):
             else:
                 key = t.cast(bytes, self.secret)
 
-            token = token_cls.decode(encoded_token, key)
+            token = token_cls.decode(encoded_token, key, leeway=self.leeway)
         except (
             exceptions.Unauthorized,
             SignatureDecodeException,
@@ -107,6 +109,7 @@ class AccessTokenComponent(BaseTokenComponent):
         header_prefix: str = "Bearer",
         header_key: str = "access_token",
         cookie_key: str = "access_token",
+        leeway: int = jwt.DEFAULT_LEEWAY,
     ):
         super().__init__(
             secret,
@@ -114,6 +117,7 @@ class AccessTokenComponent(BaseTokenComponent):
             header_prefix=header_prefix,
             header_key=header_key,
             cookie_key=cookie_key,
+            leeway=leeway,
         )
 
     async def resolve(self, headers: Headers, cookies: Cookies) -> types.AccessToken:
@@ -129,6 +133,7 @@ class RefreshTokenComponent(BaseTokenComponent):
         header_prefix: str = "Bearer",
         header_key: str = "refresh_token",
         cookie_key: str = "refresh_token",
+        leeway: int = jwt.DEFAULT_LEEWAY,
     ):
         super().__init__(
             secret,
@@ -136,6 +141,7 @@ class RefreshTokenComponent(BaseTokenComponent):
             header_prefix=header_prefix,
             header_key=header_key,
             cookie_key=cookie_key,
+            leeway=leeway,
         )
 
     async def resolve(self, headers: Headers, cookies: Cookies) -> types.RefreshToken:

@@ -146,6 +146,55 @@ class TestCaseJWT:
             with patch.object(JWT, "validate", side_effect=validate_side_effect):
                 assert JWT.decode(token, key) == result
 
+    @pytest.mark.parametrize(
+        ["claim", "value", "leeway", "valid"],
+        (
+            pytest.param("exp", 969, 30, False, id="exp_beyond_leeway"),
+            pytest.param("exp", 990, 0, False, id="exp_zero_leeway"),
+            pytest.param("exp", 990, 30, True, id="exp_within_leeway"),
+            pytest.param("nbf", 1030, 30, True, id="nbf_within_leeway"),
+            pytest.param("nbf", 1031, 30, False, id="nbf_beyond_leeway"),
+            pytest.param("iat", 1030, 30, True, id="iat_within_leeway"),
+            pytest.param("iat", 1031, 30, False, id="iat_beyond_leeway"),
+        ),
+    )
+    def test_validate_leeway(self, claim, value, leeway, valid):
+        with patch("flama.authentication.jwt.claims.time.time", return_value=1000.0):
+            token = JWT({"alg": "HS256", "typ": "JWT"}, {claim: value})
+
+            if valid:
+                token.validate(leeway=leeway)
+            else:
+                with pytest.raises(exceptions.JWTValidateException, match=rf"Invalid claims \({claim}\)"):
+                    token.validate(leeway=leeway)
+
+    def test_validate_uses_default_leeway(self):
+        with patch("flama.authentication.jwt.claims.time.time", return_value=1000.0):
+            JWT({"alg": "HS256", "typ": "JWT"}, {"exp": 990}).validate()
+
+    @pytest.mark.parametrize(
+        ["leeway", "valid"],
+        (
+            pytest.param(0, False, id="zero"),
+            pytest.param(30, True, id="default"),
+        ),
+    )
+    def test_decode_leeway(self, key, leeway, valid):
+        with patch("flama.authentication.jwt.claims.time.time", return_value=1000.0):
+            token = JWT({"alg": "HS256", "typ": "JWT"}, {"exp": 990}).encode(key)
+
+            if valid:
+                assert JWT.decode(token, key, leeway=leeway).payload.exp == 990
+            else:
+                with pytest.raises(exceptions.JWTValidateException, match=r"Invalid claims \(exp\)"):
+                    JWT.decode(token, key, leeway=leeway)
+
+    def test_decode_uses_default_leeway(self, key):
+        with patch("flama.authentication.jwt.claims.time.time", return_value=1000.0):
+            token = JWT({"alg": "HS256", "typ": "JWT"}, {"exp": 990}).encode(key)
+
+            assert JWT.decode(token, key).payload.exp == 990
+
     def test_to_dict(self):
         jwt = JWT({"alg": "HS256", "typ": "JWT"}, {"data": {"foo": "bar"}, "iat": 0})
 

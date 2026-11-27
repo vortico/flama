@@ -12,7 +12,10 @@ from flama.crypto.exceptions import SignatureDecodeException, SignatureVerificat
 logger = logging.getLogger(__name__)
 
 
-__all__ = ["JWT"]
+__all__ = ["DEFAULT_LEEWAY", "JWT"]
+
+DEFAULT_LEEWAY = 30
+"""Clock-skew tolerance, in seconds, applied to the JWT time claims by default."""
 
 VALIDATORS = [
     claims.IssValidator,
@@ -184,7 +187,9 @@ class JWT:
             raise exceptions.JWTDecodeException(str(e)) from e
 
     @classmethod
-    def decode(cls, token: bytes, key: bytes) -> compat.Self:  # PORT: Replace compat when stop supporting 3.10
+    def decode(
+        cls, token: bytes, key: bytes, *, leeway: int = DEFAULT_LEEWAY
+    ) -> compat.Self:  # PORT: Replace compat when stop supporting 3.10
         """Decode a JWT token.
 
         The token format must be: <header>.<payload>.<signature>
@@ -194,6 +199,7 @@ class JWT:
 
         :param token: Token to decode.
         :param key: Key used to sign the token.
+        :param leeway: Clock-skew tolerance, in seconds, applied to the time claims.
         :return: An instance of JWT with the decoded token.
         :raises JWTDecodeException: If the token format is not correct.
         :raises JWTValidateException: If the token is not valid.
@@ -202,7 +208,7 @@ class JWT:
             header, payload, _ = JWS.decode(token, key)
             decoded_token = cls(header, payload)
             object.__setattr__(decoded_token, "raw", token)
-            decoded_token.validate()
+            decoded_token.validate(leeway=leeway)
         except SignatureDecodeException as e:
             logger.debug("Error decoding token")
             raise exceptions.JWTDecodeException(str(e)) from e
@@ -217,7 +223,13 @@ class JWT:
 
         return decoded_token
 
-    def validate(self, validators: list[claims.ClaimValidator] | None = None, **claims: t.Any) -> None:
+    def validate(
+        self,
+        validators: list[claims.ClaimValidator] | None = None,
+        *,
+        leeway: int = DEFAULT_LEEWAY,
+        **claims: t.Any,
+    ) -> None:
         """Validate the token claims.
 
         It validates all the default claims in the payload in the following order:
@@ -234,6 +246,7 @@ class JWT:
         If any of the claims is not valid, an exception is raised.
 
         :param validators: Custom validators to run.
+        :param leeway: Clock-skew tolerance, in seconds, applied to the time claims.
         :param claims: Claims values used to validate.
         :raises JWTValidateException: If any of the claims is not valid.
         """
@@ -241,7 +254,7 @@ class JWT:
 
         for validator in [*VALIDATORS, *(validators or [])]:
             try:
-                validator(self.payload, claims).validate()  # ty: ignore[call-non-callable]
+                validator(self.payload, claims, leeway=leeway).validate()  # ty: ignore[not-callable]
             except exceptions.JWTClaimValidateException as e:
                 logger.debug("Claim '%s' is not valid", e.claim)
                 invalid_claims.append(e.claim)

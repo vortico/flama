@@ -1,9 +1,11 @@
+import time
 import typing as t
 import uuid
 
 import pytest
 
 from flama import Flama, authentication
+from flama.client import Client
 
 TOKEN = (
     b"eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJkYXRhIjogeyJmb28iOiAiYmFyIn0sICJpYXQiOiAwfQ==.J3zdedMZSFNOimstjJat0V"
@@ -333,3 +335,47 @@ class TestCaseRefreshTokenComponent:
 
         assert response.status_code == status_code
         assert response.json() == result
+
+
+class TestCaseTokenLeeway:
+    @pytest.fixture(
+        scope="function",
+        params=[
+            pytest.param(
+                (authentication.AccessTokenComponent, authentication.AccessToken, "access_token"), id="access"
+            ),
+            pytest.param(
+                (authentication.RefreshTokenComponent, authentication.RefreshToken, "refresh_token"), id="refresh"
+            ),
+        ],
+    )
+    def component_and_token(self, request):
+        return request.param
+
+    @pytest.mark.parametrize(
+        ["leeway", "status_code"],
+        (
+            pytest.param(0, 401, id="strict"),
+            pytest.param(30, 200, id="explicit"),
+            pytest.param(None, 200, id="default"),
+        ),
+    )
+    async def test_leeway(self, secret, component_and_token, leeway, status_code):
+        component_cls, token_cls, header_key = component_and_token
+        token = token_cls(
+            {"alg": "HS256", "typ": "JWT"}, {"data": {"foo": "bar"}, "exp": int(time.time()) - 10}
+        ).encode(secret.bytes)
+        component = (
+            component_cls(secret=secret.bytes) if leeway is None else component_cls(secret=secret.bytes, leeway=leeway)
+        )
+        app = Flama(schema=None, docs=None, components=[component])
+
+        @app.get("/")
+        def endpoint(token: token_cls):
+            return token.to_dict()
+
+        async with Client(app=app) as client:
+            client.headers = {header_key: f"Bearer {token.decode()}"}
+            response = await client.get("/")
+
+        assert response.status_code == status_code, response.text
